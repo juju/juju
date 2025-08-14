@@ -27,7 +27,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/modelmigration"
@@ -179,7 +179,7 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 		UUID:            "model-uuid",
 		Name:            "model-name",
 		Qualifier:       "production",
-		CredentialOwner: usertesting.GenNewName(c, "owner"),
+		CredentialOwner: coreuser.GenName(c, "owner"),
 		AgentVersion:    semversion.MustParse("1.2.3"),
 	}, nil)
 

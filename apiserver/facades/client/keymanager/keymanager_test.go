@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	coreuser "github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/rpc/params"
@@ -132,7 +131,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *tc.C) {
 func (s *keyManagerSuite) TestListKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
@@ -175,7 +174,7 @@ func (s *keyManagerSuite) TestListKeys(c *tc.C) {
 func (s *keyManagerSuite) TestListKeysFingerprintMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
@@ -254,7 +253,7 @@ func (s *keyManagerSuite) TestListKeysNoPermission(c *tc.C) {
 func (s *keyManagerSuite) TestAddKeysForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
@@ -291,8 +290,8 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *tc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "superuser-fred")).Return(coreuser.User{
+	userID := coreuser.GenUUID(c)
+	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.GenName(c, "superuser-fred")).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
 
@@ -328,7 +327,7 @@ func (s *keyManagerSuite) TestAddKeysModelAdmin(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin-" + names.NewModelTag(s.modelID.String()).String())
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.apiUser)).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
@@ -418,7 +417,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *tc.C) {
 func (s *keyManagerSuite) TesDeleteKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.AdminUserName).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
@@ -455,8 +454,8 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *tc.C) {
 	s.apiUser = names.NewUserTag("superuser-fred")
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "superuser-fred")).Return(coreuser.User{
+	userID := coreuser.GenUUID(c)
+	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.GenName(c, "superuser-fred")).Return(coreuser.User{
 		UUID: userID,
 	}, nil)
 
@@ -492,7 +491,7 @@ func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *tc.C) {
 	s.apiUser = names.NewUserTag("admin" + names.NewModelTag(s.modelID.String()).String())
 	defer s.setupMocks(c).Finish()
 
-	userID := usertesting.GenUserUUID(c)
+	userID := coreuser.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.apiUser)).Return(coreuser.User{
 		UUID: userID,
 	}, nil)

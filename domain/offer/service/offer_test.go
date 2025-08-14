@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/offer"
 	offererrors "github.com/juju/juju/domain/offer/errors"
 	"github.com/juju/juju/internal/errors"
@@ -38,7 +38,7 @@ func (s *serviceSuite) TestOfferCreate(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	ownerName := usertesting.GenNewName(c, "admin")
+	ownerName := coreuser.GenName(c, "admin")
 	createOfferArgs := offer.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -69,7 +69,7 @@ func (s *serviceSuite) TestOfferCreateAccessErr(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	ownerName := usertesting.GenNewName(c, "admin")
+	ownerName := coreuser.GenName(c, "admin")
 	createOfferArgs := offer.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -102,7 +102,7 @@ func (s *serviceSuite) TestOfferCreateError(c *tc.C) {
 
 	applicationName := "test-application"
 	offerName := "test-offer"
-	ownerName := usertesting.GenNewName(c, "admin")
+	ownerName := coreuser.GenName(c, "admin")
 	createOfferArgs := offer.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -125,7 +125,7 @@ func (s *serviceSuite) TestOfferUpdate(c *tc.C) {
 	// Arrange
 	applicationName := "test-application"
 	offerName := "test-offer"
-	ownerName := usertesting.GenNewName(c, "admin")
+	ownerName := coreuser.GenName(c, "admin")
 	createOfferArgs := offer.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,

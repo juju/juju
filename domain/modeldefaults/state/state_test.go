@@ -15,7 +15,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/model"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -105,7 +105,7 @@ var (
 func (s *stateSuite) TestUpdateCloudDefaults(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := cloudtesting.GenCloudUUID(c)
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -130,7 +130,7 @@ func (s *stateSuite) TestUpdateCloudDefaults(c *tc.C) {
 func (s *stateSuite) TestComplexUpdateCloudDefaults(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -222,7 +222,7 @@ func (s *stateSuite) TestCloudAllRegionDefaults(c *tc.C) {
 
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), cld)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -265,7 +265,7 @@ func (s *stateSuite) TestCloudAllRegionDefaultsComplex(c *tc.C) {
 
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cld)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), cld)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -405,7 +405,7 @@ func (s *stateSuite) TestModelCloudRegionDefaultsNoModel(c *tc.C) {
 func (s *stateSuite) TestCloudDefaultsRemoval(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -446,7 +446,7 @@ func (s *stateSuite) TestDeleteCloudDefaultsCloudNotFound(c *tc.C) {
 func (s *stateSuite) TestEmptyCloudDefaults(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -458,7 +458,7 @@ func (s *stateSuite) TestEmptyCloudDefaults(c *tc.C) {
 func (s *stateSuite) TestGetCloudUUID(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -488,7 +488,7 @@ func (s *stateSuite) TestGetModelCloudUUID(c *tc.C) {
 func (s *stateSuite) TestGetCloudType(c *tc.C) {
 	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
 	cloudUUID := corecloud.UUID(uuid.MustNewUUID().String())
-	err := cloudSt.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), testCloud)
+	err := cloudSt.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID.String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ct, err := NewState(s.TxnRunnerFactory()).CloudType(

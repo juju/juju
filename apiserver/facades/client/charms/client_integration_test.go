@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/internal/charm"
@@ -31,7 +31,7 @@ func TestClientMacaroonIntegrationSuite(t *testing.T) {
 	tc.Run(t, &clientMacaroonIntegrationSuite{})
 }
 func (s *clientMacaroonIntegrationSuite) createTestClient(c *tc.C) *charms.LocalCharmClient {
-	username := usertesting.GenNewName(c, "testuser@somewhere")
+	username := coreuser.GenName(c, "testuser@somewhere")
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
 

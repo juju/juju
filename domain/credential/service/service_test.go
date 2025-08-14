@@ -14,7 +14,7 @@ import (
 	credentialtesting "github.com/juju/juju/core/credential/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
@@ -39,7 +39,7 @@ func (s *serviceSuite) service(c *tc.C) *WatchableService {
 func (s *serviceSuite) TestUpdateCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	cred := credential.CloudCredentialInfo{
 		AuthType: string(cloud.UserPassAuthType),
 		Attributes: map[string]string{
@@ -58,7 +58,7 @@ func (s *serviceSuite) TestUpdateCloudCredential(c *tc.C) {
 func (s *serviceSuite) TestUpdateCloudCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	err := s.service(c).UpdateCloudCredential(c.Context(), key, cloud.Credential{})
 	c.Assert(err, tc.ErrorMatches, "invalid id updating cloud credential.*")
 }
@@ -84,12 +84,12 @@ func (s *serviceSuite) TestCloudCredentials(c *tc.C) {
 			Label: "foobar",
 		},
 	}
-	s.state.EXPECT().CloudCredentialsForOwner(gomock.Any(), usertesting.GenNewName(c, "fred"), "cirrus").Return(map[string]credential.CloudCredentialResult{
+	s.state.EXPECT().CloudCredentialsForOwner(gomock.Any(), coreuser.GenName(c, "fred"), "cirrus").Return(map[string]credential.CloudCredentialResult{
 		"foo":    one,
 		"foobar": two,
 	}, nil)
 
-	creds, err := s.service(c).CloudCredentialsForOwner(c.Context(), usertesting.GenNewName(c, "fred"), "cirrus")
+	creds, err := s.service(c).CloudCredentialsForOwner(c.Context(), coreuser.GenName(c, "fred"), "cirrus")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(creds, tc.DeepEquals, map[string]cloud.Credential{
 		"foo":    cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false),
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestCloudCredentials(c *tc.C) {
 func (s *serviceSuite) TestCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	cred := credential.CloudCredentialResult{
 		CloudCredentialInfo: credential.CloudCredentialInfo{
 			AuthType: string(cloud.UserPassAuthType),
@@ -120,7 +120,7 @@ func (s *serviceSuite) TestCloudCredential(c *tc.C) {
 func (s *serviceSuite) TestCloudCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	_, err := s.service(c).CloudCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorMatches, "invalid id getting cloud credential.*")
 }
@@ -128,7 +128,7 @@ func (s *serviceSuite) TestCloudCredentialInvalidID(c *tc.C) {
 func (s *serviceSuite) TestRemoveCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), key)
 
 	err := s.service(c).RemoveCloudCredential(c.Context(), key)
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestRemoveCloudCredential(c *tc.C) {
 func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	err := s.service(c).RemoveCloudCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorMatches, "invalid id removing cloud credential.*")
 }
@@ -147,7 +147,7 @@ func (s *serviceSuite) TestInvalidateCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := credentialtesting.GenCredentialUUID(c)
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	s.state.EXPECT().CredentialUUIDForKey(gomock.Any(), key).Return(uuid, nil)
 	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "gone bad")
 
@@ -158,7 +158,7 @@ func (s *serviceSuite) TestInvalidateCloudCredential(c *tc.C) {
 func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	err := s.service(c).InvalidateCredential(c.Context(), key, "nope")
 	c.Assert(err, tc.ErrorMatches, "invalidating cloud credential with invalid key.*")
 }
@@ -166,7 +166,7 @@ func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *tc.C) {
 func (s *serviceSuite) TestAllCloudCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	credId := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	credId := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	credInfoResult := credential.CloudCredentialResult{
 		CloudCredentialInfo: credential.CloudCredentialInfo{
 			Label:      "foo",
@@ -175,10 +175,10 @@ func (s *serviceSuite) TestAllCloudCredentials(c *tc.C) {
 		},
 		CloudName: "cirrus",
 	}
-	s.state.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), usertesting.GenNewName(c, "fred")).Return(
+	s.state.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), coreuser.GenName(c, "fred")).Return(
 		map[corecredential.Key]credential.CloudCredentialResult{credId: credInfoResult}, nil)
 
-	result, err := s.service(c).AllCloudCredentialsForOwner(c.Context(), usertesting.GenNewName(c, "fred"))
+	result, err := s.service(c).AllCloudCredentialsForOwner(c.Context(), coreuser.GenName(c, "fred"))
 	c.Assert(err, tc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
 	c.Assert(result, tc.DeepEquals, map[corecredential.Key]cloud.Credential{credId: cred})
@@ -189,7 +189,7 @@ func (s *serviceSuite) TestWatchCredential(c *tc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), key).Return(nw, nil)
 
 	w, err := s.service(c).WatchCredential(c.Context(), key)
@@ -200,7 +200,7 @@ func (s *serviceSuite) TestWatchCredential(c *tc.C) {
 func (s *serviceSuite) TestWatchCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	_, err := s.service(c).WatchCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorMatches, "watching cloud credential with invalid key.*")
 }
@@ -211,7 +211,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *tc.C) {
 	cred := credential.CloudCredentialInfo{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -229,7 +229,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *tc.C) {
 func (s *serviceSuite) TestCheckAndUpdateCredentialInvalidKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	_, err := s.service(c).CheckAndUpdateCredential(c.Context(), key, cloud.Credential{}, false)
 	c.Assert(err, tc.ErrorMatches, "invalid id updating cloud credential.*")
 }
@@ -240,7 +240,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialModelsError(c *tc.C) {
 	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -259,7 +259,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -286,7 +286,7 @@ func (s *serviceSuite) TestCheckAndUpdateNewCredential(c *tc.C) {
 	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -307,7 +307,7 @@ func (s *serviceSuite) TestRevokeCredentialsModelsError(c *tc.C) {
 
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -324,7 +324,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModel(c *tc.C) {
 
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -343,7 +343,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModels(c *tc.C) {
 
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -363,7 +363,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelForce(c *tc.C) {
 
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -383,7 +383,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *tc.C) {
 
 	key := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 
@@ -402,7 +402,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *tc.C) {
 func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred")}
 	err := s.service(c).CheckAndRevokeCredential(c.Context(), key, false)
 	c.Assert(err, tc.ErrorMatches, "invalid id revoking cloud credential.*")
 }
@@ -492,7 +492,7 @@ func (s *serviceSuite) TestModelCredentialStatus(c *tc.C) {
 	modelUUID := coremodel.GenUUID(c)
 	credentialKey := corecredential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "bob"),
+		Owner: coreuser.GenName(c, "bob"),
 		Name:  "foobar",
 	}
 

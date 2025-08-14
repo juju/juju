@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/keymanager"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
@@ -128,7 +127,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *tc.C) {
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err = AddUserWithPassword(
 			c.Context(), tx, adminUUID,
-			usertesting.GenNewName(c, "admin"), "admin",
+			user.GenName(c, "admin"), "admin",
 			adminUUID, s.controllerLoginAccess(), "passwordHash", salt,
 		)
 		return err
@@ -168,7 +167,7 @@ func (s *userStateSuite) TestAddUser(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUser(
 		c.Context(), adminUUID,
 		name, "admin", false,
@@ -193,7 +192,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUser(
 		c.Context(), adminUUID,
 		name, "admin", false,
@@ -224,7 +223,7 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *tc.C) {
 	// Try and add admin user with a creator that does not exist.
 	nonExistingUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUser(
 		c.Context(), adminUUID,
 		name, "admin", false,
@@ -243,7 +242,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	loginAccess := s.controllerLoginAccess()
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		name, "admin", false,
@@ -260,7 +259,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 	c.Check(newUser.CreatorName, tc.Equals, user.AdminUserName)
 
 	pSt := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	newUserAccess, err := pSt.ReadUserAccessForTarget(c.Context(), usertesting.GenNewName(c, "admin"), loginAccess.Target)
+	newUserAccess, err := pSt.ReadUserAccessForTarget(c.Context(), user.GenName(c, "admin"), loginAccess.Target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newUserAccess.Access, tc.Equals, loginAccess.Access)
 	c.Check(newUserAccess.UserName, tc.Equals, newUser.Name)
@@ -279,7 +278,7 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -307,7 +306,7 @@ func (s *userStateSuite) TestGetUser(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -336,7 +335,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	adminName := usertesting.GenNewName(c, "admin")
+	adminName := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		adminName, "admin", false,
@@ -352,7 +351,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
+	userToRemoveName := user.GenName(c, "userToRemove")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
@@ -402,7 +401,7 @@ func (s *userStateSuite) TestGetUserByName(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -433,7 +432,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	adminName := usertesting.GenNewName(c, "admin")
+	adminName := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		adminName, "admin",
@@ -447,7 +446,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 	userToRemoveUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
+	userToRemoveName := user.GenName(c, "userToRemove")
 	err = st.AddUserWithPermission(
 		c.Context(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
@@ -475,7 +474,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -523,7 +522,7 @@ func (s *userStateSuite) TestGetUserByNameNotFound(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 
 	// Get the user.
-	_, err := st.GetUserByName(c.Context(), usertesting.GenNewName(c, "admin"))
+	_, err := st.GetUserByName(c.Context(), user.GenName(c, "admin"))
 	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -539,7 +538,7 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -576,7 +575,7 @@ func (s *userStateSuite) TestGetUserByAuth(c *tc.C) {
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(),
 		adminUUID,
@@ -607,7 +606,7 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -637,7 +636,7 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *tc.C) {
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(),
 		adminUUID,
@@ -677,7 +676,7 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *tc.C) {
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -698,7 +697,7 @@ func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 
 	// Get the user.
-	_, err := st.GetUserByAuth(c.Context(), usertesting.GenNewName(c, "admin"), auth.NewPassword("password"))
+	_, err := st.GetUserByAuth(c.Context(), user.GenName(c, "admin"), auth.NewPassword("password"))
 	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -710,7 +709,7 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	adminName := usertesting.GenNewName(c, "admin")
+	adminName := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		adminName, "admin",
@@ -724,7 +723,7 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 	userToRemoveUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
+	userToRemoveName := user.GenName(c, "userToRemove")
 	err = st.AddUserWithPermission(
 		c.Context(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
@@ -784,7 +783,7 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	adminName := usertesting.GenNewName(c, "admin")
+	adminName := user.GenName(c, "admin")
 	err = st.AddUser(
 		c.Context(), adminUUID,
 		adminName, "admin",
@@ -797,7 +796,7 @@ func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
 	userToRemoveUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userToRemoveName := usertesting.GenNewName(c, "userToRemove")
+	userToRemoveName := user.GenName(c, "userToRemove")
 	err = st.AddUser(
 		c.Context(), userToRemoveUUID,
 		userToRemoveName, "userToRemove",
@@ -886,7 +885,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	admin1Name := usertesting.GenNewName(c, "admin1")
+	admin1Name := user.GenName(c, "admin1")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), admin1UUID,
 		admin1Name, "admin1",
@@ -903,7 +902,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 	admin2ActivationKey, err := generateActivationKey()
 	c.Assert(err, tc.ErrorIsNil)
 
-	admin2Name := usertesting.GenNewName(c, "admin2")
+	admin2Name := user.GenName(c, "admin2")
 	err = st.AddUserWithActivationKey(
 		c.Context(), admin2UUID,
 		admin2Name, "admin2",
@@ -962,7 +961,7 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *tc.C) {
 	uuid, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "newguy")
+	name := user.GenName(c, "newguy")
 
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1000,7 +999,7 @@ func (s *userStateSuite) TestSetPasswordHash(c *tc.C) {
 
 	newActivationKey, err := generateActivationKey()
 	c.Assert(err, tc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1068,7 +1067,7 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *tc.C) {
 
 	newActivationKey, err := generateActivationKey()
 	c.Assert(err, tc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1119,7 +1118,7 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1158,7 +1157,7 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and add admin user with a creator that does not exist.
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1180,7 +1179,7 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *tc.C) {
 
 	adminActivationKey, err := generateActivationKey()
 	c.Assert(err, tc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1206,7 +1205,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *tc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPermission(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1236,7 +1235,7 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 	// Try and add admin user with an activation key with a creator that does not exist.
 	newActivationKey, err := generateActivationKey()
 	c.Assert(err, tc.ErrorIsNil)
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithActivationKey(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1259,7 +1258,7 @@ func (s *userStateSuite) TestSetActivationKey(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1315,7 +1314,7 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1358,7 +1357,7 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Add user with password hash.
-	name := usertesting.GenNewName(c, "admin")
+	name := user.GenName(c, "admin")
 	err = st.AddUserWithPasswordHash(
 		c.Context(), adminUUID,
 		name, "admin",
@@ -1398,7 +1397,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 	uuid, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	name := usertesting.GenNewName(c, "dnuof")
+	name := user.GenName(c, "dnuof")
 	err = st.AddUserWithPermission(
 		c.Context(),
 		uuid,
@@ -1418,7 +1417,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 // a user that doesn't exist we get back a [usererrors.NotFound] error.
 func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
-	_, err := st.GetUserUUIDByName(c.Context(), usertesting.GenNewName(c, "tlm"))
+	_, err := st.GetUserUUIDByName(c.Context(), user.GenName(c, "tlm"))
 	c.Check(err, tc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -1529,7 +1528,7 @@ func (s *userStateSuite) addTestUser(c *tc.C, st *UserState, name string) (user.
 	salt, err := auth.NewSalt()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userName := usertesting.GenNewName(c, name)
+	userName := user.GenName(c, name)
 	// Add user with password hash.
 	err = st.AddUserWithPasswordHash(
 		c.Context(), userUUID,

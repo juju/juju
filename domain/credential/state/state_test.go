@@ -17,7 +17,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -46,7 +45,7 @@ func (s *credentialSuite) SetUpTest(c *tc.C) {
 
 	s.controllerUUID = s.SeedControllerUUID(c)
 
-	s.userName = usertesting.GenNewName(c, "test-user")
+	s.userName = user.GenName(c, "test-user")
 	s.userUUID = s.addOwner(c, s.userName)
 
 	s.addCloud(c, s.userName, cloud.Cloud{
@@ -207,7 +206,7 @@ func (s *credentialSuite) TestCloudCredentialsEmpty(c *tc.C) {
 
 func (s *credentialSuite) TestCloudCredentials(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	s.addOwner(c, usertesting.GenNewName(c, "mary"))
+	s.addOwner(c, user.GenName(c, "mary"))
 
 	cred1Info := credential.CloudCredentialInfo{
 		AuthType: string(cloud.AccessKeyAuthType),
@@ -229,7 +228,7 @@ func (s *credentialSuite) TestCloudCredentials(c *tc.C) {
 	}
 	err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "bobcred2"}, cred2Info)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: usertesting.GenNewName(c, "mary"), Name: "foobar"}, cred2Info)
+	err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: user.GenName(c, "mary"), Name: "foobar"}, cred2Info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cred1Info.Label = "bobcred1"
@@ -345,7 +344,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *tc.C) {
 	}
 	key := corecredential.Key{
 		Cloud: "foo",
-		Owner: usertesting.GenNewName(c, "test-userfoo"),
+		Owner: user.GenName(c, "test-userfoo"),
 		Name:  "foobar",
 	}
 	ctx := c.Context()
@@ -390,10 +389,10 @@ func (s *credentialSuite) TestAllCloudCredentials(c *tc.C) {
 	two := s.createCloudCredential(c, st, keyTwo)
 
 	// We need to add mary here so that they are a valid user.
-	s.addOwner(c, usertesting.GenNewName(c, "mary"))
+	s.addOwner(c, user.GenName(c, "mary"))
 
 	// Added to make sure it is not returned.
-	keyThree := corecredential.Key{Cloud: "cumulus", Owner: usertesting.GenNewName(c, "mary"), Name: "foobar"}
+	keyThree := corecredential.Key{Cloud: "cumulus", Owner: user.GenName(c, "mary"), Name: "foobar"}
 	s.addCloud(c, keyThree.Owner, cloud.Cloud{
 		Name:      keyThree.Cloud,
 		Type:      "ec2",

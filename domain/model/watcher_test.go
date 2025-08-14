@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -104,8 +103,8 @@ func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 
 func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
-	s.userUUID = usertesting.GenUserUUID(c)
-	s.userName = usertesting.GenNewName(c, "test-user")
+	s.userUUID = user.GenUUID(c)
+	s.userName = user.GenName(c, "test-user")
 	insertModelDependencies(c, s.TxnRunnerFactory(), s.TxnRunner(), s.userUUID, s.userName)
 }
 

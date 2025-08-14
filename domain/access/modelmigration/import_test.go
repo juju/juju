@@ -14,7 +14,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -71,7 +70,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		ObjectType: permission.Model,
 		Key:        modelUUID,
 	}
-	bobName := usertesting.GenNewName(c, "bob")
+	bobName := user.GenName(c, "bob")
 	bobTime := time.Now().Truncate(time.Minute).UTC()
 	bob := description.UserArgs{
 		Name:           "bob",
@@ -81,7 +80,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		DisplayName:    "bob",
 		LastConnection: bobTime,
 	}
-	bazzaName := usertesting.GenNewName(c, "bazza")
+	bazzaName := user.GenName(c, "bazza")
 	bazzaTime := time.Now().Truncate(time.Minute).UTC().Add(-time.Minute)
 	bazza := description.UserArgs{
 		Name:           "bazza",
@@ -175,7 +174,7 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *tc.C) {
 			Target: modelID,
 			Access: permission.AdminAccess,
 		},
-		User: usertesting.GenNewName(c, "disabledUser"),
+		User: user.GenName(c, "disabledUser"),
 	}).Return(permission.UserAccess{}, accesserrors.UserAuthenticationDisabled)
 
 	op := s.newImportOperation()

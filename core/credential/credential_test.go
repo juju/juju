@@ -10,7 +10,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -30,7 +29,7 @@ func (s *typeSuite) TestCredentialKeyIsZero(c *tc.C) {
 func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
 	tests := []Key{
 		{
-			Owner: usertesting.GenNewName(c, "wallyworld"),
+			Owner: user.GenName(c, "wallyworld"),
 		},
 		{
 			Cloud: "somecloud",
@@ -40,7 +39,7 @@ func (s *typeSuite) TestCredentialKeyIsNotZero(c *tc.C) {
 		},
 		{
 			Cloud: "somecloud",
-			Owner: usertesting.GenNewName(c, "wallyworld"),
+			Owner: user.GenName(c, "wallyworld"),
 			Name:  "somecred",
 		},
 	}
@@ -59,7 +58,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 			Key: Key{
 				Cloud: "",
 				Name:  "wallyworld",
-				Owner: usertesting.GenNewName(c, "wallyworld"),
+				Owner: user.GenName(c, "wallyworld"),
 			},
 			Err: coreerrors.NotValid,
 		},
@@ -67,7 +66,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "",
-				Owner: usertesting.GenNewName(c, "wallyworld"),
+				Owner: user.GenName(c, "wallyworld"),
 			},
 			Err: coreerrors.NotValid,
 		},
@@ -83,7 +82,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *tc.C) {
 			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "wallyworld",
-				Owner: usertesting.GenNewName(c, "wallyworld"),
+				Owner: user.GenName(c, "wallyworld"),
 			},
 			Err: nil,
 		},

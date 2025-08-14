@@ -26,7 +26,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -62,7 +61,7 @@ func TestServiceSuite(t *testing.T) {
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
-	s.userUUID = usertesting.GenUserUUID(c)
+	s.userUUID = user.GenUUID(c)
 	c.Assert(err, tc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds:             map[string]dummyStateCloud{},
@@ -122,13 +121,13 @@ func (s *serviceSuite) newWatchableService(c *tc.C) *WatchableService {
 }
 
 func (s *serviceSuite) setupControllerModel(c *tc.C) {
-	adminUUID := usertesting.GenUserUUID(c)
+	adminUUID := user.GenUUID(c)
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
 	cred := credential.Key{
 		Cloud: "controller-cloud",
 		Name:  "controller-cloud-cred",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 	s.state.clouds["controller-cloud"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -170,7 +169,7 @@ func (s *serviceSuite) TestControllerModelNameChange(c *tc.C) {
 // consider the business logic in this package and if changing this well known
 // value is handled correctly for both legacy and future Juju versions!!!
 func (s *serviceSuite) TestControllerModelOwnerUsername(c *tc.C) {
-	c.Assert(coremodel.ControllerModelOwnerUsername, tc.Equals, usertesting.GenNewName(c, "admin"))
+	c.Assert(coremodel.ControllerModelOwnerUsername, tc.Equals, user.GenName(c, "admin"))
 }
 
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *tc.C) {
@@ -183,7 +182,7 @@ func (s *serviceSuite) TestModelCreation(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "test-user"),
+		Owner: user.GenName(c, "test-user"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -228,7 +227,7 @@ func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -318,7 +317,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *tc.C) {
 		Credential: credential.Key{
 			Cloud: "aws",
 			Name:  "foo",
-			Owner: usertesting.GenNewName(c, "owner"),
+			Owner: user.GenName(c, "owner"),
 		},
 		AdminUsers: []user.UUID{s.userUUID},
 		Name:       "my-awesome-model",
@@ -361,7 +360,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
 
 	svc := s.newStubService(c)
 	err := svc.UpdateCredential(c.Context(), id, credential.Key{
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foo",
 		Cloud: "aws",
 	})
@@ -371,7 +370,7 @@ func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar",
 	}
 
@@ -400,12 +399,12 @@ func (s *serviceSuite) TestUpdateModelCredential(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -436,7 +435,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar",
 	}
 
@@ -465,12 +464,12 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "kubernetes",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -506,12 +505,12 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *tc.C) {
 func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar",
 	}
 	cred2 := credential.Key{
 		Cloud: "aws",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 		Name:  "foobar2",
 	}
 
@@ -568,7 +567,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
-				Owner: usertesting.GenNewName(c, "owner"),
+				Owner: user.GenName(c, "owner"),
 			},
 			Life: life.Alive,
 		},
@@ -583,7 +582,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
-				Owner: usertesting.GenNewName(c, "owner"),
+				Owner: user.GenName(c, "owner"),
 			},
 			Life: life.Alive,
 		},
@@ -603,7 +602,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
-				Owner: usertesting.GenNewName(c, "owner"),
+				Owner: user.GenName(c, "owner"),
 			},
 			Life: life.Alive,
 		},
@@ -618,7 +617,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 			Credential: credential.Key{
 				Cloud: "aws",
 				Name:  "foobar",
-				Owner: usertesting.GenNewName(c, "owner"),
+				Owner: user.GenName(c, "owner"),
 			},
 			Life: life.Alive,
 		},
@@ -628,7 +627,7 @@ func (s *serviceSuite) TestListAllModels(c *tc.C) {
 // TestListModelsForUser is asserting that for a non existent user we return
 // an empty model result.
 func (s *serviceSuite) TestListModelsForNonExistentUser(c *tc.C) {
-	fakeUserID := usertesting.GenUserUUID(c)
+	fakeUserID := user.GenUUID(c)
 	svc := s.newStubService(c)
 	models, err := svc.ListModelsForUser(c.Context(), fakeUserID)
 	c.Check(err, tc.ErrorIsNil)
@@ -639,7 +638,7 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -648,8 +647,8 @@ func (s *serviceSuite) TestListModelsForUser(c *tc.C) {
 		Regions: []string{"myregion"},
 	}
 
-	usr1 := usertesting.GenUserUUID(c)
-	s.state.users[usr1] = usertesting.GenNewName(c, "tlm")
+	usr1 := user.GenUUID(c)
+	s.state.users[usr1] = user.GenName(c, "tlm")
 
 	svc := s.newStubService(c)
 	id1, activator, err := svc.CreateModel(c.Context(), model.GlobalModelCreationArgs{
@@ -723,13 +722,13 @@ func (s *serviceSuite) TestControllerModelNotFound(c *tc.C) {
 
 // TestControllerModel is asserting the happy path of [Service.ControllerModel].
 func (s *serviceSuite) TestControllerModel(c *tc.C) {
-	adminUUID := usertesting.GenUserUUID(c)
+	adminUUID := user.GenUUID(c)
 	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
 
 	cred := credential.Key{
 		Cloud: "controller-cloud",
 		Name:  "controller-cloud-cred",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 
 	svc := s.newStubService(c)
@@ -751,9 +750,9 @@ func (s *serviceSuite) TestControllerModel(c *tc.C) {
 func (s *serviceSuite) TestGetModelUsers(c *tc.C) {
 	uuid, err := coremodel.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	bobName := usertesting.GenNewName(c, "bob")
-	jimName := usertesting.GenNewName(c, "jim")
-	adminName := usertesting.GenNewName(c, "admin")
+	bobName := user.GenName(c, "bob")
+	jimName := user.GenName(c, "jim")
+	adminName := user.GenName(c, "admin")
 	s.state.users = map[user.UUID]user.Name{
 		"123": bobName,
 		"456": jimName,
@@ -788,9 +787,9 @@ func (s *serviceSuite) TestGetModelUsersBadUUID(c *tc.C) {
 
 func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 	uuid := coremodel.GenUUID(c)
-	bobName := usertesting.GenNewName(c, "bob")
-	jimName := usertesting.GenNewName(c, "jim")
-	adminName := usertesting.GenNewName(c, "admin")
+	bobName := user.GenName(c, "bob")
+	jimName := user.GenName(c, "jim")
+	adminName := user.GenName(c, "admin")
 	s.state.users = map[user.UUID]user.Name{
 		"123": bobName,
 		"456": jimName,
@@ -809,7 +808,7 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 
 func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
 	svc := s.newStubService(c)
-	_, err := svc.GetModelUser(c.Context(), "bad-uuid", usertesting.GenNewName(c, "bob"))
+	_, err := svc.GetModelUser(c.Context(), "bad-uuid", user.GenName(c, "bob"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -849,7 +848,7 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *tc.C) {
 		Cloud:       "foo",
 		CloudRegion: "ap-southeast-2",
 		Credential:  credential.Key{}, // zero value of credential implies empty
-		AdminUsers:  []user.UUID{usertesting.GenUserUUID(c)},
+		AdminUsers:  []user.UUID{user.GenUUID(c)},
 		Name:        "new-test-model",
 		Qualifier:   "prod",
 	})
@@ -1022,7 +1021,7 @@ func (s *serviceSuite) TestGetModelByNameAndQualifierSuccess(c *tc.C) {
 
 	modelUUID := coremodel.GenUUID(c)
 	modelName := "test"
-	ownerUserName := usertesting.GenNewName(c, "test-user")
+	ownerUserName := user.GenName(c, "test-user")
 	model := coremodel.Model{
 		Name:         modelName,
 		AgentVersion: jujuversion.Current,

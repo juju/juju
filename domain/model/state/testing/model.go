@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -84,7 +83,7 @@ func CreateTestModel(
 	credId, err := corecredential.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userName := usertesting.GenNewName(c, "test-user"+name)
+	userName := user.GenName(c, "test-user"+name)
 	runner, err := txnRunner(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 

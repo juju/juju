@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -35,7 +34,7 @@ func ptr[T any](i T) *T {
 // TestModelCreationArgsValidation is aserting all the validation cases that the
 // [GlobalModelCreationArgs.Validate] function checks for.
 func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
-	adminUsers := []coreuser.UUID{usertesting.GenUserUUID(c)}
+	adminUsers := []coreuser.UUID{coreuser.GenUUID(c)}
 
 	tests := []struct {
 		Args    GlobalModelCreationArgs
@@ -103,7 +102,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Credential: credential.Key{
-					Owner: usertesting.GenNewName(c, "wallyworld"),
+					Owner: coreuser.GenName(c, "wallyworld"),
 				},
 				Name:       "my-awesome-model",
 				Qualifier:  "prod",
@@ -129,7 +128,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 				CloudRegion: "my-region",
 				Credential: credential.Key{
 					Cloud: "cloud",
-					Owner: usertesting.GenNewName(c, "wallyworld"),
+					Owner: coreuser.GenName(c, "wallyworld"),
 					Name:  "mycred",
 				},
 				Name:       "my-awesome-model",
@@ -155,7 +154,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *tc.C) {
 // TestModelImportArgsValidation is aserting all the validation cases that the
 // [ModelImportArgs.Validate] function checks for.
 func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
-	adminUsers := []coreuser.UUID{usertesting.GenUserUUID(c)}
+	adminUsers := []coreuser.UUID{coreuser.GenUUID(c)}
 
 	tests := []struct {
 		Args    ModelImportArgs
@@ -170,7 +169,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 					CloudRegion: "my-region",
 					Credential: credential.Key{
 						Cloud: "cloud",
-						Owner: usertesting.GenNewName(c, "wallyworld"),
+						Owner: coreuser.GenName(c, "wallyworld"),
 						Name:  "mycred",
 					},
 					Name:       "my-awesome-model",
@@ -188,7 +187,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *tc.C) {
 					CloudRegion: "my-region",
 					Credential: credential.Key{
 						Cloud: "cloud",
-						Owner: usertesting.GenNewName(c, "wallyworld"),
+						Owner: coreuser.GenName(c, "wallyworld"),
 						Name:  "mycred",
 					},
 					Name:       "my-awesome-model",

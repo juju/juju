@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testhelpers"
@@ -61,7 +61,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *tc.C) {
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
-		Name:        usertesting.GenNewName(c, "bobbrown"),
+		Name:        coreuser.GenName(c, "bobbrown"),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
@@ -88,7 +88,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := coreuser.GenName(c, "bobbrown")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -118,7 +118,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := coreuser.GenName(c, "bobbrown")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -149,7 +149,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := coreuser.GenName(c, "bobbrown")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -178,7 +178,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bob")
+	name := coreuser.GenName(c, "bob")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -222,7 +222,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
-		Name:        usertesting.GenNewName(c, "bobbrown"),
+		Name:        coreuser.GenName(c, "bobbrown"),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
@@ -257,7 +257,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := coreuser.GenName(c, "bobbrown")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -296,7 +296,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *tc.C) {
 
 func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *tc.C) {
 	userService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := coreuser.GenName(c, "bobbrown")
 	_, _, err := userService.AddUser(c.Context(), service.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",

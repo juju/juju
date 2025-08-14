@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/constraints"
@@ -1264,7 +1264,7 @@ func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    coreuser.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)

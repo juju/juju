@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -55,7 +55,7 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    coreuser.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)

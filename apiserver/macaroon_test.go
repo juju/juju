@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/controllernode"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -40,7 +39,7 @@ type macaroonLoginSuite struct {
 }
 
 func (s *macaroonLoginSuite) SetUpTest(c *tc.C) {
-	s.remoteUser = usertesting.GenNewName(c, "testuser@somewhere")
+	s.remoteUser = user.GenName(c, "testuser@somewhere")
 	s.MacaroonSuite.SetUpTest(c)
 }
 

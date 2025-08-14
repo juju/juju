@@ -20,7 +20,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
@@ -213,7 +212,7 @@ func (s *stateSuite) assertRegions(c *tc.C, cloudUUID string, expected []cloud.R
 
 func (s *stateSuite) assertInsertCloud(c *tc.C, st *State, cloud cloud.Cloud) string {
 	cloudUUID := uuid.MustNewUUID()
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cloud)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), cloudUUID.String(), cloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	foundCloudUUID := s.assertCloud(c, cloud)
@@ -279,7 +278,7 @@ func (s *stateSuite) TestCreateCloudInvalidType(c *tc.C) {
 	cld.Type = "mycloud"
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), cld)
 	c.Assert(err, tc.ErrorMatches, `.* cloud type "mycloud" not valid`)
 }
 
@@ -288,7 +287,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *tc.C) {
 	cld.Name = ""
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), cld)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -297,15 +296,15 @@ func (s *stateSuite) TestCreateCloudInvalidAuthType(c *tc.C) {
 	cld.AuthTypes = []cloud.AuthType{"myauth"}
 
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), cld)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), cld)
 	c.Assert(err, tc.ErrorMatches, `.* auth type "myauth" not valid`)
 }
 
 func (s *stateSuite) TestListClouds(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
+	err = st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(c.Context())
@@ -322,9 +321,9 @@ func (s *stateSuite) TestListClouds(c *tc.C) {
 
 func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
+	err = st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	clouds, err := st.ListClouds(c.Context())
@@ -371,9 +370,9 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *tc.C) {
 
 func (s *stateSuite) TestCloud(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
+	err := st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud)
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
+	err = st.CreateCloud(c.Context(), user.GenName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.Cloud(c.Context(), "fluffy3")

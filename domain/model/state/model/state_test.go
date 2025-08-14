@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -62,7 +61,7 @@ func (s *modelSuite) createTestModel(c *tc.C) coremodel.UUID {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
@@ -87,7 +86,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
@@ -108,7 +107,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	})
 
@@ -142,7 +141,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          "ec2",
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
@@ -313,7 +312,7 @@ func (s *modelSuite) TestGetModelMetrics(c *tc.C) {
 			Cloud:              "aws",
 			CloudType:          "ec2",
 			CloudRegion:        "myregion",
-			CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+			CredentialOwner:    user.GenName(c, "myowner"),
 			CredentialName:     "mycredential",
 		},
 		ApplicationCount: 1,
@@ -583,7 +582,7 @@ func (s *modelSuite) TestGetModelCloudType(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
@@ -620,7 +619,7 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 	}
 	err := state.Create(c.Context(), args)
@@ -666,7 +665,7 @@ func (s *modelSuite) TestIsControllerModelTrue(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 		IsControllerModel:  true,
 	}
@@ -696,7 +695,7 @@ func (s *modelSuite) TestIsControllerModelFalse(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 		IsControllerModel:  false,
 	}
@@ -748,7 +747,7 @@ func (s *modelSuite) TestGetControllerUUID(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 		IsControllerModel:  false,
 	}
@@ -780,7 +779,7 @@ func (s *modelSuite) TestGetModelType(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 		IsControllerModel:  false,
 	}
@@ -823,7 +822,7 @@ func (s *modelSuite) TestGetModelInfoSummary(c *tc.C) {
 		Cloud:              "aws",
 		CloudType:          cloudType,
 		CloudRegion:        "myregion",
-		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialOwner:    user.GenName(c, "myowner"),
 		CredentialName:     "mycredential",
 		IsControllerModel:  false,
 	}

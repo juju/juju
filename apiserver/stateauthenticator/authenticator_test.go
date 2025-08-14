@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
-	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testing"
 )
@@ -53,7 +52,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	user := coreuser.User{
-		Name: coreusertesting.GenNewName(c, "user"),
+		Name: coreuser.GenName(c, "user"),
 	}
 	tag := names.NewUserTag("user")
 
@@ -63,7 +62,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(authenticator, tc.NotNil)
 
-	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), coreusertesting.GenNewName(c, "user"), auth.NewPassword("password")).Return(user, nil).AnyTimes()
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), coreuser.GenName(c, "user"), auth.NewPassword("password")).Return(user, nil).AnyTimes()
 
 	authenticatedTag, err := authenticator.Authenticate(c.Context(), authentication.AuthParams{
 		AuthTag:     tag,

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
@@ -770,7 +769,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 
 func (s *accessSuite) TestModifyControllerAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	userName := usertesting.GenNewName(c, "test-user")
+	userName := user.GenName(c, "test-user")
 
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{

@@ -20,7 +20,7 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/constraints"
@@ -776,7 +776,7 @@ func (s *modelServiceSuite) TestGetUserModelSummaryModelNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := coreuser.GenUUID(c)
 	s.mockControllerState.EXPECT().GetUserModelSummary(
 		gomock.Any(),
 		userUUID, modelUUID,
@@ -805,7 +805,7 @@ func (s *modelServiceSuite) TestGetUserModelSummaryUserNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := coreuser.GenUUID(c)
 	s.mockControllerState.EXPECT().GetUserModelSummary(
 		gomock.Any(),
 		userUUID, modelUUID,
@@ -834,7 +834,7 @@ func (s *modelServiceSuite) TestGetUserModelSummaryAccessNotFound(c *tc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := coreuser.GenUUID(c)
 	s.mockControllerState.EXPECT().GetUserModelSummary(
 		gomock.Any(),
 		userUUID, modelUUID,
@@ -899,7 +899,7 @@ func (s *modelServiceSuite) TestGetUserModelSummary(c *tc.C) {
 	}, nil)
 
 	lastConnection := time.Now()
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := coreuser.GenUUID(c)
 	s.mockControllerState.EXPECT().GetUserModelSummary(gomock.Any(), userUUID, modelUUID).Return(
 		model.UserModelSummary{
 			ModelSummary: model.ModelSummary{

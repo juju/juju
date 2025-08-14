@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -629,7 +628,7 @@ func (s *loginSuite) assertRemoteModel(c *tc.C, conn api.Connection, expected na
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
 
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := user.GenName(c, "bobbrown")
 	userUUID, _, err := accessService.AddUser(c.Context(), accessservice.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",
@@ -748,7 +747,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *tc.C) {
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
-	name := usertesting.GenNewName(c, "bobbrown")
+	name := user.GenName(c, "bobbrown")
 	uuid, _, err := accessService.AddUser(c.Context(), accessservice.AddUserArg{
 		Name:        name,
 		DisplayName: "Bob Brown",

@@ -10,7 +10,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 type typesSuite struct{}
@@ -23,7 +23,7 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
 		}, {  // Missing Target
-			Subject: usertesting.GenNewName(c, "testme"),
+			Subject: coreuser.GenName(c, "testme"),
 		}, { // Target and Access don't mesh
 			AccessSpec: permission.AccessSpec{
 				Access: permission.AddModelAccess,
@@ -32,7 +32,7 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 					Key:        "aws",
 				},
 			},
-			Subject: usertesting.GenNewName(c, "testme"),
+			Subject: coreuser.GenName(c, "testme"),
 		}, { // Invalid Change
 			AccessSpec: permission.AccessSpec{
 				Access: permission.AddModelAccess,
@@ -42,7 +42,7 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *tc.C) {
 				},
 			},
 			Change:  "testing",
-			Subject: usertesting.GenNewName(c, "testme"),
+			Subject: coreuser.GenName(c, "testme"),
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 )
@@ -31,7 +31,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 func (s *bootstrapSuite) TestAddUserWithPassword(c *tc.C) {
 	ctx := c.Context()
-	uuid, addAdminUser := AddUserWithPassword(usertesting.GenNewName(c, "admin"), auth.NewPassword("password"), permission.AccessSpec{
+	uuid, addAdminUser := AddUserWithPassword(coreuser.GenName(c, "admin"), auth.NewPassword("password"), permission.AccessSpec{
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,

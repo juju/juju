@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	userstate "github.com/juju/juju/domain/access/state"
@@ -44,7 +43,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.controllerUUID = s.SeedControllerUUID(c)
 
-	s.userName = usertesting.GenNewName(c, "test-user")
+	s.userName = user.GenName(c, "test-user")
 	s.userUUID = s.addOwner(c, s.userName)
 
 	s.addCloud(c, s.userName, cloud.Cloud{

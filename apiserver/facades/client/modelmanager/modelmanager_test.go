@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -172,8 +171,8 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudRegion string,
 ) coremodel.UUID {
 	modelUUID := coremodel.GenUUID(c)
-	adminName := usertesting.GenNewName(c, "admin")
-	adminUUID := usertesting.GenUserUUID(c)
+	adminName := user.GenName(c, "admin")
+	adminUUID := user.GenUUID(c)
 
 	defaultCred := credential.Key{
 		Cloud: "dummy",
@@ -759,7 +758,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *tc.C) {
 func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := user.GenUUID(c)
 	userTag := names.NewUserTag("non-admin")
 
 	modelUUID := coremodel.GenUUID(c)
@@ -806,7 +805,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 }
 
 func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := user.GenUUID(c)
 	userTag := names.NewUserTag("non-admin")
 
 	defer s.setUpAPIWithUser(c, userTag).Finish()

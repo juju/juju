@@ -13,7 +13,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 type exportSuite struct {
@@ -45,9 +45,9 @@ func (s *exportSuite) TestExport(c *tc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 
-	bobName := usertesting.GenNewName(c, "bob")
-	bazzaName := usertesting.GenNewName(c, "bazza")
-	steveName := usertesting.GenNewName(c, "steve")
+	bobName := coreuser.GenName(c, "bob")
+	bazzaName := coreuser.GenName(c, "bazza")
+	steveName := coreuser.GenName(c, "steve")
 
 	userAccesses := []permission.UserAccess{{
 		Access:      permission.ReadAccess,

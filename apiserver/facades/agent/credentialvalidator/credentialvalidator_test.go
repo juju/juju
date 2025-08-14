@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
@@ -61,7 +61,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	modelCredentialKey := credential.Key{
 		Cloud: "cloud",
-		Owner: usertesting.GenNewName(c, "user"),
+		Owner: coreuser.GenName(c, "user"),
 		Name:  "credential",
 	}
 	s.credentialService.EXPECT().GetModelCredentialStatus(gomock.Any()).Return(

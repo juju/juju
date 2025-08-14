@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/keymanager"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
@@ -129,12 +128,12 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	err := kmSt.AddPublicKeysForUser(c.Context(), s.modelUUID, s.userUUID, keysToAdd[0:1])
 	c.Check(err, tc.ErrorIsNil)
 
-	secondUserId := usertesting.GenUserUUID(c)
+	secondUserId := user.GenUUID(c)
 	userSt := userstate.NewUserState(s.TxnRunnerFactory())
 	err = userSt.AddUser(
 		c.Context(),
 		secondUserId,
-		usertesting.GenNewName(c, "second"),
+		user.GenName(c, "second"),
 		"second",
 		false,
 		s.userUUID,

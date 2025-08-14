@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -158,7 +157,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	// owner.
 	userUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	userName := usertesting.GenNewName(c, "test-user")
+	userName := user.GenName(c, "test-user")
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		c.Context(),
@@ -205,7 +204,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	err = credSt.UpsertCloudCredential(
 		c.Context(), corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: usertesting.GenNewName(c, "test-user"),
+			Owner: user.GenName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -223,7 +222,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
+				Owner: user.GenName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          name,

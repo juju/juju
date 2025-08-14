@@ -56,6 +56,16 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
+// GenUUID can be used in testing for generating a user uuid that is
+// checked for subsequent errors.
+func GenUUID(c interface{ Fatal(...any) }) UUID {
+	uuid, err := NewUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // Validate returns an error if the UUID is invalid. The error returned
 // satisfies [errors.NotValid].
 func (u UUID) Validate() error {
@@ -101,6 +111,16 @@ func NewName(name string) (Name, error) {
 		name:   parts[1],
 		domain: domain,
 	}, nil
+}
+
+// GenName returns a new username object. It asserts that the username is
+// valid.
+func GenName(c interface{ Fatal(...any) }, name string) Name {
+	un, err := NewName(name)
+	if err != nil {
+		c.Fatal(err)
+	}
+	return un
 }
 
 // Name represents the identity of a user.

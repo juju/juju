@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
@@ -56,7 +55,7 @@ func TestWorkerSuite(t *stdtesting.T) {
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
-	s.adminUserID = usertesting.GenUserUUID(c)
+	s.adminUserID = user.GenUUID(c)
 	s.controllerModel = coremodel.Model{
 		UUID: coremodel.GenUUID(c),
 	}
@@ -152,7 +151,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(
+	s.userService.EXPECT().GetUserByName(gomock.Any(), user.GenName(c, "admin")).Return(
 		user.User{
 			UUID: s.adminUserID,
 		},
@@ -413,14 +412,14 @@ func (s *workerSuite) expectControllerConfig() {
 }
 
 func (s *workerSuite) expectUser(c *tc.C) {
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(user.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), user.GenName(c, "admin")).Return(user.User{
 		UUID: s.adminUserID,
 	}, nil).Times(2)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
-		c.Check(u.Name, tc.Equals, usertesting.GenNewName(c, "juju-metrics"))
-		return usertesting.GenUserUUID(c), nil, nil
+		c.Check(u.Name, tc.Equals, user.GenName(c, "juju-metrics"))
+		return user.GenUUID(c), nil, nil
 	})
-	s.userService.EXPECT().AddExternalUser(gomock.Any(), usertesting.GenNewName(c, "everyone@external"), "", gomock.Any())
+	s.userService.EXPECT().AddExternalUser(gomock.Any(), user.GenName(c, "everyone@external"), "", gomock.Any())
 }
 
 func (s *workerSuite) expectAuthorizedKeys() {

@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/keymanager"
@@ -82,7 +81,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(userUUID, tc.NotNil)
 	s.userId = userUUID
-	s.userName = usertesting.GenNewName(c, "test-userkeys")
+	s.userName = user.GenName(c, "test-userkeys")
 }
 
 // TestAddPublicKeyForUser is asserting the happy path of adding a public key
@@ -160,7 +159,7 @@ func (s *stateSuite) TestAddPublicKeyForUserNotFound(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	badUserId := usertesting.GenUserUUID(c)
+	badUserId := user.GenUUID(c)
 
 	err := state.AddPublicKeysForUser(c.Context(), s.modelId, badUserId, keysToAdd)
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
@@ -257,7 +256,7 @@ func (s *stateSuite) TestEnsurePublicKeyForUserNotFound(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	keysToAdd := generatePublicKeys(c, testingPublicKeys)
 
-	badUserId := usertesting.GenUserUUID(c)
+	badUserId := user.GenUUID(c)
 
 	err := state.EnsurePublicKeysForUser(c.Context(), s.modelId, badUserId, keysToAdd)
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
@@ -280,7 +279,7 @@ func (s *stateSuite) TestEnsurePublicKeyForUserOnNotFoundModel(c *tc.C) {
 // delete public keys for a user that doesn't exist we get an
 // [accesserrors.UserNotFound] error
 func (s *stateSuite) TestDeletePublicKeysForNonExistentUser(c *tc.C) {
-	userId := usertesting.GenUserUUID(c)
+	userId := user.GenUUID(c)
 	state := NewState(s.TxnRunnerFactory())
 	err := state.DeletePublicKeysForUser(c.Context(), s.modelId, userId, []string{"comment"})
 	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
@@ -424,8 +423,8 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	secondUserId := usertesting.GenUserUUID(c)
-	secondUserName := usertesting.GenNewName(c, "tlm")
+	secondUserId := user.GenUUID(c)
+	secondUserName := user.GenName(c, "tlm")
 	userSt := accessstate.NewUserState(s.TxnRunnerFactory())
 	err = userSt.AddUser(
 		c.Context(),

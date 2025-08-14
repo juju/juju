@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/cloud/service"
@@ -51,7 +51,7 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 
 	cloud := testCloud
 
-	err := st.CreateCloud(c.Context(), usertesting.GenNewName(c, "admin"), cloudUUID, cloud)
+	err := st.CreateCloud(c.Context(), coreuser.GenName(c, "admin"), cloudUUID, cloud)
 	c.Assert(err, tc.ErrorIsNil)
 
 	watcher, err := service.WatchCloud(c.Context(), "fluffy")

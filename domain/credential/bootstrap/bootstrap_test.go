@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -43,7 +42,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		c.Context(), userUUID,
-		usertesting.GenNewName(c, "fred"),
+		user.GenName(c, "fred"),
 		"test user",
 		false,
 		userUUID,
@@ -58,14 +57,14 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err = cloudbootstrap.InsertCloud(usertesting.GenNewName(c, "fred"), cld)(ctx, s.TxnRunner(), s.NoopTxnRunner())
+	err = cloudbootstrap.InsertCloud(user.GenName(c, "fred"), cld)(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
 
 	key := credential.Key{
 		Cloud: "cirrus",
-		Owner: usertesting.GenNewName(c, "fred"),
+		Owner: user.GenName(c, "fred"),
 		Name:  "foo",
 	}
 

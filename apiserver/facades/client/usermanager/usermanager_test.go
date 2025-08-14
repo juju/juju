@@ -21,7 +21,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	coreusertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
@@ -61,7 +60,7 @@ func (s *userManagerSuite) TestAddUser(c *tc.C) {
 
 	pass := auth.NewPassword("password")
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        coreusertesting.GenNewName(c, "foobar"),
+		Name:        coreuser.GenName(c, "foobar"),
 		DisplayName: "Foo Bar",
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
@@ -95,7 +94,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
-		Name:        coreusertesting.GenNewName(c, "foobar"),
+		Name:        coreuser.GenName(c, "foobar"),
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
 		Permission: permission.AccessSpec{
@@ -160,10 +159,10 @@ func (s *userManagerSuite) TestDisableUser(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	exp := s.accessService.EXPECT()
-	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return(nil)
-	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "barb")).Return(nil)
-	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "ellie")).Return(errors.NotFound)
-	exp.DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "fred@remote")).Return(errors.NotFound)
+	exp.DisableUserAuthentication(gomock.Any(), coreuser.GenName(c, "alex")).Return(nil)
+	exp.DisableUserAuthentication(gomock.Any(), coreuser.GenName(c, "barb")).Return(nil)
+	exp.DisableUserAuthentication(gomock.Any(), coreuser.GenName(c, "ellie")).Return(errors.NotFound)
+	exp.DisableUserAuthentication(gomock.Any(), coreuser.GenName(c, "fred@remote")).Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -215,10 +214,10 @@ func (s *userManagerSuite) TestEnableUser(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	exp := s.accessService.EXPECT()
-	exp.EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return(nil)
-	exp.EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "barb")).Return(nil)
-	exp.EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "ellie")).Return(errors.NotFound)
-	exp.EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "fred@remote")).Return(errors.NotFound)
+	exp.EnableUserAuthentication(gomock.Any(), coreuser.GenName(c, "alex")).Return(nil)
+	exp.EnableUserAuthentication(gomock.Any(), coreuser.GenName(c, "barb")).Return(nil)
+	exp.EnableUserAuthentication(gomock.Any(), coreuser.GenName(c, "ellie")).Return(errors.NotFound)
+	exp.EnableUserAuthentication(gomock.Any(), coreuser.GenName(c, "fred@remote")).Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -301,29 +300,29 @@ func (s *userManagerSuite) TestUserInfo(c *tc.C) {
 
 	exp := s.accessService.EXPECT()
 	a := gomock.Any()
-	exp.GetUserByName(a, coreusertesting.GenNewName(c, "mary@external")).Return(coreuser.User{
+	exp.GetUserByName(a, coreuser.GenName(c, "mary@external")).Return(coreuser.User{
 		UUID:     newUserUUID(c),
-		Name:     coreusertesting.GenNewName(c, "mary@external"),
+		Name:     coreuser.GenName(c, "mary@external"),
 		Disabled: false,
 	}, nil)
-	exp.GetUserByName(a, coreusertesting.GenNewName(c, "foobar")).Return(coreuser.User{
+	exp.GetUserByName(a, coreuser.GenName(c, "foobar")).Return(coreuser.User{
 		UUID:     newUserUUID(c),
-		Name:     coreusertesting.GenNewName(c, "foobar"),
+		Name:     coreuser.GenName(c, "foobar"),
 		Disabled: false,
 	}, nil)
-	exp.GetUserByName(a, coreusertesting.GenNewName(c, "barfoo")).Return(coreuser.User{
+	exp.GetUserByName(a, coreuser.GenName(c, "barfoo")).Return(coreuser.User{
 		UUID:     newUserUUID(c),
-		Name:     coreusertesting.GenNewName(c, "barfoo"),
+		Name:     coreuser.GenName(c, "barfoo"),
 		Disabled: true,
 	}, nil)
-	exp.GetUserByName(a, coreusertesting.GenNewName(c, "ellie")).Return(coreuser.User{}, usererrors.UserNotFound)
+	exp.GetUserByName(a, coreuser.GenName(c, "ellie")).Return(coreuser.User{}, usererrors.UserNotFound)
 
-	exp.ReadUserAccessLevelForTarget(gomock.Any(), coreusertesting.GenNewName(c, "foobar"), permission.ID{
+	exp.ReadUserAccessLevelForTarget(gomock.Any(), coreuser.GenName(c, "foobar"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
 	}).Return(permission.LoginAccess, nil)
 
-	exp.ReadUserAccessLevelForTarget(gomock.Any(), coreusertesting.GenNewName(c, "mary@external"), permission.ID{
+	exp.ReadUserAccessLevelForTarget(gomock.Any(), coreuser.GenName(c, "mary@external"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
 	}).Return(permission.SuperuserAccess, nil)
@@ -379,14 +378,14 @@ func (s *userManagerSuite) TestUserInfoAll(c *tc.C) {
 	users := []coreuser.User{
 		{
 			UUID:     newUserUUID(c),
-			Name:     coreusertesting.GenNewName(c, "fred"),
+			Name:     coreuser.GenName(c, "fred"),
 			Disabled: false,
 		},
 	}
 	usersIncDisabled := append(users,
 		coreuser.User{
 			UUID:     newUserUUID(c),
-			Name:     coreusertesting.GenNewName(c, "nancy"),
+			Name:     coreuser.GenName(c, "nancy"),
 			Disabled: true,
 		},
 	)
@@ -418,7 +417,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *tc.C) {
 
 	// The access service is used only for none-deactivated users, deactivated
 	// users have NoPermissions.
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), coreusertesting.GenNewName(c, "fred"), permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), coreuser.GenName(c, "fred"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.ControllerUUID,
 	}).Return(permission.LoginAccess, nil).Times(2)
@@ -444,7 +443,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *tc.C) {
 
 	fakeCreator := coreuser.User{
 		UUID:        fakeCreatorUUID,
-		Name:        coreusertesting.GenNewName(c, "creator"),
+		Name:        coreuser.GenName(c, "creator"),
 		DisplayName: "Creator",
 	}
 
@@ -511,22 +510,22 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 			Access:         permission.AdminAccess,
 			LastModelLogin: time.Time{},
 		}, {
-			Name:           coreusertesting.GenNewName(c, "ralphdoe"),
+			Name:           coreuser.GenName(c, "ralphdoe"),
 			DisplayName:    "Ralph Doe",
 			Access:         permission.AdminAccess,
 			LastModelLogin: time.Time{},
 		}, {
-			Name:           coreusertesting.GenNewName(c, "samsmith"),
+			Name:           coreuser.GenName(c, "samsmith"),
 			DisplayName:    "Sam Smith",
 			Access:         permission.AdminAccess,
 			LastModelLogin: time.Time{},
 		}, {
-			Name:           coreusertesting.GenNewName(c, "bobjohns@ubuntuone"),
+			Name:           coreuser.GenName(c, "bobjohns@ubuntuone"),
 			DisplayName:    "Bob Johns",
 			Access:         permission.WriteAccess,
 			LastModelLogin: time.Time{},
 		}, {
-			Name:           coreusertesting.GenNewName(c, "nicshaw@idprovider"),
+			Name:           coreuser.GenName(c, "nicshaw@idprovider"),
 			DisplayName:    "Nic Shaw",
 			Access:         permission.WriteAccess,
 			LastModelLogin: time.Time{},
@@ -597,7 +596,7 @@ func (s *userManagerSuite) TestSetPassword(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
-	s.accessService.EXPECT().SetPassword(gomock.Any(), coreusertesting.GenNewName(c, "alex"), gomock.Any())
+	s.accessService.EXPECT().SetPassword(gomock.Any(), coreuser.GenName(c, "alex"), gomock.Any())
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -693,7 +692,7 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	tag := "user-harvey"
-	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "harvey")).Return(errors.NotFound)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreuser.GenName(c, "harvey")).Return(errors.NotFound)
 
 	got, err := s.api.RemoveUser(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
@@ -710,7 +709,7 @@ func (s *userManagerSuite) TestRemoveUser(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
-	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreuser.GenName(c, "jimmyjam")).Return(nil)
 
 	got, err := s.api.RemoveUser(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "user-jimmyjam"}}})
@@ -768,8 +767,8 @@ func (s *userManagerSuite) TestRemoveUserBulk(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
-	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "jimmyjam")).Return(nil)
-	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "alice")).Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreuser.GenName(c, "jimmyjam")).Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), coreuser.GenName(c, "alice")).Return(nil)
 
 	got, err := s.api.RemoveUser(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -902,8 +901,8 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *tc.C) {
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
-	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreusertesting.GenNewName(c, "alex")).Return([]byte("secret-key"), nil)
-	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreusertesting.GenNewName(c, "invalid")).Return(nil, errors.NotFound)
+	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreuser.GenName(c, "alex")).Return([]byte("secret-key"), nil)
+	s.accessService.EXPECT().ResetPassword(gomock.Any(), coreuser.GenName(c, "invalid")).Return(nil, errors.NotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "user-invalid"},

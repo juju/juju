@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -56,7 +55,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 
 	s.SeedControllerUUID(c)
 
-	s.userID = usertesting.GenUserUUID(c)
+	s.userID = user.GenUUID(c)
 
 	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := accessState.AddUser(

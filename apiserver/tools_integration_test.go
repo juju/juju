@@ -21,7 +21,6 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -88,7 +87,7 @@ func TestToolsWithMacaroonsIntegrationSuite(t *testing.T) {
 func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *tc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 
-	s.userName = usertesting.GenNewName(c, "bob@authhttpsuite")
+	s.userName = user.GenName(c, "bob@authhttpsuite")
 	s.AddModelUserWithPermission(c, s.userName, permission.AdminAccess)
 	s.AddControllerUser(c, s.userName, permission.LoginAccess)
 
@@ -134,7 +133,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 	// using macaroon authentication.
 	password := "hunter2"
 	accessService := s.ControllerDomainServices(c).Access()
-	userName := usertesting.GenNewName(c, "bobbrown")
+	userName := user.GenName(c, "bobbrown")
 	_, _, err := accessService.AddUser(c.Context(), service.AddUserArg{
 		Name:        userName,
 		DisplayName: "Bob Brown",

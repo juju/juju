@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -39,7 +38,7 @@ func TestMigrationServiceSuite(t *testing.T) {
 
 func (s *migrationServiceSuite) SetUpTest(c *tc.C) {
 	var err error
-	s.userUUID = usertesting.GenUserUUID(c)
+	s.userUUID = user.GenUUID(c)
 	c.Assert(err, tc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds:             map[string]dummyStateCloud{},
@@ -67,7 +66,7 @@ func (s *migrationServiceSuite) TestImportModel(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{
@@ -101,7 +100,7 @@ func (s *migrationServiceSuite) TestDeleteModel(c *tc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
 		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
+		Owner: user.GenName(c, "owner"),
 	}
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.Key{

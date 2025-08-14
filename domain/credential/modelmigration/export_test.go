@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 type exportSuite struct {
@@ -50,7 +50,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Name:  "foo",
 	})
 
-	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
 	s.service.EXPECT().CloudCredential(gomock.Any(), key).
 		Times(1).
@@ -74,7 +74,7 @@ func (s *exportSuite) TestExportNotFound(c *tc.C) {
 		Name:  "foo",
 	})
 
-	key := credential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
+	key := credential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	s.service.EXPECT().CloudCredential(gomock.Any(), key).
 		Times(1).
 		Return(cloud.Credential{}, coreerrors.NotFound)

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
-	usertesting "github.com/juju/juju/core/user/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/errors"
 )
@@ -30,9 +30,9 @@ func (s *serviceSuite) TestCreateCloudSuccess(c *tc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().CreateCloud(gomock.Any(), usertesting.GenNewName(c, "owner-name"), gomock.Any(), cloud).Return(nil)
+	s.state.EXPECT().CreateCloud(gomock.Any(), coreuser.GenName(c, "owner-name"), gomock.Any(), cloud).Return(nil)
 
-	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(c.Context(), usertesting.GenNewName(c, "owner-name"), cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(c.Context(), coreuser.GenName(c, "owner-name"), cloud)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -42,9 +42,9 @@ func (s *serviceSuite) TestCreateCloudFail(c *tc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().CreateCloud(gomock.Any(), usertesting.GenNewName(c, "owner-name"), gomock.Any(), cloud).Return(errors.New("boom"))
+	s.state.EXPECT().CreateCloud(gomock.Any(), coreuser.GenName(c, "owner-name"), gomock.Any(), cloud).Return(errors.New("boom"))
 
-	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(c.Context(), usertesting.GenNewName(c, "owner-name"), cloud)
+	err := NewWatchableService(s.state, s.watcherFactory).CreateCloud(c.Context(), coreuser.GenName(c, "owner-name"), cloud)
 	c.Assert(err, tc.ErrorMatches, `creating cloud "fluffy": boom`)
 }
 

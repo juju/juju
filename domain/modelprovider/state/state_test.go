@@ -13,7 +13,6 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -65,7 +64,7 @@ func (s *stateSuite) setupModel(c *tc.C) coremodel.UUID {
 
 	userName, err := user.NewName("test-usertest")
 	c.Assert(err, tc.ErrorIsNil)
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := user.GenUUID(c)
 	err = userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddUser(ctx, userUUID, userName, userName.String(), false, userUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

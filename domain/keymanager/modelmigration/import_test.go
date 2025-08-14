@@ -12,7 +12,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -64,7 +63,7 @@ func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 		},
 	})
 
-	userId := usertesting.GenUserUUID(c)
+	userId := user.GenUUID(c)
 	s.userService.EXPECT().GetUserByName(gomock.Any(), user.AdminUserName).Return(user.User{
 		UUID: userId,
 	}, nil)
@@ -105,10 +104,10 @@ func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 		},
 	})
 
-	userIdTLM := usertesting.GenUserUUID(c)
-	userIdWallyworld := usertesting.GenUserUUID(c)
-	usernameTLM := usertesting.GenNewName(c, "tlm")
-	usernameWallyworld := usertesting.GenNewName(c, "wallyworld")
+	userIdTLM := user.GenUUID(c)
+	userIdWallyworld := user.GenUUID(c)
+	usernameTLM := user.GenName(c, "tlm")
+	usernameWallyworld := user.GenName(c, "wallyworld")
 	s.userService.EXPECT().GetUserByName(gomock.Any(), usernameTLM).Return(user.User{
 		UUID: userIdTLM,
 	}, nil)

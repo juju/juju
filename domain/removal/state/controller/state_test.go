@@ -13,7 +13,6 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accessstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -49,10 +48,10 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	// We need to generate a user in the database so that we can set the model
 	// owner.
 	m.uuid = coremodel.GenUUID(c)
-	userName := usertesting.GenNewName(c, "test-user")
+	userName := user.GenName(c, "test-user")
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	userUUID := usertesting.GenUserUUID(c)
+	userUUID := user.GenUUID(c)
 	err := accessState.AddUser(
 		c.Context(),
 		userUUID,
@@ -107,7 +106,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	err = credSt.UpsertCloudCredential(
 		c.Context(), corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: usertesting.GenNewName(c, "test-user"),
+			Owner: user.GenName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -116,7 +115,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 	err = credSt.UpsertCloudCredential(
 		c.Context(), corecredential.Key{
 			Cloud: "other-cloud",
-			Owner: usertesting.GenNewName(c, "test-user"),
+			Owner: user.GenName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -136,7 +135,7 @@ func (m *baseSuite) SetUpTest(c *tc.C) {
 			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
+				Owner: user.GenName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "my-test-model",

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/keymanager"
 	keyserrors "github.com/juju/juju/domain/keymanager/errors"
@@ -71,7 +70,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *serviceSuite) SetUpTest(c *tc.C) {
-	s.userID = usertesting.GenUserUUID(c)
+	s.userID = user.GenUUID(c)
 
 	uri, err := url.Parse("gh:tlm")
 	c.Check(err, tc.ErrorIsNil)
@@ -540,11 +539,11 @@ func (s *serviceSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 
 	s.state.EXPECT().GetAllUsersPublicKeys(gomock.Any(), s.modelUUID).Return(
 		map[user.Name][]string{
-			usertesting.GenNewName(c, "tlm"): {
+			user.GenName(c, "tlm"): {
 				"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 				"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
 			},
-			usertesting.GenNewName(c, "wallyworld"): {
+			user.GenName(c, "wallyworld"): {
 				"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 				"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
 			},
@@ -555,11 +554,11 @@ func (s *serviceSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 	allKeys, err := NewService(s.modelUUID, s.state).GetAllUsersPublicKeys(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(allKeys, tc.DeepEquals, map[user.Name][]string{
-		usertesting.GenNewName(c, "tlm"): {
+		user.GenName(c, "tlm"): {
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
 		},
-		usertesting.GenNewName(c, "wallyworld"): {
+		user.GenName(c, "wallyworld"): {
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1",
 			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe existing2",
 		},
