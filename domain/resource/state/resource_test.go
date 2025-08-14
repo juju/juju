@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
 	resourcestoretesting "github.com/juju/juju/core/resource/store/testing"
@@ -1151,7 +1150,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
-	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID2 := objectstore.GenUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
 	retrievedBy2 := "ubuntu/0"
 	retrievedByType2 := coreresource.Unit
@@ -1247,7 +1246,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 	resID := s.addResource(c, charmresource.TypeFile)
 
 	// Arrange: generate a valid store ID.
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 
 	// Act: try and store the resource.
@@ -3199,7 +3198,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add resource: %v", errors.ErrorStack(err)))
 
 	// Arrange: add a blob to the object store.
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
@@ -3259,7 +3258,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	retrievedBy string,
 	retrievedByType coreresource.RetrievedByType,
 ) error {
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))

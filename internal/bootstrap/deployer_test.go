@@ -21,7 +21,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/errors"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -448,7 +448,7 @@ func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 		Size:   42,
 	}, nil)
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
 		SHA256: "sha-256",

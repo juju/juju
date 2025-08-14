@@ -22,7 +22,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
@@ -415,7 +414,7 @@ func (s *s3ObjectStoreSuite) TestPut(c *tc.C) {
 	s.expectClaim(hexSHA384, 1)
 	s.expectRelease(hexSHA384, 1)
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -457,7 +456,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 	s.expectClaim(hexSHA384, 1)
 	s.expectRelease(hexSHA384, 1)
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -519,7 +518,7 @@ func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 	s.expectClaim(hexSHA384, 2)
 	s.expectRelease(hexSHA384, 2)
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -570,7 +569,7 @@ func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *tc.C) {
 	s.expectClaim(hexSHA384, 1)
 	s.expectRelease(hexSHA384, 1)
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{

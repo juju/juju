@@ -15,7 +15,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -111,7 +110,7 @@ func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 }
 
 func (s *baseSuite) createObjectStoreBlob(c *tc.C, path string) objectstore.UUID {
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)

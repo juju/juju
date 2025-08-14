@@ -21,6 +21,16 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
+// GenUUID can be used in testing for generating a objectstore UUID that is
+// checked for subsequent errors.
+func GenUUID(c interface{ Fatal(...any) }) UUID {
+	id, err := NewUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
+}
+
 // ParseUUID returns a new UUID from the given string. If the string is not a
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {

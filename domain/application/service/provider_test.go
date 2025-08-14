@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
@@ -54,7 +54,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	now := ptr(s.clock.Now())
 	us := []application.AddCAASUnitArg{{
@@ -220,7 +220,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	now := ptr(s.clock.Now())
 	status := &status.StatusInfo[status.WorkloadStatusType]{
@@ -286,7 +286,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -383,7 +383,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -479,7 +479,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -631,7 +631,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 	blockDeviceStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
 	filesystemStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
 
@@ -797,7 +797,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{
@@ -862,7 +862,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	id := coreapplication.GenID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{

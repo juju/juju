@@ -22,7 +22,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -570,7 +569,7 @@ func (s *fileObjectStoreSuite) TestPut(c *tc.C) {
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -605,7 +604,7 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *tc.C) {
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -648,7 +647,7 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *tc.C) {
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -687,7 +686,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *tc
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -732,7 +731,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
@@ -788,7 +787,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 
 	path := c.MkDir()
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,

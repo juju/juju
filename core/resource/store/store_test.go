@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/core/resource/store/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -23,7 +23,7 @@ func TestResourcesStoreSuite(t *stdtesting.T) {
 }
 
 func (*resourcesStoreSuite) TestFileResourceStoreID(c *tc.C) {
-	expectedUUID := objectstoretesting.GenObjectStoreUUID(c)
+	expectedUUID := coreobjectstore.GenUUID(c)
 	storeID, err := store.NewFileResourceID(expectedUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -52,7 +52,7 @@ func (*resourcesStoreSuite) TestIsZero(c *tc.C) {
 	var id store.ID
 	c.Assert(id.IsZero(), tc.Equals, true)
 
-	id = testing.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	id = testing.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	c.Assert(id.IsZero(), tc.Equals, false)
 
 	id = testing.GenContainerImageMetadataResourceID(c, "test-id")
@@ -63,7 +63,7 @@ func (*resourcesStoreSuite) TestIsObjectStoreUUID(c *tc.C) {
 	var id store.ID
 	c.Assert(id.IsObjectStoreUUID(), tc.Equals, false)
 
-	id = testing.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	id = testing.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	c.Assert(id.IsObjectStoreUUID(), tc.Equals, true)
 
 	id = testing.GenContainerImageMetadataResourceID(c, "test-id")
@@ -74,7 +74,7 @@ func (*resourcesStoreSuite) TestIsContainerImageMetadataID(c *tc.C) {
 	var id store.ID
 	c.Assert(id.IsContainerImageMetadataID(), tc.Equals, false)
 
-	id = testing.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	id = testing.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	c.Assert(id.IsContainerImageMetadataID(), tc.Equals, false)
 
 	id = testing.GenContainerImageMetadataResourceID(c, "test-id")

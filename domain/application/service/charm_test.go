@@ -19,7 +19,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -1435,7 +1435,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
 		Provenance: charm.ProvenanceUpload,
@@ -1487,7 +1487,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(false, nil)
 	s.charmStore.EXPECT().StoreFromReader(gomock.Any(), gomock.Not(gomock.Nil()), "abc").Return(store.StoreFromReaderResult{
@@ -1521,7 +1521,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
 		Provenance: charm.ProvenanceUpload,
@@ -1572,7 +1572,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
 		Provenance: charm.ProvenanceMigration,
@@ -1660,7 +1660,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(true, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), "test", 1, charm.LocalSource).Return(charmID, nil)
@@ -1695,7 +1695,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmID := charmtesting.GenCharmID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
 		Provenance: charm.ProvenanceMigration,

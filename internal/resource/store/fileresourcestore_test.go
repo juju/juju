@@ -13,7 +13,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcestore "github.com/juju/juju/core/resource/store"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -66,7 +66,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
 
-	expectedStorageUUID := objectstoretesting.GenObjectStoreUUID(c)
+	expectedStorageUUID := coreobjectstore.GenUUID(c)
 	s.objectStore.EXPECT().PutAndCheckHash(
 		c.Context(),
 		s.resource.UUID.String(),

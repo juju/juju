@@ -25,7 +25,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -215,7 +215,7 @@ func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *tc.C) {
 func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
@@ -393,7 +393,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *tc.C) {
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := coreobjectstore.GenUUID(c)
 
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")

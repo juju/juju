@@ -19,7 +19,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
@@ -102,7 +101,7 @@ func (s *charmStateSuite) TestSetCharmObjectStoreUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock,
 		loggertesting.WrapCheckLog(c))
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 
 	expected := charm.Metadata{
 		Name:           "foo",
@@ -3257,7 +3256,7 @@ func (s *charmStateSuite) TestGetAvailableCharmArchiveSHA256NotFound(c *tc.C) {
 func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 
 	_, err := st.ResolveMigratingUploadedCharm(c.Context(), charmtesting.GenCharmID(c), charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
@@ -3268,7 +3267,7 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
 func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	objectStoreUUID := objectstore.GenUUID(c)
 
 	info := &charm.DownloadInfo{
 		Provenance: charm.ProvenanceMigration,

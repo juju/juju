@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
@@ -42,7 +41,7 @@ func (s *storeSuite) TestStore(c *tc.C) {
 	dir := c.MkDir()
 	path, contentDigest := s.createTempFile(c, dir, "hello world")
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	var (
 		uniqueName string
@@ -77,7 +76,7 @@ func (s *storeSuite) TestStoreFileClosed(c *tc.C) {
 	dir := c.MkDir()
 	path, contentDigest := s.createTempFile(c, dir, "hello world")
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	var reader io.Reader
 	s.objectStore.EXPECT().
@@ -131,7 +130,7 @@ func (s *storeSuite) TestStoreFromReader(c *tc.C) {
 	reader, err := os.Open(path)
 	c.Assert(err, tc.ErrorIsNil)
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := objectstore.GenUUID(c)
 
 	var (
 		uniqueName string
