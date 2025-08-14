@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
-	credentialtesting "github.com/juju/juju/core/credential/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
@@ -146,7 +145,7 @@ func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *tc.C) {
 func (s *serviceSuite) TestInvalidateCloudCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := credentialtesting.GenCredentialUUID(c)
+	uuid := corecredential.GenUUID(c)
 	key := corecredential.Key{Cloud: "cirrus", Owner: coreuser.GenName(c, "fred"), Name: "foo"}
 	s.state.EXPECT().CredentialUUIDForKey(gomock.Any(), key).Return(uuid, nil)
 	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), uuid, "gone bad")
