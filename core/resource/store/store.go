@@ -88,6 +88,16 @@ func NewFileResourceID(uuid objectstore.UUID) (ID, error) {
 	}, nil
 }
 
+// GenFileResourceStoreID can be used in testing for generating a file resource
+// store ID that is checked for subsequent errors.
+func GenFileResourceStoreID(c interface{ Fatal(...any) }, uuid objectstore.UUID) ID {
+	id, err := NewFileResourceID(uuid)
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
+}
+
 // NewContainerImageMetadataResourceID creates a new storage ID for a container
 // image metadata resource.
 func NewContainerImageMetadataResourceID(id string) (ID, error) {
@@ -98,6 +108,16 @@ func NewContainerImageMetadataResourceID(id string) (ID, error) {
 		kind:                          containerImageMetadataStoreKind,
 		containerImageMetadataStoreID: id,
 	}, nil
+}
+
+// GenContainerImageMetadataResourceID can be used in testing for generating a
+// container image metadata resource store ID that is checked.
+func GenContainerImageMetadataResourceID(c interface{ Fatal(...any) }, storageKey string) ID {
+	id, err := NewContainerImageMetadataResourceID(storageKey)
+	if err != nil {
+		c.Fatal(err)
+	}
+	return id
 }
 
 // IsZero is true if ID has not been set.

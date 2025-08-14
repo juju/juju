@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/store"
-	resourcestoretesting "github.com/juju/juju/core/resource/store/testing"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -1104,7 +1103,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	storageKey2 := "storage-key-2"
-	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
+	storeID2 := store.GenContainerImageMetadataResourceID(c, storageKey2)
 	retrievedBy2 := "user-name"
 	retrievedByType2 := coreresource.User
 	size2 := int64(422)
@@ -1150,7 +1149,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	objectStoreUUID2 := objectstore.GenUUID(c)
-	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
+	storeID2 := store.GenFileResourceStoreID(c, objectStoreUUID2)
 	retrievedBy2 := "ubuntu/0"
 	retrievedByType2 := coreresource.Unit
 	size2 := int64(422)
@@ -1246,7 +1245,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 
 	// Arrange: generate a valid store ID.
 	objectStoreUUID := objectstore.GenUUID(c)
-	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
+	storeID := store.GenFileResourceStoreID(c, objectStoreUUID)
 
 	// Act: try and store the resource.
 	err := s.state.RecordStoredResource(
@@ -1263,7 +1262,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotFoundInStore(c *tc.C) {
 	// Arrange: insert a resource and generate a valid store ID.
 	resID := s.addResource(c, charmresource.TypeContainerImage)
-	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, "bad-storage-key")
+	storeID := store.GenContainerImageMetadataResourceID(c, "bad-storage-key")
 
 	// Act: try and store the resource.
 	err := s.state.RecordStoredResource(
@@ -3198,7 +3197,7 @@ func (s *resourceSuite) createFileResourceAndBlob(c *tc.C) (_ coreresource.UUID,
 
 	// Arrange: add a blob to the object store.
 	objectStoreUUID := objectstore.GenUUID(c)
-	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
+	storeID := store.GenFileResourceStoreID(c, objectStoreUUID)
 	err = s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
@@ -3223,7 +3222,7 @@ func (s *resourceSuite) createContainerImageResourceAndBlob(c *tc.C) (_ corereso
 
 	// Arrange: add a container image using the resource UUID as the storage key.
 	storageKey := resID.String()
-	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey)
+	storeID := store.GenContainerImageMetadataResourceID(c, storageKey)
 	err = s.addContainerImage(c, storageKey)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
@@ -3258,7 +3257,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	retrievedByType coreresource.RetrievedByType,
 ) error {
 	objectStoreUUID := objectstore.GenUUID(c)
-	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
+	storeID := store.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(c, objectStoreUUID)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 	err = s.state.RecordStoredResource(

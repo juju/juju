@@ -18,7 +18,6 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
-	storetesting "github.com/juju/juju/core/resource/store/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
@@ -287,7 +286,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 	retrievedBy := "bob"
 	retrievedByType := coreresource.User
 
-	storageID := storetesting.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
+	storageID := coreresourcestore.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
 		coreresource.Resource{
 			Resource: charmresource.Resource{
@@ -345,7 +344,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 	retrievedBy := "bob"
 	retrievedByType := coreresource.User
 
-	storageID := storetesting.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
+	storageID := coreresourcestore.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
 		coreresource.Resource{
 			Resource: charmresource.Resource{
@@ -609,7 +608,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	retrievedBy := "bob"
 	retrievedByType := coreresource.User
 
-	storageID := storetesting.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
+	storageID := coreresourcestore.GenFileResourceStoreID(c, coreobjectstore.GenUUID(c))
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
 		coreresource.Resource{
 			Resource: charmresource.Resource{
