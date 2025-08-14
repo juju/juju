@@ -25,4 +25,10 @@ const (
 	// VolumeAttachmentPlanNotFound is used when a volume attachment plan cannot
 	// be found.
 	VolumeAttachmentPlanNotFound = errors.ConstError("volume attachment plan not found")
+
+	// StorageInstanceNotFound is used when a storage instance cannot be found.
+	StorageInstanceNotFound = errors.ConstError("storage instance not found")
+
+	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
+	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
 )

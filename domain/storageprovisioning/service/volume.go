@@ -187,14 +187,14 @@ func (s *Service) GetVolumeAttachmentLife(
 	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
-		return 0, errors.Errorf(
+		return -1, errors.Errorf(
 			"validating volume attachment uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetVolumeAttachmentLife(ctx, uuid)
 	if err != nil {
-		return 0, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 	return life, nil
 }
@@ -319,14 +319,14 @@ func (s *Service) GetVolumeLife(
 	defer span.End()
 
 	if err := uuid.Validate(); err != nil {
-		return 0, errors.Errorf(
+		return -1, errors.Errorf(
 			"validating volume uuid: %w", err,
 		).Add(coreerrors.NotValid)
 	}
 
 	life, err := s.st.GetVolumeLife(ctx, uuid)
 	if err != nil {
-		return 0, errors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 	return life, nil
 }

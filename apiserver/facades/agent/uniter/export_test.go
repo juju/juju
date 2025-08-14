@@ -20,10 +20,6 @@ var (
 	NewUniterAPIWithServices = newUniterAPIWithServices
 )
 
-type (
-	BlockDeviceService = blockDeviceService
-)
-
 func NewTestAPI(
 	c *tc.C,
 	authorizer facade.Authorizer,

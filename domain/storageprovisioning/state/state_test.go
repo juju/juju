@@ -19,7 +19,9 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -207,6 +209,94 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 		ControllerUUID:   controllerUUID,
 		ApplicationName:  "foo",
 	})
+}
+
+func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageID := s.getStorageID(c, storageInstanceUUID)
+	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory())
+	storageIDs, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageIDs, tc.DeepEquals, []string{
+		storageID,
+	})
+}
+
+func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
+	_, charmUUID := s.newApplication(c, "foo")
+	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageID := s.getStorageID(c, storageInstanceUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	rval, err := st.GetStorageInstanceUUIDByID(
+		c.Context(), storageID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, storageInstanceUUID.String())
+}
+
+func (s *stateSuite) TestGetStorageInstanceUUIDByIDWithStorageInstanceNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageInstanceUUIDByID(c.Context(), "foo/1")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	life, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(life, tc.Equals, domainlife.Alive)
+}
+
+func (s *stateSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, _ := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }
 
 // TestMachineProvisionScopeValue tests that the value of machine provision

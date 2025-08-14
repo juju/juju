@@ -14,6 +14,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -66,6 +67,33 @@ type State interface {
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
 	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
+
+	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+	GetStorageAttachmentIDsForUnit(ctx context.Context, unitUUID string) ([]string, error)
+
+	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+	// instance exists for the provided ID.
+	GetStorageInstanceUUIDByID(ctx context.Context, storageID string) (string, error)
+
+	// GetStorageAttachmentLife retrieves the life of a storage attachment for a unit
+	// and the storage instance.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied
+	// unit UUID.
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+	// instance exists for the provided storage instance UUID.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+	// attachment does not exist for the unit and storage instance.
+	GetStorageAttachmentLife(
+		ctx context.Context, unitUUID, storageInstanceUUID string,
+	) (domainlife.Life, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -191,4 +219,53 @@ func (s *Service) GetStorageResourceTagsForApplication(
 	resourceTags[tags.JujuStorageOwner] = info.ApplicationName
 
 	return resourceTags, nil
+}
+
+// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+// is not valid.
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+func (s *Service) GetStorageAttachmentIDsForUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+) ([]string, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids, err := s.st.GetStorageAttachmentIDsForUnit(ctx, unitUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("getting storage attachment IDs for unit %q: %w", unitUUID, err)
+	}
+	return ids, nil
+}
+
+// GetStorageAttachmentLife retrieves the life of a storage attachment for a unit.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the provided unit UUID is not valid.
+// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+// instance exists for the provided ID.
+// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage attachment does not exist for the unit.
+func (s *Service) GetStorageAttachmentLife(
+	ctx context.Context, unitUUID coreunit.UUID, storageID string,
+) (domainlife.Life, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	storageInstanceUUID, err := s.st.GetStorageInstanceUUIDByID(ctx, storageID)
+	if err != nil {
+		return -1, errors.Errorf("getting storage instance UUID for ID %q: %w", storageID, err)
+	}
+
+	life, err := s.st.GetStorageAttachmentLife(ctx, unitUUID.String(), storageInstanceUUID)
+	if err != nil {
+		return -1, errors.Errorf(
+			"getting life for storage attachment %q: %w", storageID, err,
+		)
+	}
+	return life, nil
 }
