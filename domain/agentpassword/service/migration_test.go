@@ -10,7 +10,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/agentpassword"
@@ -144,7 +143,7 @@ func (s *migrationServiceSuite) TestGetAllMachinePasswordHashesError(c *tc.C) {
 func (s *migrationServiceSuite) TestSetMachinePasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	rand, err := internalpassword.RandomPassword()
@@ -163,7 +162,7 @@ func (s *migrationServiceSuite) TestSetMachinePasswordHash(c *tc.C) {
 func (s *migrationServiceSuite) TestSetMachinePasswordHashNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	rand, err := internalpassword.RandomPassword()
@@ -181,7 +180,7 @@ func (s *migrationServiceSuite) TestSetMachinePasswordHashNotFound(c *tc.C) {
 func (s *migrationServiceSuite) TestSetMachinePasswordHashSettingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	rand, err := internalpassword.RandomPassword()

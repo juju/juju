@@ -20,7 +20,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
@@ -230,7 +229,7 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(
 	c *tc.C, ctrl *gomock.Controller, machineName coremachine.Name, unitNames []coreunit.Name,
 	containers []coremachine.Name, attemptDestroy, keep, force bool,
 ) {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil).MaxTimes(1)
 
 	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineName).Return(containers, nil)

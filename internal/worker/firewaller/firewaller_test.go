@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
@@ -398,7 +397,7 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
 	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), unitName).Return(machine.Name(m.Tag().Id()), nil).AnyTimes()
 
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(m.Tag().Id())).Return(machineUUID, nil).AnyTimes()
 	s.portService.EXPECT().GetMachineOpenedPorts(gomock.Any(), machineUUID.String()).DoAndReturn(
 		func(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error) {

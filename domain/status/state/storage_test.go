@@ -18,7 +18,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
@@ -1166,7 +1165,7 @@ VALUES (?, 'myapp')
 func (s *storageStatusSuite) newMachineWithNetNode(
 	c *tc.C, netNodeUUID domainnetwork.NetNodeUUID,
 ) (machine.UUID, machine.Name) {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
 	_, err := s.DB().Exec(

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -76,7 +75,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 // of the watcher itself.
 func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -118,7 +117,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumesNotValid(c *tc.C) {
 // exists for the provided machine uuid.
 func (s *volumeSuite) TestWatchMachineProvisionedVolumesNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
 		"", machineerrors.MachineNotFound,
@@ -160,7 +159,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 // of the watcher itself.
 func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -202,7 +201,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotValid(c *tc
 // machine exists for the provided machine uuid.
 func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
 		"", machineerrors.MachineNotFound,
@@ -220,7 +219,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotFound(c *tc
 // of the watcher itself.
 func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -261,7 +260,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentsNotValid(c *tc.C) {
 // the provided machine uuid.
 func (s *volumeSuite) TestWatchVolumeAttachmentPlansNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(
 		"", machineerrors.MachineNotFound,
@@ -312,7 +311,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNotValid(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	volumeUUID := domaintesting.GenVolumeUUID(c)
@@ -343,7 +342,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithNotValid(
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(
 		"", machineerrors.MachineNotFound,
@@ -357,7 +356,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithMachineNo
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -372,7 +371,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeNot
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeAttachmentNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	volumeUUID := domaintesting.GenVolumeUUID(c)

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removal "github.com/juju/juju/domain/removal"
@@ -30,7 +30,7 @@ func TestMachineSuite(t *testing.T) {
 func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -54,7 +54,7 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -72,7 +72,7 @@ func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -95,7 +95,7 @@ func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 func (s *machineSuite) TestRemoveMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	s.modelState.EXPECT().MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
@@ -106,7 +106,7 @@ func (s *machineSuite) TestRemoveMachineNotFound(c *tc.C) {
 func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -119,7 +119,7 @@ func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 func (s *machineSuite) TestMarkMachineAsDeadMachineDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -131,7 +131,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineDoesNotExist(c *tc.C) {
 func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
@@ -143,7 +143,7 @@ func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -156,7 +156,7 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -168,7 +168,7 @@ func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
 func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
@@ -180,7 +180,7 @@ func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -193,7 +193,7 @@ func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 func (s *machineSuite) TestMarkInstanceAsDeadMachineDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -205,7 +205,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineDoesNotExist(c *tc.C) {
 func (s *machineSuite) TestMarkInstanceAsDeadError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mUUID := machinetesting.GenUUID(c)
+	mUUID := machine.GenUUID(c)
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
@@ -334,6 +334,6 @@ func newMachineJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.MachineJob,
-		EntityUUID:  machinetesting.GenUUID(c).String(),
+		EntityUUID:  machine.GenUUID(c).String(),
 	}
 }

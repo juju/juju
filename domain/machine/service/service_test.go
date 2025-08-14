@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
@@ -179,7 +178,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *tc.C) {
 func (s *serviceSuite) TestGetInstanceIDByMachineNameSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
 	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("i-foo", nil)
 
@@ -202,7 +201,7 @@ func (s *serviceSuite) TestGetInstanceIDByMachineNameNotFound(c *tc.C) {
 func (s *serviceSuite) TestGetInstanceIDByMachineNameNotProvisioned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
 	s.state.EXPECT().GetInstanceID(gomock.Any(), machineUUID.String()).Return("", machineerrors.NotProvisioned)
 
@@ -588,7 +587,7 @@ func (s *serviceSuite) TestGetAllProvisionedMachineInstanceIDError(c *tc.C) {
 func (s *serviceSuite) TestSetMachineHostname(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().SetMachineHostname(gomock.Any(), machineUUID.String(), "new-hostname").Return(nil)
 
@@ -608,7 +607,7 @@ func (s *serviceSuite) TestSetMachineHostnameInvalidMachineUUID(c *tc.C) {
 func (s *serviceSuite) TestGetSupportedContainersTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"lxd"}, nil)
 
@@ -621,7 +620,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypes(c *tc.C) {
 func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, nil)
 
@@ -633,7 +632,7 @@ func (s *serviceSuite) TestGetSupportedContainersTypesInvalid(c *tc.C) {
 func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().GetSupportedContainersTypes(gomock.Any(), machineUUID.String()).Return([]string{"boo"}, errors.Errorf("boom"))
 
@@ -865,7 +864,7 @@ func (s *serviceSuite) TestCountMachinesInSpaceError(c *tc.C) {
 func (s *serviceSuite) TestGetSSHHostKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	expectedKeys := []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICD1"}
 
 	s.state.EXPECT().GetSSHHostKeys(gomock.Any(), machineUUID.String()).Return(expectedKeys, nil)
@@ -879,7 +878,7 @@ func (s *serviceSuite) TestGetSSHHostKeys(c *tc.C) {
 func (s *serviceSuite) TestSetSSHHostKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	keys := []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICD1"}
 
 	s.state.EXPECT().SetSSHHostKeys(gomock.Any(), machineUUID.String(), keys).Return(nil)

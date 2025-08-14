@@ -18,7 +18,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -115,7 +114,7 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	s.makeAPI(c)
 
 	machineName := coremachine.Name("1")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
 	s.removalService.EXPECT().MarkMachineAsDead(gomock.Any(), machineUUID).Return(nil)
 

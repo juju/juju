@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -218,7 +217,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	updWorker := w.(*updaterWorker)
 
 	// Start with an entry for machine "0"
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	machineName := machine.Name("0")
 	entry := &pollGroupEntry{
 		machineName: machineName,
@@ -445,7 +444,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *tc.C) {
 	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName0).Return(instance.Id(""), machineerrors.NotProvisioned)
 	updWorker.appendToShortPollGroup(machineName0)
 
-	machineUUID1 := machinetesting.GenUUID(c)
+	machineUUID1 := machine.GenUUID(c)
 	machineName1 := machine.Name("1")
 	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName1).Return(life.Alive, nil)
 	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName1).Return(instance.Id("b4dc0ffee"), nil)

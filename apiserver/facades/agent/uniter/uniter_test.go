@@ -22,7 +22,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -574,7 +573,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *tc.C) {
 		{Tag: "unit-foo-0"},
 	}}
 
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.expectGetUnitMachineUUID("wordpress/0", machineUUID, nil)
 	s.expectedGetAvailabilityZone(machineUUID, "a_zone", nil)
 

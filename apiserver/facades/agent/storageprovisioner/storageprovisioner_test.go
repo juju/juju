@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -205,7 +204,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachine(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -248,7 +247,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineNotProvisioned(c *
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -279,7 +278,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineAttachmentNotFound
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -307,7 +306,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineFilesystemNotFound
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -538,7 +537,7 @@ func (s *provisionerSuite) TestWatchVolumesForMachine(c *tc.C) {
 	volumeChanged <- []string{"vol1", "vol2"}
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(volumeChanged)
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -615,7 +614,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
 	filesystemChanged <- []string{"1", "2"}
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(filesystemChanged)
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -663,7 +662,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 
 	attachmentChanged := make(chan []string, 1)
 	attachmentChanged <- []string{"1", "2"}
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
 	s.mockMachineService.EXPECT().
@@ -723,7 +722,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachine(c *tc.C) {
 	attachmentChanged <- []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
@@ -840,7 +839,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachine(c *tc.C) {
 	attachmentChanged <- []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
@@ -1118,7 +1117,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachine(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -1178,7 +1177,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemA
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -1206,7 +1205,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -1234,7 +1233,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemA
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -1266,7 +1265,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -1476,7 +1475,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachine(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewVolumeTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -1535,7 +1534,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmen
 	defer ctrl.Finish()
 
 	tag := names.NewVolumeTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -1563,7 +1562,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound(
 	defer ctrl.Finish()
 
 	tag := names.NewVolumeTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.mockMachineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -1591,7 +1590,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmen
 	defer ctrl.Finish()
 
 	tag := names.NewVolumeTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -1623,7 +1622,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound2
 	defer ctrl.Finish()
 
 	tag := names.NewVolumeTag("123")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
 	s.mockMachineService.EXPECT().
@@ -2054,7 +2053,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 	volAttachUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
@@ -2115,7 +2114,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 
@@ -2181,7 +2180,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachine(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 	machineTag := names.NewMachineTag("5")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 
@@ -2216,7 +2215,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachineErrors(c *tc.C)
 
 	tag := names.NewFilesystemTag("123")
 	machineTag := names.NewMachineTag("5")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 

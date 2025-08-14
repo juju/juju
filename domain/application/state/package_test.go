@@ -13,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	coremachine "github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -714,7 +713,7 @@ WHERE uuid = ?
 }
 
 func (s *baseSuite) addMachineToUnit(c *tc.C, unitUUID coreunit.UUID) (coremachine.Name, coremachine.UUID) {
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	machineName := coremachine.Name("0")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`

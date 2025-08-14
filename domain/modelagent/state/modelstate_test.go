@@ -23,7 +23,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
@@ -86,7 +85,7 @@ func (s *modelStateSuite) addMachineWithBase(
 ) machine.UUID {
 	netNodeUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	netNodeInsert := `
 INSERT INTO net_node(uuid) VALUES (?)

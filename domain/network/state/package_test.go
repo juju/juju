@@ -15,7 +15,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -144,7 +143,7 @@ func (s *linkLayerBaseSuite) addNetNode(c *tc.C) string {
 }
 
 func (s *linkLayerBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) machine.UUID {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
 		machineUUID.String(), netNodeUUID, name, 0)
 	return machineUUID

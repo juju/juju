@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,9 +43,9 @@ func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machine1Name := machine.Name("1")
-	machine1UUID := machinetesting.GenUUID(c)
+	machine1UUID := machine.GenUUID(c)
 	machine2Name := machine.Name("2")
-	machine2UUID := machinetesting.GenUUID(c)
+	machine2UUID := machine.GenUUID(c)
 	machine3Name := machine.Name("3")
 
 	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return([]machine.Name{

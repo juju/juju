@@ -19,7 +19,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -60,7 +59,7 @@ func (s *provisionerMockSuite) TestEnsureDead(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	machineName := coremachine.Name("1")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
 	s.removalService.EXPECT().MarkMachineAsDead(gomock.Any(), machineUUID).Return(nil)
 
@@ -128,8 +127,8 @@ func (s *provisionerMockSuite) TestHostChangesForContainers(c *tc.C) {
 func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNoAddrAllocation(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	hostUUID := machinetesting.GenUUID(c)
-	guestUUID := machinetesting.GenUUID(c)
+	hostUUID := coremachine.GenUUID(c)
+	guestUUID := coremachine.GenUUID(c)
 	hostInstanceID := instance.Id("m0-instance-id")
 
 	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
@@ -195,8 +194,8 @@ func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNoAddrAllocation
 func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoProviderAddrAllocation(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	hostUUID := machinetesting.GenUUID(c)
-	guestUUID := machinetesting.GenUUID(c)
+	hostUUID := coremachine.GenUUID(c)
+	guestUUID := coremachine.GenUUID(c)
 	hostInstanceID := instance.Id("m0-instance-id")
 
 	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
@@ -642,7 +641,7 @@ func (s *provisionerMockSuite) TestMarkMachinesForRemoval(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	machineName := coremachine.Name("1")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
 	s.removalService.EXPECT().MarkInstanceAsDead(gomock.Any(), machineUUID).Return(nil)
 
@@ -676,7 +675,7 @@ func (s *provisionerMockSuite) TestRemove(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	machineName := coremachine.Name("1")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
 	s.removalService.EXPECT().DeleteMachine(gomock.Any(), machineUUID).Return(nil)
 

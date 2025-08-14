@@ -12,7 +12,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -81,7 +80,7 @@ func (s *stateSuite) TestCheckMachineIsDeadFalse(c *tc.C) {
 // TestCheckMachineIsDeadNotFound tests that check if a non-existent machine
 // is dead results in a [machineerrors.MachineNotFound] error to the caller.
 func (s *stateSuite) TestCheckMachineIsDeadNotFound(c *tc.C) {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.CheckMachineIsDead(
 		c.Context(), machineUUID,
@@ -150,7 +149,7 @@ func (s *stateSuite) TestGetMachineNetNodeUUID(c *tc.C) {
 // machine that does not exist returns a [machineerrors.MachineNotFound] error
 // to the caller.
 func (s *stateSuite) TestGetMachineNetNodeUUIDNotFound(c *tc.C) {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetMachineNetNodeUUID(

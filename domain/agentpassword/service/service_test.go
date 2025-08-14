@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
@@ -155,7 +154,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *tc.C) {
 func (s *serviceSuite) TestSetMachinePassword(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	password, err := internalpassword.RandomPassword()
@@ -172,7 +171,7 @@ func (s *serviceSuite) TestSetMachinePassword(c *tc.C) {
 func (s *serviceSuite) TestSetMachinePasswordMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	password, err := internalpassword.RandomPassword()
@@ -211,7 +210,7 @@ func (s *serviceSuite) TestSetMachinePasswordInvalidPassword(c *tc.C) {
 func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	password, err := internalpassword.RandomPassword()
@@ -229,7 +228,7 @@ func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonce(c *tc.C) {
 func (s *serviceSuite) TestMatchesMachinePasswordHashWithNonceMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	machineName := machine.Name("0")
 	password, err := internalpassword.RandomPassword()

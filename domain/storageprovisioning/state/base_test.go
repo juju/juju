@@ -13,7 +13,6 @@ import (
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -102,7 +101,7 @@ VALUES (?, 'myapp')
 func (s *baseSuite) newMachineWithNetNode(
 	c *tc.C, netNodeUUID domainnetwork.NetNodeUUID,
 ) (string, coremachine.Name) {
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
 	_, err := s.DB().ExecContext(

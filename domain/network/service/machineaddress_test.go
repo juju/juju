@@ -11,7 +11,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
@@ -51,7 +50,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesErrorGettingNetNodeUUID(c *
 
 	expectedError := errors.New("net node not found")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	// Expect a call to GetMachineNetNodeUUID and return an error
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
@@ -67,7 +66,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesErrorGettingAddresses(c *tc
 
 	expectedError := errors.New("error while fetching addresses")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Expect a call to GetMachineNetNodeUUID and return a net node UUID
@@ -87,7 +86,7 @@ func (s *machineaddressSuite) TestGetMachineAddressesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Create some addresses to return
@@ -126,7 +125,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressErrorGettingNetNodeUUID
 
 	expectedError := errors.New("net node not found")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	// Expect a call to GetMachineNetNodeUUID and return an error
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
@@ -142,7 +141,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressErrorGettingAddresses(c
 
 	expectedError := errors.New("error while fetching addresses")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Expect a call to GetMachineNetNodeUUID and return a net node UUID
@@ -162,7 +161,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressNoPublicAddress(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Create addresses with a scope that won't match public
@@ -187,7 +186,7 @@ func (s *machineaddressSuite) TestGetMachinePublicAddressSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Create addresses with a public address
@@ -227,7 +226,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressErrorGettingNetNodeUUI
 
 	expectedError := errors.New("net node not found")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	// Expect a call to GetMachineNetNodeUUID and return an error
 	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
@@ -243,7 +242,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressErrorGettingAddresses(
 
 	expectedError := errors.New("error while fetching addresses")
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Expect a call to GetMachineNetNodeUUID and return a net node UUID
@@ -263,7 +262,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressNoPrivateAddress(c *tc
 	defer s.setupMocks(c).Finish()
 
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Create addresses with a scope that won't match private
@@ -288,7 +287,7 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Create a valid UUID
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 	netNodeUUID := "net-node-456"
 
 	// Create addresses with a private address

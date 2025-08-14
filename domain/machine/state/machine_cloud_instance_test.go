@@ -10,12 +10,11 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithNoData(c *tc.C) {
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	_, err := s.state.GetHardwareCharacteristics(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
@@ -72,7 +71,7 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc
 }
 
 func (s *stateSuite) TestAvailabilityZoneWithNoMachine(c *tc.C) {
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	_, err := s.state.AvailabilityZone(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.AvailabilityZoneNotFound)

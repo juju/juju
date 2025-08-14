@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -78,7 +77,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 
 	machineName := coremachine.Name("0")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 
 	s.service.EXPECT().GetMachines(gomock.Any()).Return([]machine.ExportMachine{
 		{
@@ -137,9 +136,9 @@ func (s *exportSuite) TestExportContainer(c *tc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 
 	machineName := coremachine.Name("0")
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	containerName := coremachine.Name("0/lxd/0")
-	containerUUID := machinetesting.GenUUID(c)
+	containerUUID := coremachine.GenUUID(c)
 
 	// NOTE: We return the container machine first, to check the export code can
 	// handle this.

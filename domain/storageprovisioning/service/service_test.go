@@ -12,7 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerror "github.com/juju/juju/core/errors"
-	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/machine"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -53,7 +53,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *serviceSuite) TestWatchMachineCloudInstanceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().CheckMachineIsDead(gomock.Any(), machineUUID).Return(
 		false, machineerrors.MachineNotFound,
@@ -71,7 +71,7 @@ func (s *serviceSuite) TestWatchMachineCloudInstanceNotFound(c *tc.C) {
 func (s *serviceSuite) TestWatchMachineCloudInstanceDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := machine.GenUUID(c)
 
 	s.state.EXPECT().CheckMachineIsDead(gomock.Any(), machineUUID).Return(
 		true, nil,

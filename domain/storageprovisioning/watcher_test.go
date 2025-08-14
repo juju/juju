@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coremachine "github.com/juju/juju/core/machine"
-	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
@@ -980,7 +979,7 @@ WHERE  uuid = ?
 func (s *watcherSuite) newMachine(c *tc.C) string {
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Check(err, tc.ErrorIsNil)
-	machineUUID := machinetesting.GenUUID(c)
+	machineUUID := coremachine.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
