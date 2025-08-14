@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -233,7 +232,7 @@ func (s *storageServiceSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := storage.GenStorageInstanceUUID(c)
 	si := []status.StorageInstance{
 		{
 			UUID:  storageInstanceUUID,
@@ -276,8 +275,8 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
-	storageInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID0 := storage.GenStorageInstanceUUID(c)
+	storageInstanceUUID1 := storage.GenStorageInstanceUUID(c)
 	si := []status.StorageInstance{
 		{
 			UUID: storageInstanceUUID0,

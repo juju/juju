@@ -24,10 +24,30 @@ func NewStorageInstanceUUID() (StorageInstanceUUID, error) {
 	return StorageInstanceUUID(u), err
 }
 
+// GenStorageInstanceUUID generates a new [StorageInstanceUUID] for testing
+// purposes.
+func GenStorageInstanceUUID(c interface{ Fatal(...any) }) StorageInstanceUUID {
+	uuid, err := NewStorageInstanceUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
+}
+
 // NewStoragePoolUUID creates a new, valid storage pool identifier.
 func NewStoragePoolUUID() (StoragePoolUUID, error) {
 	u, err := newUUID()
 	return StoragePoolUUID(u), err
+}
+
+// GenStoragePoolUUID generates a new [StoragePoolUUID] for testing
+// purposes.
+func GenStoragePoolUUID(c interface{ Fatal(...any) }) StoragePoolUUID {
+	uuid, err := NewStoragePoolUUID()
+	if err != nil {
+		c.Fatal(err)
+	}
+	return uuid
 }
 
 // newUUID creates a new UUID using the internal uui package.

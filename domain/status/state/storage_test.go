@@ -30,7 +30,6 @@ import (
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -191,7 +190,7 @@ INSERT INTO charm_storage (
 
 func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID) storage.StorageInstanceUUID {
 	ctx := c.Context()
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageUUID := storage.GenStorageInstanceUUID(c)
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance (
@@ -1243,7 +1242,7 @@ VALUES (?, ?, ?, 0, 1)
 }
 
 func (s *storageStatusSuite) newStorageInstance(c *tc.C, charmUUID string, storageName string) (storage.StorageInstanceUUID, string) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := storage.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
 
 	_, err := s.DB().Exec(`

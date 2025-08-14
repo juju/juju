@@ -23,7 +23,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -154,7 +153,7 @@ func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
 	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
-	uuid := storagetesting.GenStorageInstanceUUID(c)
+	uuid := domainstorage.GenStorageInstanceUUID(c)
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -196,7 +195,7 @@ func (s *baseStorageSuite) createStorageInstance(c *tc.C, storageName, charmUUID
 	ctx := c.Context()
 
 	poolUUID := uuid.MustNewUUID().String()
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageUUID := domainstorage.GenStorageInstanceUUID(c)
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_pool(uuid, name, type)
@@ -635,7 +634,7 @@ func (s *baseStorageSuite) TestAttachStorageNotFound(c *tc.C) {
 	s.createStorageInstance(c, "pgdata", charmUUID, nil)
 
 	ctx := c.Context()
-	err := s.state.AttachStorage(ctx, storagetesting.GenStorageInstanceUUID(c), unitUUID)
+	err := s.state.AttachStorage(ctx, domainstorage.GenStorageInstanceUUID(c), unitUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
 }
 
@@ -776,28 +775,28 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 	storageInstances := []application.CreateUnitStorageInstanceArg{}
 	storageToAttach := []domainstorage.StorageInstanceUUID{}
 
-	sUUID := storagetesting.GenStorageInstanceUUID(c)
+	sUUID := domainstorage.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "database",
 		UUID: sUUID,
 	})
 	storageToAttach = append(storageToAttach, sUUID)
 
-	sUUID = storagetesting.GenStorageInstanceUUID(c)
+	sUUID = domainstorage.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "database",
 		UUID: sUUID,
 	})
 	storageToAttach = append(storageToAttach, sUUID)
 
-	sUUID = storagetesting.GenStorageInstanceUUID(c)
+	sUUID = domainstorage.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "logs",
 		UUID: sUUID,
 	})
 	storageToAttach = append(storageToAttach, sUUID)
 
-	sUUID = storagetesting.GenStorageInstanceUUID(c)
+	sUUID = domainstorage.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "cache",
 		UUID: sUUID,

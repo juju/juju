@@ -18,7 +18,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -269,7 +269,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 
 func (s *stateSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
 	unitUUID := coreunit.GenUUID(c)
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := domainstorage.GenStorageInstanceUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
@@ -280,7 +280,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, _ := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := domainstorage.GenStorageInstanceUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())

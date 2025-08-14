@@ -21,7 +21,6 @@ import (
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -220,7 +219,7 @@ func (s *baseSuite) newStorageInstance(c *tc.C, charmUUID string) domainstorage.
 	if charmUUID == "" {
 		charmUUID = s.newCharm(c)
 	}
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := domainstorage.GenStorageInstanceUUID(c)
 	storageName := "mystorage"
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
