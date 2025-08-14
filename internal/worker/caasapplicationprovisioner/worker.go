@@ -76,6 +76,7 @@ type CAASBroker interface {
 	DeleteService(appName string) error
 	OperatorExists(appName string) (caas.DeploymentState, error)
 	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
+	DeleteCustomResourceDefinitionsForApps(appName string) error
 }
 
 // Runner exposes functionalities of a worker.Runner.

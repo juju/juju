@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/juju/errors"
 	admission "k8s.io/api/admission/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -156,6 +157,9 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper, labelVersion constan
 
 		patchJSON, err := json.Marshal(
 			patchForLabels(metaObj.Labels, appName, labelVersion))
+
+		logger.Infof("alvin3 patchJSON: %v", string(patchJSON))
+
 		if err != nil {
 			http.Error(res,
 				fmt.Sprintf("marshalling patch object to json: %v", err),
@@ -198,9 +202,11 @@ func patchForLabels(
 	labelVersion constants.LabelVersion) []patchOperation {
 	patches := []patchOperation{}
 
+	logger.Infof("alvin3 arg labels: %v", labels)
 	neededLabels := providerutils.LabelForKeyValue(
 		providerconst.LabelJujuAppCreatedBy, appName)
 
+	logger.Infof("alvin3 needed labels: %v", neededLabels)
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{
 			Op:    addOp,
@@ -208,6 +214,7 @@ func patchForLabels(
 			Value: map[string]string{},
 		})
 	}
+	logger.Infof("alvin3 arg labels now: %v", labels)
 
 	for k, v := range neededLabels {
 		if extVal, found := labels[k]; found && extVal != v {

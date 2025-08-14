@@ -27,7 +27,9 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsclientsetfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +48,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -8419,5 +8422,63 @@ func dataVolumes() []core.Volume {
 				EmptyDir: &core.EmptyDirVolumeSource{},
 			},
 		},
+	}
+}
+
+func (s *K8sBrokerSuite) TestDeleteCRDsForAppSuccess(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	appName := "testapp"
+
+	listOpts := metav1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	}
+
+	s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(), listOpts, gomock.Any()).Return(nil).Times(1)
+
+	err := s.broker.DeleteCustomResourceDefinitionsForApps(appName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestDeleteCRDsForAppErrorCases(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		name        string
+		returnedErr error
+		expectNil   bool
+	}{
+		{
+			name:        "not found error ignored",
+			returnedErr: k8serrors.NewNotFound(schema.GroupResource{}, ""),
+			expectNil:   true,
+		},
+		{
+			name:        "bad request error returned",
+			returnedErr: k8serrors.NewBadRequest("bad req"),
+			expectNil:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		appName := "testapp"
+		listOpts := metav1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		}
+
+		s.mockCustomResourceDefinitionV1.EXPECT().
+			DeleteCollection(gomock.Any(), listOpts, gomock.Any()).
+			Return(tt.returnedErr).
+			Times(1)
+
+		err := s.broker.DeleteCustomResourceDefinitionsForApps(appName)
+
+		if tt.expectNil {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, jc.ErrorIs, tt.returnedErr)
+		}
 	}
 }

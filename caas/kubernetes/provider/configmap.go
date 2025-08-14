@@ -56,6 +56,7 @@ func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp fu
 		return cleanUp, errNoNamespace
 	}
 	api := k.client().CoreV1().ConfigMaps(k.namespace)
+	logger.Infof("alvin2 create configmap ensureConfigMapLegacy: %+v", cm)
 	_, err = api.Update(context.TODO(), cm, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		var out *core.ConfigMap
@@ -70,6 +71,7 @@ func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp fu
 
 // ensureConfigMap ensures a ConfigMap resource.
 func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
+	logger.Infof("alvin ensureConfigMap called: %+v", *cm)
 	cleanUp := func() {}
 	out, err := k.createConfigMap(cm)
 	if err == nil {
@@ -113,6 +115,7 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
+	logger.Infof("alvin createConfigmap: %+v", *cm)
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
