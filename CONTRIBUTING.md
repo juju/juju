@@ -114,7 +114,7 @@ All changes should follow the existing patterns, including
   [Diátaxis](https://diataxis.fr), the [Canonical Documentation Style
   Guide](https://docs.ubuntu.com/styleguide/en), the modular structure, the
   cross-referencing pattern, [MyST
-  Markdown](https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com/style-guide-myst/),
+  Markdown](https://canonical-starter-pack.readthedocs-hosted.com/latest/reference/myst-syntax-reference/),
   etc.
 
 ### Testing
