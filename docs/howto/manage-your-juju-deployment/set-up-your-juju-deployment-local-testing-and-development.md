@@ -20,7 +20,7 @@ $ sudo snap install multipass
 ```
 
 ```{important}
-If on Windows: Note that Multipass can only be installed on Windows 10 Pro or Enterprise. If you are using a different version, please follow the manually, omitting the Multipass step.
+If on Windows: Note that Multipass can only be installed on Windows 10 Pro or Enterprise. If you are using a different version, please follow the manual path, omitting the Multipass step.
 ```
 
 
