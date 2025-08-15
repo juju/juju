@@ -53,7 +53,7 @@ func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
 // TestGetFilesystemWithBackingVolume tests getting a filesystem's information
 // by id when it is backed by a volume.
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
-	storageInstanceUUID := s.newStorageInstance(c, "")
+	storageInstanceUUID := s.newStorageInstance(c)
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)

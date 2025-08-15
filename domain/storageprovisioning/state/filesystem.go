@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"maps"
 
 	"github.com/canonical/sqlair"
@@ -588,7 +587,7 @@ func (st *State) GetFilesystemAttachmentParams(
 	// provisioned such a filesystem has the provider information on it instead
 	// of through RI. This is even more important when we need to cleanup after
 	// ourselves.
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
 	}
@@ -647,7 +646,6 @@ SELECT &filesystemAttachmentParams.* FROM (
 		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
 	}
 
-	fmt.Println(dbVal)
 	return storageprovisioning.FilesystemAttachmentParams{
 		MachineInstanceID: dbVal.MachineInstanceID.V,
 		Provider:          dbVal.Type.V,
@@ -854,7 +852,7 @@ func (st *State) GetFilesystemParams(
 	// of through RI. This is even more important when we need to cleanup after
 	// ourselves.
 
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.FilesystemParams{}, errors.Capture(err)
 	}

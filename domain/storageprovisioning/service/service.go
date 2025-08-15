@@ -52,10 +52,6 @@ type State interface {
 	// machine exists for the provided UUID.
 	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
 
-	// GetStorageResourceTagInfoForApplication returns information required to
-	// build resource tags for storage created for the given application.
-	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
-
 	// GetStoragesourceTagInfoForModel returns the information required to build
 	// storage tags in the model.
 	GetStorageResourceTagInfoForModel(
@@ -76,7 +72,7 @@ type State interface {
 
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
-	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
+	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
 
 	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 	//

@@ -314,34 +314,6 @@ VALUES (?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// newUnitWithNetNode creates a new unit in the model for the provided
-// application uuid. The new unit will use the supplied net node. Returned is
-// the new uuid of the unit and the name that was used.
-func (s *baseSuite) newUnitWithNetNode(
-	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
-) (coreunit.UUID, coreunit.Name) {
-	var charmUUID string
-	err := s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT charm_uuid FROM application WHERE uuid = ?",
-		appUUID,
-	).Scan(&charmUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	_, err = s.DB().ExecContext(
-		c.Context(), `
-INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
-VALUES (?, ?, ?, ?, ?, 0)
-`,
-		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return unitUUID, coreunit.Name(name)
-}
-
 func (s *baseSuite) newStorageInstanceWithPool(
 	c *tc.C, poolUUID string,
 ) domainstorage.StorageInstanceUUID {

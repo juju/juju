@@ -235,7 +235,7 @@ func (st *State) GetStorageResourceTagInfoForModel(
 	ctx context.Context,
 	resourceTagModelConfigKey string,
 ) (storageprovisioning.ModelResourceTagInfo, error) {
-	db, err := st.DB()
+	db, err := st.DB(ctx)
 	if err != nil {
 		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
 	}
@@ -304,7 +304,7 @@ FROM model
 		// This must never happen, but we return an error that at least signals
 		// the problem correctly in case it does.
 		return storageprovisioning.ModelResourceTagInfo{}, errors.New(
-			"model database has not had it's information set",
+			"model database has not had its information set",
 		)
 	} else if err != nil {
 		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)

@@ -136,9 +136,9 @@ type FilesystemState interface {
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
 	// exists for the uuid.
-	GetFilesystemParams(context.Context, storageprovisioning.FilesystemUUID) (
-		storageprovisioning.FilesystemParams, error,
-	)
+	GetFilesystemParams(
+		context.Context, storageprovisioning.FilesystemUUID,
+	) (storageprovisioning.FilesystemParams, error)
 
 	// GetFilesystemUUIDForID returns the UUID for a filesystem with the
 	// supplied id.

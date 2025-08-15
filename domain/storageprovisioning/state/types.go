@@ -134,61 +134,12 @@ type volumeAttachmentIDs struct {
 	UnitName    sql.NullString `db:"unit_name"`
 }
 
-type filesystem struct {
-	FilesystemID string           `db:"filesystem_id"`
-	ProviderID   string           `db:"provider_id"`
-	VolumeID     sql.Null[string] `db:"volume_id"`
-	SizeMiB      uint64           `db:"size_mib"`
-}
-
-type filesystemAttachment struct {
-	FilesystemID string `db:"filesystem_id"`
-	MountPoint   string `db:"mount_point"`
-	ReadOnly     bool   `db:"read_only"`
-}
-
-// filesystemAttachmentProvisionedInfo is used to set the provisioned info for
-// a filesystem attachment.
-type filesystemAttachmentProvisionedInfo struct {
-	UUID       string `db:"uuid"`
-	MountPoint string `db:"mount_point"`
-	ReadOnly   bool   `db:"read_only"`
-}
-
-// filesystemProvisionedInfo is used to set the provisioned info for a
-// filesystem.
-type filesystemProvisionedInfo struct {
-	UUID       string `db:"uuid"`
-	ProviderID string `db:"provider_id"`
-	SizeMiB    uint64 `db:"size_mib"`
-}
-
-// filesystemTemplate represents the combination of storage directives, charm
-// storage and provider type.
-type filesystemTemplate struct {
-	StorageName  string `db:"storage_name"`
-	SizeMiB      uint64 `db:"size_mib"`
-	Count        int    `db:"count"`
-	MaxCount     int    `db:"count_max"`
-	ProviderType string `db:"storage_type"`
-	ReadOnly     bool   `db:"read_only"`
-	Location     string `db:"location"`
-}
-
 // modelResourceTagInfo represents the information about model resource tag
 // information for storage.
 type modelResourceTagInfo struct {
 	ResourceTags   string `db:"resource_tags"`
 	ModelUUID      string `db:"uuid"`
 	ControllerUUID string `db:"controller_uuid"`
-}
-
-// storageNameAttributes represents each key/value attribute for a given storage
-// derived from the provider/pool used to provisioner the storage.
-type storageNameAttributes struct {
-	StorageName string `db:"storage_name"`
-	Key         string `db:"key"`
-	Value       string `db:"value"`
 }
 
 // storagePoolAttribute represent a single attribute from the
@@ -242,9 +193,6 @@ type volumeLife struct {
 // of [volumeLife] values to a map.
 type volumeLives []volumeLife
 
-// volumeUUID represents the UUID of a record in the volume table.
-type volumeUUID entityUUID
-
 // Iter provides a seq2 implementation for iterating the values of
 // [volumeLives].
 func (l volumeLives) Iter(yield func(string, life.Life) bool) {
@@ -289,14 +237,6 @@ type storageNameAttributes struct {
 	StorageName string `db:"storage_name"`
 	Key         string `db:"key"`
 	Value       string `db:"value"`
-}
-
-// resourceTagInfo is the required info to create resource tags for a given app.
-type resourceTagInfo struct {
-	ResourceTags    string `db:"resource_tags"`
-	ModelUUID       string `db:"model_uuid"`
-	ControllerUUID  string `db:"controller_uuid"`
-	ApplicationName string `db:"application_name"`
 }
 
 // filesystemProvisionedInfo is used to set the provisioned info for a
