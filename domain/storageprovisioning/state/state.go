@@ -458,7 +458,6 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 		}
 		return err
 	})
-
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

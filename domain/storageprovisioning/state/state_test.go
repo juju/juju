@@ -34,15 +34,43 @@ type ddlAssumptionsSuite struct {
 	schematesting.ModelSuite
 }
 
-// stateSuite provides a test suite for testing the commonality parts of [State].
-type stateSuite struct {
-	baseSuite
-}
-
 // TestDDLAssumptionSuite registers and runs all of the tests located in
 // [ddlAssumptionsSuite].
 func TestDDLAssumptionsSuite(t *testing.T) {
 	tc.Run(t, &ddlAssumptionsSuite{})
+}
+
+// TestMachineProvisionScopeValue tests that the value of machine provision
+// scope in the storage_provision_scope table is 1. This is an assumption that
+// is made in this state layer.
+func (s *ddlAssumptionsSuite) TestMachineProvisionScopeValue(c *tc.C) {
+	var idVal int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id from storage_provision_scope WHERE scope = 'machine'",
+	).Scan(&idVal)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(idVal, tc.Equals, 1)
+}
+
+// TestModelProvisionScopeValue tests that the value of model provision
+// scope in the storage_provision_scope table is 0. This is an assumption that
+// is made in this state layer.
+func (s *ddlAssumptionsSuite) TestModelProvisionScopeValue(c *tc.C) {
+	var idVal int
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id from storage_provision_scope WHERE scope = 'model'",
+	).Scan(&idVal)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(idVal, tc.Equals, 0)
+}
+
+// stateSuite provides a test suite for testing the commonality parts of [State].
+type stateSuite struct {
+	baseSuite
 }
 
 // TestStateSuite registers and runs all of the tests located in [stateSuite].
@@ -365,30 +393,71 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }
 
-// TestMachineProvisionScopeValue tests that the value of machine provision
-// scope in the storage_provision_scope table is 1. This is an assumption that
-// is made in this state layer.
-func (s *ddlAssumptionsSuite) TestMachineProvisionScopeValue(c *tc.C) {
-	var idVal int
-	err := s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT id from storage_provision_scope WHERE scope = 'machine'",
-	).Scan(&idVal)
+func (s *stateSuite) TestGetStorageIDsForUnit(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	s.newCharmStorage(c, charmUUID, "mystorage-1", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-2", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-3", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
+	storageInstanceUUID2 := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
+	storageInstanceUUID3 := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
+	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	storageID := s.getStorageID(c, storageInstanceUUID)
 
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(idVal, tc.Equals, 1)
+	st := NewState(s.TxnRunnerFactory())
+
+	result, err := st.GetStorageIDsForUnit(c.Context(), unitUUID.String(), []string{
+		storageInstanceUUID.String(),
+		storageInstanceUUID2.String(),
+		storageInstanceUUID3.String(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []string{storageID})
 }
 
-// TestModelProvisionScopeValue tests that the value of model provision
-// scope in the storage_provision_scope table is 0. This is an assumption that
-// is made in this state layer.
-func (s *ddlAssumptionsSuite) TestModelProvisionScopeValue(c *tc.C) {
-	var idVal int
-	err := s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT id from storage_provision_scope WHERE scope = 'model'",
-	).Scan(&idVal)
+func (s *stateSuite) TestGetStorageIDsForUnitWithUnitNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageInstanceUUID := uuid.MustNewUUID().String()
+	st := NewState(s.TxnRunnerFactory())
 
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(idVal, tc.Equals, 0)
+	_, err := st.GetStorageIDsForUnit(c.Context(), unitUUID.String(), []string{storageInstanceUUID})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	s.newCharmStorage(c, charmUUID, "mystorage-1", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-2", "filesystem", false, "")
+	s.newCharmStorage(c, charmUUID, "mystorage-3", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
+	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
+	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
+	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	storageID := s.getStorageID(c, storageInstanceUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID.String())
+	c.Assert(stmt, tc.Equals, "storage_attachment")
+	c.Assert(q, tc.NotNil)
+	result, err := q(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []string{storageID})
+}
+
+func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachmentsWithUnitNotFound(c *tc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	stmt, q := st.InitialWatchStatementForUnitStorageAttachments(c.Context(), unitUUID.String())
+	c.Assert(stmt, tc.Equals, "storage_attachment")
+	c.Assert(q, tc.NotNil)
+	_, err := q(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
