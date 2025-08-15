@@ -28,7 +28,7 @@ build:
     # Install build requirements
     - python -m virtualenv $READTHEDOCS_VIRTUALENV_PATH
     - python -m pip install --upgrade --no-cache-dir pip setuptools
-    - python -m pip install --exists-action=w --no-cache-dir -r docs/.sphinx/requirements.txt
+    - python -m pip install --exists-action=w --no-cache-dir -r docs/requirements.txt
 
     # Print config
     - cat docs/conf.py
@@ -48,4 +48,4 @@ formats:
 # Optionally declare the Python requirements required to build your docs
 python:
   install:
-    - requirements: docs/.sphinx/requirements.txt
+    - requirements: docs/requirements.txt
