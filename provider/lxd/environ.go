@@ -98,6 +98,13 @@ func newEnviron(
 	return env, nil
 }
 
+func (env *environ) profileCfg() map[string]string {
+	return map[string]string{
+		"boot.autostart":   "true",
+		"security.nesting": "true",
+	}
+}
+
 func (env *environ) initProfile() error {
 	pName := env.profileName()
 
@@ -109,17 +116,12 @@ func (env *environ) initProfile() error {
 		return nil
 	}
 
-	cfg := map[string]string{
-		"boot.autostart":   "true",
-		"security.nesting": "true",
-	}
-
 	// In ci, perhaps other places, there can be a race if more than one
 	// controller is starting up, where we try to create the profile more
 	// than once and get: The profile already exists.  LXD does not have
 	// typed errors. Therefore if CreateProfile fails, check to see if the
 	// profile exists.  No need to fail if it does.
-	err = env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
+	err = env.serverUnlocked.CreateProfileWithConfig(pName, env.profileCfg())
 	if err == nil {
 		return nil
 	}
