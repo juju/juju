@@ -38,7 +38,7 @@ func deleteDBContents(ctx context.Context, tx *sql.Tx, logger logger.Logger) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var schema sqliteSchema

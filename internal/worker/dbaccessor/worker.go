@@ -711,7 +711,7 @@ func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
 		return w.cfg.NewDBWorker(ctx,
 			w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
-			WithLogger(w.cfg.Logger),
+			WithLogger(w.cfg.Logger.Child(database.ShortNamespace(namespace))),
 			WithMetricsCollector(w.cfg.MetricsCollector),
 		)
 	})
@@ -756,7 +756,7 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 	if err != nil {
 		return errors.Annotatef(err, "opening database for deletion")
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// We need to ensure that foreign keys are disabled before we can blanket
 	// delete the database.

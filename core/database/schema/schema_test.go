@@ -50,7 +50,8 @@ func (s *patchSuite) TestPatchRun(c *tc.C) {
 
 	s.tx.EXPECT().ExecContext(gomock.Any(), "SELECT * FROM schema_master", 1, 2, "a").Return(nil, nil)
 
-	patch.run(c.Context(), s.tx)
+	err := patch.run(c.Context(), s.tx)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *patchSuite) setupMocks(c *tc.C) *gomock.Controller {
