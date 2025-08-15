@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -203,11 +204,68 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 		c.Context(), coreapplication.ID(appUUID), "resource_tags",
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ResourceTagInfo{
+	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ApplicationResourceTagInfo{
+		ModelResourceTagInfo: storageprovisioning.ModelResourceTagInfo{
+			BaseResourceTags: "a=x b=y",
+			ModelUUID:        s.ModelUUID(),
+			ControllerUUID:   controllerUUID,
+		},
+		ApplicationName: "foo",
+	})
+}
+
+func (s *stateSuite) TestGetStorageResourceTagInfoForApplicationNotFound(c *tc.C) {
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	controllerUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "", "", "", "", "")
+`,
+		s.ModelUUID(),
+		controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err = st.GetStorageResourceTagInfoForApplication(
+		c.Context(), appUUID, "resource_tags",
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetStorageResourceTagInfoForModel(c *tc.C) {
+	controllerUUID := uuid.MustNewUUID().String()
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO model_config (key, value) VALUES (?, ?)",
+		"resource_tags",
+		"a=x b=y",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "", "", "", "", "")
+`,
+		s.ModelUUID(),
+		controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	resourceTags, err := st.GetStorageResourceTagInfoForModel(
+		c.Context(), "resource_tags",
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ModelResourceTagInfo{
 		BaseResourceTags: "a=x b=y",
 		ModelUUID:        s.ModelUUID(),
 		ControllerUUID:   controllerUUID,
-		ApplicationName:  "foo",
 	})
 }
 
@@ -215,7 +273,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
 
@@ -237,7 +295,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C)
 
 func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 	_, charmUUID := s.newApplication(c, "foo")
-	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -258,7 +316,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
 	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -292,7 +350,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstance(c, charmUUID)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())

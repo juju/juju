@@ -50,6 +50,15 @@ type Filesystem struct {
 	SizeMiB uint64
 }
 
+// FilesystemParams defines the set of parameters that a caller needs to know
+// in order to provision a filesystem in the model.
+type FilesystemParams struct {
+	Attributes map[string]string
+	ID         string
+	Provider   string
+	SizeMiB    uint64
+}
+
 // FilesystemBackingVolume contains information about the volume that is used
 // to back a filesystem.
 type FilesystemBackingVolume struct {
@@ -70,6 +79,16 @@ type FilesystemAttachment struct {
 
 	// ReadOnly indicates whether the filesystem is mounted read-only.
 	ReadOnly bool
+}
+
+// FilesystemAttachmentParams defines the set of parameters that a caller needs
+// to know in order to provision a filesystem attachment in the model.
+type FilesystemAttachmentParams struct {
+	MachineInstanceID string
+	Provider          string
+	ProviderID        string
+	MountPoint        string
+	ReadOnly          bool
 }
 
 // FilesystemTemplate represents the required information to supply a Kubernetes

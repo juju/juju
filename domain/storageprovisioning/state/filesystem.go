@@ -125,6 +125,37 @@ ORDER BY asd.storage_name
 	return r, nil
 }
 
+// checkFilesystemAttachmentExists checks if a filesystem attachment for the
+// provided uuid exists. True is returned when the filesystem attachment is
+// exists.
+func (st *State) checkFilesystemAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid storageprovisioning.FilesystemAttachmentUUID,
+) (bool, error) {
+	fsaUUIDInput := filesystemAttachmentUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &filesystemAttachmentUUID.*
+FROM   storage_filesystem_attachment
+WHERE  uuid = $filesystemAttachmentUUID.uuid
+`,
+		fsaUUIDInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, fsaUUIDInput).Get(&fsaUUIDInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkFilesystemExists checks if a filesystem for the provided uuid exists.
 // True is returned when the filesystem exists.
 func (st *State) checkFilesystemExists(
@@ -132,20 +163,20 @@ func (st *State) checkFilesystemExists(
 	tx *sqlair.TX,
 	uuid storageprovisioning.FilesystemUUID,
 ) (bool, error) {
-	entityUUIDInput := entityUUID{UUID: uuid.String()}
+	filesystemUUIDInput := filesystemUUID{UUID: uuid.String()}
 
 	checkQuery, err := st.Prepare(`
-SELECT &entityUUID.*
+SELECT &filesystemUUID.*
 FROM   storage_filesystem
-WHERE  uuid = $entityUUID.uuid
+WHERE  uuid = $filesystemUUID.uuid
 `,
-		entityUUIDInput,
+		filesystemUUIDInput,
 	)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkQuery, entityUUIDInput).Get(&entityUUIDInput)
+	err = tx.Query(ctx, checkQuery, filesystemUUIDInput).Get(&filesystemUUIDInput)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -505,6 +536,97 @@ AND             net_node_uuid=$netNodeUUID.uuid
 	return maps.Collect(fsAttachmentLives.Iter), nil
 }
 
+// GetFilesystemAttachmentParams retrieves the attachment params for the
+// given filesysatem attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no
+// filesystem attachment exists for the supplied uuid.
+func (st *State) GetFilesystemAttachmentParams(
+	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+) (storageprovisioning.FilesystemAttachmentParams, error) {
+	// Warning (tlm): Potential issue in this implementation. A filesystem
+	// attachment could become disassociated with a storage instance in the
+	// model through the filesystem . In that case we cannot correctly return
+	// the params for a filesystem attachment. This is because
+	// the type of the provider is recorded on the storage instance.
+	//
+	// A review of Mongo shows that this cases is possible but there is not real
+	// story to show how this happens of if it is valid. As it stands we don't
+	// support this case in Dqlite so it is a watch and act scneario.
+	//
+	// More then likely we need to adjust the modeling so that the thing being
+	// provisioned such a filesystem has the provider information on it instead
+	// of through RI. This is even more important when we need to cleanup after
+	// ourselves.
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
+	}
+
+	var (
+		fsaUUIDInput = filesystemAttachmentUUID{UUID: uuid.String()}
+		dbVal        filesystemAttachmentParams
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &filesystemAttachmentParams.* FROM (
+    SELECT    sf.provider_id,
+              mci.instance_id AS machine_instance_id,
+              sfa.mount_point,
+              sfa.read_only,
+              COALESCE(si.storage_type, sp.type, NULL) AS type
+    FROM      storage_filesystem_attachment sfa
+    JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+    JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
+    JOIN 	  storage_instance si ON sif.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
+    LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
+    WHERE     sfa.uuid = $filesystemAttachmentUUID.uuid
+)
+`,
+		fsaUUIDInput, dbVal,
+	)
+	if err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkFilesystemAttachmentExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking if filesystem attachment %q exists: %w", uuid, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"filesystem attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, fsaUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"filesystem attachment is not associated with a storage instance",
+			)
+		}
+		return err
+	})
+
+	if err != nil {
+		return storageprovisioning.FilesystemAttachmentParams{}, errors.Capture(err)
+	}
+
+	return storageprovisioning.FilesystemAttachmentParams{
+		MachineInstanceID: dbVal.MachineInstanceID.V,
+		Provider:          dbVal.Type.V,
+		ProviderID:        dbVal.ProviderID.V,
+		MountPoint:        dbVal.MountPoint.V,
+		ReadOnly:          dbVal.ReadOnly.V,
+	}, nil
+}
+
 // GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
 // attachment uuid for the supplied filesystem uuid which is attached to the
 // given net node uuid.
@@ -683,6 +805,118 @@ AND             sfa.net_node_uuid=$netNodeUUID.uuid
 		return nil, errors.Capture(err)
 	}
 	return maps.Collect(fsLives.Iter), nil
+}
+
+func (st *State) GetFilesystemParams(
+	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+) (storageprovisioning.FilesystemParams, error) {
+	// Warning (tlm): Potential issue in this implementation. A filesystem could
+	// become disassociated with a storage instance in the model. In that case
+	// we can not correctly return the params for a file system. This is because
+	// the type of the provider is recorded on the storage instance.GetFilesystemParams
+	//
+	// A review of Mongo shows that this cases is possible but there is not real
+	// story to show how this happens of if it is valid. As it stands we don't
+	// support this case in Dqlite so it is a watch and act scneario.
+	//
+	// More then likely we need to adjust the modeling so that the thing being
+	// provisioned such a filesystem has the provider information on it instead
+	// of through RI. This is even more important when we need to cleanup after
+	// ourselves.
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.FilesystemParams{}, errors.Capture(err)
+	}
+
+	var (
+		input     = filesystemUUID{UUID: uuid.String()}
+		paramsVal filesystemParams
+	)
+
+	paramsStmt, err := st.Prepare(`
+SELECT &filesystemParams.* FROM (
+    SELECT sf.filesystem_id,
+           sf.size_mib,
+           COALESCE(si.storage_type, sp.type, NULL) AS type
+    FROM   storage_filesystem sf
+    JOIN   storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
+    JOIN   storage_instance si ON sif.storage_instance_uuid = si.uuid
+    LEFT   JOIN storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    WHERE  sf.uuid = $filesystemUUID.uuid
+)
+`,
+		paramsVal, input,
+	)
+	if err != nil {
+		return storageprovisioning.FilesystemParams{}, errors.Capture(err)
+	}
+
+	poolAttributesStmt, err := st.Prepare(`
+SELECT &storagePoolAttribute.*
+FROM   storage_pool_attribute spa
+JOIN   storage_pool sp ON spa.storage_pool_uuid = sp.uuid
+JOIN   storage_instance si ON sp.uuid = si.storage_pool_uuid
+JOIN   storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+JOIN   storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+WHERE  sf.uuid = $filesystemUUID.uuid
+`,
+		storagePoolAttribute{}, input,
+	)
+	if err != nil {
+		return storageprovisioning.FilesystemParams{}, errors.Capture(err)
+	}
+
+	var attributeVals []storagePoolAttribute
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkFilesystemExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf("checking if filesystem %q exists: %w", uuid, err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"filesystem %q does not exist", uuid,
+			).Add(storageprovisioningerrors.FilesystemNotFound)
+		}
+
+		err = tx.Query(ctx, paramsStmt, input).Get(&paramsVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"filesystem is not associated with a storage instance",
+			)
+		} else if err != nil {
+			return err
+		}
+
+		// It is ok to get no results. Not all filesystems are using a storage
+		// pool.
+		err = tx.Query(ctx, poolAttributesStmt, input).GetAll(&attributeVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf(
+				"getting filesystem %q storage pool attributes: %w", uuid, err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return storageprovisioning.FilesystemParams{}, errors.Capture(err)
+	}
+
+	attributesRval := make(map[string]string, len(attributeVals))
+	for _, attr := range attributeVals {
+		attributesRval[attr.Key] = attr.Value
+	}
+
+	return storageprovisioning.FilesystemParams{
+		Attributes: attributesRval,
+		ID:         paramsVal.FilesystemID,
+		Provider:   paramsVal.Type.V,
+		SizeMiB:    paramsVal.SizeMiB,
+	}, nil
 }
 
 // GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied

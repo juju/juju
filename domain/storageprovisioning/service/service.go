@@ -52,6 +52,12 @@ type State interface {
 	// machine exists for the provided UUID.
 	GetMachineNetNodeUUID(context.Context, coremachine.UUID) (domainnetwork.NetNodeUUID, error)
 
+	// GetStoragesourceTagInfoForModel returns the information required to build
+	// storage tags in the model.
+	GetStorageResourceTagInfoForModel(
+		context.Context, string,
+	) (storageprovisioning.ModelResourceTagInfo, error)
+
 	// GetUnitNetNodeUUID returns the node UUID associated with the supplied
 	// unit.
 	//
@@ -66,7 +72,7 @@ type State interface {
 
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
-	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ResourceTagInfo, error)
+	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
 
 	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 	//
@@ -268,4 +274,38 @@ func (s *Service) GetStorageAttachmentLife(
 		)
 	}
 	return life, nil
+}
+
+// GetStorageResourceTagsForModel returns the tags to apply to storage in this
+// model.
+func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
+	map[string]string, error,
+) {
+	info, err := s.st.GetStorageResourceTagInfoForModel(
+		ctx, config.ResourceTagsKey)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make(map[string]string, 3)
+	// Resource tags as defined in model config are space separated key-value
+	// pairs, where the key and value are separated by an equals sign.
+	for pair := range strings.SplitSeq(info.BaseResourceTags, " ") {
+		if pair == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(pair, "=")
+		if !ok {
+			return nil, errors.Errorf("malformed resource tag %q", pair)
+
+		}
+		if strings.HasPrefix(key, tags.JujuTagPrefix) {
+			continue
+		}
+		rval[key] = value
+	}
+	rval[tags.JujuController] = info.ControllerUUID
+	rval[tags.JujuModel] = info.ModelUUID
+
+	return rval, nil
 }

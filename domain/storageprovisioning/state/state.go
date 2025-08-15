@@ -170,69 +170,150 @@ func (st *State) NamespaceForWatchMachineCloudInstance() string {
 
 // GetStorageResourceTagInfoForApplication returns information required to
 // build resource tags for storage created for the given application.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] when no application exists for the
+// supplied uuid.
 func (st *State) GetStorageResourceTagInfoForApplication(
 	ctx context.Context,
 	appUUID application.ID,
 	resourceTagModelConfigKey string,
-) (storageprovisioning.ResourceTagInfo, error) {
+) (storageprovisioning.ApplicationResourceTagInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+		return storageprovisioning.ApplicationResourceTagInfo{}, errors.Capture(err)
 	}
 
-	type modelConfigKey struct {
-		Key string `db:"key"`
+	type applicationName struct {
+		Name string `db:"name"`
 	}
-	appUUIDInput := entityUUID{UUID: appUUID.String()}
-	modelConfigKeyInput := modelConfigKey{Key: resourceTagModelConfigKey}
+
+	var (
+		appNameVal   = applicationName{Name: appUUID.String()}
+		appUUIDInput = entityUUID{UUID: appUUID.String()}
+	)
 
 	appNameStmt, err := st.Prepare(`
-SELECT name AS &resourceTagInfo.application_name
-FROM application
-WHERE uuid = $entityUUID.uuid
-`, resourceTagInfo{}, appUUIDInput)
+SELECT &applicationName.*
+FROM   application
+WHERE  uuid = $entityUUID.uuid
+`,
+		appNameVal, appUUIDInput)
 	if err != nil {
-		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
-	}
-	resourceTagStmt, err := st.Prepare(`
-SELECT value AS &resourceTagInfo.resource_tags
-FROM model_config
-WHERE key = $modelConfigKey.key
-`, resourceTagInfo{}, modelConfigKeyInput)
-	if err != nil {
-		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
-	}
-	modelInfoStmt, err := st.Prepare(`
-SELECT uuid AS &resourceTagInfo.model_uuid, &resourceTagInfo.controller_uuid
-FROM model
-`, resourceTagInfo{})
-	if err != nil {
-		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+		return storageprovisioning.ApplicationResourceTagInfo{}, errors.Capture(err)
 	}
 
-	output := resourceTagInfo{}
+	var modelResourceInfo storageprovisioning.ModelResourceTagInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, appNameStmt, appUUIDInput).Get(&output)
+		err := tx.Query(ctx, appNameStmt, appUUIDInput).Get(&appNameVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("application %q does not exist", appUUID)
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
 		} else if err != nil {
 			return err
 		}
-		err = tx.Query(ctx, resourceTagStmt, modelConfigKeyInput).Get(&output)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return err
-		}
-		return tx.Query(ctx, modelInfoStmt).Get(&output)
+
+		modelResourceInfo, err = st.getStorageResourceTagInfoForModel(
+			ctx, tx, resourceTagModelConfigKey,
+		)
+		return err
 	})
 	if err != nil {
-		return storageprovisioning.ResourceTagInfo{}, errors.Capture(err)
+		return storageprovisioning.ApplicationResourceTagInfo{}, errors.Capture(err)
 	}
 
-	return storageprovisioning.ResourceTagInfo{
-		BaseResourceTags: output.ResourceTags,
-		ModelUUID:        output.ModelUUID,
-		ControllerUUID:   output.ControllerUUID,
-		ApplicationName:  output.ApplicationName,
+	return storageprovisioning.ApplicationResourceTagInfo{
+		ModelResourceTagInfo: modelResourceInfo,
+		ApplicationName:      appNameVal.Name,
+	}, nil
+}
+
+// GetStorageResourceTagInfoForModel retrieves the model based resource tag
+// information for storage entities.
+func (st *State) GetStorageResourceTagInfoForModel(
+	ctx context.Context,
+	resourceTagModelConfigKey string,
+) (storageprovisioning.ModelResourceTagInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	var rval storageprovisioning.ModelResourceTagInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = st.getStorageResourceTagInfoForModel(
+			ctx, tx, resourceTagModelConfigKey,
+		)
+		return err
+	})
+
+	if err != nil {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	return rval, nil
+}
+
+// getStorageResourceTagInfoForModel retrieves the model based resource tag
+// information for storage entities.
+func (st *State) getStorageResourceTagInfoForModel(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resourceTagModelConfigKey string,
+) (storageprovisioning.ModelResourceTagInfo, error) {
+	type modelConfigKey struct {
+		Key string `db:"key"`
+	}
+
+	var (
+		modelConfigKeyInput = modelConfigKey{Key: resourceTagModelConfigKey}
+		dbVal               modelResourceTagInfo
+	)
+
+	resourceTagStmt, err := st.Prepare(`
+SELECT value AS &modelResourceTagInfo.resource_tags
+FROM   model_config
+WHERE  key = $modelConfigKey.key
+`,
+		dbVal, modelConfigKeyInput)
+	if err != nil {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	modelInfoStmt, err := st.Prepare(`
+SELECT (uuid, controller_uuid) AS (&modelResourceTagInfo.*)
+FROM model
+`,
+		dbVal)
+	if err != nil {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, resourceTagStmt, modelConfigKeyInput).Get(&dbVal)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Errorf(
+			"getting model config value for key %q: %w",
+			resourceTagModelConfigKey, err,
+		)
+	}
+
+	err = tx.Query(ctx, modelInfoStmt).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// This must never happen, but we return an error that at least signals
+		// the problem correctly in case it does.
+		return storageprovisioning.ModelResourceTagInfo{}, errors.New(
+			"model database has not had its information set",
+		)
+	} else if err != nil {
+		return storageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	return storageprovisioning.ModelResourceTagInfo{
+		BaseResourceTags: dbVal.ResourceTags,
+		ControllerUUID:   dbVal.ControllerUUID,
+		ModelUUID:        dbVal.ModelUUID,
 	}, nil
 }
 

@@ -117,6 +117,21 @@ func (s *baseSuite) newMachineWithNetNode(
 	return machineUUID.String(), coremachine.Name(name)
 }
 
+func (s *baseSuite) newMachineCloudInstanceWithID(
+	c *tc.C, machineUUID, id string,
+) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id)
+VALUES (?, 0, ?)
+`,
+		machineUUID,
+		id,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // newMachineVolume creates a new volume in the model with machine
 // provision scope. Returned is the uuid and volume id of the entity.
 func (s *baseSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
@@ -219,10 +234,20 @@ func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	return nodeUUID
 }
 
-func (s *baseSuite) newStorageInstance(c *tc.C, charmUUID string) domainstorage.StorageInstanceUUID {
-	if charmUUID == "" {
-		charmUUID = s.newCharm(c)
-	}
+func (s *baseSuite) newStorageInstance(c *tc.C) domainstorage.StorageInstanceUUID {
+	return s.newStorageInstanceWithProviderType(c, "rootfs")
+}
+
+func (s *baseSuite) newStorageInstanceWithProviderType(
+	c *tc.C, pType string,
+) domainstorage.StorageInstanceUUID {
+	charmUUID := s.newCharm(c)
+	return s.newStorageInstanceForCharmWithProviderType(c, charmUUID, pType)
+}
+
+func (s *baseSuite) newStorageInstanceForCharmWithProviderType(
+	c *tc.C, charmUUID string, pType string,
+) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageName := "mystorage"
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
@@ -242,12 +267,13 @@ VALUES (?, ?, 0, 0, 1)
 
 			_, err = tx.ExecContext(ctx, `
 INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
-VALUES (?, ?, ?, ?, 0, 100, 'rootfs')
+VALUES (?, ?, ?, ?, 0, 100, ?)
 `,
 				storageInstanceUUID.String(),
 				charmUUID,
 				storageName,
 				storageID,
+				pType,
 			)
 			return err
 		})
@@ -288,32 +314,48 @@ VALUES (?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// newUnitWithNetNode creates a new unit in the model for the provided
-// application uuid. The new unit will use the supplied net node. Returned is
-// the new uuid of the unit and the name that was used.
-func (s *baseSuite) newUnitWithNetNode(
-	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
-) (coreunit.UUID, coreunit.Name) {
-	var charmUUID string
-	err := s.DB().QueryRowContext(
+func (s *baseSuite) newStorageInstanceWithPool(
+	c *tc.C, poolUUID string,
+) domainstorage.StorageInstanceUUID {
+	charmUUID := s.newCharm(c)
+	return s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID)
+}
+
+func (s *baseSuite) newStorageInstanceForCharmWithPool(
+	c *tc.C, charmUUID, poolUUID string,
+) domainstorage.StorageInstanceUUID {
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageName := "mystorage"
+	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
+
+	err := s.TxnRunner().StdTxn(
 		c.Context(),
-		"SELECT charm_uuid FROM application WHERE uuid = ?",
-		appUUID,
-	).Scan(&charmUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	_, err = s.DB().ExecContext(
-		c.Context(), `
-INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
-VALUES (?, ?, ?, ?, ?, 0)
+		func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, 0, 0, 1)
 `,
-		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
-	)
+				charmUUID, storageName,
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, 0, 100, ?)
+`,
+				storageInstanceUUID.String(),
+				charmUUID,
+				storageName,
+				storageID,
+				poolUUID,
+			)
+			return err
+		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unitUUID, coreunit.Name(name)
+	return storageInstanceUUID
 }
 
 // nextStorageSequenceNumber retrieves the next sequence number in the storage
@@ -353,6 +395,34 @@ func (s *baseSuite) newStorageInstanceFilesystem(
 INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
 VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newUnitWithNetNode creates a new unit in the model for the provided
+// application uuid. The new unit will use the supplied net node. Returned is
+// the new uuid of the unit and the name that was used.
+func (s *baseSuite) newUnitWithNetNode(
+	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
+) (coreunit.UUID, coreunit.Name) {
+	var charmUUID string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT charm_uuid FROM application WHERE uuid = ?",
+		appUUID,
+	).Scan(&charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	_, err = s.DB().ExecContext(
+		c.Context(), `
+INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?, 0)
+`,
+		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return unitUUID, coreunit.Name(name)
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment

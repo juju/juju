@@ -601,6 +601,45 @@ func (c *MockStorageProvisioningServiceGetFilesystemAttachmentLifeCall) DoAndRet
 	return c
 }
 
+// GetFilesystemAttachmentParams mocks base method.
+func (m *MockStorageProvisioningService) GetFilesystemAttachmentParams(arg0 context.Context, arg1 storageprovisioning.FilesystemAttachmentUUID) (storageprovisioning.FilesystemAttachmentParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachmentParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemAttachmentParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachmentParams indicates an expected call of GetFilesystemAttachmentParams.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetFilesystemAttachmentParams(arg0, arg1 any) *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachmentParams", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetFilesystemAttachmentParams), arg0, arg1)
+	return &MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall) Return(arg0 storageprovisioning.FilesystemAttachmentParams, arg1 error) *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall) Do(f func(context.Context, storageprovisioning.FilesystemAttachmentUUID) (storageprovisioning.FilesystemAttachmentParams, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemAttachmentUUID) (storageprovisioning.FilesystemAttachmentParams, error)) *MockStorageProvisioningServiceGetFilesystemAttachmentParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemAttachmentUUIDForFilesystemIDMachine mocks base method.
 func (m *MockStorageProvisioningService) GetFilesystemAttachmentUUIDForFilesystemIDMachine(arg0 context.Context, arg1 string, arg2 machine.UUID) (storageprovisioning.FilesystemAttachmentUUID, error) {
 	m.ctrl.T.Helper()
@@ -757,6 +796,45 @@ func (c *MockStorageProvisioningServiceGetFilesystemLifeCall) DoAndReturn(f func
 	return c
 }
 
+// GetFilesystemParams mocks base method.
+func (m *MockStorageProvisioningService) GetFilesystemParams(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemParams indicates an expected call of GetFilesystemParams.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetFilesystemParams(arg0, arg1 any) *MockStorageProvisioningServiceGetFilesystemParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemParams", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetFilesystemParams), arg0, arg1)
+	return &MockStorageProvisioningServiceGetFilesystemParamsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetFilesystemParamsCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetFilesystemParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetFilesystemParamsCall) Return(arg0 storageprovisioning.FilesystemParams, arg1 error) *MockStorageProvisioningServiceGetFilesystemParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetFilesystemParamsCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemParams, error)) *MockStorageProvisioningServiceGetFilesystemParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetFilesystemParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID) (storageprovisioning.FilesystemParams, error)) *MockStorageProvisioningServiceGetFilesystemParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemUUIDForID mocks base method.
 func (m *MockStorageProvisioningService) GetFilesystemUUIDForID(arg0 context.Context, arg1 string) (storageprovisioning.FilesystemUUID, error) {
 	m.ctrl.T.Helper()
@@ -792,6 +870,45 @@ func (c *MockStorageProvisioningServiceGetFilesystemUUIDForIDCall) Do(f func(con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStorageProvisioningServiceGetFilesystemUUIDForIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.FilesystemUUID, error)) *MockStorageProvisioningServiceGetFilesystemUUIDForIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageResourceTagsForModel mocks base method.
+func (m *MockStorageProvisioningService) GetStorageResourceTagsForModel(arg0 context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageResourceTagsForModel", arg0)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageResourceTagsForModel indicates an expected call of GetStorageResourceTagsForModel.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetStorageResourceTagsForModel(arg0 any) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageResourceTagsForModel", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetStorageResourceTagsForModel), arg0)
+	return &MockStorageProvisioningServiceGetStorageResourceTagsForModelCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetStorageResourceTagsForModelCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetStorageResourceTagsForModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) Return(arg0 map[string]string, arg1 error) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) Do(f func(context.Context) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

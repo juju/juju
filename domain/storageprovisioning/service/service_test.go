@@ -13,6 +13,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerror "github.com/juju/juju/core/errors"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -83,6 +84,29 @@ func (s *serviceSuite) TestWatchMachineCloudInstanceDead(c *tc.C) {
 	c.Check(err, tc.ErrorIs, machineerrors.MachineIsDead)
 }
 
+func (s *serviceSuite) TestGetStorageResourceTagsForModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ri := storageprovisioning.ModelResourceTagInfo{
+		BaseResourceTags: "a=x b=y juju-drop-me=bad",
+		ModelUUID:        modeltesting.GenModelUUID(c).String(),
+		ControllerUUID:   uuid.MustNewUUID().String(),
+	}
+	s.state.EXPECT().GetStorageResourceTagInfoForModel(gomock.Any(), "resource-tags").Return(
+		ri, nil,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	tags, err := svc.GetStorageResourceTagsForModel(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(tags, tc.DeepEquals, map[string]string{
+		"a":                    "x",
+		"b":                    "y",
+		"juju-controller-uuid": ri.ControllerUUID,
+		"juju-model-uuid":      ri.ModelUUID,
+	})
+}
+
 // TestGetStorageResourceTagsForApplication tests that the model config resource
 // tags value is parsed and returned as key-value pairs with controller uuid,
 // model uuid and application name overlayed.
@@ -91,11 +115,13 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplication(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	ri := storageprovisioning.ResourceTagInfo{
-		BaseResourceTags: "a=x b=y juju-drop-me=bad",
-		ModelUUID:        uuid.MustNewUUID().String(),
-		ControllerUUID:   uuid.MustNewUUID().String(),
-		ApplicationName:  "foo",
+	ri := storageprovisioning.ApplicationResourceTagInfo{
+		ModelResourceTagInfo: storageprovisioning.ModelResourceTagInfo{
+			BaseResourceTags: "a=x b=y juju-drop-me=bad",
+			ModelUUID:        uuid.MustNewUUID().String(),
+			ControllerUUID:   uuid.MustNewUUID().String(),
+		},
+		ApplicationName: "foo",
 	}
 	s.state.EXPECT().GetStorageResourceTagInfoForApplication(gomock.Any(),
 		appUUID, "resource-tags").Return(ri, nil)
@@ -120,7 +146,7 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplicationErrors(c *tc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
 	s.state.EXPECT().GetStorageResourceTagInfoForApplication(gomock.Any(),
-		appUUID, "resource-tags").Return(storageprovisioning.ResourceTagInfo{},
+		appUUID, "resource-tags").Return(storageprovisioning.ApplicationResourceTagInfo{},
 		errors.New("oops"))
 
 	svc := NewService(s.state, s.watcherFactory)
