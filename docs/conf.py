@@ -417,13 +417,6 @@ if os.path.exists('./reuse/substitutions.yaml'):
     with open('./reuse/substitutions.yaml', 'r') as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
-#########################################
-# Suppress git clone too shallow warnings
-#########################################
-
-suppress_warnings = ['git.too_shallow']
-
-
 ##################################
 # Auto-generation of documentation
 ##################################
