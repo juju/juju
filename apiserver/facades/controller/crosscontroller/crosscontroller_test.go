@@ -118,7 +118,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 func (s *CrossControllerSuite) TestWatchControllerInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.newAPI(c)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("42", nil)
 	s.watcher.changes <- struct{}{} // initial value
 	results, err := s.api.WatchControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

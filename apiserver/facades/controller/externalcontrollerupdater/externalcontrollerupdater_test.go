@@ -6,16 +6,14 @@ package externalcontrollerupdater_test
 import (
 	"testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/watcher/registry"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -26,17 +24,6 @@ func TestCrossControllerSuite(t *testing.T) {
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite
-
-	watcherRegistry *registry.Registry
-}
-
-func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	var err error
-	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, tc.ErrorIsNil)
-	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
 }
 
 func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
@@ -44,6 +31,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	defer ctrl.Finish()
 
 	ecService := NewMockExternalControllerService(ctrl)
+	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
 
 	ctrlTag, err := names.ParseControllerTag(coretesting.ControllerTag.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -58,7 +46,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	ecService.EXPECT().Controller(gomock.Any(), modelTag.Id()).Return(nil, errors.NotFoundf("external controller with UUID deadbeef-0bad-400d-8000-4b1d0d06f00d"))
 
-	api, err := externalcontrollerupdater.NewAPI(ecService, s.watcherRegistry)
+	api, err := externalcontrollerupdater.NewAPI(ecService, watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.ExternalControllerInfo(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -92,6 +80,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 	defer ctrl.Finish()
 
 	ecService := NewMockExternalControllerService(ctrl)
+	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
 
 	firstControllerTag := coretesting.ControllerTag.String()
 	firstControllerTagParsed, err := names.ParseControllerTag(firstControllerTag)
@@ -113,7 +102,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 		CACert:         "quuz",
 	})
 
-	api, err := externalcontrollerupdater.NewAPI(ecService, s.watcherRegistry)
+	api, err := externalcontrollerupdater.NewAPI(ecService, watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := api.SetExternalControllerInfo(c.Context(), params.SetExternalControllersInfoParams{
@@ -153,22 +142,15 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 
 	ecService := NewMockExternalControllerService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
+	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
+	watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("w-1", nil)
+
 	ecService.EXPECT().Watch(gomock.Any()).Return(mockKeysWatcher, nil)
+
 	changes := make(chan []string, 1)
 	mockKeysWatcher.EXPECT().Changes().Return(changes)
-	mockKeysWatcher.EXPECT().Kill().AnyTimes()
 
-	done := make(chan struct{})
-	mockKeysWatcher.EXPECT().Wait().Return(nil).DoAndReturn(func() error {
-		select {
-		case <-done:
-		case <-c.Context().Done():
-			c.Fatalf("timed out waiting for watcher to finish")
-		}
-		return nil
-	})
-
-	api, err := externalcontrollerupdater.NewAPI(ecService, s.watcherRegistry)
+	api, err := externalcontrollerupdater.NewAPI(ecService, watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 
 	changes <- []string{"a", "b"} // initial value
@@ -181,12 +163,6 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 			Changes:          []string{"a", "b"},
 		}},
 	})
-
-	w, err := s.watcherRegistry.Get("w-1")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(w, tc.Equals, mockKeysWatcher)
-
-	close(done)
 }
 
 func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
@@ -195,7 +171,10 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 
 	ecService := NewMockExternalControllerService(ctrl)
 	mockKeysWatcher := NewMockStringsWatcher(ctrl)
+	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
+
 	ecService.EXPECT().Watch(gomock.Any()).Return(mockKeysWatcher, nil)
+
 	changes := make(chan []string, 1)
 	mockKeysWatcher.EXPECT().Changes().Return(changes)
 	mockKeysWatcher.EXPECT().Kill().AnyTimes()
@@ -203,7 +182,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 
 	close(changes)
 
-	api, err := externalcontrollerupdater.NewAPI(ecService, s.watcherRegistry)
+	api, err := externalcontrollerupdater.NewAPI(ecService, watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := api.WatchExternalControllers(c.Context())
@@ -213,6 +192,4 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 			Error: &params.Error{Message: "watching external controllers changes: nope"},
 		}},
 	})
-	_, err = s.watcherRegistry.Get("w-1")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

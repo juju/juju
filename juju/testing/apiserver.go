@@ -61,6 +61,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -537,6 +538,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
+		WatcherRegistryGetter:      &stubWatcherRegistryGetter{},
 	}
 }
 
@@ -634,4 +636,10 @@ func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
+}
+
+type stubWatcherRegistryGetter struct{}
+
+func (s *stubWatcherRegistryGetter) GetWatcherRegistry(ctx context.Context, cid uint64) (watcherregistry.WatcherRegistry, error) {
+	return nil, nil
 }

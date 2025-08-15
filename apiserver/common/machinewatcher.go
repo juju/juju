@@ -58,17 +58,17 @@ func NewMachineRebootWatcher(service WatchableMachineService, watcherRegistry fa
 // WatchForRebootEvent starts a watcher to track if there is a new
 // reboot request for a specific machine ID or its parent (in case we are a container).
 func (mrw *MachineWatcher) WatchForRebootEvent(ctx context.Context) (params.NotifyWatchResult, error) {
-	var result params.NotifyWatchResult
-
 	uuid, err := mrw.machineUUID(ctx)
 	if err != nil {
 		return params.NotifyWatchResult{}, errors.Trace(err)
 	}
-	notifyWatcher, err := mrw.service.WatchMachineReboot(ctx, uuid)
 
+	notifyWatcher, err := mrw.service.WatchMachineReboot(ctx, uuid)
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.NotifyWatchResult{}, errors.Trace(err)
 	}
+
+	var result params.NotifyWatchResult
 	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, mrw.watcherRegistry, notifyWatcher)
 	return result, err
 }

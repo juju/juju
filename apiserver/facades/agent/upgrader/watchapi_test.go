@@ -63,7 +63,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionMachine(c *tc.C) {
 		})
 		return w, nil
 	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("87", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("87", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -99,7 +99,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *tc.C) {
 		})
 		return w, nil
 	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("4", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("4", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -146,8 +146,8 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionControllerModelAgent(c *tc.C) {
 		})
 		return wm, nil
 	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("2", nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("2", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{

@@ -175,7 +175,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(w, nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	result, err := s.api.WatchModelFirewallRules(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -235,7 +235,7 @@ func (s *FirewallerSuite) TestWatchSubnets(c *tc.C) {
 	w := watchertest.NewMockStringsWatcher(ch)
 	s.networkService.EXPECT().WatchSubnets(gomock.Any(), set.NewStrings("0195847b-95bb-7ca1-a7ee-2211d802d5b3")).Return(w, nil)
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	entities := params.Entities{
 		Entities: []params.Entity{{

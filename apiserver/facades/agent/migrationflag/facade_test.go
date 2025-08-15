@@ -167,7 +167,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.modelMigrationService.EXPECT().WatchMigrationPhase(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
 		authOK,

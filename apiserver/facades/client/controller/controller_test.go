@@ -10,15 +10,12 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -29,7 +26,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
@@ -48,7 +44,6 @@ type controllerSuite struct {
 	controllerConfigAttrs map[string]any
 
 	controller       *controller.ControllerAPI
-	watcherRegistry  facade.WatcherRegistry
 	authorizer       apiservertesting.FakeAuthorizer
 	context          facadetest.MultiModelContext
 	leadershipReader leadership.Reader
@@ -105,11 +100,6 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	domainServiceGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 	jujujujutesting.SeedDatabase(c, s.TxnRunner(), domainServiceGetter(s.ControllerModelUUID), controllerCfg)
 
-	var err error
-	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, tc.ErrorIsNil)
-	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
-
 	owner := names.NewLocalUserTag("test-admin")
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      owner,
@@ -119,7 +109,6 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	s.leadershipReader = noopLeadershipReader{}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			WatcherRegistry_:  s.watcherRegistry,
 			Auth_:             s.authorizer,
 			DomainServices_:   s.ControllerDomainServices(c),
 			Logger_:           loggertesting.WrapCheckLog(c),

@@ -320,7 +320,7 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 	w := watchertest.NewMockNotifyWatcher(changeChan)
 	s.secretBackendService.EXPECT().WatchModelSecretBackendChanged(gomock.Any(), model.UUID(coretesting.ModelTag.Id())).Return(w, nil)
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("11", nil)
 
 	result, err := s.facade.WatchSecretBackendChanged(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

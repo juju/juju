@@ -662,7 +662,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges(gomock.Any(), unittesting.GenNewName(c, "mariadb/0")).Return(
 		s.secretsWatcher, nil,
 	)
-	s.watcherRegistry.EXPECT().Register(s.secretsWatcher).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.secretsWatcher).Return("1", nil)
 
 	uri := coresecrets.NewURI()
 	watchChan := make(chan []string, 1)
@@ -767,7 +767,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *tc.C) {
 	}}).Return(
 		s.secretsWatcher, nil,
 	)
-	s.watcherRegistry.EXPECT().Register(s.secretsWatcher).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.secretsWatcher).Return("1", nil)
 
 	uri := coresecrets.NewURI()
 	watchChan := make(chan []string, 1)
@@ -803,7 +803,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 		}}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
-	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.secretsTriggerWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
@@ -938,7 +938,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 		}}).Return(
 		s.secretsTriggerWatcher, nil,
 	)
-	s.watcherRegistry.EXPECT().Register(s.secretsTriggerWatcher).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.secretsTriggerWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()

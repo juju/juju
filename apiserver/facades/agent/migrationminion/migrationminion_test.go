@@ -89,7 +89,7 @@ func (s *Suite) TestWatch(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.modelMigrationService.EXPECT().WatchForMigration(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 	api := s.mustMakeAPI(c)
 	result, err := api.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

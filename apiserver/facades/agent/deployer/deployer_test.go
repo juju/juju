@@ -115,7 +115,7 @@ func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 			})
 			return w, nil
 		})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("87", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("87", nil)
 
 	api := &DeployerAPI{
 		applicationService: s.applicationService,

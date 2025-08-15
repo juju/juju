@@ -48,7 +48,7 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *tc.C) {
 	w := watchertest.NewMockStringsWatcher(ch)
 	ch <- []string{"foo"}
 	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	e := model.NewModelMachinesWatcher(
 		s.machineService,
@@ -73,5 +73,4 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *tc.C) {
 	)
 	_, err := e.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, "permission denied")
-	c.Assert(s.watcherRegistry.Count(), tc.Equals, 0)
 }

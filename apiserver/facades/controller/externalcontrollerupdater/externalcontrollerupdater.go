@@ -54,6 +54,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Co
 			}},
 		}, nil
 	}
+
 	id, changes, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
 	if err != nil {
 		return params.StringsWatchResults{
