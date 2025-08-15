@@ -793,7 +793,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolume(c *gc.C) {
 		"a": "b",
 		"c": "d",
 	}
-	info, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, tags)
+	info, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, tags, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   mockVolId,
@@ -816,7 +816,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInUse(c *gc.C) {
 		},
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
-	_, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, nil)
+	_, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, nil, false)
 	c.Assert(err, gc.ErrorMatches, `cannot import volume "0" with status "in-use"`)
 	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},
@@ -831,7 +831,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInvalidCredential(c *gc.C) {
 		},
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
-	_, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, nil)
+	_, err := volSource.(storage.VolumeImporter).ImportVolume(s.callCtx, mockVolId, nil, false)
 	c.Assert(err, gc.ErrorMatches, `getting volume: invalid auth`)
 	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},

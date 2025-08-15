@@ -127,3 +127,57 @@ func (s *persistentVolumeClaimSuite) TestList(c *gc.C) {
 		c.Assert(pvc.Labels, gc.DeepEquals, map[string]string{"modulo": "three"})
 	}
 }
+
+func (s *persistentVolumeClaimSuite) TestValidate(c *gc.C) {
+	annotations := map[string]string{
+		"annotation-foo-key": "annotation-foo-value",
+		"annotation-bar-key": "annotation-bar-value",
+	}
+	labels := map[string]string{
+		"label-foo-key": "label-foo-value",
+		"label-bar-key": "label-bar-value",
+	}
+
+	ds := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "ds1",
+			Namespace:   "test",
+			Annotations: annotations,
+			Labels:      labels,
+		},
+	}
+
+	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", ds)
+	err := dsResource.Validate(
+		map[string]string{"annotation-foo-key": "annotation-foo-value"},
+		map[string]string{"label-foo-key": "label-foo-value"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *persistentVolumeClaimSuite) TestValidateFailed(c *gc.C) {
+	annotations := map[string]string{
+		"annotation-foo-key": "annotation-foo-value",
+		"annotation-bar-key": "annotation-bar-value",
+	}
+	labels := map[string]string{
+		"label-foo-key": "label-foo-value",
+		"label-bar-key": "label-bar-value",
+	}
+
+	ds := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "ds1",
+			Namespace:   "test",
+			Annotations: annotations,
+			Labels:      labels,
+		},
+	}
+
+	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", ds)
+	err := dsResource.Validate(
+		map[string]string{"no-exists-key": "foo"},
+		map[string]string{},
+	)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}

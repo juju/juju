@@ -12,9 +12,14 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucontext "github.com/juju/juju/environs/context"
 	jujustorage "github.com/juju/juju/storage"
 )
@@ -212,6 +217,7 @@ func (v *volumeSource) ImportVolume(
 	ctx jujucontext.ProviderCallContext,
 	volumeId string,
 	resourceTags map[string]string,
+	force bool,
 ) (jujustorage.VolumeInfo, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	vol, err := pVolumes.Get(ctx, volumeId, v1.GetOptions{})
@@ -222,8 +228,14 @@ func (v *volumeSource) ImportVolume(
 		return jujustorage.VolumeInfo{}, err
 	}
 
-	if err := v.validateImportVolume(vol); err != nil {
-		return jujustorage.VolumeInfo{}, errors.Trace(err)
+	if force {
+		if err := v.forceImportVolume(ctx, vol); err != nil {
+			return jujustorage.VolumeInfo{}, errors.Trace(err)
+		}
+	} else {
+		if err := v.validateImportVolume(vol); err != nil {
+			return jujustorage.VolumeInfo{}, errors.Trace(err)
+		}
 	}
 	return jujustorage.VolumeInfo{
 		Size:       uint64(vol.Size()),
@@ -248,6 +260,64 @@ func (v *volumeSource) validateImportVolume(vol *core.PersistentVolume) error {
 	if vol.Spec.ClaimRef != nil {
 		return errors.NotSupportedf("importing volume %q already bound to a claim", vol.Name)
 	}
+	return nil
+}
+
+// validateImportVolume verifies whether the given PersistentVolume is eligible for import.
+func (v *volumeSource) forceImportVolume(ctx jujucontext.ProviderCallContext, vol *core.PersistentVolume) error {
+	pVolumes := v.client.client().CoreV1().PersistentVolumes()
+	modified := false
+
+	logger.Debugf("force importing PersistentVolume %q", vol.Name)
+
+	// Change the ReclaimPolicy to Retain if not already set
+	if vol.Spec.PersistentVolumeReclaimPolicy != core.PersistentVolumeReclaimRetain {
+		vol.Spec.PersistentVolumeReclaimPolicy = core.PersistentVolumeReclaimRetain
+		modified = true
+	}
+
+	// If the PV is bound to a PVC, delete the PVC and clear the claimRef.
+	if vol.Spec.ClaimRef != nil {
+		pvcName := vol.Spec.ClaimRef.Name
+		pvcNamespace := vol.Spec.ClaimRef.Namespace
+		logger.Infof("importing PersistentVolume %q is bound to PVC %s/%s, deleting PVC", vol.Name, pvcNamespace, pvcName)
+
+		// Delete the PVC if it exists and is managed by juju.
+		pvcClient := v.client.client().CoreV1().PersistentVolumeClaims(pvcNamespace)
+		pvc, err := pvcClient.Get(context.TODO(), pvcName, v1.GetOptions{})
+		if !k8serrors.IsNotFound(err) {
+			// Make sure pvc is managed by juju.
+			pvcRes := resources.PersistentVolumeClaim{PersistentVolumeClaim: *pvc}
+			if err := pvcRes.Validate(nil, utils.LabelsJuju); err != nil {
+				return errors.NotSupportedf(
+					"importing PersistentVolume %q whose PersistentVolumeClaim is not managed by juju",
+					vol.Name,
+				)
+			}
+			err := pvcClient.Delete(ctx, pvcName, v1.DeleteOptions{})
+			if err != nil {
+				return errors.Annotatef(err, "failed to delete PVC %s/%s", pvcNamespace, pvcName)
+			}
+		}
+
+		// Clear the claimRef to make the PV available
+		vol.Spec.ClaimRef = nil
+		modified = true
+	}
+
+	// Update the PV if any modifications were made.
+	if modified {
+		data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, vol)
+		if err != nil {
+			return errors.Annotatef(err, "failed to encode PersistentVolume %s", vol.Name)
+		}
+		_, err = pVolumes.Patch(ctx, vol.Name, types.StrategicMergePatchType, data, v1.PatchOptions{})
+		if err != nil {
+			return errors.Annotatef(err, "failed to patch PersistentVolume %s", vol.Name)
+		}
+		logger.Infof("successfully patched PersistentVolume %q: set reclaim policy to Retain and cleared claimRef", vol.Name)
+	}
+
 	return nil
 }
 
