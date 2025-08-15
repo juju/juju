@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -22,9 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -538,7 +537,11 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 	// })
 
 	api := k.client.RbacV1().Roles(k.namespace)
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, role)
+
+	patch := map[string]interface{}{
+		"rules": role.Rules,
+	}
+	data, err := json.Marshal(patch)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -546,7 +549,7 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 		FieldManager: resources.JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf(" role %q", role.GetName())
+		return nil, errors.NotFoundf("role %q", role.GetName())
 	}
 	return out, errors.Trace(err)
 }
@@ -835,7 +838,11 @@ func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterRole *r
 // Note that only the Rules field is updated, all other fields from the latest ClusterRole are preserved.
 func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
 	api := k.client.RbacV1().ClusterRoles()
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, clusterRole)
+
+	patch := map[string]interface{}{
+		"rules": clusterRole.Rules,
+	}
+	data, err := json.Marshal(patch)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -845,7 +852,10 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("cluster role %q", clusterRole.GetName())
 	}
-
+	// data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, clusterRole)
+	// if err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
 	// var out *rbacv1.ClusterRole
 	// err := retry.Call(retry.CallArgs{
 	// 	Func: func() error {
