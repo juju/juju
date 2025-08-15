@@ -149,10 +149,11 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 
 	for _, spec := range clusterroles {
-		cr := resources.ClusterRole{spec}
+		cr := resources.NewClusterRole(
+			k.client().RbacV1().ClusterRoles(), spec.Name, &spec,
+		)
 		cRCleanups, err := cr.Ensure(
 			ctx,
-			k.client(),
 			resources.ClaimJujuOwnership,
 		)
 		cleanups = append(cleanups, cRCleanups...)
@@ -161,10 +162,9 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		}
 	}
 	for _, spec := range clusterRoleBindings {
-		clusterRoleBinding := resources.NewClusterRoleBinding(spec.Name, &spec)
+		clusterRoleBinding := resources.NewClusterRoleBinding(k.client().RbacV1().ClusterRoleBindings(), spec.Name, &spec)
 		crbCleanups, err := clusterRoleBinding.Ensure(
 			ctx,
-			k.client(),
 			resources.ClaimJujuOwnership,
 		)
 		cleanups = append(cleanups, crbCleanups...)

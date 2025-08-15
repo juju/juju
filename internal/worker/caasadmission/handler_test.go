@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admission/v1beta1"
 	authentication "k8s.io/api/authentication/v1"
@@ -30,13 +31,25 @@ import (
 )
 
 type HandlerSuite struct {
-	logger Logger
+	logger         Logger
+	controllerUUID string
+	modelUUID      string
+	modelName      string
 }
 
 var _ = gc.Suite(&HandlerSuite{})
 
 func (h *HandlerSuite) SetUpTest(c *gc.C) {
 	h.logger = loggo.Logger{}
+	controllerUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	h.controllerUUID = controllerUUID.String()
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	h.modelUUID = modelUUID.String()
+
+	h.modelName = "test-model"
 }
 
 func (h *HandlerSuite) TestCompareGroupVersionKind(c *gc.C) {
@@ -91,7 +104,7 @@ func (h *HandlerSuite) TestEmptyBodyFails(c *gc.C) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusBadRequest)
 }
@@ -101,7 +114,7 @@ func (h *HandlerSuite) TestUnknownContentType(c *gc.C) {
 	req.Header.Set("junk", "junk")
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusUnsupportedMediaType)
 }
@@ -123,7 +136,7 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *gc.C) {
 	req.Header.Set(HeaderContentType, ExpectedContentType)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -158,7 +171,7 @@ func (h *HandlerSuite) TestRBACMapperFailure(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusInternalServerError)
 }
 
@@ -197,7 +210,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -212,7 +225,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(patchOperations), gc.Equals, 2)
+	c.Assert(len(patchOperations), gc.Equals, 5)
 	c.Assert(patchOperations[0].Op, gc.Equals, "add")
 	c.Assert(patchOperations[0].Path, gc.Equals, "/metadata/labels")
 
@@ -285,7 +298,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -299,7 +312,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	patchOperations := []patchOperation{}
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(patchOperations), gc.Equals, 1)
+	c.Assert(len(patchOperations), gc.Equals, 4)
 
 	expectedLabels := providerutils.LabelForKeyValue(
 		providerconst.LabelJujuAppCreatedBy, appName)
@@ -319,13 +332,12 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	for k, v := range expectedLabels {
 		found := false
 		for _, op := range patchOperations {
-			c.Assert(op.Op, gc.Equals, replaceOp)
 			if op.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) &&
 				op.Value.(string) == v {
+				c.Assert(op.Op, gc.Equals, replaceOp)
 				found = true
 				break
 			}
-			continue
 		}
 		c.Assert(found, jc.IsTrue)
 	}
@@ -360,7 +372,7 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -403,7 +415,7 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnoreLabelsV2(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion2).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion2, h.controllerUUID, h.modelUUID, h.modelName).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 

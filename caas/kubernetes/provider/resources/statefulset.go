@@ -10,13 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
@@ -24,17 +23,18 @@ import (
 
 // StatefulSet extends the k8s statefulSet.
 type StatefulSet struct {
+	client v1.StatefulSetInterface
 	appsv1.StatefulSet
 }
 
 // NewStatefulSet creates a new statefulset resource.
-func NewStatefulSet(name string, namespace string, in *appsv1.StatefulSet) *StatefulSet {
+func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name string, in *appsv1.StatefulSet) *StatefulSet {
 	if in == nil {
 		in = &appsv1.StatefulSet{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &StatefulSet{*in}
+	return &StatefulSet{client, *in}
 }
 
 // Clone returns a copy of the resource.
@@ -49,8 +49,7 @@ func (ss *StatefulSet) ID() ID {
 }
 
 // Apply patches the resource change.
-func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (err error) {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
+func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 	var result *appsv1.StatefulSet
 	defer func() {
 		if result != nil {
@@ -58,9 +57,9 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (
 		}
 	}()
 
-	existing, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
+	existing, err := ss.client.Get(ctx, ss.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		result, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
+		result, err = ss.client.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 		return errors.Trace(err)
@@ -82,7 +81,7 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (
 	if err != nil {
 		return errors.Trace(err)
 	}
-	result, err = api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	result, err = ss.client.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -96,9 +95,8 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) (
 }
 
 // Get refreshes the resource.
-func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
-	res, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
+func (ss *StatefulSet) Get(ctx context.Context) error {
+	res, err := ss.client.Get(ctx, ss.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -109,9 +107,8 @@ func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) err
 }
 
 // Delete removes the resource.
-func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().StatefulSets(ss.Namespace)
-	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
+func (ss *StatefulSet) Delete(ctx context.Context) error {
+	err := ss.client.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -122,13 +119,8 @@ func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) 
 	return nil
 }
 
-// Events emitted by the resource.
-func (ss *StatefulSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, ss.Namespace, ss.Name, "StatefulSet")
-}
-
 // ComputeStatus returns a juju status for the resource.
-func (ss *StatefulSet) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
 	if ss.DeletionTimestamp != nil {
 		return "", status.Terminated, ss.DeletionTimestamp.Time, nil
 	}

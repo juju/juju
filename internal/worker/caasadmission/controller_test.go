@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -18,6 +19,9 @@ import (
 )
 
 type ControllerSuite struct {
+	controllerUUID string
+	modelUUID      string
+	modelName      string
 }
 
 type dummyMux struct {
@@ -38,6 +42,18 @@ func (d *dummyMux) RemoveHandler(i, j string) {
 	if d.RemoveHandlerFunc != nil {
 		d.RemoveHandlerFunc(i, j)
 	}
+}
+
+func (s *ControllerSuite) SetUpTest(c *gc.C) {
+	controllerUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.controllerUUID = controllerUUID.String()
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelUUID = modelUUID.String()
+
+	s.modelName = "test-model"
 }
 
 func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
@@ -67,7 +83,7 @@ func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -99,7 +115,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 	}
 	creator := &dummyAdmissionCreator{}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -125,7 +141,7 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()

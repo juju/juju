@@ -712,7 +712,7 @@ func operator(client kubernetes.Interface,
 	opPod := podsList.Items[0]
 
 	eventGetter := func() ([]core.Event, error) {
-		return resources.ListEventsForObject(context.TODO(), client, namespace, opPod.Name, "Pod")
+		return resources.ListEventsForObject(context.TODO(), client.CoreV1().Events(namespace), opPod.Name, "Pod")
 	}
 
 	terminated := opPod.DeletionTimestamp != nil

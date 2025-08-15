@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
@@ -22,17 +22,18 @@ import (
 
 // ServiceAccount extends the k8s service account.
 type ServiceAccount struct {
+	client v1.ServiceAccountInterface
 	corev1.ServiceAccount
 }
 
 // NewServiceAccount creates a new service account resource.
-func NewServiceAccount(name string, namespace string, in *corev1.ServiceAccount) *ServiceAccount {
+func NewServiceAccount(client v1.ServiceAccountInterface, namespace string, name string, in *corev1.ServiceAccount) *ServiceAccount {
 	if in == nil {
 		in = &corev1.ServiceAccount{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &ServiceAccount{*in}
+	return &ServiceAccount{client, *in}
 }
 
 // Clone returns a copy of the resource.
@@ -47,17 +48,16 @@ func (sa *ServiceAccount) ID() ID {
 }
 
 // Apply patches the resource change.
-func (sa *ServiceAccount) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
+func (sa *ServiceAccount) Apply(ctx context.Context) error {
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &sa.ServiceAccount)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, sa.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := sa.client.Patch(ctx, sa.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &sa.ServiceAccount, metav1.CreateOptions{
+		res, err = sa.client.Create(ctx, &sa.ServiceAccount, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
@@ -72,9 +72,8 @@ func (sa *ServiceAccount) Apply(ctx context.Context, client kubernetes.Interface
 }
 
 // Get refreshes the resource.
-func (sa *ServiceAccount) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
-	res, err := api.Get(ctx, sa.Name, metav1.GetOptions{})
+func (sa *ServiceAccount) Get(ctx context.Context) error {
+	res, err := sa.client.Get(ctx, sa.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -85,9 +84,8 @@ func (sa *ServiceAccount) Get(ctx context.Context, client kubernetes.Interface) 
 }
 
 // Delete removes the resource.
-func (sa *ServiceAccount) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.CoreV1().ServiceAccounts(sa.Namespace)
-	err := api.Delete(ctx, sa.Name, metav1.DeleteOptions{
+func (sa *ServiceAccount) Delete(ctx context.Context) error {
+	err := sa.client.Delete(ctx, sa.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -100,15 +98,14 @@ func (sa *ServiceAccount) Delete(ctx context.Context, client kubernetes.Interfac
 
 func (sa *ServiceAccount) Ensure(
 	ctx context.Context,
-	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
 	alreadyExists := false
 	cleanups := []func(){}
 	hasClaim := true
 
-	existing := ServiceAccount{sa.ServiceAccount}
-	err := existing.Get(ctx, client)
+	existing := ServiceAccount{client: sa.client, ServiceAccount: sa.ServiceAccount}
+	err := existing.Get(ctx)
 	if err != nil && !errors.IsNotFound(err) {
 		return cleanups, errors.Annotatef(
 			err,
@@ -133,21 +130,16 @@ func (sa *ServiceAccount) Ensure(
 			"service account %q not controlled by juju", sa.Name)
 	}
 
-	cleanups = append(cleanups, func() { _ = sa.Delete(ctx, client) })
+	cleanups = append(cleanups, func() { _ = sa.Delete(ctx) })
 	if !alreadyExists {
-		return cleanups, sa.Apply(ctx, client)
+		return cleanups, sa.Apply(ctx)
 	}
 
-	return cleanups, errors.Trace(sa.Update(ctx, client))
-}
-
-// Events emitted by the resource.
-func (sa *ServiceAccount) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, sa.Namespace, sa.Name, "ServiceAccount")
+	return cleanups, errors.Trace(sa.Update(ctx))
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (sa *ServiceAccount) ComputeStatus(_ context.Context, _ kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (sa *ServiceAccount) ComputeStatus(_ context.Context, now time.Time) (string, status.Status, time.Time, error) {
 	if sa.DeletionTimestamp != nil {
 		return "", status.Terminated, sa.DeletionTimestamp.Time, nil
 	}
@@ -156,9 +148,8 @@ func (sa *ServiceAccount) ComputeStatus(_ context.Context, _ kubernetes.Interfac
 
 func (sa *ServiceAccount) Update(
 	ctx context.Context,
-	client kubernetes.Interface,
 ) error {
-	out, err := client.CoreV1().ServiceAccounts(sa.Namespace).Update(
+	out, err := sa.client.Update(
 		ctx,
 		&sa.ServiceAccount,
 		metav1.UpdateOptions{

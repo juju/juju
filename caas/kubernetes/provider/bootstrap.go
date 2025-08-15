@@ -20,6 +20,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -505,6 +506,7 @@ func (c *controllerStack) Deploy() (err error) {
 	saName, saCleanUps, err := ensureControllerServiceAccount(
 		c.ctx.Context(),
 		c.broker.client(),
+		c.broker.extendedClient(),
 		c.broker.Namespace(),
 		c.broker.ControllerUUID(),
 		c.stackLabels,
@@ -874,30 +876,32 @@ func (c *controllerStack) ensureControllerApplicationSecret() error {
 func ensureControllerServiceAccount(
 	ctx context.Context,
 	client kubernetes.Interface,
+	extendedClient clientset.Interface,
 	namespace string,
 	controllerUUID string,
 	labels map[string]string,
 	annotations map[string]string,
 ) (string, []func(), error) {
-	sa := resources.NewServiceAccount(environsbootstrap.ControllerApplicationName, namespace, &core.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: providerutils.LabelsMerge(
-				labels,
-				providerutils.LabelsJujuModelOperatorDisableWebhook,
-			),
-			Annotations: annotations,
-		},
-		AutomountServiceAccountToken: boolPtr(true),
-	})
+	sa := resources.NewServiceAccount(client.CoreV1().ServiceAccounts(namespace), namespace, environsbootstrap.ControllerApplicationName,
+		&core.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: providerutils.LabelsMerge(
+					labels,
+					providerutils.LabelsJujuModelOperatorDisableWebhook,
+				),
+				Annotations: annotations,
+			},
+			AutomountServiceAccountToken: boolPtr(true),
+		})
 
-	cleanUps, err := sa.Ensure(context.TODO(), client)
+	cleanUps, err := sa.Ensure(context.TODO())
 	if err != nil {
 		return sa.Name, cleanUps, errors.Trace(err)
 	}
 
 	// name cluster role binding after the controller namespace.
 	clusterRoleBindingName := namespace
-	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
+	crb := resources.NewClusterRoleBinding(client.RbacV1().ClusterRoleBindings(), clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterRoleBindingName,
 			Labels: providerutils.LabelsForModel(environsbootstrap.ControllerModelName, "",
@@ -916,7 +920,7 @@ func ensureControllerServiceAccount(
 		}},
 	})
 
-	crbCleanUps, err := crb.Ensure(ctx, client)
+	crbCleanUps, err := crb.Ensure(ctx)
 	cleanUps = append(cleanUps, crbCleanUps...)
 	return sa.Name, cleanUps, errors.Trace(err)
 }
@@ -1636,9 +1640,11 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		constants.LastLabelVersion,
 		caas.DeploymentStateful,
 		c.broker.client(),
+		c.broker.extendedClient(),
 		c.broker.newWatcher,
 		c.broker.clock,
 		c.broker.randomPrefix,
+		c.broker.controllerUUID,
 	)
 
 	chBase := version.DefaultSupportedLTSBase()
