@@ -4,6 +4,8 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
@@ -11,6 +13,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coreerror "github.com/juju/juju/core/errors"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -277,4 +281,29 @@ func (s *serviceSuite) TestGetAttachmentLifeWithAttachmentNotFound(c *tc.C) {
 	svc := NewService(s.state, s.watcherFactory)
 	_, err := svc.GetStorageAttachmentLife(c.Context(), unitUUID, "foo/1")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+}
+func (s *serviceSuite) TestWatchUnitStorageAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().InitialWatchStatementForUnitStorageAttachments(gomock.Any(), unitUUID.String()).
+		Return(
+			"table_foo",
+			func(context.Context, database.TxnRunner) ([]string, error) { return nil, nil },
+		)
+	matcher := eventSourceFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "table_foo",
+	}
+	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
+		gomock.Any(), gomock.Any(),
+		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
+		gomock.Any(),
+		matcher,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.WatchUnitStorageAttachments(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
