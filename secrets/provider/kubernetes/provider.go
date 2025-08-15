@@ -1221,7 +1221,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 		mu.Lock()
 		_, err = k.client.RbacV1().ClusterRoleBindings().Get(ctx, proposedName, v1.GetOptions{})
 		if err == nil {
-			suffixLength = suffixLength + 1
+			suffixLength++
 			mu.Unlock()
 			continue
 		} else if !k8serrors.IsNotFound(err) {
@@ -1250,6 +1250,11 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 			},
 		)
 		mu.Unlock()
+		// someone might have created the cluster role binding
+		if errors.Is(err, errors.AlreadyExists) {
+			suffixLength++
+			continue
+		}
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteClusterRoleBinding(ctx, result.GetName(), result.GetUID()) })
 		}
