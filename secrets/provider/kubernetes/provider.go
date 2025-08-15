@@ -22,7 +22,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -505,36 +507,47 @@ func (k *kubernetesClient) createRole(ctx context.Context, role *rbacv1.Role) (*
 // to handle concurrent modifications by other controllers.
 // Note that only the Rules field is updated, all other fields from the latest role are preserved.
 func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*rbacv1.Role, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
+	// if k.namespace == "" {
+	// 	return nil, errNoNamespace
+	// }
+
+	// var out *rbacv1.Role
+	// err := retry.Call(retry.CallArgs{
+	// 	Func: func() error {
+	// 		api := k.client.RbacV1().Roles(k.namespace)
+
+	// 		// Always fetch the latest before update attempt
+	// 		latest, err := api.Get(ctx, role.Name, v1.GetOptions{})
+	// 		if k8serrors.IsNotFound(err) {
+	// 			return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", role.Name))
+	// 		}
+	// 		if err != nil {
+	// 			return errors.Trace(err)
+	// 		}
+	// 		latest.Rules = role.Rules
+	// 		out, err = api.Update(ctx, latest, v1.UpdateOptions{})
+	// 		return errors.Trace(err)
+	// 	},
+	// 	IsFatalError: func(err error) bool {
+	// 		return !errors.Is(err, errors.NotFound) && !k8serrors.IsConflict(err)
+	// 	},
+	// 	Clock:       jujuclock.WallClock,
+	// 	Attempts:    5,
+	// 	Delay:       time.Second,
+	// 	BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+	// })
+
+	api := k.client.RbacV1().Roles(k.namespace)
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, role)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	var out *rbacv1.Role
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			api := k.client.RbacV1().Roles(k.namespace)
-
-			// Always fetch the latest before update attempt
-			latest, err := api.Get(ctx, role.Name, v1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", role.Name))
-			}
-			if err != nil {
-				return errors.Trace(err)
-			}
-			latest.Rules = role.Rules
-			out, err = api.Update(ctx, latest, v1.UpdateOptions{})
-			return errors.Trace(err)
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound) && !k8serrors.IsConflict(err)
-		},
-		Clock:       jujuclock.WallClock,
-		Attempts:    5,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+	out, err := api.Patch(ctx, role.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
 	})
-
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf(" role %q", role.GetName())
+	}
 	return out, errors.Trace(err)
 }
 
@@ -821,32 +834,49 @@ func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterRole *r
 // to handle concurrent modifications by other controllers.
 // Note that only the Rules field is updated, all other fields from the latest ClusterRole are preserved.
 func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	var out *rbacv1.ClusterRole
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			api := k.client.RbacV1().ClusterRoles()
-
-			// Always fetch the latest before update attempt
-			latest, err := api.Get(ctx, clusterRole.Name, v1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", clusterRole.Name))
-			}
-			if err != nil {
-				return errors.Trace(err)
-			}
-			// Update just the rules that were created
-			latest.Rules = clusterRole.Rules
-			out, err = api.Update(ctx, latest, v1.UpdateOptions{})
-			return errors.Trace(err)
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound) && !k8serrors.IsConflict(err)
-		},
-		Clock:       jujuclock.WallClock,
-		Attempts:    5,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+	api := k.client.RbacV1().ClusterRoles()
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, clusterRole)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out, err := api.Patch(ctx, clusterRole.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("cluster role %q", clusterRole.GetName())
+	}
+
+	// var out *rbacv1.ClusterRole
+	// err := retry.Call(retry.CallArgs{
+	// 	Func: func() error {
+	// 		api := k.client.RbacV1().ClusterRoles()
+
+	// 		// Always fetch the latest before update attempt
+	// 		latest, err := api.Get(ctx, clusterRole.Name, v1.GetOptions{})
+	// 		if k8serrors.IsNotFound(err) {
+	// 			return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", clusterRole.Name))
+	// 		}
+	// 		if err != nil {
+	// 			return errors.Trace(err)
+	// 		}
+	// 		// Update just the rules that were created
+	// 		latest.Rules = clusterRole.Rules
+	// 		data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, clusterRole)
+	// 		if err != nil {
+	// 			return errors.Trace(err)
+	// 		}
+	// 		_, err =
+	// 		out, err = api.Patch(ctx, clusterRole.Name, types.StrategicMergePatchType, latest, v1.UpdateOptions{})
+	// 		return errors.Trace(err)
+	// 	},
+	// 	IsFatalError: func(err error) bool {
+	// 		return !errors.Is(err, errors.NotFound) && !k8serrors.IsConflict(err)
+	// 	},
+	// 	Clock:       jujuclock.WallClock,
+	// 	Attempts:    5,
+	// 	Delay:       time.Second,
+	// 	BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+	// })
 
 	return out, errors.Trace(err)
 }
