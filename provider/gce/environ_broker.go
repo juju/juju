@@ -4,12 +4,10 @@
 package gce
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
@@ -204,13 +202,13 @@ func (env *environ) newRawInstance(
 		AvailabilityZone:  args.AvailabilityZone,
 		AllocatePublicIP:  allocatePublicIP,
 	}
-	clientEmail, ok, err := getClientEmail(env.cloud.Credential)
+	serviceAccount, err := env.gce.DefaultServiceAccount()
 	if err != nil {
-		return nil, environs.ZoneIndependentError(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	if ok {
-		instArg.ClientEmail = clientEmail
-	}
+	logger.Debugf("using project service account: %s", serviceAccount)
+
+	instArg.DefaultServiceAccount = serviceAccount
 	inst, err := env.gce.AddInstance(instArg)
 	if err != nil {
 		// We currently treat all AddInstance failures
@@ -220,29 +218,6 @@ func (env *environ) newRawInstance(
 	}
 
 	return inst, nil
-}
-
-// getClientEmail extracts the client email attribute from the cloud credential
-// so it can be attached to the instance.
-func getClientEmail(cred *cloud.Credential) (string, bool, error) {
-	if cred == nil {
-		return "", false, nil
-	}
-	clientEmail, ok := cred.Attributes()[credAttrClientEmail]
-	if ok {
-		return clientEmail, true, nil
-	}
-	rawContent := cred.Attributes()[credAttrFile]
-	if rawContent == "" {
-		return "", false, nil
-	}
-	var content map[string]string
-	err := json.Unmarshal([]byte(rawContent), &content)
-	if err != nil {
-		return "", false, errors.Annotate(err, "unmarshalling credential content")
-	}
-	clientEmail, ok = content["client_email"]
-	return clientEmail, ok, nil
 }
 
 // getMetadata builds the raw "user-defined" metadata for the new

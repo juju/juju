@@ -299,7 +299,7 @@ func (s *environBrokerSuite) TestSettingServiceAccountFromClientEmail(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.InstanceSummary.ClientEmail, gc.Equals, "fred@foo.com")
+	c.Assert(result.InstanceSummary.ServiceAccount, gc.Equals, "fred@foo.com")
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {

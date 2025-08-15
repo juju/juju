@@ -57,8 +57,8 @@ type InstanceSpec struct {
 	// address, exposing it to access from outside the internal network.
 	AllocatePublicIP bool
 
-	// ClientEmail is the client email field from the credential.
-	ClientEmail string
+	// DefaultServiceAccount is the default project service account.
+	DefaultServiceAccount string
 }
 
 func (is InstanceSpec) raw() *compute.Instance {
@@ -70,9 +70,9 @@ func (is InstanceSpec) raw() *compute.Instance {
 		Tags:              &compute.Tags{Items: is.Tags},
 		// MachineType is set in the addInstance call.
 	}
-	if is.ClientEmail != "" {
+	if is.DefaultServiceAccount != "" {
 		inst.ServiceAccounts = []*compute.ServiceAccount{{
-			Email: is.ClientEmail,
+			Email: is.DefaultServiceAccount,
 		}}
 	}
 	return inst
@@ -124,8 +124,8 @@ type InstanceSummary struct {
 	// NetworkInterfaces are the network connections associated with
 	// the instance.
 	NetworkInterfaces []*compute.NetworkInterface
-	// ClientEmail is the client email field from the credential.
-	ClientEmail string
+	// ServiceAccount is the instance service account.
+	ServiceAccount string
 }
 
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
@@ -138,7 +138,7 @@ func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 		NetworkInterfaces: raw.NetworkInterfaces,
 	}
 	if len(raw.ServiceAccounts) > 0 {
-		inst.ClientEmail = raw.ServiceAccounts[0].Email
+		inst.ServiceAccount = raw.ServiceAccounts[0].Email
 	}
 	return inst
 }
