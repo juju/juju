@@ -5,6 +5,7 @@ package lxd
 
 import (
 	stdcontext "context"
+	"fmt"
 	"net"
 	"net/url"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
@@ -96,6 +98,13 @@ func newEnviron(
 	return env, nil
 }
 
+func (env *environ) profileCfg() map[string]string {
+	return map[string]string{
+		"boot.autostart":   "true",
+		"security.nesting": "true",
+	}
+}
+
 func (env *environ) initProfile() error {
 	pName := env.profileName()
 
@@ -107,17 +116,12 @@ func (env *environ) initProfile() error {
 		return nil
 	}
 
-	cfg := map[string]string{
-		"boot.autostart":   "true",
-		"security.nesting": "true",
-	}
-
 	// In ci, perhaps other places, there can be a race if more than one
 	// controller is starting up, where we try to create the profile more
 	// than once and get: The profile already exists.  LXD does not have
 	// typed errors. Therefore if CreateProfile fails, check to see if the
 	// profile exists.  No need to fail if it does.
-	err = env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
+	err = env.serverUnlocked.CreateProfileWithConfig(pName, env.profileCfg())
 	if err == nil {
 		return nil
 	}
@@ -134,7 +138,7 @@ func (env *environ) initProfile() error {
 }
 
 func (env *environ) profileName() string {
-	return "juju-" + env.Name()
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewModelTag(env.uuid).ShortId())
 }
 
 // Name returns the name of the environ.
@@ -274,6 +278,23 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	logger.Debugf("removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
+}
+
+func (env *environ) DestroyProfile(profileName string, modelVersion int) error {
+	if modelVersion < ProviderVersion1 {
+		logger.Debugf("skipping destroying profile for model %q because it is an old model version %d", env.name, modelVersion)
+		return nil
+	}
+
+	server := env.server()
+	err := server.DeleteProfile(profileName)
+	if err != nil {
+		logger.Debugf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profileName, err.Error())
+	}
+
+	logger.Infof("deleted profile %q", profileName)
+
+	return nil
 }
 
 // lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
@@ -430,6 +451,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 			Devices:     put.Devices,
 		},
 	}
+	logger.Infof("[adis][environ][maybewritelxdprofile] post: %+v", post)
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
@@ -489,7 +511,9 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		return report(errors.Trace(err))
 	}
 
+	logger.Infof("[adis][provider][assignlxdprofiles] deleteprofiles %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
+		logger.Infof("[adis][provider][assignlxdprofiles] deleted profile %q", name)
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", name, err)

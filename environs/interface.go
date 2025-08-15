@@ -423,6 +423,10 @@ type ControllerDestroyer interface {
 	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
 }
 
+type ModelProfileDestroyer interface {
+	DestroyProfile(profileName string, modelVersion int) error
+}
+
 type ResourceAdopter interface {
 	// AdoptResources is called when the model is moved from one
 	// controller to another using model migration. Some providers tag

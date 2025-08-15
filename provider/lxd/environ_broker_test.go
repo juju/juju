@@ -633,10 +633,10 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 		if profiles[0] != "default" {
 			return false
 		}
-		if profiles[1] != "juju-" {
+		if profiles[1] != "juju-model-2d02ee" {
 			return false
 		}
-		return profiles[2] == "juju-model-test-0"
+		return profiles[2] == "juju-model-2d02ee-test-0"
 	}
 
 	exp := svr.EXPECT()
@@ -652,7 +652,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	)
 
 	args := s.GetStartInstanceArgs(c)
-	args.CharmLXDProfiles = []string{"juju-model-test-0"}
+	args.CharmLXDProfiles = []string{"juju-model-2d02ee-test-0"}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	res, err := env.StartInstance(s.callCtx, args)
@@ -700,6 +700,10 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
+	gomock.InOrder(
+		svr.EXPECT().GetContainerProfiles("juju-f75cba-1").Return([]string{}, nil),
+		svr.EXPECT().GetContainerProfiles("juju-f75cba-2").Return([]string{}, nil),
+	)
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
@@ -713,6 +717,10 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
+	gomock.InOrder(
+		svr.EXPECT().GetContainerProfiles("juju-f75cba-1").Return([]string{}, nil),
+		svr.EXPECT().GetContainerProfiles("juju-f75cba-2").Return([]string{}, nil),
+	)
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
