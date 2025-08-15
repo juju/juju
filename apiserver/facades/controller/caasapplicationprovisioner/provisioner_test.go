@@ -125,6 +125,53 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	})
 }
 
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *gc.C) {
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url:  "ch:gitlab",
+		},
+		charmModifiedVersion: 10,
+		scale:                1,
+		config: config.ConfigAttributes{
+			"trust": true,
+		},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{
+			{
+				Unit:      "gitlab/0",
+				VolumeId:  "pvc-foo-bar",
+				StorageId: "gitlab-storage/0",
+			},
+		},
+	}
+	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
+		Results: []params.CAASApplicationProvisioningInfo{{
+			ImageRepo:    params.DockerImageInfo{RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666"},
+			Version:      version.MustParse("2.6-beta3.666"),
+			APIAddresses: []string{"10.0.0.1:1"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			},
+			CharmURL:             "ch:gitlab",
+			CharmModifiedVersion: 10,
+			Scale:                1,
+			Trust:                true,
+			FilesystemUnitAttachments: map[string][]params.KubernetesFilesystemUnitAttachmentParams{
+				"gitlab-storage": {
+					{UnitTag: "unit-gitlab-0", VolumeId: "pvc-foo-bar"},
+				},
+			},
+		}},
+	})
+}
+
 func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *gc.C) {
 	s.st.app = &mockApplication{
 		life:         state.Alive,

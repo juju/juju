@@ -457,11 +457,6 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(c.attachStorage) > 0 {
-		return errors.Errorf(
-			"AttachStorage may not be specified for container models",
-		)
-	}
 	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
