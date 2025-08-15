@@ -35,14 +35,12 @@ func (s *connSuite) TestConnect(c *gc.C) {
 }
 
 func (s *connSuite) TestConnectionVerifyCredentials(c *gc.C) {
-	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *connSuite) TestConnectionVerifyCredentialsAPI(c *gc.C) {
-	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 

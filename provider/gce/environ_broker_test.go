@@ -295,6 +295,13 @@ func (s *environBrokerSuite) TestSettingBaseImagePathOverwritesImageStreams(c *g
 	c.Check(c.GetTestLog(), jc.Contains, "/opt/custom-builds/")
 }
 
+func (s *environBrokerSuite) TestSettingServiceAccountFromClientEmail(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.InstanceSummary.ServiceAccount, gc.Equals, "fred@foo.com")
+}
+
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	hwc := gce.GetHardwareCharacteristics(s.Env, s.spec, s.Instance)
 
