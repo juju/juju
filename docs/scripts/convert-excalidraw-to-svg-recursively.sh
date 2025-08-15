@@ -40,6 +40,7 @@ echo $files_without_extention | tr ' ' '\n' | while IFS= read -r file; do
     continue
   fi
 
+  # Generate the normal SVG file from the excalidraw file
   echo "Exporting → $file.excalidraw  to  $file.svg"
   npx excalidraw-brute-export-cli \
         -i "$file.excalidraw" \
@@ -50,4 +51,16 @@ echo $files_without_extention | tr ' ' '\n' | while IFS= read -r file; do
         --format svg \
         --quiet \
         -o "$file.svg"
+
+  # Generate the dark mode SVG file from the excalidraw file
+  echo "Exporting → $file.excalidraw  to  $file.dark.svg"
+  npx excalidraw-brute-export-cli \
+        -i "$file.excalidraw" \
+        --background 0 \
+        --embed-scene 1 \
+        --dark-mode 1 \
+        --scale 1 \
+        --format svg \
+        --quiet \
+        -o "$file.dark.svg"
 done
