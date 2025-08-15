@@ -281,6 +281,7 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 		NetworkInterfaces: []string{"somenetif"},
 		Metadata:          s.UbuntuMetadata,
 		Tags:              []string{id},
+		ClientEmail:       "fred@foo.com",
 	}
 	summary := google.InstanceSummary{
 		ID:        id,
@@ -294,6 +295,7 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
 			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
 		}},
+		ClientEmail: "fred@foo.com",
 	}
 	return google.NewInstance(summary, &instanceSpec)
 }

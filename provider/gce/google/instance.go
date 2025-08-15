@@ -56,10 +56,13 @@ type InstanceSpec struct {
 	// AllocatePublicIP is true if the instance should be assigned a public IP
 	// address, exposing it to access from outside the internal network.
 	AllocatePublicIP bool
+
+	// ClientEmail is the client email field from the credential.
+	ClientEmail string
 }
 
 func (is InstanceSpec) raw() *compute.Instance {
-	return &compute.Instance{
+	inst := &compute.Instance{
 		Name:              is.ID,
 		Disks:             is.disks(),
 		NetworkInterfaces: is.networkInterfaces(),
@@ -67,6 +70,12 @@ func (is InstanceSpec) raw() *compute.Instance {
 		Tags:              &compute.Tags{Items: is.Tags},
 		// MachineType is set in the addInstance call.
 	}
+	if is.ClientEmail != "" {
+		inst.ServiceAccounts = []*compute.ServiceAccount{{
+			Email: is.ClientEmail,
+		}}
+	}
+	return inst
 }
 
 // Summary builds an InstanceSummary based on the spec and returns it.
@@ -115,10 +124,12 @@ type InstanceSummary struct {
 	// NetworkInterfaces are the network connections associated with
 	// the instance.
 	NetworkInterfaces []*compute.NetworkInterface
+	// ClientEmail is the client email field from the credential.
+	ClientEmail string
 }
 
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
-	return InstanceSummary{
+	inst := InstanceSummary{
 		ID:                raw.Name,
 		ZoneName:          path.Base(raw.Zone),
 		Status:            raw.Status,
@@ -126,6 +137,10 @@ func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 		Addresses:         extractAddresses(raw.NetworkInterfaces...),
 		NetworkInterfaces: raw.NetworkInterfaces,
 	}
+	if len(raw.ServiceAccounts) > 0 {
+		inst.ClientEmail = raw.ServiceAccounts[0].Email
+	}
+	return inst
 }
 
 // Instance represents a single realized GCE compute instance.
