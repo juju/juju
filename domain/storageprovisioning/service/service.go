@@ -333,7 +333,7 @@ func (s *Service) WatchUnitStorageAttachments(ctx context.Context, unitUUID core
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	tableName, initialQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
+	ns, initialQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
 	return s.watcherFactory.NewNamespaceMapperWatcher(ctx,
 		initialQuery,
 		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
@@ -353,6 +353,6 @@ func (s *Service) WatchUnitStorageAttachments(ctx context.Context, unitUUID core
 			}
 			return storageIDs, nil
 		},
-		eventsource.NamespaceFilter(tableName, changestream.All),
+		eventsource.NamespaceFilter(ns, changestream.All),
 	)
 }

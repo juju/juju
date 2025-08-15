@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -179,6 +180,10 @@ type FilesystemState interface {
 	// filesystem attachment is model provisioned and the initial query for
 	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
+
+	// NamespaceForFilesystemAttachments returns the change stream namespace
+	// for watching filesystem attachment changes.
+	NamespaceForFilesystemAttachments() string
 
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
@@ -788,4 +793,103 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	}
 
 	return nil
+}
+
+// WatchFilesystemAttachmentForUnit returns a notification watcher for the
+// filesystem attachment of a unit.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// is not valid.
+// - [github.com/juju/juju/domain/unit/errors.UnitNotFound] when no unit exists
+// for the provided unit UUID.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided values.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided filesystem ID.
+func (s *Service) WatchFilesystemAttachmentForUnit(
+	ctx context.Context,
+	filesystemID string,
+	unitUUID coreunit.UUID,
+) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watchFilesystemAttachmentForNetNode(ctx, filesystemID, netNodeUUID,
+		fmt.Sprintf("filesystem attachment watcher for unit %q filesystem %q", unitUUID, filesystemID),
+	)
+}
+
+// WatchFilesystemAttachmentForMachine returns a notification watcher
+// for the filesystem attachment of a machine.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+// is not valid.
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+// machine exists for the provided machine UUID.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided values.
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+// for the provided filesystem ID.
+func (s *Service) WatchFilesystemAttachmentForMachine(
+	ctx context.Context,
+	filesystemID string,
+	machineUUID coremachine.UUID,
+) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watchFilesystemAttachmentForNetNode(ctx, filesystemID, netNodeUUID,
+		fmt.Sprintf("filesystem attachment watcher for machine %q filesystem %q", machineUUID, filesystemID),
+	)
+}
+
+func (s *Service) watchFilesystemAttachmentForNetNode(
+	ctx context.Context,
+	filesystemID string,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	watcherSummary string,
+) (watcher.NotifyWatcher, error) {
+	if err := netNodeUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	fsAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		ctx, fsUUID, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(ctx,
+		watcherSummary,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForFilesystemAttachments(),
+			changestream.All,
+			eventsource.EqualsPredicate(fsAttachmentUUID.String()),
+		),
+	)
 }

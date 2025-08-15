@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
@@ -697,4 +698,86 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 
 	_, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *filesystemSuite) TestWatchFilesystemAttachmentForUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsID := "123"
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsAttachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemUUIDForID(gomock.Any(), fsID).Return(fsUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
+	s.state.EXPECT().NamespaceForFilesystemAttachments().Return("test_namespace")
+	matcher := eventSourcePredFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace",
+		Predicate:  fsAttachmentUUID.String(),
+	}
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(),
+		fmt.Sprintf("filesystem attachment watcher for unit %q filesystem %q", unitUUID, fsID),
+		matcher,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err = svc.WatchFilesystemAttachmentForUnit(c.Context(), fsID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *filesystemSuite) TestWatchFilesystemAttachmentForUnitWithInvalidUnitUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsID := "123"
+	unitUUID := coreunit.UUID("$")
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.WatchFilesystemAttachmentForUnit(c.Context(), fsID, unitUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *filesystemSuite) TestWatchFilesystemAttachmentForMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsID := "123"
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsAttachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemUUIDForID(gomock.Any(), fsID).Return(fsUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
+	s.state.EXPECT().NamespaceForFilesystemAttachments().Return("test_namespace")
+	matcher := eventSourcePredFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace",
+		Predicate:  fsAttachmentUUID.String(),
+	}
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(),
+		fmt.Sprintf("filesystem attachment watcher for machine %q filesystem %q", machineUUID, fsID),
+		matcher,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err = svc.WatchFilesystemAttachmentForMachine(c.Context(), fsID, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *filesystemSuite) TestWatchFilesystemAttachmentForMachineWithInvalidMachineUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsID := "123"
+	machineUUID := coremachine.UUID("$")
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.WatchFilesystemAttachmentForMachine(c.Context(), fsID, machineUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
