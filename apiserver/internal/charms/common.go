@@ -63,33 +63,19 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	// Parse the URL to get the charm name and revision, so that we can
-	// look up the charm ID. The charm ID is used to fetch the charm
-	// information.
-	url, err := charm.ParseURL(args.URL)
+	charmLocator, err := CharmLocatorFromURL(args.URL)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	// Get the charm ID, the charm ID is the unique UUID for the charm. All
-	// operations on the charm are done using the charm ID.
-	charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(url.Schema))
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-
-	ch, locator, _, err := a.service.GetCharm(ctx, applicationcharm.CharmLocator{
-		Name:     url.Name,
-		Revision: url.Revision,
-		Source:   charmSource,
-	})
+	ch, _, _, err := a.service.GetCharm(ctx, charmLocator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return params.Charm{}, errors.NotFoundf("charm %q", args.URL)
 	} else if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	return convertCharm(ch.Meta().Name, ch, locator)
+	return convertCharm(ch.Meta().Name, ch, charmLocator)
 }
 
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
