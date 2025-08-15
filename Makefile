@@ -213,14 +213,6 @@ else
     CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
-define DEPENDENCIES
-  ca-certificates
-  bzip2
-  distro-info-data
-  git
-  zip
-endef
-
 # run_go_build is a canned command sequence for the steps required to build a
 # juju package. It's expected that the make target using this sequence has a
 # local variable defined for PACKAGE. An example of PACKAGE would be
@@ -550,29 +542,6 @@ install: rebuild-schema go-install
 go-install: $(INSTALL_TARGETS)
 ## go-install: Install Juju binaries
 
-.PHONY: clean
-clean:
-## clean: Clean the cache and test caches
-	go clean -x --cache --testcache
-	go clean -x -r $(PROJECT)/...
-
-.PHONY: vendor-dependencies
-vendor-dependencies:
-## vendor-dependencies: updates vendored dependencies
-	@go mod vendor
-
-.PHONY: format
-# Reformat source files.
-format:
-## format: Format the go source code
-	gofmt -w -l .
-
-.PHONY: simplify
-# Reformat and simplify source files.
-simplify:
-## simplify: Format and simplify the go source code
-	gofmt -w -l -s .
-
 .PHONY: rebuild-schema
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
@@ -613,16 +582,6 @@ endif
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_VERSION=4.4
-JUJU_DB_CHANNEL=${JUJU_DB_VERSION}/stable
-
-.PHONY: install-mongo-dependencies
-install-mongo-dependencies:
-## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Installing ${JUJU_DB_CHANNEL} juju-db snap for mongodb
-	@sudo snap refresh juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null; sudo snap install juju-db --channel=${JUJU_DB_CHANNEL} 2> /dev/null
-	@$(WAIT_FOR_DPKG)
-	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
 .PHONY: install-sqlite3-dependencies
 install-sqlite3-dependencies:
@@ -633,7 +592,7 @@ install-sqlite3-dependencies:
 	@sudo apt-get --yes install libsqlite3-dev
 
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-mongo-dependencies install-sqlite3-dependencies
+install-dependencies: install-snap-dependencies install-sqlite3-dependencies
 ## install-dependencies: Install all the dependencies
 	@echo "Installing dependencies"
 

@@ -32,6 +32,5 @@ do
         fi
 
         ./scripts/verify.bash
-
     fi
 done

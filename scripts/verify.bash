@@ -3,9 +3,8 @@
 # Licensed under the AGPLv3, see LICENCE file for details.
 
 # This is called from pre-push.bash to do some verification checks on
-# the Go code.  The script will exit non-zero if any of these tests
-# fail. However if environment variable IGNORE_VET_WARNINGS is a non-zero
-# length string, go vet warnings will not exit non-zero.
+# the Go code. The script will exit non-zero if any of these tests
+# fail.
 
 set -e
 
@@ -18,6 +17,3 @@ if [ -n "$STATIC_ANALYSIS" ]; then
 else
     echo "Ignoring static analysis, run again with STATIC_ANALYSIS=1 ..."
 fi
-
-echo "checking: tests are wired up ..."
-./scripts/checktesting.bash
