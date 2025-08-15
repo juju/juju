@@ -114,7 +114,7 @@ func NewStorageProvisionerAPIv4(
 			}
 		}, nil
 	}
-	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
+	canAccessStorageEntity := func(ctx context.Context, tag names.Tag, allowMachines bool) bool {
 		switch tag := tag.(type) {
 		case names.VolumeTag:
 			machineTag, ok := names.VolumeMachine(tag)
@@ -123,19 +123,11 @@ func NewStorageProvisionerAPIv4(
 			}
 			return authorizer.AuthController()
 		case names.FilesystemTag:
-			machineTag, ok := names.FilesystemMachine(tag)
-			if ok {
-				return canAccessStorageMachine(machineTag, false)
-			}
-			_, ok = names.FilesystemUnit(tag)
-			if ok {
-				return authorizer.AuthController()
-			}
-
 			exists, err := storageProvisioningService.CheckFilesystemForIDExists(
 				ctx, tag.Id(),
 			)
 			if err != nil {
+				logger.Warningf(ctx, "checking filesystem %s: %v", tag.Id(), err)
 				return false
 			}
 			if !exists {
@@ -169,14 +161,14 @@ func NewStorageProvisionerAPIv4(
 			return false
 		}
 	}
-	getStorageEntityAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getStorageEntityAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, false)
+			return canAccessStorageEntity(ctx, tag, false)
 		}, nil
 	}
-	getLifeAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getLifeAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, true)
+			return canAccessStorageEntity(ctx, tag, true)
 		}, nil
 	}
 	getAttachmentAuthFunc := func(context.Context) (func(names.Tag, names.Tag) bool, error) {
