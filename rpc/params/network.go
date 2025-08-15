@@ -105,10 +105,6 @@ type NetworkConfig struct {
 	// Deprecated: no longer written or read.
 	ProviderNetworkId string `json:"provider-network-id"`
 
-	// ProviderSubnetId is a provider-specific subnet id, to which the
-	// interface is attached to.
-	ProviderSubnetId string `json:"provider-subnet-id"`
-
 	// ProviderSpaceId is a provider-specific space id to which the interface
 	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
@@ -195,6 +191,14 @@ type NetworkConfig struct {
 	// Giving us this information allows us to reason about when a InterfaceInfo
 	// is in use.
 	NetworkOrigin NetworkOrigin `json:"origin,omitempty"`
+
+	// These deprecated fields had to be retained for backwards compatibility,
+	// because their tags did not include the `omitempty` option.
+
+	// ProviderSubnetId is a provider-specific subnet id, to which the
+	// interface is attached to.
+	// Deprecated: no longer written or read.
+	ProviderSubnetId string `json:"provider-subnet-id"`
 }
 
 // NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
@@ -220,7 +224,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
-			ProviderSubnetId:    string(v.ProviderSubnetId),
 			ProviderSpaceId:     string(v.ProviderSpaceId),
 			ProviderVLANId:      string(v.ProviderVLANId),
 			ProviderAddressId:   string(v.ProviderAddressId),
@@ -268,7 +271,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			MACAddress:          network.NormalizeMACAddress(v.MACAddress),
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
-			ProviderSubnetId:    network.Id(v.ProviderSubnetId),
 			ProviderSpaceId:     network.Id(v.ProviderSpaceId),
 			ProviderVLANId:      network.Id(v.ProviderVLANId),
 			ProviderAddressId:   network.Id(v.ProviderAddressId),
