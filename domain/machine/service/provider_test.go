@@ -218,11 +218,14 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupport
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 
 	cons, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
+	c.Check(cons, tc.DeepEquals, coreconstraints.Value{
+		Arch: ptr(arch.AMD64),
+	})
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *tc.C) {

@@ -1758,6 +1758,45 @@ func (c *MockApplicationServiceMergeExposeSettingsCall) DoAndReturn(f func(conte
 	return c
 }
 
+// ResolveApplicationConstraints mocks base method.
+func (m *MockApplicationService) ResolveApplicationConstraints(arg0 context.Context, arg1 constraints.Value) (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveApplicationConstraints", arg0, arg1)
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveApplicationConstraints indicates an expected call of ResolveApplicationConstraints.
+func (mr *MockApplicationServiceMockRecorder) ResolveApplicationConstraints(arg0, arg1 any) *MockApplicationServiceResolveApplicationConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveApplicationConstraints", reflect.TypeOf((*MockApplicationService)(nil).ResolveApplicationConstraints), arg0, arg1)
+	return &MockApplicationServiceResolveApplicationConstraintsCall{Call: call}
+}
+
+// MockApplicationServiceResolveApplicationConstraintsCall wrap *gomock.Call
+type MockApplicationServiceResolveApplicationConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceResolveApplicationConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockApplicationServiceResolveApplicationConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceResolveApplicationConstraintsCall) Do(f func(context.Context, constraints.Value) (constraints.Value, error)) *MockApplicationServiceResolveApplicationConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceResolveApplicationConstraintsCall) DoAndReturn(f func(context.Context, constraints.Value) (constraints.Value, error)) *MockApplicationServiceResolveApplicationConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationCharm mocks base method.
 func (m *MockApplicationService) SetApplicationCharm(arg0 context.Context, arg1 string, arg2 application0.UpdateCharmParams) error {
 	m.ctrl.T.Helper()

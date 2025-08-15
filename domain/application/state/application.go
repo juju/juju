@@ -31,6 +31,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
@@ -223,11 +224,18 @@ func (st *State) insertApplication(
 		return errors.Capture(err)
 	}
 
+	if args.Platform.Architecture == architecture.Unknown {
+		return errors.Errorf("cannot insert application with an empty architecture")
+	}
+	archID, err := encodeArchitecture(args.Platform.Architecture)
+	if err != nil {
+		return errors.Errorf("encoding architecture: %w", err)
+	}
 	platformInfo := applicationPlatform{
 		ApplicationID:  appUUID,
 		OSTypeID:       int(args.Platform.OSType),
 		Channel:        args.Platform.Channel,
-		ArchitectureID: int(args.Platform.Architecture),
+		ArchitectureID: archID,
 	}
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)

@@ -260,7 +260,7 @@ func (h *bundleHandler) makeModel(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "model: %s", pretty.Sprint(h.model))
+	logger.Debugf(ctx, "model: %s", pretty.Sprint(h.model))
 
 	for _, appData := range status.Applications {
 		for unit, unitData := range appData.Units {
@@ -297,7 +297,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints(ctx context.Context) error {
 			deployedApps.Add(name)
 
 			if h.isLocalCharm(spec.Charm) {
-				logger.Debugf(context.TODO(), "%s exists in model uses a local charm, replacing with %q", name, app.Charm)
+				logger.Debugf(ctx, "%s exists in model uses a local charm, replacing with %q", name, app.Charm)
 				// Replace with charm from model
 				spec.Charm = app.Charm
 				continue
@@ -481,16 +481,16 @@ func (h *bundleHandler) getChanges(ctx context.Context) error {
 		Force:            h.force,
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef(context.TODO(), "bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
-		logger.Tracef(context.TODO(), "bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
-		logger.Tracef(context.TODO(), "bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
+		logger.Tracef(ctx, "bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
+		logger.Tracef(ctx, "bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
+		logger.Tracef(ctx, "bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
 	}
 	changes, err := bundlechanges.FromData(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef(context.TODO(), "changes %s", pretty.Sprint(changes))
+		logger.Tracef(ctx, "changes %s", pretty.Sprint(changes))
 	}
 	h.changes = changes
 	return nil
@@ -512,7 +512,7 @@ func (h *bundleHandler) handleChanges(ctx context.Context) error {
 	for i, change := range h.changes {
 		fmt.Fprint(h.ctx.Stdout, fmtChange(change))
 		if logger.IsLevelEnabled(corelogger.TRACE) {
-			logger.Tracef(context.TODO(), "%d: change %s", i, pretty.Sprint(change))
+			logger.Tracef(ctx, "%d: change %s", i, pretty.Sprint(change))
 		}
 
 		var err error
@@ -655,7 +655,7 @@ func (h *bundleHandler) addCharm(ctx context.Context, change *bundlechanges.AddC
 		return errors.Trace(err)
 	}
 	resolvedOrigin.Base = selectedBase
-	logger.Tracef(context.TODO(), "Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
+	logger.Tracef(ctx, "Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 
 	var charmOrigin commoncharm.Origin
 	charmOrigin, err = h.deployAPI.AddCharm(ctx, url, resolvedOrigin, h.force)
@@ -665,7 +665,7 @@ func (h *bundleHandler) addCharm(ctx context.Context, change *bundlechanges.AddC
 		return errors.Errorf("unexpected charm URL %q", ch.Name)
 	}
 
-	logger.Debugf(context.TODO(), "added charm %s for channel %s", url, channel)
+	logger.Debugf(ctx, "added charm %s for channel %s", url, channel)
 	charmAlias := url.String()
 	h.results[id] = charmAlias
 	h.addOrigin(*url, channel, charmOrigin)
@@ -701,7 +701,7 @@ func (h *bundleHandler) addLocalCharm(ctx context.Context, chParams bundlechange
 	if curl, err = h.deployAPI.AddLocalCharm(ctx, curl, ch, h.force); err != nil {
 		return err
 	}
-	logger.Debugf(context.TODO(), "added charm %s", curl)
+	logger.Debugf(ctx, "added charm %s", curl)
 	h.results[id] = curl.String()
 	// We know we're a local charm and local charms don't require an
 	// explicit tailored origin. Instead we can just use a placeholder
@@ -767,7 +767,7 @@ func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechange
 	}
 	origin, ok := h.getOrigin(*curl, channel)
 	if !ok {
-		return errors.Errorf("unexpected charm %q, charm not found for application %q", curl.Name, p.Application)
+		return errors.Errorf("unexpected charm %q, charm not found for application %q", curl, p.Application)
 	}
 
 	// Handle application constraints.
@@ -1070,7 +1070,7 @@ func (h *bundleHandler) addMachine(ctx context.Context, change *bundlechanges.Ad
 		}
 		machineParams.ContainerType = containerType
 		if p.ParentId != "" {
-			logger.Debugf(context.TODO(), "p.ParentId: %q", p.ParentId)
+			logger.Debugf(ctx, "p.ParentId: %q", p.ParentId)
 			id, err := h.resolveMachine(ctx, p.ParentId)
 			if err != nil {
 				return errors.Annotatef(err, "cannot retrieve parent placement for %s", deployedApps())
@@ -1079,7 +1079,7 @@ func (h *bundleHandler) addMachine(ctx context.Context, change *bundlechanges.Ad
 			machineParams.ParentId = h.topLevelMachine(id)
 		}
 	}
-	logger.Debugf(context.TODO(), "machineParams: %s", pretty.Sprint(machineParams))
+	logger.Debugf(ctx, "machineParams: %s", pretty.Sprint(machineParams))
 	r, err := h.deployAPI.AddMachines(ctx, []params.AddMachineParams{machineParams})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create machine for holding %s", deployedApps())
@@ -1091,11 +1091,11 @@ func (h *bundleHandler) addMachine(ctx context.Context, change *bundlechanges.Ad
 	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		// Only do the work in for deployedApps, if debugging is enabled.
 		if p.ContainerType == "" {
-			logger.Debugf(context.TODO(), "created new machine %s for holding %s", machine, deployedApps())
+			logger.Debugf(ctx, "created new machine %s for holding %s", machine, deployedApps())
 		} else if p.ParentId == "" {
-			logger.Debugf(context.TODO(), "created %s container in new machine for holding %s", machine, deployedApps())
+			logger.Debugf(ctx, "created %s container in new machine for holding %s", machine, deployedApps())
 		} else {
-			logger.Debugf(context.TODO(), "created %s container in machine %s for holding %s", machine, machineParams.ParentId, deployedApps())
+			logger.Debugf(ctx, "created %s container in machine %s for holding %s", machine, machineParams.ParentId, deployedApps())
 		}
 	}
 	h.results[change.Id()] = machine
@@ -1145,7 +1145,7 @@ func (h *bundleHandler) addUnit(ctx context.Context, change *bundlechanges.AddUn
 	var placementArg []*instance.Placement
 	targetMachine := p.To
 	if targetMachine != "" {
-		logger.Debugf(context.TODO(), "addUnit: placement %q", targetMachine)
+		logger.Debugf(ctx, "addUnit: placement %q", targetMachine)
 		// The placement maybe "container:machine"
 		container := ""
 		if parts := strings.Split(targetMachine, ":"); len(parts) > 1 {
@@ -1165,7 +1165,7 @@ func (h *bundleHandler) addUnit(ctx context.Context, change *bundlechanges.AddUn
 		if err != nil {
 			return errors.Errorf("invalid --to parameter %q", directive)
 		}
-		logger.Debugf(context.TODO(), "  resolved: placement %q", directive)
+		logger.Debugf(ctx, "  resolved: placement %q", directive)
 		placementArg = append(placementArg, placement)
 	}
 	r, err := h.deployAPI.AddUnits(ctx, application.AddUnitsParams{
@@ -1178,13 +1178,13 @@ func (h *bundleHandler) addUnit(ctx context.Context, change *bundlechanges.AddUn
 	}
 	unit := r[0]
 	if targetMachine == "" {
-		logger.Debugf(context.TODO(), "added %s unit to new machine", unit)
+		logger.Debugf(ctx, "added %s unit to new machine", unit)
 		// In this case, the unit name is stored in results instead of the
 		// machine id, which is lazily evaluated later only if required.
 		// This way we avoid waiting for watcher updates.
 		h.results[change.Id()] = unit
 	} else {
-		logger.Debugf(context.TODO(), "added %s unit to new machine", unit)
+		logger.Debugf(ctx, "added %s unit to new machine", unit)
 		h.results[change.Id()] = targetMachine
 	}
 
@@ -1525,7 +1525,7 @@ func (h *bundleHandler) applicationsForMachineChange(change *bundlechanges.AddMa
 // resolveMachine returns the machine id resolving the given unit or machine
 // placeholder.
 func (h *bundleHandler) resolveMachine(ctx context.Context, placeholder string) (string, error) {
-	logger.Debugf(context.TODO(), "resolveMachine(%q)", placeholder)
+	logger.Debugf(ctx, "resolveMachine(%q)", placeholder)
 	machineOrUnit, ok := resolve(placeholder, h.results)
 	if !ok {
 		// programming error

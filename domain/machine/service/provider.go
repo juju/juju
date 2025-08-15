@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -135,11 +136,12 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	}
 }
 
+// mergeMachineAndModelConstraints resolves given application constraints, taking
+// into account the model constraints, and any hard-coded default constraint values
+// that exist.
 func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, cons domainconstraints.Constraints) (constraints.Value, error) {
-	// If the provider doesn't support constraints validation, then we can
-	// just return the zero value.
 	validator, err := s.constraintsValidator(ctx)
-	if err != nil || validator == nil {
+	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
 
@@ -153,31 +155,27 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
 	}
 
-	// Always ensure that we snapshot the constraint's architecture when adding
-	// the machine. If no architecture in the constraints, then look at
-	// the model constraints. If no architecture is found in the model, use the
-	// default architecture (amd64).
-	snapshotCons := mergedCons
-	if !snapshotCons.HasArch() {
-		a := constraints.ArchOrDefault(snapshotCons, nil)
-		snapshotCons.Arch = &a
+	if !mergedCons.HasArch() {
+		mergedCons.Arch = ptr(arch.DefaultArchitecture)
 	}
 
-	return snapshotCons, nil
+	return mergedCons, nil
 }
 
+// constraintsValidator queries the provider for a constraints validator.
+// If the provider doesn't support constraints validation, then we return
+// a default validator
 func (s *ProviderService) constraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	provider, err := s.providerGetter(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		// Not validating constraints, as the provider doesn't support it.
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	validator, err := provider.ConstraintsValidator(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
+	} else if validator == nil {
+		return constraints.NewValidator(), nil
 	}
 
 	return validator, nil
