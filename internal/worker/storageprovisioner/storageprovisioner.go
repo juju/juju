@@ -217,6 +217,8 @@ func (w *storageProvisioner) loop() error {
 	// Machine-scoped provisioners need to watch block devices, to create
 	// volume-backed filesystems.
 	if machineTag, ok := w.config.Scope.(names.MachineTag); ok {
+		w.config.Logger.Infof(ctx, "starting machine scope storage provisioner")
+
 		machineBlockDevicesWatcher, err := w.config.Volumes.WatchBlockDevices(ctx, machineTag)
 		if err != nil {
 			return errors.Annotate(err, "watching block devices")
@@ -235,6 +237,8 @@ func (w *storageProvisioner) loop() error {
 		}
 
 		volumeAttachmentPlansChanges = volumeAttachmentPlansWatcher.Changes()
+	} else {
+		w.config.Logger.Infof(ctx, "starting model scope storage provisioner")
 	}
 
 	deps := dependencies{
@@ -317,6 +321,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volumes watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "volume changes: %v", changes)
 			if err := volumesChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -324,6 +329,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volume attachments watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "volume attachment changes: %v", changes)
 			// Process volume changes before volume attachments changes.
 			// This is because volume attachments are dependent on
 			// volumes, and reveals itself during a reboot of a machine. All
@@ -339,6 +345,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volume attachment plans watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "volume attachment plan changes: %v", changes)
 			if err := volumeAttachmentPlansChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -346,6 +353,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("filesystems watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "filesystem changes: %v", changes)
 			if err := filesystemsChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
@@ -353,6 +361,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("filesystem attachments watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "filesystem attachment changes: %v", changes)
 			// Process filesystem changes before filesystem attachments changes.
 			// This is because filesystem attachments are dependent on
 			// filesystems, and reveals itself during a reboot of a machine. All
@@ -368,10 +377,12 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("machine block devices watcher closed")
 			}
+			w.config.Logger.Infof(ctx, "block devices changed")
 			if err := machineBlockDevicesChanged(ctx, &deps); err != nil {
 				return errors.Trace(err)
 			}
 		case machineTag := <-machineChanges:
+			w.config.Logger.Infof(ctx, "machine changed: %v", machineTag)
 			if err := refreshMachine(ctx, &deps, machineTag); err != nil {
 				return errors.Trace(err)
 			}
