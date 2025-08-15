@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
