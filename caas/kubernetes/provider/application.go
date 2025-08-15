@@ -17,8 +17,10 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		k.LabelVersion(),
 		deploymentType,
 		k.client(),
+		k.extendedClient(),
 		k.newWatcher,
 		k.clock,
 		k.randomPrefix,
+		k.controllerUUID,
 	)
 }

@@ -19,6 +19,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +40,7 @@ type providerSuite struct {
 	testing.IsolationSuite
 
 	k8sClient               *mocks.MockInterface
+	k8sExtendedClient       *mocks.ExtendedInterface
 	mockDiscovery           *mocks.MockDiscoveryInterface
 	mockSecrets             *mocks.MockSecretInterface
 	mockRbacV1              *mocks.MockRbacV1Interface
@@ -59,12 +61,17 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {
 		return s.k8sClient, nil
 	})
+	s.PatchValue(&kubernetes.NewExtendedK8sClient, func(config *rest.Config) (clientset.Interface, error) {
+		return s.k8sExtendedClient, nil
+	})
+
 }
 
 func (s *providerSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.k8sClient = mocks.NewMockInterface(ctrl)
+	s.k8sExtendedClient = mocks.NewExtendedInterface(ctrl)
 
 	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
 	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)

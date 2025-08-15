@@ -155,7 +155,11 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		AdmissionPathForModel(currentConfig.Model().Id()),
 		broker.LabelVersion(),
 		admissionCreator,
-		rbacMapper)
+		rbacMapper,
+		currentConfig.Controller().Id(),
+		broker.ModelUUID(),
+		broker.ModelName(),
+	)
 }
 
 // Validate is used to to establish if the configuration is valid for use when

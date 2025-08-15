@@ -29,16 +29,16 @@ func (s *clusterRoleBindingSuite) TestApply(c *gc.C) {
 		},
 	}
 	// Create.
-	rbResource := resources.NewClusterRoleBinding("roleBinding1", roleBinding)
-	c.Assert(rbResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
+	rbResource := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "roleBinding1", roleBinding)
+	c.Assert(rbResource.Apply(context.TODO()), jc.ErrorIsNil)
 	result, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
 	// Update.
 	roleBinding.SetAnnotations(map[string]string{"a": "b"})
-	rbResource = resources.NewClusterRoleBinding("roleBinding1", roleBinding)
-	c.Assert(rbResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
+	rbResource = resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "roleBinding1", roleBinding)
+	c.Assert(rbResource.Apply(context.TODO()), jc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,9 +57,9 @@ func (s *clusterRoleBindingSuite) TestGet(c *gc.C) {
 	_, err := s.client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &roleBinding1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rbResource := resources.NewClusterRoleBinding("roleBinding1", &template)
+	rbResource := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "roleBinding1", &template)
 	c.Assert(len(rbResource.GetAnnotations()), gc.Equals, 0)
-	err = rbResource.Get(context.TODO(), s.client)
+	err = rbResource.Get(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rbResource.GetName(), gc.Equals, `roleBinding1`)
 	c.Assert(rbResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
@@ -78,11 +78,11 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
 
-	rbResource := resources.NewClusterRoleBinding("roleBinding1", &roleBinding)
-	err = rbResource.Delete(context.TODO(), s.client)
+	rbResource := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "roleBinding1", &roleBinding)
+	err = rbResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rbResource.Get(context.TODO(), s.client)
+	err = rbResource.Get(context.TODO())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
@@ -102,11 +102,11 @@ func (s *clusterRoleBindingSuite) TestDeleteWithoutPreconditions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `roleBinding1`)
 
-	rbResource := resources.NewClusterRoleBinding("roleBinding1", nil)
-	err = rbResource.Delete(context.TODO(), s.client)
+	rbResource := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "roleBinding1", nil)
+	err = rbResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rbResource.Get(context.TODO(), s.client)
+	err = rbResource.Get(context.TODO())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
@@ -126,10 +126,9 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 		},
 	}
 
-	crbApi := resources.NewClusterRoleBinding("test", clusterRoleBinding)
+	crbApi := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "test", clusterRoleBinding)
 	_, err := crbApi.Ensure(
 		context.TODO(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,7 +148,6 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 
 	crbApi.Ensure(
 		context.TODO(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,6 +164,7 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 
 func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 	clusterRoleBinding := resources.NewClusterRoleBinding(
+		s.client.RbacV1().ClusterRoleBindings(),
 		"test",
 		&rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -193,7 +192,6 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 
 	_, err := clusterRoleBinding.Ensure(
 		context.TODO(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,6 +205,7 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 	c.Assert(rval.ObjectMeta.ResourceVersion, gc.Equals, "1")
 
 	clusterRoleBinding1 := resources.NewClusterRoleBinding(
+		s.client.RbacV1().ClusterRoleBindings(),
 		"test",
 		&rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -233,7 +232,6 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *gc.C) {
 
 	_, err = clusterRoleBinding1.Ensure(
 		context.TODO(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, jc.ErrorIsNil)

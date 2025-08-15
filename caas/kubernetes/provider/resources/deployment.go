@@ -9,13 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
@@ -23,17 +22,18 @@ import (
 
 // Deployment extends the k8s deployment.
 type Deployment struct {
+	client v1.DeploymentInterface
 	appsv1.Deployment
 }
 
 // NewDeployment creates a new deployment resource.
-func NewDeployment(name string, namespace string, in *appsv1.Deployment) *Deployment {
+func NewDeployment(client v1.DeploymentInterface, namespace string, name string, in *appsv1.Deployment) *Deployment {
 	if in == nil {
 		in = &appsv1.Deployment{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &Deployment{*in}
+	return &Deployment{client, *in}
 }
 
 // Clone returns a copy of the resource.
@@ -48,17 +48,16 @@ func (d *Deployment) ID() ID {
 }
 
 // Apply patches the resource change.
-func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
+func (d *Deployment) Apply(ctx context.Context) error {
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &d.Deployment)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, d.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := d.client.Patch(ctx, d.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &d.Deployment, metav1.CreateOptions{
+		res, err = d.client.Create(ctx, &d.Deployment, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
@@ -73,9 +72,8 @@ func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) err
 }
 
 // Get refreshes the resource.
-func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
-	res, err := api.Get(ctx, d.Name, metav1.GetOptions{})
+func (d *Deployment) Get(ctx context.Context) error {
+	res, err := d.client.Get(ctx, d.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -86,9 +84,8 @@ func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error
 }
 
 // Delete removes the resource.
-func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.AppsV1().Deployments(d.Namespace)
-	err := api.Delete(ctx, d.Name, metav1.DeleteOptions{
+func (d *Deployment) Delete(ctx context.Context) error {
+	err := d.client.Delete(ctx, d.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -99,13 +96,8 @@ func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) er
 	return nil
 }
 
-// Events emitted by the resource.
-func (d *Deployment) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, d.Namespace, d.Name, "Deployment")
-}
-
 // ComputeStatus returns a juju status for the resource.
-func (d *Deployment) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (d *Deployment) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
 	if d.DeletionTimestamp != nil {
 		return "", status.Terminated, d.DeletionTimestamp.Time, nil
 	}

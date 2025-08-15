@@ -20,6 +20,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -55,6 +56,9 @@ var (
 var (
 	NewK8sClient = func(config *rest.Config) (kubernetes.Interface, error) {
 		return kubernetes.NewForConfig(config)
+	}
+	NewExtendedK8sClient = func(config *rest.Config) (clientset.Interface, error) {
+		return clientset.NewForConfig(config)
 	}
 	InClusterConfig = func() (*rest.Config, error) {
 		return rest.InClusterConfig()
@@ -138,7 +142,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 		isControllerModel: cfg.ModelName == bootstrap.ControllerModelName,
 		client:            k8sClient,
 	}
-	return broker, errors.Trace(err)
+	return broker, nil
 }
 
 func configToK8sRestConfig(cfg *backendConfig) (*rest.Config, error) {

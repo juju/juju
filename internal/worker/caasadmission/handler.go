@@ -52,7 +52,7 @@ var (
 	}
 )
 
-func admissionHandler(logger Logger, rbacMapper RBACMapper, labelVersion constants.LabelVersion) http.Handler {
+func admissionHandler(logger Logger, rbacMapper RBACMapper, labelVersion constants.LabelVersion, controllerUUID string, modelUUID string, modelName string) http.Handler {
 	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -155,7 +155,7 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper, labelVersion constan
 		}
 
 		patchJSON, err := json.Marshal(
-			patchForLabels(metaObj.Labels, appName, labelVersion))
+			patchForLabels(metaObj.Labels, appName, labelVersion, controllerUUID, modelUUID, modelName))
 		if err != nil {
 			http.Error(res,
 				fmt.Sprintf("marshalling patch object to json: %v", err),
@@ -195,11 +195,21 @@ func patchEscape(s string) string {
 func patchForLabels(
 	labels map[string]string,
 	appName string,
-	labelVersion constants.LabelVersion) []patchOperation {
+	labelVersion constants.LabelVersion,
+	controllerUUID, modelUUID, modelName string) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := providerutils.LabelForKeyValue(
-		providerconst.LabelJujuAppCreatedBy, appName)
+	modelLabels := providerutils.LabelsForModel(
+		modelName, modelUUID, controllerUUID, labelVersion,
+	)
+
+	appLabels := providerutils.LabelsForApp(appName, labelVersion)
+
+	createdByAppLabel := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName,
+	)
+
+	neededLabels := providerutils.LabelsMerge(appLabels, modelLabels, createdByAppLabel)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{
