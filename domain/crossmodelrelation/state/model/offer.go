@@ -10,29 +10,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	offererrors "github.com/juju/juju/domain/offer/errors"
-	"github.com/juju/juju/domain/offer/internal"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
-
-// State represents a type for interacting with the underlying state for offers.
-type State struct {
-	*domain.StateBase
-	logger logger.Logger
-}
-
-// NewState returns a new state reference.
-func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
-	return &State{
-		StateBase: domain.NewStateBase(factory),
-		logger:    logger,
-	}
-}
 
 // CreateOffer creates an offer and links the endpoints to it.
 func (st *State) CreateOffer(
@@ -197,7 +180,7 @@ AND    ae.endpoint_name IN ($dbStrings[:])
 		return nil, errors.Errorf("not all endpoints found %q for application %q",
 			strings.Join(endpoints, ", "),
 			appUUID,
-		).Add(offererrors.MissingEndpoints)
+		).Add(crossmodelrelationerrors.MissingEndpoints)
 	}
 
 	return transform.Slice(result, func(in uuid) string {
@@ -225,7 +208,7 @@ WHERE  o.name = $name.name
 	// Execute the SQL transaction.
 	err = tx.Query(ctx, stmt, offer).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", errors.Errorf("%q: %w", offerName, offererrors.OfferNotFound)
+		return "", "", errors.Errorf("%q: %w", offerName, crossmodelrelationerrors.OfferNotFound)
 	} else if err != nil {
 		return "", "", errors.Capture(err)
 	}

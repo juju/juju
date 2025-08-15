@@ -45,12 +45,12 @@ func makeOffersAPIV5(facadeContext facade.MultiModelContext) (*OffersAPIv5, erro
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
 func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
-	offerServiceGetter := func(c context.Context, modelUUID model.UUID) (OfferService, error) {
+	crossModelRelationServiceGetter := func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return svc.Offer(), nil
+		return svc.CrossModelRelation(), nil
 	}
 	removalServiceGetter := func(c context.Context, modelUUID model.UUID) (RemovalService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
@@ -65,7 +65,7 @@ func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
 		ctx.ModelUUID(),
 		ctx.DomainServices().Access(),
 		ctx.DomainServices().Model(),
-		offerServiceGetter,
+		crossModelRelationServiceGetter,
 		removalServiceGetter,
 		ctx.Logger().Child("applicationoffers"),
 	)

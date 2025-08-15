@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/offer"
-	offererrors "github.com/juju/juju/domain/offer/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -50,8 +50,8 @@ type OffersAPI struct {
 	accessService AccessService
 	modelService  ModelService
 
-	offerServiceGetter   func(c context.Context, modelUUID model.UUID) (OfferService, error)
-	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error)
+	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error)
+	removalServiceGetter            func(c context.Context, modelUUID model.UUID) (RemovalService, error)
 }
 
 // createAPI returns a new application offers OffersAPI facade.
@@ -61,7 +61,7 @@ func createOffersAPI(
 	modelUUID model.UUID,
 	accessService AccessService,
 	modelService ModelService,
-	offerServiceGetter func(c context.Context, modelUUID model.UUID) (OfferService, error),
+	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error),
 	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
 	logger corelogger.Logger,
 ) (*OffersAPI, error) {
@@ -70,14 +70,14 @@ func createOffersAPI(
 	}
 
 	api := &OffersAPI{
-		authorizer:           authorizer,
-		controllerUUID:       controllerUUID,
-		modelUUID:            modelUUID,
-		accessService:        accessService,
-		modelService:         modelService,
-		offerServiceGetter:   offerServiceGetter,
-		removalServiceGetter: removalServiceGetter,
-		logger:               logger,
+		authorizer:                      authorizer,
+		controllerUUID:                  controllerUUID,
+		modelUUID:                       modelUUID,
+		accessService:                   accessService,
+		modelService:                    modelService,
+		crossModelRelationServiceGetter: crossModelRelationServiceGetter,
+		removalServiceGetter:            removalServiceGetter,
+		logger:                          logger,
 	}
 	return api, nil
 }
@@ -141,27 +141,27 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		}
 	}
 
-	offerService, err := api.offerServiceGetter(ctx, offerModelUUID)
+	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, offerModelUUID)
 	if err != nil {
 		return handleErr(err), nil
 	}
 
-	err = offerService.Offer(ctx, applicationOfferArgs)
+	err = crossModelRelationService.Offer(ctx, applicationOfferArgs)
 	return handleErr(err), nil
 }
 
 func (api *OffersAPI) parseApplicationOfferArgs(
 	apiUser names.UserTag,
 	addOfferParams params.AddApplicationOffer,
-) (offer.ApplicationOfferArgs, names.UserTag, error) {
+) (crossmodelrelation.ApplicationOfferArgs, names.UserTag, error) {
 	owner := apiUser
 	if addOfferParams.OwnerTag != "" {
 		var err error
 		if owner, err = names.ParseUserTag(addOfferParams.OwnerTag); err != nil {
-			return offer.ApplicationOfferArgs{}, names.UserTag{}, err
+			return crossmodelrelation.ApplicationOfferArgs{}, names.UserTag{}, err
 		}
 	}
-	result := offer.ApplicationOfferArgs{
+	result := crossmodelrelation.ApplicationOfferArgs{
 		OfferName:       addOfferParams.OfferName,
 		ApplicationName: addOfferParams.ApplicationName,
 		Endpoints:       addOfferParams.Endpoints,
@@ -247,11 +247,11 @@ func (api *OffersAPI) getApplicationOffersDetails(
 // the model and filter details for each.
 func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag, filters params.OfferFilters) (
 	models map[string]model.Model,
-	filtersPerModel map[string][]offer.OfferFilter,
+	filtersPerModel map[string][]crossmodelrelation.OfferFilter,
 	_ error,
 ) {
 	models = make(map[string]model.Model)
-	filtersPerModel = make(map[string][]offer.OfferFilter)
+	filtersPerModel = make(map[string][]crossmodelrelation.OfferFilter)
 
 	// Group the filters per model and then query each model with the relevant filters
 	// for that model.
@@ -298,19 +298,19 @@ func (api *OffersAPI) applicationOffersFromModel(
 	modelUUID string,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
-	filters []offer.OfferFilter,
+	filters []crossmodelrelation.OfferFilter,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	if err := api.checkAdmin(ctx, apiUser, model.UUID(modelUUID)); err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	// Get the relevant service for the specified model.
-	offerService, err := api.offerServiceGetter(ctx, model.UUID(modelUUID))
+	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, model.UUID(modelUUID))
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	offers, err := offerService.GetOffers(ctx, filters)
+	offers, err := crossModelRelationService.GetOffers(ctx, filters)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -340,7 +340,7 @@ func (api *OffersAPI) applicationOffersFromModel(
 
 func (api *OffersAPI) makeOfferParams(
 	modelUUID model.UUID,
-	offer *offer.OfferDetails,
+	offer *crossmodelrelation.OfferDetails,
 ) *params.ApplicationOfferDetailsV5 {
 
 	result := params.ApplicationOfferDetailsV5{
@@ -362,17 +362,17 @@ func (api *OffersAPI) makeOfferParams(
 	return &result
 }
 
-func makeOfferFilterFromParams(filter params.OfferFilter) (offer.OfferFilter, error) {
-	offerFilter := offer.OfferFilter{
+func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.OfferFilter, error) {
+	offerFilter := crossmodelrelation.OfferFilter{
 		OfferName:              filter.OfferName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
-		Endpoints:              make([]offer.EndpointFilterTerm, len(filter.Endpoints)),
+		Endpoints:              make([]crossmodelrelation.EndpointFilterTerm, len(filter.Endpoints)),
 		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
 		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
 	}
 	for i, ep := range filter.Endpoints {
-		offerFilter.Endpoints[i] = offer.EndpointFilterTerm{
+		offerFilter.Endpoints[i] = crossmodelrelation.EndpointFilterTerm{
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      domaincharm.RelationRole(ep.Role),
@@ -381,14 +381,14 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (offer.OfferFilter, er
 	for i, tag := range filter.AllowedConsumerTags {
 		u, err := names.ParseUserTag(tag)
 		if err != nil {
-			return offer.OfferFilter{}, errors.Capture(err)
+			return crossmodelrelation.OfferFilter{}, errors.Capture(err)
 		}
 		offerFilter.AllowedConsumers[i] = u.Id()
 	}
 	for i, tag := range filter.ConnectedUserTags {
 		u, err := names.ParseUserTag(tag)
 		if err != nil {
-			return offer.OfferFilter{}, errors.Capture(err)
+			return crossmodelrelation.OfferFilter{}, errors.Capture(err)
 		}
 		offerFilter.ConnectedUsers[i] = u.Id()
 	}
@@ -460,13 +460,13 @@ func (api *OffersAPI) modifyOneOfferAccess(
 	arg params.ModifyOfferAccess,
 ) error {
 
-	offerService, err := api.offerServiceGetter(ctx, model.UUID(modelUUID))
+	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, model.UUID(modelUUID))
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	offerUUID, err := offerService.GetOfferUUID(ctx, offerURL)
-	if errors.Is(err, offererrors.OfferNotFound) {
+	offerUUID, err := crossModelRelationService.GetOfferUUID(ctx, offerURL)
+	if errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
 		return apiservererrors.ParamsErrorf(params.CodeNotFound, "offer %q not found", offerURL)
 	} else if err != nil {
 		return errors.Errorf("getting offer uuid of %q: %w", offerURL.String(), err)
@@ -644,7 +644,7 @@ func (api *OffersAPI) destroyOneOffer(ctx context.Context, offerModel offerModel
 		return apiservererrors.ErrPerm
 	}
 
-	offerService, err := api.offerServiceGetter(ctx, modelUUID)
+	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, modelUUID)
 	if err != nil {
 		return err
 	}
@@ -654,7 +654,7 @@ func (api *OffersAPI) destroyOneOffer(ctx context.Context, offerModel offerModel
 		return err
 	}
 
-	offerUUID, err := offerService.GetOfferUUID(ctx, url)
+	offerUUID, err := crossModelRelationService.GetOfferUUID(ctx, url)
 	if err != nil {
 		return err
 	}

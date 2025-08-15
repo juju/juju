@@ -22,6 +22,7 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
@@ -36,7 +37,6 @@ import (
 	modelproviderservice "github.com/juju/juju/domain/modelprovider/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
-	offerservice "github.com/juju/juju/domain/offer/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
@@ -105,6 +105,8 @@ type ModelDomainServices interface {
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
+	// CrossModelRelation returns a service for managing cross model relations.
+	CrossModelRelation() *crossmodelrelationservice.Service
 	// Machine returns the machine service.
 	Machine() *machineservice.WatchableService
 	// BlockDevice returns the block device service.
@@ -164,8 +166,6 @@ type ModelDomainServices interface {
 	// ModelProvider returns a service for accessing info relevant to the
 	// provider for a model.
 	ModelProvider() *modelproviderservice.Service
-	// Offer returns a service for managing offers.
-	Offer() *offerservice.Service
 
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely

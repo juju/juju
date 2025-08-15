@@ -38,6 +38,9 @@ import (
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
 	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
+	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -59,9 +62,6 @@ import (
 	modelproviderstate "github.com/juju/juju/domain/modelprovider/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
-	offerservice "github.com/juju/juju/domain/offer/service"
-	offerstatecontroller "github.com/juju/juju/domain/offer/state/controller"
-	offerstatemodel "github.com/juju/juju/domain/offer/state/model"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
@@ -527,18 +527,18 @@ func (s *ModelServices) ModelProvider() *modelproviderservice.Service {
 	)
 }
 
-// Offer returns the service for persisting and retrieving offers
-// for the current model and the controller model.
-func (s *ModelServices) Offer() *offerservice.Service {
-	return offerservice.NewService(
-		offerstatecontroller.NewState(
+// CrossModelRelation returns the service for persisting and retrieving
+// cross model relations for the current model and the controller model.
+func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Service {
+	return crossmodelrelationservice.NewService(
+		crossmodelrelationstatecontroller.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
-			s.logger.Child("offer.state.controller")),
-		offerstatemodel.NewState(
+			s.logger.Child("crossmodelrelation.state.controller")),
+		crossmodelrelationstatemodel.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger.Child("offer.state.model"),
+			s.logger.Child("crossmodelrelation.state.model"),
 		),
-		s.logger.Child("offer.service"),
+		s.logger.Child("crossmodelrelation.service"),
 	)
 }
 

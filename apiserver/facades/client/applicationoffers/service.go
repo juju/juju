@@ -11,7 +11,7 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	"github.com/juju/juju/domain/offer"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -47,8 +47,8 @@ type ModelService interface {
 	) (coremodel.Model, error)
 }
 
-// OfferService defines the interface for interacting with the offer domain.
-type OfferService interface {
+// CrossModelRelationService defines the interface for interacting with the crossmodelrelation domain.
+type CrossModelRelationService interface {
 	// GetOfferUUID returns the uuid for the provided offer URL.
 	GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (uuid.UUID, error)
 
@@ -56,14 +56,14 @@ type OfferService interface {
 	// provided filters.
 	GetOffers(
 		ctx context.Context,
-		filters []offer.OfferFilter,
-	) ([]*offer.OfferDetails, error)
+		filters []crossmodelrelation.OfferFilter,
+	) ([]*crossmodelrelation.OfferDetails, error)
 
 	// Offer updates an existing offer, or creates a new offer if it does not exist.
 	// Permissions are created for a new offer only.
 	Offer(
 		ctx context.Context,
-		args offer.ApplicationOfferArgs,
+		args crossmodelrelation.ApplicationOfferArgs,
 	) error
 }
 

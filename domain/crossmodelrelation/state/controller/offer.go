@@ -8,29 +8,12 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/logger"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
-
-// State represents a type for interacting with the underlying state for offer access.
-type State struct {
-	*domain.StateBase
-	logger logger.Logger
-}
-
-// NewState returns a new state reference.
-func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
-	return &State{
-		StateBase: domain.NewStateBase(factory),
-		logger:    logger,
-	}
-}
 
 // CreateOfferAccess give the offer owner AdminAccess and EveryoneUserName
 // ReadAccess for the provided offer.
