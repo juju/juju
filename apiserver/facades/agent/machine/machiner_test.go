@@ -241,7 +241,7 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	s.machineService.EXPECT().WatchMachineAndMachineUnitLife(gomock.Any(), coremachine.Name("1")).Return(watcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{

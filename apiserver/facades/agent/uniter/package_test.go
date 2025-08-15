@@ -28,9 +28,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination secret_mocks_test.go github.com/juju/juju/apiserver/facades/agent/uniter SecretService
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination leadership_mocks_test.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter_test -destination legacy_service_mock_test.go github.com/juju/juju/apiserver/facades/agent/uniter ModelConfigService,ModelInfoService,MachineService
-//go:generate go run go.uber.org/mock/mockgen -typed -package uniter_test -destination facade_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry
+//go:generate go run go.uber.org/mock/mockgen -typed -package uniter_test -destination facade_mock_test.go github.com/juju/juju/internal/worker/watcherregistry WatcherRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/uniter ApplicationService,ResolveService,StatusService,RelationService,ModelInfoService,MachineService,NetworkService,RemovalService,StorageProvisioningService,BlockDeviceService
-//go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination watcher_registry_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry
+//go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination watcher_registry_mock_test.go github.com/juju/juju/internal/worker/watcherregistry WatcherRegistry
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination apiserver_mock_test.go github.com/juju/juju/apiserver/common APIAddressAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination relation_mock_test.go github.com/juju/juju/domain/relation RelationUnitsWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package uniter -destination watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher

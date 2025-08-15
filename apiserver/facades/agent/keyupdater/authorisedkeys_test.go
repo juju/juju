@@ -107,7 +107,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *tc.C) {
 		})
 		return w, nil
 	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	result, err := endPoint.WatchAuthorisedKeys(c.Context(), args)
 	c.Check(err, tc.ErrorIsNil)

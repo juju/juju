@@ -67,7 +67,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 		})
 		return w, nil
 	})
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
 	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(c.Context())

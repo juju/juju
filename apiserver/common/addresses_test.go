@@ -117,7 +117,7 @@ func (s *apiAddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 			return w, nil
 		})
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("42", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("42", nil)
 	addresser := s.getAddresser()
 
 	// Act

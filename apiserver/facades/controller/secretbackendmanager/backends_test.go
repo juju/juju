@@ -58,7 +58,7 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.mockService.EXPECT().WatchSecretBackendRotationChanges(gomock.Any()).Return(s.mockWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(s.mockWatcher).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.mockWatcher).Return("1", nil)
 
 	next := time.Now().Add(time.Hour)
 	rotateChan := make(chan []corewatcher.SecretBackendRotateChange, 1)

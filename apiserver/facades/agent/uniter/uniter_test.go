@@ -652,7 +652,7 @@ func (s *uniterSuite) TestWatchConfiSettingsHash(c *tc.C) {
 	ch := make(chan []string, 1)
 	w := watchertest.NewMockStringsWatcher(ch)
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "mysql").Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), w).Return("1", nil)
 	ch <- []string{"change1"}
 
 	// Arrange: wordpress/0 is unauthorised.
@@ -689,7 +689,7 @@ func (s *uniterSuite) TestWatchTrustConfiSettingsHash(c *tc.C) {
 	ch := make(chan []string, 1)
 	w := watchertest.NewMockStringsWatcher(ch)
 	s.applicationService.EXPECT().WatchApplicationConfigHash(gomock.Any(), "mysql").Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), w).Return("1", nil)
 	ch <- []string{"change1"}
 
 	// Arrange: wordpress/0 is unauthorised.
@@ -726,7 +726,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	ch := make(chan []string, 1)
 	w := watchertest.NewMockStringsWatcher(ch)
 	s.applicationService.EXPECT().WatchUnitAddressesHash(gomock.Any(), coreunit.Name("mysql/0")).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(w).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), w).Return("1", nil)
 	ch <- []string{"change1"}
 
 	// Arrange: wordpress/0 is unauthorised.
@@ -1208,7 +1208,7 @@ func (s *uniterSuite) expectWatchUnitResolveMode(
 	channel <- struct{}{}
 	mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
 	s.resolveService.EXPECT().WatchUnitResolveMode(gomock.Any(), unitName).Return(mockWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil).AnyTimes()
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return(watcherID, nil).AnyTimes()
 }
 
 type leadershipSettings interface {
@@ -1301,7 +1301,7 @@ func (s *uniterv19Suite) SetUpTest(c *tc.C) {
 		ctrl := gomock.NewController(c)
 
 		s.watcherRegistry = NewMockWatcherRegistry(ctrl)
-		s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("watcher1", nil).AnyTimes()
+		s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher1", nil).AnyTimes()
 
 		s.uniter = &UniterAPIv19{
 			UniterAPIv20: &UniterAPIv20{
@@ -1328,7 +1328,7 @@ func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 		ctrl := gomock.NewController(c)
 
 		s.watcherRegistry = NewMockWatcherRegistry(ctrl)
-		s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("watcher1", nil).AnyTimes()
+		s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher1", nil).AnyTimes()
 
 		s.uniter = &UniterAPIv20{
 			UniterAPI: &UniterAPI{
@@ -2355,7 +2355,7 @@ func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.U
 }
 
 func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watchertest.MockStringsWatcher, err error) {
-	s.watcherRegistry.EXPECT().Register(watch).Return(watchID, err).AnyTimes()
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), watch).Return(watchID, err).AnyTimes()
 }
 
 func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
@@ -2372,7 +2372,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 	close(channel)
 
 	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), watchedUnitUUID, relUUID).Return(mockWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return(watcherID, nil)
 	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs, appUUIDS).Return(changes, nil)
 }
 
