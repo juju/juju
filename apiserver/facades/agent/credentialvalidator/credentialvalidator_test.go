@@ -105,12 +105,12 @@ func (s *CredentialValidatorSuite) TestWatchModelCredential(c *tc.C) {
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
 
 	result, err := s.api.WatchModelCredential(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
 }
 
 func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {

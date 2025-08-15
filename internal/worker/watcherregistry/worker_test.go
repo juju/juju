@@ -1,7 +1,7 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package registry
+package watcherregistry
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -22,8 +23,6 @@ import (
 
 type registrySuite struct {
 	testhelpers.IsolationSuite
-
-	clock *MockClock
 }
 
 func TestRegistrySuite(t *stdtesting.T) {
@@ -34,29 +33,23 @@ func (s *registrySuite) TestRegisterCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
-
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
 	c.Check(reg.Count(), tc.Equals, 0)
-
-	workertest.CheckKill(c, reg)
 }
 
 func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	for i := range 10 {
+		w := workertest.NewErrorWorker(nil)
 
-	for i := 0; i < 10; i++ {
-		w := s.expectWatcher(c, ctrl, reg.catacomb.Dying())
-
-		id, err := reg.Register(w)
+		id, err := reg.Register(c.Context(), w)
 		c.Assert(err, tc.ErrorIsNil)
 
 		w1, err := reg.Get(id)
@@ -65,7 +58,8 @@ func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
 		c.Check(reg.Count(), tc.Equals, i+1)
 	}
 
-	workertest.CheckKill(c, reg)
+	err := reg.StopAll()
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(reg.Count(), tc.Equals, 0)
 }
@@ -74,16 +68,14 @@ func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
-
-	for i := 0; i < 10; i++ {
-		w := s.expectWatcher(c, ctrl, reg.catacomb.Dying())
+	for i := range 10 {
+		w := workertest.NewErrorWorker(nil)
 
 		id := fmt.Sprintf("id-%d", i)
-		err := reg.RegisterNamed(id, w)
+		err := reg.RegisterNamed(c.Context(), id, w)
 		c.Assert(err, tc.ErrorIsNil)
 
 		w1, err := reg.Get(id)
@@ -92,7 +84,8 @@ func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
 		c.Check(reg.Count(), tc.Equals, i+1)
 	}
 
-	workertest.CheckKill(c, reg)
+	err := reg.StopAll()
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(reg.Count(), tc.Equals, 0)
 }
@@ -101,49 +94,39 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	w := workertest.NewErrorWorker(nil)
 
-	w := s.expectWatcher(c, ctrl, reg.catacomb.Dying())
-
-	err := reg.RegisterNamed("foo", w)
+	err := reg.RegisterNamed(c.Context(), "foo", w)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = reg.RegisterNamed("foo", w)
+	err = reg.RegisterNamed(c.Context(), "foo", w)
 	c.Assert(err, tc.ErrorMatches, `worker "foo" already exists`)
 	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
-
-	workertest.CheckKill(c, reg)
 }
 
 func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	w := workertest.NewErrorWorker(nil)
 
-	w := NewMockWorker(ctrl)
-
-	err := reg.RegisterNamed("0", w)
+	err := reg.RegisterNamed(c.Context(), "0", w)
 	c.Assert(err, tc.ErrorMatches, `namespace "0" not valid`)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-
-	workertest.CheckKill(c, reg)
 }
 
 func (s *registrySuite) TestRegisterStop(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
-
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
 	done := make(chan struct{})
 	w := NewMockWorker(ctrl)
@@ -160,27 +143,23 @@ func (s *registrySuite) TestRegisterStop(c *tc.C) {
 		return nil
 	}).MinTimes(1)
 
-	err := reg.RegisterNamed("foo", w)
+	err := reg.RegisterNamed(c.Context(), "foo", w)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = reg.Stop("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(reg.Count(), tc.Equals, 0)
-
-	workertest.CheckKill(c, reg)
 }
 
 func (s *registrySuite) TestConcurrency(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectClock()
-
 	// This test is designed to cause the race detector
 	// to fail if the locking is not done correctly.
-	reg := s.newRegistry(c)
-	defer workertest.DirtyKill(c, reg)
+	reg, regGetter := s.newRegistry(c)
+	defer workertest.CleanKill(c, regGetter)
 
 	var wg sync.WaitGroup
 	start := func(f func()) {
@@ -190,63 +169,48 @@ func (s *registrySuite) TestConcurrency(c *tc.C) {
 			wg.Done()
 		}()
 	}
-	reg.Register(s.expectSimpleWatcher(ctrl))
+	_, err := reg.Register(c.Context(), s.expectSimpleWatcher(ctrl))
+	c.Assert(err, tc.ErrorIsNil)
+
 	start(func() {
-		reg.Register(s.expectSimpleWatcher(ctrl))
+		_, _ = reg.Register(c.Context(), s.expectSimpleWatcher(ctrl))
 	})
 	start(func() {
-		reg.RegisterNamed("named", s.expectSimpleWatcher(ctrl))
+		_ = reg.RegisterNamed(c.Context(), "named", s.expectSimpleWatcher(ctrl))
 	})
 	start(func() {
-		reg.Stop("1")
+		_ = reg.Stop("1")
 	})
 	start(func() {
-		reg.Count()
+		_ = reg.Count()
 	})
 	start(func() {
-		reg.Kill()
+		_ = reg.StopAll()
 	})
 	start(func() {
-		reg.Get("2")
+		_, _ = reg.Get("2")
 	})
 	start(func() {
-		reg.Get("named")
+		_, _ = reg.Get("named")
 	})
 	wg.Wait()
-	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) newRegistry(c *tc.C) *Registry {
-	reg, err := NewRegistry(s.clock, WithLogger(loggertesting.WrapCheckLog(c)))
+func (s *registrySuite) newRegistry(c *tc.C) (WatcherRegistry, worker.Worker) {
+	w, err := NewWorker(Config{
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	return reg
+
+	reg, err := w.(*Worker).GetWatcherRegistry(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return reg, w
 }
 
 func (s *registrySuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.clock = NewMockClock(ctrl)
-
-	return ctrl
-}
-
-func (s *registrySuite) expectClock() {
-	s.clock.EXPECT().Now().AnyTimes().Return(time.Now())
-}
-
-func (s *registrySuite) expectWatcher(c *tc.C, ctrl *gomock.Controller, done <-chan struct{}) worker.Worker {
-	w := NewMockWorker(ctrl)
-	w.EXPECT().Kill().AnyTimes()
-	w.EXPECT().Wait().DoAndReturn(func() error {
-		select {
-		case <-done:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for worker to finish")
-		}
-
-		return nil
-	}).MinTimes(1)
-	return w
+	return gomock.NewController(c)
 }
 
 func (s *registrySuite) expectSimpleWatcher(ctrl *gomock.Controller) worker.Worker {

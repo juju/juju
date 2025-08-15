@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -72,6 +73,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	LogSinkName            string
 	HTTPClientName         string
+	WatcherRegistryName    string
 
 	DBAccessorName     string
 	ChangeStreamName   string
@@ -123,6 +125,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
+	}
+	if config.WatcherRegistryName == "" {
+		return errors.NotValidf("empty WatcherRegistryName")
 	}
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
@@ -178,6 +183,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.LogSinkName,
 			config.JWTParserName,
+			config.WatcherRegistryName,
 		},
 		Start: config.start,
 	}
@@ -264,6 +270,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var watcherRegistryGetter watcherregistry.WatcherRegistryGetter
+	if err := getter.Get(config.WatcherRegistryName, &watcherRegistryGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -312,6 +323,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
 		ModelService:                      modelService,
+		WatcherRegistryGetter:             watcherRegistryGetter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

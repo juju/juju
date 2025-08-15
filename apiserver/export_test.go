@@ -11,13 +11,13 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 )
 
@@ -75,13 +75,8 @@ func (testingAPIRootHandler) ModelUUID() model.UUID {
 	return ""
 }
 
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (testingAPIRootHandler) Resources() *common.Resources {
-	return common.NewResources()
-}
-
 // WatcherRegistry returns a new WatcherRegistry.
-func (testingAPIRootHandler) WatcherRegistry() facade.WatcherRegistry {
+func (testingAPIRootHandler) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return nil
 }
 

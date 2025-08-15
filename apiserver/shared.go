@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
@@ -56,6 +57,10 @@ type sharedServerContext struct {
 	// for the API server.
 	objectStoreGetter objectstore.ObjectStoreGetter
 
+	// watcherRegistryGetter is used to get the watcher registry for the API
+	// server.
+	watcherRegistryGetter watcherregistry.WatcherRegistryGetter
+
 	configMutex sync.RWMutex
 
 	// controllerUUID is the unique identifier of the controller.
@@ -85,6 +90,7 @@ type sharedServerConfig struct {
 	controllerConfigService ControllerConfigService
 	tracerGetter            trace.TracerGetter
 	objectStoreGetter       objectstore.ObjectStoreGetter
+	watcherRegistryGetter   watcherregistry.WatcherRegistryGetter
 	machineTag              names.Tag
 	dataDir                 string
 	logDir                  string
@@ -118,6 +124,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.objectStoreGetter == nil {
 		return errors.NotValidf("nil objectStoreGetter")
 	}
+	if c.watcherRegistryGetter == nil {
+		return errors.NotValidf("nil watcherRegistryGetter")
+	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
@@ -128,7 +137,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := &sharedServerContext{
+	return &sharedServerContext{
 		leaseManager:            config.leaseManager,
 		logger:                  config.logger,
 		controllerUUID:          config.controllerUUID,
@@ -141,12 +150,12 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		controllerConfigService: config.controllerConfigService,
 		tracerGetter:            config.tracerGetter,
 		objectStoreGetter:       config.objectStoreGetter,
+		watcherRegistryGetter:   config.watcherRegistryGetter,
 		machineTag:              config.machineTag,
 		dataDir:                 config.dataDir,
 		logDir:                  config.logDir,
-	}
-	ctx.features = config.controllerConfig.Features()
-	return ctx, nil
+		features:                config.controllerConfig.Features(),
+	}, nil
 }
 
 func (c *sharedServerContext) updateControllerConfig(ctx context.Context, config controller.Config) {

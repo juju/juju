@@ -28,6 +28,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -545,7 +546,7 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 // PingRootHandler is the interface that the root handler must implement
 // to allow the pinger to be registered.
 type PingRootHandler interface {
-	WatcherRegistry() facade.WatcherRegistry
+	WatcherRegistry() watcherregistry.WatcherRegistry
 	CloseConn() error
 }
 
@@ -571,7 +572,7 @@ func setupPingTimeoutDisconnect(ctx context.Context, clock clock.Clock, root Pin
 		}
 	}
 	p := pinger.NewPinger(action, clock, maxClientPingInterval)
-	return root.WatcherRegistry().RegisterNamed("pingTimeout", p)
+	return root.WatcherRegistry().RegisterNamed(ctx, "pingTimeout", p)
 }
 
 // errRoot implements the API that a client first sees

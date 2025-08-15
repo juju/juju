@@ -109,7 +109,7 @@ func (s *Suite) TestWatch(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.modelMigrationService.EXPECT().WatchForMigration(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 
 	result := s.mustMakeAPI(c).Watch(c.Context())
 	c.Assert(result.Error, tc.IsNil)
@@ -411,7 +411,7 @@ func (s *Suite) TestWatchMinionReports(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.modelMigrationService.EXPECT().WatchMinionReports(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 
 	result := s.mustMakeAPI(c).WatchMinionReports(c.Context())
 	c.Assert(result.Error, tc.IsNil)

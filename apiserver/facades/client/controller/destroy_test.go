@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -35,7 +34,6 @@ type destroyControllerSuite struct {
 	jujutesting.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
 	controller *controller.ControllerAPI
 
 	otherModelOwner      names.UserTag
@@ -61,15 +59,11 @@ func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
-
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			Resources_:      s.resources,
 			Auth_:           s.authorizer,
 			DomainServices_: s.ControllerDomainServices(c),
 			Logger_:         loggertesting.WrapCheckLog(c),

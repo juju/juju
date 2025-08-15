@@ -56,7 +56,7 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *tc.C) {
 	ch <- struct{}{}
 	s.watcher.EXPECT().Changes().Return(ch)
 
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("watcher-id", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher-id", nil)
 
 	result, err := s.facade.WatchRevisionsToPrune(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

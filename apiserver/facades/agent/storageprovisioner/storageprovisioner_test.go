@@ -751,7 +751,7 @@ func (s *provisionerSuite) TestWatchVolumesForModel(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchModelProvisionedVolumes(gomock.Any()).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	results, err := s.api.WatchVolumes(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -782,7 +782,7 @@ func (s *provisionerSuite) TestWatchVolumesForMachine(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchMachineProvisionedVolumes(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	results, err := s.api.WatchVolumes(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -828,7 +828,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForModel(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchModelProvisionedFilesystems(gomock.Any()).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	results, err := s.api.WatchFilesystems(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -859,7 +859,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchMachineProvisionedFilesystems(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	results, err := s.api.WatchFilesystems(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -908,7 +908,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchVolumeAttachmentPlans(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	results, err := s.api.WatchVolumeAttachmentPlans(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -966,7 +966,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachine(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchMachineProvisionedVolumeAttachments(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	s.mockStorageProvisioningService.EXPECT().
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
@@ -1031,7 +1031,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForModel(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchModelProvisionedVolumeAttachments(gomock.Any()).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	s.mockStorageProvisioningService.EXPECT().
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
@@ -1083,7 +1083,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachine(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchMachineProvisionedFilesystemAttachments(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	s.mockStorageProvisioningService.EXPECT().
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
@@ -1150,7 +1150,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().
 		WatchModelProvisionedFilesystemAttachments(gomock.Any()).
 		Return(sourceWatcher, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("66", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
 	s.mockStorageProvisioningService.EXPECT().
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).

@@ -220,7 +220,7 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 	// Generate watcher id that will be returned by the watcher registry.
 	watcherID := "watcher-id"
 	var relUnitsWatcher common.RelationUnitsWatcher
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).DoAndReturn(func(worker worker.Worker) (string, error) {
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, worker worker.Worker) (string, error) {
 		var ok bool
 		relUnitsWatcher, ok = worker.(common.RelationUnitsWatcher)
 		c.Assert(ok, tc.IsTrue)

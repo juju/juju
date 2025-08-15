@@ -56,6 +56,7 @@ import (
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
@@ -69,7 +70,14 @@ const ErrAPIServerDying = errors.ConstError("api-server worker is dying")
 
 var logger = internallogger.GetLogger("juju.apiserver")
 
-var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+var defaultHTTPMethods = []string{
+	http.MethodGet,
+	http.MethodPost,
+	http.MethodHead,
+	http.MethodPut,
+	http.MethodDelete,
+	http.MethodOptions,
+}
 
 // Server holds the server side of the API.
 type Server struct {
@@ -92,7 +100,7 @@ type Server struct {
 	httpAuthenticators  []authentication.HTTPAuthenticator
 	loginAuthenticators []authentication.LoginAuthenticator
 
-	lastConnectionID uint64
+	connectionID     uint64
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
 
@@ -231,6 +239,9 @@ type ServerConfig struct {
 	// ObjectStoreGetter returns an object store for the given namespace.
 	// This is used for retrieving blobs for charms and agents.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
+
+	// WatcherRegistryGetter is used to register and manage watchers.
+	WatcherRegistryGetter watcherregistry.WatcherRegistryGetter
 }
 
 // Validate validates the API server configuration.
@@ -287,6 +298,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("missing ObjectStoreGetter")
+	}
+	if c.WatcherRegistryGetter == nil {
+		return errors.NotValidf("missing WatcherRegistryGetter")
 	}
 	return nil
 }
@@ -347,6 +361,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		machineTag:              cfg.Tag,
 		dataDir:                 cfg.DataDir,
 		logDir:                  cfg.LogDir,
+		watcherRegistryGetter:   cfg.WatcherRegistryGetter,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1018,7 +1033,7 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
+	connectionID := atomic.AddUint64(&srv.connectionID, 1)
 
 	apiObserver := srv.newObserver()
 	apiObserver.Join(req.Context(), req, connectionID)
@@ -1067,10 +1082,6 @@ func (srv *Server) serveConn(
 	apiObserver observer.Observer,
 	host string,
 ) error {
-	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
-	conn := rpc.NewConn(codec, recorderFactory)
-
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
@@ -1078,6 +1089,11 @@ func (srv *Server) serveConn(
 	if err != nil {
 		logger.Infof(ctx, "failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
+	}
+
+	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
 	// Grab the object store for the model.
@@ -1093,10 +1109,14 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting controller object store")
 	}
 
-	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	watcherRegistry, err := srv.shared.watcherRegistryGetter.GetWatcherRegistry(ctx, connectionID)
 	if err != nil {
-		return errors.Annotatef(err, "getting domain services for model %q", modelUUID)
+		return errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
 	}
+
+	codec := jsoncodec.NewWebsocket(wsConn.Conn)
+	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
+	conn := rpc.NewConn(codec, recorderFactory)
 
 	handler, err := newAPIHandler(
 		ctx,
@@ -1108,6 +1128,7 @@ func (srv *Server) serveConn(
 		objectStore,
 		srv.shared.objectStoreGetter,
 		controllerObjectStore,
+		watcherRegistry,
 		modelUUID,
 		controllerOnlyLogin,
 		connectionID,

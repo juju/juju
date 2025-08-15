@@ -25,7 +25,7 @@ func newStateAPI(ctx facade.ModelContext) (*ExternalControllerUpdaterAPI, error)
 		return nil, apiservererrors.ErrPerm
 	}
 	return NewAPI(
-		ctx.Resources(),
 		ctx.DomainServices().ExternalController(),
+		ctx.WatcherRegistry(),
 	)
 }

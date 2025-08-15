@@ -36,7 +36,6 @@ type userManagerSuite struct {
 	api        *usermanager.UserManagerAPI
 	authorizer apiservertesting.FakeAuthorizer
 	apiUser    coreuser.User
-	resources  *common.Resources
 
 	accessService       *MockAccessService
 	modelService        *MockModelService
@@ -51,7 +50,6 @@ func (s *userManagerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.setAPIUserAndAuth(c, "admin")
-	s.resources = common.NewResources()
 }
 
 func (s *userManagerSuite) TestAddUser(c *tc.C) {
@@ -959,8 +957,7 @@ func (s *userManagerSuite) setUpAPI(c *tc.C) *gomock.Controller {
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 
 	ctx := facadetest.ModelContext{
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		Auth_: s.authorizer,
 	}
 
 	var err error

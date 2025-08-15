@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -26,7 +25,7 @@ func TestDiskManagerSuite(t *testing.T) {
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite
-	resources          *common.Resources
+
 	authorizer         *apiservertesting.FakeAuthorizer
 	blockDeviceUpdater *mockBlockDeviceUpdater
 	api                *diskmanager.DiskManagerAPI
@@ -34,7 +33,7 @@ type DiskManagerSuite struct {
 
 func (s *DiskManagerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resources = common.NewResources()
+
 	tag := names.NewMachineTag("0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	s.blockDeviceUpdater = &mockBlockDeviceUpdater{}

@@ -19,7 +19,6 @@ import (
 
 // APIBaseSuite is used to test API calls using mocked model operations.
 type APIBaseSuite struct {
-	resource   *facademocks.MockResources
 	authorizer *facademocks.MockAuthorizer
 
 	blockChecker *MockBlockChecker
@@ -46,7 +45,6 @@ func (s *APIBaseSuite) TearDownTest(_ *tc.C) {
 func (s *APIBaseSuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.resource = facademocks.NewMockResources(ctrl)
 	s.Constraints = NewMockConstraints(ctrl)
 
 	s.blockChecker = NewMockBlockChecker(ctrl)

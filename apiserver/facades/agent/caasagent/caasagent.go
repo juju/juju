@@ -124,7 +124,7 @@ func (f *FacadeV2) WatchCloudSpecsChanges(ctx context.Context, args params.Entit
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		id, err := f.registry.Register(w)
+		id, err := f.registry.Register(ctx, w)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
