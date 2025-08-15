@@ -739,6 +739,55 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestWatchMachines(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	machineChanged := make(chan struct{}, 1)
+	machineChanged <- struct{}{}
+
+	sourceWatcher := watchertest.NewMockNotifyWatcher(machineChanged)
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockMachineService.EXPECT().
+		WatchMachineCloudInstances(gomock.Any(), machineUUID).
+		Return(sourceWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
+
+	results, err := s.api.WatchMachines(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "66")
+}
+
+func (s *provisionerSuite) TestWatchMachinesNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	results, err := s.api.WatchMachines(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag(s.machineName.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
 func (s *provisionerSuite) TestWatchVolumesForModel(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()

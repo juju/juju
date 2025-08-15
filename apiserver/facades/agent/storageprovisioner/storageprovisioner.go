@@ -406,9 +406,36 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	for i := range args.Entities {
-		w := corewatcher.TODO[struct{}]()
+	canAccess, err := s.getMachineAuthFunc(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+	one := func(arg params.Entity) (string, error) {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag) {
+			return "", apiservererrors.ErrPerm
+		}
+		machineName := machine.Name(machineTag.Id())
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", errors.Errorf(
+				"machine not found for id %q", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return "", err
+		}
+		w, err := s.machineService.WatchMachineCloudInstances(ctx, machineUUID)
+		if err != nil {
+			return "", err
+		}
 		id, _, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+		return id, err
+	}
+	for i, arg := range args.Entities {
+		id, err := one(arg)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
