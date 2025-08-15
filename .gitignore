@@ -34,3 +34,4 @@ tests/tmp.*
 dqlite-deps.tar.bz2
 .sphinx
 .envrc
+.spread-reuse*
