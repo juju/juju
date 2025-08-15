@@ -234,9 +234,26 @@ func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	return nodeUUID
 }
 
+func (s *baseSuite) newStorageInstance(c *tc.C, storageName string) (domainstorage.StorageInstanceUUID, string) {
+	return s.newStorageInstanceWithProviderType(c, "rootfs", storageName)
+}
+
+func (s *baseSuite) newStorageInstanceWithCharmUUID(
+	c *tc.C, charmUUID, storageName string,
+) (domainstorage.StorageInstanceUUID, string) {
+	return s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", storageName)
+}
+
+func (s *baseSuite) newStorageInstanceWithProviderType(
+	c *tc.C, pType, storageName string,
+) (domainstorage.StorageInstanceUUID, string) {
+	charmUUID := s.newCharm(c)
+	return s.newStorageInstanceForCharmWithProviderType(c, charmUUID, pType, storageName)
+}
+
 func (s *baseSuite) newStorageInstanceForCharmWithProviderType(
 	c *tc.C, charmUUID, pType, storageName string,
-) domainstorage.StorageInstanceUUID {
+) (domainstorage.StorageInstanceUUID, string) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
@@ -252,7 +269,20 @@ VALUES (?, ?, ?, ?, 0, 100, ?)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return storageInstanceUUID
+	return storageInstanceUUID, storageID
+}
+
+func (s *baseSuite) newStorageAttachment(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+	unitUUID coreunit.UUID,
+	life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_attachment (storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?)`,
+		storageInstanceUUID.String(), unitUUID.String(), life)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) getStorageID(
@@ -266,25 +296,6 @@ SELECT storage_id FROM storage_instance WHERE uuid = ?`,
 	).Scan(&storageID)
 	c.Assert(err, tc.ErrorIsNil)
 	return storageID
-}
-
-func (s *baseSuite) newStorageAttachment(
-	c *tc.C,
-	storageInstanceUUID domainstorage.StorageInstanceUUID,
-	unitUUID coreunit.UUID,
-	life domainlife.Life,
-) {
-	err := s.TxnRunner().StdTxn(
-		c.Context(),
-		func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_attachment (storage_instance_uuid, unit_uuid, life_id)
-VALUES (?, ?, ?)
-`, storageInstanceUUID.String(), unitUUID.String(), life)
-			return err
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
