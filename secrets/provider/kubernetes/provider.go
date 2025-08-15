@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -326,6 +327,10 @@ type kubernetesClient struct {
 	serviceAccount    string
 	namespace         string
 	isControllerModel bool
+
+	// resourceLock is used to ensure that only one resource
+	// for a given name and namespace can be created or updated at a time.
+	resourceLock sync.Map
 }
 
 // isExternalNamespace returns true if the specified namespace is not used to
@@ -514,17 +519,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 	var out *rbacv1.Role
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-
-			// Always fetch the latest before update attempt
-			// latest, err := api.Get(ctx, role.Name, v1.GetOptions{})
-			// if k8serrors.IsNotFound(err) {
-			// 	return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", role.Name))
-			// }
-			// if err != nil {
-			// 	return errors.Trace(err)
-			// }
-			// latest.Rules = role.Rules
-
 			patch := map[string]interface{}{
 				"rules": role.Rules,
 			}
@@ -536,7 +530,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 				FieldManager: resources.JujuFieldManager,
 			})
 
-			// out, err = api.Update(ctx, latest, v1.UpdateOptions{})
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
@@ -548,21 +541,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 	})
 
-	// api := k.client.RbacV1().Roles(k.namespace)
-
-	// patch := map[string]interface{}{
-	// 	"rules": role.Rules,
-	// }
-	// data, err := json.Marshal(patch)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
-	// out, err := api.Patch(ctx, role.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
-	// 	FieldManager: resources.JujuFieldManager,
-	// })
-	// if k8serrors.IsNotFound(err) {
-	// 	return nil, errors.NotFoundf("role %q", role.GetName())
-	// }
 	return out, errors.Trace(err)
 }
 
@@ -763,6 +741,8 @@ func rulesForSecretAccess(
 func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 	ctx context.Context, sa *core.ServiceAccount, owned, read, removed []string,
 ) (cleanups []func(), _ error) {
+
+	k.getRoleMutex(sa.Name).Lock()
 	role, err := k.getRole(ctx, sa.Name)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return cleanups, errors.Trace(err)
@@ -784,9 +764,10 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 		}
 	} else {
 		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
-
 		_, err = k.updateRole(ctx, role)
 	}
+	k.getRoleMutex(sa.Name).Unlock()
+
 	if err != nil {
 		return cleanups, errors.Trace(err)
 	}
@@ -1161,6 +1142,9 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 		if clusterRole.Annotations[modelIdKey] != k.modelUUID {
 			continue
 		}
+		mu := k.getClusterRoleMutex(clusterRole.Name)
+		mu.Lock()
+		defer mu.Unlock()
 		clusterRole.Rules = createRules(clusterRole.Rules)
 		result, err := k.updateClusterRole(ctx, &clusterRole)
 		if err != nil {
@@ -1177,11 +1161,15 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
 			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
+		mu := k.getClusterRoleMutex(proposedName)
+		mu.Lock()
 		_, err = k.client.RbacV1().ClusterRoles().Get(ctx, proposedName, v1.GetOptions{})
 		if err == nil {
 			suffixLength = suffixLength + 1
+			mu.Unlock()
 			continue
 		} else if !k8serrors.IsNotFound(err) {
+			mu.Unlock()
 			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role %q", proposedName)
 		}
 		result, err := k.createClusterRole(ctx,
@@ -1194,6 +1182,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 				Rules: createRules(nil),
 			},
 		)
+		mu.Unlock()
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteClusterRole(ctx, result.GetName(), result.GetUID()) })
 		}
@@ -1228,11 +1217,15 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
 			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
+		mu := k.getClusterRoleBindingMutex(proposedName)
+		mu.Lock()
 		_, err = k.client.RbacV1().ClusterRoleBindings().Get(ctx, proposedName, v1.GetOptions{})
 		if err == nil {
 			suffixLength = suffixLength + 1
+			mu.Unlock()
 			continue
 		} else if !k8serrors.IsNotFound(err) {
+			mu.Unlock()
 			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role %q", proposedName)
 		}
 		result, err := k.createClusterRoleBinding(ctx,
@@ -1256,11 +1249,30 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 				},
 			},
 		)
+		mu.Unlock()
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteClusterRoleBinding(ctx, result.GetName(), result.GetUID()) })
 		}
 		return result, cleanups, errors.Trace(err)
 	}
+}
+
+func (k *kubernetesClient) getRoleMutex(name string) *sync.Mutex {
+	key := fmt.Sprintf("role-%s-%s", k.namespace, name)
+	mu, _ := k.resourceLock.LoadOrStore(key, &sync.Mutex{})
+	return mu.(*sync.Mutex)
+}
+
+func (k *kubernetesClient) getClusterRoleMutex(name string) *sync.Mutex {
+	key := fmt.Sprintf("cluster_role-%s", name)
+	mu, _ := k.resourceLock.LoadOrStore(key, &sync.Mutex{})
+	return mu.(*sync.Mutex)
+}
+
+func (k *kubernetesClient) getClusterRoleBindingMutex(name string) *sync.Mutex {
+	key := fmt.Sprintf("cluster_role_binding-%s", name)
+	mu, _ := k.resourceLock.LoadOrStore(key, &sync.Mutex{})
+	return mu.(*sync.Mutex)
 }
 
 var errNoNamespace = errors.ConstError("no namespace")
