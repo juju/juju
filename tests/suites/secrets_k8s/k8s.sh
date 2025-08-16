@@ -355,6 +355,38 @@ run_user_secret_drain() {
 	destroy_model "$model_name"
 }
 
+run_test_add_multiple_secrets_parallel() {
+	controller_name='multiple-secrets-parallel-k8s-controller'
+	ctrl_log_file="${TEST_DIR}/${controller_name}.log"
+
+	model_name='multiple-secrets-parallel-k8s-model'
+	model_log_file="${TEST_DIR}/${model_name}.log"
+
+	cleanup_resources() {
+		rm -f "$ctrl_log_file" "$model_log_file"
+		destroy_model "$model_name"
+		destroy_controller "$controller_name"
+	}
+
+	trap cleanup_resources EXIT HUP INT TERM
+
+	bootstrap_custom_controller "$controller_name" microk8s
+
+	juju switch controller
+	# check logs during juju add-secret in controller model for any errors
+	if ! seq 1 100 | xargs -n1 -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
+		echo "Failed: could not add multiple secrets in parallel for controller model."
+		exit 1
+	fi
+
+	juju add-model "$model_name"
+	# check logs during juju add-secret in non-controller model for any errors
+	if ! seq 1 100 | xargs -n1 -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$model_log_file" 2>&1 || grep -iq 'error' "$model_log_file"; then
+		echo "Failed: could not add multiple secrets in parallel for non-controller model."
+		exit 1
+	fi
+}
+
 prepare_vault() {
 	if ! which "vault" >/dev/null 2>&1; then
 		sudo snap install vault
@@ -436,5 +468,20 @@ test_user_secret_drain() {
 		cd .. || exit
 
 		run "run_user_secret_drain"
+	)
+}
+
+test_add_multiple_secrets_parallel() {
+	if [ "$(skip 'test_add_multiple_secrets_parallel')" ]; then
+		echo "==> TEST SKIPPED: test_add_multiple_secrets_parallel"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_test_add_multiple_secrets_parallel"
 	)
 }
