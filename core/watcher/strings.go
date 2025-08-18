@@ -151,10 +151,14 @@ func (sw *StringsWorker) Wait() error {
 
 // Report implements dependency.Reporter.
 func (sw *StringsWorker) Report() map[string]interface{} {
-	if r, ok := sw.config.Handler.(worker.Reporter); ok {
-		return r.Report()
+	report := map[string]interface{}{
+		"type": "StringsWorker",
 	}
-	return nil
+
+	if r, ok := sw.config.Handler.(worker.Reporter); ok {
+		report["handler"] = r.Report()
+	}
+	return report
 }
 
 func (sw *StringsWorker) scopedContext() (context.Context, context.CancelFunc) {

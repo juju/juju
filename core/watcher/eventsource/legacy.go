@@ -70,6 +70,12 @@ func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
+func (w *StringsNotifyWatcher) Report() map[string]any {
+	return map[string]any{
+		"type": "StringsNotifyWatcher",
+	}
+}
+
 func (w *StringsNotifyWatcher) Err() error {
 	return w.catacomb.Err()
 }

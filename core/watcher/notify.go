@@ -159,10 +159,14 @@ func (nw *NotifyWorker) Wait() error {
 
 // Report implements dependency.Reporter.
 func (nw *NotifyWorker) Report() map[string]interface{} {
-	if r, ok := nw.config.Handler.(worker.Reporter); ok {
-		return r.Report()
+	report := map[string]interface{}{
+		"type": "NotifyWorker",
 	}
-	return nil
+
+	if r, ok := nw.config.Handler.(worker.Reporter); ok {
+		report["handler"] = r.Report()
+	}
+	return report
 }
 
 func (nw *NotifyWorker) scopedContext() (context.Context, context.CancelFunc) {

@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type manifoldSuite struct {

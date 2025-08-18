@@ -38,3 +38,9 @@ func (w *todoWatcher[T]) Wait() error {
 func (w *todoWatcher[T]) Changes() <-chan T {
 	return w.ch
 }
+
+func (w *todoWatcher[T]) Report() map[string]any {
+	return map[string]any{
+		"type": "TODOWatcher",
+	}
+}

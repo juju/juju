@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/juju/core/secrets"
@@ -143,6 +144,10 @@ const (
 type CharmSecretOwner struct {
 	Kind CharmSecretOwnerKind
 	ID   string
+}
+
+func (o CharmSecretOwner) String() string {
+	return fmt.Sprintf("%s-%s", o.Kind, o.ID)
 }
 
 // SecretExport defines all the secret data from a model
