@@ -21,9 +21,6 @@ import (
 )
 
 const (
-	// DefaultNamespace is the default namespace for watchers.
-	DefaultNamespace = "w"
-
 	// ErrWatcherRegistryClosed is returned when the watcher registry is closed.
 	ErrWatcherRegistryClosed = errors.ConstError("watcher registry closed")
 )
@@ -79,6 +76,9 @@ type Config struct {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
+
+	registries map[uint64]WatcherRegistry
+	requests   chan request
 }
 
 // NewWorker creates a new watcher registry worker.
@@ -88,9 +88,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		IsFatal: func(err error) bool {
 			return false
 		},
-		ShouldRestart: internalworker.ShouldRunnerRestart,
-		Clock:         config.Clock,
-		Logger:        internalworker.WrapLogger(config.Logger),
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -98,6 +100,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	w := &Worker{
 		runner: runner,
+
+		registries: make(map[uint64]WatcherRegistry),
+		requests:   make(chan request),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -129,20 +134,70 @@ func (w *Worker) Report() map[string]any {
 	return w.runner.Report()
 }
 
+type request struct {
+	id       uint64
+	response chan WatcherRegistry
+}
+
 // GetWatcherRegistry returns the watcher registry for a given id.
 func (w *Worker) GetWatcherRegistry(ctx context.Context, id uint64) (WatcherRegistry, error) {
-	return &trackedWorker{
+	ch := make(chan WatcherRegistry, 1)
+	select {
+	case <-w.catacomb.Dying():
+		return nil, errors.Errorf("watcher registry %d %w", id, ErrWatcherRegistryClosed)
+	case <-ctx.Done():
+		return nil, errors.Capture(ctx.Err())
+
+	case w.requests <- request{
+		id:       id,
+		response: ch,
+	}:
+	}
+
+	select {
+	case <-w.catacomb.Dying():
+		return nil, errors.Errorf("watcher registry %d %w", id, ErrWatcherRegistryClosed)
+	case <-ctx.Done():
+		return nil, errors.Capture(ctx.Err())
+	case reg := <-ch:
+		return reg, nil
+	}
+}
+
+func (w *Worker) loop() error {
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+
+		case req := <-w.requests:
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+
+			case req.response <- w.getRegistry(req.id):
+			}
+		}
+	}
+}
+
+func (w *Worker) getRegistry(id uint64) WatcherRegistry {
+	// Cache the registry if it exists, otherwise create a new one.
+	if reg, ok := w.registries[id]; ok {
+		return reg
+	}
+
+	reg := &trackedWorker{
 		id:     strconv.FormatUint(id, 10),
 		runner: w.runner,
 		dying:  w.catacomb.Dying(),
 
 		namespaceCounter: 0,
-	}, nil
-}
+	}
 
-func (w *Worker) loop() error {
-	<-w.catacomb.Dying()
-	return w.catacomb.ErrDying()
+	w.registries[id] = reg
+
+	return reg
 }
 
 type trackedWorker struct {
@@ -177,7 +232,7 @@ func (r *trackedWorker) Get(id string) (worker.Worker, error) {
 // watcher.
 func (r *trackedWorker) Register(ctx context.Context, w worker.Worker) (string, error) {
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
-	namespace := fmt.Sprintf("%s-%d", DefaultNamespace, nsCounter)
+	namespace := strconv.FormatInt(nsCounter, 10)
 
 	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
 		return "", errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)
@@ -230,7 +285,7 @@ func (r *trackedWorker) StopAll() error {
 			continue
 		}
 
-		if err := r.runner.StopAndRemoveWorker(name, r.dying); err != nil {
+		if err := r.runner.StopAndRemoveWorker(name, r.dying); err != nil && !errors.Is(err, coreerrors.NotFound) {
 			return errors.Capture(err)
 		}
 	}

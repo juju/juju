@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"sync"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	"go.uber.org/mock/gomock"
+	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/testing"
 )
 
 type registrySuite struct {
@@ -26,13 +24,11 @@ type registrySuite struct {
 }
 
 func TestRegistrySuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
 	tc.Run(t, &registrySuite{})
 }
 
 func (s *registrySuite) TestRegisterCount(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
@@ -40,9 +36,6 @@ func (s *registrySuite) TestRegisterCount(c *tc.C) {
 }
 
 func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
@@ -65,9 +58,6 @@ func (s *registrySuite) TestRegisterGetCount(c *tc.C) {
 }
 
 func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
@@ -91,9 +81,6 @@ func (s *registrySuite) TestRegisterNamedGetCount(c *tc.C) {
 }
 
 func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
@@ -108,13 +95,11 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
 }
 
 func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
 	w := workertest.NewErrorWorker(nil)
+	defer workertest.CleanKill(c, w)
 
 	err := reg.RegisterNamed(c.Context(), "0", w)
 	c.Assert(err, tc.ErrorMatches, `namespace "0" not valid`)
@@ -122,28 +107,10 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
 }
 
 func (s *registrySuite) TestRegisterStop(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	reg, regGetter := s.newRegistry(c)
 	defer workertest.CleanKill(c, regGetter)
 
-	done := make(chan struct{})
-	w := NewMockWorker(ctrl)
-	w.EXPECT().Kill().DoAndReturn(func() {
-		close(done)
-	})
-	w.EXPECT().Wait().DoAndReturn(func() error {
-		select {
-		case <-done:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for worker to finish")
-		}
-
-		return nil
-	}).MinTimes(1)
-
-	err := reg.RegisterNamed(c.Context(), "foo", w)
+	err := reg.RegisterNamed(c.Context(), "foo", workertest.NewErrorWorker(nil))
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = reg.Stop("foo")
@@ -153,9 +120,6 @@ func (s *registrySuite) TestRegisterStop(c *tc.C) {
 }
 
 func (s *registrySuite) TestConcurrency(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
 	// This test is designed to cause the race detector
 	// to fail if the locking is not done correctly.
 	reg, regGetter := s.newRegistry(c)
@@ -169,23 +133,20 @@ func (s *registrySuite) TestConcurrency(c *tc.C) {
 			wg.Done()
 		}()
 	}
-	_, err := reg.Register(c.Context(), s.expectSimpleWatcher(ctrl))
+	_, err := reg.Register(c.Context(), workertest.NewErrorWorker(nil))
 	c.Assert(err, tc.ErrorIsNil)
 
 	start(func() {
-		_, _ = reg.Register(c.Context(), s.expectSimpleWatcher(ctrl))
+		_, _ = reg.Register(c.Context(), workertest.NewErrorWorker(nil))
 	})
 	start(func() {
-		_ = reg.RegisterNamed(c.Context(), "named", s.expectSimpleWatcher(ctrl))
+		_ = reg.RegisterNamed(c.Context(), "named", workertest.NewErrorWorker(nil))
 	})
 	start(func() {
 		_ = reg.Stop("1")
 	})
 	start(func() {
 		_ = reg.Count()
-	})
-	start(func() {
-		_ = reg.StopAll()
 	})
 	start(func() {
 		_, _ = reg.Get("2")
@@ -196,29 +157,126 @@ func (s *registrySuite) TestConcurrency(c *tc.C) {
 	wg.Wait()
 }
 
-func (s *registrySuite) newRegistry(c *tc.C) (WatcherRegistry, worker.Worker) {
-	w, err := NewWorker(Config{
-		Clock:  clock.WallClock,
-		Logger: loggertesting.WrapCheckLog(c),
-	})
+func (s *registrySuite) TestMultipleRegistries(c *tc.C) {
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	reg1, err := w.GetWatcherRegistry(c.Context(), 0)
 	c.Assert(err, tc.ErrorIsNil)
 
-	reg, err := w.(*Worker).GetWatcherRegistry(c.Context(), 0)
+	reg2, err := w.GetWatcherRegistry(c.Context(), 1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err1 := make(chan error, 1)
+	go func() {
+		_, err := reg1.Register(c.Context(), workertest.NewErrorWorker(nil))
+		err1 <- err
+	}()
+
+	err2 := make(chan error, 1)
+	go func() {
+		_, err := reg2.Register(c.Context(), workertest.NewErrorWorker(nil))
+		err2 <- err
+	}()
+
+	select {
+	case err := <-err1:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for registry 1 to register")
+	}
+
+	select {
+	case err := <-err2:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for registry 2 to register")
+	}
+
+	c.Check(reg1.Count(), tc.Equals, 1)
+	c.Check(reg2.Count(), tc.Equals, 1)
+
+	// Each registry should be namespaced separately.
+
+	w1, err := reg1.Get("1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	w2, err := reg2.Get("1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// They should not be the same worker.
+	c.Check(w1 == w2, tc.IsFalse)
+}
+
+func (s *registrySuite) TestMultipleRegistriesStopOneShouldNotStopOthers(c *tc.C) {
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	reg1, err := w.GetWatcherRegistry(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	reg2, err := w.GetWatcherRegistry(c.Context(), 1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = reg1.Register(c.Context(), workertest.NewErrorWorker(nil))
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = reg2.Register(c.Context(), workertest.NewErrorWorker(nil))
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(reg1.Count(), tc.Equals, 1)
+	c.Check(reg2.Count(), tc.Equals, 1)
+
+	err = reg1.StopAll()
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Stopping one registry should not stop the other.
+	c.Check(reg1.Count(), tc.Equals, 0)
+	c.Check(reg2.Count(), tc.Equals, 1)
+
+	w3 := workertest.NewErrorWorker(nil)
+	defer workertest.CleanKill(c, w3)
+
+	_, err = reg1.Register(c.Context(), w3)
+	c.Assert(err, tc.ErrorIs, ErrWatcherRegistryClosed)
+
+	w4 := workertest.NewErrorWorker(nil)
+	defer workertest.CleanKill(c, w4)
+
+	_, err = reg2.Register(c.Context(), w4)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(reg1.Count(), tc.Equals, 0)
+	c.Check(reg2.Count(), tc.Equals, 2)
+}
+
+func (s *registrySuite) TestMultipleRegistriesReturnsTheSameRegistry(c *tc.C) {
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	reg1, err := w.GetWatcherRegistry(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	reg2, err := w.GetWatcherRegistry(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(reg1 == reg2, tc.IsTrue)
+}
+
+func (s *registrySuite) newRegistry(c *tc.C) (WatcherRegistry, worker.Worker) {
+	w := s.newWorker(c)
+
+	reg, err := w.GetWatcherRegistry(c.Context(), 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return reg, w
 }
 
-func (s *registrySuite) setupMocks(c *tc.C) *gomock.Controller {
-	return gomock.NewController(c)
-}
-
-func (s *registrySuite) expectSimpleWatcher(ctrl *gomock.Controller) worker.Worker {
-	w := NewMockWorker(ctrl)
-	w.EXPECT().Kill().AnyTimes()
-	w.EXPECT().Wait().DoAndReturn(func() error {
-		<-time.After(testing.ShortWait)
-		return nil
-	}).AnyTimes()
-	return w
+func (s *registrySuite) newWorker(c *tc.C) *Worker {
+	w, err := NewWorker(Config{
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return w.(*Worker)
 }
