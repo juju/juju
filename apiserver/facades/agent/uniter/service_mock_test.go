@@ -3041,6 +3041,45 @@ func (c *MockStorageProvisioningServiceGetStorageAttachmentLifeCall) DoAndReturn
 	return c
 }
 
+// WatchUnitStorageAttachments mocks base method.
+func (m *MockStorageProvisioningService) WatchUnitStorageAttachments(arg0 context.Context, arg1 unit.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitStorageAttachments", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitStorageAttachments indicates an expected call of WatchUnitStorageAttachments.
+func (mr *MockStorageProvisioningServiceMockRecorder) WatchUnitStorageAttachments(arg0, arg1 any) *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitStorageAttachments", reflect.TypeOf((*MockStorageProvisioningService)(nil).WatchUnitStorageAttachments), arg0, arg1)
+	return &MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall wrap *gomock.Call
+type MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall) Do(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall) DoAndReturn(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockStorageProvisioningServiceWatchUnitStorageAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockBlockDeviceService is a mock of BlockDeviceService interface.
 type MockBlockDeviceService struct {
 	ctrl     *gomock.Controller
