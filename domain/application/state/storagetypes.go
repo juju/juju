@@ -22,9 +22,10 @@ type applicationStorageDirective struct {
 // insertStorageFilesystem represents the set of values required for inserting a
 // new storage filesystem into the model.
 type insertStorageFilesystem struct {
-	FilesystemID string `db:"filesystem_id"`
-	LifeID       int    `db:"life_id"`
-	UUID         string `db:"uuid"`
+	FilesystemID     string `db:"filesystem_id"`
+	LifeID           int    `db:"life_id"`
+	UUID             string `db:"uuid"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
 }
 
 // insertStorageFilesystemAttachment represents the set of values required for
@@ -34,6 +35,7 @@ type insertStorageFilesystemAttachment struct {
 	NetNodeUUID           string `db:"net_node_uuid"`
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 	UUID                  string `db:"uuid"`
+	ProvisionScopeID      int    `db:"provision_scope_id"`
 }
 
 // insertStorageFilesystemInstance represents the set of values required for
@@ -76,9 +78,10 @@ type insertStorageInstanceAttachment struct {
 // insertStorageVolume represents the set of values required for inserting a
 // new storage volume into the model.
 type insertStorageVolume struct {
-	LifeID   int    `db:"life_id"`
-	UUID     string `db:"uuid"`
-	VolumeID string `db:"volume_id"`
+	LifeID           int    `db:"life_id"`
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
 }
 
 // insertStorageVolumeAttachment represents the set of values required for
@@ -88,6 +91,7 @@ type insertStorageVolumeAttachment struct {
 	NetNodeUUID       string `db:"net_node_uuid"`
 	StorageVolumeUUID string `db:"storage_volume_uuid"`
 	UUID              string `db:"uuid"`
+	ProvisionScopeID  int    `db:"provision_scope_id"`
 }
 
 // insertStorageVolumeInstance represents the set of values required for
@@ -106,16 +110,18 @@ type insertStorageVolumeStatus struct {
 	UpdateAt   time.Time `db:"updated_at"`
 }
 
-// storageFilesystemUUIDRef is a database type for selecting a foreign key
-// reference to a storage filesystem uuid.
-type storageFilesystemUUIDRef struct {
-	UUID string `db:"storage_filesystem_uuid"`
+// storageFilesystemUUIDAndScope is a database type for selecting a foreign key
+// reference to a storage filesystem uuid with the provisioning scope.
+type storageFilesystemUUIDAndScope struct {
+	UUID             string `db:"storage_filesystem_uuid"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
 }
 
-// storageVolumeUUIDRef is a database type for selecting a foreign key reference
-// to a storage volume uuid.
-type storageVolumeUUIDRef struct {
-	UUID string `db:"storage_volume_uuid"`
+// storageVolumeUUIDAndScope is a database type for selecting a foreign key reference
+// to a storage volume uuid with the provisioning scope.
+type storageVolumeUUIDAndScope struct {
+	UUID             string `db:"storage_volume_uuid"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
 }
 
 // unitStorageDirective is used to represent the values held in the

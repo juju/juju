@@ -531,6 +531,8 @@ func makeUnitStorageInstancesFromDirective(
 			Name:           directive.Name,
 			UUID:           uuid,
 			FilesystemUUID: &fsUUID,
+			// TODO(storage): determine provision scope from provider.
+			FilesystemProvisionScope: domainstorageprov.ProvisionScopeModel,
 		})
 	}
 

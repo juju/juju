@@ -93,8 +93,8 @@ func (s *storageSuite) createFilesystem(c *tc.C) storageprovisioning.FilesystemU
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
-VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
+INSERT INTO storage_filesystem(uuid, life_id, filesystem_id, provision_scope_id)
+VALUES (?, ?, ?, 0)`, filesystemUUID, life.Alive, s.filesystemCount)
 		if err != nil {
 			return err
 		}
@@ -113,8 +113,8 @@ func (s *storageSuite) createFilesystemNoStatus(c *tc.C) storageprovisioning.Fil
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
-VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
+INSERT INTO storage_filesystem(uuid, life_id, filesystem_id, provision_scope_id)
+VALUES (?, ?, ?, 0)`, filesystemUUID, life.Alive, s.filesystemCount)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -259,8 +259,8 @@ func (s *storageSuite) createVolume(c *tc.C) storageprovisioning.VolumeUUID {
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_volume(uuid, life_id, volume_id)
-VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
+INSERT INTO storage_volume(uuid, life_id, volume_id, provision_scope_id)
+VALUES (?, ?, ?, 0)`, volumeUUID, life.Alive, s.volumeCount)
 		if err != nil {
 			return err
 		}
@@ -281,8 +281,8 @@ func (s *storageSuite) createVolumeNoStatus(c *tc.C) storageprovisioning.VolumeU
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_volume(uuid, life_id, volume_id)
-VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
+INSERT INTO storage_volume(uuid, life_id, volume_id, provision_scope_id)
+VALUES (?, ?, ?, 0)`, volumeUUID, life.Alive, s.volumeCount)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -983,7 +983,7 @@ func (s *storageStatusSuite) newStorageVolumeAttachmentPlan(
 ) string {
 	vapUUID := uuid.MustNewUUID().String()
 	_, err := s.DB().Exec(
-		`INSERT INTO storage_volume_attachment_plan(uuid, storage_volume_uuid, net_node_uuid, life_id, device_type_id) VALUES(?, ?, ?, 0, ?)`,
+		`INSERT INTO storage_volume_attachment_plan(uuid, storage_volume_uuid, net_node_uuid, life_id, device_type_id, provision_scope_id) VALUES(?, ?, ?, 0, ?, 0)`,
 		vapUUID, volumeUUID, netNodeUUID, deviceTypeID)
 	c.Assert(err, tc.ErrorIsNil)
 	for key, value := range attrs {
