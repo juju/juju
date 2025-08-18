@@ -101,6 +101,12 @@ func (s *StubDomainServicesGetter) ServicesForModel(context.Context, model.UUID)
 	return nil, nil
 }
 
+type StubWatcherRegistryGetter struct{}
+
+func (s *StubWatcherRegistryGetter) GetWatcherRegistry(context.Context, uint64) (watcherregistry.WatcherRegistry, error) {
+	return nil, nil
+}
+
 type StubTracerGetter struct {
 	trace.TracerGetter
 }
