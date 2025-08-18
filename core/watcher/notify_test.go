@@ -324,6 +324,9 @@ func (s *notifyWorkerSuite) TestWorkerReport(c *tc.C) {
 	reporter, ok := s.worker.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
-		"test": true,
+		"type": "NotifyWorker",
+		"handler": map[string]interface{}{
+			"test": true,
+		},
 	})
 }

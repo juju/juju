@@ -644,7 +644,7 @@ type mockAuthenticator struct {
 type stubWatcherRegistryGetter struct{}
 
 func (s *stubWatcherRegistryGetter) GetWatcherRegistry(ctx context.Context, cid uint64) (watcherregistry.WatcherRegistry, error) {
-	return newTestRegistry()
+	return NewTestRegistry()
 }
 
 type testRegistry struct {
@@ -654,7 +654,7 @@ type testRegistry struct {
 	watcherWrapper            func(worker.Worker) (worker.Worker, error)
 }
 
-func newTestRegistry() (*testRegistry, error) {
+func NewTestRegistry() (watcherregistry.WatcherRegistry, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name: "watcher-registry",
 		// Prevent the runner from restarting the worker, if one of the
