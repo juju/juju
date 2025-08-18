@@ -326,11 +326,20 @@ func (r *trackedWorker) register(ctx context.Context, namespace string, w worker
 		return ErrWatcherRegistryClosed
 	}
 
+	// We don't own the worker being given to us (this is an anti-pattern),
+	// so we need to ensure that the runner owns the worker before we've
+	// finished registering it. There is a small window where the runner is
+	// killed and the worker is not yet fully registered, causing the worker
+	// passed in to the register function to be leaked.
+	started := make(chan struct{})
+
 	scopedNamespace := r.prefixNamespace(namespace)
 	err := r.runner.StartWorker(ctx, scopedNamespace, func(ctx context.Context) (worker.Worker, error) {
 		if r.closed.Load() {
 			return nil, ErrWatcherRegistryClosed
 		}
+
+		close(started)
 
 		return w, nil
 	})
@@ -338,13 +347,23 @@ func (r *trackedWorker) register(ctx context.Context, namespace string, w worker
 		return errors.Capture(err)
 	}
 
+	select {
+	case <-r.dying:
+		return errors.Errorf("watcher %q %w", namespace, ErrWatcherRegistryClosed)
+
+	case <-ctx.Done():
+		return errors.Capture(ctx.Err())
+
+	case <-started:
+	}
+
 	return nil
 }
 
 func (r *trackedWorker) prefixNamespace(id string) string {
-	return fmt.Sprintf("%s#%s", r.id, id)
+	return fmt.Sprintf("%s:%s", r.id, id)
 }
 
 func (r *trackedWorker) isOwnedByNamespace(id string) bool {
-	return strings.HasPrefix(id, r.id+"#")
+	return strings.HasPrefix(id, r.id+":")
 }

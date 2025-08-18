@@ -5,6 +5,7 @@ package watcherregistry
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	stdtesting "testing"
 
@@ -167,15 +168,88 @@ func (s *registrySuite) TestMultipleRegistries(c *tc.C) {
 	reg2, err := w.GetWatcherRegistry(c.Context(), 1)
 	c.Assert(err, tc.ErrorIsNil)
 
+	type result struct {
+		id  string
+		err error
+	}
+
+	res1 := make(chan result, 1)
+	go func() {
+		id, err := reg1.Register(c.Context(), workertest.NewErrorWorker(nil))
+		res1 <- result{
+			id:  id,
+			err: err,
+		}
+	}()
+
+	res2 := make(chan result, 1)
+	go func() {
+		id, err := reg2.Register(c.Context(), workertest.NewErrorWorker(nil))
+		res2 <- result{
+			id:  id,
+			err: err,
+		}
+	}()
+
+	var id1 string
+	select {
+	case res := <-res1:
+		c.Assert(res.err, tc.ErrorIsNil)
+		id1 = res.id
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for registry 1 to register")
+	}
+
+	var id2 string
+	select {
+	case res := <-res2:
+		c.Assert(res.err, tc.ErrorIsNil)
+		id2 = res.id
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for registry 2 to register")
+	}
+
+	c.Check(reg1.Count(), tc.Equals, 1)
+	c.Check(reg2.Count(), tc.Equals, 1)
+
+	// Each registry should be namespaced separately.
+
+	c.Assert(strings.HasPrefix(id1, w.namespacePrefix), tc.IsTrue)
+	c.Assert(strings.HasPrefix(id2, w.namespacePrefix), tc.IsTrue)
+
+	// As we're only creating one worker in each registry, they should have
+	// the same id.
+	c.Check(id1 == id2, tc.IsTrue)
+
+	w1, err := reg1.Get(id1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	w2, err := reg2.Get(id2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// They should not be the same worker.
+	c.Check(w1 == w2, tc.IsFalse)
+}
+
+func (s *registrySuite) TestMultipleNamedRegistries(c *tc.C) {
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	reg1, err := w.GetWatcherRegistry(c.Context(), 0)
+	c.Assert(err, tc.ErrorIsNil)
+
+	reg2, err := w.GetWatcherRegistry(c.Context(), 1)
+	c.Assert(err, tc.ErrorIsNil)
+
 	err1 := make(chan error, 1)
 	go func() {
-		_, err := reg1.Register(c.Context(), workertest.NewErrorWorker(nil))
+		err := reg1.RegisterNamed(c.Context(), "foo", workertest.NewErrorWorker(nil))
 		err1 <- err
 	}()
 
 	err2 := make(chan error, 1)
 	go func() {
-		_, err := reg2.Register(c.Context(), workertest.NewErrorWorker(nil))
+		err := reg2.RegisterNamed(c.Context(), "foo", workertest.NewErrorWorker(nil))
 		err2 <- err
 	}()
 
@@ -198,10 +272,10 @@ func (s *registrySuite) TestMultipleRegistries(c *tc.C) {
 
 	// Each registry should be namespaced separately.
 
-	w1, err := reg1.Get(w.namespacePrefix + "-1")
+	w1, err := reg1.Get("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	w2, err := reg2.Get(w.namespacePrefix + "-1")
+	w2, err := reg2.Get("foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// They should not be the same worker.
