@@ -134,9 +134,6 @@ type Config struct {
 	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 	Clock                    clock.Clock
 	Logger                   logger.Logger
-
-	// Used for testing.
-	Runner *worker.Runner
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -165,37 +162,39 @@ func New(config Config) (*Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	runner := config.Runner
-	if runner == nil {
-		var err error
-		runner, err = worker.NewRunner(worker.RunnerParams{
-			Name:   "remote-relations",
-			Clock:  config.Clock,
-			Logger: internalworker.WrapLogger(config.Logger),
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:   "remote-relations",
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
 
-			// One of the remote application workers failing should not
-			// prevent the others from running.
-			IsFatal: func(error) bool { return false },
+		// One of the remote application workers failing should not
+		// prevent the others from running.
+		IsFatal: func(error) bool { return false },
 
-			// For any failures, try again in 15 seconds.
-			RestartDelay: 15 * time.Second,
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		// For any failures, try again in 15 seconds.
+		RestartDelay: 15 * time.Second,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	w := &Worker{
 		config:     config,
 		offerUUIDs: make(map[string]string),
 		runner:     runner,
 	}
-	err := catacomb.Invoke(catacomb.Plan{
+
+	err = catacomb.Invoke(catacomb.Plan{
 		Name: "remote-relations",
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{w.runner},
 	})
-	return w, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return w, nil
 }
 
 // Worker manages relations and associated settings where

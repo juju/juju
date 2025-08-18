@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations_test
+package remoterelations
 
 import (
 	"context"
@@ -15,12 +15,11 @@ import (
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/remoterelations"
 )
 
 type ManifoldConfigSuite struct {
 	testhelpers.IsolationSuite
-	config remoterelations.ManifoldConfig
+	config ManifoldConfig
 }
 
 func TestManifoldConfigSuite(t *testing.T) {
@@ -32,13 +31,13 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldConfigSuite) validConfig(c *tc.C) remoterelations.ManifoldConfig {
-	return remoterelations.ManifoldConfig{
+func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
+	return ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
 		NewControllerConnection:  func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
-		NewRemoteRelationsFacade: func(base.APICaller) remoterelations.RemoteRelationsFacade { return nil },
-		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
+		NewRemoteRelationsFacade: func(base.APICaller) RemoteRelationsFacade { return nil },
+		NewWorker:                func(Config) (worker.Worker, error) { return nil, nil },
 		Logger:                   loggertesting.WrapCheckLog(c),
 	}
 }
