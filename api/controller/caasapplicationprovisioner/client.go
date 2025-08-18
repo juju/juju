@@ -242,6 +242,30 @@ func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentPara
 	}, nil
 }
 
+func filesystemUnitAttachmentsFromParams(in map[string][]params.KubernetesFilesystemUnitAttachmentParams) (map[string][]storage.KubernetesFilesystemUnitAttachmentParams, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	k8sFsUnitAttachmentParams := make(map[string][]storage.KubernetesFilesystemUnitAttachmentParams)
+	for storageName, params := range in {
+		for _, p := range params {
+			unitTag, err := names.ParseTag(p.UnitTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			k8sFsUnitAttachmentParams[storageName] = append(
+				k8sFsUnitAttachmentParams[storageName],
+				storage.KubernetesFilesystemUnitAttachmentParams{
+					UnitName: unitTag.Id(),
+					VolumeId: p.VolumeId,
+				},
+			)
+		}
+	}
+	return k8sFsUnitAttachmentParams, nil
+}
+
 // SetOperatorStatus updates the provisioning status of an operator.
 func (c *Client) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
@@ -487,4 +511,40 @@ func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, e
 		return params.CAASApplicationProvisionerConfig{}, nil
 	}
 	return *result.ProvisionerConfig, nil
+}
+
+// FilesystemProvisioningInfo holds the filesystem info needed to provision an operator for an application.
+type FilesystemProvisioningInfo struct {
+	Filesystems               []storage.KubernetesFilesystemParams
+	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+}
+
+// FilesystemProvisioningInfo returns the filesystem info needed to provision an operator for an application.
+func (c *Client) FilesystemProvisioningInfo(applicationName string) (FilesystemProvisioningInfo, error) {
+	args := params.Entity{Tag: names.NewApplicationTag(applicationName).String()}
+	var result params.CAASApplicationFilesystemProvisioningInfo
+	if err := c.facade.FacadeCall("FilesystemProvisioningInfo", args, &result); err != nil {
+		return FilesystemProvisioningInfo{}, err
+	}
+	return filesystemProvisioningInfoFromParams(result)
+}
+
+// filesystemProvisioningInfoFromParams converts params.CAASApplicationFilesystemProvisioningInfo to FilesystemProvisioningInfo.
+func filesystemProvisioningInfoFromParams(in params.CAASApplicationFilesystemProvisioningInfo) (FilesystemProvisioningInfo, error) {
+	info := FilesystemProvisioningInfo{}
+
+	for _, fs := range in.Filesystems {
+		f, err := filesystemFromParams(fs)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *f)
+	}
+
+	fsUnitAttachments, err := filesystemUnitAttachmentsFromParams(in.FilesystemUnitAttachments)
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+	info.FilesystemUnitAttachments = fsUnitAttachments
+	return info, nil
 }

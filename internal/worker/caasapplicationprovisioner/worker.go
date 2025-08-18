@@ -48,6 +48,7 @@ type CAASUnitProvisionerFacade interface {
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(string) (api.ProvisioningInfo, error)
+	FilesystemProvisioningInfo(string) (api.FilesystemProvisioningInfo, error)
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPassword(string, string) error
 	Life(string) (life.Value, error)

@@ -10,9 +10,12 @@ import (
 	"github.com/juju/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/scale"
+	"github.com/juju/juju/storage"
 )
 
 // Scale scales the Application's unit to the value specificied. Scale must
@@ -81,4 +84,62 @@ func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, er
 	}
 
 	return unitsToRemove, nil
+}
+
+// EnsurePVCs ensures that Persistent Volume Claims (PVCs) are created for the given
+// filesystems and unit attachments. It creates PVCs based on the provided filesystem
+// parameters and handles volume attachments for StatefulSet applications. Returns a
+// cleanup function that can be used to delete the created PVCs if rollback is needed,
+// and any error encountered during the process.
+func (a *app) EnsurePVCs(
+	filesystems []storage.KubernetesFilesystemParams,
+	filesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+) error {
+	applier := a.newApplier()
+
+	ss, err := a.getStatefulSet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return ss, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pvcNames, err := a.pvcNames(storageUniqueID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+
+	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageClassMap := make(map[string]resources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
+	}
+
+	for _, fs := range filesystems {
+		name := a.volumeName(fs.StorageName)
+		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if pvc != nil {
+			err := a.handleVolumeAttachment(applier, filesystemUnitAttachments, *pvc, fs.StorageName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	if err := applier.Run(context.Background(), false); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

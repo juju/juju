@@ -83,16 +83,47 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 func (s *validatorSuite) TestValidateIAASAttachStorageFail(c *gc.C) {
 	argStorageNames := []string{"one-0"}
 	expectedStorageTags := []names.StorageTag{}
-	s.testValidateIAASAttachStorage(c, argStorageNames, expectedStorageTags, errors.NotValid)
+
+	s.testValidateAttachStorage(
+		c, argStorageNames, expectedStorageTags,
+		func() DeployFromRepositoryValidator { return s.iaasDeployFromRepositoryValidator() },
+		errors.NotValid,
+	)
 }
 
 func (s *validatorSuite) TestValidateIAASAttachStorageSuccess(c *gc.C) {
 	argStorageNames := []string{"one/0", "two/3"}
 	expectedStorageTags := []names.StorageTag{names.NewStorageTag("one/0"), names.NewStorageTag("two/3")}
-	s.testValidateIAASAttachStorage(c, argStorageNames, expectedStorageTags, "")
+
+	s.testValidateAttachStorage(
+		c, argStorageNames, expectedStorageTags,
+		func() DeployFromRepositoryValidator { return s.iaasDeployFromRepositoryValidator() },
+		"",
+	)
 }
 
-func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []string, expectedStorageTags []names.StorageTag, expectedErr errors.ConstError) {
+func (s *validatorSuite) TestValidateCAASAttachStorageFail(c *gc.C) {
+	argStorageNames := []string{"one-0"}
+	expectedStorageTags := []names.StorageTag{}
+	s.testValidateAttachStorage(
+		c, argStorageNames, expectedStorageTags,
+		func() DeployFromRepositoryValidator { return s.caasDeployFromRepositoryValidator(c) },
+		errors.NotValid,
+	)
+}
+
+func (s *validatorSuite) TestValidateCAASAttachStorageSuccess(c *gc.C) {
+	argStorageNames := []string{"one/0", "two/3"}
+	expectedStorageTags := []names.StorageTag{names.NewStorageTag("one/0"), names.NewStorageTag("two/3")}
+
+	s.testValidateAttachStorage(
+		c, argStorageNames, expectedStorageTags,
+		func() DeployFromRepositoryValidator { return s.caasDeployFromRepositoryValidator(c) },
+		"",
+	)
+}
+
+func (s *validatorSuite) testValidateAttachStorage(c *gc.C, argStorage []string, expectedStorageTags []names.StorageTag, getValidatorFunc func() DeployFromRepositoryValidator, expectedErr errors.ConstError) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -123,7 +154,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 		CharmName:     "testcharm",
 		AttachStorage: argStorage,
 	}
-	dt, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(arg)
+	dt, errs := getValidatorFunc().ValidateArg(arg)
 	if expectedErr == "" {
 		c.Assert(errs, gc.HasLen, 0)
 		c.Assert(dt, gc.DeepEquals, deployTemplate{

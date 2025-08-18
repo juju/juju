@@ -4,10 +4,12 @@
 package application_test
 
 import (
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -285,4 +289,19 @@ func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
 	c.Check(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "model arthur:king/nope not found")
+}
+
+func (s *AddUnitSuite) TestCAASAddUnitAttachStorage(c *gc.C) {
+	s.SetFeatureFlags(feature.K8SAttachStorage)
+	defer func() {
+		// Unset feature flag
+		os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	}()
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	err := s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Check(err, jc.ErrorIsNil)
 }

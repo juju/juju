@@ -597,10 +597,23 @@ type ScaleApplicationParams struct {
 	// Force controls whether or not the removal of applications
 	// will be forced, i.e. ignore removal errors.
 	Force bool
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string
 }
 
 // ScaleApplication sets the desired unit count for one or more applications.
 func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if len(in.AttachStorage) > 0 && c.BestAPIVersion() < 21 {
+		// ScaleApplication with attach storage was introduced in ApplicationAPIV21.
+		return params.ScaleApplicationResult{}, errors.NotImplementedf("scale application with attach storage on this version of Juju")
+	}
+	if len(in.AttachStorage) > 0 && in.ScaleChange != 1 {
+		return params.ScaleApplicationResult{}, errors.New("cannot attach existing storage when more than one unit is requested")
+	}
+
 	if !names.IsValidApplication(in.ApplicationName) {
 		return params.ScaleApplicationResult{}, errors.NotValidf("application %q", in.ApplicationName)
 	}
@@ -609,18 +622,34 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 		return params.ScaleApplicationResult{}, errors.Trace(err)
 	}
 
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
-			Scale:          in.Scale,
-			ScaleChange:    in.ScaleChange,
-			Force:          in.Force,
-		}},
-	}
 	var results params.ScaleApplicationResults
-	if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
-		return params.ScaleApplicationResult{}, errors.Trace(err)
+	if c.BestAPIVersion() < 21 {
+		args := params.ScaleApplicationsParams{
+			Applications: []params.ScaleApplicationParams{{
+				ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+				Scale:          in.Scale,
+				ScaleChange:    in.ScaleChange,
+				Force:          in.Force,
+			}},
+		}
+		if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
+			return params.ScaleApplicationResult{}, errors.Trace(err)
+		}
+	} else {
+		args := params.ScaleApplicationsParamsV2{
+			Applications: []params.ScaleApplicationParamsV2{{
+				ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+				Scale:          in.Scale,
+				ScaleChange:    in.ScaleChange,
+				Force:          in.Force,
+				AttachStorage:  in.AttachStorage,
+			}},
+		}
+		if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
+			return params.ScaleApplicationResult{}, errors.Trace(err)
+		}
 	}
+
 	if n := len(results.Results); n != 1 {
 		return params.ScaleApplicationResult{}, errors.Errorf("expected 1 result, got %d", n)
 	}
