@@ -552,7 +552,7 @@ AND             net_node_uuid=$netNodeUUID.uuid
 }
 
 // GetFilesystemAttachmentParams retrieves the attachment params for the
-// given filesysatem attachment.
+// given filesystem attachment.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no
@@ -570,7 +570,7 @@ func (st *State) GetFilesystemAttachmentParams(
 	// story to show how this happens of if it is valid. As it stands we don't
 	// support this case in Dqlite so it is a watch and act scneario.
 	//
-	// More then likely we need to adjust the modeling so that the thing being
+	// More than likely we need to adjust the modeling so that the thing being
 	// provisioned such a filesystem has the provider information on it instead
 	// of through RI. This is even more important when we need to cleanup after
 	// ourselves.
@@ -1049,8 +1049,8 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
 	return "storage_filesystem_attachment_life_machine_provisioning", query
 }
 
-// InitialWatchStatementModelProvisionedFilesystems returns both the namespace
-// for watching filesystem life changes where the filesystem is model
+// InitialWatchStatementModelProvisionedFilesystemAttachments returns both the
+// namespace for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
 func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
@@ -1128,7 +1128,7 @@ WHERE  uuid = $filesystemProvisionedInfo.uuid
 }
 
 // SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
-// attachment information about the provisoned filesystem attachment.
+// attachment information about the provisioned filesystem attachment.
 func (st *State) SetFilesystemAttachmentProvisionedInfo(
 	ctx context.Context,
 	filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID,
