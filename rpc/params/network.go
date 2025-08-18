@@ -68,7 +68,8 @@ type SubnetV3 struct {
 type NetworkRoute struct {
 	// DestinationCIDR is the Subnet CIDR of traffic that needs a custom route.
 	DestinationCIDR string `json:"destination-cidr"`
-	// GatewayIP is the target IP to use as the next-hop when sending traffic to DestinationCIDR
+	// GatewayIP is the target IP to use as the next-hop when sending traffic to
+	// DestinationCIDR
 	GatewayIP string `json:"gateway-ip"`
 	// Metric is the cost for this particular route.
 	Metric int `json:"metric"`
@@ -152,12 +153,6 @@ type NetworkConfig struct {
 	// assumed to be the primary IP address for the interface.
 	Addresses []Address `json:"addresses,omitempty"`
 
-	// ShadowAddresses contains an optional list of additional IP addresses
-	// that the underlying network provider associates with this network
-	// interface instance. These IP addresses are not typically visible
-	// to the machine that the interface is connected to.
-	ShadowAddresses []Address `json:"shadow-addresses,omitempty"`
-
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
@@ -234,7 +229,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			Addresses:           FromProviderAddresses(v.Addresses...),
-			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
@@ -282,7 +276,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
-			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
