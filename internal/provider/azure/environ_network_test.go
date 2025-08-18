@@ -211,18 +211,20 @@ func (s *environSuite) TestNetworkInterfacesSuccess(c *tc.C) {
 			corenetwork.WithCIDR("172.0.0.0/24"),
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithConfigType(corenetwork.ConfigStatic),
-		).AsProviderAddress(),
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("subnet-665"),
+		),
 		corenetwork.NewMachineAddress(
 			"10.0.0.42",
 			corenetwork.WithCIDR("10.0.0.0/24"),
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress(),
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("subnet-42"),
+		),
 	})
 	c.Assert(nic0.ShadowAddresses, tc.HasLen, 0)
 	c.Assert(nic0.ProviderId, tc.Equals, corenetwork.Id("az-nic-0"))
-	c.Assert(nic0.ProviderSubnetId, tc.Equals, corenetwork.Id("subnet-665"), tc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
-	c.Assert(nic0.ConfigType, tc.Equals, corenetwork.ConfigStatic, tc.Commentf("expected NIC to use the config type for the primary NIC address"))
 
 	nic1 := res[0][1]
 	c.Assert(nic1.InterfaceType, tc.Equals, corenetwork.EthernetDevice)

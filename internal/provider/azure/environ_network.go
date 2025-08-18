@@ -268,23 +268,28 @@ func mapAzureInterfaceList(in []*azurenetwork.Interface, subnetIDToCIDR map[stri
 				cfgMethod = network.ConfigStatic
 			}
 
-			addrOpts := []func(network.AddressMutator){
+			machineAddrOpts := []func(network.AddressMutator){
 				network.WithScope(network.ScopeCloudLocal),
 				network.WithConfigType(cfgMethod),
 			}
 
-			var subnetID string
+			var (
+				subnetID         string
+				providerAddrOpts []func(address network.ProviderAddressMutator)
+			)
 			if ipConf.Properties.Subnet != nil && ipConf.Properties.Subnet.ID != nil {
 				subnetID = toValue(ipConf.Properties.Subnet.ID)
+				providerAddrOpts = append(providerAddrOpts, network.WithProviderSubnetID(network.Id(subnetID)))
+
 				if subnetCIDR := subnetIDToCIDR[subnetID]; subnetCIDR != "" {
-					addrOpts = append(addrOpts, network.WithCIDR(subnetCIDR))
+					machineAddrOpts = append(machineAddrOpts, network.WithCIDR(subnetCIDR))
 				}
 			}
 
 			providerAddr := network.NewMachineAddress(
 				toValue(ipConf.Properties.PrivateIPAddress),
-				addrOpts...,
-			).AsProviderAddress()
+				machineAddrOpts...,
+			).AsProviderAddress(providerAddrOpts...)
 
 			// If this is the primary address ensure that it appears
 			// at the top of the address list.
@@ -292,12 +297,6 @@ func mapAzureInterfaceList(in []*azurenetwork.Interface, subnetIDToCIDR map[stri
 				ni.Addresses = append(network.ProviderAddresses{providerAddr}, ni.Addresses...)
 			} else {
 				ni.Addresses = append(ni.Addresses, providerAddr)
-			}
-
-			// Record the subnetID and config mode to the NIC instance
-			if isPrimary && subnetID != "" {
-				ni.ProviderSubnetId = network.Id(subnetID)
-				ni.ConfigType = cfgMethod
 			}
 		}
 
