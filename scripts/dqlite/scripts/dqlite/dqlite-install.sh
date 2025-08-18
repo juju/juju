@@ -14,6 +14,8 @@ sha() {
 		# s390x and ppc64le are failing to build, so are stuck on v1.18.0
 		s390x) echo "8561238d7cdc2036fee321b7f8f1b563500325b4b1ed172002a56aca79ddb936" ;;
 		ppc64le) echo "950f55a4aa10a7209ede86cf4c023ec1dc79a31317f9e6d5378d7897beb26b35" ;;
+    # riscv64 is not supported yet
+    riscv64) echo "TODO: paste sha for uploaded to s3 dqlite blob" ;;
 		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
 	esac
 }
