@@ -4,4 +4,3 @@
 package caasmodelconfigmanager
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/auth_mock.go github.com/juju/juju/apiserver/facade Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/resources_mock.go github.com/juju/juju/apiserver/facade Resources
