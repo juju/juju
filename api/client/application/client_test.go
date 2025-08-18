@@ -981,6 +981,85 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestScaleApplicationAttachStorage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{
+			{ApplicationTag: "application-foo", ScaleChange: 1, Force: true, AttachStorage: []string{"foo/1"}},
+		}}
+	result := new(params.ScaleApplicationResults)
+	results := params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{
+			{Info: &params.ScaleApplicationInfo{Scale: 1}},
+		},
+	}
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	res, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     1,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 1},
+	})
+}
+
+func (s *applicationSuite) TestScaleApplicationAttachStorageMultipleUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	res, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     2,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{})
+}
+
+func (s *applicationSuite) TestScaleApplicationAttachStorageAPIVersionNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(20).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	res, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     1,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, gc.ErrorMatches, "Scale application with attach storage \\(need V21\\+\\) not implemented")
+	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{})
+}
+
 func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
