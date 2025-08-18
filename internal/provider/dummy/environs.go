@@ -832,21 +832,22 @@ func (env *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]n
 		infos[idIndex] = make(network.InterfaceInfos, 3)
 		for i, netName := range []string{"private", "public", "disabled"} {
 			infos[idIndex][i] = network.InterfaceInfo{
-				DeviceIndex:      i,
-				ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
-				ProviderSubnetId: network.Id("dummy-" + netName),
-				InterfaceType:    network.EthernetDevice,
-				InterfaceName:    fmt.Sprintf("eth%d", i),
-				VLANTag:          i,
-				MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-				Disabled:         i == 2,
-				NoAutoStart:      i%2 != 0,
+				DeviceIndex:   i,
+				ProviderId:    network.Id(fmt.Sprintf("dummy-eth%d", i)),
+				InterfaceType: network.EthernetDevice,
+				InterfaceName: fmt.Sprintf("eth%d", i),
+				VLANTag:       i,
+				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+				Disabled:      i == 2,
+				NoAutoStart:   i%2 != 0,
 				Addresses: network.ProviderAddresses{
 					network.NewMachineAddress(
 						fmt.Sprintf("0.%d.0.%d", (i+1)*10+idIndex, estate.maxAddr+2),
 						network.WithCIDR(fmt.Sprintf("0.%d.0.0/24", (i+1)*10)),
 						network.WithConfigType(network.ConfigDHCP),
-					).AsProviderAddress(),
+					).AsProviderAddress(
+						network.WithProviderSubnetID(network.Id("dummy-" + netName)),
+					),
 				},
 				DNSServers: []string{"ns1.dummy", "ns2.dummy"},
 				GatewayAddress: network.NewMachineAddress(
