@@ -1127,7 +1127,7 @@
     {
         "Name": "Application",
         "Description": "",
-        "Version": 20,
+        "Version": 21,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -3142,6 +3142,12 @@
                 "ScaleApplicationParams": {
                     "type": "object",
                     "properties": {
+                        "AttachStorage": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "application-tag": {
                             "type": "string"
                         },
@@ -3159,7 +3165,8 @@
                     "required": [
                         "application-tag",
                         "scale",
-                        "force"
+                        "force",
+                        "AttachStorage"
                     ]
                 },
                 "ScaleApplicationResult": {

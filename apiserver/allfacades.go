@@ -136,6 +136,7 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	caasadmission.Register(registry)
 	caasagent.Register(registry)
 	caasapplication.Register(registry)
+	caasapplicationprovisioner.Register(registry)
 	caasoperator.Register(registry)
 	credentialvalidator.Register(registry)
 	deployer.Register(registry)
