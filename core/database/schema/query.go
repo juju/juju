@@ -69,7 +69,7 @@ func selectSchemaVersions(ctx context.Context, tx *sql.Tx) ([]versionHash, error
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var values []versionHash
 	for rows.Next() {

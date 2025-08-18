@@ -4,7 +4,6 @@
 package trace
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
@@ -27,7 +26,7 @@ func (s *nameSuite) TestNameFromFuncMethod(c *tc.C) {
 }
 
 func (s *nameSuite) TestControllerNamespaceConstant(c *tc.C) {
-	c.Assert(controllerNamespace, tc.Equals, database.ControllerNS)
+	c.Assert("controller", tc.Equals, database.ControllerNS)
 }
 
 type namespaceSuite struct {
@@ -57,8 +56,8 @@ func (s *namespaceSuite) TestNamespaceShortNamespace(c *tc.C) {
 		expected:   "deadbe",
 	}, {
 		workerName: "foo",
-		namespace:  controllerNamespace,
-		expected:   controllerNamespace,
+		namespace:  "controller",
+		expected:   "controller",
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.workerName)
@@ -87,8 +86,8 @@ func (s *namespaceSuite) TestNamespaceString(c *tc.C) {
 		expected:   "foo:deadbeef",
 	}, {
 		workerName: "foo",
-		namespace:  controllerNamespace,
-		expected:   fmt.Sprintf("foo:%s", controllerNamespace),
+		namespace:  "controller",
+		expected:   "foo:controller",
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.workerName)
