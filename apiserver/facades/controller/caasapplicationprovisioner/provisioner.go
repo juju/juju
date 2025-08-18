@@ -395,6 +395,49 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}, nil
 }
 
+// FilesystemProvisioningInfo returns the filesystem info needed to provision a caas application.
+func (a *API) FilesystemProvisioningInfo(args params.Entity) (params.CAASApplicationFilesystemProvisioningInfo, error) {
+	var result params.CAASApplicationFilesystemProvisioningInfo
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	// TODO(jneo8): investigate refactoring to converge deploy and scale workflows.
+	// We should be able to use the same code paths for both operations.
+	// The filesystem related code in ProvisioningInfo() might only be for
+	// old style charms, so for sidecar only, we may be able to drop it.
+	cfg, err := a.ctrlSt.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	model, err := a.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Filesystems = filesystemParams
+	result.FilesystemUnitAttachments = filesystemUnitAttachmentParams
+	return result, nil
+}
+
 // SetOperatorStatus sets the status of each given entity.
 func (a *API) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -553,6 +596,34 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+func (a *API) applicationFilesystemUnitAttachmentParams(app Application) (
+	map[string][]params.KubernetesFilesystemUnitAttachmentParams, error,
+) {
+	unitAttachmentInfos, err := app.GetUnitAttachmentInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(unitAttachmentInfos) == 0 {
+		return nil, nil
+	}
+
+	filesystemUnitAttachments := make(map[string][]params.KubernetesFilesystemUnitAttachmentParams, len(unitAttachmentInfos))
+	for _, info := range unitAttachmentInfos {
+		storageName, err := names.StorageName(info.StorageId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemUnitAttachments[storageName] = append(
+			filesystemUnitAttachments[storageName],
+			params.KubernetesFilesystemUnitAttachmentParams{
+				UnitTag:  names.NewUnitTag(info.Unit).String(),
+				VolumeId: info.VolumeId,
+			},
+		)
+	}
+	return filesystemUnitAttachments, nil
 }
 
 func (a *API) applicationFilesystemParams(

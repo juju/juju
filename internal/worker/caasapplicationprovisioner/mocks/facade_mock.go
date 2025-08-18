@@ -118,6 +118,21 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) DestroyUnits(arg0 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).DestroyUnits), arg0)
 }
 
+// FilesystemProvisioningInfo mocks base method.
+func (m *MockCAASProvisionerFacade) FilesystemProvisioningInfo(arg0 string) (caasapplicationprovisioner.FilesystemProvisioningInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilesystemProvisioningInfo", arg0)
+	ret0, _ := ret[0].(caasapplicationprovisioner.FilesystemProvisioningInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilesystemProvisioningInfo indicates an expected call of FilesystemProvisioningInfo.
+func (mr *MockCAASProvisionerFacadeMockRecorder) FilesystemProvisioningInfo(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilesystemProvisioningInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).FilesystemProvisioningInfo), arg0)
+}
+
 // Life mocks base method.
 func (m *MockCAASProvisionerFacade) Life(arg0 string) (life.Value, error) {
 	m.ctrl.T.Helper()

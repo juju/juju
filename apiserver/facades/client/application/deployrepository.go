@@ -393,13 +393,13 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 }
 
 func validateAndParseAttachStorage(input []string, numUnits int) ([]names.StorageTag, []error) {
-	// Parse storage tags in AttachStorage.
-	if len(input) > 0 && numUnits != 1 {
-		return nil, []error{errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", numUnits)}
-	}
 	if len(input) == 0 {
 		return nil, nil
 	}
+	if len(input) > 0 && numUnits != 1 {
+		return nil, []error{errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", numUnits)}
+	}
+	// Parse storage tags in AttachStorage.
 	attachStorage := make([]names.StorageTag, len(input))
 	errs := make([]error, 0)
 	for i, stor := range input {
@@ -518,6 +518,12 @@ func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepo
 	if err := v.caasPrecheckFunc(dt); err != nil {
 		errs = append(errs, err)
 	}
+
+	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
+	if len(attachStorageErrs) > 0 {
+		errs = append(errs, attachStorageErrs...)
+	}
+	dt.attachStorage = attachStorage
 	return dt, errs
 }
 
