@@ -5,6 +5,8 @@ package watcherregistry
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -79,6 +81,8 @@ type Worker struct {
 
 	registries map[uint64]WatcherRegistry
 	requests   chan request
+
+	namespacePrefix string
 }
 
 // NewWorker creates a new watcher registry worker.
@@ -98,11 +102,22 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
+	// Generate a random namespace prefix to avoid collisions when the process
+	// is restarted and the consuming side doesn't know about the restart and
+	// attempts to register a watcher with the same name. This might not be
+	// the same watcher as before and will cause cryptic errors.
+	token := make([]byte, 4)
+	if _, err := rand.Read(token); err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	w := &Worker{
 		runner: runner,
 
 		registries: make(map[uint64]WatcherRegistry),
 		requests:   make(chan request),
+
+		namespacePrefix: hex.EncodeToString(token),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -175,13 +190,13 @@ func (w *Worker) loop() error {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 
-			case req.response <- w.getRegistry(req.id):
+			case req.response <- w.makeRegistry(req.id):
 			}
 		}
 	}
 }
 
-func (w *Worker) getRegistry(id uint64) WatcherRegistry {
+func (w *Worker) makeRegistry(id uint64) WatcherRegistry {
 	// Cache the registry if it exists, otherwise create a new one.
 	if reg, ok := w.registries[id]; ok {
 		return reg
@@ -192,6 +207,7 @@ func (w *Worker) getRegistry(id uint64) WatcherRegistry {
 		runner: w.runner,
 		dying:  w.catacomb.Dying(),
 
+		namespacePrefix:  w.namespacePrefix,
 		namespaceCounter: 0,
 	}
 
@@ -207,6 +223,7 @@ type trackedWorker struct {
 	dying  <-chan struct{}
 	closed atomic.Bool
 
+	namespacePrefix  string
 	namespaceCounter int64
 }
 
@@ -232,7 +249,7 @@ func (r *trackedWorker) Get(id string) (worker.Worker, error) {
 // watcher.
 func (r *trackedWorker) Register(ctx context.Context, w worker.Worker) (string, error) {
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
-	namespace := strconv.FormatInt(nsCounter, 10)
+	namespace := r.namespacePrefix + "-" + strconv.FormatInt(nsCounter, 10)
 
 	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
 		return "", errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)

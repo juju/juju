@@ -198,10 +198,10 @@ func (s *registrySuite) TestMultipleRegistries(c *tc.C) {
 
 	// Each registry should be namespaced separately.
 
-	w1, err := reg1.Get("1")
+	w1, err := reg1.Get(w.namespacePrefix + "-1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	w2, err := reg2.Get("1")
+	w2, err := reg2.Get(w.namespacePrefix + "-1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// They should not be the same worker.
