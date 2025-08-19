@@ -14,6 +14,7 @@ import (
 
 	corepermission "github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -140,6 +141,139 @@ func (s *controllerOfferSuite) testGetUserUUIDByNameNotFound(c *tc.C, removed, d
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`.*: %s`, errMsg))
 }
 
+func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsume(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange:
+	// Create two offers. Add consume permissions for a new user.
+
+	// Create an offer permission with the owner
+	ownerUUID := uuid.MustNewUUID()
+	everyoneUUID := "567"
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
+	ownerPermissionUUID := uuid.MustNewUUID()
+	offerUUID := uuid.MustNewUUID()
+	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create second offer permission with the same owner
+	ownerPermissionUUIDTwo := uuid.MustNewUUID()
+	offerUUIDTwo := uuid.MustNewUUID()
+	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add a new user with consume permission on the second offer
+	userUUIDTwo := uuid.MustNewUUID().String()
+	s.ensureUser(c, userUUIDTwo, "fred", ownerUUID.String(), false, false, false)
+	s.addOfferPermission(c, userUUIDTwo, offerUUIDTwo.String(), 2)
+
+	// Act
+	obtained, err := st.GetOfferUUIDsForUsersWithConsume(c.Context(), []string{"fred"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.SameContents, []string{offerUUIDTwo.String()})
+}
+
+func (s *controllerOfferSuite) TestGetOfferUUIDsForUsersWithConsumeNoOffers(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange:
+	// Create an offer permission with the owner
+	ownerUUID := uuid.MustNewUUID()
+	everyoneUUID := "567"
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
+	ownerPermissionUUID := uuid.MustNewUUID()
+	offerUUID := uuid.MustNewUUID()
+	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create second offer permission with the same owner
+	ownerPermissionUUIDTwo := uuid.MustNewUUID()
+	offerUUIDTwo := uuid.MustNewUUID()
+	err = st.CreateOfferAccess(c.Context(), ownerPermissionUUIDTwo, offerUUIDTwo, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: try to find the offer for a user which does not exist.
+	obtained, err := st.GetOfferUUIDsForUsersWithConsume(c.Context(), []string{"unknown"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.SameContents, []string{})
+}
+
+func (s *controllerOfferSuite) TestGetUsersForOfferUUIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	// Create an offer permission with the owner
+	ownerUUID := uuid.MustNewUUID()
+	everyoneUUID := "567"
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
+	ownerPermissionUUID := uuid.MustNewUUID()
+	offerUUID := uuid.MustNewUUID()
+	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add two users with different permissions on the offer.
+	// userOne has read permissions.
+	// userTwo has consume permissions.
+	userUUIDOne := uuid.MustNewUUID().String()
+	s.ensureUser(c, userUUIDOne, "sam", ownerUUID.String(), false, false, false)
+	s.addOfferPermission(c, userUUIDOne, offerUUID.String(), 0)
+	userUUIDTwo := uuid.MustNewUUID().String()
+	s.ensureUser(c, userUUIDTwo, "fred", ownerUUID.String(), false, false, false)
+	s.addOfferPermission(c, userUUIDTwo, offerUUID.String(), 2)
+
+	// Act
+	result, err := st.GetUsersForOfferUUIDs(c.Context(), []string{offerUUID.String()})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	resultNames, ok := result[offerUUID.String()]
+	c.Check(ok, tc.Equals, true)
+	c.Assert(resultNames, tc.SameContents, []crossmodelrelation.OfferUser{
+		{Name: "sam", DisplayName: "sam", Access: "read"},
+		{Name: "admin", DisplayName: "admin", Access: "admin"},
+		{Name: "fred", DisplayName: "fred", Access: "consume"},
+	})
+}
+
+func (s *controllerOfferSuite) TestGetUsersForOfferUUIDsNoUsers(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	// Create an offer permission with the owner
+	ownerUUID := uuid.MustNewUUID()
+	everyoneUUID := "567"
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+	s.ensureUser(c, everyoneUUID, corepermission.EveryoneUserName.String(), ownerUUID.String(), true, false, false)
+	ownerPermissionUUID := uuid.MustNewUUID()
+	offerUUID := uuid.MustNewUUID()
+	err := st.CreateOfferAccess(c.Context(), ownerPermissionUUID, offerUUID, ownerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Remove permissions of the offer owner.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM permission WHERE object_type_id = 3`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	result, err := st.GetUsersForOfferUUIDs(c.Context(), []string{offerUUID.String()})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	resultOfferNames, ok := result[offerUUID.String()]
+	c.Check(ok, tc.Equals, true, tc.Commentf("%+v", resultOfferNames))
+	c.Assert(resultOfferNames, tc.SameContents, []crossmodelrelation.OfferUser{})
+}
+
 func (s *controllerOfferSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string, external, removed, disabled bool) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -157,6 +291,19 @@ func (s *controllerOfferSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *controllerOfferSuite) addOfferPermission(c *tc.C, userUUID, offerUUID string, accessType int) string {
+	permissionUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+			VALUES (?, ?, ?, ?, ?)
+		`, permissionUUID, accessType, 3, userUUID, offerUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return permissionUUID
 }
 
 func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
