@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	coretesting "github.com/juju/testing"
+	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -261,6 +262,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.expectCharmProfiles()
 	s.expectProfileExtraction()
 	s.expectName()
+	s.expectUUID()
 	facade := s.facadeAPIForScenario(c)
 
 	results, err := facade.CharmProfilingInfo(params.Entity{Tag: "machine-0"})
@@ -304,6 +306,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.expectProfileExtraction()
 	s.expectProfileExtractionWithEmpty()
 	s.expectName()
+	s.expectUUID()
 	facade := s.facadeAPIForScenario(c)
 
 	results, err := facade.CharmProfilingInfo(params.Entity{Tag: "machine-0"})
@@ -441,6 +444,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {
 	modelExp := s.state.EXPECT()
 	modelExp.ModelName().Return("foo", nil)
+}
+
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUUID() {
+	modelExp := s.state.EXPECT()
+	modelExp.ModelUUID().Return(utils.MustNewUUID().String(), nil)
 }
 
 type InstanceMutaterAPISetCharmProfilesSuite struct {
