@@ -12,7 +12,8 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/relation"
+	domainlife "github.com/juju/juju/domain/life"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -37,6 +38,13 @@ type relationUUID struct {
 
 type applicationUUID struct {
 	UUID application.ID `db:"application_uuid"`
+}
+
+type relation struct {
+	UUID    corerelation.UUID `db:"uuid"`
+	ID      uint64            `db:"relation_id"`
+	LifeID  domainlife.Life   `db:"life_id"`
+	ScopeID uint8             `db:"scope_id"`
 }
 
 type relationIDAndUUID struct {
@@ -117,8 +125,8 @@ type getUnitRelAndApp struct {
 	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
 }
 
-type getScope struct {
-	Scope charm.RelationScope `db:"scope"`
+type scope struct {
+	Scope string `db:"scope"`
 }
 
 type getSubordinate struct {
@@ -194,8 +202,8 @@ type goalStateData struct {
 	UpdatedAt          time.Time          `db:"updated_at"`
 }
 
-func (g goalStateData) convertToGoalStateRelationData() relation.GoalStateRelationData {
-	return relation.GoalStateRelationData{
+func (g goalStateData) convertToGoalStateRelationData() domainrelation.GoalStateRelationData {
+	return domainrelation.GoalStateRelationData{
 		Status: g.Status,
 		Since:  &g.UpdatedAt,
 		EndpointIdentifiers: []corerelation.EndpointIdentifier{
@@ -251,8 +259,8 @@ func (e Endpoint) String() string {
 
 // toRelationEndpoint converts an endpoint read out of the database to a
 // relation.Endpoint.
-func (e Endpoint) toRelationEndpoint() relation.Endpoint {
-	return relation.Endpoint{
+func (e Endpoint) toRelationEndpoint() domainrelation.Endpoint {
+	return domainrelation.Endpoint{
 		ApplicationName: e.ApplicationName,
 		Relation: charm.Relation{
 			Name:      e.EndpointName,

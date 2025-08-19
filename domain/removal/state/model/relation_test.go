@@ -26,8 +26,8 @@ func TestRelationSuite(t *testing.T) {
 }
 
 func (s *relationSuite) TestRelationExists(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 0, "some-relation-id")
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
+		"some-relation-uuid", 0, "some-relation-id", 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -42,8 +42,8 @@ func (s *relationSuite) TestRelationExists(c *tc.C) {
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 0, "some-relation-id")
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
+		"some-relation-uuid", 0, "some-relation-id", 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -60,8 +60,8 @@ func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id")
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id", 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -86,8 +86,8 @@ func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestRelationRemovalNormalSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id")
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id", 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -152,8 +152,8 @@ where  r.uuid = ?`, "removal-uuid",
 }
 
 func (s *relationSuite) TestGetRelationLifeSuccess(c *tc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 1, "some-relation-id")
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id", 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -257,7 +257,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	rel := "some-relation-uuid"
-	_, err = s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)", rel, 0, rel)
+	_, err = s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", rel, 0, rel, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relEndpoint := "some-relation-endpoint-uuid"

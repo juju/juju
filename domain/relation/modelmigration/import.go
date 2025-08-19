@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -65,13 +66,13 @@ func (i *importOperation) Name() string {
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
+	i.service = service.NewMigrationService(
 		state.NewState(
 			scope.ModelDB(),
 			i.clock,
 			i.logger,
 		),
-		i.logger)
+	)
 	return nil
 }
 
@@ -89,6 +90,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		args = append(args, arg)
 	}
+
 	err := i.service.ImportRelations(ctx, args)
 	if err != nil {
 		return errors.Errorf("importing relations: %w", err)
@@ -106,8 +108,13 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 		Endpoints: []relation.ImportEndpoint{},
 		ID:        rel.Id(),
 		Key:       key,
+		Scope:     charm.ScopeGlobal,
 	}
+
 	for _, v := range rel.Endpoints() {
+		if v.Scope() == string(charm.ScopeContainer) {
+			arg.Scope = charm.ScopeContainer
+		}
 		endpoint := relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),

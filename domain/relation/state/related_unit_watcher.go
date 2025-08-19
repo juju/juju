@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/relation"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -54,7 +54,7 @@ func (st *State) InitialWatchRelatedUnits(
 			otherUnits := make([]string, 0, len(units)-1)
 			for _, u := range units {
 				if u.UnitUUID != unitUUID {
-					otherUnits = append(otherUnits, relation.EncodeUnitUUID(u.UnitUUID))
+					otherUnits = append(otherUnits, domainrelation.EncodeUnitUUID(u.UnitUUID))
 				}
 			}
 			return otherUnits, nil
@@ -163,7 +163,7 @@ func newApplicationUUIDEvent(event changestream.ChangeEvent, change string) mask
 	return maskedEvent{
 		ChangeEvent: event,
 		change:      change,
-		encodeUUID:  relation.EncodeApplicationUUID,
+		encodeUUID:  domainrelation.EncodeApplicationUUID,
 	}
 }
 
@@ -173,7 +173,7 @@ func newUnitUUIDEvent(event changestream.ChangeEvent, change string) maskedEvent
 	return maskedEvent{
 		ChangeEvent: event,
 		change:      change,
-		encodeUUID:  relation.EncodeUnitUUID,
+		encodeUUID:  domainrelation.EncodeUnitUUID,
 	}
 }
 

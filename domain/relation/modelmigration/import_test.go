@@ -14,6 +14,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -35,7 +36,28 @@ func (s *importSuite) TestImport(c *tc.C) {
 	model := s.expectImportRelations(c, map[int]corerelation.Key{
 		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
 		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
-	})
+	}, charm.ScopeGlobal)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *importSuite) TestImportRelationsWithContainerScope(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c)
+
+	model := s.expectImportRelations(c, map[int]corerelation.Key{
+		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
+		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
+	}, charm.ScopeContainer)
 
 	importOp := importOperation{
 		service: s.service,
@@ -99,7 +121,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.Key) description.Model {
+func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.Key, scope charm.RelationScope) description.Model {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
@@ -110,8 +132,9 @@ func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.K
 			Key: key.String(),
 		})
 		arg := relation.ImportRelationArg{
-			ID:  id,
-			Key: key,
+			ID:    id,
+			Key:   key,
+			Scope: scope,
 		}
 		eps := key.EndpointIdentifiers()
 		arg.Endpoints = make([]relation.ImportEndpoint, len(eps))
@@ -120,6 +143,7 @@ func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.K
 				ApplicationName: ep.ApplicationName,
 				Name:            ep.EndpointName,
 				Role:            string(ep.Role),
+				Scope:           string(scope),
 			})
 
 			arg.Endpoints[j] = relation.ImportEndpoint{

@@ -331,8 +331,8 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 
 		// Insert the relation.
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO relation (uuid, life_id, relation_id)
-			VALUES (?, 0, ?)
+			INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+			VALUES (?, 0, ?, 0)
 		`, relUUID, s.otherAppCount)
 		if err != nil {
 			return errors.Errorf("inserting relation: %w", err)

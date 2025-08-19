@@ -271,6 +271,7 @@ type ImportRelationArg struct {
 	ID        int
 	Key       corerelation.Key
 	Endpoints []ImportEndpoint
+	Scope     charm.RelationScope
 }
 
 // ImportEndpoint is a data to import for a single endpoint.

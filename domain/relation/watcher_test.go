@@ -715,8 +715,8 @@ VALUES (?, ?, 0,?, ?)
 // default relation and life IDs.
 func (s *watcherSuite) addRelation(c *tc.C, relationUUID relation.UUID) {
 	s.arrange(c, `
-INSERT INTO relation (uuid, life_id, relation_id) 
-VALUES (?,0,?)
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?,0,?, 0)
 `, relationUUID, s.relationCount)
 	s.relationCount++
 }

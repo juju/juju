@@ -24,7 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/relation"
+	domainrelation "github.com/juju/juju/domain/relation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -190,8 +190,8 @@ func (s *baseRelationSuite) encodeScopeID(role charm.RelationScope) int {
 }
 
 // newEndpointIdentifier converts an endpoint string into a relation.EndpointIdentifier and asserts no parsing errors.
-func (s *baseRelationSuite) newEndpointIdentifier(c *tc.C, endpoint string) relation.CandidateEndpointIdentifier {
-	result, err := relation.NewCandidateEndpointIdentifier(endpoint)
+func (s *baseRelationSuite) newEndpointIdentifier(c *tc.C, endpoint string) domainrelation.CandidateEndpointIdentifier {
+	result, err := domainrelation.NewCandidateEndpointIdentifier(endpoint)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to parse endpoint %q: %v", endpoint,
 		errors.ErrorStack(err)))
 	return result
@@ -208,8 +208,8 @@ WHERE uuid = ?`, table), dying, uuid)
 func (s *baseRelationSuite) addRelation(c *tc.C) corerelation.UUID {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	s.query(c, `
-INSERT INTO relation (uuid, life_id, relation_id) 
-VALUES (?,0,?)
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?,0,?,0)
 `, relationUUID, s.relationCount)
 	s.relationCount++
 	return relationUUID
@@ -244,8 +244,8 @@ VALUES (?,?,?)
 func (s *baseRelationSuite) addRelationWithID(c *tc.C, relationID int) corerelation.UUID {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	s.query(c, `
-INSERT INTO relation (uuid, life_id, relation_id) 
-VALUES (?,0,?)
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?,0,?,0)
 `, relationUUID, relationID)
 	// avoid clashes when unit both addRelationHelper in the same method (even it should be avoided)
 	if s.relationCount < relationID {
@@ -259,8 +259,8 @@ VALUES (?,0,?)
 func (s *baseRelationSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value, relationID int) corerelation.UUID {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	s.query(c, `
-INSERT INTO relation (uuid, relation_id, life_id)
-SELECT ?,  ?, id
+INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+SELECT ?, ?, id, 0
 FROM life
 WHERE value = ?
 `, relationUUID, relationID, life)
@@ -269,6 +269,35 @@ WHERE value = ?
 		s.relationCount = relationID + 1
 	}
 	return relationUUID
+}
+
+func (s *baseRelationSuite) addRelationWithScope(c *tc.C, scope charm.RelationScope) corerelation.UUID {
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	scopeID := s.encodeScopeID(scope)
+	s.query(c, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
+VALUES (?,0,?,?)
+`, relationUUID, s.relationCount, scopeID)
+	s.relationCount++
+	return relationUUID
+}
+
+// addRelationUnitSetting inserts a relation unit setting into the database
+// using the provided relationUnitUUID.
+func (s *baseRelationSuite) addRelationUnitSetting(c *tc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
+	s.query(c, `
+INSERT INTO relation_unit_setting (relation_unit_uuid, key, value)
+VALUES (?,?,?)
+`, relationUnitUUID, key, value)
+}
+
+// addRelationApplicationSetting inserts a relation application setting into the database
+// using the provided relation and application ID.
+func (s *baseRelationSuite) addRelationApplicationSetting(c *tc.C, relationEndpointUUID, key, value string) {
+	s.query(c, `
+INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
+VALUES (?,?,?)
+`, relationEndpointUUID, key, value)
 }
 
 // addUnit adds a new unit to the specified application in the database with
@@ -308,4 +337,69 @@ FROM life
 WHERE value = ?
 `, unitUUID, unitName, appUUID, charmUUID, netNodeUUID, life)
 	return unitUUID
+}
+
+func (s *baseRelationSuite) fetchRelationUUIDByRelationID(c *tc.C, id uint64) corerelation.UUID {
+	var relationUUID corerelation.UUID
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT r.uuid
+FROM   relation AS r
+WHERE  r.relation_id = ?
+`, id).Scan(&relationUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return relationUUID
+}
+
+// getRelationApplicationSettings gets the relation application settings.
+func (s *baseRelationSuite) getRelationApplicationSettings(c *tc.C, relationEndpointUUID string) map[string]string {
+	settings := map[string]string{}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT key, value
+FROM relation_application_setting 
+WHERE relation_endpoint_uuid = ?
+`, relationEndpointUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		var (
+			key, value string
+		)
+		for rows.Next() {
+			if err := rows.Scan(&key, &value); err != nil {
+				return errors.Capture(err)
+			}
+			settings[key] = value
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings: %s",
+		errors.ErrorStack(err)))
+	return settings
+}
+
+func (s *baseRelationSuite) getRelationApplicationSettingsHash(c *tc.C, relationEndpointUUID string) string {
+	var hash string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT sha256
+FROM   relation_application_settings_hash
+WHERE  relation_endpoint_uuid = ?
+`, relationEndpointUUID).Scan(&hash)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return hash
 }
