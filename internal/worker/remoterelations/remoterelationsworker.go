@@ -102,10 +102,9 @@ func (w *remoteRelationsWorker) loop() error {
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
 			w.logger.Debugf(ctx, "relation status changed for %v: %v", w.relationTag, change)
-			suspended := change.Suspended
 
-			w.mu.Lock()
-			w.mostRecentEvent = RelationUnitChangeEvent{
+			suspended := change.Suspended
+			event := RelationUnitChangeEvent{
 				Tag: w.relationTag,
 				RemoteRelationChangeEvent: params.RemoteRelationChangeEvent{
 					RelationToken:           w.remoteRelationToken,
@@ -115,8 +114,10 @@ func (w *remoteRelationsWorker) loop() error {
 					SuspendedReason:         change.SuspendedReason,
 				},
 			}
+
+			w.mu.Lock()
 			w.changeSince = w.clock.Now()
-			event := w.mostRecentEvent
+			w.mostRecentEvent = event
 			w.mu.Unlock()
 
 			select {
