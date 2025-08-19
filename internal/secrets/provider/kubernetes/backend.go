@@ -103,8 +103,8 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision
 	if in.StringData, err = value.Values(); err != nil {
 		return "", errors.Trace(err)
 	}
-	secret := resources.NewSecret(name, k.namespace, in)
-	if err = secret.Apply(ctx, k.client); err != nil {
+	secret := resources.NewSecret(k.client.CoreV1().Secrets(k.namespace), k.namespace, name, in)
+	if err = secret.Apply(ctx); err != nil {
 		return "", errors.Trace(err)
 	}
 	return name, nil
@@ -122,5 +122,5 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 		logger.Tracef(context.TODO(), "deleting secret %q: %v", revisionId, err)
 		return errors.Trace(err)
 	}
-	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client)
+	return resources.NewSecret(k.client.CoreV1().Secrets(k.namespace), k.namespace, secret.Name, secret).Delete(ctx)
 }

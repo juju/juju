@@ -30,16 +30,16 @@ func (s *clusterRoleSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	clusterRoleResource := resources.NewClusterRole("role1", role)
-	c.Assert(clusterRoleResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	clusterRoleResource := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "role1", role)
+	c.Assert(clusterRoleResource.Apply(c.Context()), tc.ErrorIsNil)
 	result, err := s.client.RbacV1().ClusterRoles().Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	role.SetAnnotations(map[string]string{"a": "b"})
-	clusterRoleResource = resources.NewClusterRole("role1", role)
-	c.Assert(clusterRoleResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	clusterRoleResource = resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "role1", role)
+	c.Assert(clusterRoleResource.Apply(c.Context()), tc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().ClusterRoles().Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -58,9 +58,9 @@ func (s *clusterRoleSuite) TestGet(c *tc.C) {
 	_, err := s.client.RbacV1().ClusterRoles().Create(c.Context(), &role1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	roleResource := resources.NewClusterRole("role1", &template)
+	roleResource := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "role1", &template)
 	c.Assert(len(roleResource.GetAnnotations()), tc.Equals, 0)
-	err = roleResource.Get(c.Context(), s.client)
+	err = roleResource.Get(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roleResource.GetName(), tc.Equals, `role1`)
 	c.Assert(roleResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
@@ -79,12 +79,12 @@ func (s *clusterRoleSuite) TestDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `role1`)
 
-	roleResource := resources.NewClusterRole("role1", &role)
-	err = roleResource.Delete(c.Context(), s.client)
+	roleResource := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "role1", &role)
+	err = roleResource.Delete(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = roleResource.Get(c.Context(), s.client)
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	err = roleResource.Get(c.Context())
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.RbacV1().ClusterRoles().Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
@@ -121,10 +121,9 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 		},
 	}
 
-	crApi := resources.NewClusterRole("test", clusterRole)
+	crApi := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "test", clusterRole)
 	_, err := crApi.Ensure(
 		c.Context(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -144,7 +143,6 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 
 	crApi.Ensure(
 		c.Context(),
-		s.client,
 		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)

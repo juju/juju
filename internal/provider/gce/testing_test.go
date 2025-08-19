@@ -294,13 +294,14 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *tc.C, id string) *google.Instanc
 		AutoDelete: true,
 	}
 	instanceSpec := google.InstanceSpec{
-		ID:                id,
-		Type:              "mtype",
-		Disks:             []google.DiskSpec{diskSpec},
-		Network:           google.NetworkSpec{Name: "somenetwork"},
-		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.UbuntuMetadata,
-		Tags:              []string{id},
+		ID:                    id,
+		Type:                  "mtype",
+		Disks:                 []google.DiskSpec{diskSpec},
+		Network:               google.NetworkSpec{Name: "somenetwork"},
+		NetworkInterfaces:     []string{"somenetif"},
+		Metadata:              s.UbuntuMetadata,
+		Tags:                  []string{id},
+		DefaultServiceAccount: "fred@foo.com",
 	}
 	summary := google.InstanceSummary{
 		ID:        id,
@@ -314,6 +315,7 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *tc.C, id string) *google.Instanc
 			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
 			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
 		}},
+		ServiceAccount: "fred@foo.com",
 	}
 	return google.NewInstance(summary, &instanceSpec)
 }
@@ -509,12 +511,13 @@ type fakeConnCall struct {
 type fakeConn struct {
 	Calls []fakeConnCall
 
-	Inst      *google.Instance
-	Insts     []google.Instance
-	Rules     firewall.IngressRules
-	Zones     []google.AvailabilityZone
-	Subnets   []*compute.Subnetwork
-	Networks_ []*compute.Network
+	ServiceAccount string
+	Inst           *google.Instance
+	Insts          []google.Instance
+	Rules          firewall.IngressRules
+	Zones          []google.AvailabilityZone
+	Subnets        []*compute.Subnetwork
+	Networks_      []*compute.Network
 
 	GoogleDisks   []*google.Disk
 	GoogleDisk    *google.Disk
@@ -537,6 +540,13 @@ func (fc *fakeConn) VerifyCredentials() error {
 		FuncName: "",
 	})
 	return fc.err()
+}
+
+func (fc *fakeConn) DefaultServiceAccount() (string, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "GetProject",
+	})
+	return fc.ServiceAccount, fc.err()
 }
 
 func (fc *fakeConn) Instance(id, zone string) (google.Instance, error) {

@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,13 +97,15 @@ type app struct {
 	labelVersion   constants.LabelVersion
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
+	extendedClient apiextensionsclientset.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix utils.RandomPrefixFunc
 
-	newApplier func() resources.Applier
+	newApplier     func() resources.Applier
+	controllerUUID string
 }
 
 // CharmContainerResourceRequirements defines the memory resource constraints
@@ -121,9 +124,11 @@ func NewApplication(
 	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
+	extendedClient apiextensionsclientset.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
+	controllerUUID string,
 ) caas.Application {
 	return newApplication(
 		name,
@@ -133,10 +138,12 @@ func NewApplication(
 		labelVersion,
 		deploymentType,
 		client,
+		extendedClient,
 		newWatcher,
 		clock,
 		randomPrefix,
 		resources.NewApplier,
+		controllerUUID,
 	)
 }
 
@@ -148,10 +155,12 @@ func newApplication(
 	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
+	extendedClient apiextensionsclientset.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
+	controllerUUID string,
 ) *app {
 	return &app{
 		name:           name,
@@ -161,10 +170,12 @@ func newApplication(
 		labelVersion:   labelVersion,
 		deploymentType: deploymentType,
 		client:         client,
+		extendedClient: extendedClient,
 		newWatcher:     newWatcher,
 		clock:          clock,
 		randomPrefix:   randomPrefix,
 		newApplier:     newApplier,
+		controllerUUID: controllerUUID,
 	}
 }
 
@@ -228,7 +239,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	var handlePVCForStatelessResource handlePVCFunc = func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
 		// Ensure PVC.
-		r := resources.NewPersistentVolumeClaim(pvc.GetName(), a.namespace, &pvc)
+		r := resources.NewPersistentVolumeClaim(a.client.CoreV1().PersistentVolumeClaims(a.namespace), a.namespace, pvc.GetName(), &pvc)
 		applier.Apply(r)
 
 		// Push the volume to podspec.
@@ -248,7 +259,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		return errors.Trace(err)
 	}
 	var handleStorageClass = func(sc storagev1.StorageClass) error {
-		applier.Apply(&resources.StorageClass{StorageClass: sc})
+		storageClass := resources.NewStorageClass(a.client.StorageV1().StorageClasses(), sc.Name, &sc)
+		applier.Apply(storageClass)
 		return nil
 	}
 	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
@@ -283,32 +295,32 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		if !exists {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
-		statefulset := resources.StatefulSet{
-			StatefulSet: appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      a.name,
-					Namespace: a.namespace,
-					Labels:    a.labels(),
-					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+
+		sts := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.name,
+				Namespace: a.namespace,
+				Labels:    a.labels(),
+				Annotations: a.annotations(config).
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: numPods,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: a.selectorLabels(),
 				},
-				Spec: appsv1.StatefulSetSpec{
-					Replicas: numPods,
-					Selector: &metav1.LabelSelector{
-						MatchLabels: a.selectorLabels(),
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      a.selectorLabels(),
+						Annotations: a.annotations(config),
 					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.selectorLabels(),
-							Annotations: a.annotations(config),
-						},
-						Spec: *podSpec,
-					},
-					PodManagementPolicy: appsv1.ParallelPodManagement,
-					ServiceName:         HeadlessServiceName(a.name),
+					Spec: *podSpec,
 				},
+				PodManagementPolicy: appsv1.ParallelPodManagement,
+				ServiceName:         HeadlessServiceName(a.name),
 			},
 		}
+		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
 
 		if err = configureStorage(
 			storageUniqueID,
@@ -326,7 +338,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Trace(err)
 		}
 
-		applier.Apply(&statefulset)
+		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
 		d, getErr := a.getDeployment()
@@ -349,32 +361,32 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
-		deployment := resources.Deployment{
-			Deployment: appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      a.name,
-					Namespace: a.namespace,
-					Labels:    a.labels(),
-					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+
+		dep := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.name,
+				Namespace: a.namespace,
+				Labels:    a.labels(),
+				Annotations: a.annotations(config).
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: numPods,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: a.selectorLabels(),
 				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: numPods,
-					Selector: &metav1.LabelSelector{
-						MatchLabels: a.selectorLabels(),
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      a.selectorLabels(),
+						Annotations: a.annotations(config),
 					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.selectorLabels(),
-							Annotations: a.annotations(config),
-						},
-						Spec: *podSpec,
-					},
+					Spec: *podSpec,
 				},
 			},
 		}
+		deployment := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, dep)
 
-		applier.Apply(&deployment)
+		applier.Apply(deployment)
 	case caas.DeploymentDaemon:
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getDaemonSet()
@@ -386,140 +398,132 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
-		daemonset := resources.DaemonSet{
-			DaemonSet: appsv1.DaemonSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      a.name,
-					Namespace: a.namespace,
-					Labels:    a.labels(),
-					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+		ds := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.name,
+				Namespace: a.namespace,
+				Labels:    a.labels(),
+				Annotations: a.annotations(config).
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: a.selectorLabels(),
 				},
-				Spec: appsv1.DaemonSetSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: a.selectorLabels(),
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      a.selectorLabels(),
+						Annotations: a.annotations(config),
 					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.selectorLabels(),
-							Annotations: a.annotations(config),
-						},
-						Spec: *podSpec,
-					},
+					Spec: *podSpec,
 				},
 			},
 		}
-		applier.Apply(&daemonset)
+		daemonset := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, ds)
+		applier.Apply(daemonset)
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
 
-	return applier.Run(context.Background(), a.client, false)
+	return applier.Run(context.Background(), false)
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
-	secret := resources.Secret{
-		Secret: corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.secretName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Data: map[string][]byte{
-				"JUJU_K8S_APPLICATION":          []byte(a.name),
-				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
-				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
-				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
-				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
-			},
+	sec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.secretName(),
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
+		},
+		Data: map[string][]byte{
+			"JUJU_K8S_APPLICATION":          []byte(a.name),
+			"JUJU_K8S_MODEL":                []byte(a.modelUUID),
+			"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
+			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
 		},
 	}
-	applier.Apply(&secret)
+	secret := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), sec)
+	applier.Apply(secret)
 
-	serviceAccount := resources.ServiceAccount{
-		ServiceAccount: corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			// Will be automounted by the pod.
-			AutomountServiceAccountToken: pointer.Bool(false),
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.serviceAccountName(),
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
 		},
+		AutomountServiceAccountToken: pointer.Bool(false),
 	}
-	applier.Apply(&serviceAccount)
+	serviceAccount := resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), sa)
+	applier.Apply(serviceAccount)
 
-	role := resources.Role{
-		Role: rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.roleRules(config.Trust),
+	r := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.serviceAccountName(),
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
 		},
+		Rules: a.roleRules(config.Trust),
 	}
-	applier.Apply(&role)
+	role := resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), r)
+	applier.Apply(role)
 
-	roleBinding := resources.RoleBinding{
-		RoleBinding: rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.serviceAccountName(),
-				Kind: "Role",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.serviceAccountName(),
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      a.serviceAccountName(),
+				Namespace: a.namespace,
 			},
 		},
+		RoleRef: rbacv1.RoleRef{
+			Name: a.serviceAccountName(),
+			Kind: "Role",
+		},
 	}
-	applier.Apply(&roleBinding)
+	roleBinding := resources.NewRoleBinding(a.client.RbacV1().RoleBindings(a.namespace), a.namespace, a.serviceAccountName(), rb)
+	applier.Apply(roleBinding)
 
-	clusterRole := resources.ClusterRole{
-		ClusterRole: rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.clusterRoleRules(config.Trust),
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.qualifiedClusterName(),
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
 		},
+		Rules: a.clusterRoleRules(config.Trust),
 	}
-	applier.Apply(&clusterRole)
+	clusterRole := resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), cr)
+	applier.Apply(clusterRole)
 
-	clusterRoleBinding := resources.ClusterRoleBinding{
-		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.qualifiedClusterName(),
-				Kind: "ClusterRole",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        a.qualifiedClusterName(),
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      a.serviceAccountName(),
+				Namespace: a.namespace,
 			},
 		},
+		RoleRef: rbacv1.RoleRef{
+			Name: a.qualifiedClusterName(),
+			Kind: "ClusterRole",
+		},
 	}
-	applier.Apply(&clusterRoleBinding)
+	clusterRoleBinding := resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), crb)
+	applier.Apply(clusterRoleBinding)
 
 	return a.applyImagePullSecrets(applier, config)
 }
@@ -537,15 +541,15 @@ func (a *app) Upgrade(ver semversion.Number) error {
 	// (so longer as the resource also does have the juju version annotation already).
 	// Then we don't have to worry about missing anything if something is added later and not also updated here.
 	for _, r := range []annotationUpdater{
-		resources.NewSecret(a.secretName(), a.namespace, nil),
-		resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil),
-		resources.NewRole(a.serviceAccountName(), a.namespace, nil),
-		resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil),
-		resources.NewClusterRole(a.qualifiedClusterName(), nil),
-		resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil),
-		resources.NewService(a.name, a.namespace, nil),
+		resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), nil),
+		resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), nil),
+		resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), nil),
+		resources.NewRoleBinding(a.client.RbacV1().RoleBindings(a.namespace), a.namespace, a.serviceAccountName(), nil),
+		resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil),
+		resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), nil),
+		resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil),
 	} {
-		if err := r.Get(context.Background(), a.client); err != nil {
+		if err := r.Get(context.Background()); err != nil {
 			return errors.Trace(err)
 		}
 		existingAnnotations := annotations.New(r.GetAnnotations())
@@ -553,7 +557,7 @@ func (a *app) Upgrade(ver semversion.Number) error {
 		applier.Apply(r)
 	}
 
-	return applier.Run(context.Background(), a.client, false)
+	return applier.Run(context.Background(), false)
 }
 
 type annotationUpdater interface {
@@ -563,8 +567,8 @@ type annotationUpdater interface {
 }
 
 func (a *app) upgradeHeadlessService(applier resources.Applier, ver semversion.Number) error {
-	r := resources.NewService(HeadlessServiceName(a.name), a.namespace, nil)
-	if err := r.Get(context.Background(), a.client); err != nil {
+	r := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(a.name), nil)
+	if err := r.Get(context.Background()); err != nil {
 		return errors.Trace(err)
 	}
 	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
@@ -579,8 +583,8 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver semversion.Numb
 			return errors.Trace(err)
 		}
 
-		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-		if err := ss.Get(context.Background(), a.client); err != nil {
+		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
+		if err := ss.Get(context.Background()); err != nil {
 			return errors.Trace(err)
 		}
 		initContainers := ss.Spec.Template.Spec.InitContainers
@@ -665,7 +669,7 @@ func HeadlessServiceName(appName string) string {
 }
 
 func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
-	svc := resources.NewService(HeadlessServiceName(name), a.namespace, &corev1.Service{
+	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(name), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: a.labels(),
 			Annotations: annotation.
@@ -678,7 +682,7 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 			PublishNotReadyAddresses: true,
 		},
 	})
-	return svc.Apply(context.Background(), a.client)
+	return svc.Apply(context.Background())
 }
 
 const (
@@ -689,7 +693,7 @@ const (
 // configureDefaultService configures the default service for the application.
 // It's only configured once when the application was deployed in the first time.
 func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
-	svc := resources.NewService(a.name, a.namespace, &corev1.Service{
+	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      a.labels(),
 			Annotations: annotation,
@@ -703,7 +707,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			}},
 		},
 	})
-	return svc.Apply(context.Background(), a.client)
+	return svc.Apply(context.Background())
 }
 
 // UpdateService updates the default service with specific service type and port mappings.
@@ -727,7 +731,7 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 		return errors.Trace(err)
 	}
-	return applier.Run(context.Background(), a.client, false)
+	return applier.Run(context.Background(), false)
 }
 
 func convertServicePort(port caas.ServicePort) (out corev1.ServicePort, err error) {
@@ -753,8 +757,8 @@ func convertServicePort(port caas.ServicePort) (out corev1.ServicePort, err erro
 }
 
 func (a *app) getService() (*resources.Service, error) {
-	svc := resources.NewService(a.name, a.namespace, nil)
-	if err := svc.Get(context.Background(), a.client); err != nil {
+	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil)
+	if err := svc.Get(context.Background()); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("service %q", a.name)
 		}
@@ -805,7 +809,7 @@ func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) e
 			return errors.Trace(err)
 		}
 	}
-	err = applier.Run(context.Background(), a.client, false)
+	err = applier.Run(context.Background(), false)
 	return errors.Trace(err)
 }
 
@@ -834,24 +838,24 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-		if err := ss.Get(context.Background(), a.client); err != nil {
+		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
+		if err := ss.Get(context.Background()); err != nil {
 			return errors.Trace(err)
 		}
 
 		updatePodSpec(&ss.StatefulSet.Spec.Template.Spec, containerPorts)
 		applier.Apply(ss)
 	case caas.DeploymentStateless:
-		d := resources.NewDeployment(a.name, a.namespace, nil)
-		if err := d.Get(context.Background(), a.client); err != nil {
+		d := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
+		if err := d.Get(context.Background()); err != nil {
 			return errors.Trace(err)
 		}
 
 		updatePodSpec(&d.Deployment.Spec.Template.Spec, containerPorts)
 		applier.Apply(d)
 	case caas.DeploymentDaemon:
-		d := resources.NewDaemonSet(a.name, a.namespace, nil)
-		if err := d.Get(context.Background(), a.client); err != nil {
+		d := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
+		if err := d.Get(context.Background()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -864,33 +868,33 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 }
 
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
-	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-	if err := ss.Get(context.Background(), a.client); err != nil {
+	ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
+	if err := ss.Get(context.Background()); err != nil {
 		return nil, err
 	}
 	return ss, nil
 }
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
-	ss := resources.NewDeployment(a.name, a.namespace, nil)
-	if err := ss.Get(context.Background(), a.client); err != nil {
+	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
+	if err := ss.Get(context.Background()); err != nil {
 		return nil, err
 	}
 	return ss, nil
 }
 
 func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
-	ss := resources.NewDaemonSet(a.name, a.namespace, nil)
-	if err := ss.Get(context.Background(), a.client); err != nil {
+	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
+	if err := ss.Get(context.Background()); err != nil {
 		return nil, err
 	}
 	return ss, nil
 }
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-	err = ss.Get(context.Background(), a.client)
-	if errors.Is(err, errors.NotFound) {
+	ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
+	err = ss.Get(context.Background())
+	if errors.IsNotFound(err) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -899,8 +903,8 @@ func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewDeployment(a.name, a.namespace, nil)
-	err = ss.Get(context.Background(), a.client)
+	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
+	err = ss.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -910,8 +914,8 @@ func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewDaemonSet(a.name, a.namespace, nil)
-	err = ss.Get(context.Background(), a.client)
+	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
+	err = ss.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -921,8 +925,8 @@ func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) secretExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewSecret(a.secretName(), a.namespace, nil)
-	err = ss.Get(context.Background(), a.client)
+	ss := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), nil)
+	err = ss.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -932,8 +936,8 @@ func (a *app) secretExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) serviceExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewService(a.name, a.namespace, nil)
-	err = ss.Get(context.Background(), a.client)
+	ss := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil)
+	err = ss.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -943,8 +947,8 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) roleExists() (exists bool, terminating bool, err error) {
-	r := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
-	err = r.Get(context.Background(), a.client)
+	r := resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), nil)
+	err = r.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -954,8 +958,8 @@ func (a *app) roleExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
-	rb := resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil)
-	err = rb.Get(context.Background(), a.client)
+	rb := resources.NewRoleBinding(a.client.RbacV1().RoleBindings(a.namespace), a.namespace, a.serviceAccountName(), nil)
+	err = rb.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -965,8 +969,8 @@ func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
-	r := resources.NewClusterRole(a.qualifiedClusterName(), nil)
-	err = r.Get(context.Background(), a.client)
+	r := resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil)
+	err = r.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -976,8 +980,8 @@ func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err error) {
-	rb := resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil)
-	err = rb.Get(context.Background(), a.client)
+	rb := resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), nil)
+	err = rb.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -987,8 +991,8 @@ func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err err
 }
 
 func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) {
-	sa := resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil)
-	err = sa.Get(context.Background(), a.client)
+	sa := resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), nil)
+	err = sa.Get(context.Background())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -1003,28 +1007,28 @@ func (a *app) Delete() error {
 	applier := a.newApplier()
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
-		applier.Delete(resources.NewService(HeadlessServiceName(a.name), a.namespace, nil))
+		applier.Delete(resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil))
+		applier.Delete(resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(a.name), nil))
 	case caas.DeploymentStateless:
-		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
+		applier.Delete(resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil))
 	case caas.DeploymentDaemon:
-		applier.Delete(resources.NewDaemonSet(a.name, a.namespace, nil))
+		applier.Delete(resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil))
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
-	applier.Delete(resources.NewService(a.name, a.namespace, nil))
-	applier.Delete(resources.NewSecret(a.secretName(), a.namespace, nil))
-	applier.Delete(resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil))
-	applier.Delete(resources.NewRole(a.serviceAccountName(), a.namespace, nil))
-	applier.Delete(resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil))
-	applier.Delete(resources.NewClusterRole(a.qualifiedClusterName(), nil))
-	applier.Delete(resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil))
+	applier.Delete(resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil))
+	applier.Delete(resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), nil))
+	applier.Delete(resources.NewRoleBinding(a.client.RbacV1().RoleBindings(a.namespace), a.namespace, a.serviceAccountName(), nil))
+	applier.Delete(resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), nil))
+	applier.Delete(resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), nil))
+	applier.Delete(resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil))
+	applier.Delete(resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), nil))
 
 	// Cleanup lists of resources.
 	cleanup := []resources.Resource(nil)
 
 	// List secrets to be deleted.
-	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {
@@ -1037,11 +1041,26 @@ func (a *app) Delete() error {
 		}
 	}
 
+	// List crds to be deleted.
+	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
+	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
+	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
+	crds, err := resources.ListCRDs(context.Background(), a.extendedClient, metav1.ListOptions{
+		LabelSelector: mergedLabel.String(),
+	},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, crd := range crds {
+		cleanup = append(cleanup, crd)
+	}
+
 	if len(cleanup) > 0 {
 		applier.Delete(cleanup...)
 	}
 
-	return applier.Run(context.Background(), a.client, false)
+	return applier.Run(context.Background(), false)
 }
 
 // Watch returns a watcher which notifies when there
@@ -1089,8 +1108,8 @@ func (a *app) State() (caas.ApplicationState, error) {
 	state := caas.ApplicationState{}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
-		err := ss.Get(context.Background(), a.client)
+		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
+		err := ss.Get(context.Background())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1099,8 +1118,8 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
 	case caas.DeploymentStateless:
-		d := resources.NewDeployment(a.name, a.namespace, nil)
-		err := d.Get(context.Background(), a.client)
+		d := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
+		err := d.Get(context.Background())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1109,8 +1128,8 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*d.Spec.Replicas)
 	case caas.DeploymentDaemon:
-		d := resources.NewDaemonSet(a.name, a.namespace, nil)
-		err := d.Get(context.Background(), a.client)
+		d := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
+		err := d.Get(context.Background())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1147,7 +1166,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}
 	ctx := context.Background()
 	now := a.clock.Now()
-	statusMessage, svcStatus, since, err := a.computeStatus(ctx, a.client, now)
+	statusMessage, svcStatus, since, err := a.computeStatus(ctx, now)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1165,7 +1184,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}, nil
 }
 
-func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (a *app) computeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
 	jujuStatus := status.Waiting
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1179,7 +1198,7 @@ func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, no
 			return "", status.Active, now, nil
 		}
 		var statusMessage string
-		events, err := ss.Events(ctx, client)
+		events, err := resources.ListEventsForObject(ctx, a.client.CoreV1().Events(ss.Namespace), ss.Name, "StatefulSet")
 		if err != nil {
 			return "", jujuStatus, now, errors.Trace(err)
 		}
@@ -1216,7 +1235,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 			}
 		}
 		terminated := p.DeletionTimestamp != nil
-		statusMessage, unitStatus, since, err := p.ComputeStatus(ctx, a.client, now)
+		statusMessage, unitStatus, since, err := p.ComputeStatus(ctx, now)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1841,24 +1860,23 @@ func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.Appli
 		if err != nil {
 			return errors.Trace(err)
 		}
-		secret := &resources.Secret{
-			Secret: corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.imagePullSecretName(container.Name),
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
-				},
-				Type: corev1.SecretTypeDockerConfigJson,
-				Data: map[string][]byte{
-					corev1.DockerConfigJsonKey: secretData,
-				},
+		sec := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.imagePullSecretName(container.Name),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+			Data: map[string][]byte{
+				corev1.DockerConfigJsonKey: secretData,
 			},
 		}
+		secret := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.imagePullSecretName(container.Name), sec)
 		desired = append(desired, secret)
 	}
 
-	secrets, err := resources.ListSecrets(context.Background(), a.client, a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {

@@ -25,10 +25,10 @@ import (
 //   - Remove types that have no purpose other than to mirror those returned by
 //     the compute service such as `MachineType`.
 type service interface {
-	// GetProject sends a request to the GCE API for info about the
-	// specified project. If the project does not exist then an error
-	// will be returned.
-	GetProject(projectID string) (*compute.Project, error)
+	// GetProjectServiceAccount sends a request to the GCE API to get
+	// the service account for the specified project.
+	// If the project does not exist then an error will be returned.
+	GetProjectServiceAccount(projectID string) (string, error)
 
 	// GetInstance sends a request to the GCE API for info about the
 	// specified instance. If the instance does not exist then an error
@@ -161,7 +161,7 @@ var newService = func(ctx context.Context, creds *Credentials, httpClient *jujuh
 // to connect are valid for use in the project and region defined for
 // the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
-	if _, err := gc.service.GetProject(gc.projectID); err != nil {
+	if _, err := gc.service.GetProjectServiceAccount(gc.projectID); err != nil {
 		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}

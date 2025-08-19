@@ -5,7 +5,9 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"sort"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -355,3 +357,38 @@ func EnsureFirstHostPort(first SpaceHostPort, hps SpaceHostPorts) SpaceHostPorts
 	result = append(SpaceHostPorts{first}, result...)
 	return result
 }
+
+// HostsPortsSlice is used to sort a slice of [SpaceHostPorts].
+type HostsPortsSlice []SpaceHostPorts
+
+// DupeAndSort returns a sorted copy of in.
+func DupeAndSort(in []SpaceHostPorts) []SpaceHostPorts {
+	result := make([]SpaceHostPorts, len(in))
+
+	for i, val := range in {
+		var inner SpaceHostPorts
+		inner = append(inner, val...)
+		sort.Sort(inner)
+		result[i] = inner
+	}
+	sort.Sort(HostsPortsSlice(result))
+	return result
+}
+
+func (hp HostsPortsSlice) Len() int      { return len(hp) }
+func (hp HostsPortsSlice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
+func (hp HostsPortsSlice) Less(i, j int) bool {
+	lhs := (hostPortsSlice)(hp[i]).String()
+	rhs := (hostPortsSlice)(hp[j]).String()
+	return lhs < rhs
+}
+
+func (hp hostPortsSlice) String() string {
+	var result string
+	for _, val := range hp {
+		result += fmt.Sprintf("%s-%d ", val.SpaceAddress, val.Port())
+	}
+	return result
+}
+
+type hostPortsSlice []SpaceHostPort

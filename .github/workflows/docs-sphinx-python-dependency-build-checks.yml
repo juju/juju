@@ -45,7 +45,7 @@ jobs:
         run: |
           set -ex
           cd docs
-          make -f Makefile.sp \
-            sp-install \
+          make -f Makefile \
+            install \
             PIPOPTS="--no-binary :all:" \
             || ( cat .sphinx/venv/pip_install.log && exit 1 )

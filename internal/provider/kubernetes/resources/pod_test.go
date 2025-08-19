@@ -33,16 +33,16 @@ func (s *podSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	dsResource := resources.NewPod("ds1", "test", ds)
-	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	dsResource := resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	c.Assert(dsResource.Apply(c.Context()), tc.ErrorIsNil)
 	result, err := s.client.CoreV1().Pods("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewPod("ds1", "test", ds)
-	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	dsResource = resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	c.Assert(dsResource.Apply(c.Context()), tc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().Pods("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -63,9 +63,9 @@ func (s *podSuite) TestGet(c *tc.C) {
 	_, err := s.client.CoreV1().Pods("test").Create(c.Context(), &ds1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	dsResource := resources.NewPod("ds1", "test", &template)
+	dsResource := resources.NewPod(s.client.CoreV1().Pods(ds1.Namespace), s.client.CoreV1().Events(ds1.Namespace), "test", "ds1", &template)
 	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(c.Context(), s.client)
+	err = dsResource.Get(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
 	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
@@ -73,25 +73,25 @@ func (s *podSuite) TestGet(c *tc.C) {
 }
 
 func (s *podSuite) TestDelete(c *tc.C) {
-	ds := corev1.Pod{
+	ds := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.CoreV1().Pods("test").Create(c.Context(), &ds, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Pods("test").Create(c.Context(), ds, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.CoreV1().Pods("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
-	dsResource := resources.NewPod("ds1", "test", &ds)
-	err = dsResource.Delete(c.Context(), s.client)
+	dsResource := resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	err = dsResource.Delete(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(c.Context(), s.client)
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	err = dsResource.Get(c.Context())
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.CoreV1().Pods("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
