@@ -753,7 +753,7 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	
+
 	return &environ{
 		serverUnlocked: srv,
 		ecfgUnlocked:   eCfg,
