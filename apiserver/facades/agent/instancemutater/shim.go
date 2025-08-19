@@ -32,14 +32,6 @@ func (s *instanceMutaterStateShim) ModelUUID() (string, error) {
 	return m.UUID(), err
 }
 
-func (s *instanceMutaterStateShim) ModelVersion() (int, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	return m.EnvironVersion(), err
-}
-
 func (s *instanceMutaterStateShim) Application(appName string) (Application, error) {
 	app, err := s.State.Application(appName)
 	if err != nil {
