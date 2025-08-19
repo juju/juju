@@ -3367,7 +3367,7 @@
     {
         "Name": "InstanceMutater",
         "Description": "",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"

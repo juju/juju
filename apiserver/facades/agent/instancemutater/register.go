@@ -14,6 +14,10 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("InstanceMutater", 3, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV3(ctx)
 	}, reflect.TypeOf((*InstanceMutaterAPI)(nil)))
+	// Bumped to version 4 to include modelUUID in the response struct.
+	registry.MustRegister("InstanceMutater", 4, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV3(ctx)
+	}, reflect.TypeOf((*InstanceMutaterAPI)(nil)))
 }
 
 // newFacadeV3 is used for API registration.
