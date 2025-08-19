@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -475,15 +474,15 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 			profilesToDelete = append(profilesToDelete, profile)
 		}
 	}
-	log.Printf("[adis][stopinstances] profilestodelete: %+v\n", profilesToDelete)
 
 	err := env.server().RemoveContainers(names)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
-	logger.Infof("[adis][stopinstances] profilestodelete: %+v", profilesToDelete)
+	logger.Debugf("profiles to delete: %+v", profilesToDelete)
 	for _, profile := range profilesToDelete {
+		logger.Debugf("deleting profile %q", profiles)
 		err = env.server().DeleteProfile(profile)
 		if err != nil {
 			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())

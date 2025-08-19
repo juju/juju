@@ -389,7 +389,6 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Pro
 			Devices:     put.Devices,
 		},
 	}
-	logger.Infof("[adis][containermanager][maybewritelxdprofile] post: %+v", post)
 	if err = m.server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
@@ -457,9 +456,9 @@ func (m *containerManager) AssignLXDProfiles(
 	if err := m.server.UpdateContainerProfiles(instID, profilesNames); err != nil {
 		return report(errors.Trace(err))
 	}
-	logger.Infof("[adis][container][assignlxdprofiles] profiles to delete %+v", deleteProfiles)
+	logger.Debugf("profiles to delete %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
-		logger.Infof("[adis][container][assignlxdprofiles] deleting profile %q", name)
+		logger.Debugf("deleting profile %q", name)
 		if err := m.server.DeleteProfile(name); err != nil {
 			// Most likely the failure is because the profile is already in use.
 			logger.Debugf("failed to delete profile %q: %s", name, err)
