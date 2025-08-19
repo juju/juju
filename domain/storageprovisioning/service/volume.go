@@ -781,3 +781,15 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
 }
+
+func (s *Service) watchVolumeAttachmentForNetNode(
+	ctx context.Context,
+	volumeUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	watcherSummary string,
+) (watcher.NotifyWatcher, error) {
+	if err := netNodeUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	return nil, errors.Errorf("watching volume attachment for net node %q: not implemented", netNodeUUID)
+}

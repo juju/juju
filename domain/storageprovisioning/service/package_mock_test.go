@@ -593,6 +593,45 @@ func (c *MockStateGetFilesystemUUIDForIDCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetFilesystemUUIDForStorageID mocks base method.
+func (m *MockState) GetFilesystemUUIDForStorageID(ctx context.Context, storageID string) (storageprovisioning.FilesystemUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemUUIDForStorageID", ctx, storageID)
+	ret0, _ := ret[0].(storageprovisioning.FilesystemUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemUUIDForStorageID indicates an expected call of GetFilesystemUUIDForStorageID.
+func (mr *MockStateMockRecorder) GetFilesystemUUIDForStorageID(ctx, storageID any) *MockStateGetFilesystemUUIDForStorageIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemUUIDForStorageID", reflect.TypeOf((*MockState)(nil).GetFilesystemUUIDForStorageID), ctx, storageID)
+	return &MockStateGetFilesystemUUIDForStorageIDCall{Call: call}
+}
+
+// MockStateGetFilesystemUUIDForStorageIDCall wrap *gomock.Call
+type MockStateGetFilesystemUUIDForStorageIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemUUIDForStorageIDCall) Return(arg0 storageprovisioning.FilesystemUUID, arg1 error) *MockStateGetFilesystemUUIDForStorageIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemUUIDForStorageIDCall) Do(f func(context.Context, string) (storageprovisioning.FilesystemUUID, error)) *MockStateGetFilesystemUUIDForStorageIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemUUIDForStorageIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.FilesystemUUID, error)) *MockStateGetFilesystemUUIDForStorageIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineNetNodeUUID mocks base method.
 func (m *MockState) GetMachineNetNodeUUID(arg0 context.Context, arg1 machine.UUID) (network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()
@@ -1369,6 +1408,45 @@ func (c *MockStateGetVolumeUUIDForIDCall) Do(f func(context.Context, string) (st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetVolumeUUIDForIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.VolumeUUID, error)) *MockStateGetVolumeUUIDForIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeUUIDForStorageID mocks base method.
+func (m *MockState) GetVolumeUUIDForStorageID(ctx context.Context, storageID string) (storageprovisioning.VolumeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeUUIDForStorageID", ctx, storageID)
+	ret0, _ := ret[0].(storageprovisioning.VolumeUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeUUIDForStorageID indicates an expected call of GetVolumeUUIDForStorageID.
+func (mr *MockStateMockRecorder) GetVolumeUUIDForStorageID(ctx, storageID any) *MockStateGetVolumeUUIDForStorageIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeUUIDForStorageID", reflect.TypeOf((*MockState)(nil).GetVolumeUUIDForStorageID), ctx, storageID)
+	return &MockStateGetVolumeUUIDForStorageIDCall{Call: call}
+}
+
+// MockStateGetVolumeUUIDForStorageIDCall wrap *gomock.Call
+type MockStateGetVolumeUUIDForStorageIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeUUIDForStorageIDCall) Return(arg0 storageprovisioning.VolumeUUID, arg1 error) *MockStateGetVolumeUUIDForStorageIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeUUIDForStorageIDCall) Do(f func(context.Context, string) (storageprovisioning.VolumeUUID, error)) *MockStateGetVolumeUUIDForStorageIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeUUIDForStorageIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.VolumeUUID, error)) *MockStateGetVolumeUUIDForStorageIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

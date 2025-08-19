@@ -151,6 +151,18 @@ type FilesystemState interface {
 		context.Context, string,
 	) (storageprovisioning.FilesystemUUID, error)
 
+	// GetFilesystemUUIDForStorageID returns the UUID for a filesystem with the supplied
+	// storage ID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
+	// for the provided storage ID.
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
+	// for the provided storage ID.
+	GetFilesystemUUIDForStorageID(
+		ctx context.Context, storageID string,
+	) (storageprovisioning.FilesystemUUID, error)
+
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
 	// machine provisioned and the query for getting the current set of machine
@@ -795,77 +807,9 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	return nil
 }
 
-// WatchFilesystemAttachmentForUnit returns a notification watcher for the
-// filesystem attachment of a unit.
-//
-// The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
-// is not valid.
-// - [github.com/juju/juju/domain/unit/errors.UnitNotFound] when no unit exists
-// for the provided unit UUID.
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-// for the provided filesystem ID.
-func (s *Service) WatchFilesystemAttachmentForUnit(
-	ctx context.Context,
-	filesystemID string,
-	unitUUID coreunit.UUID,
-) (watcher.NotifyWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.watchFilesystemAttachmentForNetNode(ctx, filesystemID, netNodeUUID,
-		fmt.Sprintf("filesystem attachment watcher for unit %q filesystem %q", unitUUID, filesystemID),
-	)
-}
-
-// WatchFilesystemAttachmentForMachine returns a notification watcher
-// for the filesystem attachment of a machine.
-//
-// The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-// is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-// machine exists for the provided machine UUID.
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-// for the provided filesystem ID.
-func (s *Service) WatchFilesystemAttachmentForMachine(
-	ctx context.Context,
-	filesystemID string,
-	machineUUID coremachine.UUID,
-) (watcher.NotifyWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.watchFilesystemAttachmentForNetNode(ctx, filesystemID, netNodeUUID,
-		fmt.Sprintf("filesystem attachment watcher for machine %q filesystem %q", machineUUID, filesystemID),
-	)
-}
-
 func (s *Service) watchFilesystemAttachmentForNetNode(
 	ctx context.Context,
-	filesystemID string,
+	filesystemUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 	watcherSummary string,
 ) (watcher.NotifyWatcher, error) {
@@ -873,13 +817,8 @@ func (s *Service) watchFilesystemAttachmentForNetNode(
 		return nil, errors.Capture(err)
 	}
 
-	fsUUID, err := s.st.GetFilesystemUUIDForID(ctx, filesystemID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	fsAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
-		ctx, fsUUID, netNodeUUID)
+		ctx, filesystemUUID, netNodeUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
