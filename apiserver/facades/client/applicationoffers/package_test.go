@@ -12,3 +12,5 @@ import (
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
+
+//go:generate go run go.uber.org/mock/mockgen -package applicationoffers_test -destination authorizer_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
