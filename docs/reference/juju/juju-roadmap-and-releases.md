@@ -5,7 +5,7 @@
 
 This document is about our releases of Juju, that is, the `juju` CLI client and the Juju agents.
 
-- We release new minor version (the 'x' of m.x.p) approcimately every 3 months.
+- We release new minor version (the 'x' of m.x.p) approximately every 3 months.
 - Patch releases for supported series are released every month
 - Once we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
 - Minor releases are supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
@@ -25,24 +25,10 @@ $ go run version/helper/main.go
 ADD WHEN FIXED.
 -->
 
-<!--TEMPLATE (>= 3.6.7)
+<!--TEMPLATE
 ### 🔸 **Juju 3.6.X**
 🗓️ <DATE>  <--leave this as TBC until released into stable!
 
-⚙️ Features:
-* feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
-* feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
-
-🛠️ Fixes:
-* fix: data race in state pool by @SimonRichardson in https://github.com/juju/juju/pull/19816
-* fix: associate DNS config with interfaces as appropriate by @manadart in https://github.com/juju/juju/pull/19890
-
-🥳 New Contributors:
-* @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
--->
-
-<!--LEGACY TEMPLATE (< 3.6.7)
-### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
 * feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
@@ -66,8 +52,81 @@ ADD WHEN FIXED.
 Juju 3.6 series is LTS
 ```
 
+### 🔸 **Juju 3.6.9**
+🗓️ 20 Aug 2025
+
+⚙️ Features:
+#### New cloud regions
+* feat: add aws and azure regions by @adisazhar123 in https://github.com/juju/juju/pull/20087
+
+#### Increased secret content size
+The secret content size limit has been increased from 8KiB to 1MiB.
+* feat(secrets): increase the allowed size for secret content to 1MiB by @wallyworld in https://github.com/juju/juju/pull/20287
+
+#### Other features
+* feat: support import-filesystem for k8s by @jneo8 in https://github.com/juju/juju/pull/19904
+* feat: allow migration minion worker to follow redirects by @kian99 in https://github.com/juju/juju/pull/20133
+* feat: add tags to Openstack security groups by @adisazhar123 in https://github.com/juju/juju/pull/20169
+* feat: allow edge snaps to be used as official builds by @wallyworld in https://github.com/juju/juju/pull/20202
+
+🛠️ Fixes:
+#### Openstack
+The Openstack Neutron API endpoint was incurring excessive calls due to an inefficient query strategy.<br>
+SEV flavors are deprioritised when using constraints to choose a flavor as they are not yet modelled.
+* fix: inefficient security group client side filtering by @adisazhar123 in https://github.com/juju/juju/pull/19954
+* fix: choose non SEV flavor for Openstack by @adisazhar123 in https://github.com/juju/juju/pull/20299
+
+#### Azure
+* fix: azure prem storage pending indefinitely by @CodingCookieRookie in https://github.com/juju/juju/pull/20122
+
+#### LXD
+The LXD provider now supports zone constraints.<br>
+There are also storage fixes for deploying a charm with multiple storage requirements.
+* fix: ensure zone constraints are used with lxd by @wallyworld in https://github.com/juju/juju/pull/20271
+* fix: missing availability zones for lxd machines by @adisazhar123 in https://github.com/juju/juju/pull/20339
+* fix: sort lxd storage by path before attaching by @wallyworld in https://github.com/juju/juju/pull/20320
+* fix: make adding a disk to a lxd container idempotent by @wallyworld in https://github.com/juju/juju/pull/20269
+
+#### Kubernetes
+The memory request and limit has been reduced for the charm container and no longer uses the same (possibly large) value
+that may have been required for the workload.<br>
+The default image repository is now ghcr rather than docker.
+* fix: reduce charm memory constraints and fill workload container requests by @CodingCookieRookie in https://github.com/juju/juju/pull/20014
+
+#### Storage
+A long occurring intermittent storage bug was fixed where sometimes storage would not be registred as attached and
+charms would hang and not run the storage attached hook.
+* fix: ensure filesystem attachment watcher sends all events by @wallyworld in https://github.com/juju/juju/pull/20338
+
+#### FAN networking
+If the container networking method is set to "local" or "provider", do not set up FAN networking.
+* fix: do not detect fan for local or provider container networking by @wallyworld in https://github.com/juju/juju/pull/20353
+
+#### Mitigate possible connection leak
+The worker to monitor and update external controller API addreses for cross model relations could needlessly and
+constantly bounce due to incorrect detection of address changes. This would cause HTTP connections to churn, possibly
+contributing to observed connection / file handle leaks.
+* fix: handle script runner errors and don't ignore them by @wallyworld in https://github.com/juju/juju/pull/20352
+* fix: do not update external controller info unless needed by @wallyworld in https://github.com/juju/juju/pull/20398
+
+#### Other fixes
+* fix: don't flush model when we have no machines by @adisazhar123 in https://github.com/juju/juju/pull/20029
+* fix: machine loopback addresses not being accounted by @sombrafam in https://github.com/juju/juju/pull/19998
+* fix: use correct version when bootstrapping from edge snap by @wallyworld in https://github.com/juju/juju/pull/20254
+* fix: only include resource ID in error message when applying changes by @wallyworld in https://github.com/juju/juju/pull/20295
+* fix: k8s model and workload container image updated to repository of target controller during model migration and upgrade by @CodingCookieRookie in https://github.com/juju/juju/pull/20267
+* fix: add k8s do not follow path priority for k8s config file by @CodingCookieRookie in https://github.com/juju/juju/pull/20307
+* fix: fallback to lexicographical sort if natural sort fails by @adisazhar123 in https://github.com/juju/juju/pull/20313
+* fix: life worker reports wrong value by @SimonRichardson in https://github.com/juju/juju/pull/20335
+
+🥳 New Contributors:
+* @st3v3nmw made their first contribution in https://github.com/juju/juju/pull/19898
+* @jneo8 made their first contribution in https://github.com/juju/juju/pull/19904
+* @MattiaSarti made their first contribution in https://github.com/juju/juju/pull/20324
+
+
 ### 🔸 **Juju 3.6.8**
-🗓️ 07 July 2025
+🗓️ 7 Jul 2025
 
 🛠️ Fixes:
 * Fix [CVE-2025-0928](https://github.com/juju/juju/security/advisories/GHSA-4vc8-wvhw-m5gv)
@@ -91,7 +150,7 @@ Juju 3.6 series is LTS
 * docs: combine manage deployment docs into a single doc by @tmihoc in https://github.com/juju/juju/pull/19608
 
 ### 🔸 **Juju 3.6.7**
-🗓️ 09 June 2025
+🗓️ 9 Jun 2025
 
 🛠️ Fixes:
 * fix: use pebble v1.19.1 by @jameinel in https://github.com/juju/juju/pull/19791
@@ -103,7 +162,8 @@ Juju 3.6 series is LTS
 🥳 New Contributors:
 * @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 
-### 🔸 **Juju 3.6.6** - 29 May 2025
+### 🔸 **Juju 3.6.6**
+🗓️ 29 May 2025
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
 * feat: open firewall ports for SSH server  proxy by @kian99 in [#19180](https://github.com/juju/juju/pull/19180)
@@ -124,7 +184,8 @@ Juju 3.6 series is LTS
 * @abbiesims made their first contribution in [#19575](https://github.com/juju/juju/pull/19575)
 * @MggMuggins made their first contribution in [#19532](https://github.com/juju/juju/pull/19532)
 
-### 🔸 **Juju 3.6.5** - 14 April 2025
+### 🔸 **Juju 3.6.5**
+🗓️ 14 Apr 2025
 ⚙️ Features:
 * feat(ssh-server-worker): add feature flag for ssh jump server by @SimoneDutto in [#19364](https://github.com/juju/juju/pull/19364)
 * feat: add facade to resolve virtual hostname by @SimoneDutto in [#18995](https://github.com/juju/juju/pull/18995)
@@ -157,7 +218,8 @@ Juju 3.6 series is LTS
 * @vlad-apostol made their first contribution in [#19261](https://github.com/juju/juju/pull/19261)
 * @alexdlukens made their first contribution in [#19390](https://github.com/juju/juju/pull/19390)
 
-### 🔸 **Juju 3.6.4** - 11 March 2025
+### 🔸 **Juju 3.6.4**
+🗓️ 11 Mar 2025
 ⚙️ Features:
 * feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
 * feat(charmhub): add revision support for info command by @leyao-daily in [#18676](https://github.com/juju/juju/pull/18676)
@@ -184,7 +246,8 @@ Juju 3.6 series is LTS
 * @andogq made their first contribution in [#19023](https://github.com/juju/juju/pull/19023)
 
 
-### 🔸 **Juju 3.6.3** - 27 Feb 2025
+### 🔸 **Juju 3.6.3**
+🗓️ 27 Feb 2025
 ⚙️ Features:
 * feat(secrets): add support for using besoke k8s secret backends by @wallyworld in [#18599](https://github.com/juju/juju/pull/18599)
 * feat(secrets): add token refresh support to k8s secret backend by @wallyworld in [#18639](https://github.com/juju/juju/pull/18639)
@@ -234,7 +297,8 @@ Juju 3.6 series is LTS
 * @YanisaHS made their first contribution in [#18903](https://github.com/juju/juju/pull/18903)
 
 
-### 🔸 **Juju 3.6.2** - 21 Jan 2025
+### 🔸 **Juju 3.6.2**
+🗓️ 21 Jan 2025
 ⚙️ Features:
 * feat: add relation-model-get hook command by @wallyworld in [#18444](https://github.com/juju/juju/pull/18444)
 
@@ -246,7 +310,8 @@ Juju 3.6 series is LTS
 * fix: cater for leadership change during secret drain by @wallyworld in [#18556](https://github.com/juju/juju/pull/18556)
 
 
-### 🔸 **Juju 3.6.1** - 11 Dec 2024
+### 🔸 **Juju 3.6.1**
+🗓️ 11 Dec 2024
 ⚙️ Features:
 * feat: bump pebble version to v1.17.0 by @benhoyt in [#18462](https://github.com/juju/juju/pull/18462)
 * feat(cmd-register): prevent replacing existing controller if logged in by @ca-scribner in [#18079](https://github.com/juju/juju/pull/18079)
@@ -267,7 +332,8 @@ Juju 3.6 series is LTS
 * fix(ec2): remove auto assigned public IP when constraint is false by @nvinuesa in [#18432](https://github.com/juju/juju/pull/18432)
 
 
-### 🔸 **Juju 3.6.0** - 26 Nov 2024
+### 🔸 **Juju 3.6.0**
+🗓️ 26 Nov 2024
 ⚙️ Features:
 * Rootless charms on k8s
 * Azure managed identities
@@ -293,7 +359,8 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 
 ```
 
-### 🔸 **Juju 3.5.7** - 11 March 2025
+### 🔸 **Juju 3.5.7**
+🗓️ 11 Mar 2025
 
 🛠️ Fixes:
 * feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
@@ -308,7 +375,8 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 * fix(shallow-copy-addrs): fix shallow copy before shuffle by @SimoneDutto in [#19017](https://github.com/juju/juju/pull/19017)
 * fix: install aws cli and creds for tests needing aws ec2 cli by @wallyworld in [#19072](https://github.com/juju/juju/pull/19072)
 
-### 🔸 **Juju 3.5.6** - 11 January 2025
+### 🔸 **Juju 3.5.6**
+🗓️ 11 Jan 2025
 
 🛠️ Fixes:
 - Fix [controller restart meant sidecar charm k8s workloads restarts](https://bugs.launchpad.net/bugs/2036594)
@@ -322,7 +390,8 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.6).
 
-### 🔸 **Juju 3.5.5** - 02 December 2024
+### 🔸 **Juju 3.5.5**
+🗓️ 2 Dec 2024
 
 🛠️ Fixes:
 - Fix [Peer relation disappears too early on application removal](https://bugs.launchpad.net/bugs/1998282)
@@ -335,7 +404,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.5).
 
-### 🔸 **Juju 3.5.4** - 11 September 2024
+### 🔸 **Juju 3.5.4**
+🗓️ 11 Sep 2024
 
 🛠️ Fixes:
 
@@ -347,7 +417,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.4).
 
-### 🔸 **Juju 3.5.3**  - 26 July 2024
+### 🔸 **Juju 3.5.3**
+🗓️ 26 Jul 2024
 
 🛠️ Fixes:
 
@@ -355,7 +426,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.3).
 
-### 🔸 **Juju 3.5.2** - 10 July 2024
+### 🔸 **Juju 3.5.2**
+🗓️ 10 Jul 2024
 
 🛠️ Fixes:
 - Runtime error: invalid memory address or nil pointer dereference [LP2064174](https://bugs.launchpad.net/juju/+bug/2064174)
@@ -365,14 +437,16 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 - Juju should report open-port failures more visibly (than just controller logs) [LP2009102](https://bugs.launchpad.net/juju/+bug/2009102)
 - Lower priority juju status overrides app status when a unit is restarting [LP2038833](https://bugs.launchpad.net/juju/+bug/2038833)
 
-### 🔸 **Juju 3.5.1**  - 30 May 2024
+### 🔸 **Juju 3.5.1**
+🗓️ 30 May 2024
 
 🛠️ Fixes:
 * Fix non-rootless sidecar charms by optionally setting SecurityContext. [#17415](https://github.com/juju/juju/pull/17415) [LP2066517](https://bugs.launchpad.net/juju/+bug/2066517)
 * Match by MAC in Netplan for LXD VMs [#17327](https://github.com/juju/juju/pull/17327) [LP2064515](https://bugs.launchpad.net/juju/+bug/2064515)
 * Fix `SimpleConnector` to set `UserTag` when no client credentials provided [#17309](https://github.com/juju/juju/pull/17309)
 
-### 🔸 **Juju 3.5.0** - 7 May 2024
+### 🔸 **Juju 3.5.0**
+🗓️ 7 May 2024
 
 ⚙️ Features:
 * Optional rootless workloads in Kubernetes charms [#17070](https://github.com/juju/juju/pull/17070)
@@ -390,7 +464,8 @@ Juju 3.4 series is EOL
 
 ```
 
-### 🔸 **Juju 3.4.6** - 11 September 2024
+### 🔸 **Juju 3.4.6**
+🗓️ 11 Sep 2024
 
 🛠️ Fixes:
 
@@ -404,7 +479,8 @@ NOTE: This is the last bug fix release of 3.4.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.6).
 
-### 🔸 **Juju 3.4.5**  - 26 July 2024
+### 🔸 **Juju 3.4.5**
+🗓️ 26 Jul 2024
 
 🛠️ Fixes:
 
@@ -412,7 +488,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.5).
 
-### 🔸 **Juju 3.4.4**  - 1 July 2024
+### 🔸 **Juju 3.4.4**
+🗓️ 1 Jul 2024
 ⚙️ Features:
 
 - Improve error message for "juju register [LP2060265](https://bugs.launchpad.net/juju/+bug/2060265)
@@ -435,7 +512,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.4).
 
-### 🔸 **Juju 3.4.3**  - 5 June 2024
+### 🔸 **Juju 3.4.3**
+🗓️ 5 Jun 2024
 
 🛠️ Fixes:
 
@@ -443,7 +521,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.3).
 
-### 🔸 **Juju 3.4.2**  - 6 April 2024
+### 🔸 **Juju 3.4.2**
+🗓️ 6 Apr 2024
 
 🛠️ Fixes:
 
@@ -452,7 +531,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.2).
 
-### 🔸 **Juju 3.4.0** - 15 Feb 2024
+### 🔸 **Juju 3.4.0**
+🗓️ 15 Feb 2024
 
 ⚙️ Features:
 * Pebble notices (https://github.com/juju/juju/pull/16428)
@@ -471,7 +551,8 @@ Juju 3.3 series is EOL
 
 ```
 
-### 🔸 **Juju 3.3.7** - 10 September 2024
+### 🔸 **Juju 3.3.7**
+🗓️ 10 Sep 2024
 
 🛠️ Fixes:
 
@@ -483,13 +564,15 @@ NOTE: This is the last release of 3.3. There will be no more releases.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.7).
 
-### 🔸 **Juju 3.3.6**  - 25 July 2024
+### 🔸 **Juju 3.3.6**
+🗓️ 25 Jul 2024
 
 🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
-### 🔸 **Juju 3.3.5**  - 28 May 2024
+### 🔸 **Juju 3.3.5**
+🗓️ 20 May 2024
 
 Final bug fix release of Juju 3.3 series.
 
@@ -505,7 +588,8 @@ Final bug fix release of Juju 3.3 series.
 * Don't print a superfluous error when determining platforms of machine scoped placement entities [#17382](https://github.com/juju/juju/pull/17382) [LP2064174](https://bugs.launchpad.net/juju/+bug/2064174)
 
 
-### 🔸 **Juju 3.3.4**  - 10 April 2024
+### 🔸 **Juju 3.3.4**
+🗓️ 10 Apr 2024
 
 🛠️ Fixes:
 
@@ -529,7 +613,8 @@ Final bug fix release of Juju 3.3 series.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.4).
 
-### 🔸 **Juju 3.3.3**  - 6 Mar 2024
+### 🔸 **Juju 3.3.3**
+🗓️ 6 Mar 2024
 _Note:_ Juju version 3.3.2 was burnt since we discover a showstopper issue during QA, therefore this version will include fixes from 3.3.2.
 
 🛠️ Fixes:
@@ -541,7 +626,8 @@ _Note:_ Juju version 3.3.2 was burnt since we discover a showstopper issue durin
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.3).
 
-### 🔸 **Juju 3.3.1**  - 25 Jan 2024
+### 🔸 **Juju 3.3.1**
+🗓️ 25 Jan 2024
 
 🛠️ Fixes:
 * Deployed units using Oracle Cloud / OCI provider in wrong region ([LP1864154](https://bugs.launchpad.net/bugs/1864154))
@@ -549,7 +635,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 * [k8s] topology-key is never set ([LP2040136](https://bugs.launchpad.net/bugs/2040136))
 * Machine lock log in multiple places. ([LP2046089](https://bugs.launchpad.net/bugs/2046089))
 
-### 🔸 **Juju 3.3.0**  - 10 Nov 2023
+### 🔸 **Juju 3.3.0**
+🗓️ 10 Nov 2023
 
 ⚙️ Features:
 * User Secrets
@@ -584,7 +671,8 @@ Juju 3.2 series is EOL
 
 ```
 
-### 🔸 **Juju 3.2.4**  - 23 Nov 2023
+### 🔸 **Juju 3.2.4**
+🗓️ 23 Nov 2023
 
 🛠️ Fixes:
 
@@ -597,7 +685,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-### 🔸 **Juju 3.2.3**  - 13 Sep 2023
+### 🔸 **Juju 3.2.3**
+🗓️ 13 Sep 2023
 
 🛠️ Fixes:
 
@@ -652,7 +741,8 @@ Juju 3.1 series is EOL
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.10).
 
-### 🔸 **Juju 3.1.9**  - 26 July 2024
+### 🔸 **Juju 3.1.9**
+🗓️ 26 Jul 2024
 
 🛠️ Fixes:
 
@@ -660,7 +750,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.9).
 
-### 🔸 **Juju 3.1.8**  - 12 April 2024
+### 🔸 **Juju 3.1.8**
+🗓️ 12 Apr 2024
 
 🛠️ Fixes:
 
@@ -713,7 +804,8 @@ Fixes several major bugs in 3.1.5 **1 Critical / 6 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.5).
 
-### 🔸 **Juju 3.1.2**  - 18 April 2023
+### 🔸 **Juju 3.1.2**
+🗓️ 10 Apr 2023
 
 Fixes several major bugs in 3.1.2. **4 Critical / 14 High**
 
@@ -963,7 +1055,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.51).
 
 
-### 🔸 **Juju 2.9.50**  - 25 July 2024
+### 🔸 **Juju 2.9.50**
+🗓️ 25 Jul 2024
 
 🛠️ Fixes:
 
@@ -972,7 +1065,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.50).
 
 
-### 🔸 **Juju 2.9.49**  - 8 April 2024
+### 🔸 **Juju 2.9.49**
+🗓️ 8 Apr 2024
 
 🛠️ Fixes:
 
@@ -1011,7 +1105,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.45).
 
-### 🔸 **Juju 2.9.44**  - 20 July 2023
+### 🔸 **Juju 2.9.44**
+🗓️ 20 Jul 2023
 
 Fixes several major bugs in 2.9.44 **6 High** / 1 Medium
 
@@ -1039,7 +1134,8 @@ Fixes several major bugs in 2.9.43 **5 Critical / 10 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.43).
 
-### 🔸 **Juju 2.9.42**  - 7 March 2023
+### 🔸 **Juju 2.9.42**
+🗓️ 7 Mar 2023
 
 Fixes several major bugs in 2.9.42.
 
@@ -1053,7 +1149,8 @@ Fixes several major bugs in 2.9.42.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.42).
 
-### 🔸 **Juju 2.9.38**  - 17 January 2023
+### 🔸 **Juju 2.9.38**
+🗓️ 17 Jan 2023
 
 This release fixes some critical issues ending in panic and a some problems regarding the usage of lxd 5.x.
 
@@ -1172,7 +1269,8 @@ Candidate release:  18 Mar 2022
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.27).
 
-### 🔸 **Juju 2.9.26**  - 12 Mar 2022
+### 🔸 **Juju 2.9.26**
+🗓️ 12 Mar 2022
 
 This release includes a fix for broken upgrades coming from a deployment with cross model relations to multiple offers hosted on an external controller ([LP1964130](https://bugs.launchpad.net/bugs/1964130)).
 
@@ -1190,7 +1288,8 @@ This release includes a fix for broken upgrades coming from a deployment with cr
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.26).
 
 
-### 🔸 **Juju 2.9.25**  - 24 Feb 2022
+### 🔸 **Juju 2.9.25**
+🗓️ 24 Feb 2022
 
 This release is significant because it transitions to using the juju-db snap from the `4.4/stable` channel (running mongodb 4.4.11 at the time of writing) for newly bootstrapped controllers. NB the juu-db snap is not used if the default series is changed from `focal` to an earlier vrsion.
 Existing controllers which are upgraded to this release will not change the mongo currently in use.
@@ -1209,7 +1308,8 @@ Existing controllers which are upgraded to this release will not change the mong
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.25).
 
-### 🔸 **Juju 2.9.22**  - 13 Dec 2021
+### 🔸 **Juju 2.9.22**
+🗓️ 13 Dec 2021
 
 🛠️ Fixes:
 
@@ -1222,7 +1322,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.22).
 
-### 🔸 **Juju 2.9.21**  - 3 Dec 2021
+### 🔸 **Juju 2.9.21**
+🗓️ 3 Dec 2021
 
 🛠️ Fixes:
 
@@ -1233,7 +1334,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.21).
 
-### 🔸 **Juju 2.9.19**  - 23 Nov 2021
+### 🔸 **Juju 2.9.19**
+🗓️ 23 Nov 2021
 
 🛠️ Fixes:
 
@@ -1244,7 +1346,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.19).
 
-### 🔸 **Juju 2.8.13**  - 11 Nov 2021
+### 🔸 **Juju 2.8.13**
+🗓️ 11 Nov 2021
 
 This release fixes various issues with Juju **2.8**
 
@@ -1259,7 +1362,8 @@ This release fixes various issues with Juju **2.8**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.8.13).
 
-### 🔸 **Juju 2.9.18** - 8 Nov 2021
+### 🔸 **Juju 2.9.18**
+🗓️ 8 Nov 2021
 
 🛠️ Fixes:
 - agent cannot be up on LXD/Fan network on OpenStack OVN/geneve mtu=1442 ([LP1936842](https://bugs.launchpad.net/bugs/1936842))
@@ -1268,7 +1372,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.18).
 
-### 🔸 **Juju 2.9.17** - 27 Oct 2021
+### 🔸 **Juju 2.9.17**
+🗓️ 27 Oct 2021
 
 This release introduces {ref}`telemetry` as a configurable option per model.
 It also supports [more OCI image registry providers](https://discourse.charmhub.io/t/initial-private-registry-support/5079) for pulling images used for CAAS models.
@@ -1281,7 +1386,8 @@ It also supports [more OCI image registry providers](https://discourse.charmhub.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.17).
 
-### 🔸 **Juju 2.9.16** - 11 Oct 2021
+### 🔸 **Juju 2.9.16**
+🗓️ 11 Oct 2021
 
 🛠️ Fixes:
 
@@ -1292,7 +1398,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.16).
 
-### 🔸 **Juju 2.9.15** - 28 Sept 2021
+### 🔸 **Juju 2.9.15**
+🗓️ 28 Sep 2021
 
 This release improves the robustness of repeated cross model relation setup / teardown.
 There's also some improvements to how raft is used internally to manage leases.
@@ -1306,7 +1413,8 @@ There's also some improvements to how raft is used internally to manage leases.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.15).
 
-### 🔸 **Juju 2.9.14** - 14 Sept 2021
+### 🔸 **Juju 2.9.14**
+🗓️ 14 Sep 2021
 
 This release fixes an upgrade issue found during testing of the 2.9.13 release.
 There's also an additional fix for an earlier regression deploying LXD containers on AWS.
@@ -1330,7 +1438,8 @@ This release adds support for pulling images used for CAAS models from private O
 - Juju is unable to match machine address CIDRs to subnet CIDRs on Equinix Metal clouds ([LP](https://bugs.launchpad.net/bugs/1942241))
 - Non POSIX-compatible script used in `/etc/profile.d/juju-introspection.sh` ([LP](https://bugs.launchpad.net/bugs/1942430))
 
-### 🔸 **Juju 2.9.12** - 30 Aug 2021
+### 🔸 **Juju 2.9.12**
+🗓️ 30 Aug 2021
 
 🛠️ Fixes:
 
@@ -1341,7 +1450,8 @@ This release adds support for pulling images used for CAAS models from private O
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.12).
 
-### 🔸 **Juju 2.9.11** - 17 Aug 2021
+### 🔸 **Juju 2.9.11**
+🗓️ 17 Aug 2021
 
 🛠️ Fixes:
 
@@ -1351,7 +1461,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.11).
 
-### 🔸 **Juju 2.9.10** - 03 Aug 2021
+### 🔸 **Juju 2.9.10**
+🗓️ 3 Aug 2021
 
 A new logging label: `charmhub`. To enable debugging information about Charmhub, you can now use the following:
 
@@ -1369,7 +1480,8 @@ juju model-config -m controller "logging-config='#charmhub=TRACE'"
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.10).
 
-### 🔸 **Juju 2.9.9** - 19 Jul 2021
+### 🔸 **Juju 2.9.9**
+🗓️ 19 Jul 2021
 
 🛠️ Fixes:
 
@@ -1380,7 +1492,8 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.9).
 
-### 🔸 **Juju 2.9.8** - 13 Jul 2021
+### 🔸 **Juju 2.9.8**
+🗓️ 13 Jul 2021
 
 This release introduces support for bootstrapping and deploying workloads to **[Equinix](https://www.equinix.com) cloud**. To try out the new provider:
 
@@ -1409,7 +1522,8 @@ The above will turn on HTTP loggers to trace. This is a new UX feature to help w
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.8).
 
-### 🔸 **Juju 2.9.7** - 06 Jul 2021
+### 🔸 **Juju 2.9.7**
+🗓️ 6 Jul 2021
 
 🛠️ Fixes:
 
