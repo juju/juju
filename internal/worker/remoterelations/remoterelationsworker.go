@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -33,7 +34,9 @@ type remoteRelationsWorker struct {
 	applicationToken    string
 	relationsWatcher    watcher.RelationStatusWatcher
 	changes             chan<- RelationUnitChangeEvent
-	logger              logger.Logger
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 func newRemoteRelationsWorker(
@@ -42,14 +45,16 @@ func newRemoteRelationsWorker(
 	remoteRelationToken string,
 	relationsWatcher watcher.RelationStatusWatcher,
 	changes chan<- RelationUnitChangeEvent,
+	clock clock.Clock,
 	logger logger.Logger,
-) (*remoteRelationsWorker, error) {
+) (ReportableWorker, error) {
 	w := &remoteRelationsWorker{
 		relationsWatcher:    relationsWatcher,
 		relationTag:         relationTag,
 		remoteRelationToken: remoteRelationToken,
 		applicationToken:    applicationToken,
 		changes:             changes,
+		clock:               clock,
 		logger:              logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -93,12 +98,13 @@ func (w *remoteRelationsWorker) loop() error {
 				w.logger.Warningf(ctx, "relation status watcher event with no changes")
 				continue
 			}
+
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
 			w.logger.Debugf(ctx, "relation status changed for %v: %v", w.relationTag, change)
+
 			suspended := change.Suspended
-			w.mu.Lock()
-			w.mostRecentEvent = RelationUnitChangeEvent{
+			event := RelationUnitChangeEvent{
 				Tag: w.relationTag,
 				RemoteRelationChangeEvent: params.RemoteRelationChangeEvent{
 					RelationToken:           w.remoteRelationToken,
@@ -108,9 +114,12 @@ func (w *remoteRelationsWorker) loop() error {
 					SuspendedReason:         change.SuspendedReason,
 				},
 			}
-			w.changeSince = time.Now()
-			event := w.mostRecentEvent
+
+			w.mu.Lock()
+			w.changeSince = w.clock.Now()
+			w.mostRecentEvent = event
 			w.mu.Unlock()
+
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()

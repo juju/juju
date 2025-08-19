@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations_test
+package remoterelations
 
 import (
 	"context"
@@ -390,7 +390,7 @@ func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(_ context.Contex
 
 type mockWatcher struct {
 	testhelpers.Stub
-	tomb.Tomb
+	tomb       tomb.Tomb
 	mu         sync.Mutex
 	terminated bool
 }
@@ -403,10 +403,14 @@ func (w *mockWatcher) killed() bool {
 
 func (w *mockWatcher) Kill() {
 	w.MethodCall(w, "Kill")
-	w.Tomb.Kill(nil)
+	w.tomb.Kill(nil)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.terminated = true
+}
+
+func (w *mockWatcher) Wait() error {
+	return w.tomb.Wait()
 }
 
 func (w *mockWatcher) Stop() error {
@@ -414,8 +418,8 @@ func (w *mockWatcher) Stop() error {
 	if err := w.NextErr(); err != nil {
 		return err
 	}
-	w.Tomb.Kill(nil)
-	return w.Tomb.Wait()
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
 }
 
 type mockStringsWatcher struct {
@@ -425,8 +429,8 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 5)}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
 		return nil
 	})
 	return w
@@ -446,8 +450,8 @@ func newMockSecretsRevisionWatcher() *mockSecretsRevisionWatcher {
 	w := &mockSecretsRevisionWatcher{
 		changes: make(chan []watcher.SecretRevisionChange, 1),
 	}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
 		return nil
 	})
 	return w
@@ -479,15 +483,15 @@ func newMockRemoteRelationWatcher() *mockRemoteRelationWatcher {
 	w := &mockRemoteRelationWatcher{
 		changes: make(chan params.RemoteRelationChangeEvent, 1),
 	}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
 		return nil
 	})
 	return w
 }
 
 func (w *mockRemoteRelationWatcher) kill(err error) {
-	w.Tomb.Kill(err)
+	w.tomb.Kill(err)
 }
 
 func (w *mockRemoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
@@ -504,8 +508,8 @@ func newMockRelationStatusWatcher() *mockRelationStatusWatcher {
 	w := &mockRelationStatusWatcher{
 		changes: make(chan []watcher.RelationStatusChange, 1),
 	}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
 		return nil
 	})
 	return w
@@ -525,8 +529,8 @@ func newMockOfferStatusWatcher() *mockOfferStatusWatcher {
 	w := &mockOfferStatusWatcher{
 		changes: make(chan []watcher.OfferStatusChange, 1),
 	}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
 		return nil
 	})
 	return w

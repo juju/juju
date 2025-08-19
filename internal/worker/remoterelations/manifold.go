@@ -28,6 +28,7 @@ type ManifoldConfig struct {
 	NewRemoteRelationsFacade func(base.APICaller) RemoteRelationsFacade
 	NewWorker                func(Config) (worker.Worker, error)
 	Logger                   logger.Logger
+	Clock                    clock.Clock
 }
 
 // Validate is called by start to check for bad configuration.
@@ -49,6 +50,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -72,7 +76,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          config.NewRemoteRelationsFacade(apiConn),
 		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
-		Clock:                    clock.WallClock,
+		Clock:                    config.Clock,
 		Logger:                   config.Logger,
 	})
 	if err != nil {

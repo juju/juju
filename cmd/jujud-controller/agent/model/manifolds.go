@@ -283,6 +283,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewControllerConnection:  apicaller.NewExternalControllerConnection,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
+			Clock:                    config.Clock,
 			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
 		})),
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
