@@ -5,19 +5,19 @@ package lxd
 
 import (
 	"fmt"
-	lxdapi "github.com/canonical/lxd/shared/api"
-	"github.com/juju/collections/set"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"os"
 	"path"
 	"strings"
 
+	lxdapi "github.com/canonical/lxd/shared/api"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/lxdprofile"
 	jujupaths "github.com/juju/juju/core/paths"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 // ReadLegacyCloudCredentials reads cloud credentials off disk for an old
@@ -143,9 +143,9 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 					},
 					Name: newProfileName,
 				}); err != nil {
-					return errors.Annotatef(err, "create a new profile %q", newProfiles)
+					return errors.Annotatef(err, "create a new profile %q", newProfileName)
 				}
-				logger.Debugf("created new charm profile %q for model %q", newProfiles, c.env.uuid)
+				logger.Debugf("created new charm profile %q for model %q", newProfileName, c.env.uuid)
 			}
 
 			// We still append the new profile even if they have been created / exists
@@ -156,6 +156,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 			newProfiles = append(newProfiles, newProfileName)
 		}
 
+		// Add the model profile.
 		newProfiles = append(newProfiles, c.env.profileName())
 		profilesToAttach = append(profilesToAttach, profileAndInstance{
 			profiles: newProfiles,
@@ -171,9 +172,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 		}
 
 		currentProfilesSet := set.NewStrings(currentProfiles...)
-		newProfilesSet := set.NewStrings(attach.profiles...)
-		// Grab the new currentProfiles that has not been attached to the container.
-		toAttachSet := newProfilesSet.Difference(currentProfilesSet)
+		toAttachSet := set.NewStrings(attach.profiles...)
 
 		// This may happen if on a previous run, the upgrade step has attached the new profiles
 		// but crashed and retries. It is safe to skip it.
@@ -181,7 +180,10 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 			continue
 		}
 		toAttachSet.Add("default")
-		toAttach := toAttachSet.Values()
+		// So that it's deterministic. It makes it easier to assert the sorted values in unit tests.
+		toAttach := toAttachSet.SortedValues()
+		// It's safe for the API to re-attach profiles that are already attached.
+		// So there is no need to exclude profiles that are already attached.
 		err = server.UpdateContainerProfiles(attach.instance, toAttach)
 		if err != nil {
 			return errors.Annotatef(err, "updating instance %q with profiles %+v", attach.instance, toAttach)
@@ -189,7 +191,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 		logger.Debugf("attached profiles %v to instance %q in model %q", toAttach, attach.instance, c.env.uuid)
 
 		// Delete old profiles except "default".
-		profilesToDelete := currentProfilesSet.Difference(newProfilesSet)
+		profilesToDelete := currentProfilesSet.Difference(toAttachSet)
 		for _, oldProfile := range profilesToDelete.Values() {
 			if oldProfile != "default" && strings.HasPrefix(oldProfile, prefix) {
 				logger.Debugf("deleting profile %q in model %q", oldProfile, c.env.uuid)
