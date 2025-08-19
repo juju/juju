@@ -371,6 +371,41 @@ WHERE  uuid = $unitUUID.uuid`, input)
 	return true, nil
 }
 
+func (st *State) getStorageInstanceUUIDByStorageID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageIDStr string,
+) (string, error) {
+
+	var (
+		idInput = storageID{ID: storageIDStr}
+		dbVal   storageInstanceUUID
+	)
+	uuidQuery, err := st.Prepare(`
+SELECT &storageInstanceUUID.*
+FROM   storage_instance
+WHERE  storage_id = $storageID.storage_id
+`,
+		idInput, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, uuidQuery, idInput).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf(
+			"storage instance for storage id %q does not exist", storageIDStr,
+		).Add(storageprovisioningerrors.StorageInstanceNotFound)
+	}
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return dbVal.UUID, nil
+}
+
 func (st *State) checkStorageInstanceExists(
 	ctx context.Context,
 	tx *sqlair.TX,
