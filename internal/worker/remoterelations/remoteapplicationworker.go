@@ -82,9 +82,10 @@ type relation struct {
 	localDead      bool
 	suspended      bool
 	localUnitCount int
-	localRuw       ReportableWorker
-	remoteRuw      ReportableWorker
-	remoteRrw      ReportableWorker
+
+	localUnitWorker      ReportableWorker
+	remoteUnitWorker     ReportableWorker
+	remoteRelationWorker ReportableWorker
 
 	applicationToken   string // token for app in local model
 	relationToken      string // token for relation in local model
@@ -389,17 +390,17 @@ func (w *remoteApplicationWorker) processRelationSuspended(ctx context.Context, 
 		delete(relations, key)
 	}
 
-	if relation.localRuw != nil {
-		if err := worker.Stop(relation.localRuw); err != nil {
+	if relation.localUnitWorker != nil {
+		if err := worker.Stop(relation.localUnitWorker); err != nil {
 			w.logger.Warningf(ctx, "stopping local relation unit worker for %v: %v", key, err)
 		}
-		relation.localRuw = nil
+		relation.localUnitWorker = nil
 	}
-	if relation.remoteRuw != nil {
-		if err := worker.Stop(relation.remoteRuw); err != nil {
+	if relation.remoteUnitWorker != nil {
+		if err := worker.Stop(relation.remoteUnitWorker); err != nil {
 			w.logger.Warningf(ctx, "stopping remote relation unit worker for %v: %v", key, err)
 		}
-		relation.remoteRuw = nil
+		relation.remoteUnitWorker = nil
 	}
 	return nil
 }
@@ -414,11 +415,11 @@ func (w *remoteApplicationWorker) processLocalRelationRemoved(ctx context.Contex
 	}
 
 	// Stop the worker which watches remote status/life.
-	if relation.remoteRrw != nil {
-		if err := worker.Stop(relation.remoteRrw); err != nil {
+	if relation.remoteRelationWorker != nil {
+		if err := worker.Stop(relation.remoteRelationWorker); err != nil {
 			w.logger.Warningf(ctx, "stopping remote relations worker for %v: %v", key, err)
 		}
-		relation.remoteRrw = nil
+		relation.remoteRelationWorker = nil
 		relations[key] = relation
 	}
 
@@ -468,17 +469,17 @@ func (w *remoteApplicationWorker) terminateLocalRelation(ctx context.Context, ke
 
 	// For the unit watchers, check to see if these are nil before stopping.
 	// They will be nil if the relation was suspended and then we kill it for real.
-	if relation.localRuw != nil {
-		if err := worker.Stop(relation.localRuw); err != nil {
+	if relation.localUnitWorker != nil {
+		if err := worker.Stop(relation.localUnitWorker); err != nil {
 			w.logger.Warningf(ctx, "stopping local relation unit worker for %v: %v", key, err)
 		}
-		relation.localRuw = nil
+		relation.localUnitWorker = nil
 	}
-	if relation.remoteRuw != nil {
-		if err := worker.Stop(relation.remoteRuw); err != nil {
+	if relation.remoteUnitWorker != nil {
+		if err := worker.Stop(relation.remoteUnitWorker); err != nil {
 			w.logger.Warningf(ctx, "stopping remote relation unit worker for %v: %v", key, err)
 		}
-		relation.remoteRuw = nil
+		relation.remoteUnitWorker = nil
 	}
 
 	w.logger.Debugf(ctx, "local relation %v removed from local model", key)
@@ -641,20 +642,20 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 			return errors.Trace(err)
 		}
 		r = &relation{
-			relationId:         remoteRelation.Id,
-			suspended:          remoteRelation.Suspended,
-			localUnitCount:     remoteRelation.UnitCount,
-			remoteRrw:          remoteRelationsWorker,
-			macaroon:           mac,
-			localEndpoint:      remoteRelation.Endpoint,
-			remoteEndpointName: remoteRelation.RemoteEndpointName,
-			applicationToken:   applicationToken,
-			relationToken:      relationToken,
+			relationId:           remoteRelation.Id,
+			suspended:            remoteRelation.Suspended,
+			localUnitCount:       remoteRelation.UnitCount,
+			remoteRelationWorker: remoteRelationsWorker,
+			macaroon:             mac,
+			localEndpoint:        remoteRelation.Endpoint,
+			remoteEndpointName:   remoteRelation.RemoteEndpointName,
+			applicationToken:     applicationToken,
+			relationToken:        relationToken,
 		}
 		w.relations[key] = r
 	}
 
-	if r.localRuw == nil && !remoteRelation.Suspended {
+	if r.localUnitWorker == nil && !remoteRelation.Suspended {
 		// Also start the units watchers (local and remote).
 		localUnitsWorker, remoteUnitsWorker, err := w.startUnitsWorkers(
 			ctx,
@@ -663,8 +664,8 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 		if err != nil {
 			return errors.Annotate(err, "starting relation units workers")
 		}
-		r.localRuw = localUnitsWorker
-		r.remoteRuw = remoteUnitsWorker
+		r.localUnitWorker = localUnitsWorker
+		r.remoteUnitWorker = remoteUnitsWorker
 	}
 
 	if w.secretChangesWatcher == nil {
@@ -775,14 +776,14 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 			"local-endpoint":    info.localEndpoint.Name,
 			"remote-endpoint":   info.remoteEndpointName,
 		}
-		if info.remoteRrw != nil {
-			report["last-status-event"] = info.remoteRrw.Report()
+		if info.remoteRelationWorker != nil {
+			report["last-status-event"] = info.remoteRelationWorker.Report()
 		}
-		if info.localRuw != nil {
-			report["last-local-change"] = info.localRuw.Report()
+		if info.localUnitWorker != nil {
+			report["last-local-change"] = info.localUnitWorker.Report()
 		}
-		if info.remoteRuw != nil {
-			report["last-remote-change"] = info.remoteRuw.Report()
+		if info.remoteUnitWorker != nil {
+			report["last-remote-change"] = info.remoteUnitWorker.Report()
 		}
 		relationsInfo[rel] = report
 	}
