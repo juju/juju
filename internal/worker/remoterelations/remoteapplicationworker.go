@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -64,11 +65,13 @@ type remoteApplicationWorker struct {
 
 	// localModelFacade interacts with the local (consuming) model.
 	localModelFacade RemoteRelationsFacade
+
 	// remoteModelFacade interacts with the remote (offering) model.
 	remoteModelFacade RemoteModelRelationsFacadeCloser
 
 	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc
 
+	clock  clock.Clock
 	logger logger.Logger
 }
 
@@ -81,7 +84,7 @@ type relation struct {
 	localUnitCount int
 	localRuw       ReportableWorker
 	remoteRuw      ReportableWorker
-	remoteRrw      *remoteRelationsWorker
+	remoteRrw      ReportableWorker
 
 	applicationToken   string // token for app in local model
 	relationToken      string // token for relation in local model
@@ -236,6 +239,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					return errors.Annotatef(err, "handling change for relation %q", key)
 				}
 			}
+
 		case change := <-w.localRelationUnitChanges:
 			w.logger.Debugf(ctx, "local relation units changed -> publishing: %#v", &change)
 			// TODO(babbageclunk): add macaroons to event here instead
@@ -249,19 +253,13 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				return errors.Annotatef(err, "publishing relation change %#v to remote model %v", &change, w.remoteModelUUID)
 			}
 
-			// TODO(juju4) - remove
-			// UnitCount has had omitempty removed, but we need to account for older controllers.
-			zero := 0
-			unitCount := change.UnitCount
-			if unitCount == nil {
-				unitCount = &zero
-			}
-
-			if err := w.localRelationChanged(ctx, change.Tag.Id(), unitCount); err != nil {
+			if err := w.localRelationChanged(ctx, change.Tag.Id(), ptr(change.UnitCount)); err != nil {
 				return errors.Annotatef(err, "processing local relation change for %v", change.Tag.Id())
 			}
+
 		case change := <-w.remoteRelationUnitChanges:
 			w.logger.Debugf(ctx, "remote relation units changed -> consuming: %#v", &change)
+
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
@@ -269,6 +267,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				}
 				return errors.Annotatef(err, "consuming relation change %#v from remote model %v", &change, w.remoteModelUUID)
 			}
+
 		case changes := <-offerStatusChanges:
 			w.logger.Debugf(ctx, "offer status changed: %#v", changes)
 			for _, change := range changes {
@@ -285,6 +284,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					break
 				}
 			}
+
 		case changes := <-w.secretChanges:
 			err := w.localModelFacade.ConsumeRemoteSecretChanges(ctx, changes)
 			if err != nil {
@@ -556,6 +556,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		relationTag,
 		mac,
 		w.localRelationUnitChanges,
+		w.clock,
 		w.logger,
 	)
 	if err != nil {
@@ -572,6 +573,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		mac,
 		relationToken, remoteAppToken, applicationName,
 		w.remoteRelationUnitChanges,
+		w.clock,
 		w.logger,
 	)
 	if err != nil {
@@ -629,6 +631,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 			relationToken,
 			remoteRelationsWatcher,
 			w.remoteRelationUnitChanges,
+			w.clock,
 			w.logger,
 		)
 		if err != nil {
@@ -800,4 +803,8 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 
 func (w *remoteApplicationWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

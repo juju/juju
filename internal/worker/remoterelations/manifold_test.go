@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -38,6 +39,7 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewControllerConnection:  func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) RemoteRelationsFacade { return nil },
 		NewWorker:                func(Config) (worker.Worker, error) { return nil, nil },
+		Clock:                    clock.WallClock,
 		Logger:                   loggertesting.WrapCheckLog(c),
 	}
 }
@@ -69,6 +71,11 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *tc.C) {
 	s.config.NewControllerConnection = nil
 	s.checkNotValid(c, "nil NewControllerConnection not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingClock(c *tc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingLogger(c *tc.C) {

@@ -366,7 +366,7 @@ type RemoteRelationChangeEvent struct {
 	ForceCleanup *bool `json:"force-cleanup,omitempty"`
 
 	// UnitCount is the number of units still in relation scope.
-	UnitCount *int `json:"unit-count"`
+	UnitCount int `json:"unit-count"`
 
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`

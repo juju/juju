@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -45,18 +46,20 @@ const (
 type relationUnitsWorker struct {
 	catacomb catacomb.Catacomb
 
-	mu sync.Mutex
+	mode Mode
 
 	// mostRecentChange is stored here for the engine report.
+	mu               sync.Mutex
 	mostRecentChange RelationUnitChangeEvent
 	changeSince      time.Time
 
 	relationTag names.RelationTag
 	watcher     watcher.RemoteRelationWatcher
 	changes     chan<- RelationUnitChangeEvent
-	macaroon    *macaroon.Macaroon
-	mode        Mode
 
+	mapEvent func(RelationUnitChangeEvent) RelationUnitChangeEvent
+
+	clock  clock.Clock
 	logger logger.Logger
 }
 
@@ -66,6 +69,7 @@ func newLocalRelationUnitsWorker(
 	relationTag names.RelationTag,
 	mac *macaroon.Macaroon,
 	changes chan<- RelationUnitChangeEvent,
+	clock clock.Clock,
 	logger logger.Logger,
 ) (ReportableWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the
@@ -76,12 +80,17 @@ func newLocalRelationUnitsWorker(
 	}
 
 	w := &relationUnitsWorker{
+		mode:        ModeLocal,
 		relationTag: relationTag,
-		macaroon:    mac,
 		watcher:     watcher,
 		changes:     changes,
-		logger:      logger,
-		mode:        ModeLocal,
+		mapEvent: func(event RelationUnitChangeEvent) RelationUnitChangeEvent {
+			event.Macaroons = macaroon.Slice{mac}
+			event.BakeryVersion = bakery.LatestVersion
+			return event
+		},
+		clock:  clock,
+		logger: logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "relation-units",
@@ -102,6 +111,7 @@ func newRemoteRelationUnitsWorker(
 	relationToken, remoteAppToken string,
 	applicationName string,
 	changes chan<- RelationUnitChangeEvent,
+	clock clock.Clock,
 	logger logger.Logger,
 ) (ReportableWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the
@@ -117,10 +127,11 @@ func newRemoteRelationUnitsWorker(
 
 	w := &relationUnitsWorker{
 		relationTag: relationTag,
-		macaroon:    mac,
 		watcher:     watcher,
 		changes:     changes,
+		clock:       clock,
 		logger:      logger,
+		mapEvent:    identityMap,
 		mode:        ModeRemote,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -170,21 +181,14 @@ func (w *relationUnitsWorker) loop() error {
 
 			w.logger.Debugf(ctx, "%v relation units changed for %v: %#v", w.mode, w.relationTag, &change)
 
-			// Add macaroon in case this event is sent to a remote
-			// facade.
-
-			// TODO(babbageclunk): move this so it happens just before
-			// the event is published to the remote facade.
-			change.Macaroons = macaroon.Slice{w.macaroon}
-			change.BakeryVersion = bakery.LatestVersion
-
-			w.mu.Lock()
-			w.mostRecentChange = RelationUnitChangeEvent{
+			event := w.mapEvent(RelationUnitChangeEvent{
 				Tag:                       w.relationTag,
 				RemoteRelationChangeEvent: change,
-			}
-			w.changeSince = time.Now()
-			event := w.mostRecentChange
+			})
+
+			w.mu.Lock()
+			w.mostRecentChange = event
+			w.changeSince = w.clock.Now()
 			w.mu.Unlock()
 
 			// Send in lockstep so we don't drop events.
@@ -195,10 +199,6 @@ func (w *relationUnitsWorker) loop() error {
 			}
 		}
 	}
-}
-
-func isEmpty(change params.RemoteRelationChangeEvent) bool {
-	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
 }
 
 // Report provides information for the engine report.
@@ -219,4 +219,12 @@ func (w *relationUnitsWorker) Report() map[string]any {
 	}
 
 	return result
+}
+
+func isEmpty(change params.RemoteRelationChangeEvent) bool {
+	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
+}
+
+func identityMap(event RelationUnitChangeEvent) RelationUnitChangeEvent {
+	return event
 }

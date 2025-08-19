@@ -69,6 +69,7 @@ type RemoteModelRelationsFacade interface {
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
+// This is the local model's view of the remote relations API.
 type RemoteRelationsFacade interface {
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
@@ -314,6 +315,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 				remoteRelationUnitChanges:         make(chan RelationUnitChangeEvent),
 				localModelFacade:                  w.config.RelationsFacade,
 				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
+				clock:                             w.config.Clock,
 				logger:                            logger,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{

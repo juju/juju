@@ -41,7 +41,7 @@ type remoteRelationsSuite struct {
 	testhelpers.IsolationSuite
 
 	remoteControllerInfo  *api.Info
-	relationsFacade       *mockRelationsFacade
+	localRelationsFacade  *mockRelationsFacade
 	remoteRelationsFacade *mockRemoteRelationsFacade
 	config                Config
 	stub                  *testhelpers.Stub
@@ -56,14 +56,14 @@ func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.stub = new(testhelpers.Stub)
-	s.relationsFacade = newMockRelationsFacade(s.stub)
+	s.localRelationsFacade = newMockRelationsFacade(s.stub)
 	s.remoteRelationsFacade = newMockRemoteRelationsFacade(s.stub)
 
 	clk := testclock.NewClock(time.Time{})
 
 	s.config = Config{
 		ModelUUID:       "local-model-uuid",
-		RelationsFacade: s.relationsFacade,
+		RelationsFacade: s.localRelationsFacade,
 		NewRemoteModelFacadeFunc: func(context.Context, *api.Info) (RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
@@ -73,10 +73,14 @@ func (s *remoteRelationsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) waitForWorkerStubCalls(c *tc.C, expected []testhelpers.StubCall) {
+	c.Helper()
+
 	waitForStubCalls(c, s.stub, expected)
 }
 
 func waitForStubCalls(c *tc.C, stub *testhelpers.Stub, expected []testhelpers.StubCall) {
+	c.Helper()
+
 	var calls []testhelpers.StubCall
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		calls = stub.Calls()
@@ -90,9 +94,9 @@ func waitForStubCalls(c *tc.C, stub *testhelpers.Stub, expected []testhelpers.St
 func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Worker {
 	// Checks that the main worker loop responds to remote application events
 	// by starting relevant relation watchers.
-	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
-	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	s.localRelationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
+	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -104,7 +108,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 
 	mac, err := testing.NewMacaroon("test")
 	c.Assert(err, tc.ErrorIsNil)
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
 	expected = []testhelpers.StubCall{
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"db2"}}},
 		{FuncName: "WatchRemoteApplicationRelations", Args: []interface{}{"db2"}},
@@ -114,7 +118,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected = []testhelpers.StubCall{
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
 		{FuncName: "WatchRemoteApplicationRelations", Args: []interface{}{"mysql"}},
@@ -126,7 +130,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 
 	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
-		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
+		w, ok := s.localRelationsFacade.remoteApplicationRelationsWatcher(app)
 		c.Check(ok, tc.IsTrue)
 		waitForStubCalls(c, &w.Stub, []testhelpers.StubCall{
 			{FuncName: "Changes", Args: nil},
@@ -142,7 +146,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *tc.C) {
 	// Check that relation watchers are stopped with the worker.
 	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
-		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
+		w, ok := s.localRelationsFacade.remoteApplicationRelationsWatcher(app)
 		c.Check(ok, tc.IsTrue)
 		c.Check(w.killed(), tc.IsTrue)
 	}
@@ -153,14 +157,14 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *tc.C) {
 		return nil, errors.New("boom")
 	}
 
-	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected := []testhelpers.StubCall{
 		{FuncName: "WatchRemoteApplications", Args: nil},
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
@@ -194,8 +198,8 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *tc.C) {
 		return s.remoteRelationsFacade, nil
 	}
 
-	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -204,7 +208,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *tc.C) {
 	mac, err := testing.NewMacaroon("test")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected := []testhelpers.StubCall{
 		{FuncName: "WatchRemoteApplications", Args: nil},
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
@@ -248,14 +252,14 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 		return s.remoteRelationsFacade, nil
 	}
 
-	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	expected := []testhelpers.StubCall{
 		{FuncName: "WatchRemoteApplications", Args: nil},
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
@@ -289,10 +293,10 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *tc.C) {
 	appWorker, err := w.(*Worker).runner.Worker("mysql", c.Context().Done())
 	c.Assert(err, tc.ErrorIsNil)
 
-	relWatcher, _ := s.relationsFacade.removeApplication("mysql")
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	relWatcher, _ := s.localRelationsFacade.removeApplication("mysql")
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.remoteApplicationRelationsWatcher("mysql")
+		_, ok := s.localRelationsFacade.remoteApplicationRelationsWatcher("mysql")
 		if !ok {
 			break
 		}
@@ -317,10 +321,10 @@ func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *tc.C) {
 	appWorker, err := w.(*Worker).runner.Worker("mysql", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
+	relWatcher, ok := s.localRelationsFacade.remoteApplicationRelationsWatchers["mysql"]
 	c.Assert(ok, tc.IsTrue)
-	s.relationsFacade.remoteApplications["mysql"].status = status.Terminated
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplications["mysql"].status = status.Terminated
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 
 	expected := []testhelpers.StubCall{
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
@@ -343,13 +347,13 @@ func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
 	oldAppWorker, err := w.(*Worker).runner.Worker("mysql", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
+	relWatcher, ok := s.localRelationsFacade.remoteApplicationRelationsWatchers["mysql"]
 	c.Assert(ok, tc.IsTrue)
 	mac, err := testing.NewMacaroon("test")
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.relationsFacade.remoteApplications["mysql"].offeruuid = "different-uuid"
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	s.localRelationsFacade.remoteApplications["mysql"].offeruuid = "different-uuid"
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 
 	expected := []testhelpers.StubCall{
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"mysql"}}},
@@ -366,9 +370,9 @@ func (s *remoteRelationsSuite) TestRemoteApplicationOfferChanged(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
-	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
-	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	s.localRelationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
+	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -384,7 +388,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
 
 	mac, err := testing.NewMacaroon("test")
 	c.Assert(err, tc.ErrorIsNil)
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
 	expected = []testhelpers.StubCall{
 		{FuncName: "RemoteApplications", Args: []interface{}{[]string{"db2"}}},
 		{FuncName: "WatchRemoteApplicationRelations", Args: []interface{}{"db2"}},
@@ -437,14 +441,14 @@ func (s *remoteRelationsSuite) TestOfferStatusTerminatedStopsWatcher(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *tc.C) {
-	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	s.localRelationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
 
 	s.stub.ResetCalls()
 	s.stub.SetErrors(nil, nil, params.Error{Code: params.CodeNotFound})
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -454,7 +458,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *tc.C) {
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
@@ -489,7 +493,7 @@ func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *tc.C) {
 
 	s.stub.ResetCalls()
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -499,7 +503,7 @@ func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *tc.C) {
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected := []testhelpers.StubCall{
@@ -512,11 +516,11 @@ func (s *remoteRelationsSuite) TestRemoteWatcherNotFoundError(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Worker {
-	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	s.localRelationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	s.stub.ResetCalls()
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -526,7 +530,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Work
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
@@ -562,7 +566,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *tc.C) worker.Work
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
-	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	changeWatcher, ok := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []testhelpers.StubCall{
 		{FuncName: "Changes", Args: nil},
@@ -585,7 +589,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *tc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check that relation unit watchers are stopped with the worker.
-	relWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
+	relWatcher, ok := s.localRelationsFacade.remoteRelationWatchers["db2:db django:db"]
 	c.Check(ok, tc.IsTrue)
 	c.Check(relWatcher.killed(), tc.IsTrue)
 
@@ -598,7 +602,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
 	// The consume permission is revoked after an offer is consumed.
 	// Subsequent api calls against that offer will fail and record an
 	// error in the local model.
-	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	s.localRelationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -607,7 +611,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
 		Message: "message",
 	})
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -617,7 +621,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *tc.C) {
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
@@ -655,11 +659,11 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", life.Dying)
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	unitsWatcher, _ := s.localRelationsFacade.updateRelationLife("db2:db django:db", life.Dying)
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+		_, ok := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 		if ok {
 			continue
 		}
@@ -715,17 +719,13 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 }
 
-func intPtr(i int) *int {
-	return &i
-}
-
 func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	// Checks that when a remote relation goes away the relation units worker is killed.
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher, _ := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		RelationToken:           "token-db2:db django:db",
 		ApplicationOrOfferToken: "token-django",
@@ -736,7 +736,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 			UnitId:   2,
 			Settings: map[string]interface{}{"foo": "baz"},
 		}},
-		UnitCount: intPtr(2),
+		UnitCount: 2,
 	}
 
 	mac, err := testing.NewMacaroon("apimac")
@@ -753,7 +753,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 					UnitId:   2,
 					Settings: map[string]interface{}{"foo": "baz"},
 				}},
-				UnitCount:     intPtr(2),
+				UnitCount:     2,
 				Macaroons:     macaroon.Slice{mac},
 				BakeryVersion: bakery.LatestVersion,
 			},
@@ -762,12 +762,12 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ = s.relationsFacade.removeRelation("db2:db django:db")
+	unitsWatcher, _ = s.localRelationsFacade.removeRelation("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		RelationToken:           "token-db2:db django:db",
 		ApplicationOrOfferToken: "token-django",
 		DepartedUnits:           []int{1},
-		UnitCount:               intPtr(1),
+		UnitCount:               1,
 	}
 
 	expected = []testhelpers.StubCall{
@@ -776,7 +776,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 				ApplicationOrOfferToken: "token-django",
 				RelationToken:           "token-db2:db django:db",
 				DepartedUnits:           []int{1},
-				UnitCount:               intPtr(1),
+				UnitCount:               1,
 				Macaroons:               macaroon.Slice{mac},
 				BakeryVersion:           bakery.LatestVersion,
 			},
@@ -786,12 +786,12 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	s.stub.ResetCalls()
 
 	// Remove relation before we receive the final unit change event.
-	unitsWatcher, _ = s.relationsFacade.removeRelation("db2:db django:db")
+	unitsWatcher, _ = s.localRelationsFacade.removeRelation("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		RelationToken:           "token-db2:db django:db",
 		ApplicationOrOfferToken: "token-django",
 		DepartedUnits:           []int{2},
-		UnitCount:               intPtr(0),
+		UnitCount:               0,
 	}
 
 	expected = []testhelpers.StubCall{
@@ -800,7 +800,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 				ApplicationOrOfferToken: "token-django",
 				RelationToken:           "token-db2:db django:db",
 				DepartedUnits:           []int{2},
-				UnitCount:               intPtr(0),
+				UnitCount:               0,
 				Macaroons:               macaroon.Slice{mac},
 				BakeryVersion:           bakery.LatestVersion,
 			},
@@ -809,10 +809,10 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+		_, ok := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 		if !ok {
 			break
 		}
@@ -834,7 +834,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher, _ := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		RelationToken:           "token-db2:db django:db",
 		ApplicationOrOfferToken: "token-django",
@@ -872,7 +872,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *tc.C) {
 
 	s.stub.SetErrors(params.Error{Code: params.CodeNotFound})
 
-	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher, _ := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		ApplicationOrOfferToken: "token-django",
 		RelationToken:           "token-db2:db django:db",
@@ -919,8 +919,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *tc.C) {
 		DepartedUnits: []int{2},
 	}
 
-	mac, err := testing.NewMacaroon("apimac")
-	c.Assert(err, tc.ErrorIsNil)
 	expected := []testhelpers.StubCall{
 		{FuncName: "ConsumeRemoteRelationChange", Args: []interface{}{
 			params.RemoteRelationChangeEvent{
@@ -931,8 +929,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *tc.C) {
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
-				Macaroons:     macaroon.Slice{mac},
-				BakeryVersion: bakery.LatestVersion,
 			},
 		}},
 	}
@@ -977,7 +973,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying 
 	s.stub.ResetCalls()
 
 	s.stub.SetErrors(errors.New("failed"))
-	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher, _ := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
 		ApplicationOrOfferToken: "token-django",
 		RelationToken:           "token-db2:db django:db",
@@ -1055,7 +1051,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying 
 	// If a relation is dying and there's been an error, when processing resumes
 	// a cleanup is forced on the remote side.
 	if dying {
-		s.relationsFacade.updateRelationLife("db2:db django:db", life.Dying)
+		s.localRelationsFacade.updateRelationLife("db2:db django:db", life.Dying)
 		forceCleanup := true
 		expected = append(expected, testhelpers.StubCall{
 			FuncName: "PublishRelationChange",
@@ -1072,7 +1068,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *tc.C, dying 
 		)
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	// After the worker resumes, normal processing happens.
@@ -1100,13 +1096,13 @@ func (s *remoteRelationsSuite) TestRemoteSecretChangedConsumes(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
-	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	s.localRelationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	w := s.assertRemoteApplicationWorkers(c)
 	s.stub.ResetCalls()
 
 	s.stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errors.NotImplemented)
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -1116,7 +1112,7 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
@@ -1152,7 +1148,7 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
-	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	changeWatcher, ok := s.localRelationsFacade.remoteRelationWatcher("db2:db django:db")
 	c.Check(ok, tc.IsTrue)
 	waitForStubCalls(c, &changeWatcher.Stub, []testhelpers.StubCall{
 		{FuncName: "Changes", Args: nil},
@@ -1171,12 +1167,12 @@ func (s *remoteRelationsSuite) TestRemoteSecretNotImplemented(c *tc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
-	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	s.localRelationsFacade.relations["db2:db django:db"] = newMockRelation(123)
 	db2app := newMockRemoteApplication("db2", "db2url")
 	db2app.registered = true
-	s.relationsFacade.remoteApplications["db2"] = db2app
+	s.localRelationsFacade.remoteApplications["db2"] = db2app
 	applicationNames := []string{"db2"}
-	s.relationsFacade.remoteApplicationsWatcher.changes <- applicationNames
+	s.localRelationsFacade.remoteApplicationsWatcher.changes <- applicationNames
 
 	w, err := New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1190,7 +1186,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+	s.localRelationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
 		localApplicationName: "django",
 		localEndpoint: params.RemoteEndpoint{
 			Name:      "db2",
@@ -1200,7 +1196,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
 		remoteEndpointName: "data",
 	}
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected = []testhelpers.StubCall{
@@ -1215,21 +1211,21 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *tc.C) {
 	s.stub.ResetCalls()
 
 	// First suspend the relation.
-	s.relationsFacade.relations["db2:db django:db"].SetSuspended(true)
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	s.localRelationsFacade.relations["db2:db django:db"].SetSuspended(true)
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected := []testhelpers.StubCall{
 		{FuncName: "Relations", Args: []interface{}{[]string{"db2:db django:db"}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
-	unitsWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
+	unitsWatcher, ok := s.localRelationsFacade.remoteRelationWatchers["db2:db django:db"]
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(unitsWatcher.killed(), tc.IsTrue)
 	s.stub.ResetCalls()
 
 	// Now resume the relation.
-	s.relationsFacade.relations["db2:db django:db"].SetSuspended(false)
+	s.localRelationsFacade.relations["db2:db django:db"].SetSuspended(false)
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := testing.NewMacaroon("test")
@@ -1272,9 +1268,9 @@ func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	s.relationsFacade.relations["db2:db django:db"].life = life.Dying
-	s.relationsFacade.relations["db2:db django:db"].SetSuspended(true)
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	s.localRelationsFacade.relations["db2:db django:db"].life = life.Dying
+	s.localRelationsFacade.relations["db2:db django:db"].SetSuspended(true)
+	relWatcher, _ := s.localRelationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected := []testhelpers.StubCall{
@@ -1282,7 +1278,7 @@ func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *tc.C) {
 	}
 	s.waitForWorkerStubCalls(c, expected)
 	// Suspending a dying relation does not stop workers.
-	unitsWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
+	unitsWatcher, ok := s.localRelationsFacade.remoteRelationWatchers["db2:db django:db"]
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(unitsWatcher.killed(), tc.IsFalse)
 }
