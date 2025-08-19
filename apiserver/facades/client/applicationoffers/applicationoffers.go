@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"regexp/syntax"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/juju/names/v6"
 
@@ -318,13 +320,8 @@ func (api *OffersAPI) applicationOffersFromModel(
 	// Process data.
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
-		offerParams := api.makeOfferParams(model.UUID(modelUUID), appOffer)
+		offerParams := api.makeOfferParams(model.UUID(modelUUID), appOffer, apiUser, apiUserDisplayName)
 
-		offerParams.Users = []params.OfferUserDetails{{
-			UserName:    apiUser.Id(),
-			DisplayName: apiUserDisplayName,
-			Access:      permission.AdminAccess.String(),
-		}}
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -340,14 +337,37 @@ func (api *OffersAPI) applicationOffersFromModel(
 
 func (api *OffersAPI) makeOfferParams(
 	modelUUID model.UUID,
-	offer *crossmodelrelation.OfferDetails,
+	offer *crossmodelrelation.OfferDetail,
+	apiUser names.UserTag,
+	apiUserDisplayName string,
 ) *params.ApplicationOfferDetailsV5 {
-
+	if offer == nil {
+		return nil
+	}
 	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,
+	}
+
+	var apiUserFound bool
+	for _, offerUser := range offer.OfferUsers {
+		if offerUser.Name == apiUser.Id() {
+			apiUserFound = true
+		}
+		result.Users = append(result.Users, params.OfferUserDetails{
+			UserName:    offerUser.Name,
+			DisplayName: offerUser.DisplayName,
+			Access:      offerUser.Access.String(),
+		})
+	}
+	if !apiUserFound {
+		result.Users = append(result.Users, params.OfferUserDetails{
+			UserName:    apiUser.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      permission.AdminAccess.String(),
+		})
 	}
 
 	for _, ep := range offer.Endpoints {
@@ -363,8 +383,13 @@ func (api *OffersAPI) makeOfferParams(
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.OfferFilter, error) {
+	offerName, err := resolveOfferName(filter.OfferName)
+	if err != nil {
+		return crossmodelrelation.OfferFilter{}, errors.Errorf("unescaping offer name: %w", err)
+	}
+
 	offerFilter := crossmodelrelation.OfferFilter{
-		OfferName:              filter.OfferName,
+		OfferName:              offerName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
 		Endpoints:              make([]crossmodelrelation.EndpointFilterTerm, len(filter.Endpoints)),
@@ -393,6 +418,22 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.Of
 		offerFilter.ConnectedUsers[i] = u.Id()
 	}
 	return offerFilter, nil
+}
+
+func resolveOfferName(input string) (string, error) {
+	if input == "" {
+		return input, nil
+	}
+	offerName := strings.TrimPrefix(input, "^")
+	offerName = strings.TrimSuffix(offerName, "$")
+	r, err := syntax.Parse(offerName, 0)
+	if err != nil {
+		return "", err
+	}
+	if r.Op != syntax.OpLiteral {
+		return "", errors.New("not a quoted meta")
+	}
+	return string(r.Rune), nil
 }
 
 func (api *OffersAPI) userDisplayName(ctx context.Context, userTag names.UserTag) (string, error) {

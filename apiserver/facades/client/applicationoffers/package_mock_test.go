@@ -287,10 +287,10 @@ func (c *MockCrossModelRelationServiceGetOfferUUIDCall) DoAndReturn(f func(conte
 }
 
 // GetOffers mocks base method.
-func (m *MockCrossModelRelationService) GetOffers(arg0 context.Context, arg1 []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetails, error) {
+func (m *MockCrossModelRelationService) GetOffers(arg0 context.Context, arg1 []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOffers", arg0, arg1)
-	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetails)
+	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetail)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -308,19 +308,19 @@ type MockCrossModelRelationServiceGetOffersCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetOffersCall) Return(arg0 []*crossmodelrelation.OfferDetails, arg1 error) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersCall) Return(arg0 []*crossmodelrelation.OfferDetail, arg1 error) *MockCrossModelRelationServiceGetOffersCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetOffersCall) Do(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetails, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersCall) Do(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetOffersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetails, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
