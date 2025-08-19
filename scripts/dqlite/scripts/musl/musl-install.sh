@@ -4,7 +4,7 @@ set -e
 
 source "$(dirname $0)/../env.sh"
 
-MUSL_VERSION="1.2.4"
+MUSL_VERSION="1.2.5"
 MUSL_PRECOMPILED=${MUSL_PRECOMPILED:-"1"}
 MUSL_CROSS_COMPILE=${MUSL_CROSS_COMPILE:-"1"}
 
