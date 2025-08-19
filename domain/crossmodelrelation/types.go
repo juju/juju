@@ -5,6 +5,7 @@ package crossmodelrelation
 
 import (
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
@@ -75,8 +76,8 @@ type EndpointFilterTerm struct {
 	Role charm.RelationRole
 }
 
-// OfferDetails contains details about an offer.
-type OfferDetails struct {
+// OfferDetail contains details about an offer.
+type OfferDetail struct {
 	// OfferUUID is the UUID of the offer.
 	OfferUUID string
 
@@ -86,16 +87,20 @@ type OfferDetails struct {
 	// ApplicationName is the name of the application.
 	ApplicationName string
 
-	// ApplicationDescription is a description of the application's functionality,
-	// typically copied from the charm metadata.
+	// ApplicationDescription is a description of the application's
+	// functionality, typically copied from the charm metadata.
 	ApplicationDescription string
 
-	// CharmLocator represents the parts of a charm that are needed to locate it
-	// in the same way as a charm URL.
+	// CharmLocator represents the parts of a charm that are needed to
+	// locate it in the same way as a charm URL.
 	CharmLocator charm.CharmLocator
 
 	// Endpoints is a slice of charm endpoints encompassed by this offer.
 	Endpoints []OfferEndpoint
+
+	// AllowedConsumers includes user which have admin or consume access
+	// to the offer.
+	OfferUsers []OfferUser
 
 	// TODO (cmr)
 	// Add []OfferConnections.
@@ -108,4 +113,11 @@ type OfferEndpoint struct {
 	Role      charm.RelationRole
 	Interface string
 	Limit     int
+}
+
+// OfferUser contains details of users with access to the offer.
+type OfferUser struct {
+	Name        string
+	DisplayName string
+	Access      permission.Access
 }

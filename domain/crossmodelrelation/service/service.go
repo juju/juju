@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -29,6 +30,10 @@ type ModelDBState interface {
 		uuid.UUID,
 	) error
 
+	// GetOfferDetails returns the OfferDetail of every offer in the model.
+	// No error is returned if offers are found.
+	GetOfferDetails(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
+
 	// UpdateOffer updates the endpoints of the given offer.
 	UpdateOffer(
 		ctx context.Context,
@@ -46,6 +51,18 @@ type ControllerDBState interface {
 		ctx context.Context,
 		permissionUUID, offerUUID, ownerUUID uuid.UUID,
 	) error
+
+	// GetUsersForOfferUUIDs returns a map of offerUUIDs with a slice of users
+	// whom are allowed to consume the offer. Only offers UUIDs provided are
+	// returned.
+	GetUsersForOfferUUIDs(context.Context, []string) (map[string][]crossmodelrelation.OfferUser, error)
+
+	// GetOfferUUIDsForUsersWithConsume returns offer uuids for any of the given users
+	// whom has consumer access or greater.
+	GetOfferUUIDsForUsersWithConsume(
+		ctx context.Context,
+		userNames []string,
+	) ([]string, error)
 
 	// GetUserUUIDByName returns the UUID of the user provided exists, has not
 	// been removed and is not disabled.
