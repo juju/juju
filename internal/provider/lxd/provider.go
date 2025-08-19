@@ -155,7 +155,6 @@ func (p *environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	logger.Infof("[adis][environprovider][open] cloud: %+v", args.Cloud)
 	env, err := newEnviron(
 		p,
 		args.Cloud,

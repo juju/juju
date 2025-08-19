@@ -270,7 +270,6 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 			Config: cfg,
 		},
 	}
-	logger.Infof("[adis][server][CreateProfileWithConfig] req: %+v", req)
 	return errors.Trace(s.CreateProfile(req))
 }
 

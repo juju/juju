@@ -451,7 +451,6 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 			Devices:     put.Devices,
 		},
 	}
-	logger.Infof("[adis][environ][maybewritelxdprofile] post: %+v", post)
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
@@ -511,9 +510,9 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		return report(errors.Trace(err))
 	}
 
-	logger.Infof("[adis][provider][assignlxdprofiles] deleteprofiles %+v", deleteProfiles)
+	logger.Debugf("profiles to delete  %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
-		logger.Infof("[adis][provider][assignlxdprofiles] deleted profile %q", name)
+		logger.Debugf("deleting profile %q", name)
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", name, err)
