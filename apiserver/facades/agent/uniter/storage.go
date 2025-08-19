@@ -239,10 +239,6 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 		return params.StringsWatchResults{}, err
 	}
 
-	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-
 	one := func(tag string) (watcher.StringsWatcher, error) {
 		unitTag, err := names.ParseUnitTag(tag)
 		if err != nil {
@@ -268,6 +264,9 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 		return w, nil
 	}
 
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
 	for i, entity := range args.Entities {
 		w, err := one(entity.Tag)
 		if err != nil {
@@ -288,17 +287,111 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 // attachments, each of which can be used to watch changes to storage
 // attachment info.
 func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+
+	one := func(id params.StorageAttachmentId) (watcher.NotifyWatcher, error) {
+		unitTag, err := names.ParseUnitTag(id.UnitTag)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit tag %q: %w", id.UnitTag, err)
+		}
+		if !canAccess(unitTag) {
+			return nil, apiservererrors.ErrPerm
+		}
+		storageTag, err := names.ParseStorageTag(id.StorageTag)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing storage tag %q: %w", id.StorageTag, err)
+		}
+
+		handleWatchError := func(err error) error {
+			switch {
+			case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
+				return internalerrors.Errorf(
+					"filesystem attachment not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
+				).Add(errors.NotFound)
+			case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+				return internalerrors.Errorf(
+					"filesystem not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
+				).Add(errors.NotFound)
+			case errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound):
+				return internalerrors.Errorf(
+					"volume attachment not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
+				).Add(errors.NotFound)
+			case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
+				return internalerrors.Errorf(
+					"volume not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
+				).Add(errors.NotFound)
+			case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
+				return internalerrors.Errorf(
+					"storage instance not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
+				).Add(errors.NotFound)
+			default:
+				return err
+			}
+		}
+
+		machineUUID, err := s.applicationService.GetUnitMachineUUID(ctx, coreunit.Name(unitTag.Id()))
+		switch {
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			return nil, internalerrors.Errorf(
+				"unit %q not found: %w", unitTag.Id(), err,
+			).Add(errors.NotFound)
+		case errors.Is(err, applicationerrors.UnitMachineNotAssigned):
+			unitUUID, err := s.getUnitUUID(ctx, unitTag)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+			w, err := s.storageProvisioningService.WatchStorageAttachmentForUnit(ctx, storageTag.Id(), unitUUID)
+			switch {
+			case errors.Is(err, coreerrors.NotValid):
+				return nil, internalerrors.Errorf(
+					"unit UUID %q is not valid: %w", unitUUID, err,
+				).Add(errors.NotValid)
+			case errors.Is(err, applicationerrors.UnitNotFound):
+				return nil, internalerrors.Errorf(
+					"unit %q not found: %w", unitTag.Id(), err,
+				).Add(errors.NotFound)
+			case err != nil:
+				return nil, handleWatchError(err)
+			}
+			return w, nil
+		case err != nil:
+			return nil, internalerrors.Capture(err)
+		}
+
+		w, err := s.storageProvisioningService.WatchStorageAttachmentForMachine(ctx, storageTag.Id(), machineUUID)
+		switch {
+		case errors.Is(err, coreerrors.NotValid):
+			return nil, internalerrors.Errorf(
+				"machine UUID %q is not valid: %w", machineUUID, err,
+			).Add(errors.NotValid)
+		case errors.Is(err, applicationerrors.MachineNotFound):
+			return nil, internalerrors.Errorf(
+				"machine %q not found: %w", machineUUID, err,
+			).Add(errors.NotFound)
+		case err != nil:
+			return nil, handleWatchError(err)
+		}
+		return w, nil
+	}
+
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Ids)),
 	}
-	for i := range args.Ids {
-		var err error
-		results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
-			ctx,
-			s.watcherRegistry,
-			watcher.TODO[struct{}](),
-		)
-		results.Results[i].Error = apiservererrors.ServerError(err)
+	for i, id := range args.Ids {
+		w, err := one(id)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
+			ctx, s.watcherRegistry, w,
+		); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }
