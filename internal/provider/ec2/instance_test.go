@@ -29,7 +29,7 @@ func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 	return f(c, i, o...)
 }
 
-func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *tc.C) {
+func (s *instanceSuite) TestFetchInstanceTypeInfoPagination(c *tc.C) {
 	callCount := 0
 	client := func(
 		_ context.Context,
