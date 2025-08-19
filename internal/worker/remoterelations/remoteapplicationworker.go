@@ -25,6 +25,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ReportableWorker is an interface that allows a worker to be reported
+// on by the engine.
+type ReportableWorker interface {
+	worker.Worker
+	Report() map[string]any
+}
+
 // remoteApplicationWorker listens for localChanges to relations
 // involving a remote application, and publishes change to
 // local relation units to the remote model. It also watches for
@@ -72,8 +79,8 @@ type relation struct {
 	localDead      bool
 	suspended      bool
 	localUnitCount int
-	localRuw       *relationUnitsWorker
-	remoteRuw      *relationUnitsWorker
+	localRuw       ReportableWorker
+	remoteRuw      ReportableWorker
 	remoteRrw      *remoteRelationsWorker
 
 	applicationToken   string // token for app in local model
@@ -542,20 +549,14 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 	relationToken, remoteAppToken string,
 	applicationName string,
 	mac *macaroon.Macaroon,
-) (*relationUnitsWorker, *relationUnitsWorker, error) {
-	// Start a watcher to track changes to the units in the relation in the local model.
-	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationChanges(ctx, relationTag.Id())
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "watching local side of relation %v", relationTag.Id())
-	}
-
-	localUnitsWorker, err := newRelationUnitsWorker(
+) (ReportableWorker, ReportableWorker, error) {
+	localUnitsWorker, err := newLocalRelationUnitsWorker(
+		ctx,
+		w.localModelFacade,
 		relationTag,
 		mac,
-		localRelationUnitsWatcher,
 		w.localRelationUnitChanges,
 		w.logger,
-		"local",
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -564,26 +565,17 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(
-		ctx, relationToken, remoteAppToken, macaroon.Slice{mac},
+	remoteUnitsWorker, err := newRemoteRelationUnitsWorker(
+		ctx,
+		w.remoteModelFacade,
+		relationTag,
+		mac,
+		relationToken, remoteAppToken, applicationName,
+		w.remoteRelationUnitChanges,
+		w.logger,
 	)
 	if err != nil {
 		w.checkOfferPermissionDenied(ctx, err, remoteAppToken, relationToken)
-		return nil, nil, errors.Annotatef(
-			err, "watching remote side of application %v and relation %v",
-			applicationName, relationTag.Id())
-	}
-
-	remoteUnitsWorker, err := newRelationUnitsWorker(
-		relationTag,
-		mac,
-		remoteRelationUnitsWatcher,
-		w.remoteRelationUnitChanges,
-		w.logger,
-		"remote",
-	)
-	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	if err := w.catacomb.Add(remoteUnitsWorker); err != nil {
