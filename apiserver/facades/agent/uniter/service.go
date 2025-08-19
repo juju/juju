@@ -598,9 +598,10 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
 	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-	// instance exists for the provided ID.
-	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage attachment does not exist for the unit.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound]
+	// when no storage instance exists for the provided ID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageAttachmentNotFound]
+	// when the storage attachment does not exist for the unit.
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
@@ -611,4 +612,52 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	WatchUnitStorageAttachments(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error)
+
+	// WatchStorageAttachmentForMachine returns a notification watcher
+	// for the storage attachment of a machine.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no machine exists
+	// for the provided machine UUID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists
+	// for the provided filesystem ID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound] when no volume exists
+	// for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound] when no storage
+	// instance exists for the provided storage ID.
+	WatchStorageAttachmentForMachine(
+		ctx context.Context,
+		storageID string,
+		machineUUID coremachine.UUID,
+	) (watcher.NotifyWatcher, error)
+
+	// WatchStorageAttachmentForUnit returns a notification watcher for the
+	// storage attachment of a unit.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/unit/errors.UnitNotFound] when no unit exists
+	// for the provided unit UUID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound] when no filesystem exists
+	// for the provided filesystem ID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound] when no volume exists
+	// for the provided values.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound] when no storage
+	// instance exists for the provided storage ID.
+	WatchStorageAttachmentForUnit(
+		ctx context.Context,
+		storageID string,
+		unitUUID coreunit.UUID,
+	) (watcher.NotifyWatcher, error)
 }
