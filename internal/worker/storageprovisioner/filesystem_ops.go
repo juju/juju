@@ -18,6 +18,7 @@ import (
 
 // createFilesystems creates filesystems with the specified parameters.
 func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.FilesystemTag]*createFilesystemOp) error {
+	deps.config.Logger.Infof(ctx, "create filesystems operation: %v", ops)
 	filesystemParams := make([]storage.FilesystemParams, 0, len(ops))
 	for _, op := range ops {
 		filesystemParams = append(filesystemParams, op.args)
@@ -118,6 +119,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 
 // attachFilesystems creates filesystem attachments with the specified parameters.
 func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*attachFilesystemOp) error {
+	deps.config.Logger.Infof(ctx, "attach filesystems operation: %v", ops)
 	filesystemAttachmentParams := make([]storage.FilesystemAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		args := op.args
@@ -188,6 +190,7 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 
 // removeFilesystems destroys or releases filesystems with the specified parameters.
 func removeFilesystems(ctx context.Context, deps *dependencies, ops map[names.FilesystemTag]*removeFilesystemOp) error {
+	deps.config.Logger.Infof(ctx, "remove filesystems operation: %v", ops)
 	tags := make([]names.FilesystemTag, 0, len(ops))
 	for tag := range ops {
 		tags = append(tags, tag)
@@ -292,6 +295,7 @@ func partitionRemoveFilesystemParams(removeTags []names.FilesystemTag, removePar
 
 // detachFilesystems destroys filesystem attachments with the specified parameters.
 func detachFilesystems(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*detachFilesystemOp) error {
+	deps.config.Logger.Infof(ctx, "detach filesystems operation: %v", ops)
 	filesystemAttachmentParams := make([]storage.FilesystemAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		filesystemAttachmentParams = append(filesystemAttachmentParams, op.args)

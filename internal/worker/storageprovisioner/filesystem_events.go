@@ -58,7 +58,7 @@ func filesystemsChanged(ctx context.Context, deps *dependencies, changes []strin
 	if err := processDeadFilesystems(ctx, deps, deadFilesystemTags, deadFilesystemResults); err != nil {
 		return errors.Annotate(err, "deprovisioning filesystems")
 	}
-	if err := processDyingFilesystems(deps, dyingFilesystemTags, dyingFilesystemResults); err != nil {
+	if err := processDyingFilesystems(ctx, deps, dyingFilesystemTags, dyingFilesystemResults); err != nil {
 		return errors.Annotate(err, "processing dying filesystems")
 	}
 	if err := processAliveFilesystems(ctx, deps, aliveFilesystemTags, aliveFilesystemResults); err != nil {
@@ -114,7 +114,8 @@ func filesystemAttachmentsChanged(ctx context.Context, deps *dependencies, watch
 
 // processDyingFilesystems processes the FilesystemResults for Dying filesystems,
 // removing them from provisioning-pending as necessary.
-func processDyingFilesystems(deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+func processDyingFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Infof(ctx, "processing dying filesystems: %v", tags)
 	for _, tag := range tags {
 		removePendingFilesystem(deps, tag)
 	}
@@ -205,6 +206,7 @@ func removePendingFilesystemAttachment(deps *dependencies, id params.MachineStor
 // processDeadFilesystems processes the FilesystemResults for Dead filesystems,
 // deprovisioning filesystems and removing from state as necessary.
 func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Infof(ctx, "processing dead filesystems: %v", tags)
 	for _, tag := range tags {
 		removePendingFilesystem(deps, tag)
 	}
@@ -250,6 +252,7 @@ func processDyingFilesystemAttachments(
 	ids []params.MachineStorageId,
 	filesystemAttachmentResults []params.FilesystemAttachmentResult,
 ) error {
+	deps.config.Logger.Infof(ctx, "processing dying filesystem attachments: %v", ids)
 	for _, id := range ids {
 		removePendingFilesystemAttachment(deps, id)
 	}
@@ -287,6 +290,7 @@ func processDyingFilesystemAttachments(
 // processAliveFilesystems processes the FilesystemResults for Alive filesystems,
 // provisioning filesystems and setting the info in state as necessary.
 func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Infof(ctx, "processing alive filesystems: %v", tags)
 	// Filter out the already-provisioned filesystems.
 	pending := make([]names.FilesystemTag, 0, len(tags))
 	for i, result := range filesystemResults {
@@ -350,6 +354,7 @@ func processAliveFilesystemAttachments(
 	ids []params.MachineStorageId,
 	filesystemAttachmentResults []params.FilesystemAttachmentResult,
 ) error {
+	deps.config.Logger.Infof(ctx, "processing alive filesystem attachments: %v", ids)
 	// Filter out the already-attached.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range filesystemAttachmentResults {

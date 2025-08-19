@@ -49,6 +49,10 @@ type MachineService interface {
 	// GetMachineLife returns the lifecycle state of the machine with the
 	// specified UUID.
 	GetMachineLife(ctx context.Context, machineName machine.Name) (life.Value, error)
+	// WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
+	// the changes in the machine_cloud_instance table in the model, for the given
+	// machine UUID.
+	WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error)
 }
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.

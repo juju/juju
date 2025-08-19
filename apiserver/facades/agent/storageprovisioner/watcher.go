@@ -55,6 +55,7 @@ func (w *stringSourcedWatcher[T]) loop() error {
 	var (
 		changes []T
 		out     chan []T
+		initial bool = true
 	)
 
 	for {
@@ -66,7 +67,7 @@ func (w *stringSourcedWatcher[T]) loop() error {
 				return errors.Errorf("source watcher %v closed", w.sourceWatcher)
 			}
 
-			if len(events) == 0 {
+			if !initial && len(events) == 0 {
 				continue
 			}
 
@@ -75,7 +76,7 @@ func (w *stringSourcedWatcher[T]) loop() error {
 				return errors.Errorf("processing changes: %w", err)
 			}
 
-			if len(results) == 0 {
+			if !initial && len(results) == 0 {
 				continue
 			}
 
@@ -90,6 +91,7 @@ func (w *stringSourcedWatcher[T]) loop() error {
 			// We have dispatched. Reset changes for the next batch.
 			changes = nil
 			out = nil
+			initial = false
 		}
 	}
 }

@@ -114,7 +114,7 @@ func NewStorageProvisionerAPIv4(
 			}
 		}, nil
 	}
-	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
+	canAccessStorageEntity := func(ctx context.Context, tag names.Tag, allowMachines bool) bool {
 		switch tag := tag.(type) {
 		case names.VolumeTag:
 			machineTag, ok := names.VolumeMachine(tag)
@@ -123,19 +123,11 @@ func NewStorageProvisionerAPIv4(
 			}
 			return authorizer.AuthController()
 		case names.FilesystemTag:
-			machineTag, ok := names.FilesystemMachine(tag)
-			if ok {
-				return canAccessStorageMachine(machineTag, false)
-			}
-			_, ok = names.FilesystemUnit(tag)
-			if ok {
-				return authorizer.AuthController()
-			}
-
 			exists, err := storageProvisioningService.CheckFilesystemForIDExists(
 				ctx, tag.Id(),
 			)
 			if err != nil {
+				logger.Warningf(ctx, "checking filesystem %s: %v", tag.Id(), err)
 				return false
 			}
 			if !exists {
@@ -169,14 +161,14 @@ func NewStorageProvisionerAPIv4(
 			return false
 		}
 	}
-	getStorageEntityAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getStorageEntityAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, false)
+			return canAccessStorageEntity(ctx, tag, false)
 		}, nil
 	}
-	getLifeAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getLifeAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, true)
+			return canAccessStorageEntity(ctx, tag, true)
 		}, nil
 	}
 	getAttachmentAuthFunc := func(context.Context) (func(names.Tag, names.Tag) bool, error) {
@@ -406,9 +398,36 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	for i := range args.Entities {
-		w := corewatcher.TODO[struct{}]()
+	canAccess, err := s.getMachineAuthFunc(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+	one := func(arg params.Entity) (string, error) {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag) {
+			return "", apiservererrors.ErrPerm
+		}
+		machineName := machine.Name(machineTag.Id())
+		machineUUID, err := s.machineService.GetMachineUUID(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", errors.Errorf(
+				"machine not found for id %q", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return "", err
+		}
+		w, err := s.machineService.WatchMachineCloudInstances(ctx, machineUUID)
+		if err != nil {
+			return "", err
+		}
 		id, _, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+		return id, err
+	}
+	for i, arg := range args.Entities {
+		id, err := one(arg)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

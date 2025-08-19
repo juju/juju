@@ -31,7 +31,7 @@ func volumesChanged(ctx context.Context, deps *dependencies, changes []string) e
 		return errors.Trace(err)
 	}
 	deps.config.Logger.Debugf(ctx, "volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	if err := processDyingVolumes(deps, dying); err != nil {
+	if err := processDyingVolumes(ctx, deps, dying); err != nil {
 		return errors.Annotate(err, "processing dying volumes")
 	}
 	if len(alive)+len(dead) == 0 {
@@ -252,7 +252,8 @@ func volumeAttachmentsChanged(
 
 // processDyingVolumes processes the VolumeResults for Dying volumes,
 // removing them from provisioning-pending as necessary.
-func processDyingVolumes(deps *dependencies, tags []names.Tag) error {
+func processDyingVolumes(ctx context.Context, deps *dependencies, tags []names.Tag) error {
+	deps.config.Logger.Infof(ctx, "processing dying volumes: %v", tags)
 	if deps.isApplicationKind() {
 		// only care dead for application.
 		return nil
@@ -337,6 +338,7 @@ func removePendingVolumeAttachment(deps *dependencies, id params.MachineStorageI
 func processDeadVolumes(
 	ctx context.Context,
 	deps *dependencies, tags []names.VolumeTag, volumeResults []params.VolumeResult) error {
+	deps.config.Logger.Infof(ctx, "processing dead volumes: %v", tags)
 	for _, tag := range tags {
 		removePendingVolume(deps, tag)
 	}
@@ -382,6 +384,7 @@ func processDyingVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
+	deps.config.Logger.Infof(ctx, "processing dying volume attachments: %v", ids)
 	for _, id := range ids {
 		removePendingVolumeAttachment(deps, id)
 	}
@@ -424,6 +427,7 @@ func processDyingVolumeAttachments(
 func processAliveVolumes(
 	ctx context.Context,
 	deps *dependencies, tags []names.Tag, volumeResults []params.VolumeResult) error {
+	deps.config.Logger.Infof(ctx, "processing alive volumes: %v", tags)
 	if deps.isApplicationKind() {
 		// only care dead for application kind.
 		return nil
@@ -479,6 +483,7 @@ func processAliveVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
+	deps.config.Logger.Infof(ctx, "processing alive volume attachments: %v", ids)
 	// Filter out the already-attached.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {

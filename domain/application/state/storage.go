@@ -785,9 +785,10 @@ func (st *State) makeInsertUnitFilesystemArgs(
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		fsRval = append(fsRval, insertStorageFilesystem{
-			FilesystemID: fmt.Sprintf("%d", fsIDS[i]),
-			LifeID:       int(life.Alive),
-			UUID:         instArg.FilesystemUUID.String(),
+			FilesystemID:     fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:           int(life.Alive),
+			UUID:             instArg.FilesystemUUID.String(),
+			ProvisionScopeID: int(instArg.FilesystemProvisionScope),
 		})
 		fsInstanceRval = append(fsInstanceRval, insertStorageFilesystemInstance{
 			StorageInstanceUUID:    instArg.UUID.String(),
@@ -820,16 +821,17 @@ func (st *State) makeInsertUnitFilesystemAttachmentArgs(
 	}
 
 	filesystemUUIDStmt, err := st.Prepare(`
-SELECT &storageFilesystemUUIDRef.*
-FROM storage_instance_filesystem
+SELECT &storageFilesystemUUIDAndScope.*
+FROM storage_instance_filesystem sif
+JOIN storage_filesystem sf ON sf.uuid=sif.storage_filesystem_uuid
 WHERE storage_instance_uuid IN ($S[:])
 `,
-		storageFilesystemUUIDRef{}, storageInstancesInput)
+		storageFilesystemUUIDAndScope{}, storageInstancesInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var dbVals []storageFilesystemUUIDRef
+	var dbVals []storageFilesystemUUIDAndScope
 	err = tx.Query(ctx, filesystemUUIDStmt, storageInstancesInput).GetAll(&dbVals)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
@@ -850,6 +852,9 @@ WHERE storage_instance_uuid IN ($S[:])
 			NetNodeUUID:           netNodeUUID.String(),
 			StorageFilesystemUUID: val.UUID,
 			UUID:                  uuid.String(),
+			// TODO(storage): it is not certain that this should be different
+			// than the filesystem provision scope.
+			ProvisionScopeID: val.ProvisionScopeID,
 		})
 	}
 
@@ -994,9 +999,10 @@ func (st *State) makeInsertUnitVolumeArgs(
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		vRval = append(vRval, insertStorageVolume{
-			VolumeID: fmt.Sprintf("%d", fsIDS[i]),
-			LifeID:   int(life.Alive),
-			UUID:     instArg.VolumeUUID.String(),
+			VolumeID:         fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:           int(life.Alive),
+			UUID:             instArg.VolumeUUID.String(),
+			ProvisionScopeID: int(instArg.VolumeProvisionScope),
 		})
 		vInstanceRval = append(vInstanceRval, insertStorageVolumeInstance{
 			StorageInstanceUUID: instArg.UUID.String(),
@@ -1029,16 +1035,17 @@ func (st *State) makeInsertUnitVolumeAttachmentArgs(
 	}
 
 	volumeUUIDStmt, err := st.Prepare(`
-SELECT &storageVolumeUUIDRef.*
-FROM storage_instance_volume
+SELECT &storageVolumeUUIDAndScope.*
+FROM storage_instance_volume siv
+JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 WHERE storage_instance_uuid IN ($S[:])
 `,
-		storageVolumeUUIDRef{}, storageInstancesInput)
+		storageVolumeUUIDAndScope{}, storageInstancesInput)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var dbVals []storageVolumeUUIDRef
+	var dbVals []storageVolumeUUIDAndScope
 	err = tx.Query(ctx, volumeUUIDStmt, storageInstancesInput).GetAll(&dbVals)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
@@ -1059,6 +1066,9 @@ WHERE storage_instance_uuid IN ($S[:])
 			NetNodeUUID:       netNodeUUID.String(),
 			StorageVolumeUUID: val.UUID,
 			UUID:              uuid.String(),
+			// TODO(storage): it is not certain that this should be different
+			// than the volume provision scope.
+			ProvisionScopeID: val.ProvisionScopeID,
 		})
 	}
 

@@ -18,6 +18,7 @@ import (
 
 // createVolumes creates volumes with the specified parameters.
 func createVolumes(ctx context.Context, deps *dependencies, ops map[names.VolumeTag]*createVolumeOp) error {
+	deps.config.Logger.Infof(ctx, "create volumes operation: %v", ops)
 	volumeParams := make([]storage.VolumeParams, 0, len(ops))
 	for _, op := range ops {
 		volumeParams = append(volumeParams, op.args)
@@ -127,6 +128,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 
 // attachVolumes creates volume attachments with the specified parameters.
 func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*attachVolumeOp) error {
+	deps.config.Logger.Infof(ctx, "attach volumes operation: %v", ops)
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
@@ -252,6 +254,7 @@ func volumeAttachmentPlanFromAttachment(attachment storage.VolumeAttachment) par
 
 // removeVolumes destroys or releases volumes with the specified parameters.
 func removeVolumes(ctx context.Context, deps *dependencies, ops map[names.VolumeTag]*removeVolumeOp) error {
+	deps.config.Logger.Infof(ctx, "remove volumes operation: %v", ops)
 	tags := make([]names.VolumeTag, 0, len(ops))
 	for tag := range ops {
 		tags = append(tags, tag)
@@ -353,6 +356,7 @@ func partitionRemoveVolumeParams(removeTags []names.VolumeTag, removeParams []pa
 
 // detachVolumes destroys volume attachments with the specified parameters.
 func detachVolumes(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*detachVolumeOp) error {
+	deps.config.Logger.Infof(ctx, "detach volumes operation: %v", ops)
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)

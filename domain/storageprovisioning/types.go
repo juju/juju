@@ -26,3 +26,16 @@ const (
 	// PlanDeviceTypeISCSI indicates an iscsi attachment.
 	PlanDeviceTypeISCSI
 )
+
+// ProvisionScope defines what provisioner is responsible for provisioning.
+type ProvisionScope int
+
+const (
+	// ProvisionScopeModel indicates the provisioning will be performed by
+	// the model storage provisioner.
+	ProvisionScopeModel ProvisionScope = iota
+
+	// ProvisionScopeMachine indicates the provisioning will be performed by
+	// the machine storage provisioner.
+	ProvisionScopeMachine
+)

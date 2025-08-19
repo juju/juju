@@ -31,10 +31,18 @@ type CreateUnitStorageInstanceArg struct {
 	// system will be created.
 	FilesystemUUID *domainstorageprov.FilesystemUUID
 
+	// FilesystemProvisionScope describes which provisoner will be
+	// responsible for this filesystem.
+	FilesystemProvisionScope domainstorageprov.ProvisionScope
+
 	// VolumeUUID describes the unique identifier of the volume to
 	// create alongside the storage instance. If this value is nil no volume
 	// will be created.
 	VolumeUUID *domainstorageprov.VolumeUUID
+
+	// VolumeProvisionScope describes which provisoner will be responsible
+	// for this volume.
+	VolumeProvisionScope domainstorageprov.ProvisionScope
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage
