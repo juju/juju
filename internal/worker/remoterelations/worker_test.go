@@ -98,7 +98,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *tc.C) worker.Wo
 	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	expected := []testhelpers.StubCall{
 		{FuncName: "WatchRemoteApplications", Args: nil},
@@ -160,7 +160,7 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *tc.C) {
 	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -201,7 +201,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *tc.C) {
 	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -255,7 +255,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -374,7 +374,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *tc.C) {
 	s.localRelationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
 	s.localRelationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -1174,7 +1174,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *tc.C) {
 	applicationNames := []string{"db2"}
 	s.localRelationsFacade.remoteApplicationsWatcher.changes <- applicationNames
 
-	w, err := New(s.config)
+	w, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
