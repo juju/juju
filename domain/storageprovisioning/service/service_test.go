@@ -16,15 +16,20 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coreerror "github.com/juju/juju/core/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
+	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -306,4 +311,94 @@ func (s *serviceSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	svc := NewService(s.state, s.watcherFactory)
 	_, err := svc.WatchUnitStorageAttachments(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForMachineAndFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	storageID := "foo/1"
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsAttachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemUUIDForStorageID(gomock.Any(), storageID).Return(fsUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
+	s.state.EXPECT().NamespaceForFilesystemAttachments().Return("test_namespace")
+	matcher := eventSourcePredFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace",
+		Predicate:  fsAttachmentUUID.String(),
+	}
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(),
+		fmt.Sprintf("storage attachment watcher for machine %q storage ID %q", machineUUID, storageID),
+		matcher,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err = svc.WatchStorageAttachmentForMachine(c.Context(), storageID, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForMachineAndVolume(c *tc.C) {
+	c.Skip("TODO: implement volume attachment watcher for machine")
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForMachineWithInvalidMachineUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageID := "foo/1"
+	machineUUID := coremachine.UUID("$")
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.WatchStorageAttachmentForMachine(c.Context(), storageID, machineUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForUnitAndFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	storageID := "foo/1"
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsAttachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetFilesystemUUIDForStorageID(gomock.Any(), storageID).Return(fsUUID, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForFilesystemNetNode(
+		gomock.Any(), fsUUID, netNodeUUID).Return(fsAttachmentUUID, nil)
+	s.state.EXPECT().NamespaceForFilesystemAttachments().Return("test_namespace")
+	matcher := eventSourcePredFilterMatcher{
+		ChangeMask: changestream.All,
+		Namespace:  "test_namespace",
+		Predicate:  fsAttachmentUUID.String(),
+	}
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(),
+		fmt.Sprintf("storage attachment watcher for unit %q storage ID %q", unitUUID, storageID),
+		matcher,
+	)
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err = svc.WatchStorageAttachmentForUnit(c.Context(), storageID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForUnitAndVolume(c *tc.C) {
+	c.Skip("TODO: implement volume attachment watcher for unit")
+}
+
+func (s *serviceSuite) TestWatchStorageAttachmentForUnitWithInvalidUnitUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageID := "foo/1"
+	unitUUID := coreunit.UUID("$")
+
+	svc := NewService(s.state, s.watcherFactory)
+	_, err := svc.WatchStorageAttachmentForUnit(c.Context(), storageID, unitUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
