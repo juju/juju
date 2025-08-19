@@ -615,6 +615,10 @@ else
 	@sudo scripts/setup-lxd.sh || true
 endif
 
+.PHONY: vendor-dependencies
+vendor-dependencies:
+## vendor-dependencies: updates vendored dependencies
+	@go mod vendor
 
 GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' ${PROJECT}/... | grep -c "gopkg.in/check.v*")"
 .PHONY: check-deps
