@@ -63,10 +63,10 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewWorker(Config{
-		ModelUUID:                agent.CurrentConfig().Model().Id(),
-		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
-		Clock:                    config.Clock,
-		Logger:                   config.Logger,
+		ModelUUID:            agent.CurrentConfig().Model().Id(),
+		NewRemoteModelClient: remoteRelationsClientForModel(config.NewControllerConnection),
+		Clock:                config.Clock,
+		Logger:               config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -85,12 +85,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// remoteRelationsFacadeForModelFunc returns a function that can be used to
+// remoteRelationsClientForModel returns a function that can be used to
 // construct instances which manage remote relation changes for a given model.
-func remoteRelationsFacadeForModelFunc(
+func remoteRelationsClientForModel(
 	connectionFunc apicaller.NewExternalControllerConnectionFunc,
-) newRemoteRelationsFacadeFunc {
-	return func(ctx context.Context, apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
+) NewRemoteModelClientFunc {
+	return func(ctx context.Context, apiInfo *api.Info) (RemoteModelRelationsClientCloser, error) {
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
 		conn, err := connectionFunc(ctx, apiInfo)
 		if err != nil {

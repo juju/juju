@@ -65,7 +65,7 @@ type relationUnitsWorker struct {
 
 func newLocalRelationUnitsWorker(
 	ctx context.Context,
-	facade RemoteRelationsFacade,
+	crossModelRelationService CrossModelRelationService,
 	relationTag names.RelationTag,
 	mac *macaroon.Macaroon,
 	changes chan<- RelationUnitChangeEvent,
@@ -74,7 +74,7 @@ func newLocalRelationUnitsWorker(
 ) (ReportableWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the
 	// local model.
-	watcher, err := facade.WatchLocalRelationChanges(ctx, relationTag.Id())
+	watcher, err := crossModelRelationService.WatchLocalRelationChanges(ctx, relationTag.Id())
 	if err != nil {
 		return nil, errors.Annotatef(err, "watching local side of relation %v", relationTag.Id())
 	}
@@ -105,7 +105,7 @@ func newLocalRelationUnitsWorker(
 
 func newRemoteRelationUnitsWorker(
 	ctx context.Context,
-	facade RemoteModelRelationsFacade,
+	remoteClient RemoteModelRelationsClient,
 	relationTag names.RelationTag,
 	mac *macaroon.Macaroon,
 	relationToken, remoteAppToken string,
@@ -116,7 +116,7 @@ func newRemoteRelationUnitsWorker(
 ) (ReportableWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the
 	// remote model.
-	watcher, err := facade.WatchRelationChanges(
+	watcher, err := remoteClient.WatchRelationChanges(
 		ctx, relationToken, remoteAppToken, macaroon.Slice{mac},
 	)
 	if err != nil {

@@ -27,17 +27,17 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// RemoteModelRelationsFacadeCloser implements RemoteModelRelationsFacade
+// RemoteModelRelationsClientCloser implements RemoteModelRelationsClient
 // and add a Close() method.
-type RemoteModelRelationsFacadeCloser interface {
+type RemoteModelRelationsClientCloser interface {
 	io.Closer
-	RemoteModelRelationsFacade
+	RemoteModelRelationsClient
 }
 
-// RemoteModelRelationsFacade instances publish local relation changes to the
+// RemoteModelRelationsClient instances publish local relation changes to the
 // model hosting the remote application involved in the relation, and also watches
 // for remote relation changes which are then pushed to the local model.
-type RemoteModelRelationsFacade interface {
+type RemoteModelRelationsClient interface {
 	// RegisterRemoteRelations sets up the remote model to participate
 	// in the specified relations.
 	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
@@ -125,13 +125,15 @@ type CrossModelRelationService interface {
 	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
 }
 
-type newRemoteRelationsFacadeFunc func(context.Context, *api.Info) (RemoteModelRelationsFacadeCloser, error)
+// NewRemoteModelClientFunc is a function that creates a new remote relations client
+// for a given model.
+type NewRemoteModelClientFunc func(context.Context, *api.Info) (RemoteModelRelationsClientCloser, error)
 
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                 string
 	CrossModelRelationService CrossModelRelationService
-	NewRemoteModelFacadeFunc  newRemoteRelationsFacadeFunc
+	NewRemoteModelClient      NewRemoteModelClientFunc
 	Clock                     clock.Clock
 	Logger                    logger.Logger
 }
@@ -139,13 +141,13 @@ type Config struct {
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
 	if config.ModelUUID == "" {
-		return errors.NotValidf("empty model uuid")
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if config.CrossModelRelationService == nil {
 		return errors.NotValidf("nil CrossModelRelationService")
 	}
-	if config.NewRemoteModelFacadeFunc == nil {
-		return errors.NotValidf("nil Remote Model Facade func")
+	if config.NewRemoteModelClient == nil {
+		return errors.NotValidf("nil NewRemoteModelClient")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -165,7 +167,7 @@ type Worker struct {
 
 	runner *worker.Runner
 
-	service CrossModelRelationService
+	crossModelRelationService CrossModelRelationService
 
 	// offerUUIDs records the offer UUID used for each saas name.
 	offerUUIDs map[string]string
@@ -195,11 +197,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		config:     config,
-		offerUUIDs: make(map[string]string),
-		runner:     runner,
-		service:    config.CrossModelRelationService,
-		logger:     config.Logger,
+		config:                    config,
+		offerUUIDs:                make(map[string]string),
+		runner:                    runner,
+		crossModelRelationService: config.CrossModelRelationService,
+		logger:                    config.Logger,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -233,7 +235,7 @@ func (w *Worker) Wait() error {
 func (w *Worker) loop() (err error) {
 	ctx := w.scopedContext()
 
-	changes, err := w.service.WatchRemoteApplications(ctx)
+	changes, err := w.crossModelRelationService.WatchRemoteApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -267,7 +269,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 
 	// Fetch the current state of each of the remote applications that have
 	// changed.
-	results, err := w.service.RemoteApplications(ctx, applicationIds)
+	results, err := w.crossModelRelationService.RemoteApplications(ctx, applicationIds)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -312,19 +314,19 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 
 		startFunc := func(ctx context.Context) (worker.Worker, error) {
 			appWorker := &remoteApplicationWorker{
-				offerUUID:                         remoteApp.OfferUUID,
-				applicationName:                   remoteApp.Name,
-				localModelUUID:                    w.config.ModelUUID,
-				remoteModelUUID:                   remoteApp.ModelUUID,
-				isConsumerProxy:                   remoteApp.IsConsumerProxy,
-				consumeVersion:                    remoteApp.ConsumeVersion,
-				offerMacaroon:                     remoteApp.Macaroon,
-				localRelationUnitChanges:          make(chan RelationUnitChangeEvent),
-				remoteRelationUnitChanges:         make(chan RelationUnitChangeEvent),
-				localModelFacade:                  w.service,
-				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
-				clock:                             w.config.Clock,
-				logger:                            w.logger,
+				offerUUID:                     remoteApp.OfferUUID,
+				applicationName:               remoteApp.Name,
+				localModelUUID:                w.config.ModelUUID,
+				remoteModelUUID:               remoteApp.ModelUUID,
+				isConsumerProxy:               remoteApp.IsConsumerProxy,
+				consumeVersion:                remoteApp.ConsumeVersion,
+				offerMacaroon:                 remoteApp.Macaroon,
+				localRelationUnitChanges:      make(chan RelationUnitChangeEvent),
+				remoteRelationUnitChanges:     make(chan RelationUnitChangeEvent),
+				crossModelRelationService:     w.crossModelRelationService,
+				newRemoteModelRelationsClient: w.config.NewRemoteModelClient,
+				clock:                         w.config.Clock,
+				logger:                        w.logger,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Name: "remote-application",
