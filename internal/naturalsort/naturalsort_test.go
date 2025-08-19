@@ -8,55 +8,53 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/juju/tc"
 	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/naturalsort"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	tc.Run(t, &naturalSortSuite{})
 }
 
 type naturalSortSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&naturalSortSuite{})
-
-func (s *naturalSortSuite) TestEmpty(c *gc.C) {
+func (s *naturalSortSuite) TestEmpty(c *tc.C) {
 	checkCorrectSort(c, []string{})
 }
 
-func (s *naturalSortSuite) TestAlpha(c *gc.C) {
+func (s *naturalSortSuite) TestAlpha(c *tc.C) {
 	checkCorrectSort(c, []string{"abc", "bac", "cba"})
 }
 
-func (s *naturalSortSuite) TestNumVsString(c *gc.C) {
+func (s *naturalSortSuite) TestNumVsString(c *tc.C) {
 	checkCorrectSort(c, []string{"1", "a"})
 }
 
-func (s *naturalSortSuite) TestStringVsStringNum(c *gc.C) {
+func (s *naturalSortSuite) TestStringVsStringNum(c *tc.C) {
 	checkCorrectSort(c, []string{"a", "a1"})
 }
 
-func (s *naturalSortSuite) TestCommonPrefix(c *gc.C) {
+func (s *naturalSortSuite) TestCommonPrefix(c *tc.C) {
 	checkCorrectSort(c, []string{"a1", "a1a", "a1b", "a2b", "a2c"})
 }
 
-func (s *naturalSortSuite) TestDifferentNumberLengths(c *gc.C) {
+func (s *naturalSortSuite) TestDifferentNumberLengths(c *tc.C) {
 	checkCorrectSort(c, []string{"a1a", "a2", "a22a", "a333", "a333a", "a333b"})
 }
 
-func (s *naturalSortSuite) TestZeroPadding(c *gc.C) {
+func (s *naturalSortSuite) TestZeroPadding(c *tc.C) {
 	checkCorrectSort(c, []string{"a1", "a002", "a3"})
 }
 
-func (s *naturalSortSuite) TestMixed(c *gc.C) {
+func (s *naturalSortSuite) TestMixed(c *tc.C) {
 	checkCorrectSort(c, []string{"1a", "a1", "a1/1", "a10", "a100"})
 }
 
-func (s *naturalSortSuite) TestSeveralNumericParts(c *gc.C) {
+func (s *naturalSortSuite) TestSeveralNumericParts(c *tc.C) {
 	checkCorrectSort(c, []string{
 		"x",
 		"x1",
@@ -81,11 +79,11 @@ func (s *naturalSortSuite) TestSeveralNumericParts(c *gc.C) {
 	})
 }
 
-func (s *naturalSortSuite) TestUnitNameLike(c *gc.C) {
+func (s *naturalSortSuite) TestUnitNameLike(c *tc.C) {
 	checkCorrectSort(c, []string{"a1/1", "a1/2", "a1/7", "a1/11", "a1/100"})
 }
 
-func (s *naturalSortSuite) TestMachineIdLike(c *gc.C) {
+func (s *naturalSortSuite) TestMachineIdLike(c *tc.C) {
 	checkCorrectSort(c, []string{
 		"1",
 		"1/lxc/0",
@@ -104,7 +102,7 @@ func (s *naturalSortSuite) TestMachineIdLike(c *gc.C) {
 	})
 }
 
-func (s *naturalSortSuite) TestIPs(c *gc.C) {
+func (s *naturalSortSuite) TestIPs(c *tc.C) {
 	checkCorrectSort(c, []string{
 		"001.001.010.121",
 		"1.1.10.122",
@@ -116,7 +114,7 @@ func (s *naturalSortSuite) TestIPs(c *gc.C) {
 	})
 }
 
-func (s *naturalSortSuite) TestFallbackToLexicographicalSortForLargeNumbers(c *gc.C) {
+func (s *naturalSortSuite) TestFallbackToLexicographicalSortForLargeNumbers(c *tc.C) {
 	checkCorrectSort(c, []string{
 		"app-23456789012345678901234567890x",
 		"app-900",
@@ -125,19 +123,19 @@ func (s *naturalSortSuite) TestFallbackToLexicographicalSortForLargeNumbers(c *g
 	})
 }
 
-func checkCorrectSort(c *gc.C, expected []string) {
+func checkCorrectSort(c *tc.C, expected []string) {
 	checkSort(c, expected, reverse)
 	for i := 0; i < 5; i++ {
 		checkSort(c, expected, shuffle)
 	}
 }
 
-func checkSort(c *gc.C, expected []string, xform func([]string)) {
+func checkSort(c *tc.C, expected []string, xform func([]string)) {
 	input := copyStrSlice(expected)
 	xform(input)
 	origInput := copyStrSlice(input)
 	naturalsort.Sort(input)
-	c.Check(input, gc.DeepEquals, expected, gc.Commentf("input was: %#v", origInput))
+	c.Check(input, tc.DeepEquals, expected, tc.Commentf("input was: %#v", origInput))
 }
 
 func copyStrSlice(in []string) []string {
