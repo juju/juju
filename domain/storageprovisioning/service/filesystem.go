@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/changestream"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -827,7 +826,7 @@ func (s *Service) watchFilesystemAttachmentForNetNode(
 		watcherSummary,
 		eventsource.PredicateFilter(
 			s.st.NamespaceForFilesystemAttachments(),
-			changestream.All,
+			corechangestream.All,
 			eventsource.EqualsPredicate(fsAttachmentUUID.String()),
 		),
 	)

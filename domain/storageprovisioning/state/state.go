@@ -9,7 +9,6 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
@@ -31,7 +30,7 @@ type State struct {
 // NewState creates and returns a new [State] for provisioning storage in the
 // model.
 func NewState(
-	factory database.TxnRunnerFactory,
+	factory coredatabase.TxnRunnerFactory,
 ) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
