@@ -15,7 +15,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	coreerror "github.com/juju/juju/core/errors"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
@@ -194,7 +193,7 @@ func (s *serviceSuite) TestGetStorageAttachmentIDsForUnitWithNotValidUnitUUID(c 
 
 	svc := NewService(s.state, s.watcherFactory)
 	_, err := svc.GetStorageAttachmentIDsForUnit(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, coreerror.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C) {
@@ -236,7 +235,7 @@ func (s *serviceSuite) TestGetAttachmentLifeWithNotValidUnitUUID(c *tc.C) {
 
 	svc := NewService(s.state, s.watcherFactory)
 	_, err := svc.GetStorageAttachmentLife(c.Context(), "", "foo/1")
-	c.Assert(err, tc.ErrorIs, coreerror.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
