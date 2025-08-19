@@ -114,6 +114,9 @@ type machineUUID entityUUID
 // netNodeUUID represents the UUID of a record in the network node table.
 type netNodeUUID entityUUID
 
+// storageInstanceUUID represents the UUID of a record in the storage_instance table.
+type storageInstanceUUID entityUUID
+
 // netNodeUUIDRef represents a reference to a network node uuid in a storage
 // entity table.
 type netNodeUUIDRef struct {
@@ -313,6 +316,16 @@ type unitUUIDRef struct {
 type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
+}
+
+type storageInstanceFileSystemIdentifier struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	FilesystemUUID      string `db:"storage_filesystem_uuid"`
+}
+
+type storageInstanceVolumeIdentifier struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	VolumeUUID          string `db:"storage_volume_uuid"`
 }
 
 type storageInstanceUUIDs []string

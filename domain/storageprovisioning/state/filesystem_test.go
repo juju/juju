@@ -779,6 +779,34 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForID(c *tc.C) {
 	c.Check(gotUUID.String(), tc.Equals, fsUUID.String())
 }
 
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageID(c *tc.C) {
+	fsUUID, _ := s.newModelFilesystem(c)
+	storageInstanceUUID, storageID := s.newStorageInstance(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	gotUUID, err := st.GetFilesystemUUIDForStorageID(c.Context(), storageID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUID.String(), tc.Equals, fsUUID.String())
+}
+
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemUUIDForStorageID(c.Context(), "foo/1")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithFilesystemNotFound(c *tc.C) {
+	_, storageID := s.newStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemUUIDForStorageID(c.Context(), storageID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
 // TestSetFilesystemProvisionedInfo checks if SetFilesystemProvisionedInfo only
 // affects the specified filesystem.
 func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
