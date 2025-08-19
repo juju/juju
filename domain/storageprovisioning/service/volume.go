@@ -109,6 +109,18 @@ type VolumeState interface {
 	// when no volume exists for the provided volume uuid.
 	GetVolumeUUIDForID(context.Context, string) (storageprovisioning.VolumeUUID, error)
 
+	// GetVolumeUUIDForStorageID returns the UUID for a volume with the supplied
+	// storage ID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
+	// for the provided storage ID.
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+	// for the provided volume uuid.
+	GetVolumeUUIDForStorageID(
+		ctx context.Context, storageID string,
+	) (storageprovisioning.VolumeUUID, error)
+
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
 	// machine provisioned and the initial query for getting the set of volumes
@@ -569,4 +581,16 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	blockDevice blockdevice.BlockDevice,
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
+}
+
+func (s *Service) watchVolumeAttachmentForNetNode(
+	ctx context.Context,
+	volumeUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	watcherSummary string,
+) (watcher.NotifyWatcher, error) {
+	if err := netNodeUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	return nil, errors.Errorf("watching volume attachment for net node %q: not implemented", netNodeUUID)
 }
