@@ -753,12 +753,14 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-
+	
 	return &environ{
 		serverUnlocked: srv,
 		ecfgUnlocked:   eCfg,
 		namespace:      namespace,
 		cloud:          cloudSpec,
+		uuid:           eCfg.UUID(),
+		name:           "model",
 	}
 }
 
@@ -787,6 +789,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 		provider:     &provid,
 		ecfgUnlocked: eCfg,
 		namespace:    namespace,
+		uuid:         eCfg.UUID(),
 	}
 }
 

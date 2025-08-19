@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -474,6 +475,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 			profilesToDelete = append(profilesToDelete, profile)
 		}
 	}
+	log.Printf("[adis][stopinstances] profilestodelete: %+v\n", profilesToDelete)
 
 	err := env.server().RemoveContainers(names)
 	if err != nil {
