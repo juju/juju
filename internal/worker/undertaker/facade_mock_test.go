@@ -116,6 +116,20 @@ func (mr *MockFacadeMockRecorder) RemoveModel() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModel", reflect.TypeOf((*MockFacade)(nil).RemoveModel))
 }
 
+// RemoveModelProfile mocks base method.
+func (m *MockFacade) RemoveModelProfile() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveModelProfile")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveModelProfile indicates an expected call of RemoveModelProfile.
+func (mr *MockFacadeMockRecorder) RemoveModelProfile() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModelProfile", reflect.TypeOf((*MockFacade)(nil).RemoveModelProfile))
+}
+
 // RemoveModelSecrets mocks base method.
 func (m *MockFacade) RemoveModelSecrets() error {
 	m.ctrl.T.Helper()

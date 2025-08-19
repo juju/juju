@@ -4,6 +4,7 @@
 package undertaker_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
@@ -25,6 +27,7 @@ import (
 type undertakerSuite struct {
 	coretesting.BaseSuite
 	secrets *mockSecrets
+	profile *mockProfileDestroyer
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -42,7 +45,12 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
 	s.secrets = &mockSecrets{}
+	s.profile = &mockProfileDestroyer{}
 	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
+	s.PatchValue(&undertaker.GetEnvProvider, func(providerType string) (environs.EnvironProvider, error) {
+		c.Assert(providerType, gc.Equals, "mock-lxd")
+		return s.profile, nil
+	})
 
 	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
@@ -57,7 +65,10 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 			},
 		}, secretsConfigError
 	}
-	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil)
+
+	mockCloudSpecer := mockCloudSpec{}
+
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, mockCloudSpecer)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
@@ -171,6 +182,16 @@ func (s *undertakerSuite) TestRemoveModelSecrets(c *gc.C) {
 	err := hostedAPI.RemoveModelSecrets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.secrets.cleanedUUID, gc.Equals, otherSt.model.uuid)
+}
+
+func (s *undertakerSuite) TestRemoveModelProfile(c *gc.C) {
+	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
+
+	err := hostedAPI.RemoveModelProfile()
+
+	c.Assert(err, jc.ErrorIsNil)
+	profileName := fmt.Sprintf("juju-%s-%s", otherSt.model.name, otherSt.model.ModelTag().ShortId())
+	c.Assert(s.profile.destroyedProfile, gc.Equals, profileName)
 }
 
 func (s *undertakerSuite) TestRemoveModelSecretsConfigNotFound(c *gc.C) {

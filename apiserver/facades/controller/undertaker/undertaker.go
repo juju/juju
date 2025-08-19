@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/watcher"

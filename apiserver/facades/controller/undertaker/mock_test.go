@@ -7,13 +7,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -147,6 +151,10 @@ func (m *mockModel) Tag() names.Tag {
 	return names.NewModelTag(m.uuid)
 }
 
+func (m *mockModel) ModelTag() names.ModelTag {
+	return names.NewModelTag(m.uuid)
+}
+
 func (m *mockModel) Name() string {
 	return m.name
 }
@@ -199,4 +207,68 @@ func (m *mockSecrets) CleanupModel(cfg *provider.ModelBackendConfig) error {
 	}
 	m.cleanedUUID = cfg.ModelUUID
 	return nil
+}
+
+type mockProfileDestroyer struct {
+	destroyedProfile string
+}
+
+func (m *mockProfileDestroyer) DestroyProfile(profileName string) error {
+	m.destroyedProfile = profileName
+	return nil
+}
+
+func (m *mockProfileDestroyer) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
+	return nil, nil
+}
+
+func (m *mockProfileDestroyer) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return nil
+}
+
+func (m *mockProfileDestroyer) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
+	return nil, nil
+}
+
+func (m *mockProfileDestroyer) FinalizeCredential(context environs.FinalizeCredentialContext, params environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return nil, nil
+}
+
+func (m *mockProfileDestroyer) Version() int {
+	return 0
+}
+
+func (m *mockProfileDestroyer) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+func (m *mockProfileDestroyer) Ping(ctx context.ProviderCallContext, endpoint string) error {
+	return nil
+}
+
+func (m *mockProfileDestroyer) PrepareConfig(params environs.PrepareConfigParams) (*config.Config, error) {
+	return nil, nil
+}
+
+type mockCloudSpec struct{}
+
+func (m mockCloudSpec) WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error) {
+	return params.NotifyWatchResults{}, nil
+}
+
+func (m mockCloudSpec) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+	return params.CloudSpecResults{
+		Results: []params.CloudSpecResult{
+			{
+				Result: &params.CloudSpec{
+					Type: "mock-lxd",
+				},
+				Error: nil,
+			},
+		},
+	}, nil
+}
+
+func (m mockCloudSpec) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
+	return params.CloudSpecResult{}
 }

@@ -81,6 +81,11 @@ func (mock *mockFacade) RemoveModelSecrets() error {
 	return mock.stub.NextErr()
 }
 
+func (mock *mockFacade) RemoveModelProfile() error {
+	mock.stub.AddCall("RemoveModelProfile")
+	return mock.stub.NextErr()
+}
+
 func (mock *mockFacade) ModelConfig() (*config.Config, error) {
 	mock.stub.AddCall("ModelConfig")
 	cfg, _ := config.New(config.NoDefaults, map[string]interface{}{

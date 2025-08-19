@@ -376,8 +376,8 @@ var _ = gc.Suite(&environCloudProfileSuite{})
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,8 +385,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *gc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectForProfileCreateRace("juju-controller")
-	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
+	s.expectForProfileCreateRace("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", errors.New("The profile already exists"))
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -394,8 +394,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C) {
 	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
@@ -480,13 +480,13 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 
 	exp := s.svr.EXPECT()
 	exp.GetContainerProfiles("testname").Return([]string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	}, nil)
 
 	result, err := s.lxdEnv.LXDProfileNames("testname")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	})
 }
 
