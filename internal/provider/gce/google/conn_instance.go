@@ -176,6 +176,11 @@ func (gce *Connection) UpdateMetadata(key, value string, ids ...string) error {
 
 }
 
+// DefaultServiceAccount returns the default service account for the project.
+func (gce *Connection) DefaultServiceAccount() (string, error) {
+	return gce.service.GetProjectServiceAccount(gce.projectID)
+}
+
 func (gce *Connection) updateInstanceMetadata(instance *compute.Instance, key, value string) error {
 	metadata := instance.Metadata
 	existingItem := findMetadataItem(metadata.Items, key)

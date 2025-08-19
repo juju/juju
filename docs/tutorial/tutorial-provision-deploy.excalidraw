@@ -537,24 +537,16 @@
         "type": 3
       },
       "seed": 1784369106,
-      "version": 184,
-      "versionNonce": 274846542,
+      "version": 186,
+      "versionNonce": 362994734,
       "isDeleted": false,
       "boundElements": [
-        {
-          "id": "0Su49EXFJjm42XHaomDia",
-          "type": "arrow"
-        },
-        {
-          "id": "bYR1aw8VxmKGhHCuLLvPZ",
-          "type": "arrow"
-        },
         {
           "id": "mgPHKs-iiqjgnBJuoi5Pz",
           "type": "arrow"
         }
       ],
-      "updated": 1754380208383,
+      "updated": 1754662526553,
       "link": null,
       "locked": false
     },
@@ -709,20 +701,16 @@
         "type": 3
       },
       "seed": 850646738,
-      "version": 230,
-      "versionNonce": 1408543182,
+      "version": 231,
+      "versionNonce": 1795426418,
       "isDeleted": false,
       "boundElements": [
-        {
-          "id": "0Su49EXFJjm42XHaomDia",
-          "type": "arrow"
-        },
         {
           "id": "od4NaR4ZCEqSIDuaIZ4vB",
           "type": "arrow"
         }
       ],
-      "updated": 1754380208383,
+      "updated": 1754662525611,
       "link": null,
       "locked": false
     },
@@ -748,20 +736,16 @@
         "type": 3
       },
       "seed": 125119634,
-      "version": 191,
-      "versionNonce": 1914180750,
+      "version": 192,
+      "versionNonce": 160638574,
       "isDeleted": false,
       "boundElements": [
-        {
-          "id": "bYR1aw8VxmKGhHCuLLvPZ",
-          "type": "arrow"
-        },
         {
           "id": "tujglTvLTWU6udLusQ7Yi",
           "type": "arrow"
         }
       ],
-      "updated": 1754380208383,
+      "updated": 1754662526554,
       "link": null,
       "locked": false
     },
@@ -801,110 +785,6 @@
       "originalText": "Charmhub\n",
       "autoResize": true,
       "lineHeight": 1.25
-    },
-    {
-      "id": "0Su49EXFJjm42XHaomDia",
-      "type": "arrow",
-      "x": 484.56069886851384,
-      "y": 418.5083179705749,
-      "width": 62.348673774039185,
-      "height": 61.523143967094285,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "ac",
-      "roundness": null,
-      "seed": 1688956557,
-      "version": 312,
-      "versionNonce": 791788643,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1754380462414,
-      "link": null,
-      "locked": false,
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          62.348673774039185,
-          -61.523143967094285
-        ]
-      ],
-      "lastCommittedPoint": null,
-      "startBinding": {
-        "elementId": "PHtu_n-4F6OKv83oBl79s",
-        "focus": 0.4257982035728964,
-        "gap": 1.9301743417248498
-      },
-      "endBinding": {
-        "elementId": "NqxztNRbvqk_X6_3n6VJV",
-        "focus": 0.4377243706129273,
-        "gap": 2.5146640664042232
-      },
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "elbowed": false
-    },
-    {
-      "id": "bYR1aw8VxmKGhHCuLLvPZ",
-      "type": "arrow",
-      "x": 484.00081986472463,
-      "y": 483.9575624272172,
-      "width": 63.65963678071114,
-      "height": 57.43413284343001,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 0,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "ad",
-      "roundness": null,
-      "seed": 1535926477,
-      "version": 434,
-      "versionNonce": 981507715,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1754380468958,
-      "link": null,
-      "locked": false,
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          63.65963678071114,
-          57.43413284343001
-        ]
-      ],
-      "lastCommittedPoint": null,
-      "startBinding": {
-        "elementId": "PHtu_n-4F6OKv83oBl79s",
-        "focus": -0.36934318795760307,
-        "gap": 2.715226868273954
-      },
-      "endBinding": {
-        "elementId": "4e4p_p0Ttq0BDjl426pO9",
-        "focus": -0.4024035369305559,
-        "gap": 1.5174069774391854
-      },
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "elbowed": false
     },
     {
       "id": "od4NaR4ZCEqSIDuaIZ4vB",

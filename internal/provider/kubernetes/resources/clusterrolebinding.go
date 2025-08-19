@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/core/status"
@@ -25,16 +24,17 @@ import (
 
 // ClusterRoleBinding extends the k8s cluster role binding.
 type ClusterRoleBinding struct {
+	client rbacv1client.ClusterRoleBindingInterface
 	rbacv1.ClusterRoleBinding
 }
 
 // NewClusterRoleBinding creates a new role resource.
-func NewClusterRoleBinding(name string, in *rbacv1.ClusterRoleBinding) *ClusterRoleBinding {
+func NewClusterRoleBinding(client rbacv1client.ClusterRoleBindingInterface, name string, in *rbacv1.ClusterRoleBinding) *ClusterRoleBinding {
 	if in == nil {
 		in = &rbacv1.ClusterRoleBinding{}
 	}
 	in.SetName(name)
-	return &ClusterRoleBinding{*in}
+	return &ClusterRoleBinding{client, *in}
 }
 
 // Clone returns a copy of the resource.
@@ -49,17 +49,16 @@ func (rb *ClusterRoleBinding) ID() ID {
 }
 
 // Apply patches the resource change.
-func (rb *ClusterRoleBinding) Apply(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoleBindings()
+func (rb *ClusterRoleBinding) Apply(ctx context.Context) error {
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &rb.ClusterRoleBinding)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, rb.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := rb.client.Patch(ctx, rb.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = api.Create(ctx, &rb.ClusterRoleBinding, metav1.CreateOptions{
+		res, err = rb.client.Create(ctx, &rb.ClusterRoleBinding, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
@@ -74,9 +73,8 @@ func (rb *ClusterRoleBinding) Apply(ctx context.Context, client kubernetes.Inter
 }
 
 // Get refreshes the resource.
-func (rb *ClusterRoleBinding) Get(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoleBindings()
-	res, err := api.Get(ctx, rb.Name, metav1.GetOptions{})
+func (rb *ClusterRoleBinding) Get(ctx context.Context) error {
+	res, err := rb.client.Get(ctx, rb.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -87,9 +85,8 @@ func (rb *ClusterRoleBinding) Get(ctx context.Context, client kubernetes.Interfa
 }
 
 // Delete removes the resource.
-func (rb *ClusterRoleBinding) Delete(ctx context.Context, client kubernetes.Interface) error {
-	api := client.RbacV1().ClusterRoleBindings()
-	err := api.Delete(ctx, rb.Name, metav1.DeleteOptions{
+func (rb *ClusterRoleBinding) Delete(ctx context.Context) error {
+	err := rb.client.Delete(ctx, rb.Name, metav1.DeleteOptions{
 		PropagationPolicy:  k8sconstants.DeletePropagationBackground(),
 		GracePeriodSeconds: pointer.Int64Ptr(0),
 		Preconditions:      utils.NewUIDPreconditions(rb.UID),
@@ -116,14 +113,13 @@ func shouldDelete(existing, new rbacv1.ClusterRoleBinding) bool {
 // existing Kubernetes object with to assert ownership before overwriting it.
 func (rb *ClusterRoleBinding) Ensure(
 	ctx context.Context,
-	client kubernetes.Interface,
 	claims ...Claim,
 ) ([]func(), error) {
 	// TODO(caas): roll this into Apply()
 	cleanups := []func(){}
 
-	existing := ClusterRoleBinding{rb.ClusterRoleBinding}
-	err := existing.Get(ctx, client)
+	existing := ClusterRoleBinding{rb.client, rb.ClusterRoleBinding}
+	err := existing.Get(ctx)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", rb.Name)
 	}
@@ -139,7 +135,7 @@ func (rb *ClusterRoleBinding) Ensure(
 		}
 		if shouldDelete(existing.ClusterRoleBinding, rb.ClusterRoleBinding) {
 			// RoleRef is immutable, delete the cluster role binding then re-create it.
-			if err := existing.Delete(ctx, client); err != nil {
+			if err := existing.Delete(ctx); err != nil {
 				return cleanups, errors.Annotatef(
 					err,
 					"delete cluster role binding %q because roleref has changed",
@@ -149,22 +145,17 @@ func (rb *ClusterRoleBinding) Ensure(
 		}
 	}
 
-	cleanups = append(cleanups, func() { _ = rb.Delete(ctx, client) })
+	cleanups = append(cleanups, func() { _ = rb.Delete(ctx) })
 	if !doUpdate {
-		return cleanups, rb.Apply(ctx, client)
-	} else if err := rb.Update(ctx, client); err != nil {
+		return cleanups, rb.Apply(ctx)
+	} else if err := rb.Update(ctx); err != nil {
 		return cleanups, err
 	}
 	return cleanups, nil
 }
 
-// Events emitted by the resource.
-func (rb *ClusterRoleBinding) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	return ListEventsForObject(ctx, client, rb.Namespace, rb.Name, "ClusterRoleBinding")
-}
-
 // ComputeStatus returns a juju status for the resource.
-func (rb *ClusterRoleBinding) ComputeStatus(_ context.Context, _ kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+func (rb *ClusterRoleBinding) ComputeStatus(_ context.Context, now time.Time) (string, status.Status, time.Time, error) {
 	if rb.DeletionTimestamp != nil {
 		return "", status.Terminated, rb.DeletionTimestamp.Time, nil
 	}
@@ -172,8 +163,8 @@ func (rb *ClusterRoleBinding) ComputeStatus(_ context.Context, _ kubernetes.Inte
 }
 
 // Update updates the object in the Kubernetes cluster to the new representation
-func (rb *ClusterRoleBinding) Update(ctx context.Context, client kubernetes.Interface) error {
-	out, err := client.RbacV1().ClusterRoleBindings().Update(
+func (rb *ClusterRoleBinding) Update(ctx context.Context) error {
+	out, err := rb.client.Update(
 		ctx,
 		&rb.ClusterRoleBinding,
 		metav1.UpdateOptions{

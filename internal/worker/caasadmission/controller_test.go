@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v3"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -19,6 +20,9 @@ import (
 )
 
 type ControllerSuite struct {
+	controllerUUID string
+	modelUUID      string
+	modelName      string
 }
 
 type dummyMux struct {
@@ -70,7 +74,17 @@ func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	controllerUUID, err := utils.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.controllerUUID = controllerUUID.String()
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	s.modelUUID = modelUUID.String()
+
+	s.modelName = "test-model"
+
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -102,7 +116,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *tc.C) {
 	}
 	creator := &dummyAdmissionCreator{}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -128,7 +142,7 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *tc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper, s.controllerUUID, s.modelUUID, s.modelName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()

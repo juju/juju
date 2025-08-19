@@ -38,6 +38,7 @@ type providerSuite struct {
 	testhelpers.IsolationSuite
 
 	k8sClient               *mocks.MockInterface
+	k8sExtendedClient       *mocks.ExtendedInterface
 	mockDiscovery           *mocks.MockDiscoveryInterface
 	mockSecrets             *mocks.MockSecretInterface
 	mockRbacV1              *mocks.MockRbacV1Interface
@@ -66,6 +67,7 @@ func (s *providerSuite) setupController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.k8sClient = mocks.NewMockInterface(ctrl)
+	s.k8sExtendedClient = mocks.NewExtendedInterface(ctrl)
 
 	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
 	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)

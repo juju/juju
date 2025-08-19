@@ -192,7 +192,7 @@ func (env *environ) newRawInstance(
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
 
-	inst, err := env.gce.AddInstance(google.InstanceSpec{
+	instArg := google.InstanceSpec{
 		ID:                hostname,
 		Type:              spec.InstanceType.Name,
 		Disks:             disks,
@@ -201,7 +201,15 @@ func (env *environ) newRawInstance(
 		Tags:              tags,
 		AvailabilityZone:  args.AvailabilityZone,
 		AllocatePublicIP:  allocatePublicIP,
-	})
+	}
+	serviceAccount, err := env.gce.DefaultServiceAccount()
+	if err != nil {
+		return nil, env.HandleCredentialError(ctx, errors.Trace(err))
+	}
+	logger.Debugf(ctx, "using project service account: %s", serviceAccount)
+
+	instArg.DefaultServiceAccount = serviceAccount
+	inst, err := env.gce.AddInstance(instArg)
 	if err != nil {
 		// We currently treat all AddInstance failures
 		// as being zone-specific, so we'll retry in

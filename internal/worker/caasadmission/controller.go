@@ -37,7 +37,11 @@ func NewController(
 	path string,
 	labelVersion constants.LabelVersion,
 	admissionCreator AdmissionCreator,
-	rbacMapper RBACMapper) (*Controller, error) {
+	rbacMapper RBACMapper,
+	controllerUUID string,
+	modelUUID string,
+	modelName string,
+) (*Controller, error) {
 
 	c := &Controller{
 		logger: logger,
@@ -47,7 +51,7 @@ func NewController(
 		Name: "caas-admission",
 		Site: &c.catacomb,
 		Work: c.makeLoop(admissionCreator,
-			admissionHandler(logger, rbacMapper, labelVersion),
+			admissionHandler(logger, rbacMapper, labelVersion, controllerUUID, modelUUID, modelName),
 			logger, mux, path),
 	}); err != nil {
 		return c, errors.Trace(err)

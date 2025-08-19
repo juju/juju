@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/semversion"
@@ -75,6 +76,7 @@ func (k *kubernetesClient) InClusterCredentialUpgrade(ctx context.Context) error
 	return inClusterCredentialUpgrade(
 		ctx,
 		k.client(),
+		k.extendedClient(),
 		k.LabelVersion(),
 		k.Namespace(),
 		k.ControllerUUID(),
@@ -84,6 +86,7 @@ func (k *kubernetesClient) InClusterCredentialUpgrade(ctx context.Context) error
 func inClusterCredentialUpgrade(
 	ctx context.Context,
 	client kubernetes.Interface,
+	extendedClient clientset.Interface,
 	labelVersion constants.LabelVersion,
 	namespace string,
 	controllerUUID string,
@@ -93,6 +96,7 @@ func inClusterCredentialUpgrade(
 	saName, cleanUps, err := ensureControllerServiceAccount(
 		ctx,
 		client,
+		extendedClient,
 		namespace,
 		controllerUUID,
 		labels,
@@ -110,15 +114,15 @@ func inClusterCredentialUpgrade(
 		return errors.Trace(err)
 	}
 
-	ss := resources.NewStatefulSet("controller", namespace, &appsv1.StatefulSet{})
-	if err := ss.Get(ctx, client); err != nil {
+	ss := resources.NewStatefulSet(client.AppsV1().StatefulSets(namespace), namespace, "controller", &appsv1.StatefulSet{})
+	if err := ss.Get(ctx); err != nil {
 		runCleanups()
 		return errors.Annotate(err, "updating controller for in cluster credentials")
 	}
 
 	ss.Spec.Template.Spec.ServiceAccountName = saName
 	ss.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(true)
-	if err := ss.Apply(ctx, client); err != nil {
+	if err := ss.Apply(ctx); err != nil {
 		runCleanups()
 		return errors.Annotate(err, "updating controller for in cluster credentials")
 	}

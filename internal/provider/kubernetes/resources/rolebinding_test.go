@@ -4,6 +4,7 @@
 package resources_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -31,18 +32,18 @@ func (s *roleBindingSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	rbResource := resources.NewRoleBinding("roleBinding1", "test", roleBinding)
-	c.Assert(rbResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
-	result, err := s.client.RbacV1().RoleBindings("test").Get(c.Context(), "roleBinding1", metav1.GetOptions{})
+	rbResource := resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "roleBinding1", roleBinding)
+	c.Assert(rbResource.Apply(context.TODO()), tc.ErrorIsNil)
+	result, err := s.client.RbacV1().RoleBindings("test").Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	roleBinding.SetAnnotations(map[string]string{"a": "b"})
-	rbResource = resources.NewRoleBinding("roleBinding1", "test", roleBinding)
-	c.Assert(rbResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	rbResource = resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "roleBinding1", roleBinding)
+	c.Assert(rbResource.Apply(context.TODO()), tc.ErrorIsNil)
 
-	result, err = s.client.RbacV1().RoleBindings("test").Get(c.Context(), "roleBinding1", metav1.GetOptions{})
+	result, err = s.client.RbacV1().RoleBindings("test").Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `roleBinding1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
@@ -58,12 +59,12 @@ func (s *roleBindingSuite) TestGet(c *tc.C) {
 	}
 	roleBinding1 := template
 	roleBinding1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.RbacV1().RoleBindings("test").Create(c.Context(), &roleBinding1, metav1.CreateOptions{})
+	_, err := s.client.RbacV1().RoleBindings("test").Create(context.TODO(), &roleBinding1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	rbResource := resources.NewRoleBinding("roleBinding1", "test", &template)
+	rbResource := resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "roleBinding1", &template)
 	c.Assert(len(rbResource.GetAnnotations()), tc.Equals, 0)
-	err = rbResource.Get(c.Context(), s.client)
+	err = rbResource.Get(context.TODO())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rbResource.GetName(), tc.Equals, `roleBinding1`)
 	c.Assert(rbResource.GetNamespace(), tc.Equals, `test`)
@@ -77,20 +78,20 @@ func (s *roleBindingSuite) TestDelete(c *tc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.RbacV1().RoleBindings("test").Create(c.Context(), &roleBinding, metav1.CreateOptions{})
+	_, err := s.client.RbacV1().RoleBindings("test").Create(context.TODO(), &roleBinding, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.RbacV1().RoleBindings("test").Get(c.Context(), "roleBinding1", metav1.GetOptions{})
+	result, err := s.client.RbacV1().RoleBindings("test").Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `roleBinding1`)
 
-	rbResource := resources.NewRoleBinding("roleBinding1", "test", &roleBinding)
-	err = rbResource.Delete(c.Context(), s.client)
+	rbResource := resources.NewRoleBinding(s.client.RbacV1().RoleBindings("test"), "test", "roleBinding1", &roleBinding)
+	err = rbResource.Delete(context.TODO())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = rbResource.Get(c.Context(), s.client)
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	err = rbResource.Get(context.TODO())
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
-	_, err = s.client.RbacV1().RoleBindings("test").Get(c.Context(), "roleBinding1", metav1.GetOptions{})
+	_, err = s.client.RbacV1().RoleBindings("test").Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
