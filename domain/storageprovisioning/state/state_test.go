@@ -273,7 +273,8 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "", "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
 
@@ -295,7 +296,8 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnitWithUnitNotFound(c *tc.C)
 
 func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 	_, charmUUID := s.newApplication(c, "foo")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "", "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -316,7 +318,8 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "", "mystorage")
 	s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -350,7 +353,8 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "", "mystorage")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())

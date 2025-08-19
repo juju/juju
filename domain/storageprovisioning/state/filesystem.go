@@ -573,13 +573,14 @@ func (st *State) GetFilesystemAttachmentParams(
 SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
               mci.instance_id AS machine_instance_id,
-              sfa.mount_point,
-              sfa.read_only,
+              cs.location AS mount_point,
+              cs.read_only,
               COALESCE(si.storage_type, sp.type, NULL) AS type
     FROM      storage_filesystem_attachment sfa
     JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
     JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
-    JOIN 	  storage_instance si ON sif.storage_instance_uuid = si.uuid
+    JOIN      storage_instance si ON sif.storage_instance_uuid = si.uuid
+    LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
     LEFT JOIN storage_pool sp ON si.storage_pool_uuid = sp.uuid
     LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
     LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
@@ -837,7 +838,7 @@ func (st *State) GetFilesystemParams(
 	paramsStmt, err := st.Prepare(`
 SELECT &filesystemParams.* FROM (
     SELECT sf.filesystem_id,
-           sf.size_mib,
+           si.requested_size_mib AS size_mib,
            COALESCE(si.storage_type, sp.type, NULL) AS type
     FROM   storage_filesystem sf
     JOIN   storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
