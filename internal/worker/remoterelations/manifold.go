@@ -21,8 +21,9 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
+	AgentName                   string
+	APICallerName               string
+	APIRemoteRelationCallerName string
 
 	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade func(base.APICaller) RemoteRelationsFacade
@@ -38,6 +39,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
+	}
+	if config.APIRemoteRelationCallerName == "" {
+		return errors.NotValidf("empty APIRemoteRelationCallerName")
 	}
 	if config.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
@@ -91,6 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.APIRemoteRelationCallerName,
 		},
 		Start: config.start,
 	}
