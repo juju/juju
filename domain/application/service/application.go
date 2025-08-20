@@ -928,26 +928,19 @@ func makeApplicationStorageDirectiveArg(
 		rval.Size = *directiveOverride.Size
 	}
 
-	// Set the pool uuid to the value supplied by the override.
-	if rval.PoolUUID == nil && directiveOverride.PoolUUID != nil {
-		poolUUIDCopy := *directiveOverride.PoolUUID
-		rval.PoolUUID = &poolUUIDCopy
-	}
-	// Set the pool uuid if the charm storage is block and a block pool
-	// provisioner exists.
-	if rval.PoolUUID == nil &&
-		defaultProvisioners.BlockdevicePoolUUID != nil &&
+	if directiveOverride.PoolUUID != nil {
+		// Set the pool uuid to the value supplied by the override.
+		rval.PoolUUID = *directiveOverride.PoolUUID
+	} else if defaultProvisioners.BlockdevicePoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageBlock {
-		poolUUIDCopy := *defaultProvisioners.BlockdevicePoolUUID
-		rval.PoolUUID = &poolUUIDCopy
-	}
-	// Set the pool uuid if the charm storage is filesystem and a filesystem
-	// pool provisioner exists.
-	if rval.PoolUUID == nil &&
-		defaultProvisioners.FilesystemPoolUUID != nil &&
+		// Set the pool uuid if the charm storage is block and a block pool
+		// provisioner exists.
+		rval.PoolUUID = *defaultProvisioners.BlockdevicePoolUUID
+	} else if defaultProvisioners.FilesystemPoolUUID != nil &&
 		charmStorageDef.Type == internalcharm.StorageFilesystem {
-		poolUUIDCopy := *defaultProvisioners.FilesystemPoolUUID
-		rval.PoolUUID = &poolUUIDCopy
+		// Set the pool uuid if the charm storage is filesystem and a filesystem
+		// pool provisioner exists.
+		rval.PoolUUID = *defaultProvisioners.FilesystemPoolUUID
 	}
 
 	return rval
