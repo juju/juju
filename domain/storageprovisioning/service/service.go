@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -29,7 +30,8 @@ import (
 type Service struct {
 	watcherFactory WatcherFactory
 
-	st State
+	st     State
+	logger logger.Logger
 }
 
 // State is the accumulation of all the requirements [Service] has for
@@ -158,10 +160,11 @@ type WatcherFactory interface {
 
 // NewService creates a new [Service] instance with the provided state for
 // provisioning storage instances in the model.
-func NewService(st State, wf WatcherFactory) *Service {
+func NewService(st State, wf WatcherFactory, logger logger.Logger) *Service {
 	return &Service{
 		st:             st,
 		watcherFactory: wf,
+		logger:         logger,
 	}
 }
 
@@ -342,6 +345,7 @@ func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID c
 			if len(changes) == 0 {
 				return nil, nil
 			}
+			s.logger.Debugf(ctx, "processing storage attachment changes for unit %q: %v", unitUUID, changes)
 			storageInstanceUUIDs := make([]string, 0, len(changes))
 			for _, change := range changes {
 				storageInstanceUUIDs = append(storageInstanceUUIDs, change.Changed())
