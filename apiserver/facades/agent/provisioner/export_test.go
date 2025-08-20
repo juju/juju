@@ -3,7 +3,11 @@
 
 package provisioner
 
-import "github.com/juju/juju/rpc/params"
+import (
+	"github.com/juju/names/v5"
+
+	"github.com/juju/juju/rpc/params"
+)
 
 // TODO (manadart 2019-09-26): This file should be deleted via these steps:
 // - Rename provisioner_test.go to provisioner_integration_test.go
@@ -15,8 +19,8 @@ func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain 
 	return &prepareOrGetContext{result: result, maintain: maintain}
 }
 
-func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {
-	return &containerProfileContext{result: result, modelName: modelName}
+func NewContainerProfileContext(result params.ContainerProfileResults, modelName string, modelTag names.ModelTag) *containerProfileContext {
+	return &containerProfileContext{result: result, modelName: modelName, modelTag: modelTag}
 }
 
 var (

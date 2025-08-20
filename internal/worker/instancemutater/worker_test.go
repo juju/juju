@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type workerConfigSuite struct {
@@ -181,7 +182,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.newWorkerFunc = instancemutater.NewEnvironTestWorker
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
-		return []string{"default", "juju-testing"}
+		return []string{"default", "juju-testing-deadbe"}
 	}
 	s.doneWG = new(sync.WaitGroup)
 }
@@ -433,7 +434,7 @@ func (s *workerSuite) workGroupAddGetDoneWithStatusFunc() func(status.Status, st
 }
 
 func (s *workerSuite) expectLXDProfileNamesTrue() {
-	s.broker.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
+	s.broker.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing-deadbe", "juju-testing-deadbe-one-2"}, nil)
 }
 
 func (s *workerSuite) expectMachineCharmProfilingInfo(machine, rev int) {
@@ -442,9 +443,10 @@ func (s *workerSuite) expectMachineCharmProfilingInfo(machine, rev int) {
 
 func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, rev int) {
 	mock.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
-		CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+		CurrentProfiles: []string{"default", "juju-testing-deadbe", "juju-testing-deadbe-one-2"},
 		InstanceId:      "juju-23423-0",
 		ModelName:       "testing",
+		ModelUUID:       coretesting.ModelTag.Id(),
 		ProfileChanges: []apiinstancemutater.UnitProfileChanges{
 			{
 				ApplicationName: "one",
@@ -459,9 +461,10 @@ func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, r
 
 func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) {
 	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
-		CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+		CurrentProfiles: []string{"default", "juju-testing-deadbe", "juju-testing-deadbe-one-2"},
 		InstanceId:      "juju-23423-0",
 		ModelName:       "testing",
+		ModelUUID:       coretesting.ModelTag.Id(),
 		ProfileChanges:  []apiinstancemutater.UnitProfileChanges{},
 	}, nil)
 }
@@ -516,16 +519,16 @@ func (s *workerSuite) expectModificationStatusApplied(machine int) {
 }
 
 func (s *workerSuite) expectAssignLXDProfiles() {
-	profiles := []string{"default", "juju-testing", "juju-testing-one-3"}
+	profiles := []string{"default", "juju-testing-deadbe", "juju-testing-deadbe-one-3"}
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
 func (s *workerSuite) expectSetCharmProfiles(machine int, rev int) {
-	s.machine[machine].EXPECT().SetCharmProfiles([]string{fmt.Sprintf("juju-testing-one-%d", rev)})
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{fmt.Sprintf("juju-testing-deadbe-one-%d", rev)})
 }
 
 func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) {
-	profiles := []string{"default", "juju-testing"}
+	profiles := []string{"default", "juju-testing-deadbe"}
 	s.machine[machine].EXPECT().SetCharmProfiles([]string{})
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
@@ -736,12 +739,12 @@ func (s *workerContainerSuite) expectContainerModificationStatusApplied() {
 }
 
 func (s *workerContainerSuite) expectAssignLXDProfiles() {
-	profiles := []string{"default", "juju-testing-one-3"}
+	profiles := []string{"default", "juju-testing-deadbe-one-3"}
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
 func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
-	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"juju-testing-one-3"})
+	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"juju-testing-deadbe-one-3"})
 }
 
 // notifyContainers returns a suite behaviour that will cause the instance mutator

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mutaterSuite struct {
@@ -45,9 +46,9 @@ func (s *mutaterSuite) SetUpTest(c *gc.C) {
 func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	startingProfiles := []string{"default", "juju-testme"}
-	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
-	charmProfiles := []string{"juju-testme-lxd-profile-1"}
+	startingProfiles := []string{"default", "juju-testme-deadbe"}
+	finishingProfiles := append(startingProfiles, "juju-testme-deadbe-lxd-profile-1")
+	charmProfiles := []string{"juju-testme-deadbe-lxd-profile-1"}
 
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
@@ -75,8 +76,8 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
 func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	startingProfiles := []string{"default", "juju-testme"}
-	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
+	startingProfiles := []string{"default", "juju-testme-deadbe"}
+	finishingProfiles := append(startingProfiles, "juju-testme-deadbe-lxd-profile-1")
 
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
@@ -100,12 +101,12 @@ func (s *mutaterSuite) TestGatherProfileDataReplace(c *gc.C) {
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
-		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 1, true),
+		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 1, true),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
-		{Name: "juju-testme-lxd-profile-0", Profile: nil},
-		{Name: "juju-testme-lxd-profile-1", Profile: &testProfile},
+		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: nil},
+		{Name: "juju-testme-deadbe-lxd-profile-1", Profile: &testProfile},
 	})
 }
 
@@ -114,11 +115,11 @@ func (s *mutaterSuite) TestGatherProfileDataRemove(c *gc.C) {
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
-		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 0, false),
+		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 0, false),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
-		{Name: "juju-testme-lxd-profile-0", Profile: nil},
+		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: nil},
 	})
 }
 
@@ -127,11 +128,11 @@ func (s *mutaterSuite) TestGatherProfileDataAdd(c *gc.C) {
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
-		s.info([]string{"default", "juju-testme"}, 1, true),
+		s.info([]string{"default", "juju-deadbe-testme"}, 1, true),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
-		{Name: "juju-testme-lxd-profile-1", Profile: &testProfile},
+		{Name: "juju-testme-deadbe-lxd-profile-1", Profile: &testProfile},
 	})
 }
 
@@ -140,17 +141,18 @@ func (s *mutaterSuite) TestGatherProfileDataNoChange(c *gc.C) {
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
-		s.info([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, 0, true),
+		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 0, true),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
-		{Name: "juju-testme-lxd-profile-0", Profile: &testProfile},
+		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: &testProfile},
 	})
 }
 
 func (s *mutaterSuite) info(profiles []string, rev int, add bool) *apiinstancemutater.UnitProfileInfo {
 	info := &apiinstancemutater.UnitProfileInfo{
 		ModelName:       "testme",
+		ModelUUID:       coretesting.ModelTag.Id(),
 		InstanceId:      instance.Id(s.instId),
 		CurrentProfiles: profiles,
 		ProfileChanges: []apiinstancemutater.UnitProfileChanges{

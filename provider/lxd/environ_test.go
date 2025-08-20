@@ -6,10 +6,12 @@ package lxd_test
 import (
 	"context"
 	stdcontext "context"
+	"fmt"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -51,6 +53,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 func (s *environSuite) TearDownTest(c *gc.C) {
 	s.invalidCredential = false
+	s.BaseSuite.Client.ProfileExists = false
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -128,6 +131,43 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	}})
 }
 
+func (s *environSuite) TestDestroyProfile(c *gc.C) {
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.ProfileExists = true
+
+	err := s.Env.DestroyProfile(profileName)
+	c.Assert(err, gc.IsNil)
+
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"HasProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName}},
+	})
+}
+
+func (s *environSuite) TestDestroyProfileShouldNotDeleteIfProfileIsMissing(c *gc.C) {
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.ProfileExists = false
+
+	err := s.Env.DestroyProfile(profileName)
+	c.Assert(err, gc.IsNil)
+
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"HasProfile", []interface{}{profileName}},
+	})
+}
+
+func (s *environSuite) TestDestroyProfileReturnErr(c *gc.C) {
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.Stub.SetErrors(fmt.Errorf("connection err"))
+
+	err := s.Env.DestroyProfile(profileName)
+	c.Assert(err, gc.ErrorMatches, "checking profile: connection err")
+
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"HasProfile", []interface{}{profileName}},
+	})
+}
+
 func (s *environSuite) TestDestroy(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
@@ -142,6 +182,8 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 			},
 		}},
 	}
+	s.Client.ProfileExists = true
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
 
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,6 +195,8 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName}},
 	})
 }
 
@@ -226,6 +270,8 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	machine2.Config["user.juju-controller-uuid"] = "not-" + s.Config.UUID()
 
 	s.Client.Containers = append(s.Client.Containers, *machine0, *machine1, *machine2)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.ProfileExists = true
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,6 +282,8 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
@@ -270,7 +318,9 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.ProfileExists = true
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
@@ -281,6 +331,8 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 	})
@@ -290,6 +342,8 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		"GetStoragePools",
 		"GetStoragePoolVolumes",
 		"GetStoragePoolVolumes",
+		"HasProfile",
+		"DeleteProfile",
 		"AliveContainers",
 		"RemoveContainers")
 }
@@ -318,7 +372,9 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	s.Client.ProfileExists = true
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
@@ -329,6 +385,8 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"HasProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 		{"StorageSupported", nil},
