@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
@@ -848,6 +849,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:               apiremotecaller.NewWorker,
 		})),
 
+		apiRemoteRelationCallerName: apiremoterelationcaller.Manifold(apiremoterelationcaller.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			NewWorker:                   apiremoterelationcaller.NewWorker,
+			NewAPIInfoGetter:            apiremoterelationcaller.NewAPIInfoGetter,
+			NewConnectionGetter:         apiremoterelationcaller.NewConnectionGetter,
+			GetDomainServicesGetterFunc: apiremoterelationcaller.GetDomainServicesGetter,
+			Logger:                      internallogger.GetLogger("juju.worker.apiremoterelationcaller"),
+			Clock:                       config.Clock,
+		}),
+
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			GetControllerConfigService: jwtparser.GetControllerConfigService,
 			DomainServicesName:         domainServicesName,
@@ -1289,6 +1300,7 @@ const (
 	apiAddressUpdaterName         = "api-address-updater"
 	apiServerName                 = "api-server"
 	apiRemoteCallerName           = "api-remote-caller"
+	apiRemoteRelationCallerName   = "api-remote-relation-caller"
 	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	brokerTrackerName             = "broker-tracker"

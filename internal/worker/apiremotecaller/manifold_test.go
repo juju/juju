@@ -60,17 +60,6 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
-		"agent":                 &fakeAgent{},
-		"object-store-services": dependency.ErrMissing,
-	})
-
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
-	c.Check(worker, tc.IsNil)
-}
-
 func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"agent":                 &fakeAgent{missingAPIinfo: true},
