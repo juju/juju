@@ -733,8 +733,12 @@ func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
 
 func (s *volumeSuite) TestGetVolumeUUIDForStorageID(c *tc.C) {
 	volUUID, _ := s.newModelVolume(c)
-	storageInstanceUUID, storageID := s.newStorageInstance(c)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
+	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -751,7 +755,12 @@ func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithStorageInstanceNotFound(c
 }
 
 func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithVolumeNotFound(c *tc.C) {
-	_, storageID := s.newStorageInstance(c)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+
+	storageID := s.getStorageID(c, storageInstanceUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetVolumeUUIDForStorageID(c.Context(), storageID)
