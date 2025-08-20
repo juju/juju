@@ -53,7 +53,7 @@ check_dependencies() {
 
 CURRENT_ARCH=$(current_arch)
 
-BUILD_IMAGE=ubuntu:22.04
+BUILD_IMAGE=ubuntu:24.04
 BUILD_CONTAINER=lib-build-server
 BUILD_MACHINE=$(uname -m)
 BUILD_ARCH=$(go env GOARCH 2>/dev/null || echo "amd64")
@@ -65,7 +65,7 @@ TAG_LIBTIRPC=upstream/1.3.3
 TAG_LIBNSL=v2.0.1
 TAG_LIBUV=v1.51.0
 TAG_LIBLZ4=v1.9.4
-TAG_SQLITE=version-3.50.4
+TAG_SQLITE=version-3.47.0
 TAG_DQLITE=v1.18.2
 
 S3_BUCKET=s3://dqlite-static-libs
