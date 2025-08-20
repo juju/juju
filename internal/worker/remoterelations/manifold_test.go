@@ -42,9 +42,14 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		NewRemoteRelationClientGetter: func(acg apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
 			return nil
 		},
-		NewWorker: func(Config) (worker.Worker, error) { return nil, nil },
-		Clock:     clock.WallClock,
-		Logger:    loggertesting.WrapCheckLog(c),
+		NewWorker: func(Config) (worker.Worker, error) {
+			return nil, nil
+		},
+		NewRemoteApplicationWorker: func(rac RemoteApplicationConfig) (ReportableWorker, error) {
+			return nil, nil
+		},
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 

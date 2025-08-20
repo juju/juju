@@ -71,6 +71,49 @@ type remoteApplicationWorker struct {
 	logger logger.Logger
 }
 
+// RemoteApplicationConfig defines the configuration for a remote application
+// worker.
+type RemoteApplicationConfig struct {
+	OfferUUID                  string
+	ApplicationName            string
+	LocalModelUUID             string
+	RemoteModelUUID            string
+	IsConsumerProxy            bool
+	ConsumeVersion             int
+	Macaroon                   *macaroon.Macaroon
+	RemoteRelationsFacade      RemoteRelationsFacade
+	RemoteRelationClientGetter RemoteRelationClientGetter
+	Clock                      clock.Clock
+	Logger                     logger.Logger
+}
+
+// NewRemoteApplicationWorker creates a new remote application worker.
+func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
+	w := &remoteApplicationWorker{
+		offerUUID:                  config.OfferUUID,
+		applicationName:            config.ApplicationName,
+		localModelUUID:             config.LocalModelUUID,
+		remoteModelUUID:            config.RemoteModelUUID,
+		isConsumerProxy:            config.IsConsumerProxy,
+		consumeVersion:             config.ConsumeVersion,
+		offerMacaroon:              config.Macaroon,
+		localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
+		remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
+		localModelFacade:           config.RemoteRelationsFacade,
+		remoteRelationClientGetter: config.RemoteRelationClientGetter,
+		clock:                      config.Clock,
+		logger:                     config.Logger,
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-application",
+		Site: &w.catacomb,
+		Work: w.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
+}
+
 // relation holds attributes relevant to a particular
 // relation between a local app and a remote offer.
 type relation struct {

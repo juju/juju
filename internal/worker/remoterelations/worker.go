@@ -122,6 +122,7 @@ type Config struct {
 	ModelUUID                  string
 	RelationsFacade            RemoteRelationsFacade
 	RemoteRelationClientGetter RemoteRelationClientGetter
+	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
 	Clock                      clock.Clock
 	Logger                     logger.Logger
 }
@@ -288,36 +289,24 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 			}
 		}
 
-		startFunc := func(ctx context.Context) (worker.Worker, error) {
-			appWorker := &remoteApplicationWorker{
-				offerUUID:                  remoteApp.OfferUUID,
-				applicationName:            remoteApp.Name,
-				localModelUUID:             w.config.ModelUUID,
-				remoteModelUUID:            remoteApp.ModelUUID,
-				isConsumerProxy:            remoteApp.IsConsumerProxy,
-				consumeVersion:             remoteApp.ConsumeVersion,
-				offerMacaroon:              remoteApp.Macaroon,
-				localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
-				remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
-				localModelFacade:           w.config.RelationsFacade,
-				remoteRelationClientGetter: w.config.RemoteRelationClientGetter,
-				clock:                      w.config.Clock,
-				logger:                     logger,
-			}
-			if err := catacomb.Invoke(catacomb.Plan{
-				Name: "remote-application",
-				Site: &appWorker.catacomb,
-				Work: appWorker.loop,
-			}); err != nil {
-				return nil, errors.Trace(err)
-			}
-			return appWorker, nil
-		}
-
 		logger.Debugf(ctx, "starting watcher for remote application %q", name)
 
 		// Start the application worker to watch for things like new relations.
-		if err := w.runner.StartWorker(ctx, name, startFunc); err != nil && !errors.Is(err, errors.AlreadyExists) {
+		if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
+			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
+				OfferUUID:                  remoteApp.OfferUUID,
+				ApplicationName:            remoteApp.Name,
+				LocalModelUUID:             w.config.ModelUUID,
+				RemoteModelUUID:            remoteApp.ModelUUID,
+				IsConsumerProxy:            remoteApp.IsConsumerProxy,
+				ConsumeVersion:             remoteApp.ConsumeVersion,
+				Macaroon:                   remoteApp.Macaroon,
+				RemoteRelationsFacade:      w.config.RelationsFacade,
+				RemoteRelationClientGetter: w.config.RemoteRelationClientGetter,
+				Clock:                      w.config.Clock,
+				Logger:                     logger,
+			})
+		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")
 		}
 		w.offerUUIDs[name] = remoteApp.OfferUUID
