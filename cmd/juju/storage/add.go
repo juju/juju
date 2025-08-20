@@ -31,23 +31,23 @@ func NewAddCommand() cmd.Command {
 
 const (
 	addCommandDoc = `
-Add storage to a pre-existing unit within a model. Storage is allocated from 
-a storage pool, using parameters provided within a "storage directive". (Use 
-'juju deploy --storage=<storage-directive>' to provision storage during the 
+Add storage to a pre-existing unit within a model. Storage is allocated from
+a storage pool, using parameters provided within a "storage directive". (Use
+'juju deploy --storage=<storage-directive>' to provision storage during the
 deployment process).
 
 	juju add-storage <unit> <storage-directive>
 
-<unit> is the ID of a unit that is already in the model. 
+<unit> is the ID of a unit that is already in the model.
 
-<storage-directive> describes to the charm how to refer to the storage, 
+<storage-directive> describes to the charm how to refer to the storage,
 and where to provision it from. <storage-directive> takes the following form:
-	
+
     <storage-name>[=<storage-constraint>]
 
-<storage-name> is defined in the charm's metadata.yaml file.   
+<storage-name> is defined in the charm's metadata.yaml file.
 
-<storage-constraint> is a description of how Juju should provision storage 
+<storage-constraint> is a description of how Juju should provision storage
 instances for the unit. They are made up of up to three parts: <storage-pool>,
 <count>, and <size>. They can be provided in any order, but we recommend the
 following:
@@ -61,17 +61,17 @@ storage constraints are also valid:
    <count>,<size>
    <size>
 
-<storage-pool> is the storage pool to provision storage instances from. Must 
-be a name from 'juju storage-pools'.  The default pool is available via 
+<storage-pool> is the storage pool to provision storage instances from. Must
+be a name from 'juju storage-pools'.  The default pool is available via
 executing 'juju model-config storage-default-block-source'.
 
 <count> is the number of storage instances to provision from <storage-pool> of
 <size>. Must be a positive integer. The default count is "1". May be restricted
 by the charm, which can specify a maximum number of storage instances per unit.
 
-<size> is the number of bytes to provision per storage instance. Must be a 
+<size> is the number of bytes to provision per storage instance. Must be a
 positive number, followed by a size suffix.  Valid suffixes include M, G, T,
-and P.  Defaults to "1024M", or the which can specify a minimum size required 
+and P.  Defaults to "1024M", or the which can specify a minimum size required
 by the charm.
 `
 
@@ -88,10 +88,6 @@ Add a storage instance from the (AWS-specific) ebs-ssd storage pool for "brick" 
 
     juju add-storage gluster/0 brick=ebs-ssd
 
-
-Further reading:
-
-https://juju.is/docs/storage
 `
 
 	addCommandAgs = `<unit> <storage-directive>`
