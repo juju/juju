@@ -26,12 +26,43 @@ func TestStringSourcedWatcherSuite(t *testing.T) {
 	tc.Run(t, &stringSourcedWatcherSuite{})
 }
 
-func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
+func (s *stringSourcedWatcherSuite) TestWatchEmptyInitial(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ch := make(chan []string, 1)
+	ch <- []string{}
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	w, err := newStringSourcedWatcher(
+		mockStringWatcher,
+		func(_ context.Context, events ...string) ([]string, error) {
+			out := make([]string, len(events))
+			for i, event := range events {
+				out[i] = fmt.Sprintf("processed-%s", event)
+			}
+			return out, nil
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wc := watchertest.NewStringsWatcherC(c, w)
+
+	wc.AssertChange()
+	wc.AssertNoChange()
+}
+
+func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 2)
 	ch <- []string{"foo", "bar"}
+	ch <- []string{"baz"}
 	mockStringWatcher := NewMockStringsWatcher(ctrl)
 	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
@@ -55,6 +86,9 @@ func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
 	wc.AssertChange(
 		"processed-foo",
 		"processed-bar",
+	)
+	wc.AssertChange(
+		"processed-baz",
 	)
 	wc.AssertNoChange()
 }
