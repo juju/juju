@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
@@ -20,8 +21,6 @@ import (
 
 type workerSuite struct {
 	baseSuite
-
-	called uint64
 }
 
 func TestWorkerSuite(t *testing.T) {
@@ -50,8 +49,6 @@ func (s *workerSuite) TestGetConnectionForModelAlreadyCancelled(c *tc.C) {
 
 	_, err := w.GetConnectionForModel(ctx, modelUUID)
 	c.Assert(err, tc.ErrorIs, context.Canceled)
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(0))
 }
 
 func (s *workerSuite) TestGetConnectionForModelAlreadyDead(c *tc.C) {
@@ -66,16 +63,18 @@ func (s *workerSuite) TestGetConnectionForModelAlreadyDead(c *tc.C) {
 
 	_, err := w.GetConnectionForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIs, ErrAPIRemoteRelationCallerDead)
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(0))
 }
 
 func (s *workerSuite) TestGetConnectionForModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := model.UUID("test-model-uuid")
+	apiInfo := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
 
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(api.Info{}, nil)
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(apiInfo, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), modelUUID, apiInfo).Return(s.connection, nil)
 
 	done := make(chan struct{})
 	s.connection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
@@ -95,16 +94,18 @@ func (s *workerSuite) TestGetConnectionForModel(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for done channel")
 	}
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(1))
 }
 
 func (s *workerSuite) TestGetConnectionForModelMultipleTimes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := model.UUID("test-model-uuid")
+	apiInfo := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
 
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(api.Info{}, nil)
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(apiInfo, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), modelUUID, apiInfo).Return(s.connection, nil)
 
 	done := make(chan struct{})
 	s.connection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
@@ -128,8 +129,6 @@ func (s *workerSuite) TestGetConnectionForModelMultipleTimes(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for done channel")
 	}
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(1))
 }
 
 func (s *workerSuite) TestGetConnectionForModelDifferent(c *tc.C) {
@@ -138,8 +137,18 @@ func (s *workerSuite) TestGetConnectionForModelDifferent(c *tc.C) {
 	model1UUID := model.UUID("test-model-1-uuid")
 	model2UUID := model.UUID("test-model-2-uuid")
 
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model1UUID).Return(api.Info{}, nil)
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model2UUID).Return(api.Info{}, nil)
+	apiInfo1 := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
+	apiInfo2 := api.Info{
+		Tag: names.NewUserTag("bob"),
+	}
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model1UUID).Return(apiInfo1, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model1UUID, apiInfo1).Return(s.connection, nil)
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model2UUID).Return(apiInfo2, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model2UUID, apiInfo2).Return(s.connection, nil)
 
 	done := make(chan struct{})
 	var called uint64
@@ -166,8 +175,6 @@ func (s *workerSuite) TestGetConnectionForModelDifferent(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for done channel")
 	}
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(2))
 }
 
 func (s *workerSuite) TestGetConnectionForModelDifferentMultipleTimes(c *tc.C) {
@@ -176,8 +183,18 @@ func (s *workerSuite) TestGetConnectionForModelDifferentMultipleTimes(c *tc.C) {
 	model1UUID := model.UUID("test-model-1-uuid")
 	model2UUID := model.UUID("test-model-2-uuid")
 
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model1UUID).Return(api.Info{}, nil)
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model2UUID).Return(api.Info{}, nil)
+	apiInfo1 := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
+	apiInfo2 := api.Info{
+		Tag: names.NewUserTag("bob"),
+	}
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model1UUID).Return(apiInfo1, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model1UUID, apiInfo1).Return(s.connection, nil)
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model2UUID).Return(apiInfo2, nil)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model2UUID, apiInfo2).Return(s.connection, nil)
 
 	done := make(chan struct{})
 	var called uint64
@@ -208,16 +225,18 @@ func (s *workerSuite) TestGetConnectionForModelDifferentMultipleTimes(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for done channel")
 	}
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(2))
 }
 
 func (s *workerSuite) TestGetConnectionForModelBrokenConnection(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := model.UUID("test-model-uuid")
+	apiInfo := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
 
-	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(api.Info{}, nil).Times(2)
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), modelUUID).Return(apiInfo, nil).Times(2)
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), modelUUID, apiInfo).Return(s.connection, nil).Times(2)
 
 	done := make(chan struct{})
 	var called uint64
@@ -243,16 +262,6 @@ func (s *workerSuite) TestGetConnectionForModelBrokenConnection(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for done channel")
 	}
-
-	c.Assert(atomic.LoadUint64(&s.called), tc.Equals, uint64(2))
-}
-
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.baseSuite.setupMocks(c)
-
-	atomic.SwapUint64(&s.called, 0)
-
-	return ctrl
 }
 
 func (s *workerSuite) newWorker(c *tc.C) *remoteWorker {
@@ -264,13 +273,10 @@ func (s *workerSuite) newWorker(c *tc.C) *remoteWorker {
 
 func (s *workerSuite) newConfig(c *tc.C) Config {
 	return Config{
-		APIInfoGetter: s.apiInfoGetter,
-		NewConnection: func(ctx context.Context, apiInfo api.Info) (api.Connection, error) {
-			atomic.AddUint64(&s.called, 1)
-			return s.connection, nil
-		},
-		Clock:        clock.WallClock,
-		Logger:       s.logger,
-		RestartDelay: time.Millisecond * 100,
+		APIInfoGetter:    s.apiInfoGetter,
+		ConnectionGetter: s.connectionGetter,
+		Clock:            clock.WallClock,
+		Logger:           s.logger,
+		RestartDelay:     time.Millisecond * 100,
 	}
 }

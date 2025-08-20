@@ -37,17 +37,22 @@ type APIInfoGetter interface {
 	GetAPIInfoForModel(ctx context.Context, modelUUID model.UUID) (api.Info, error)
 }
 
-// NewConnectionFunc is a function type that connects to the API using the provided
-// API information.
-type NewConnectionFunc func(ctx context.Context, apiInfo api.Info) (api.Connection, error)
+// ConnectionGetter is an interface that provides a method to get a connection
+// for a given model and API information.
+type ConnectionGetter interface {
+	// GetConnectionForModel returns the remote API connection for the
+	// specified model. The connection must be valid for the lifetime of the
+	// returned RemoteConnection.
+	GetConnectionForModel(ctx context.Context, modelUUID model.UUID, apiInfo api.Info) (api.Connection, error)
+}
 
 // Config defines the configuration for the remote relation caller worker.
 type Config struct {
 	// APIInfoGetter is used to retrieve API information for models.
 	APIInfoGetter APIInfoGetter
 
-	// NewConnection is a function that creates a new API connection.
-	NewConnection NewConnectionFunc
+	// ConnectionGetter is a function that gets connections for models.
+	ConnectionGetter ConnectionGetter
 
 	// RestartDelay is the delay before the worker restarts after a failure.
 	RestartDelay time.Duration
@@ -70,8 +75,8 @@ type remoteWorker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
-	apiInfoGetter APIInfoGetter
-	newConnection NewConnectionFunc
+	apiInfoGetter    APIInfoGetter
+	connectionGetter ConnectionGetter
 
 	requests chan request
 }
@@ -93,8 +98,8 @@ func NewWorker(config Config) (*remoteWorker, error) {
 	w := &remoteWorker{
 		runner: runner,
 
-		apiInfoGetter: config.APIInfoGetter,
-		newConnection: config.NewConnection,
+		apiInfoGetter:    config.APIInfoGetter,
+		connectionGetter: config.ConnectionGetter,
 
 		requests: make(chan request),
 	}
@@ -179,7 +184,7 @@ func (w *remoteWorker) getConnectionForModel(ctx context.Context, modelUUID mode
 			return nil, errors.Capture(err)
 		}
 
-		conn, err := w.newConnection(ctx, apiInfo)
+		conn, err := w.connectionGetter.GetConnectionForModel(ctx, modelUUID, apiInfo)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
