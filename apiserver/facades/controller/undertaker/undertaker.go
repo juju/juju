@@ -127,7 +127,7 @@ func (u *UndertakerAPI) RemoveModelProfile() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	param := params.Entities{Entities: []params.Entity{{Tag: model.Tag().String()}}}
+	param := params.Entities{Entities: []params.Entity{{Tag: model.ModelTag().String()}}}
 	cloudSpecResults, err := u.CloudSpec(param)
 	if err != nil {
 		return errors.Trace(err)
