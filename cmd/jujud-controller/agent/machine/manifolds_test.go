@@ -1186,6 +1186,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"model-worker-manager": {
 		"agent",
 		"api-remote-caller",
+		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
@@ -2171,6 +2172,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"model-worker-manager": {
 		"agent",
 		"api-remote-caller",
+		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
 		"clock",
