@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -183,6 +184,58 @@ func remoteOutput(in worker.Worker, out any) error {
 		return errors.NotValidf("expected *api.Connection, got %T", out)
 	}
 	return nil
+}
+
+// GetDomainServicesGetter returns a function that retrieves a
+// DomainServicesGetter for the Worker.
+func GetDomainServicesGetter(getter dependency.Getter, name string) (DomainServicesGetter, error) {
+	var g services.DomainServicesGetter
+	if err := getter.Get(name, &g); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return domainServicesGetter{
+		domainServicesGetter: g,
+	}, nil
+}
+
+type domainServicesGetter struct {
+	domainServicesGetter services.DomainServicesGetter
+}
+
+// ServicesForModel returns a DomainServices for the specified model.
+func (d domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID model.UUID) (DomainServices, error) {
+	services, err := d.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return domainServices{
+		services: services,
+	}, nil
+}
+
+type domainServices struct {
+	services services.DomainServices
+}
+
+// ExternalController returns the ExternalControllerService for the domain.
+func (d domainServices) ExternalController() ExternalControllerService {
+	return d.services.ExternalController()
+}
+
+// Model returns the ModelService for the domain.
+func (d domainServices) Model() ModelService {
+	return d.services.Model()
+}
+
+// ControllerConfig returns the ControllerConfigService for the domain.
+func (d domainServices) ControllerConfig() ControllerConfigService {
+	return d.services.ControllerConfig()
+}
+
+// ControllerNode returns the ControllerNodeService for the domain.
+func (d domainServices) ControllerNode() ControllerNodeService {
+	return d.services.ControllerNode()
 }
 
 var (

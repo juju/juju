@@ -268,7 +268,7 @@ func (s *workerSuite) newWorker(c *tc.C) *remoteWorker {
 	w, err := NewWorker(s.newConfig(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	return w
+	return w.(*remoteWorker)
 }
 
 func (s *workerSuite) newConfig(c *tc.C) Config {

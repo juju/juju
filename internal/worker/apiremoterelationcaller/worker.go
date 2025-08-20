@@ -82,7 +82,7 @@ type remoteWorker struct {
 }
 
 // NewWorker creates a new remote relation caller worker.
-func NewWorker(config Config) (*remoteWorker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name:          "api-remote-relation-caller",
 		IsFatal:       func(err error) bool { return false },
