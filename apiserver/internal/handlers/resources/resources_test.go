@@ -237,11 +237,15 @@ func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *tc.C) {
 	s.checkErrResp(c, http.StatusNotFound, "application/json")
 }
 
-func (s *ResourcesHandlerSuite) TestPutSuccess(c *tc.C) {
+func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange:
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), s.applicationName, s.resourceName).Return(s.resourceUUID, nil)
+	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
+	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
+	s.resource.UUID = newResourceUUID
+	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		s.resource, nil,
 	)
 
@@ -253,7 +257,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *tc.C) {
 	).Return(s.resourceReader, nil)
 
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
-		ResourceUUID:    s.resourceUUID,
+		ResourceUUID:    newResourceUUID,
 		Reader:          s.resourceReader,
 		RetrievedBy:     s.username,
 		RetrievedByType: coreresource.User,
@@ -265,12 +269,11 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *tc.C) {
 	expectedResource := s.resource
 	expectedResource.Origin = charmresource.OriginUpload
 	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		expectedResource, nil,
 	)
 
 	req := s.newUploadRequest(c)
-	req.URL.RawQuery += fmt.Sprintf("&pendingid=%s", s.resourceUUID)
 
 	// Act:
 	s.serveHTTP(req)
@@ -437,7 +440,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 		s.resource.Size,
 	).Return(s.resourceReader, nil)
 
-	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    s.resourceUUID,
 		Reader:          s.resourceReader,
 		RetrievedBy:     s.username,

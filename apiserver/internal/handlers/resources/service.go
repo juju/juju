@@ -45,7 +45,7 @@ type ResourceService interface {
 
 	// StoreResourceAndIncrementCharmModifiedVersion adds the application
 	// resource to blob storage and updates the metadata. It also sets the
-	// retrival information for the resource.
+	// retrieval information for the resource.
 	StoreResourceAndIncrementCharmModifiedVersion(ctx context.Context, args resource.StoreResourceArgs) error
 
 	// GetApplicationResourceID returns the ID of the application resource

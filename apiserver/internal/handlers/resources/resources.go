@@ -158,17 +158,24 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 		return nil, errors.Capture(err)
 	}
 
-	err = service.StoreResourceAndIncrementCharmModifiedVersion(
-		req.Context(),
-		resource.StoreResourceArgs{
-			ResourceUUID:    uploaded.uuid,
-			Reader:          reader,
-			RetrievedBy:     username,
-			RetrievedByType: coreresource.User,
-			Size:            uploaded.size,
-			Fingerprint:     uploaded.fingerprint,
-		},
-	)
+	args := resource.StoreResourceArgs{
+		ResourceUUID:    uploaded.uuid,
+		Reader:          reader,
+		RetrievedBy:     username,
+		RetrievedByType: coreresource.User,
+		Size:            uploaded.size,
+		Fingerprint:     uploaded.fingerprint,
+	}
+	if uploaded.pending {
+		err = service.StoreResource(req.Context(), args)
+	} else {
+		// If the resource is pending this call will fail. The charm
+		// modified version exists on applications only. A pending
+		// resources indicates the application does not yet exist.
+		// The charm modified version is used to upgrade a resource
+		// independently of a charm.
+		err = service.StoreResourceAndIncrementCharmModifiedVersion(req.Context(), args)
+	}
 	if err != nil {
 		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.resourceName, uploaded.applicationName, err)
 	}
@@ -212,6 +219,10 @@ type uploadedResource struct {
 
 	// fingerprint is the hash of the resource blob.
 	fingerprint charmresource.Fingerprint
+
+	// pending indicates the the request has a pending resource
+	// id. This is used for deploy with a local resource only.
+	pending bool
 }
 
 // getUploadedResource reads the resource from the request, validates that it is
@@ -225,7 +236,7 @@ func (h *ResourceHandler) getUploadedResource(
 		return nil, nil, errors.Capture(err)
 	}
 
-	resUUID, err := getResourceUUID(req.Context(), resourceService, uReq)
+	resUUID, pending, err := h.getResourceUUIDAndPendingStatus(req.Context(), resourceService, uReq)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting resource uuid: %w", err)
 	}
@@ -264,37 +275,40 @@ func (h *ResourceHandler) getUploadedResource(
 		resourceName:    res.Resource.Name,
 		size:            uReq.Size,
 		fingerprint:     uReq.Fingerprint,
+		pending:         pending,
 	}, nil
 }
 
-// getResourceUUID returns the resource uuid to match the new resource blob to.
-func getResourceUUID(
+// getResourceUUIDAndPendingStatus returns the resource uuid to match the new
+// resource blob to and a boolean to indicate if this is a pending resource.
+func (h *ResourceHandler) getResourceUUIDAndPendingStatus(
 	ctx context.Context,
 	resourceService ResourceService,
 	uReq api.UploadRequest,
-) (coreresource.UUID, error) {
+) (coreresource.UUID, bool, error) {
 	// If there is a valid PendingID in the request, the client has already
 	// setup the resource to expect a new upload, no need to do it again.
+	// The UUID is verified by a subsequent call to GetResource by the caller.
 	updatedResourceUUID, err := coreresource.ParseUUID(uReq.PendingID)
 	if err == nil {
-		return updatedResourceUUID, nil
+		return updatedResourceUUID, true, nil
 	}
 
-	// The client attempting to upload the resource, hasn't setup to match
+	// The client is attempting to upload the resource, hasn't setup to match
 	// a resource to a new uploaded blob. Do that for them here.
 	oldResourceUUID, err := resourceService.GetResourceUUIDByApplicationAndResourceName(ctx, uReq.Application, uReq.Name)
 	if errors.Is(err, resourceerrors.ResourceNotFound) || errors.Is(err, resourceerrors.ApplicationNotFound) {
-		return "", jujuerrors.NotFoundf("application %q, resource %q", uReq.Application, uReq.Name)
+		return "", false, jujuerrors.NotFoundf("application %q, resource %q", uReq.Application, uReq.Name)
 	} else if err != nil {
-		return "", errors.Errorf("getting resource uuid: %w", err)
+		return "", false, errors.Errorf("getting resource uuid: %w", err)
 	}
 
 	newResourceUUID, err := resourceService.UpdateUploadResource(ctx, oldResourceUUID)
 	if err != nil {
-		return "", errors.Errorf("updating resource uuid: %w", err)
+		return "", false, errors.Errorf("updating resource uuid: %w", err)
 	}
 
-	return newResourceUUID, nil
+	return newResourceUUID, false, nil
 }
 
 // extractUploadRequest pulls the required info from the HTTP request.
