@@ -105,7 +105,7 @@ func newLocalRelationUnitsWorker(
 
 func newRemoteRelationUnitsWorker(
 	ctx context.Context,
-	facade RemoteModelRelationsFacade,
+	client RemoteModelRelationsClient,
 	relationTag names.RelationTag,
 	mac *macaroon.Macaroon,
 	relationToken, remoteAppToken string,
@@ -116,7 +116,7 @@ func newRemoteRelationUnitsWorker(
 ) (ReportableWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the
 	// remote model.
-	watcher, err := facade.WatchRelationChanges(
+	watcher, err := client.WatchRelationChanges(
 		ctx, relationToken, remoteAppToken, macaroon.Slice{mac},
 	)
 	if err != nil {
