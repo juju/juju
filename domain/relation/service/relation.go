@@ -35,49 +35,18 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
-	// SetRelationWithID establishes a relation between two endpoints identified
-	// by ep1 and ep2 and returns the relation UUID. Used for migration
-	// import.
-	SetRelationWithID(
-		ctx context.Context,
-		ep1, ep2 corerelation.EndpointIdentifier,
-		id uint64,
-	) (corerelation.UUID, error)
-
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
-	//
-	// The following errors can be return:
-	//   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
-	//     alive.
-	//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate unit
-	//     already exists, but is not alive.
 	NeedsSubordinateUnit(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		principalUnitName unit.Name,
 	) (*application.ID, error)
 
-	// DeleteImportedRelations deletes all imported relations in a model during
-	// an import rollback.
-	DeleteImportedRelations(
-		ctx context.Context,
-	) error
-
 	// EnterScope indicates that the provided unit has joined the relation.
 	// When the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created or
 	// overwritten in the relation according to the supplied map.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
-	//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
-	//   - [relationerrors.RelationNotAlive] if the relation is not alive.
-	//   - [relationerrors.UnitNotAlive] if the unit is not alive.
-	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
-	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
-	//     where the other application is a principal, but not in the current
-	//     relation.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -85,36 +54,19 @@ type State interface {
 		settings map[string]string,
 	) error
 
-	// ExportRelations returns all relation information to be exported for the
-	// model.
-	ExportRelations(ctx context.Context) ([]relation.ExportRelation, error)
-
 	// GetAllRelationDetails return RelationDetailResults for all relations
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
 	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
 	// relations the given application is in, modulo peer relations.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.ApplicationNotFound] is returned if the application
-	//     is not found.
 	GetGoalStateRelationDataForApplication(
 		ctx context.Context,
 		applicationID application.ID,
 	) ([]relation.GoalStateRelationData, error)
 
-	// GetApplicationIDByName returns the application ID of the given application.
-	GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error)
-
 	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
 	// uuid as part of WatchLifeSuspendedStatus eventmapper.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
-	//     application is not part of the relation.
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
 	GetMapperDataForWatchLifeSuspendedStatus(
 		ctx context.Context,
 		relUUID corerelation.UUID,
@@ -131,10 +83,6 @@ type State interface {
 
 	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
 	// relation specified by a single endpoint identifier.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
-	//     found.
 	GetPeerRelationUUIDByEndpointIdentifiers(
 		ctx context.Context,
 		endpoint corerelation.EndpointIdentifier,
@@ -152,12 +100,6 @@ type State interface {
 
 	// GetRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
-	//     application is not part of the relation.
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
 	GetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -165,18 +107,10 @@ type State interface {
 	) (map[string]string, error)
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     relating to the relation ID cannot be found.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
 
 	// GetRelationEndpointScope returns the scope of the relation endpoint
 	// at the intersection of the relationUUID and applicationID.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     relating to the relation ID cannot be found.
 	GetRelationEndpointScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -189,10 +123,6 @@ type State interface {
 
 	// GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
 	// relation specified by two endpoint identifiers.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
-	//     found.
 	GetRegularRelationUUIDByEndpointIdentifiers(
 		ctx context.Context,
 		endpoint1, endpoint2 corerelation.EndpointIdentifier,
@@ -203,10 +133,6 @@ type State interface {
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID unit.UUID) ([]relation.RelationUnitStatusResult, error)
 
 	// GetRelationDetails returns relation details for the given relationUUID.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
 
 	// GetRelationUnitChanges retrieves changes to relation unit states and
@@ -225,17 +151,9 @@ type State interface {
 
 	// GetRelationUnitSettings returns the relation unit settings for the given
 	// relation unit.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationUnitNotFound] is returned if the
-	//     unit is not part of the relation.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
 
 	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
-	//     found.
 	InferRelationUUIDByEndpoints(
 		ctx context.Context,
 		epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
@@ -248,39 +166,13 @@ type State interface {
 
 	// IsPeerRelation returns a boolean to indicate if the given
 	// relation UUID is for a peer relation.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
-	//     found.
 	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
-
-	// SetRelationApplicationSettings records settings for a specific application
-	// relation combination.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
-	//     application is not part of the relation.
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
-	SetRelationApplicationSettings(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		applicationID application.ID,
-		settings map[string]string,
-	) error
 
 	// SetRelationApplicationAndUnitSettings records settings for a unit and
 	// an application in a relation.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationUnitNotFound] is returned if the
-	//     relation unit is not found.
 	SetRelationApplicationAndUnitSettings(
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
@@ -288,10 +180,6 @@ type State interface {
 	) error
 
 	// SetRelationUnitSettings records settings for a specific relation unit.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
-	//     part of the relation.
 	SetRelationUnitSettings(
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
@@ -906,109 +794,6 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 	return true, nil
 }
 
-// ImportRelations sets relations imported in migration.
-func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	for _, arg := range args {
-		relUUID, err := s.importRelation(ctx, arg)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		for _, ep := range arg.Endpoints {
-			err = s.importRelationEndpoint(ctx, relUUID, ep)
-			if err != nil {
-				return errors.Capture(err)
-			}
-		}
-	}
-	return nil
-}
-
-// ExportRelations returns all relation information to be exported for the
-// model.
-func (s *Service) ExportRelations(ctx context.Context) ([]relation.ExportRelation, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	relations, err := s.st.ExportRelations(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Generate the relation keys.
-	for i, r := range relations {
-		var eids []corerelation.EndpointIdentifier
-		for _, ep := range r.Endpoints {
-			eids = append(eids, corerelation.EndpointIdentifier{
-				ApplicationName: ep.ApplicationName,
-				EndpointName:    ep.Name,
-				Role:            ep.Role,
-			})
-		}
-		relations[i].Key, err = corerelation.NewKey(eids)
-		if err != nil {
-			return nil, errors.Errorf("generating relation key: %w", err)
-		}
-	}
-
-	return relations, nil
-}
-
-func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelationArg) (corerelation.UUID, error) {
-	var relUUID corerelation.UUID
-
-	eps := arg.Key.EndpointIdentifiers()
-	var err error
-
-	switch len(eps) {
-	case 1:
-		// Peer relations are implicitly imported during migration of applications
-		// during the call to CreateApplication.
-		relUUID, err = s.st.GetPeerRelationUUIDByEndpointIdentifiers(ctx, eps[0])
-		if err != nil {
-			return relUUID, errors.Errorf("getting peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
-		}
-	case 2:
-		relUUID, err = s.st.SetRelationWithID(ctx, eps[0], eps[1], uint64(arg.ID))
-		if err != nil {
-			return relUUID, errors.Capture(err)
-		}
-	default:
-		return relUUID, errors.Errorf("unexpected number of endpoints %d for %q", len(eps), arg.Key)
-	}
-	return relUUID, nil
-}
-
-func (s *Service) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
-	appID, err := s.st.GetApplicationIDByName(ctx, ep.ApplicationName)
-	if err != nil {
-		return err
-	}
-
-	settings, err := settingsMap(ep.ApplicationSettings)
-	if err != nil {
-		return err
-	}
-	err = s.st.SetRelationApplicationSettings(ctx, relUUID, appID, settings)
-	if err != nil {
-		return err
-	}
-	for unitName, unitSettings := range ep.UnitSettings {
-		settings, err = settingsMap(unitSettings)
-		if err != nil {
-			return err
-		}
-		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func settingsMap(in map[string]interface{}) (map[string]string, error) {
 	var errs error
 	return transform.Map(in, func(k string, v interface{}) (string, string) {
@@ -1019,15 +804,4 @@ func settingsMap(in map[string]interface{}) (map[string]string, error) {
 		}
 		return k, fmt.Sprintf("%v", v)
 	}), errs
-}
-
-// DeleteImportedRelations deletes all imported relations in a model during
-// an import rollback.
-func (s *Service) DeleteImportedRelations(
-	ctx context.Context,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.DeleteImportedRelations(ctx)
 }

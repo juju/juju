@@ -48,9 +48,8 @@ func (e *exportOperation) Name() string {
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.exportService = service.NewService(
+	e.exportService = service.NewMigrationService(
 		state.NewState(scope.ModelDB(), e.clock, e.logger),
-		e.logger,
 	)
 	return nil
 }

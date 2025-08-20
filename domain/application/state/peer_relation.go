@@ -12,6 +12,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/application/charm"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
@@ -98,7 +100,7 @@ func (st *State) insertMigratingPeerRelations(ctx context.Context, tx *sqlair.TX
 
 // insertPeerRelation inserts a single peer relation.
 func (st *State) insertPeerRelation(ctx context.Context, tx *sqlair.TX, peer peerEndpoint, relID uint64) error {
-	relUUID, err := st.insertNewRelation(ctx, tx, relID)
+	relUUID, err := st.insertNewRelation(ctx, tx, relID, charm.ScopeGlobal)
 	if err != nil {
 		return errors.Errorf("inserting new relation for peer endpoint %q: %w", peer.Name, err)
 	}
@@ -117,28 +119,37 @@ func (st *State) insertPeerRelation(ctx context.Context, tx *sqlair.TX, peer pee
 }
 
 // insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
-func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX, relID uint64) (corerelation.UUID, error) {
+func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX, relID uint64, scope charm.RelationScope) (corerelation.UUID, error) {
 	relUUID, err := corerelation.NewUUID()
 	if err != nil {
 		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
 	}
 
-	type relationIDAndUUID struct {
-		UUID corerelation.UUID `db:"uuid"`
-		ID   uint64            `db:"relation_id"`
+	scopeID, err := encodeRelationScope(scope)
+	if err != nil {
+		return relUUID, errors.Errorf("encoding relation scope: %w", err)
+	}
+
+	type relation struct {
+		UUID  corerelation.UUID `db:"uuid"`
+		ID    uint64            `db:"relation_id"`
+		Life  domainlife.Life   `db:"life_id"`
+		Scope int               `db:"scope_id"`
+	}
+
+	relUUIDArg := relation{
+		UUID:  relUUID,
+		ID:    relID,
+		Life:  domainlife.Alive,
+		Scope: scopeID,
 	}
 
 	stmtInsert, err := st.Prepare(`
-INSERT INTO relation (uuid, life_id, relation_id)
-VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
-`, relationIDAndUUID{})
+INSERT INTO relation (*)
+VALUES ($relation.*)
+`, relation{})
 	if err != nil {
 		return relUUID, errors.Capture(err)
-	}
-
-	relUUIDArg := relationIDAndUUID{
-		UUID: relUUID,
-		ID:   relID,
 	}
 
 	if err := tx.Query(ctx, stmtInsert, relUUIDArg).Run(); err != nil {

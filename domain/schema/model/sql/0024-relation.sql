@@ -79,9 +79,17 @@ CREATE TABLE relation (
     uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     relation_id INT NOT NULL,
+    -- NOTE: the scope of a relation is not just the same as the scope of either
+    -- of it's endpoints. It's a property we need to consider as intrinsic to the
+    -- relation itself. This is because a relation is considered container-scoped
+    -- if either of it's endpoints are container-scoped.
+    scope_id INT NOT NULL,
     CONSTRAINT fk_relation_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_relation_scope
+    FOREIGN KEY (scope_id)
+    REFERENCES charm_relation_scope (id)
 );
 
 CREATE UNIQUE INDEX idx_relation_id
@@ -223,11 +231,12 @@ SELECT
     crr.name AS role,
     crs.name AS scope
 FROM relation_endpoint AS re
+JOIN relation AS r ON re.relation_uuid = r.uuid
 JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN application AS a ON ae.application_uuid = a.uuid
 JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
-JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
+JOIN charm_relation_scope AS crs ON r.scope_id = crs.id;
 
 CREATE VIEW v_relation_endpoint_identifier AS
 SELECT

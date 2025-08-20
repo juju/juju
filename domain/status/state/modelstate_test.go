@@ -2508,8 +2508,8 @@ func (s *modelStateSuite) addRelationWithLifeAndID(c *tc.C, life corelife.Value,
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
-INSERT INTO relation (uuid, relation_id, life_id)
-SELECT ?, ?, id
+INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+SELECT ?, ?, id, 0
 FROM life
 WHERE value = ?
 `, relationUUID, relationID, life)
