@@ -253,7 +253,7 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 			return nil, internalerrors.Capture(err)
 		}
 
-		w, err := s.storageProvisioningService.WatchUnitStorageAttachments(ctx, unitUUID)
+		w, err := s.storageProvisioningService.WatchStorageAttachmentsForUnit(ctx, unitUUID)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return nil, internalerrors.Errorf(
 				"unit %q not found: %w", unitTag.Id(), err,

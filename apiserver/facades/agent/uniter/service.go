@@ -606,12 +606,12 @@ type StorageProvisioningService interface {
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
 
-	// WatchUnitStorageAttachments returns a watcher that emits the storage IDs
+	// WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
 	// for the provided unit when the unit's storage attachments are changed.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
-	WatchUnitStorageAttachments(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error)
+	WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error)
 
 	// WatchStorageAttachmentForMachine returns a notification watcher
 	// for the storage attachment of a machine.
