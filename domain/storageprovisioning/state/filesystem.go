@@ -572,8 +572,8 @@ func (st *State) GetFilesystemAttachmentParams(
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
-              mci.instance_id AS machine_instance_id,
-              cs.location AS mount_point,
+              mci.instance_id,
+              cs.location,
               cs.read_only,
               COALESCE(si.storage_type, sp.type, NULL) AS type
     FROM      storage_filesystem_attachment sfa
@@ -620,10 +620,10 @@ SELECT &filesystemAttachmentParams.* FROM (
 	}
 
 	return storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: dbVal.MachineInstanceID.V,
+		MachineInstanceID: dbVal.InstanceID.V,
 		Provider:          dbVal.Type.V,
 		ProviderID:        dbVal.ProviderID.V,
-		MountPoint:        dbVal.MountPoint.V,
+		MountPoint:        dbVal.Location.V,
 		ReadOnly:          dbVal.ReadOnly.V,
 	}, nil
 }
