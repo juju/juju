@@ -234,49 +234,22 @@ func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	return nodeUUID
 }
 
-func (s *baseSuite) newStorageInstance(c *tc.C) domainstorage.StorageInstanceUUID {
-	return s.newStorageInstanceWithProviderType(c, "rootfs")
-}
-
-func (s *baseSuite) newStorageInstanceWithProviderType(
-	c *tc.C, pType string,
-) domainstorage.StorageInstanceUUID {
-	charmUUID := s.newCharm(c)
-	return s.newStorageInstanceForCharmWithProviderType(c, charmUUID, pType)
-}
-
 func (s *baseSuite) newStorageInstanceForCharmWithProviderType(
-	c *tc.C, charmUUID string, pType string,
+	c *tc.C, charmUUID, pType, storageName string,
 ) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
-	storageName := "mystorage"
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
-	err := s.TxnRunner().StdTxn(
-		c.Context(),
-		func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 0, 0, 1)
-`,
-				charmUUID, storageName,
-			)
-			if err != nil {
-				return err
-			}
-
-			_, err = tx.ExecContext(ctx, `
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
 VALUES (?, ?, ?, ?, 0, 100, ?)
 `,
-				storageInstanceUUID.String(),
-				charmUUID,
-				storageName,
-				storageID,
-				pType,
-			)
-			return err
-		})
+		storageInstanceUUID.String(),
+		charmUUID,
+		storageName,
+		storageID,
+		pType,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstanceUUID
@@ -314,45 +287,22 @@ VALUES (?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) newStorageInstanceWithPool(
-	c *tc.C, poolUUID string,
-) domainstorage.StorageInstanceUUID {
-	charmUUID := s.newCharm(c)
-	return s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID)
-}
-
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
-	c *tc.C, charmUUID, poolUUID string,
+	c *tc.C, charmUUID, poolUUID, storageName string,
 ) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
-	storageName := "mystorage"
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
-	err := s.TxnRunner().StdTxn(
-		c.Context(),
-		func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 0, 0, 1)
-`,
-				charmUUID, storageName,
-			)
-			if err != nil {
-				return err
-			}
-
-			_, err = tx.ExecContext(ctx, `
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
 VALUES (?, ?, ?, ?, 0, 100, ?)
 `,
-				storageInstanceUUID.String(),
-				charmUUID,
-				storageName,
-				storageID,
-				poolUUID,
-			)
-			return err
-		})
+		storageInstanceUUID.String(),
+		charmUUID,
+		storageName,
+		storageID,
+		poolUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstanceUUID
