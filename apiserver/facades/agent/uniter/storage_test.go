@@ -441,7 +441,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().WatchUnitStorageAttachments(gomock.Any(), unitUUID).Return(sourceWatcher, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentsForUnit(gomock.Any(), unitUUID).Return(sourceWatcher, nil)
 	s.mockWatcherRegistry.EXPECT().Register(sourceWatcher).Return("66", nil)
 
 	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
@@ -492,7 +492,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachmentsWithUnitNotFound2(c *tc.C)
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().WatchUnitStorageAttachments(gomock.Any(), unitUUID).Return(nil, applicationerrors.UnitNotFound)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentsForUnit(gomock.Any(), unitUUID).Return(nil, applicationerrors.UnitNotFound)
 
 	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{
