@@ -6,7 +6,6 @@ package lxd
 import (
 	stdcontext "context"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"runtime"
@@ -168,8 +167,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 func (env *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-
-	log.Println("inside SetCloudSpec", env.uuid, env.name)
 
 	serverFactory := env.provider.serverFactory
 	server, err := serverFactory.RemoteServer(CloudSpec{CloudSpec: spec, Project: env.ecfgUnlocked.project()})
