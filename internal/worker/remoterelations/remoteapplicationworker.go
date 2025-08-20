@@ -176,40 +176,6 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 	return result
 }
 
-func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
-	// If consume permission has been revoked for the offer, set the
-	// status of the local remote application entity.
-	if params.ErrCode(err) == params.CodeDischargeRequired {
-		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, err.Error()); err != nil {
-			w.logger.Errorf(ctx,
-				"updating remote application %v status from remote model %v: %v",
-				w.applicationName, w.remoteModelUUID, err)
-		}
-		w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
-		// If we know a specific relation, update that too.
-		if localRelationToken != "" {
-			suspended := true
-			event := params.RemoteRelationChangeEvent{
-				RelationToken:           localRelationToken,
-				ApplicationOrOfferToken: appToken,
-				Suspended:               &suspended,
-				SuspendedReason:         "offer permission revoked",
-			}
-			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, event); err != nil {
-				w.logger.Errorf(ctx, "updating relation status: %v", err)
-			}
-		}
-	}
-}
-
-func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
-	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
-	if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Terminated, "offer has been removed"); err != nil {
-		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-	}
-	return nil
-}
-
 func (w *remoteApplicationWorker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -350,6 +316,40 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 		}
 	}
+}
+
+func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
+	// If consume permission has been revoked for the offer, set the
+	// status of the local remote application entity.
+	if params.ErrCode(err) == params.CodeDischargeRequired {
+		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, err.Error()); err != nil {
+			w.logger.Errorf(ctx,
+				"updating remote application %v status from remote model %v: %v",
+				w.applicationName, w.remoteModelUUID, err)
+		}
+		w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
+		// If we know a specific relation, update that too.
+		if localRelationToken != "" {
+			suspended := true
+			event := params.RemoteRelationChangeEvent{
+				RelationToken:           localRelationToken,
+				ApplicationOrOfferToken: appToken,
+				Suspended:               &suspended,
+				SuspendedReason:         "offer permission revoked",
+			}
+			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, event); err != nil {
+				w.logger.Errorf(ctx, "updating relation status: %v", err)
+			}
+		}
+	}
+}
+
+func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
+	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
+	if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Terminated, "offer has been removed"); err != nil {
+		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+	}
+	return nil
 }
 
 // newRemoteRelationsClient attempts to open an API connection to
