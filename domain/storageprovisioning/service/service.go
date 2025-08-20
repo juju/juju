@@ -109,7 +109,7 @@ type State interface {
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	GetStorageIDsForUnit(
-		ctx context.Context, unitUUID string, storageInstanceUUIDStrs []string,
+		ctx context.Context, unitUUID string, storageInstanceUUID []string,
 	) ([]string, error)
 
 	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
@@ -325,12 +325,12 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	return rval, nil
 }
 
-// WatchUnitStorageAttachments returns a watcher that emits the storage IDs
+// WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
 // for the provided unit when the unit's storage attachments are changed.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
-func (s *Service) WatchUnitStorageAttachments(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error) {
+func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

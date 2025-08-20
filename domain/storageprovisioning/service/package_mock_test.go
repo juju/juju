@@ -750,18 +750,18 @@ func (c *MockStateGetStorageAttachmentLifeCall) DoAndReturn(f func(context.Conte
 }
 
 // GetStorageIDsForUnit mocks base method.
-func (m *MockState) GetStorageIDsForUnit(ctx context.Context, unitUUID string, storageInstanceUUIDStrs []string) ([]string, error) {
+func (m *MockState) GetStorageIDsForUnit(ctx context.Context, unitUUID string, storageInstanceUUID []string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStorageIDsForUnit", ctx, unitUUID, storageInstanceUUIDStrs)
+	ret := m.ctrl.Call(m, "GetStorageIDsForUnit", ctx, unitUUID, storageInstanceUUID)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetStorageIDsForUnit indicates an expected call of GetStorageIDsForUnit.
-func (mr *MockStateMockRecorder) GetStorageIDsForUnit(ctx, unitUUID, storageInstanceUUIDStrs any) *MockStateGetStorageIDsForUnitCall {
+func (mr *MockStateMockRecorder) GetStorageIDsForUnit(ctx, unitUUID, storageInstanceUUID any) *MockStateGetStorageIDsForUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageIDsForUnit", reflect.TypeOf((*MockState)(nil).GetStorageIDsForUnit), ctx, unitUUID, storageInstanceUUIDStrs)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageIDsForUnit", reflect.TypeOf((*MockState)(nil).GetStorageIDsForUnit), ctx, unitUUID, storageInstanceUUID)
 	return &MockStateGetStorageIDsForUnitCall{Call: call}
 }
 
@@ -1875,6 +1875,44 @@ func (c *MockStateNamespaceForFilesystemAttachmentsCall) Do(f func() string) *Mo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForFilesystemAttachmentsCall) DoAndReturn(f func() string) *MockStateNamespaceForFilesystemAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForVolumeAttachments mocks base method.
+func (m *MockState) NamespaceForVolumeAttachments() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForVolumeAttachments")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForVolumeAttachments indicates an expected call of NamespaceForVolumeAttachments.
+func (mr *MockStateMockRecorder) NamespaceForVolumeAttachments() *MockStateNamespaceForVolumeAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForVolumeAttachments", reflect.TypeOf((*MockState)(nil).NamespaceForVolumeAttachments))
+	return &MockStateNamespaceForVolumeAttachmentsCall{Call: call}
+}
+
+// MockStateNamespaceForVolumeAttachmentsCall wrap *gomock.Call
+type MockStateNamespaceForVolumeAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForVolumeAttachmentsCall) Return(arg0 string) *MockStateNamespaceForVolumeAttachmentsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForVolumeAttachmentsCall) Do(f func() string) *MockStateNamespaceForVolumeAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForVolumeAttachmentsCall) DoAndReturn(f func() string) *MockStateNamespaceForVolumeAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

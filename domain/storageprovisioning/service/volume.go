@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
+	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -183,6 +184,10 @@ type VolumeState interface {
 	// getting the set of volume attachment plans in the model that are
 	// provisioned by the supplied machine in the model.
 	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+
+	// NamespaceForVolumeAttachments returns the change stream namespace
+	// for watching volume attachment changes.
+	NamespaceForVolumeAttachments() string
 }
 
 // GetVolumeAttachmentIDs returns the
@@ -791,5 +796,20 @@ func (s *Service) watchVolumeAttachmentForNetNode(
 	if err := netNodeUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
-	return nil, errors.Errorf("watching volume attachment for net node %q: not implemented", netNodeUUID)
+
+	volAttachmentUUID, err := s.st.GetVolumeAttachmentUUIDForVolumeNetNode(
+		ctx, volumeUUID, netNodeUUID,
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(ctx,
+		watcherSummary,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForVolumeAttachments(),
+			corechangestream.All,
+			eventsource.EqualsPredicate(volAttachmentUUID.String()),
+		),
+	)
 }
