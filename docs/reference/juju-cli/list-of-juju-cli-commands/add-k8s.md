@@ -14,13 +14,13 @@ Adds a Kubernetes endpoint and credential to Juju.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-c`, `--controller` |  | Controller to operate in |
 | `--client` | false | Client operation |
-| `--cloud` |  | k8s cluster cloud |
-| `--cluster-name` |  | Specify the k8s cluster to import |
-| `--context-name` |  | Specify the k8s context to import |
-| `--credential` |  | the credential to use when accessing the cluster |
-| `--region` |  | k8s cluster region or cloud/region |
-| `--skip-storage` | false | used when adding a cluster that doesn't have storage |
-| `--storage` |  | k8s storage class for workload storage |
+| `--cloud` |  | Specify the Kubernetes cluster cloud |
+| `--cluster-name` |  | Specify the Kubernetes cluster to import |
+| `--context-name` |  | Specify the Kubernetes context to import |
+| `--credential` |  | Specify the credential to use when accessing the cluster |
+| `--region` |  | Specify the Kubernetes cluster region or cloud/region |
+| `--skip-storage` | false | Skip storage provisioning for clusters that don't have storage |
+| `--storage` |  | Specify the Kubernetes storage class for workload storage |
 
 ## Examples
 

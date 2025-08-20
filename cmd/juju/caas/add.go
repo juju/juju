@@ -233,13 +233,13 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
-	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
-	f.StringVar(&c.hostCloudRegion, "region", "", "k8s cluster region or cloud/region")
-	f.StringVar(&c.hostCloud, "cloud", "", "k8s cluster cloud")
-	f.StringVar(&c.workloadStorage, "storage", "", "k8s storage class for workload storage")
-	f.BoolVar(&c.skipStorage, "skip-storage", false, "used when adding a cluster that doesn't have storage")
-	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
+	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the Kubernetes cluster to import")
+	f.StringVar(&c.contextName, "context-name", "", "Specify the Kubernetes context to import")
+	f.StringVar(&c.hostCloudRegion, "region", "", "Specify the Kubernetes cluster region or cloud/region")
+	f.StringVar(&c.hostCloud, "cloud", "", "Specify the Kubernetes cluster cloud")
+	f.StringVar(&c.workloadStorage, "storage", "", "Specify the Kubernetes storage class for workload storage")
+	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skip storage provisioning for clusters that don't have storage")
+	f.StringVar(&c.credential, "credential", "", "Specify the credential to use when accessing the cluster")
 	// TODO(k8s) - support k8s tooling in strict snap
 	// f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	// f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
