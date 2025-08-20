@@ -5,7 +5,6 @@ package remoterelations
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -147,6 +146,17 @@ func (config Config) Validate() error {
 	return nil
 }
 
+// Worker manages relations and associated settings where
+// one end of the relation is a remote application.
+type Worker struct {
+	catacomb catacomb.Catacomb
+	runner   *worker.Runner
+
+	config Config
+
+	logger logger.Logger
+}
+
 // New returns a Worker backed by config, or an error.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
@@ -170,9 +180,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		config:     config,
-		offerUUIDs: make(map[string]string),
-		runner:     runner,
+		runner: runner,
+		config: config,
+		logger: config.Logger,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -186,19 +196,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	return w, nil
-}
-
-// Worker manages relations and associated settings where
-// one end of the relation is a remote application.
-type Worker struct {
-	catacomb catacomb.Catacomb
-	config   Config
-	logger   logger.Logger
-
-	runner *worker.Runner
-
-	// offerUUIDs records the offer UUID used for each saas name.
-	offerUUIDs map[string]string
 }
 
 // Kill is defined on worker.Worker.
@@ -226,6 +223,7 @@ func (w *Worker) loop() (err error) {
 	if err := w.catacomb.Add(changes); err != nil {
 		return errors.Trace(err)
 	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -234,8 +232,8 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			err = w.handleApplicationChanges(ctx, applicationIds)
-			if err != nil {
+
+			if err := w.handleApplicationChanges(ctx, applicationIds); err != nil {
 				return err
 			}
 		}
@@ -243,13 +241,7 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []string) error {
-	// TODO(wallyworld) - watcher should not give empty events
-	if len(applicationIds) == 0 {
-		return nil
-	}
-
-	logger := w.config.Logger
-	logger.Debugf(ctx, "processing remote application changes for: %s", applicationIds)
+	w.logger.Debugf(ctx, "processing remote application changes for: %s", applicationIds)
 
 	// Fetch the current state of each of the remote applications that have changed.
 	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIds)
@@ -257,42 +249,43 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		return errors.Annotate(err, "querying remote applications")
 	}
 
-	for i, result := range results {
-		name := applicationIds[i]
+	for _, result := range results {
+		remoteApp := result.Result
+		appName := remoteApp.Name
 
-		// The remote application may refer to an offer that has been removed from
-		// the offering model, or it may refer to a new offer with a different UUID.
-		// If it is for a new offer, we need to stop any current worker for the old offer.
-		appGone := result.Error != nil && params.IsCodeNotFound(result.Error)
-		if result.Error != nil && !appGone {
-			return errors.Annotatef(result.Error, "querying remote application %q", name)
-		}
-
-		var remoteApp *params.RemoteApplication
-		offerChanged := false
-		if !appGone {
-			remoteApp = result.Result
-			existingOfferUUID, ok := w.offerUUIDs[result.Result.Name]
-			appGone = remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
-			offerChanged = ok && existingOfferUUID != result.Result.OfferUUID
-		}
-		if appGone || offerChanged {
+		// The remote application may refer to an offer that has been removed
+		// from the offering model, or it may refer to a new offer with a
+		// different UUID. If it is for a new offer, we need to stop any current
+		// worker for the old offer.
+		notFound := result.Error != nil && params.IsCodeNotFound(result.Error)
+		if result.Error != nil && !notFound {
+			return errors.Annotatef(result.Error, "querying remote application %q", appName)
+		} else if notFound || appTerminated(result.Result) {
 			// The remote application has been removed, stop its worker.
-			logger.Debugf(ctx, "saas application %q gone from offering model", name)
-			err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying())
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				w.logger.Warningf(ctx, "error stopping saas worker for %q: %v", name, err)
+			if err := w.runner.StopAndRemoveWorker(appName, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
+				w.logger.Warningf(ctx, "error stopping remote application worker for %q: %v", appName, err)
 			}
-			delete(w.offerUUIDs, name)
-			if appGone {
-				continue
+
+			// We don't need to do anything else for this application, so
+			// continue to the next one.
+			continue
+		}
+
+		// Now check to see if the offer UUID has changed for the remote
+		// application.
+		offerChanged, err := w.hasWorkerOfferUUIDChanged(appName, result.Result.OfferUUID)
+		if err != nil {
+			return errors.Annotatef(err, "checking offer UUID for remote application %q", appName)
+		} else if offerChanged {
+			if err := w.runner.StopAndRemoveWorker(appName, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
+				w.logger.Warningf(ctx, "error stopping remote application worker for %q: %v", appName, err)
 			}
 		}
 
-		logger.Debugf(ctx, "starting watcher for remote application %q", name)
+		w.logger.Debugf(ctx, "starting watcher for remote application %q", appName)
 
 		// Start the application worker to watch for things like new relations.
-		if err := w.runner.StartWorker(ctx, name, func(ctx context.Context) (worker.Worker, error) {
+		if err := w.runner.StartWorker(ctx, appName, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
 				OfferUUID:                  remoteApp.OfferUUID,
 				ApplicationName:            remoteApp.Name,
@@ -304,31 +297,49 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 				RemoteRelationsFacade:      w.config.RelationsFacade,
 				RemoteRelationClientGetter: w.config.RemoteRelationClientGetter,
 				Clock:                      w.config.Clock,
-				Logger:                     logger,
+				Logger:                     w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")
 		}
-		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}
 	return nil
 }
 
-// Report provides information for the engine report.
-func (w *Worker) Report() map[string]interface{} {
-	saasWorkers := make(map[string]interface{})
-	for _, name := range w.runner.WorkerNames() {
-		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
-		if err != nil {
-			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
-			continue
-		}
-		saasWorkers[name] = appWorker.(worker.Reporter).Report()
+func (w *Worker) hasWorkerOfferUUIDChanged(name, offerUUID string) (bool, error) {
+	// If the worker for the name doesn't exist then that's ok, we just return
+	// false to indicate that the offer UUID has not changed.
+	remoteApp, err := w.runner.Worker(name, w.catacomb.Dying())
+	if errors.Is(err, errors.NotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 
-	result := make(map[string]interface{})
-	result["workers"] = saasWorkers
-	return result
+	// Now check if the remote application worker implements the
+	// RemoteApplicationWorker interface, which provides the OfferUUID method.
+	// If the offer UUID is different to the one we have, then we need to
+	// stop the worker and start a new one.
+
+	type RemoteApplicationWorker interface {
+		OfferUUID() string
+	}
+
+	appWorker, ok := remoteApp.(RemoteApplicationWorker)
+	if !ok {
+		return false, errors.Errorf("worker %q is not a RemoteApplicationWorker", name)
+	}
+
+	return appWorker.OfferUUID() != offerUUID, nil
+}
+
+func appTerminated(remoteApp *params.RemoteApplication) bool {
+	return remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
+}
+
+// Report provides information for the engine report.
+func (w *Worker) Report() map[string]interface{} {
+	return w.runner.Report()
 }
 
 func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {

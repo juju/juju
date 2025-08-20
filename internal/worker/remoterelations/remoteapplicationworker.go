@@ -30,6 +30,22 @@ type ReportableWorker interface {
 	Report() map[string]any
 }
 
+// RemoteApplicationConfig defines the configuration for a remote application
+// worker.
+type RemoteApplicationConfig struct {
+	OfferUUID                  string
+	ApplicationName            string
+	LocalModelUUID             string
+	RemoteModelUUID            string
+	IsConsumerProxy            bool
+	ConsumeVersion             int
+	Macaroon                   *macaroon.Macaroon
+	RemoteRelationsFacade      RemoteRelationsFacade
+	RemoteRelationClientGetter RemoteRelationClientGetter
+	Clock                      clock.Clock
+	Logger                     logger.Logger
+}
+
 // remoteApplicationWorker listens for localChanges to relations
 // involving a remote application, and publishes change to
 // local relation units to the remote model. It also watches for
@@ -71,22 +87,6 @@ type remoteApplicationWorker struct {
 	logger logger.Logger
 }
 
-// RemoteApplicationConfig defines the configuration for a remote application
-// worker.
-type RemoteApplicationConfig struct {
-	OfferUUID                  string
-	ApplicationName            string
-	LocalModelUUID             string
-	RemoteModelUUID            string
-	IsConsumerProxy            bool
-	ConsumeVersion             int
-	Macaroon                   *macaroon.Macaroon
-	RemoteRelationsFacade      RemoteRelationsFacade
-	RemoteRelationClientGetter RemoteRelationClientGetter
-	Clock                      clock.Clock
-	Logger                     logger.Logger
-}
-
 // NewRemoteApplicationWorker creates a new remote application worker.
 func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
 	w := &remoteApplicationWorker{
@@ -114,25 +114,6 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 	return w, nil
 }
 
-// relation holds attributes relevant to a particular
-// relation between a local app and a remote offer.
-type relation struct {
-	relationId     int
-	localDead      bool
-	suspended      bool
-	localUnitCount int
-
-	localUnitWorker      ReportableWorker
-	remoteUnitWorker     ReportableWorker
-	remoteRelationWorker ReportableWorker
-
-	localApplicationToken string // token for app in local model
-	localRelationToken    string // token for relation in local model
-	localEndpoint         params.RemoteEndpoint
-	remoteEndpointName    string
-	macaroon              *macaroon.Macaroon
-}
-
 // Kill is defined on worker.Worker
 func (w *remoteApplicationWorker) Kill() {
 	w.catacomb.Kill(nil)
@@ -145,6 +126,54 @@ func (w *remoteApplicationWorker) Wait() error {
 		w.logger.Errorf(context.Background(), "error in remote application worker for %v: %v", w.applicationName, err)
 	}
 	return err
+}
+
+// OfferUUID returns the offer UUID for the remote application worker.
+func (w *remoteApplicationWorker) OfferUUID() string {
+	return w.offerUUID
+}
+
+// Report provides information for the engine report.
+func (w *remoteApplicationWorker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	relationsInfo := make(map[string]interface{})
+	for rel, info := range w.relations {
+		report := map[string]interface{}{
+			"relation-id":       info.relationId,
+			"local-dead":        info.localDead,
+			"suspended":         info.suspended,
+			"application-token": info.localApplicationToken,
+			"relation-token":    info.localRelationToken,
+			"local-endpoint":    info.localEndpoint.Name,
+			"remote-endpoint":   info.remoteEndpointName,
+		}
+		if info.remoteRelationWorker != nil {
+			report["last-status-event"] = info.remoteRelationWorker.Report()
+		}
+		if info.localUnitWorker != nil {
+			report["last-local-change"] = info.localUnitWorker.Report()
+		}
+		if info.remoteUnitWorker != nil {
+			report["last-remote-change"] = info.remoteUnitWorker.Report()
+		}
+		relationsInfo[rel] = report
+	}
+	if len(relationsInfo) > 0 {
+		result["relations"] = relationsInfo
+	}
+	result["remote-model-uuid"] = w.remoteModelUUID
+	if w.isConsumerProxy {
+		result["consumer-proxy"] = true
+		result["consume-version"] = w.consumeVersion
+	} else {
+		result["saas-application"] = true
+		result["offer-uuid"] = w.offerUUID
+	}
+
+	return result
 }
 
 func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
@@ -179,16 +208,6 @@ func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error 
 		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 	}
 	return nil
-}
-
-// isNotFound allows either type of not found error
-// to be correctly handled.
-// TODO(wallyworld) - remove when all api facades are fixed
-func isNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
@@ -767,51 +786,37 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	return localApplicationToken, offeringAppToken, localRelationToken, registerResult.Macaroon, nil
 }
 
-// Report provides information for the engine report.
-func (w *remoteApplicationWorker) Report() map[string]interface{} {
-	result := make(map[string]interface{})
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	relationsInfo := make(map[string]interface{})
-	for rel, info := range w.relations {
-		report := map[string]interface{}{
-			"relation-id":       info.relationId,
-			"local-dead":        info.localDead,
-			"suspended":         info.suspended,
-			"application-token": info.localApplicationToken,
-			"relation-token":    info.localRelationToken,
-			"local-endpoint":    info.localEndpoint.Name,
-			"remote-endpoint":   info.remoteEndpointName,
-		}
-		if info.remoteRelationWorker != nil {
-			report["last-status-event"] = info.remoteRelationWorker.Report()
-		}
-		if info.localUnitWorker != nil {
-			report["last-local-change"] = info.localUnitWorker.Report()
-		}
-		if info.remoteUnitWorker != nil {
-			report["last-remote-change"] = info.remoteUnitWorker.Report()
-		}
-		relationsInfo[rel] = report
-	}
-	if len(relationsInfo) > 0 {
-		result["relations"] = relationsInfo
-	}
-	result["remote-model-uuid"] = w.remoteModelUUID
-	if w.isConsumerProxy {
-		result["consumer-proxy"] = true
-		result["consume-version"] = w.consumeVersion
-	} else {
-		result["saas-application"] = true
-		result["offer-uuid"] = w.offerUUID
-	}
-
-	return result
-}
-
 func (w *remoteApplicationWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+// relation holds attributes relevant to a particular
+// relation between a local app and a remote offer.
+type relation struct {
+	relationId     int
+	localDead      bool
+	suspended      bool
+	localUnitCount int
+
+	localUnitWorker      ReportableWorker
+	remoteUnitWorker     ReportableWorker
+	remoteRelationWorker ReportableWorker
+
+	localApplicationToken string // token for app in local model
+	localRelationToken    string // token for relation in local model
+	localEndpoint         params.RemoteEndpoint
+	remoteEndpointName    string
+	macaroon              *macaroon.Macaroon
+}
+
+// isNotFound allows either type of not found error
+// to be correctly handled.
+// TODO(wallyworld) - remove when all api facades are fixed
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 func ptr[T any](v T) *T {
