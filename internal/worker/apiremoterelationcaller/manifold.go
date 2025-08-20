@@ -13,10 +13,13 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -33,7 +36,7 @@ type APIRemoteCallerGetter interface {
 type NewWorkerFunc func(Config) (worker.Worker, error)
 
 // NewAPIInfoGetterFunc defines a function that creates a new APIInfoGetter.
-type NewAPIInfoGetterFunc func(DomainServicesGetter) APIInfoGetter
+type NewAPIInfoGetterFunc func(DomainServicesGetter, logger.Logger) APIInfoGetter
 
 // NewConnectionGetterFunc defines a function that creates a new
 // ConnectionGetter.
@@ -55,13 +58,46 @@ type DomainServicesGetter interface {
 type DomainServices interface {
 	// ExternalController returns the ExternalControllerService for the domain.
 	ExternalController() ExternalControllerService
+	// ModelService returns the ModelService for the domain.
+	Model() ModelService
+	// ControllerConfig returns the ControllerConfigService for the domain.
+	ControllerConfig() ControllerConfigService
+	// ControllerNodeService returns the ControllerNodeService for the domain.
+	ControllerNode() ControllerNodeService
 }
 
-// ExternalControllerService is an interface that provides methods to
-// interact with the external controller service.
+// ExternalControllerService is an interface that provides methods to interact
+// with the external controller service.
 type ExternalControllerService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
 	// UpdateExternalController updates the external controller information.
 	UpdateExternalController(context.Context, crossmodel.ControllerInfo) error
+}
+
+// ModelService is an interface that provides methods to interact with the model
+// service.
+type ModelService interface {
+	// CheckModelExists checks if a model exists within the controller.
+	CheckModelExists(ctx context.Context, modelUUID model.UUID) (bool, error)
+	// ModelRedirection returns redirection information for the current model.
+	ModelRedirection(ctx context.Context, modelUUID model.UUID) (domainmodel.ModelRedirection, error)
+}
+
+// ControllerConfigService is an interface that provides methods to interact
+// with the controller configuration service.
+type ControllerConfigService interface {
+	// ControllerConfig returns the controller configuration for the model.
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
+
+// ControllerNodeService represents a way to get controller api addresses.
+type ControllerNodeService interface {
+	// GetAllAPIAddressesForAgents returns a string of api
+	// addresses available for agents ordered to prefer local-cloud scoped
+	// addresses and IPv4 over IPv6 for each machine.
+	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 }
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -119,7 +155,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := config.NewWorker(Config{
-				APIInfoGetter:    config.NewAPIInfoGetter(domainServicesGetter),
+				APIInfoGetter:    config.NewAPIInfoGetter(domainServicesGetter, config.Logger),
 				ConnectionGetter: config.NewConnectionGetter(domainServicesGetter, config.Logger),
 				Clock:            config.Clock,
 				Logger:           config.Logger,
@@ -150,6 +186,9 @@ func remoteOutput(in worker.Worker, out any) error {
 }
 
 var (
+	// connectionTag is the user tag used for connections created by this
+	// worker. It uses the anonymous username to ensure that it does not conflict
+	// with any other user tags.
 	connectionTag = names.NewUserTag(api.AnonymousUsername)
 )
 
@@ -226,4 +265,104 @@ func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID m
 	}
 
 	return conn, nil
+}
+
+type apiInfoGetter struct {
+	domainServicesGetter DomainServicesGetter
+	logger               logger.Logger
+}
+
+// NewAPIInfoGetter creates a new APIInfoGetter that retrieves API information
+// for models using the provided DomainServicesGetter.
+func NewAPIInfoGetter(getter DomainServicesGetter, logger logger.Logger) APIInfoGetter {
+	return &apiInfoGetter{
+		domainServicesGetter: getter,
+		logger:               logger,
+	}
+}
+
+// GetAPIInfoForModel retrieves the API information for the specified model.
+func (a *apiInfoGetter) GetAPIInfoForModel(ctx context.Context, modelUUID model.UUID) (api.Info, error) {
+	services, err := a.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return api.Info{}, errors.Trace(err)
+	}
+
+	// See if the model exists locally first, before attempting to check
+	// if the model is hosted on an external controller.
+	exists, err := services.Model().CheckModelExists(ctx, modelUUID)
+	if err != nil {
+		return api.Info{}, errors.Trace(err)
+	} else if exists {
+		return a.getAPIInfoFromLocalModel(ctx, modelUUID, services)
+	}
+
+	// The model doesn't exist locally, so we now need to check if it exists
+	// on an external controller.
+	return a.getAPIInfoForExternalController(ctx, modelUUID, services)
+}
+
+func (a *apiInfoGetter) getAPIInfoFromLocalModel(ctx context.Context, modelUUID model.UUID, services DomainServices) (api.Info, error) {
+	controllerConfig, err := services.ControllerConfig().ControllerConfig(ctx)
+	if err != nil {
+		return api.Info{}, errors.Trace(err)
+	}
+
+	addrs, err := services.ControllerNode().GetAllAPIAddressesForAgents(ctx)
+	if err != nil {
+		return api.Info{}, errors.Trace(err)
+	}
+
+	caCert, _ := controllerConfig.CACert()
+	return api.Info{
+		ModelTag: names.NewModelTag(modelUUID.String()),
+		Addrs:    addrs,
+		CACert:   caCert,
+	}, nil
+}
+
+func (a *apiInfoGetter) getAPIInfoForExternalController(ctx context.Context, modelUUID model.UUID, services DomainServices) (api.Info, error) {
+	externalControllerService := services.ExternalController()
+
+	controllerInfo, err := externalControllerService.ControllerForModel(ctx, modelUUID.String())
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return api.Info{}, errors.Trace(err)
+	} else if err == nil {
+		return api.Info{
+			ModelTag: names.NewModelTag(modelUUID.String()),
+			Addrs:    controllerInfo.Addrs,
+			CACert:   controllerInfo.CACert,
+		}, nil
+	}
+
+	// The model may have been migrated from this controller to another.
+	// If so, save the target as an external controller.
+	// This will preserve cross-model relation consumers for models that were
+	// on the same controller as migrated model, but not for consumers on other
+	// controllers.
+	// They will have to follow redirects and update their own relation data.
+	modelRedirection, err := services.Model().ModelRedirection(ctx, modelUUID)
+	if errors.Is(err, modelerrors.ModelNotRedirected) {
+		return api.Info{}, modelerrors.NotFound
+	} else if err != nil {
+		return api.Info{}, errors.Trace(err)
+	}
+
+	a.logger.Debugf(ctx, "found migrated model on another controller, saving the information")
+	err = externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+		ControllerUUID: modelRedirection.ControllerUUID,
+		Alias:          modelRedirection.ControllerAlias,
+		Addrs:          modelRedirection.Addresses,
+		CACert:         modelRedirection.CACert,
+		ModelUUIDs:     []string{modelUUID.String()},
+	})
+	if err != nil {
+		return api.Info{}, errors.Trace(err)
+	}
+
+	return api.Info{
+		ModelTag: names.NewModelTag(modelUUID.String()),
+		Addrs:    modelRedirection.Addresses,
+		CACert:   modelRedirection.CACert,
+	}, nil
 }

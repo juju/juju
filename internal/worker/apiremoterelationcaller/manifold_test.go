@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type manifoldSuite struct {
@@ -56,7 +59,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DomainServicesName: "domain-services",
-		NewAPIInfoGetter: func(DomainServicesGetter) APIInfoGetter {
+		NewAPIInfoGetter: func(DomainServicesGetter, logger.Logger) APIInfoGetter {
 			return nil
 		},
 		NewConnectionGetter: func(DomainServicesGetter, logger.Logger) ConnectionGetter {
@@ -258,5 +261,143 @@ func (s *connectionSuite) newConnectionGetter(c *tc.C, fn func(*api.Info) (api.C
 			return fn(apiInfo)
 		},
 		logger: s.logger,
+	}
+}
+
+type apiInfoSuite struct {
+	baseSuite
+}
+
+func TestAPIInfoSuite(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	tc.Run(t, &apiInfoSuite{})
+}
+
+func (s *apiInfoSuite) TestGetAPIInfoForModelLocalModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+
+	controllerConfig := jujutesting.FakeControllerConfig()
+	caCert, _ := controllerConfig.CACert()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+
+	s.domainServices.EXPECT().Model().Return(s.modelService)
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(true, nil)
+
+	s.domainServices.EXPECT().ControllerConfig().Return(s.controllerConfigService)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerConfig, nil)
+
+	s.domainServices.EXPECT().ControllerNode().Return(s.controllerNodeService)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return([]string{"10.0.0.1:17070"}, nil)
+
+	apiInfo, err := s.newAPIInfoGetter(c).GetAPIInfoForModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiInfo, tc.DeepEquals, api.Info{
+		Addrs:    []string{"10.0.0.1:17070"},
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID.String()),
+	})
+}
+
+func (s *apiInfoSuite) TestGetAPIInfoForModelNonLocalModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+
+	controllerConfig := jujutesting.FakeControllerConfig()
+	caCert, _ := controllerConfig.CACert()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+
+	s.domainServices.EXPECT().Model().Return(s.modelService)
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
+
+	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
+	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(&crossmodel.ControllerInfo{
+		Addrs:  []string{"10.0.0.1:17070"},
+		CACert: caCert,
+	}, nil)
+
+	apiInfo, err := s.newAPIInfoGetter(c).GetAPIInfoForModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiInfo, tc.DeepEquals, api.Info{
+		Addrs:    []string{"10.0.0.1:17070"},
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID.String()),
+	})
+}
+
+func (s *apiInfoSuite) TestGetAPIInfoForModelNonLocalModelRedirected(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+
+	controllerConfig := jujutesting.FakeControllerConfig()
+	caCert, _ := controllerConfig.CACert()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+
+	s.domainServices.EXPECT().Model().Return(s.modelService).Times(2)
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
+
+	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
+	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, modelerrors.NotFound)
+
+	s.modelService.EXPECT().ModelRedirection(gomock.Any(), modelUUID).Return(domainmodel.ModelRedirection{
+		ControllerUUID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ControllerAlias: "test-controller-alias",
+		Addresses:       []string{"10.0.0.1:17070"},
+		CACert:          caCert,
+	}, nil)
+	s.externalController.EXPECT().UpdateExternalController(gomock.Any(), crossmodel.ControllerInfo{
+		ControllerUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		Alias:          "test-controller-alias",
+		Addrs:          []string{"10.0.0.1:17070"},
+		CACert:         caCert,
+		ModelUUIDs:     []string{modelUUID.String()},
+	}).Return(nil)
+
+	apiInfo, err := s.newAPIInfoGetter(c).GetAPIInfoForModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiInfo, tc.DeepEquals, api.Info{
+		Addrs:    []string{"10.0.0.1:17070"},
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID.String()),
+	})
+}
+
+func (s *apiInfoSuite) TestGetAPIInfoForModelNonLocalModelRedirectedNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+
+	controllerConfig := jujutesting.FakeControllerConfig()
+	caCert, _ := controllerConfig.CACert()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+
+	s.domainServices.EXPECT().Model().Return(s.modelService).Times(2)
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
+
+	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
+	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, modelerrors.NotFound)
+
+	s.modelService.EXPECT().ModelRedirection(gomock.Any(), modelUUID).Return(domainmodel.ModelRedirection{
+		ControllerUUID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ControllerAlias: "test-controller-alias",
+		Addresses:       []string{"10.0.0.1:17070"},
+		CACert:          caCert,
+	}, modelerrors.ModelNotRedirected)
+
+	_, err := s.newAPIInfoGetter(c).GetAPIInfoForModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *apiInfoSuite) newAPIInfoGetter(c *tc.C) *apiInfoGetter {
+	return &apiInfoGetter{
+		domainServicesGetter: s.domainServicesGetter,
+		logger:               s.logger,
 	}
 }
