@@ -81,3 +81,23 @@ func (a ModelArtifacts) Empty() bool {
 		len(a.UnitUUIDs) == 0 &&
 		len(a.RelationUUIDs) == 0
 }
+
+// ApplicationArtifacts holds the artifacts associated with an application that
+// is being removed.
+type ApplicationArtifacts struct {
+	// MachineUUIDs is a list of machine UUIDs that are associated with the
+	// application.
+	MachineUUIDs []string
+	// UnitUUIDs is a list of unit UUIDs that are associated with the application.
+	UnitUUIDs []string
+	// RelationUUIDs is a list of relation UUIDs that are associated with the
+	// application.
+	RelationUUIDs []string
+}
+
+// Empty returns true if there are no artifacts associated with the application.
+func (a ApplicationArtifacts) Empty() bool {
+	return len(a.MachineUUIDs) == 0 &&
+		len(a.UnitUUIDs) == 0 &&
+		len(a.RelationUUIDs) == 0
+}

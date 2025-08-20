@@ -29,7 +29,7 @@ type ApplicationState interface {
 	// cascading. The affected unit UUIDs are returned. If the units are also
 	// the last ones on their machines, it will cascade and the machines are
 	// also set to dying. The affected machine UUIDs are returned.
-	EnsureApplicationNotAliveCascade(ctx context.Context, appUUID string) (unitUUIDs, machineUUIDs []string, err error)
+	EnsureApplicationNotAliveCascade(ctx context.Context, appUUID string) (removal.ApplicationArtifacts, error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
 	// with the input application UUID, qualified with the input force boolean.
@@ -71,7 +71,7 @@ func (s *Service) RemoveApplication(
 	}
 
 	// Ensure the application is not alive.
-	unitUUIDs, machineUUIDs, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
+	artifacts, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String())
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
@@ -98,21 +98,30 @@ func (s *Service) RemoveApplication(
 		return "", errors.Capture(err)
 	}
 
-	// Ensure that the application units and machines are removed as well.
-	if len(unitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or dead,
-		// we need to schedule their removal as well.
-		s.logger.Infof(ctx, "application has units %v, scheduling removal", unitUUIDs)
+	// Ensure that other entities associated with the application are removed
+	// as well.
+	if len(artifacts.RelationUUIDs) > 0 {
+		// If there are any relations that transitioned from alive to dying or
+		// dead, we need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has relations %v, scheduling removal", artifacts.RelationUUIDs)
 
-		s.removeUnits(ctx, unitUUIDs, force, wait)
+		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
 	}
 
-	if len(machineUUIDs) > 0 {
+	if len(artifacts.UnitUUIDs) > 0 {
+		// If there are any units that transitioned from alive to dying or dead,
+		// we need to schedule their removal as well.
+		s.logger.Infof(ctx, "application has units %v, scheduling removal", artifacts.UnitUUIDs)
+
+		s.removeUnits(ctx, artifacts.UnitUUIDs, force, wait)
+	}
+
+	if len(artifacts.MachineUUIDs) > 0 {
 		// If there are any machines that transitioned from alive to dying or
 		// dead, we need to schedule their removal as well.
-		s.logger.Infof(ctx, "application has machines %v, scheduling removal", machineUUIDs)
+		s.logger.Infof(ctx, "application has machines %v, scheduling removal", artifacts.MachineUUIDs)
 
-		s.removeMachines(ctx, machineUUIDs, force, wait)
+		s.removeMachines(ctx, artifacts.MachineUUIDs, force, wait)
 	}
 
 	return appJobUUID, nil

@@ -12,6 +12,7 @@ import (
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -54,10 +55,12 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // cascading. The affected unit UUIDs are returned. If the units are also
 // the last ones on their machines, it will cascade and the machines are
 // also set to dying. The affected machine UUIDs are returned.
-func (st *State) EnsureApplicationNotAliveCascade(ctx context.Context, aUUID string) (unitUUIDs, machineUUIDs []string, err error) {
+func (st *State) EnsureApplicationNotAliveCascade(
+	ctx context.Context, aUUID string,
+) (res removal.ApplicationArtifacts, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return res, errors.Capture(err)
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
@@ -67,20 +70,41 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing application life update: %w", err)
+		return res, errors.Errorf("preparing application life update: %w", err)
 	}
 
-	// Also ensure that any units that are associated with the application
-	// are also set to dying. This has to be done in a single transaction
-	// because we want to ensure that the application is not alive, and
-	// that no units are alive at the same time. Preventing any races.
+	// Also ensure that any other entities that are associated with the
+	// application are also set to dying. This has to be done in a single
+	// transaction because we want to ensure that the application is not
+	// alive, and that no units are alive at the same time. Preventing any
+	// races.
+	selectRelationUUIDsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   v_relation_endpoint AS re
+JOIN   relation AS r ON re.relation_uuid = r.uuid
+WHERE  r.life_id = 0
+AND    re.application_uuid = $entityUUID.uuid
+`, applicationUUID)
+	if err != nil {
+		return res, errors.Errorf("preparing relation uuids query: %w", err)
+	}
+
+	updateRelationStmt, err := st.Prepare(`
+UPDATE relation
+SET    life_id = 1
+WHERE  uuid IN ($uuids[:])
+AND    life_id = 0`, uuids{})
+	if err != nil {
+		return res, errors.Errorf("preparing relation life update: %w", err)
+	}
+
 	selectUnitUUIDsStmt, err := st.Prepare(`
 SELECT &entityUUID.uuid
 FROM   unit
 WHERE  application_uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing unit life query: %w", err)
+		return res, errors.Errorf("preparing unit uuids query: %w", err)
 	}
 
 	updateUnitStmt, err := st.Prepare(`
@@ -89,14 +113,29 @@ SET    life_id = 1
 WHERE  application_uuid = $entityUUID.uuid
 AND    life_id = 0`, applicationUUID)
 	if err != nil {
-		return nil, nil, errors.Errorf("preparing unit life update: %w", err)
+		return res, errors.Errorf("preparing unit life update: %w", err)
 	}
 
-	var unitUUIDsRec []entityUUID
-	var machineUUIDsRec []string
+	var (
+		relationUUIDsRec []string
+		unitUUIDsRec     []entityUUID
+		machineUUIDsRec  []string
+	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
+		}
+
+		var relationUUIDs []entityUUID
+		if err := tx.Query(ctx, selectRelationUUIDsStmt, applicationUUID).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting relation UUIDs: %w", err)
+		}
+		relationUUIDsRec = transform.Slice(relationUUIDs, func(e entityUUID) string { return e.UUID })
+
+		if len(relationUUIDsRec) > 0 {
+			if err := tx.Query(ctx, updateRelationStmt, uuids(relationUUIDsRec)).Run(); err != nil {
+				return errors.Errorf("advancing relation life: %w", err)
+			}
 		}
 
 		if err := tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDsRec); errors.Is(err, sqlair.ErrNoRows) {
@@ -132,12 +171,16 @@ AND    life_id = 0`, applicationUUID)
 
 		return nil
 	})); err != nil {
-		return nil, nil, err
+		return res, err
 	}
 
-	return transform.Slice(unitUUIDsRec, func(e entityUUID) string {
-		return e.UUID
-	}), machineUUIDsRec, nil
+	return removal.ApplicationArtifacts{
+		MachineUUIDs: machineUUIDsRec,
+		UnitUUIDs: transform.Slice(unitUUIDsRec, func(e entityUUID) string {
+			return e.UUID
+		}),
+		RelationUUIDs: relationUUIDsRec,
+	}, nil
 }
 
 // ApplicationScheduleRemoval schedules a removal job for the application with
@@ -218,20 +261,29 @@ func (st *State) DeleteApplication(ctx context.Context, aUUID string) error {
 		return errors.Capture(err)
 	}
 
-	applicationUUIDCount := entityAssociationCount{UUID: aUUID}
+	applicationUUID := entityUUID{UUID: aUUID}
 
 	unitsStmt, err := st.Prepare(`
-SELECT count(*) AS &entityAssociationCount.count
+SELECT count(*) AS &count.count
 FROM unit
-WHERE application_uuid = $entityAssociationCount.uuid
-`, applicationUUIDCount)
+WHERE application_uuid = $entityUUID.uuid
+`, count{}, applicationUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	relationsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM v_relation_endpoint
+WHERE application_uuid = $entityUUID.uuid
+`, count{}, applicationUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	deleteApplicationStmt, err := st.Prepare(`
 DELETE FROM application
-WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
+WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 	if err != nil {
 		return errors.Errorf("preparing application delete: %w", err)
 	}
@@ -251,8 +303,8 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 		}
 
 		// Check that there are no units.
-		var numUnits entityAssociationCount
-		err = tx.Query(ctx, unitsStmt, applicationUUIDCount).Get(&numUnits)
+		var numUnits count
+		err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
 		if err != nil {
 			return errors.Errorf("querying application units: %w", err)
 		} else if numUnits := numUnits.Count; numUnits > 0 {
@@ -260,6 +312,18 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 			// before the application can be removed.
 			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
 				Add(applicationerrors.ApplicationHasUnits).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		var numRelations count
+		err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
+		if err != nil {
+			return errors.Errorf("querying application relations: %w", err)
+		} else if numRelations := numRelations.Count; numRelations > 0 {
+			// It is required that all relations have been completely removed
+			// before the application can be removed.
+			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
+				Add(applicationerrors.ApplicationHasRelations).
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
@@ -286,7 +350,7 @@ WHERE  uuid = $entityAssociationCount.uuid;`, applicationUUIDCount)
 		}
 
 		// Delete the application itself.
-		if err := tx.Query(ctx, deleteApplicationStmt, applicationUUIDCount).Run(); err != nil {
+		if err := tx.Query(ctx, deleteApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("deleting application: %w", err)
 		}
 

@@ -831,44 +831,6 @@ func (c *MockStateCreateIAASApplicationCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// DeleteApplication mocks base method.
-func (m *MockState) DeleteApplication(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteApplication", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteApplication indicates an expected call of DeleteApplication.
-func (mr *MockStateMockRecorder) DeleteApplication(arg0, arg1 any) *MockStateDeleteApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteApplication", reflect.TypeOf((*MockState)(nil).DeleteApplication), arg0, arg1)
-	return &MockStateDeleteApplicationCall{Call: call}
-}
-
-// MockStateDeleteApplicationCall wrap *gomock.Call
-type MockStateDeleteApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteApplicationCall) Return(arg0 error) *MockStateDeleteApplicationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteApplicationCall) Do(f func(context.Context, string) error) *MockStateDeleteApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteApplicationCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DetachStorage mocks base method.
 func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage0.StorageInstanceUUID) error {
 	m.ctrl.T.Helper()

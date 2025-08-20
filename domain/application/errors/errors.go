@@ -22,9 +22,13 @@ const (
 	// an application that is dead.
 	ApplicationIsDead = errors.ConstError("application is dead")
 
-	// ApplicationHasUnits describes an error that occurs when the application
-	// being deleted still has associated units.
+	// ApplicationHasUnits describes an error that occurs when an operation on
+	// an application fails because the application has units associated.
 	ApplicationHasUnits = errors.ConstError("application has units")
+
+	// ApplicationHasRelations describes an error that occurs when an operation
+	// on an application fails because the application has relations associated.
+	ApplicationHasRelations = errors.ConstError("application has relations")
 
 	// ApplicationNotSubordinate describes an error that occurs when a
 	// subordinate application is expected but a prinicpal application is found.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -30,6 +31,8 @@ import (
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	relationservice "github.com/juju/juju/domain/relation/service"
+	relationstate "github.com/juju/juju/domain/relation/state"
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -189,6 +192,17 @@ func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBF
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *baseSuite) setupRelationService(c *tc.C, factory domain.WatchableDBFactory) *relationservice.Service {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+
+	return relationservice.NewService(
+		relationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		loggertesting.WrapCheckLog(c),
 	)
 }
@@ -461,6 +475,11 @@ func (s *baseSuite) checkUnitLife(c *tc.C, unitUUID string, expectedLife life.Li
 	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
+func (s *baseSuite) advanceRelationLife(c *tc.C, relationUUID relation.UUID, newLife life.Life) {
+	_, err := s.DB().Exec("UPDATE relation SET life_id = ? WHERE uuid = ?", newLife, relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *baseSuite) advanceMachineLife(c *tc.C, machineUUID machine.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE machine SET life_id = ? WHERE uuid = ?", newLife, machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -519,6 +538,22 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Type:        charmresource.TypeFile,
 				Path:        "/path/to/buzz.tgz",
 				Description: "buzz description",
+			},
+		},
+		Provides: map[string]internalcharm.Relation{
+			"foo": {
+				Name:      "foo",
+				Role:      internalcharm.RoleProvider,
+				Interface: "rel",
+				Scope:     internalcharm.ScopeGlobal,
+			},
+		},
+		Requires: map[string]internalcharm.Relation{
+			"bar": {
+				Name:      "bar",
+				Role:      internalcharm.RoleRequirer,
+				Interface: "rel",
+				Scope:     internalcharm.ScopeGlobal,
 			},
 		},
 	}

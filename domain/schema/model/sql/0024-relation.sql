@@ -208,7 +208,6 @@ JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
 JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 
-
 CREATE VIEW v_relation_endpoint AS
 SELECT
     re.uuid AS relation_endpoint_uuid,
