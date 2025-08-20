@@ -202,8 +202,8 @@ SELECT
     ar.application_uuid,
     a.name AS application_name
 FROM v_resource AS r
-JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-JOIN application AS a ON ar.application_uuid = a.uuid;
+LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+LEFT JOIN application AS a ON ar.application_uuid = a.uuid;
 
 -- View of all resources linked to units
 CREATE VIEW v_unit_resource AS
