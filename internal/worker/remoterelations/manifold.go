@@ -35,6 +35,10 @@ type NewRemoteRelationClientGetterFunc func(apiremoterelationcaller.APIRemoteCal
 // NewWorkerFunc defines the function signature for creating a new Worker.
 type NewWorkerFunc func(Config) (worker.Worker, error)
 
+// NewRemoteApplicationWorkerFunc defines the function signature for creating
+// a new remote application worker.
+type NewRemoteApplicationWorkerFunc func(RemoteApplicationConfig) (ReportableWorker, error)
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
@@ -44,9 +48,12 @@ type ManifoldConfig struct {
 
 	NewLocalRemoteRelationFacade  func(base.APICaller) RemoteRelationsFacade
 	NewRemoteRelationClientGetter NewRemoteRelationClientGetterFunc
-	NewWorker                     NewWorkerFunc
-	Logger                        logger.Logger
-	Clock                         clock.Clock
+
+	NewWorker                  NewWorkerFunc
+	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
+
+	Logger logger.Logger
+	Clock  clock.Clock
 }
 
 // Validate is called by start to check for bad configuration.
@@ -65,6 +72,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewRemoteApplicationWorker == nil {
+		return errors.NotValidf("nil NewRemoteApplicationWorker")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -107,6 +117,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				RelationsFacade:            config.NewLocalRemoteRelationFacade(apiConn),
 				RemoteRelationClientGetter: config.NewRemoteRelationClientGetter(apiRemoteCallerGetter),
 
+				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
+
 				Clock:  config.Clock,
 				Logger: config.Logger,
 			})
@@ -118,11 +130,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+// NewLocalRemoteRelationFacade creates a new RemoteRelationsFacade using the
+// APICaller.
 func NewLocalRemoteRelationFacade(apiCaller base.APICaller) RemoteRelationsFacade {
 	return remoterelations.NewClient(apiCaller)
 }
 
-func NewRemoteRelationClient(getter apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
+// NewRemoteRelationClientGetter creates a new RemoteRelationClientGetter
+// using the provided APIRemoteCallerGetter.
+func NewRemoteRelationClientGetter(getter apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
 	return remoteRelationClientGetter{
 		getter: getter,
 	}

@@ -291,16 +291,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevisioner"),
 		})),
+
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
-			AgentName:                   agentName,
-			APICallerName:               apiCallerName,
-			APIRemoteRelationCallerName: apiRemoteRelationCallerName,
-			NewControllerConnection:     apicaller.NewExternalControllerConnection,
-			NewRemoteRelationsFacade:    remoterelations.NewRemoteRelationsFacade,
-			NewWorker:                   remoterelations.NewWorker,
-			Clock:                       config.Clock,
-			Logger:                      config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
+			NewRemoteRelationClientGetter: remoterelations.NewRemoteRelationClientGetter,
+			NewLocalRemoteRelationFacade:  remoterelations.NewLocalRemoteRelationFacade,
+			NewWorker:                     remoterelations.NewWorker,
+			NewRemoteApplicationWorker:    remoterelations.NewRemoteApplicationWorker,
+			Clock:                         config.Clock,
+			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
 		})),
+
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			GetRemovalService:  removal.GetRemovalService,
@@ -308,6 +311,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
 		})),
+
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
 			NewWorker:                    providertracker.NewWorker,
