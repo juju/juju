@@ -60,9 +60,7 @@ func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := make(chan []string, 2)
-	ch <- []string{"foo", "bar"}
-	ch <- []string{"baz"}
+	ch := make(chan []string, 1)
 	mockStringWatcher := NewMockStringsWatcher(ctrl)
 	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
@@ -83,10 +81,14 @@ func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 	wc := watchertest.NewStringsWatcherC(c, w)
 
+	ch <- []string{"foo", "bar"}
 	wc.AssertChange(
 		"processed-foo",
 		"processed-bar",
 	)
+	wc.AssertNoChange()
+
+	ch <- []string{"baz"}
 	wc.AssertChange(
 		"processed-baz",
 	)
