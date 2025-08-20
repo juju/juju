@@ -6,7 +6,6 @@ package remoterelations
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -28,17 +27,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// RemoteModelRelationsFacadeCloser implements RemoteModelRelationsFacade
-// and add a Close() method.
-type RemoteModelRelationsFacadeCloser interface {
-	io.Closer
-	RemoteModelRelationsFacade
-}
-
-// RemoteModelRelationsFacade instances publish local relation changes to the
+// RemoteModelRelationsClient instances publish local relation changes to the
 // model hosting the remote application involved in the relation, and also watches
 // for remote relation changes which are then pushed to the local model.
-type RemoteModelRelationsFacade interface {
+type RemoteModelRelationsClient interface {
 	// RegisterRemoteRelations sets up the remote model to participate
 	// in the specified relations.
 	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
@@ -126,27 +118,25 @@ type RemoteRelationsFacade interface {
 	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
 }
 
-type newRemoteRelationsFacadeFunc func(context.Context, *api.Info) (RemoteModelRelationsFacadeCloser, error)
-
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID                string
-	RelationsFacade          RemoteRelationsFacade
-	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
-	Clock                    clock.Clock
-	Logger                   logger.Logger
+	ModelUUID                  string
+	RelationsFacade            RemoteRelationsFacade
+	RemoteRelationClientGetter RemoteRelationClientGetter
+	Clock                      clock.Clock
+	Logger                     logger.Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
 	if config.ModelUUID == "" {
-		return errors.NotValidf("empty model uuid")
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if config.RelationsFacade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.NewRemoteModelFacadeFunc == nil {
-		return errors.NotValidf("nil Remote Model Facade func")
+	if config.RemoteRelationClientGetter == nil {
+		return errors.NotValidf("nil RemoteRelationClientGetter")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -158,7 +148,7 @@ func (config Config) Validate() error {
 }
 
 // New returns a Worker backed by config, or an error.
-func New(config Config) (*Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -304,19 +294,19 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 
 		startFunc := func(ctx context.Context) (worker.Worker, error) {
 			appWorker := &remoteApplicationWorker{
-				offerUUID:                         remoteApp.OfferUUID,
-				applicationName:                   remoteApp.Name,
-				localModelUUID:                    w.config.ModelUUID,
-				remoteModelUUID:                   remoteApp.ModelUUID,
-				isConsumerProxy:                   remoteApp.IsConsumerProxy,
-				consumeVersion:                    remoteApp.ConsumeVersion,
-				offerMacaroon:                     remoteApp.Macaroon,
-				localRelationUnitChanges:          make(chan RelationUnitChangeEvent),
-				remoteRelationUnitChanges:         make(chan RelationUnitChangeEvent),
-				localModelFacade:                  w.config.RelationsFacade,
-				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
-				clock:                             w.config.Clock,
-				logger:                            logger,
+				offerUUID:                  remoteApp.OfferUUID,
+				applicationName:            remoteApp.Name,
+				localModelUUID:             w.config.ModelUUID,
+				remoteModelUUID:            remoteApp.ModelUUID,
+				isConsumerProxy:            remoteApp.IsConsumerProxy,
+				consumeVersion:             remoteApp.ConsumeVersion,
+				offerMacaroon:              remoteApp.Macaroon,
+				localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
+				remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
+				localModelFacade:           w.config.RelationsFacade,
+				remoteRelationClientGetter: w.config.RemoteRelationClientGetter,
+				clock:                      w.config.Clock,
+				logger:                     logger,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Name: "remote-application",
