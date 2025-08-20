@@ -24,43 +24,39 @@ Add a cloud definition to Juju.
     juju add-cloud
     juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --controller mycontroller mycloud 
+    juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
     juju add-cloud --client mycloud ~/mycloud.yaml
 
 
 ## Details
 
-Juju needs to know how to connect to clouds. A cloud definition 
+Juju needs to know how to connect to clouds. A cloud definition
 describes a cloud's endpoints and authentication requirements. Each
-definition is stored and accessed later as &lt;cloud name&gt;.
+definition is stored and accessed later as `<cloud name>`.
 
-If you are accessing a public cloud, running add-cloud is unlikely to be 
-necessary.  Juju already contains definitions for the public cloud 
+If you are accessing a public cloud, running `add-cloud`is unlikely to be
+necessary.  Juju already contains definitions for the public cloud
 providers it supports.
 
-add-cloud operates in two modes:
+`add-cloud` operates in two modes:
 
     juju add-cloud
     juju add-cloud <cloud name> <cloud definition file>
 
-When invoked without arguments, add-cloud begins an interactive session
-designed for working with private clouds.  The session will enable you 
+When invoked without arguments, `add-cloud` begins an interactive session
+designed for working with private clouds.  The session will enable you
 to instruct Juju how to connect to your private cloud.
 
-A cloud definition can be provided in a file either as an option -f or as a 
+A cloud definition can be provided in a file either as an option `-f`or as a
 positional argument:
 
     juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud mycloud -f ~/mycloud.yaml
 
-When &lt;cloud definition file&gt; is provided with &lt;cloud name&gt;,
-Juju will validate the content of the file and add this cloud 
+When `<cloud definition file>` is provided with `<cloud name>`,
+Juju will validate the content of the file and add this cloud
 to this client as well as upload it to a controller.
-
-Use --controller option to upload a cloud to a controller. 
-
-Use --client option to add cloud to the current client.
 
 A cloud definition file has the following YAML format:
 
@@ -72,7 +68,7 @@ A cloud definition file has the following YAML format:
           london:
             endpoint: https://london.mycloud.com:35574/v3.0/
 
-Cloud types for private clouds: 
+Cloud types for private clouds:
  - lxd
  - maas
  - manual
@@ -87,11 +83,11 @@ Cloud types for public clouds:
 
 When a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
-to have been added to the current client, use add-credential to
+to have been added to the current client; use `add-credential` to
 do that. If there's only one credential for the cloud it will be
-uploaded to the controller automatically by add-cloud command. 
+uploaded to the controller automatically by add-cloud command.
 However, if the cloud has multiple credentials on this client
-you can specify which to upload with the --credential option.
+you can specify which to upload with the `--credential`option.
 
 When adding clouds to a controller, some clouds are whitelisted and can be easily added:
  - controller cloud type "kubernetes" supports [lxd maas openstack]
@@ -100,5 +96,5 @@ When adding clouds to a controller, some clouds are whitelisted and can be easil
  - controller cloud type "openstack" supports [openstack]
 
 Other cloud combinations can only be force added as the user must consider
-network routability, etc - concerns that are outside of scope of Juju.
-When forced addition is desired, use --force.
+network routability, etc -- concerns that are outside of scope of Juju.
+When forced addition is desired, use `--force`.
