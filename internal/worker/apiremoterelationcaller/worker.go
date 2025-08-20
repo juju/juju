@@ -5,6 +5,7 @@ package apiremoterelationcaller
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
@@ -23,11 +24,18 @@ const (
 	// ErrBroken is returned when the connection to the remote relation caller
 	// is broken.
 	ErrBroken = errors.ConstError("remote relation caller connection broken")
+
+	// ErrAPIRemoteRelationCallerDead is returned when the remote relation
+	// caller is dead and cannot be used.
+	ErrAPIRemoteRelationCallerDead = errors.ConstError("remote relation caller is dead")
 )
 
-// GetAPIInfoForModelFunc is a function type that retrieves API information for
-// a model.
-type GetAPIInfoForModelFunc func(ctx context.Context, modelUUID model.UUID) (api.Info, error)
+// APIInfoGetter is an interface that provides a method to get the API
+// information for a given model.
+type APIInfoGetter interface {
+	// GetAPIInfoForModel retrieves the API information for the specified model.
+	GetAPIInfoForModel(ctx context.Context, modelUUID model.UUID) (api.Info, error)
+}
 
 // NewConnectionFunc is a function type that connects to the API using the provided
 // API information.
@@ -35,10 +43,17 @@ type NewConnectionFunc func(ctx context.Context, apiInfo api.Info) (api.Connecti
 
 // Config defines the configuration for the remote relation caller worker.
 type Config struct {
-	GetAPIInfoForModel GetAPIInfoForModelFunc
-	NewConnection      NewConnectionFunc
-	Clock              clock.Clock
-	Logger             logger.Logger
+	// APIInfoGetter is used to retrieve API information for models.
+	APIInfoGetter APIInfoGetter
+
+	// NewConnection is a function that creates a new API connection.
+	NewConnection NewConnectionFunc
+
+	// RestartDelay is the delay before the worker restarts after a failure.
+	RestartDelay time.Duration
+
+	Clock  clock.Clock
+	Logger logger.Logger
 }
 
 type request struct {
@@ -55,8 +70,8 @@ type remoteWorker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
-	getAPIInfoForModel GetAPIInfoForModelFunc
-	newConnection      NewConnectionFunc
+	apiInfoGetter APIInfoGetter
+	newConnection NewConnectionFunc
 
 	requests chan request
 }
@@ -69,6 +84,7 @@ func NewWorker(config Config) (*remoteWorker, error) {
 		ShouldRestart: internalworker.ShouldRunnerRestart,
 		Clock:         config.Clock,
 		Logger:        internalworker.WrapLogger(config.Logger),
+		RestartDelay:  config.RestartDelay,
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -77,8 +93,8 @@ func NewWorker(config Config) (*remoteWorker, error) {
 	w := &remoteWorker{
 		runner: runner,
 
-		getAPIInfoForModel: config.GetAPIInfoForModel,
-		newConnection:      config.NewConnection,
+		apiInfoGetter: config.APIInfoGetter,
+		newConnection: config.NewConnection,
 
 		requests: make(chan request),
 	}
@@ -116,7 +132,7 @@ func (w *remoteWorker) GetConnectionForModel(ctx context.Context, modelName mode
 	response := make(chan response)
 	select {
 	case <-w.catacomb.Dying():
-		return nil, errors.Capture(w.catacomb.ErrDying())
+		return nil, errors.Capture(ErrAPIRemoteRelationCallerDead)
 	case <-ctx.Done():
 		return nil, errors.Capture(ctx.Err())
 	case w.requests <- request{ModelName: modelName, Response: response}:
@@ -124,7 +140,7 @@ func (w *remoteWorker) GetConnectionForModel(ctx context.Context, modelName mode
 
 	select {
 	case <-w.catacomb.Dying():
-		return nil, errors.Capture(w.catacomb.ErrDying())
+		return nil, errors.Capture(ErrAPIRemoteRelationCallerDead)
 	case <-ctx.Done():
 		return nil, errors.Capture(ctx.Err())
 	case res := <-response:
@@ -158,7 +174,7 @@ func (w *remoteWorker) loop() error {
 func (w *remoteWorker) getConnectionForModel(ctx context.Context, modelUUID model.UUID) (api.Connection, error) {
 	ns := modelUUID.String()
 	err := w.runner.StartWorker(ctx, ns, func(ctx context.Context) (worker.Worker, error) {
-		apiInfo, err := w.getAPIInfoForModel(ctx, modelUUID)
+		apiInfo, err := w.apiInfoGetter.GetAPIInfoForModel(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}

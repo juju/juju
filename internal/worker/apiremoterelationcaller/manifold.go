@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/services"
 )
 
 // APIRemoteCallerGetter is an interface that provides a method to get the
@@ -29,24 +28,50 @@ type APIRemoteCallerGetter interface {
 // NewWorkerFunc defines a function that creates a new Worker.
 type NewWorkerFunc func(Config) (worker.Worker, error)
 
+// NewAPIInfoGetterFunc defines a function that creates a new APIInfoGetter.
+type NewAPIInfoGetterFunc func(DomainServicesGetter) APIInfoGetter
+
+// GetDomainServiceGetterFunc defines a function that retrieves a
+// DomainServicesGetter for the Worker.
+type GetDomainServiceGetterFunc func(dependency.Getter, string) (DomainServicesGetter, error)
+
+// DomainServicesGetter is an interface that provides a method to get
+// a DomainServicesGetter by name.
+type DomainServicesGetter interface {
+	// ServicesForModel returns a DomainServicesGetter for the specified model.
+	ServicesForModel(ctx context.Context, modelUUID model.UUID) (DomainServices, error)
+}
+
+// DomainServices is an interface that provides methods to get
+// various domain services.
+type DomainServices interface {
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
 	DomainServicesName string
 
-	NewWorker              NewWorkerFunc
-	GetAPIInfoForModelFunc GetAPIInfoForModelFunc
-	NewConnectionFunc      NewConnectionFunc
-	Logger                 logger.Logger
-	Clock                  clock.Clock
+	NewWorker                   NewWorkerFunc
+	NewAPIInfoGetter            NewAPIInfoGetterFunc
+	GetDomainServicesGetterFunc GetDomainServiceGetterFunc
+	NewConnectionFunc           NewConnectionFunc
+	Logger                      logger.Logger
+	Clock                       clock.Clock
 }
 
 func (config ManifoldConfig) Validate() error {
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
-	if config.GetAPIInfoForModelFunc == nil {
-		return errors.NotValidf("nil GetAPIInfoForModelFunc")
+	if config.NewAPIInfoGetter == nil {
+		return errors.NotValidf("nil NewAPIInfoGetter")
+	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	if config.GetDomainServicesGetterFunc == nil {
+		return errors.NotValidf("nil GetDomainServicesGetterFunc")
 	}
 	if config.NewConnectionFunc == nil {
 		return errors.NotValidf("nil NewConnectionFunc")
@@ -63,22 +88,24 @@ func (config ManifoldConfig) Validate() error {
 // Manifold packages a Worker for use in a dependency.Engine.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{},
+		Inputs: []string{
+			config.DomainServicesName,
+		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var domainServicesGetter services.DomainServicesGetter
-			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
+			domainServicesGetter, err := config.GetDomainServicesGetterFunc(getter, config.DomainServicesName)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			w, err := config.NewWorker(Config{
-				GetAPIInfoForModel: config.GetAPIInfoForModelFunc,
-				NewConnection:      config.NewConnectionFunc,
-				Clock:              config.Clock,
-				Logger:             config.Logger,
+				APIInfoGetter: config.NewAPIInfoGetter(domainServicesGetter),
+				NewConnection: config.NewConnectionFunc,
+				Clock:         config.Clock,
+				Logger:        config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
