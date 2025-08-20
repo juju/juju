@@ -6,7 +6,6 @@ package providertracker
 import (
 	"context"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -193,7 +192,7 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *tc.C) {
 
 	select {
 	case ch <- []string{"foo"}:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out sending config change")
 	}
 
@@ -235,7 +234,7 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out sending config change")
 	}
 
@@ -277,7 +276,7 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
 
 	select {
 	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out sending config change")
 	}
 
@@ -368,8 +367,10 @@ func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *tc.C) {
 }
 
 func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
-	ch := make(chan []string, 1)
-	ch <- []string{}
+	ch := make(chan []string)
+	go func() {
+		ch <- []string{}
+	}()
 
 	watcher := watchertest.NewMockStringsWatcher(ch)
 
@@ -379,8 +380,10 @@ func (s *trackerWorkerSuite) expectConfigWatcher(c *tc.C) chan []string {
 }
 
 func (s *trackerWorkerSuite) expectModelWatcher(c *tc.C) chan struct{} {
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
+	ch := make(chan struct{})
+	go func() {
+		ch <- struct{}{}
+	}()
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
@@ -390,8 +393,10 @@ func (s *trackerWorkerSuite) expectModelWatcher(c *tc.C) chan struct{} {
 }
 
 func (s *trackerWorkerSuite) expectModelCloudCredentialWatcher(c *tc.C, uuid coremodel.UUID) chan struct{} {
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
+	ch := make(chan struct{})
+	go func() {
+		ch <- struct{}{}
+	}()
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 
