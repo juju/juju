@@ -1567,9 +1567,8 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				},
 			},
 			DefaultProvisioners: application.DefaultStorageProvisioners{
-				FilesystemPoolUUID:     &fakeFilesytemPoolUUID,
-				FilesystemProviderType: &fakeFilesystemProviderType,
-				BlockdevicePoolUUID:    &fakeBlockdevicePoolUUID,
+				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
+				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -1595,17 +1594,14 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				},
 			},
 			DefaultProvisioners: application.DefaultStorageProvisioners{
-				FilesystemProviderType:  &fakeFilesystemProviderType,
-				BlockdevicePoolUUID:     &fakeBlockdevicePoolUUID,
-				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
+				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count:        2,
-					Name:         domainstorage.Name("foo"),
-					ProviderType: &fakeFilesystemProviderType,
-					Size:         256,
+					Count: 2,
+					Name:  domainstorage.Name("foo"),
+					Size:  256,
 				},
 			},
 		},
@@ -1623,10 +1619,8 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				},
 			},
 			DefaultProvisioners: application.DefaultStorageProvisioners{
-				FilesystemPoolUUID:      &fakeFilesytemPoolUUID,
-				FilesystemProviderType:  &fakeFilesystemProviderType,
-				BlockdevicePoolUUID:     &fakeBlockdevicePoolUUID,
-				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
+				FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
+				BlockdevicePoolUUID: &fakeBlockdevicePoolUUID,
 			},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
@@ -1651,17 +1645,13 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 					MinimumSize: 256,
 				},
 			},
-			DefaultProvisioners: application.DefaultStorageProvisioners{
-				FilesystemProviderType:  &fakeFilesystemProviderType,
-				BlockdeviceProviderType: &fakeBlockdeviceProviderType,
-			},
+			DefaultProvisioners: application.DefaultStorageProvisioners{},
 
 			Expected: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count:        2,
-					Name:         domainstorage.Name("foo"),
-					ProviderType: &fakeBlockdeviceProviderType,
-					Size:         256,
+					Count: 2,
+					Name:  domainstorage.Name("foo"),
+					Size:  256,
 				},
 			},
 		},

@@ -906,8 +906,7 @@ type storageInstance struct {
 	CharmUUID        corecharm.ID                      `db:"charm_uuid"`
 	StorageName      corestorage.Name                  `db:"storage_name"`
 	LifeID           life.Life                         `db:"life_id"`
-	StoragePoolUUID  *string                           `db:"storage_pool_uuid"`
-	StorageType      *string                           `db:"storage_type"`
+	StoragePoolUUID  string                            `db:"storage_pool_uuid"`
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
@@ -1267,10 +1266,9 @@ type insertApplicationStorageDirective struct {
 	CharmUUID       string `db:"charm_uuid"`
 	Count           uint32 `db:"count"`
 	// Size is the number of MiB requested for the storage.
-	Size                uint64           `db:"size_mib"`
-	StorageName         string           `db:"storage_name"`
-	StoragePoolUUID     sql.Null[string] `db:"storage_pool_uuid"`
-	StorageProviderType sql.Null[string] `db:"storage_type"`
+	Size            uint64 `db:"size_mib"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
 
 // insertStorageUnitOwner represents the set of values required for creating a
@@ -1286,11 +1284,10 @@ type insertUnitStorageDirective struct {
 	CharmUUID string `db:"charm_uuid"`
 	Count     uint32 `db:"count"`
 	// Size is the number of MiB requested for the storage.
-	Size            uint64           `db:"size_mib"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
-	UnitUUID        string           `db:"unit_uuid"`
+	Size            uint64 `db:"size_mib"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	UnitUUID        string `db:"unit_uuid"`
 }
 
 type bindingToTable struct {

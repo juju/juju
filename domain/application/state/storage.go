@@ -94,26 +94,12 @@ WHERE  application_uuid = $entityUUID.uuid
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		var (
-			poolUUID     *domainstorage.StoragePoolUUID
-			providerType *string
-		)
-
-		if val.StoragePoolUUID.Valid {
-			poolUUIDT := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
-			poolUUID = &poolUUIDT
-		}
-		if val.StorageType.Valid {
-			providerTypeStr := val.StorageType.V
-			providerType = &providerTypeStr
-		}
 
 		rval = append(rval, application.StorageDirective{
-			Count:        val.Count,
-			Name:         domainstorage.Name(val.StorageName),
-			PoolUUID:     poolUUID,
-			ProviderType: providerType,
-			Size:         val.SizeMiB,
+			Count:    val.Count,
+			Name:     domainstorage.Name(val.StorageName),
+			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:     val.SizeMiB,
 		})
 	}
 	return rval, nil
@@ -229,26 +215,12 @@ WHERE  unit_uuid = $entityUUID.uuid
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		var (
-			poolUUID     *domainstorage.StoragePoolUUID
-			providerType *string
-		)
-
-		if val.StoragePoolUUID.Valid {
-			poolUUIDT := domainstorage.StoragePoolUUID(val.StoragePoolUUID.V)
-			poolUUID = &poolUUIDT
-		}
-		if val.StorageType.Valid {
-			providerTypeStr := val.StorageType.V
-			providerType = &providerTypeStr
-		}
 
 		rval = append(rval, application.StorageDirective{
-			Count:        val.Count,
-			Name:         domainstorage.Name(val.StorageName),
-			PoolUUID:     poolUUID,
-			ProviderType: providerType,
-			Size:         val.SizeMiB,
+			Count:    val.Count,
+			Name:     domainstorage.Name(val.StorageName),
+			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:     val.SizeMiB,
 		})
 	}
 	return rval, nil
@@ -270,33 +242,15 @@ func (st *State) insertApplicationStorageDirectives(
 
 	insertDirectivesInput := make([]insertApplicationStorageDirective, 0, len(directives))
 	for _, d := range directives {
-		var (
-			poolUUIDVal     sql.Null[string]
-			providerTypeVal sql.Null[string]
-		)
-		if d.PoolUUID != nil {
-			poolUUIDVal = sql.Null[string]{
-				V:     d.PoolUUID.String(),
-				Valid: true,
-			}
-		}
-		if d.ProviderType != nil {
-			providerTypeVal = sql.Null[string]{
-				V:     *d.ProviderType,
-				Valid: true,
-			}
-		}
-
 		insertDirectivesInput = append(
 			insertDirectivesInput,
 			insertApplicationStorageDirective{
-				ApplicationUUID:     uuid.String(),
-				CharmUUID:           charmUUID.String(),
-				Count:               d.Count,
-				Size:                d.Size,
-				StorageName:         d.Name.String(),
-				StoragePoolUUID:     poolUUIDVal,
-				StorageProviderType: providerTypeVal,
+				ApplicationUUID: uuid.String(),
+				CharmUUID:       charmUUID.String(),
+				Count:           d.Count,
+				Size:            d.Size,
+				StorageName:     d.Name.String(),
+				StoragePoolUUID: d.PoolUUID.String(),
 			},
 		)
 	}
@@ -442,27 +396,12 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 	insertArgs := make([]insertUnitStorageDirective, 0, len(args))
 	rval := make([]unitStorageDirective, 0, len(args))
 	for _, arg := range args {
-		storagePoolUUIDVal := sql.Null[string]{}
-		storageTypeVal := sql.Null[string]{}
-		if arg.PoolUUID != nil {
-			storagePoolUUIDVal = sql.Null[string]{
-				V:     arg.PoolUUID.String(),
-				Valid: true,
-			}
-		}
-		if arg.ProviderType != nil {
-			storageTypeVal = sql.Null[string]{
-				V:     *arg.ProviderType,
-				Valid: true,
-			}
-		}
 		insertArgs = append(insertArgs, insertUnitStorageDirective{
 			CharmUUID:       charmUUID.String(),
 			Count:           arg.Count,
 			Size:            arg.Size,
 			StorageName:     arg.Name.String(),
-			StoragePoolUUID: storagePoolUUIDVal,
-			StorageType:     storageTypeVal,
+			StoragePoolUUID: arg.PoolUUID.String(),
 			UnitUUID:        unitUUID.String(),
 		})
 
@@ -470,8 +409,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			CharmUUID:       charmUUID.String(),
 			Count:           arg.Count,
 			StorageName:     arg.Name.String(),
-			StoragePoolUUID: storagePoolUUIDVal,
-			StorageType:     storageTypeVal,
+			StoragePoolUUID: arg.PoolUUID.String(),
 			SizeMiB:         arg.Size,
 		})
 	}
@@ -895,7 +833,6 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			StorageID:       storageID,
 			StorageName:     arg.Name.String(),
 			StoragePoolUUID: directive.StoragePoolUUID,
-			StorageType:     directive.StorageType,
 			UUID:            arg.UUID.String(),
 		})
 	}
@@ -1273,9 +1210,7 @@ WITH 	blockdevice_pool_name AS (
 			UNION
 			SELECT * FROM filesystem_pool_name
 		)
-SELECT pn.type AS &storageProvisioners.storage_type,
-       NULLIF(pn.name, sp.name) AS &storageProvisioners.provider_type,
-       sp.uuid AS &storageProvisioners.storage_pool_uuid
+SELECT (pn.type, sp.uuid) AS (&storageProvisioners.*)
 FROM pool_names pn
 LEFT JOIN storage_pool sp ON pn.name=sp.name
 `, storageModelConfigKeys, storageProvisioners{})
@@ -1297,15 +1232,14 @@ LEFT JOIN storage_pool sp ON pn.name=sp.name
 
 	res := application.DefaultStorageProvisioners{}
 	for _, v := range dbVals {
-		switch {
-		case v.StorageType == "blockdevice" && v.ProviderType != "":
-			res.BlockdeviceProviderType = &v.ProviderType
-		case v.StorageType == "filesystem" && v.ProviderType != "":
-			res.FilesystemProviderType = &v.ProviderType
-		case v.StorageType == "blockdevice" && v.StoragePoolUUID != "":
+		if v.StoragePoolUUID == "" {
+			continue
+		}
+		switch v.StorageType {
+		case "blockdevice":
 			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
 			res.BlockdevicePoolUUID = &poolUUID
-		case v.StorageType == "filesystem" && v.StoragePoolUUID != "":
+		case "filesystem":
 			poolUUID := domainstorage.StoragePoolUUID(v.StoragePoolUUID)
 			res.FilesystemPoolUUID = &poolUUID
 		}

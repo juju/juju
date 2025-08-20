@@ -31,13 +31,3 @@ func (s StorageProviderValidator) CheckPoolSupportsCharmStorage(
 ) (bool, error) {
 	return false, errors.New("CheckPoolSupportsCharmStorage not implemented")
 }
-
-// CheckProviderTypeSupportsCharmStorage returns false and a not implemented
-// error.
-func (s StorageProviderValidator) CheckProviderTypeSupportsCharmStorage(
-	_ context.Context,
-	_ string,
-	_ internalcharm.StorageType,
-) (bool, error) {
-	return false, errors.New("CheckProviderTypeSupportsCharmStorage not implemented")
-}

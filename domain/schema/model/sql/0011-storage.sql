@@ -60,26 +60,9 @@ CREATE TABLE application_storage_directive (
     application_uuid TEXT NOT NULL,
     charm_uuid TEXT NOT NULL,
     storage_name TEXT NOT NULL,
-    -- These attributes are filled in by sourcing data from:
-    -- user supplied, model config, charm config, opinionated fallbacks.
-    -- By the time the row is written, all values are known.
-    -- Directive value attributes (pool, size, count) hitherto have
-    -- been fixed (since first implemented). We don't envisage
-    -- any change to how these are modelled.
-    --
-    -- One of storage_pool_uuid or storage_type must be set.
-    -- Storage types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate
-    -- bad relational design. However we choose that here over the
-    -- burden of:
-    --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated.
-    storage_pool_uuid TEXT,
-    storage_type TEXT,
+    storage_pool_uuid TEXT NOT NULL,
     size_mib INT NOT NULL,
     count INT NOT NULL,
-    CONSTRAINT chk_application_storage_specified
-    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
     CONSTRAINT fk_application_storage_directive_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
@@ -107,26 +90,9 @@ CREATE TABLE unit_storage_directive (
     unit_uuid TEXT NOT NULL,
     charm_uuid TEXT NOT NULL,
     storage_name TEXT NOT NULL,
-    -- These attributes are filled in by sourcing data from:
-    -- user supplied, model config, charm config, opinionated fallbacks.
-    -- By the time the row is written, all values are known.
-    -- Directive value attributes (pool, size, count) hitherto have
-    -- been fixed (since first implemented). We don't envisage
-    -- any change to how these are modelled.
-    --
-    -- One of storage_pool_uuid or storage_type must be set.
-    -- Storage types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate
-    -- bad relational design. However we choose that here over the
-    -- burden of:
-    --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated.
-    storage_pool_uuid TEXT,
-    storage_type TEXT,
+    storage_pool_uuid TEXT NOT NULL,
     size_mib INT NOT NULL,
     count INT NOT NULL,
-    CONSTRAINT chk_unit_storage_specified
-    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
     CONSTRAINT fk_unit_storage_directive_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
@@ -150,18 +116,8 @@ CREATE TABLE storage_instance (
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    -- One of storage_pool_uuid or storage_type must be set.
-    -- Storage types are provider sourced, so we do not use a lookup with ID.
-    -- This constitutes "repeating data" and would tend to indicate
-    -- bad relational design. However we choose that here over the
-    -- burden of:
-    --   - Knowing every possible type up front to populate a look-up or;
-    --   - Sourcing the lookup from the provider and keeping it updated.
-    storage_pool_uuid TEXT,
-    storage_type TEXT,
+    storage_pool_uuid TEXT NOT NULL,
     requested_size_mib INT NOT NULL,
-    CONSTRAINT chk_storage_instance_storage_specified
-    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -175,18 +131,6 @@ CREATE TABLE storage_instance (
 
 CREATE UNIQUE INDEX idx_storage_instance_id
 ON storage_instance (storage_id);
-
-CREATE VIEW v_storage_instance AS
-SELECT
-    si.uuid,
-    si.charm_uuid,
-    si.storage_name,
-    si.storage_id,
-    si.life_id,
-    si.requested_size_mib,
-    COALESCE(sp.name, si.storage_type) AS storage_pool
-FROM storage_instance AS si
-LEFT JOIN storage_pool AS sp ON si.storage_pool_uuid = sp.uuid;
 
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.

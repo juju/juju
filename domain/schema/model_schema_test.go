@@ -368,7 +368,6 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_revision_updater_application",
 		"v_secret_permission",
 		"v_space_subnet",
-		"v_storage_instance",
 		"v_unit_agent_presence",
 		"v_unit_agent_status",
 		"v_unit_attribute",

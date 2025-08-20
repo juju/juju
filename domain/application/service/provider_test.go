@@ -532,24 +532,19 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 			},
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
-				Name:         "foo-data",
-				Count:        2,
-				ProviderType: ptr("a-blockdevice-provider"),
-				Size:         2048,
+				Name:  "foo-data",
+				Count: 2,
+				Size:  2048,
 			}, {
-				Name:         "bar-data",
-				Count:        1,
-				ProviderType: ptr("a-filesystem-provider"),
-				Size:         4096,
+				Name:  "bar-data",
+				Count: 1,
+				Size:  4096,
 			}},
 		},
 	}
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			BlockdeviceProviderType: ptr("a-blockdevice-provider"),
-			FilesystemProviderType:  ptr("a-filesystem-provider"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -701,8 +696,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{
-			BlockdeviceProviderType: ptr("unwanted-blockdevice-provider"),
-			FilesystemPoolUUID:      &filesystemStoragePoolUUID,
+			FilesystemPoolUUID: &filesystemStoragePoolUUID,
 		}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
@@ -785,9 +779,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 			"foo-data": {
 				PoolUUID: &blockDeviceStoragePoolUUID,
 			},
-			"bar-data": {
-				ProviderType: ptr("special-filesystem-provider"),
-			},
 		},
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
@@ -806,9 +797,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemProviderType: ptr("fast"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -907,9 +896,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	}
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemProviderType: ptr("fast"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -1276,10 +1263,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Count:        1,
-						Name:         "data",
-						ProviderType: ptr("rootfs"),
-						Size:         10,
+						Count: 1,
+						Name:  "data",
+						Size:  10,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1336,10 +1322,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Name:         "data",
-					Count:        1,
-					Size:         10,
-					ProviderType: ptr("rootfs"),
+					Name:  "data",
+					Count: 1,
+					Size:  10,
 				},
 			},
 		},
@@ -1358,9 +1343,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			BlockdeviceProviderType: ptr("rootfs"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1431,10 +1414,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:         "data",
-						Count:        3,
-						Size:         10,
-						ProviderType: ptr("fast"),
+						Name:  "data",
+						Count: 3,
+						Size:  10,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1498,10 +1480,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count:        3,
-					Name:         "data",
-					Size:         10,
-					ProviderType: ptr("fast"),
+					Count: 3,
+					Name:  "data",
+					Size:  10,
 				},
 			},
 		},
@@ -1520,9 +1501,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			BlockdeviceProviderType: ptr("fast"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1595,10 +1574,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:         "data",
-						Count:        1,
-						Size:         10,
-						ProviderType: ptr("rootfs"),
+						Name:  "data",
+						Count: 1,
+						Size:  10,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1656,10 +1634,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count:        1,
-					Name:         "data",
-					Size:         10,
-					ProviderType: ptr("rootfs"),
+					Count: 1,
+					Name:  "data",
+					Size:  10,
 				},
 			},
 		},
@@ -1678,9 +1655,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemProviderType: ptr("rootfs"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1750,10 +1725,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:         "data",
-						Count:        2,
-						Size:         10,
-						ProviderType: ptr("fast"),
+						Name:  "data",
+						Count: 2,
+						Size:  10,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1814,10 +1788,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count:        2,
-					Name:         "data",
-					Size:         10,
-					ProviderType: ptr("fast"),
+					Count: 2,
+					Name:  "data",
+					Size:  10,
 				},
 			},
 		},
@@ -1836,9 +1809,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemProviderType: ptr("fast"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1971,9 +1942,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemProviderType: ptr("fast"),
-		}, nil,
+		application.DefaultStorageProvisioners{}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)

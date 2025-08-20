@@ -512,12 +512,6 @@ func validateApplicationStorageDirectiveParam(
 		)
 	}
 
-	if override.PoolUUID != nil && override.ProviderType != nil {
-		return errors.New(
-			"storage directive can only use either a pool or a provider type",
-		)
-	}
-
 	if override.PoolUUID != nil {
 		supports, err := providerValidator.CheckPoolSupportsCharmStorage(
 			ctx, *override.PoolUUID, charmStorageDef.Type,
@@ -533,25 +527,6 @@ func validateApplicationStorageDirectiveParam(
 			return errors.Errorf(
 				"storage directive pool %q does not support charm storage %q",
 				*override.PoolUUID, charmStorageDef.Type,
-			)
-		}
-	}
-
-	if override.ProviderType != nil {
-		supports, err := providerValidator.CheckProviderTypeSupportsCharmStorage(
-			ctx, *override.ProviderType, charmStorageDef.Type,
-		)
-		if err != nil {
-			return errors.Errorf(
-				"checking storage directive provider type %q supports charm storage %q",
-				*override.ProviderType, charmStorageDef.Type,
-			)
-		}
-
-		if !supports {
-			return errors.Errorf(
-				"storage directive provider type %q does not support charm storage %q",
-				*override.ProviderType, charmStorageDef.Type,
 			)
 		}
 	}
@@ -841,10 +816,10 @@ func validateApplicationStorageDirective(
 		)
 	}
 
-	if directive.PoolUUID == nil && directive.ProviderType == nil {
+	if err := directive.PoolUUID.Validate(); err != nil {
 		return errors.Errorf(
-			"storage directive %q requires at least a storage pool or provider to use",
-			directive.Name,
+			"storage directive %q pool uuid is not valid: %w",
+			directive.Name, err,
 		)
 	}
 
@@ -973,29 +948,6 @@ func makeApplicationStorageDirectiveArg(
 		charmStorageDef.Type == internalcharm.StorageFilesystem {
 		poolUUIDCopy := *defaultProvisioners.FilesystemPoolUUID
 		rval.PoolUUID = &poolUUIDCopy
-	}
-
-	// There is no need to set a provider type on the directive if a pool uuid
-	// has been set. We can exit early as everything else has been set.
-	if rval.PoolUUID != nil {
-		return rval
-	}
-
-	if rval.ProviderType == nil && directiveOverride.ProviderType != nil {
-		providerTypeCopy := *directiveOverride.ProviderType
-		rval.ProviderType = &providerTypeCopy
-	}
-	if rval.ProviderType == nil &&
-		defaultProvisioners.BlockdeviceProviderType != nil &&
-		charmStorageDef.Type == internalcharm.StorageBlock {
-		providerTypeCopy := *defaultProvisioners.BlockdeviceProviderType
-		rval.ProviderType = &providerTypeCopy
-	}
-	if rval.ProviderType == nil &&
-		defaultProvisioners.FilesystemProviderType != nil &&
-		charmStorageDef.Type == internalcharm.StorageFilesystem {
-		providerTypeCopy := *defaultProvisioners.FilesystemProviderType
-		rval.ProviderType = &providerTypeCopy
 	}
 
 	return rval

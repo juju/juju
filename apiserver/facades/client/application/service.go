@@ -370,8 +370,11 @@ type ResourceService interface {
 
 // StorageService instances get a storage pool by name.
 type StorageService interface {
-	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
+	// The following errors can be expected:
+	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	// - [storageerrors.InvalidPoolNameError] if the pool name is not valid.
+	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

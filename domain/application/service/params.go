@@ -105,14 +105,8 @@ type ApplicationStorageDirectiveOverride struct {
 	// value must also be less or equal to the maximum defined by the charm.
 	Count *uint32
 
-	// ProviderType defines the type of the provider to use when provisioning
-	// storage for this directive. Only
-	ProviderType *string
-
 	// PoolUUID defines the storage pool to use when provisioning storage for
-	// this directive. Either this value or
-	// [AddApplicationStorageDirectiveArg.ProviderType] can be set. If both are
-	// defined this is an error.
+	// this directive.
 	PoolUUID *domainstorage.StoragePoolUUID
 
 	// Size defines the size of the storage to provision as a minimum value in
