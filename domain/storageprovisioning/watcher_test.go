@@ -646,7 +646,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 
 	watcher, err := svc.WatchStorageAttachmentsForUnit(
-		c.Context(), coreunit.UUID(unitUUID),
+		c.Context(), unitUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
