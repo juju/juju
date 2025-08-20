@@ -7,21 +7,19 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/model"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/errors"
@@ -37,8 +35,6 @@ func TestCaasagentSuite(t *testing.T) {
 type caasagentSuite struct {
 	coretesting.BaseSuite
 
-	registry facade.WatcherRegistry
-
 	modelUUID coremodel.UUID
 
 	modelService                 *MockModelService
@@ -47,6 +43,7 @@ type caasagentSuite struct {
 	apiHostPortsForAgentsGetter  *MockAPIHostPortsForAgentsGetter
 	externalControllerService    *MockExternalControllerService
 	modelProviderServicebService *MockModelProviderService
+	watcherRegistry              *facademocks.MockWatcherRegistry
 
 	facade *caasagent.FacadeV2
 	result cloudspec.CloudSpec
@@ -54,10 +51,6 @@ type caasagentSuite struct {
 
 func (s *caasagentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	var err error
-	s.registry, err = registry.NewRegistry(clock.WallClock)
-	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)
 
@@ -84,11 +77,13 @@ func (s *caasagentSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+
 	modelConfigAPI := model.NewModelConfigWatcher(
-		s.modelConfigService, s.registry,
+		s.modelConfigService, s.watcherRegistry,
 	)
 	s.facade = caasagent.NewFacadeV2(
-		s.modelUUID, s.registry, modelConfigAPI,
+		s.modelUUID, s.watcherRegistry, modelConfigAPI,
 		nil,
 		s.modelProviderServicebService,
 		func(ctx context.Context) (watcher.NotifyWatcher, error) {
@@ -122,9 +117,9 @@ func (s *caasagentSuite) TestCloudSpec(c *tc.C) {
 	result, err := s.facade.CloudSpec(
 		c.Context(),
 		params.Entities{Entities: []params.Entity{
-			{names.NewModelTag(s.modelUUID.String()).String()},
-			{otherModelTag.String()},
-			{machineTag.String()},
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
+			{Tag: otherModelTag.String()},
+			{Tag: machineTag.String()},
 		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -163,7 +158,7 @@ func (s *caasagentSuite) TestCloudSpecCloudSpecError(c *tc.C) {
 	result, err := s.facade.CloudSpec(
 		c.Context(),
 		params.Entities{Entities: []params.Entity{
-			{names.NewModelTag(s.modelUUID.String()).String()},
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
 		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -182,15 +177,16 @@ func (s *caasagentSuite) TestWatchCloudSpecsChanges(c *tc.C) {
 	ch <- struct{}{}
 	w := watchertest.NewMockNotifyWatcher(ch)
 	s.modelService.EXPECT().WatchModelCloudCredential(gomock.Any(), s.modelUUID).Return(w, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("w-1", nil)
 
 	otherModelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.facade.WatchCloudSpecsChanges(
 		c.Context(),
 		params.Entities{Entities: []params.Entity{
-			{names.NewModelTag(s.modelUUID.String()).String()},
-			{otherModelTag.String()},
-			{machineTag.String()},
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
+			{Tag: otherModelTag.String()},
+			{Tag: machineTag.String()},
 		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -218,7 +214,7 @@ func (s *caasagentSuite) TestCloudSpecNilCredential(c *tc.C) {
 	result, err := s.facade.CloudSpec(
 		c.Context(),
 		params.Entities{Entities: []params.Entity{
-			{names.NewModelTag(s.modelUUID.String()).String()},
+			{Tag: names.NewModelTag(s.modelUUID.String()).String()},
 		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)

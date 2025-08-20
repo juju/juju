@@ -123,8 +123,8 @@ func (s *uniterLegacySuite) TestWatch(c *tc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("2", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("2", nil)
 	result, err := uniterAPI.Watch(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
@@ -151,7 +151,7 @@ func (s *uniterLegacySuite) TestApplicationWatch(c *tc.C) {
 	// Recreate the uniter API with the mocks initialized.
 	uniterAPI := s.newUniterAPI(c, s.authorizer)
 	args := params.Entity{Tag: "application-wordpress"}
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchApplication(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
@@ -186,7 +186,7 @@ func (s *uniterLegacySuite) TestUnitWatch(c *tc.C) {
 	// Recreate the uniter API with the mocks initialized.
 	uniterAPI := s.newUniterAPI(c, s.authorizer)
 	args := params.Entity{Tag: "unit-wordpress-0"}
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 	result, err := uniterAPI.WatchUnit(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
@@ -363,8 +363,6 @@ func (s *uniterLegacySuite) TestWatchRelationUnits(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
-	c.Assert(s.resources.Count(), tc.Equals, 0)
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -392,8 +390,8 @@ func (s *uniterLegacySuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), tc.Equals, 1)
-	resource := s.resources.Get("1")
+	resource, err := s.watcherRegistry.Get("1")
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, resource)
 
 	// Check that the Watch has consumed the initial event ("returned" in

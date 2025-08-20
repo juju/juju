@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
+	"github.com/juju/worker/v4"
 
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -102,26 +104,10 @@ type ModelContext interface {
 	// be disposed by calling this method.
 	Dispose()
 
-	// Resources exposes per-connection capabilities. By adding a
-	// resource, you make it accessible by (returned) id to all
-	// other facades used by this connection. It's mostly used to
-	// pass watcher ids over to watcher-specific facades, but that
-	// seems to be an antipattern: it breaks the separate-facades-
-	// by-role advice, and makes it inconvenient to track a given
-	// worker's watcher activity alongside its other communications.
-	//
-	// It's also used to hold some config strings used by various
-	// consumers, because it's convenient; and the Pinger that
-	// reports client presence in state, because every Resource gets
-	// Stop()ped on conn close. Not all of these uses are
-	// necessarily a great idea.
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	Resources() Resources
-
 	// WatcherRegistry returns the watcher registry for this context. The
 	// watchers are per-connection, and are cleaned up when the connection
 	// is closed.
-	WatcherRegistry() WatcherRegistry
+	WatcherRegistry() watcherregistry.WatcherRegistry
 
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
@@ -285,4 +271,29 @@ type Hub interface {
 // HTTPClient represents an HTTP client, for example, an *http.Client.
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
+}
+
+// WatcherRegistry defines an interface for managing watchers
+// for a connection.
+type WatcherRegistry interface {
+	// Get returns the watcher for the given id, or nil if there is no such
+	// watcher.
+	Get(string) (worker.Worker, error)
+	// Register registers the given watcher. It returns a unique identifier for the
+	// watcher which can then be used in subsequent API requests to refer to the
+	// watcher.
+	Register(context.Context, worker.Worker) (string, error)
+
+	// RegisterNamed registers the given watcher. Callers must supply a unique
+	// name for the given watcher. It is an error to try to register another
+	// watcher with the same name as an already registered name.
+	// It is also an error to supply a name that is an integer string, since that
+	// collides with the auto-naming from Register.
+	RegisterNamed(context.Context, string, worker.Worker) error
+
+	// Stop stops the resource with the given id and unregisters it.
+	// It returns any error from the underlying Stop call.
+	// It does not return an error if the resource has already
+	// been unregistered.
+	Stop(id string) error
 }

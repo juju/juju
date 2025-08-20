@@ -145,6 +145,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
+			"watcher-registry",
 		},
 	)
 }
@@ -220,6 +221,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
+			"watcher-registry",
 		},
 	)
 }
@@ -309,6 +311,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"upgrade-steps-runner",
 		"upgrader",
 		"valid-credential-flag",
+		"watcher-registry",
 	)
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
@@ -344,6 +347,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-database-runner",
+		"watcher-registry",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -693,6 +697,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"watcher-registry",
 	},
 
 	"audit-config-updater": {
@@ -967,6 +972,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"watcher-registry",
 	},
 
 	"http-server-args": {
@@ -1648,6 +1654,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 	},
+
+	"watcher-registry": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
@@ -1795,6 +1807,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"watcher-registry",
 	},
 
 	"audit-config-updater": {
@@ -1994,6 +2007,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"watcher-registry",
 	},
 
 	"http-server-args": {
@@ -2533,6 +2547,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+	},
+
+	"watcher-registry": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 }
 

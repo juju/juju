@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
@@ -28,19 +27,19 @@ type ExternalControllerService interface {
 // ExternalControllerUpdaterAPI provides access to the CrossModelRelations API
 // facade.
 type ExternalControllerUpdaterAPI struct {
-	ecService ExternalControllerService
-	resources facade.Resources
+	ecService       ExternalControllerService
+	watcherRegistry internal.WatcherRegistry
 }
 
 // NewAPI creates a new server-side CrossModelRelationsAPI API facade backed
 // by the given interfaces.
 func NewAPI(
-	resources facade.Resources,
 	ecService ExternalControllerService,
+	watcherRegistry internal.WatcherRegistry,
 ) (*ExternalControllerUpdaterAPI, error) {
 	return &ExternalControllerUpdaterAPI{
-		ecService: ecService,
-		resources: resources,
+		ecService:       ecService,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }
 
@@ -55,7 +54,8 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Co
 			}},
 		}, nil
 	}
-	changes, err := internal.FirstResult[[]string](ctx, w)
+
+	id, changes, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
 	if err != nil {
 		return params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
@@ -65,7 +65,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Co
 	}
 	return params.StringsWatchResults{
 		Results: []params.StringsWatchResult{{
-			StringsWatcherId: api.resources.Register(w),
+			StringsWatcherId: id,
 			Changes:          changes,
 		}},
 	}, nil

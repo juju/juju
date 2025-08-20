@@ -69,6 +69,7 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 		dbGetter:                StubDBGetter{},
 		dbDeleter:               StubDBDeleter{},
 		domainServicesGetter:    &StubDomainServicesGetter{},
+		watcherRegistryGetter:   &StubWatcherRegistryGetter{},
 		tracerGetter:            &StubTracerGetter{},
 		objectStoreGetter:       &StubObjectStoreGetter{},
 		machineTag:              names.NewMachineTag("0"),

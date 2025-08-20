@@ -38,6 +38,8 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/watcherregistry"
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
@@ -65,6 +67,7 @@ type ManifoldSuite struct {
 	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
+	watcherRegistryGetter   *stubWatcherRegistryGetter
 	jwtParser               *jwtparser.Parser
 
 	stub testhelpers.Stub
@@ -94,6 +97,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.stub.ResetCalls()
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.dbDeleter = stubDBDeleter{}
+	s.watcherRegistryGetter = &stubWatcherRegistryGetter{}
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -112,6 +116,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		ChangeStreamName:                  "change-stream",
 		DBAccessorName:                    "db-accessor",
 		JWTParserName:                     "jwt-parser",
+		WatcherRegistryName:               "watcher-registry",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
@@ -142,6 +147,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"trace":               s.tracerGetter,
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
+		"watcher-registry":    s.watcherRegistryGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -176,7 +182,7 @@ var expectedInputs = []string{
 	"upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
-	"jwt-parser",
+	"jwt-parser", "watcher-registry",
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
@@ -230,6 +236,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ModelService:               s.modelService,
 		JWTParser:                  s.jwtParser,
+		WatcherRegistryGetter:      s.watcherRegistryGetter,
 	})
 }
 
@@ -389,4 +396,10 @@ type stubHTTPClientGetter struct {
 
 func (s *stubHTTPClientGetter) GetHTTPClient(ctx context.Context, namespace corehttp.Purpose) (corehttp.HTTPClient, error) {
 	return s.client, nil
+}
+
+type stubWatcherRegistryGetter struct{}
+
+func (s *stubWatcherRegistryGetter) GetWatcherRegistry(ctx context.Context, cid uint64) (watcherregistry.WatcherRegistry, error) {
+	return jujutesting.NewTestRegistry()
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -16,20 +15,19 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc/params"
 )
 
 type watcherCommon struct {
 	id              string
-	resources       facade.Resources
-	watcherRegistry facade.WatcherRegistry
+	watcherRegistry watcherregistry.WatcherRegistry
 	dispose         func()
 }
 
 func newWatcherCommon(context facade.ModelContext) watcherCommon {
 	return watcherCommon{
 		id:              context.ID(),
-		resources:       context.Resources(),
 		watcherRegistry: context.WatcherRegistry(),
 		dispose:         context.Dispose,
 	}
@@ -41,18 +39,7 @@ func (w *watcherCommon) Stop() error {
 	if _, err := w.watcherRegistry.Get(w.id); err == nil {
 		return errors.Trace(w.watcherRegistry.Stop(w.id))
 	}
-	return errors.Trace(w.resources.Stop(w.id))
-}
-
-// GetWatcherByID returns the watcher with the given ID.
-// Deprecated: This only exists to support the old watcher API, once resources
-// have been removed, this can be removed too.
-func GetWatcherByID(watcherRegistry facade.WatcherRegistry, resources facade.Resources, id string) (worker.Worker, error) {
-	watcher, err := watcherRegistry.Get(id)
-	if err == nil {
-		return watcher, nil
-	}
-	return resources.Get(id), nil
+	return nil
 }
 
 func isAgent(auth facade.Authorizer) bool {
@@ -70,7 +57,7 @@ func newNotifyWatcher(_ context.Context, context facade.ModelContext) (facade.Fa
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,7 +103,7 @@ func newStringsWatcher(_ context.Context, context facade.ModelContext) (facade.F
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +145,7 @@ func newRelationUnitsWatcher(_ context.Context, context facade.ModelContext) (fa
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -256,7 +243,7 @@ func newEntitiesWatcher(_ context.Context, context facade.ModelContext) (facade.
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -301,7 +288,6 @@ func NewModelSummaryWatcher(context facade.ModelContext) (*SrvModelSummaryWatche
 	var (
 		id              = context.ID()
 		auth            = context.Auth()
-		resources       = context.Resources()
 		watcherRegistry = context.WatcherRegistry()
 	)
 	if !auth.AuthClient() {
@@ -318,7 +304,7 @@ func NewModelSummaryWatcher(context facade.ModelContext) (*SrvModelSummaryWatche
 		// rights) API calls.
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(watcherRegistry, resources, id)
+	w, err := watcherRegistry.Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -412,7 +398,7 @@ func newSecretsTriggerWatcher(_ context.Context, context facade.ModelContext) (f
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -465,7 +451,7 @@ func newSecretBackendsRotateWatcher(_ context.Context, context facade.ModelConte
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -526,7 +512,7 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
+	w, err := context.WatcherRegistry().Get(context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

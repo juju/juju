@@ -167,7 +167,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.modelMigrationService.EXPECT().WatchMigrationPhase(gomock.Any()).Return(w, nil)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("123", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
 		authOK,
@@ -189,7 +189,7 @@ func (s *FacadeSuite) TestWatchErrors(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.modelMigrationService.EXPECT().WatchMigrationPhase(gomock.Any()).Return(nil, errors.New("blort"))
-	resources := common.NewResources()
+
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
 		authOK,
@@ -217,5 +217,4 @@ func (s *FacadeSuite) TestWatchErrors(c *tc.C) {
 			Message: "blort",
 		}},
 	})
-	c.Check(resources.Count(), tc.Equals, 0)
 }

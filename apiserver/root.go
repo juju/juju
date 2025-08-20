@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -87,7 +87,7 @@ type apiHandler struct {
 
 	// watcherRegistry is the registry for tracking watchers between API calls
 	// for a given model UUID.
-	watcherRegistry facade.WatcherRegistry
+	watcherRegistry watcherregistry.WatcherRegistry
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -112,9 +112,6 @@ type apiHandler struct {
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
-
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources *common.Resources
 }
 
 var _ = (*apiHandler)(nil)
@@ -138,14 +135,12 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
+	watcherRegistry watcherregistry.WatcherRegistry,
 	modelUUID model.UUID,
 	controllerOnlyLogin bool,
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
-	// We return a core errors NotFound because we are still mixing
-	// mongo State and domain service calls and this is easier till
-	// we fully convert across.
 	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,13 +151,13 @@ func newAPIHandler(
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
 		if _, migErr := domainServices.Model().ModelRedirection(ctx, modelUUID); migErr != nil {
-			return nil, errors.NotFoundf("model %q", modelUUID) // return errors.NotFound on any error
+			// Return not found on any error.
+			// TODO (stickupkid): This is very brute force. What if there
+			// is an error with the database? The caller will assume that it
+			// is no longer on this controller. If we return a different error
+			// then it can at least retry the request.
+			return nil, errors.NotFoundf("model %q", modelUUID)
 		}
-	}
-
-	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.Child("registry", corelogger.WATCHERS)))
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	r := &apiHandler{
@@ -172,8 +167,7 @@ func newAPIHandler(
 		objectStore:           objectStore,
 		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
-		resources:             common.NewResources(),
-		watcherRegistry:       registry,
+		watcherRegistry:       watcherRegistry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
 		modelUUID:             modelUUID,
@@ -185,15 +179,9 @@ func newAPIHandler(
 	return r, nil
 }
 
-// Resources returns the common resources.
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (r *apiHandler) Resources() *common.Resources {
-	return r.resources
-}
-
 // WatcherRegistry returns the watcher registry for tracking watchers between
 // API calls.
-func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
+func (r *apiHandler) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return r.watcherRegistry
 }
 
@@ -251,11 +239,9 @@ func (r *apiHandler) CloseConn() error {
 // Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
-	r.watcherRegistry.Kill()
-	if err := r.watcherRegistry.Wait(); err != nil {
-		logger.Infof(context.TODO(), "error waiting for watcher registry to stop: %v", err)
+	if err := r.watcherRegistry.StopAll(); err != nil {
+		r.shared.logger.Warningf(context.TODO(), "error stopping watchers: %v", err)
 	}
-	r.resources.StopAll()
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
@@ -397,12 +383,9 @@ type apiRootHandler interface {
 	ControllerObjectStore() objectstore.ObjectStore
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
-	// Resources returns the common resources.
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	Resources() *common.Resources
 	// WatcherRegistry returns the watcher registry for tracking watchers
 	// between API calls.
-	WatcherRegistry() facade.WatcherRegistry
+	WatcherRegistry() watcherregistry.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
 	// ModelUUID returns the UUID of the model that the API is operating on.
@@ -421,7 +404,7 @@ type apiRoot struct {
 	controllerObjectStore objectstore.ObjectStore
 	shared                *sharedServerContext
 	facades               *facade.Registry
-	watcherRegistry       facade.WatcherRegistry
+	watcherRegistry       watcherregistry.WatcherRegistry
 	authorizer            facade.Authorizer
 	objectMutex           sync.RWMutex
 	objectCache           map[objectKey]reflect.Value
@@ -433,9 +416,6 @@ type apiRoot struct {
 	// on. There are some exceptions to this rule, but they are exceptions that
 	// prove the rule.
 	modelUUID model.UUID
-
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources *common.Resources
 }
 
 // newAPIRoot returns a new apiRoot.
@@ -456,7 +436,6 @@ func newAPIRoot(
 		controllerObjectStore: root.ControllerObjectStore(),
 		shared:                root.SharedContext(),
 		facades:               facades,
-		resources:             root.Resources(),
 		watcherRegistry:       root.WatcherRegistry(),
 		authorizer:            root.Authorizer(),
 		objectCache:           make(map[objectKey]reflect.Value),
@@ -708,14 +687,8 @@ func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of the facade.ModelContext interface.
-// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (ctx *facadeContext) Resources() facade.Resources {
-	return ctx.r.resources
-}
-
 // WatcherRegistry is part of the facade.ModelContext interface.
-func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
+func (ctx *facadeContext) WatcherRegistry() watcherregistry.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 

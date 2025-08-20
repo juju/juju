@@ -118,6 +118,7 @@ import (
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgradesteps"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -548,6 +549,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:              traceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
+			WatcherRegistryName:    watcherRegistryName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -880,6 +882,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
 			Logger:                    internallogger.GetLogger("juju.worker.undertaker"),
 			Clock:                     config.Clock,
+		})),
+
+		watcherRegistryName: ifController(watcherregistry.Manifold(watcherregistry.ManifoldConfig{
+			NewWorker: watcherregistry.NewWorker,
+			Clock:     config.Clock,
+			Logger:    internallogger.GetLogger("juju.worker.watcherregistry"),
 		})),
 	}
 
@@ -1355,4 +1363,5 @@ const (
 	validCredentialFlagName       = "valid-credential-flag"
 	undertakerName                = "undertaker"
 	machineSetupName              = "machine-setup"
+	watcherRegistryName           = "watcher-registry"
 )

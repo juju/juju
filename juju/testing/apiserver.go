@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -21,6 +23,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/api"
@@ -61,6 +64,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -211,7 +215,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
-	s.DomainServicesSuite.ControllerConfig = controllerCfg
+	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
 	s.DomainServicesSuite.SetUpTest(c)
 
@@ -246,7 +250,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	SeedDatabase(c, s.TxnRunner(), domainServices, controllerCfg)
 }
 
-func (s *ApiServerSuite) setupApiServer(c *tc.C, controllerCfg controller.Config) {
+func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
@@ -322,7 +326,7 @@ type agentPasswordServiceGetter struct {
 // GetAgentPasswordServiceForModel returns a AgentPasswordService for the given
 // model.
 func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.AgentPasswordService, error) {
-	svc, err := s.DomainServicesGetter.ServicesForModel(ctx, modelUUID)
+	svc, err := s.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -342,7 +346,7 @@ func (s *ApiServerSuite) SetUpTest(c *tc.C) {
 	}
 	s.ControllerUUID = controllerCfg.ControllerUUID()
 	s.setupControllerModel(c, controllerCfg)
-	s.setupApiServer(c, controllerCfg)
+	s.setupAPIServer(c, controllerCfg)
 }
 
 func (s *ApiServerSuite) TearDownTest(c *tc.C) {
@@ -467,7 +471,7 @@ func (s *ApiServerSuite) ControllerModelUUID() string {
 func (s *ApiServerSuite) tearDownConn(c *tc.C) {
 	// Close any api connections we know about first.
 	for _, st := range s.apiConns {
-		st.Close()
+		_ = st.Close()
 	}
 	s.apiConns = nil
 }
@@ -537,6 +541,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
+		WatcherRegistryGetter:      &stubWatcherRegistryGetter{},
 	}
 }
 
@@ -634,4 +639,121 @@ func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
+}
+
+type stubWatcherRegistryGetter struct{}
+
+func (s *stubWatcherRegistryGetter) GetWatcherRegistry(ctx context.Context, cid uint64) (watcherregistry.WatcherRegistry, error) {
+	return NewTestRegistry()
+}
+
+type testRegistry struct {
+	catacomb                  catacomb.Catacomb
+	runner                    *worker.Runner
+	namespaceCounter, counter int64
+	watcherWrapper            func(worker.Worker) (worker.Worker, error)
+}
+
+func NewTestRegistry() (watcherregistry.WatcherRegistry, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "watcher-registry",
+		// Prevent the runner from restarting the worker, if one of the
+		// workers dies, we want to stop the whole thing.
+		IsFatal:       func(err error) bool { return false },
+		ShouldRestart: func(err error) bool { return false },
+		Clock:         clock.WallClock,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	r := &testRegistry{
+		runner: runner,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "watcher-registry",
+		Site: &r.catacomb,
+		Work: r.loop,
+		Init: []worker.Worker{
+			r.runner,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Get returns the watcher for the given id, or nil if there is no such
+// watcher.
+func (r *testRegistry) Get(id string) (worker.Worker, error) {
+	return r.runner.Worker(id, r.catacomb.Dying())
+}
+
+// Register registers the given watcher. It returns a unique identifier for the
+// watcher which can then be used in subsequent API requests to refer to the
+// watcher.
+func (r *testRegistry) Register(ctx context.Context, w worker.Worker) (string, error) {
+	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
+	namespace := strconv.FormatInt(nsCounter, 10)
+
+	err := r.register(ctx, namespace, w)
+	if err != nil {
+		return "", err
+	}
+	return namespace, nil
+}
+
+// RegisterNamed registers the given watcher. Callers must supply a unique
+// name for the given watcher. It is an error to try to register another
+// watcher with the same name as an already registered name.
+// It is also an error to supply a name that is an integer string, since that
+// collides with the auto-naming from Register.
+func (r *testRegistry) RegisterNamed(ctx context.Context, namespace string, w worker.Worker) error {
+	if _, err := strconv.Atoi(namespace); err == nil {
+		return errors.NotValidf("namespace %q", namespace)
+	}
+
+	return r.register(ctx, namespace, w)
+}
+
+func (r *testRegistry) register(ctx context.Context, namespace string, w worker.Worker) error {
+	err := r.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+		atomic.AddInt64(&r.counter, 1)
+		return r.watcherWrapper(w)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Stop stops the resource with the given id and unregisters it.
+// It returns any error from the underlying Stop call.
+// It does not return an error if the resource has already
+// been unregistered.
+func (r *testRegistry) Stop(id string) error {
+	if err := r.runner.StopAndRemoveWorker(id, r.catacomb.Dying()); err != nil {
+		return err
+	}
+	atomic.AddInt64(&r.counter, -1)
+	return nil
+}
+
+// Kill implements the worker.Worker interface.
+func (r *testRegistry) StopAll() error {
+	r.catacomb.Kill(nil)
+	err := r.catacomb.Wait()
+	atomic.StoreInt64(&r.counter, 0)
+	return err
+}
+
+// Count returns the number of resources currently held.
+func (r *testRegistry) Count() int {
+	return int(atomic.LoadInt64(&r.counter))
+}
+
+func (r *testRegistry) loop() error {
+	<-r.catacomb.Dying()
+	return r.catacomb.ErrDying()
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -42,7 +41,6 @@ type upgraderSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	upgrader   *upgrader.UpgraderAPI
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	store      objectstore.ObjectStore
 
@@ -64,8 +62,6 @@ func (s *upgraderSuite) SetUpTest(c *tc.C) {
 		"agent-version": coretesting.CurrentVersion().Number.String(),
 	}
 	s.ApiServerSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.rawMachineTag = names.NewMachineTag("0")
 	s.apiMachineTag = names.NewMachineTag("1")
@@ -115,13 +111,6 @@ func (s *upgraderSuite) makeMockedUpgraderAPI(c *tc.C) *upgrader.UpgraderAPI {
 		s.agentService,
 		s.machineService,
 	)
-}
-
-func (s *upgraderSuite) TearDownTest(c *tc.C) {
-	if s.resources != nil {
-		s.resources.StopAll()
-	}
-	s.ApiServerSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestToolsNothing(c *tc.C) {

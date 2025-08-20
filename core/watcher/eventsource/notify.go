@@ -82,6 +82,14 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
+// Report returns a summary of the watcher state.
+func (w *NotifyWatcher) Report() map[string]any {
+	return map[string]any{
+		"type":    "NotifyWatcher",
+		"summary": w.summary,
+	}
+}
+
 func (w *NotifyWatcher) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()

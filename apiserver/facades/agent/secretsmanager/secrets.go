@@ -384,7 +384,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(ctx context.Context, args param
 			}
 		}
 		if content.SecretValue != nil {
-			contentParams.Data = content.SecretValue.EncodedValues()
+			contentParams.Data = content.EncodedValues()
 		}
 		result.Results[i].Content = contentParams
 		if backend != nil {

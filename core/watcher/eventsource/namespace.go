@@ -102,6 +102,14 @@ func (w *NamespaceWatcher) Changes() <-chan []string {
 	return w.out
 }
 
+// Report returns a summary of the watcher state.
+func (w *NamespaceWatcher) Report() map[string]any {
+	return map[string]any{
+		"type":    "NamespaceWatcher",
+		"summary": w.summary,
+	}
+}
+
 func (w *NamespaceWatcher) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()

@@ -7,7 +7,6 @@ import (
 	"context"
 	stdtesting "testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,13 +14,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher/registry"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -35,6 +34,7 @@ type lxdProfileSuite struct {
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
 
+	watcherRegistry    *facademocks.MockWatcherRegistry
 	machineService     *MockMachineService
 	modelInfoService   *MockModelInfoService
 	applicationService *uniter.MockApplicationService
@@ -58,6 +58,7 @@ func (s *lxdProfileSuite) TestWatchInstanceData(c *tc.C) {
 	watcher.changes <- struct{}{}
 	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), coremachine.UUID("uuid0")).Return(watcher, nil)
 	s.applicationService.EXPECT().GetUnitMachineUUID(gomock.Any(), coreunit.Name(s.unitTag1.Id())).Return("uuid0", nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("w-1", nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -257,11 +258,10 @@ func (s *lxdProfileSuite) newAPI(c *tc.C) *uniter.LXDProfileAPI {
 			return tag.Id() == s.unitTag1.Id()
 		}, nil
 	}
-	watcherRegistry, err := registry.NewRegistry(clock.WallClock)
-	c.Assert(err, tc.ErrorIsNil)
+
 	api := uniter.NewLXDProfileAPI(
 		s.machineService,
-		watcherRegistry,
+		s.watcherRegistry,
 		authorizer,
 		unitAuthFunc,
 		loggertesting.WrapCheckLog(c),
@@ -276,6 +276,15 @@ func (s *lxdProfileSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = uniter.NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+
+	c.Cleanup(func() {
+		s.modelInfoService = nil
+		s.applicationService = nil
+		s.machineService = nil
+		s.watcherRegistry = nil
+	})
+
 	return ctrl
 }
 

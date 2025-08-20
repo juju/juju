@@ -147,7 +147,7 @@ func (s *MacaroonSuite) OpenAPI(c *tc.C, info *api.Info, jar http.CookieJar) api
 	}
 	bakeryClient := httpbakery.NewClient()
 	if jar != nil {
-		bakeryClient.Client.Jar = jar
+		bakeryClient.Jar = jar
 	}
 	conn, err := api.Open(c.Context(), info, api.DialOpts{
 		BakeryClient: bakeryClient,
@@ -159,7 +159,7 @@ func (s *MacaroonSuite) OpenAPI(c *tc.C, info *api.Info, jar http.CookieJar) api
 // APIInfo returns API connection info suitable for
 // connecting to the API using macaroon authentication.
 func (s *MacaroonSuite) APIInfo(c *tc.C) *api.Info {
-	info := s.ApiServerSuite.ControllerModelApiInfo()
+	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
 	// Fill in any old macaroon to ensure we don't attempt

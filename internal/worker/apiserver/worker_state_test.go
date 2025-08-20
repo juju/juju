@@ -137,5 +137,6 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		ControllerUUID:             s.controllerUUID,
 		ControllerModelUUID:        s.controllerModelUUID,
 		JWTAuthenticator:           jwtAuthenticator,
+		WatcherRegistryGetter:      s.watcherRegistryGetter,
 	})
 }

@@ -58,7 +58,7 @@ func (api *API) Watch(ctx context.Context) (params.NotifyWatchResult, error) {
 	}
 	// Do not pull initial results. This is consumed as a legacy watcher called
 	// MigrationStatusWatcher.
-	res.NotifyWatcherId, err = api.watcherRegistry.Register(w)
+	res.NotifyWatcherId, err = api.watcherRegistry.Register(ctx, w)
 	if err != nil {
 		res.Error = apiservererrors.ServerError(err)
 		w.Kill()

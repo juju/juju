@@ -29,7 +29,7 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 
 	return NewAgentAPI(
 		ctx.Auth(),
-		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		services.AgentPassword(),
 		services.Controller(),
 		services.ControllerConfig(),
@@ -39,6 +39,5 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		services.Machine(),
 		services.Config(),
 		services.Application(),
-		ctx.WatcherRegistry(),
 	), nil
 }
