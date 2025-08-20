@@ -6,7 +6,6 @@ package remoterelations
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -196,7 +195,6 @@ type Worker struct {
 	logger   logger.Logger
 
 	runner *worker.Runner
-	mu     sync.Mutex
 
 	// offerUUIDs records the offer UUID used for each saas name.
 	offerUUIDs map[string]string
@@ -244,13 +242,11 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []string) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	// TODO(wallyworld) - watcher should not give empty events
 	if len(applicationIds) == 0 {
 		return nil
 	}
+
 	logger := w.config.Logger
 	logger.Debugf(ctx, "processing remote application changes for: %s", applicationIds)
 
@@ -319,14 +315,10 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		}
 
 		logger.Debugf(ctx, "starting watcher for remote application %q", name)
+
 		// Start the application worker to watch for things like new relations.
-		w.offerUUIDs[name] = remoteApp.OfferUUID
-		if err := w.runner.StartWorker(ctx, name, startFunc); err != nil {
-			if errors.Is(err, errors.AlreadyExists) {
-				w.logger.Debugf(ctx, "already running remote application worker for %q", name)
-			} else {
-				return errors.Annotate(err, "error starting remote application worker")
-			}
+		if err := w.runner.StartWorker(ctx, name, startFunc); err != nil && !errors.Is(err, errors.AlreadyExists) {
+			return errors.Annotate(err, "error starting remote application worker")
 		}
 		w.offerUUIDs[name] = remoteApp.OfferUUID
 	}
@@ -335,12 +327,8 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 
 // Report provides information for the engine report.
 func (w *Worker) Report() map[string]interface{} {
-	result := make(map[string]interface{})
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	saasWorkers := make(map[string]interface{})
-	for name := range w.offerUUIDs {
+	for _, name := range w.runner.WorkerNames() {
 		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 		if err != nil {
 			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
@@ -348,6 +336,8 @@ func (w *Worker) Report() map[string]interface{} {
 		}
 		saasWorkers[name] = appWorker.(worker.Reporter).Report()
 	}
+
+	result := make(map[string]interface{})
 	result["workers"] = saasWorkers
 	return result
 }
