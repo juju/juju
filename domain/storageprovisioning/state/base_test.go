@@ -246,6 +246,7 @@ func (s *baseSuite) newStorageInstanceWithProviderType(
 	c *tc.C, pType, storageName string,
 ) (domainstorage.StorageInstanceUUID, string) {
 	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, storageName, "filesystem", false, "")
 	return s.newStorageInstanceForCharmWithProviderType(c, charmUUID, pType, storageName)
 }
 

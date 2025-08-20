@@ -733,7 +733,7 @@ func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
 
 func (s *volumeSuite) TestGetVolumeUUIDForStorageID(c *tc.C) {
 	volUUID, _ := s.newModelVolume(c)
-	storageInstanceUUID, storageID := s.newStorageInstance(c)
+	storageInstanceUUID, storageID := s.newStorageInstance(c, "mystorage")
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -751,7 +751,7 @@ func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithStorageInstanceNotFound(c
 }
 
 func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithVolumeNotFound(c *tc.C) {
-	_, storageID := s.newStorageInstance(c)
+	_, storageID := s.newStorageInstance(c, "mystorage")
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetVolumeUUIDForStorageID(c.Context(), storageID)

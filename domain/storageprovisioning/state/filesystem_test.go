@@ -778,7 +778,7 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForID(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemUUIDForStorageID(c *tc.C) {
 	fsUUID, _ := s.newModelFilesystem(c)
-	storageInstanceUUID, storageID := s.newStorageInstance(c)
+	storageInstanceUUID, storageID := s.newStorageInstance(c, "mystorage")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -796,7 +796,7 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithStorageInstanceNo
 }
 
 func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithFilesystemNotFound(c *tc.C) {
-	_, storageID := s.newStorageInstance(c)
+	_, storageID := s.newStorageInstance(c, "mystorage")
 
 	st := NewState(s.TxnRunnerFactory())
 
