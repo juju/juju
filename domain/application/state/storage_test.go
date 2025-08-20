@@ -23,6 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
@@ -75,21 +76,29 @@ func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-// createStoragePoolWithType creates a storage pool with the given provider type
-// for testing purposes. The storage pool name will not be unique between
-// invocations. Return is the uuid of the newly created storage pool.
-func (s *storageSuite) createStoragePoolWithType(
-	c *tc.C, providerType string,
-) domainstorage.StoragePoolUUID {
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().Exec(
-		"INSERT INTO storage_pool VALUES (?, ?, ?, 1)",
-		poolUUID, "test-pool", providerType,
+func (s *storageSuite) createStoragePool(c *tc.C,
+	name, providerType string,
+) storage.StoragePoolUUID {
+	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
+`,
+		poolUUID, name, providerType,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	return poolUUID
+}
 
+func (s *baseStorageSuite) createStoragePool(c *tc.C,
+	name, providerType string,
+) storage.StoragePoolUUID {
+	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
+`,
+		poolUUID, name, providerType,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 	return poolUUID
 }
 
@@ -158,12 +167,14 @@ func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
 	uuid := storagetesting.GenStorageInstanceUUID(c)
 
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_type, requested_size_mib)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid.String(), charmUUID, "pgdata", "pgdata/0", 0, "rootfs", 666)
-		return err
-	})
+	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+		poolUUID, "rootfs", "rootfs")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool_uuid, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid.String(), charmUUID, "pgdata", "pgdata/0", 0, poolUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
@@ -477,22 +488,26 @@ VALUES (?, ?)`, storageUUID.String(), volumeUUID.String())
 //
 //}
 
+func (s *applicationStateSuite) createStoragePool(c *tc.C, name, providerType string) storage.StoragePoolUUID {
+	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
+`,
+		poolUUID, name, providerType,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return poolUUID
+}
+
 // TestCreateApplicationWithResources tests creation of an application with
 // specified resources.
 // It verifies that the charm_resource table is populated, alongside the
 // resource and application_resource table with datas from charm and arguments.
 func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
 	ctx := c.Context()
-	uuid := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
-			uuid, "fast", "ebs")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
+	ebsPoolUUID := s.createStoragePool(c, "ebs", "ebs")
+	rootFsPoolUUID := s.createStoragePool(c, "rootfs", "rootfs")
+	fastPoolUUID := s.createStoragePool(c, "fast", "ebs")
 	chStorage := []charm.Storage{{
 		Name: "database",
 		Type: "block",
@@ -505,25 +520,24 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 	}}
 	directives := []application.CreateApplicationStorageDirectiveArg{
 		{
-			Name:         "database",
-			ProviderType: ptr("ebs"),
-			Size:         10,
-			Count:        2,
+			Name:     "database",
+			PoolUUID: ebsPoolUUID,
+			Size:     10,
+			Count:    2,
 		},
 		{
-			Name:         "logs",
-			ProviderType: ptr("rootfs"),
-			Size:         20,
-			Count:        1,
+			Name:     "logs",
+			PoolUUID: rootFsPoolUUID,
+			Size:     20,
+			Count:    1,
 		},
 		{
-			Name:         "cache",
-			ProviderType: ptr("fast"),
-			Size:         30,
-			Count:        1,
+			Name:     "cache",
+			PoolUUID: fastPoolUUID,
+			Size:     30,
+			Count:    1,
 		},
 	}
-	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID, _, err := s.state.CreateIAASApplication(ctx, "666", s.addIAASApplicationArgForStorage(c, "666",
 		chStorage, directives), nil)
@@ -565,7 +579,7 @@ WHERE charm_uuid=?`, charmUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT storage_name, storage_type, size_mib, count
+SELECT storage_name, storage_pool_uuid, size_mib, count
 FROM   application_storage_directive
 WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		if err != nil {
@@ -573,14 +587,10 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			var (
-				stor         application.CreateApplicationStorageDirectiveArg
-				providerType string
-			)
-			if err := rows.Scan(&stor.Name, &providerType, &stor.Size, &stor.Count); err != nil {
+			stor := application.CreateApplicationStorageDirectiveArg{}
+			if err := rows.Scan(&stor.Name, &stor.PoolUUID, &stor.Size, &stor.Count); err != nil {
 				return errors.Capture(err)
 			}
-			stor.ProviderType = &providerType
 			foundAppStorage = append(foundAppStorage, stor)
 		}
 		return nil
@@ -739,6 +749,10 @@ func (s *caasStorageSuite) SetUpTest(c *tc.C) {
 // units having storage.
 // It verifies that the required volumes, filesystems, and attachment records are crated.
 func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C) {
+	ebsPoolUUID := s.createStoragePool(c, "ebs", "ebs")
+	rootFsPoolUUID := s.createStoragePool(c, "rootfs", "rootfs")
+	loopPoolUUID := s.createStoragePool(c, "loop", "loop")
+
 	chStorage := []charm.Storage{{
 		Name:     "database",
 		Type:     "block",
@@ -757,20 +771,20 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 	}}
 	directives := []application.CreateApplicationStorageDirectiveArg{
 		{
-			Name:         "database",
-			ProviderType: ptr("ebs"),
-			Size:         10,
-			Count:        2,
+			Name:     "database",
+			PoolUUID: ebsPoolUUID,
+			Size:     10,
+			Count:    2,
 		}, {
-			Name:         "logs",
-			ProviderType: ptr("rootfs"),
-			Size:         20,
-			Count:        1,
+			Name:     "logs",
+			PoolUUID: rootFsPoolUUID,
+			Size:     20,
+			Count:    1,
 		}, {
-			Name:         "cache",
-			ProviderType: ptr("loop"),
-			Size:         30,
-			Count:        1,
+			Name:     "cache",
+			PoolUUID: loopPoolUUID,
+			Size:     30,
+			Count:    1,
 		},
 	}
 	ctx := c.Context()
@@ -844,28 +858,28 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 		StorageID:        "database/0",
 		StorageName:      "database",
 		LifeID:           life.Alive,
-		StorageType:      ptr("ebs"),
+		StoragePoolUUID:  string(ebsPoolUUID),
 		RequestedSizeMIB: 10,
 	}, {
 		CharmUUID:        charmUUID,
 		StorageID:        "database/1",
 		StorageName:      "database",
 		LifeID:           life.Alive,
-		StorageType:      ptr("ebs"),
+		StoragePoolUUID:  string(ebsPoolUUID),
 		RequestedSizeMIB: 10,
 	}, {
 		CharmUUID:        charmUUID,
 		StorageID:        "logs/2",
 		StorageName:      "logs",
 		LifeID:           life.Alive,
-		StorageType:      ptr("rootfs"),
+		StoragePoolUUID:  string(rootFsPoolUUID),
 		RequestedSizeMIB: 20,
 	}, {
 		CharmUUID:        charmUUID,
 		StorageID:        "cache/3",
 		StorageName:      "cache",
 		LifeID:           life.Alive,
-		StorageType:      ptr("loop"),
+		StoragePoolUUID:  string(loopPoolUUID),
 		RequestedSizeMIB: 30,
 	}}
 
@@ -876,7 +890,7 @@ WHERE name=?`, "foo/0").Scan(&unitUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT uuid, storage_name, storage_pool_uuid, storage_type, requested_size_mib, storage_id, life_id
+SELECT uuid, storage_name, storage_pool_uuid, requested_size_mib, storage_id, life_id
 FROM storage_instance
 WHERE charm_uuid = ?`, charmUUID)
 		if err != nil {
@@ -885,7 +899,7 @@ WHERE charm_uuid = ?`, charmUUID)
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var inst storageInstance
-			if err := rows.Scan(&inst.StorageUUID, &inst.StorageName, &inst.StoragePoolUUID, &inst.StorageType,
+			if err := rows.Scan(&inst.StorageUUID, &inst.StorageName, &inst.StoragePoolUUID,
 				&inst.RequestedSizeMIB, &inst.StorageID, &inst.LifeID); err != nil {
 				return errors.Capture(err)
 			}
@@ -1074,7 +1088,7 @@ func (s *storageSuite) TestGetProviderTypeOfPoolNotFound(c *tc.C) {
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool
 // is correctly returned.
 func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
-	poolUUID := s.createStoragePoolWithType(c, "ptype")
+	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
@@ -1085,7 +1099,7 @@ func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
 }
 
 func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
-	poolUUID := s.createStoragePoolWithType(c, "ptype")
+	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
 
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
@@ -1119,31 +1133,5 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
 		FilesystemPoolUUID: &poolUUID,
-	})
-
-	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "blockprovider", application.StorageDefaultBlockSourceKey)
-	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
-		BlockdeviceProviderType: ptr("blockprovider"),
-		FilesystemPoolUUID:      &poolUUID,
-	})
-
-	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "", application.StorageDefaultFilesystemSourceKey)
-	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
-		BlockdeviceProviderType: ptr("blockprovider"),
-	})
-
-	_, err = db.Exec("UPDATE model_config SET value = ? WHERE key = ?", "filesystemprovider", application.StorageDefaultFilesystemSourceKey)
-	c.Assert(err, tc.ErrorIsNil)
-	res, err = st.GetDefaultStorageProvisioners(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
-		BlockdeviceProviderType: ptr("blockprovider"),
-		FilesystemProviderType:  ptr("filesystemprovider"),
 	})
 }

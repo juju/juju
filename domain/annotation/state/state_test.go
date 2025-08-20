@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -440,13 +441,15 @@ VALUES (?, ?, ?, ?, ?)
 
 // ensureStorage inserts a row into the storage_instance table
 func (s *stateSuite) ensureStorage(c *tc.C, name, uuid, charmUUID string) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance (uuid, storage_id, storage_type, requested_size_mib, charm_uuid, storage_name, life_id)
+	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+		poolUUID, "loop", "loop")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance (uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_uuid, storage_name, life_id)
 VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, uuid, name+"/0", "loop", 100, charmUUID, name, 0)
-		return err
-	})
+		`, uuid, name+"/0", poolUUID, 100, charmUUID, name, 0)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -55,7 +55,8 @@ func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
@@ -81,7 +82,8 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -158,8 +160,8 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
-// TestGetFilesystemTemplatesForApplication checks that both a storage backed by
-// a pool and a storage backed by a provider both return the relevant information.
+// TestGetFilesystemTemplatesForApplication checks that multiple storage for
+// different pools return different values.
 func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "foo")
 
@@ -167,10 +169,11 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 		"a": "b",
 		"c": "d",
 	})
+	spUUID2 := s.newStoragePool(c, "rootfs", "rootfs", nil)
 	s.newCharmStorage(c, charmUUID, "x", "filesystem", true, "/a/x")
 	s.newCharmStorage(c, charmUUID, "y", "filesystem", true, "/a/y")
-	s.newApplicationStorageDirective(c, appUUID, charmUUID, "x", spUUID, "", 123, 2)
-	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", "", "rootfs", 456, 1)
+	s.newApplicationStorageDirective(c, appUUID, charmUUID, "x", spUUID, 123, 2)
+	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", spUUID2, 456, 1)
 
 	st := NewState(s.TxnRunnerFactory())
 	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.ID(appUUID))
@@ -857,27 +860,6 @@ func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
 }
 
-// TestGetFilesystemParamsUsingProvider is testing getting filesystem params
-// where the associated storage instance is referencing a provider type.
-func (s *filesystemSuite) TestGetFilesystemParamsUsingProvider(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
-	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
-	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
-
-	params, err := st.GetFilesystemParams(c.Context(), fsUUID)
-
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemParams{
-		Attributes: map[string]string{},
-		ID:         fsID,
-		Provider:   "myprovider",
-		SizeMiB:    100,
-	})
-}
-
 // TestGetFilesystemParamsUsingPool is testing getting filesystem params
 // where the associated storage instance is referencing a storage pool.
 func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
@@ -915,31 +897,6 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndMachine(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	netNodeUUID := s.newNetNode(c)
-	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
-	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
-	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
-	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
-	s.setFilesystemProviderID(c, fsUUID, "provider-id")
-	fsaUUID := s.newMachineFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "", false)
-	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
-
-	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
-
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "machine-id-123",
-		Provider:          "myprovider",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
-	})
-}
-
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndMachine(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	netNodeUUID := s.newNetNode(c)
@@ -962,30 +919,6 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndMachine(c
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
 		MachineInstanceID: "machine-id-123",
 		Provider:          "canonical",
-		ProviderID:        "provider-id",
-		MountPoint:        "/var/foo",
-		ReadOnly:          true,
-	})
-}
-
-func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndUnit(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	netNodeUUID := s.newNetNode(c)
-	appUUID, charmUUID := s.newApplication(c, "myapp")
-	s.newUnitWithNetNode(c, "myapp/0", appUUID, netNodeUUID)
-	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
-	fsUUID, _ := s.newModelFilesystem(c)
-	s.setFilesystemProviderID(c, fsUUID, "provider-id")
-	fsaUUID := s.newModelFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "", false)
-	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
-
-	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
-
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
-		MachineInstanceID: "",
-		Provider:          "myprovider",
 		ProviderID:        "provider-id",
 		MountPoint:        "/var/foo",
 		ReadOnly:          true,

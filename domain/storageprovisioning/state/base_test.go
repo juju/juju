@@ -234,27 +234,6 @@ func (s *baseSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	return nodeUUID
 }
 
-func (s *baseSuite) newStorageInstanceForCharmWithProviderType(
-	c *tc.C, charmUUID, pType, storageName string,
-) domainstorage.StorageInstanceUUID {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
-	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
-VALUES (?, ?, ?, ?, 0, 100, ?)
-`,
-		storageInstanceUUID.String(),
-		charmUUID,
-		storageName,
-		storageID,
-		pType,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return storageInstanceUUID
-}
-
 func (s *baseSuite) getStorageID(
 	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID,
 ) string {
@@ -432,25 +411,14 @@ VALUES (?, ?, ?)`, spUUID.String(), k, v)
 }
 
 // newApplicationStorageDirective creates a new application storage directive.
-// Only one of storagePoolUUID or storageType can be specified.
 func (s *baseSuite) newApplicationStorageDirective(c *tc.C,
 	appUUID string, charmUUID string, storageName string, storagePoolUUID string,
-	storageType string, sizeMiB int64, count int,
+	sizeMiB int64, count int,
 ) {
-	var storagePoolUUIDArg sql.NullString
-	if storagePoolUUID != "" {
-		storagePoolUUIDArg.String = storagePoolUUID
-		storagePoolUUIDArg.Valid = true
-	}
-	var storageTypeArg sql.NullString
-	if storageType != "" {
-		storageTypeArg.String = storageType
-		storageTypeArg.Valid = true
-	}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO application_storage_directive (application_uuid, charm_uuid, storage_name, storage_pool_uuid, storage_type, size_mib, count)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, appUUID, charmUUID, storageName, storagePoolUUIDArg, storageTypeArg, sizeMiB, count)
+INSERT INTO application_storage_directive (application_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count)
+VALUES (?, ?, ?, ?, ?, ?)`, appUUID, charmUUID, storageName, storagePoolUUID, sizeMiB, count)
 		if err != nil {
 			return err
 		}

@@ -38,11 +38,11 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type providerServiceSuite struct {
@@ -486,6 +486,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -532,19 +534,24 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 			},
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
-				Name:  "foo-data",
-				Count: 2,
-				Size:  2048,
+				Name:     "foo-data",
+				Count:    2,
+				Size:     2048,
+				PoolUUID: blockDeviceStoragePoolUUID,
 			}, {
-				Name:  "bar-data",
-				Count: 1,
-				Size:  4096,
+				Name:     "bar-data",
+				Count:    1,
+				Size:     4096,
+				PoolUUID: filesystemStoragePoolUUID,
 			}},
 		},
 	}
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+		application.DefaultStorageProvisioners{
+			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+		}, nil,
 	)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
@@ -633,8 +640,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
-	blockDeviceStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
-	filesystemStoragePoolUUID := storage.StoragePoolUUID(uuid.MustNewUUID().String())
+	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -683,12 +690,12 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
 				Name:     "foo-data",
 				Count:    2,
-				PoolUUID: &blockDeviceStoragePoolUUID,
+				PoolUUID: blockDeviceStoragePoolUUID,
 				Size:     2048,
 			}, {
 				Name:     "bar-data",
 				Count:    1,
-				PoolUUID: &filesystemStoragePoolUUID,
+				PoolUUID: filesystemStoragePoolUUID,
 				Size:     4096,
 			}},
 		},
@@ -758,8 +765,6 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 
 	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
 		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
-	s.storageValidator.EXPECT().CheckProviderTypeSupportsCharmStorage(
-		gomock.Any(), "special-filesystem-provider", charm.StorageFilesystem).Return(true, nil)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -1245,6 +1250,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
@@ -1263,9 +1269,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Count: 1,
-						Name:  "data",
-						Size:  10,
+						Count:    1,
+						Name:     "data",
+						Size:     10,
+						PoolUUID: blockDeviceStoragePoolUUID,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1322,9 +1329,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Name:  "data",
-					Count: 1,
-					Size:  10,
+					Name:     "data",
+					Count:    1,
+					Size:     10,
+					PoolUUID: blockDeviceStoragePoolUUID,
 				},
 			},
 		},
@@ -1375,6 +1383,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
+
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.Local,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
@@ -1386,6 +1397,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
+		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+			"data": {
+				PoolUUID: &blockDeviceStoragePoolUUID,
+			},
+		},
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1396,6 +1412,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
@@ -1414,9 +1432,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:  "data",
-						Count: 3,
-						Size:  10,
+						Name:     "data",
+						Count:    3,
+						Size:     10,
+						PoolUUID: blockDeviceStoragePoolUUID,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1480,9 +1499,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count: 3,
-					Name:  "data",
-					Size:  10,
+					Count:    3,
+					Name:     "data",
+					Size:     10,
+					PoolUUID: blockDeviceStoragePoolUUID,
 				},
 			},
 		},
@@ -1501,7 +1521,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+		application.DefaultStorageProvisioners{
+			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+		}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
@@ -1556,6 +1579,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
@@ -1574,9 +1598,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:  "data",
-						Count: 1,
-						Size:  10,
+						Name:     "data",
+						Count:    1,
+						Size:     10,
+						PoolUUID: filesystemStoragePoolUUID,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1634,9 +1659,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count: 1,
-					Name:  "data",
-					Size:  10,
+					Count:    1,
+					Name:     "data",
+					Size:     10,
+					PoolUUID: filesystemStoragePoolUUID,
 				},
 			},
 		},
@@ -1687,6 +1713,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
 
+	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+		gomock.Any(), filesystemStoragePoolUUID, charm.StorageFilesystem).Return(true, nil)
+
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
@@ -1699,6 +1728,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
+		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+			"data": {
+				PoolUUID: &filesystemStoragePoolUUID,
+			},
+		},
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1707,6 +1741,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
@@ -1725,9 +1761,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 			CreateUnitStorageArg: application.CreateUnitStorageArg{
 				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
 					{
-						Name:  "data",
-						Count: 2,
-						Size:  10,
+						Name:     "data",
+						Count:    2,
+						Size:     10,
+						PoolUUID: filesystemStoragePoolUUID,
 					},
 				},
 				StorageInstances: []application.CreateUnitStorageInstanceArg{
@@ -1788,9 +1825,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 			Platform: platform,
 			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
 				{
-					Count: 2,
-					Name:  "data",
-					Size:  10,
+					Count:    2,
+					Name:     "data",
+					Size:     10,
+					PoolUUID: filesystemStoragePoolUUID,
 				},
 			},
 		},
@@ -1809,7 +1847,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	}).Return(nil)
 
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{}, nil,
+		application.DefaultStorageProvisioners{
+			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+		}, nil,
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)

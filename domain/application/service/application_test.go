@@ -1536,8 +1536,6 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 	fakeBlockdevicePoolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	fakeFilesystemProviderType := "provider1"
-	fakeBlockdeviceProviderType := "provider2"
 
 	tests := []struct {
 		Name                string
@@ -1575,7 +1573,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
-					PoolUUID: &fakeFilesytemPoolUUID,
+					PoolUUID: fakeFilesytemPoolUUID,
 					Size:     256,
 				},
 			},
@@ -1627,7 +1625,7 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
-					PoolUUID: &fakeBlockdevicePoolUUID,
+					PoolUUID: fakeBlockdevicePoolUUID,
 					Size:     256,
 				},
 			},
