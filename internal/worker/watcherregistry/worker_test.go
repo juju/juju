@@ -103,7 +103,7 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	err := reg.RegisterNamed(c.Context(), "0", w)
-	c.Assert(err, tc.ErrorMatches, `namespace "0" not valid`)
+	c.Assert(err, tc.ErrorMatches, `name as integer "0" not valid`)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 

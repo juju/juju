@@ -35,7 +35,7 @@ func (s *suite) TestFirstResultReturnsChanges(c *tc.C) {
 	changes <- contents
 	s.watcher.EXPECT().Changes().Return(changes)
 
-	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
+	res, err := internal.FirstResult(c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.SameContents, contents)
 }
@@ -51,7 +51,7 @@ func (s *suite) TestFirstResultWorkerKilled(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(tomb.ErrDying)
 
-	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
+	res, err := internal.FirstResult(c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, tomb.ErrDying.Error())
 	c.Assert(res, tc.IsNil)
 }
@@ -67,7 +67,7 @@ func (s *suite) TestFirstResultWatcherStoppedNilErr(c *tc.C) {
 	s.watcher.EXPECT().Kill()
 	s.watcher.EXPECT().Wait().Return(nil)
 
-	res, err := internal.FirstResult[[]string](c.Context(), s.watcher)
+	res, err := internal.FirstResult(c.Context(), s.watcher)
 	c.Assert(err, tc.ErrorMatches, "expected an error from .* got nil.*")
 	c.Assert(errors.Cause(err), tc.Equals, apiservererrors.ErrStoppedWatcher)
 	c.Assert(res, tc.IsNil)
@@ -83,7 +83,7 @@ func (s *suite) TestEnsureRegisterWatcher(c *tc.C) {
 	s.watcher.EXPECT().Changes().Return(changes)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.watcher).Return("id", nil)
 
-	id, res, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
+	id, res, err := internal.EnsureRegisterWatcher(c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, "id")
 	c.Assert(res, tc.SameContents, contents)
@@ -92,14 +92,20 @@ func (s *suite) TestEnsureRegisterWatcher(c *tc.C) {
 func (s *suite) TestEnsureRegisterWatcherWithError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// If the watcher returns changes but the registration fails,
+	// we should still return the changes and the error.
+	// The watcher should be killed in this case.
+
 	contents := []string{"a", "b"}
 	changes := make(chan []string, 1)
 	changes <- contents
 
 	s.watcher.EXPECT().Changes().Return(changes)
+	s.watcher.EXPECT().Kill()
+
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), s.watcher).Return("id", errors.New("boom"))
 
-	_, _, err := internal.EnsureRegisterWatcher[[]string](c.Context(), s.watcherRegistry, s.watcher)
+	_, _, err := internal.EnsureRegisterWatcher(c.Context(), s.watcherRegistry, s.watcher)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

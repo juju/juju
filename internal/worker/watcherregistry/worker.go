@@ -262,17 +262,19 @@ func (r *trackedWorker) Register(ctx context.Context, w worker.Worker) (string, 
 // RegisterNamed registers the given watcher. Callers must supply a unique
 // name for the given watcher. It is an error to try to register another
 // watcher with the same name as an already registered name.
-// It is also an error to supply a name that is an integer string, since that
-// collides with the auto-naming from Register.
-func (r *trackedWorker) RegisterNamed(ctx context.Context, namespace string, w worker.Worker) error {
-	if _, err := strconv.Atoi(namespace); err == nil {
-		return errors.Errorf("namespace %q %w", namespace, coreerrors.NotValid)
+// It is also an error to supply a name that is an integer string, since it
+// is more preferred to use the auto-naming from Register.
+func (r *trackedWorker) RegisterNamed(ctx context.Context, name string, w worker.Worker) error {
+	if _, err := strconv.Atoi(name); err == nil {
+		return errors.Errorf("name as integer %q %w", name, coreerrors.NotValid)
+	} else if strings.HasPrefix(name, r.namespacePrefix) {
+		return errors.Errorf("name %q %w", name, coreerrors.NotValid)
 	}
 
-	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
-		return errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)
+	if err := r.register(ctx, name, w); errors.Is(err, coreerrors.NotFound) {
+		return errors.Errorf("watcher %q %w", name, coreerrors.NotFound)
 	} else if errors.Is(err, coreerrors.AlreadyExists) {
-		return errors.Errorf("worker %q %w", namespace, coreerrors.AlreadyExists)
+		return errors.Errorf("worker %q %w", name, coreerrors.AlreadyExists)
 	} else if err != nil {
 		return errors.Capture(err)
 	}

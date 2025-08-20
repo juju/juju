@@ -52,6 +52,12 @@ func EnsureRegisterWatcher[T any](ctx context.Context, reg WatcherRegistry, w ev
 	}
 	id, err := reg.Register(ctx, w)
 	if err != nil {
+		// We failed to register the watcher, so we must kill it, even though
+		// we don't own it. We've taken responsibility for it now and we
+		// need to ensure that it is stopped if it can't be assigned to
+		// the registry.
+		// This is safe as calling multiple kills on a worker is idempotent.
+		w.Kill()
 		return "", changes, errors.Trace(err)
 	}
 	return id, changes, nil
