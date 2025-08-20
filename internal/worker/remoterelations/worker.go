@@ -273,7 +273,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 
 		// Now check to see if the offer UUID has changed for the remote
 		// application.
-		offerChanged, err := w.hasWorkerOfferUUIDChanged(appName, result.Result.OfferUUID)
+		offerChanged, err := w.hasRemoteAppChanged(appName, result.Result.OfferUUID)
 		if err != nil {
 			return errors.Annotatef(err, "checking offer UUID for remote application %q", appName)
 		} else if offerChanged {
@@ -306,7 +306,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 	return nil
 }
 
-func (w *Worker) hasWorkerOfferUUIDChanged(name, offerUUID string) (bool, error) {
+func (w *Worker) hasRemoteAppChanged(name, offerUUID string) (bool, error) {
 	// If the worker for the name doesn't exist then that's ok, we just return
 	// false to indicate that the offer UUID has not changed.
 	remoteApp, err := w.runner.Worker(name, w.catacomb.Dying())
