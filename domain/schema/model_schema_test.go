@@ -540,6 +540,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_storage_volume_attachment_insert",
 		"trg_log_storage_volume_attachment_update",
 
+		"trg_log_storage_attachment_insert",
+		"trg_log_storage_attachment_update",
+		"trg_log_storage_attachment_delete",
+
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
@@ -644,9 +648,6 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_storage_pool_guard_update",
 		"trg_storage_pool_immutable_delete",
 		"trg_storage_pool_immutable_update",
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_insert",
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_update",
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_delete",
 		"trg_storage_attachment_guard_life",
 		"trg_storage_filesystem_attachment_guard_life",
 		"trg_storage_filesystem_guard_life",

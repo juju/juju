@@ -24,7 +24,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=storage_filesystem_attachment,storage_volume_attachment
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=storage_attachment,storage_filesystem_attachment,storage_volume_attachment
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -87,6 +87,7 @@ const (
 	tableRelationUnit
 	tableIpAddress
 	tableApplicationEndpoint
+	tableStorageAttachment
 	tableStorageFilesystemAttachment
 	tableStorageVolumeAttachment
 )
@@ -164,6 +165,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
+		triggers.ChangeLogTriggersForStorageAttachment("storage_instance_uuid", tableStorageAttachment),
 		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableStorageFilesystemAttachment),
 		triggers.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableStorageVolumeAttachment),
 	)
@@ -240,7 +242,6 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByFieldForTable("unit", "uuid", customNamespaceUnitRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("relation", "uuid", customNamespaceRelationRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
-		triggerEntityLifecycleByFieldForTable("storage_attachment", "storage_instance_uuid", customNamespaceStorageAttachmentLifecycle),
 	)
 
 	patches = append(patches, func() schema.Patch {
