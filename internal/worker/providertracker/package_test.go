@@ -4,8 +4,6 @@
 package providertracker
 
 import (
-	"time"
-
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -69,7 +67,7 @@ func (s *baseSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testhelpers.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }

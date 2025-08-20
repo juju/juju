@@ -39,6 +39,12 @@ func (st *State) GetFilesystemTemplatesForApplication(
 		UUID: appUUID.String(),
 	}
 
+	/*
+		id      parent  notused detail
+		7       0       0       SEARCH asd USING INDEX idx_application_storage_directive (application_uuid=?)
+		16      0       0       SEARCH cs USING INDEX sqlite_autoindex_charm_storage_1 (charm_uuid=? AND name=?)
+		22      0       0       SEARCH sp USING INDEX sqlite_autoindex_storage_pool_1 (uuid=?) LEFT-JOIN
+	*/
 	fsTemplateQuery, err := st.Prepare(`
 SELECT (asd.storage_name,
        asd.size_mib,
@@ -53,7 +59,7 @@ FROM   application_storage_directive AS asd
             AND asd.storage_name = cs.name 
        LEFT JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
 WHERE  asd.application_uuid = $entityUUID.uuid
-AND    asd.storage_pool_uuid IS NULL OR asd.storage_type IS NULL
+AND    (asd.storage_pool_uuid IS NULL OR asd.storage_type IS NULL)
 `, filesystemTemplate{}, id)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -186,7 +192,7 @@ WHERE  uuid = $filesystemUUID.uuid
 	return true, nil
 }
 
-// CheckFilesystemExists checks if a filesystem exists for the supplied
+// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
 // filesystem id. True is returned when a filesystem exists for the supplied
 // id.
 func (st *State) CheckFilesystemForIDExists(
@@ -375,10 +381,19 @@ func (st *State) GetFilesystemAttachmentIDs(
 
 	uuidInputs := filesystemAttachmentUUIDs(uuids)
 
-	// To statisfy the unit name column of this union query a filesystem attachment
-	// must be for a netnode uuid that is on a unit where that unit does not
-	// share a netnode with a machine. If units are for machines they share a
-	// netnode.
+	// To satisfy the unit name column of this query a filesystem attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+
+	/*
+		id      parent  notused detail
+		10      0       0       SEARCH sfa USING INDEX sqlite_autoindex_storage_filesystem_attachment_1 (uuid=?)
+		32      0       0       SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?)
+		37      0       0       SEARCH m USING INDEX idx_machine_net_node (net_node_uuid=?) LEFT-JOIN
+		44      0       0       SEARCH u USING INDEX idx_unit_net_node (net_node_uuid=?) LEFT-JOIN
+		75      0       0       USE TEMP B-TREE FOR DISTINCT
+	*/
 	q := `
 SELECT DISTINCT
        (sfa.uuid, sf.filesystem_id) AS (&filesystemAttachmentIDs.*),
@@ -537,7 +552,7 @@ AND             net_node_uuid=$netNodeUUID.uuid
 }
 
 // GetFilesystemAttachmentParams retrieves the attachment params for the
-// given filesysatem attachment.
+// given filesystem attachment.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no
@@ -555,7 +570,7 @@ func (st *State) GetFilesystemAttachmentParams(
 	// story to show how this happens of if it is valid. As it stands we don't
 	// support this case in Dqlite so it is a watch and act scneario.
 	//
-	// More then likely we need to adjust the modeling so that the thing being
+	// More than likely we need to adjust the modeling so that the thing being
 	// provisioned such a filesystem has the provider information on it instead
 	// of through RI. This is even more important when we need to cleanup after
 	// ourselves.
@@ -1035,8 +1050,8 @@ func (st *State) InitialWatchStatementMachineProvisionedFilesystemAttachments(
 	return "storage_filesystem_attachment_life_machine_provisioning", query
 }
 
-// InitialWatchStatementModelProvisionedFilesystems returns both the namespace
-// for watching filesystem life changes where the filesystem is model
+// InitialWatchStatementModelProvisionedFilesystemAttachments returns both the
+// namespace for watching filesystem life changes where the filesystem is model
 // provisioned. On top of this the initial query for getting all filesystems
 // in the model that model provisioned is returned.
 func (st *State) InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery) {
@@ -1114,7 +1129,7 @@ WHERE  uuid = $filesystemProvisionedInfo.uuid
 }
 
 // SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
-// attachment information about the provisoned filesystem attachment.
+// attachment information about the provisioned filesystem attachment.
 func (st *State) SetFilesystemAttachmentProvisionedInfo(
 	ctx context.Context,
 	filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID,

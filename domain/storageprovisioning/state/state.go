@@ -423,14 +423,14 @@ func (st *State) checkApplicationExists(
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-func (s *State) GetStorageAttachmentIDsForUnit(ctx context.Context, unitUUID string) ([]string, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetStorageAttachmentIDsForUnit(ctx context.Context, unitUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	input := unitUUIDRef{UUID: unitUUID}
-	stmt, err := s.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &storageID.*
 FROM   storage_attachment sa
 JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
@@ -441,7 +441,7 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 
 	var ids storageIDs
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if exists, err := s.checkUnitExists(ctx, tx, unitUUID); err != nil {
+		if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
 			return errors.Capture(err)
 		} else if !exists {
 			return errors.Errorf("unit %q does not exist", unitUUID).Add(
@@ -472,17 +472,17 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 // The following errors may be returned:
 // - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
 // instance exists for the provided ID.
-func (s *State) GetStorageInstanceUUIDByID(
+func (st *State) GetStorageInstanceUUIDByID(
 	ctx context.Context, storageIDStr string,
 ) (string, error) {
-	db, err := s.DB(ctx)
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	input := storageID{ID: storageIDStr}
 	dbVal := entityUUID{}
-	stmt, err := s.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &entityUUID.*
 FROM   storage_instance
 WHERE  storage_id = $storageID.storage_id`, input, dbVal)
@@ -514,8 +514,8 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 // instance exists for the provided storage instance UUID.
 // - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
 // attachment does not exist for the unit and storage instance.
-func (s *State) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageInstanceUUID string) (domainlife.Life, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageInstanceUUID string) (domainlife.Life, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
@@ -524,7 +524,7 @@ func (s *State) GetStorageAttachmentLife(ctx context.Context, unitUUID, storageI
 		UnitUUID:            unitUUID,
 	}
 	attachmentLife := entityLife{}
-	stmt, err := s.Prepare(`
+	stmt, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   storage_attachment
 WHERE  unit_uuid = $storageAttachmentIdentifier.unit_uuid
@@ -534,7 +534,7 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if exists, err := s.checkUnitExists(ctx, tx, unitUUID); err != nil {
+		if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
 			return errors.Capture(err)
 		} else if !exists {
 			return errors.Errorf(
@@ -542,7 +542,7 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 			).Add(applicationerrors.UnitNotFound)
 		}
 
-		if exists, err := s.checkStorageInstanceExists(ctx, tx, storageInstanceUUID); err != nil {
+		if exists, err := st.checkStorageInstanceExists(ctx, tx, storageInstanceUUID); err != nil {
 			return errors.Capture(err)
 		} else if !exists {
 			return errors.Errorf(
