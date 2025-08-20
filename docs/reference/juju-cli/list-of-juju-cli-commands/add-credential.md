@@ -29,17 +29,17 @@ Adds a credential for a cloud to a local client and uploads it to a controller.
 
 ## Details
 
-The juju add-credential command operates in two modes.
+The `juju add-credential`command operates in two modes.
 
-When called with only the &lt;cloud name&gt; argument, `juju add-credential` will 
-take you through an interactive prompt to add a credential specific to 
+When called with only the `<cloud name>` argument, `juju add-credential` will
+take you through an interactive prompt to add a credential specific to
 the cloud provider.
 
-Providing the `-f <credentials.yaml>` option switches to the 
-non-interactive mode. &lt;credentials.yaml&gt; must be a path to a correctly 
-formatted YAML-formatted file. 
+Providing the `-f <credentials.yaml>` option switches to the
+non-interactive mode. `<credentials.yaml>` must be a path to a correctly
+formatted YAML-formatted file.
 
-Sample yaml file shows five credentials being stored against four clouds:
+The following sample YAML file shows five credentials being stored against four clouds:
 
     credentials:
       aws:
@@ -68,25 +68,21 @@ Sample yaml file shows five credentials being stored against four clouds:
           client-email: <email>
           client-id: <client-id>
 
-The &lt;credential-name&gt; parameter of each credential is arbitrary, but must
-be unique within each &lt;cloud-name&gt;. This allows each cloud to store 
+The `<credential-name>` parameter of each credential is arbitrary, but must
+be unique within each `<cloud-name>`. This allows each cloud to store
 multiple credentials.
 
 The format for a credential is cloud-specific. Thus, it's best to use
-'add-credential' command in an interactive mode. This will result in
-adding this new credential locally and / or uploading it to a controller 
+the `add-credential` command in an interactive mode. This will result in
+adding this new credential locally and / or uploading it to a controller
 in a correct format for the desired cloud.
 
 
 Notes:
 If you are setting up Juju for the first time, consider running
-`juju autoload-credentials`. This may allow you to skip adding 
+`juju autoload-credentials`. This may allow you to skip adding
 credentials manually.
 
 This command does not set default regions nor default credentials for the
-cloud. The commands `juju default-region` and `juju default-credential`
+cloud. The commands `juju default-region`  and `juju default-credential`
 provide that functionality.
-
-Use --controller option to upload a credential to a controller. 
-
-Use --client option to add a credential to the current client.
