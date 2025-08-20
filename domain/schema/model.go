@@ -48,7 +48,6 @@ const (
 	customNamespaceApplicationRemovalLifecycle
 	customNamespaceRelationRemovalLifecycle
 	customNamespaceModelLifeRemovalLifecycle
-	customNamespaceStorageAttachmentLifecycle
 )
 
 const (
