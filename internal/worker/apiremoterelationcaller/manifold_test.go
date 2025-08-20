@@ -4,18 +4,18 @@
 package apiremoterelationcaller
 
 import (
-	context "context"
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
-	names "github.com/juju/names/v6"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/crossmodel"
