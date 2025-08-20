@@ -914,8 +914,25 @@ func (s *volumeSuite) TestSetVolumeProvisionedInfoNotFound(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 
+<<<<<<< HEAD
 	info := domainstorageprovisioning.VolumeProvisionedInfo{}
 	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
+=======
+	_, err := st.GetVolumeUUIDForStorageID(c.Context(), "foo/1")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithVolumeNotFound(c *tc.C) {
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+
+	storageID := s.getStorageID(c, storageInstanceUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetVolumeUUIDForStorageID(c.Context(), storageID)
+>>>>>>> dcbccc3634 (feat: fix state tests;)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 

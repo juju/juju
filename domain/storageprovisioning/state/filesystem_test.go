@@ -781,8 +781,12 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForID(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemUUIDForStorageID(c *tc.C) {
 	fsUUID, _ := s.newModelFilesystem(c)
-	storageInstanceUUID, storageID := s.newStorageInstance(c)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -799,7 +803,11 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithStorageInstanceNo
 }
 
 func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithFilesystemNotFound(c *tc.C) {
-	_, storageID := s.newStorageInstance(c)
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
