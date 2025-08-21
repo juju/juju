@@ -32,4 +32,4 @@ Config may be specified as key values ot read from a file.
 Any key values override file content if both are specified.
 
 To rotate the backend access credential/token (if specified), use
-the "token-rotate" config and supply a duration.
+the `token-rotate` config and supply a duration.
