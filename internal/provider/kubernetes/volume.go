@@ -26,15 +26,25 @@ import (
 
 // StorageProviderTypes is defined on the jujustorage.ProviderRegistry interface.
 func (k *kubernetesClient) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
-	return []jujustorage.ProviderType{constants.StorageProviderType}, nil
+	return []jujustorage.ProviderType{
+		constants.StorageProviderType,
+		constants.StorageProviderTypeRootfs,
+		constants.StorageProviderTypeTempfs,
+	}, nil
 }
 
 // StorageProvider is defined on the jujustorage.ProviderRegistry interface.
 func (k *kubernetesClient) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
-	if t == constants.StorageProviderType {
+	switch t {
+	case constants.StorageProviderType:
 		return &storageProvider{k}, nil
+	case constants.StorageProviderTypeRootfs:
+		return &rootfsStorageProvider{}, nil
+	case constants.StorageProviderTypeTempfs:
+		return &tmpfsStorageProvider{}, nil
+	default:
+		return nil, errors.NotFoundf("storage provider %q", t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 func (k *kubernetesClient) deleteStorageClasses(ctx context.Context, selector k8slabels.Selector) error {
