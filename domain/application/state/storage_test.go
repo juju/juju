@@ -23,7 +23,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
@@ -78,7 +77,7 @@ func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 
 func (s *storageSuite) createStoragePool(c *tc.C,
 	name, providerType string,
-) storage.StoragePoolUUID {
+) domainstorage.StoragePoolUUID {
 	poolUUID := storagetesting.GenStoragePoolUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
@@ -91,7 +90,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 
 func (s *baseStorageSuite) createStoragePool(c *tc.C,
 	name, providerType string,
-) storage.StoragePoolUUID {
+) domainstorage.StoragePoolUUID {
 	poolUUID := storagetesting.GenStoragePoolUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
@@ -488,7 +487,9 @@ VALUES (?, ?)`, storageUUID.String(), volumeUUID.String())
 //
 //}
 
-func (s *applicationStateSuite) createStoragePool(c *tc.C, name, providerType string) storage.StoragePoolUUID {
+func (s *applicationStateSuite) createStoragePool(
+	c *tc.C, name, providerType string,
+) domainstorage.StoragePoolUUID {
 	poolUUID := storagetesting.GenStoragePoolUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
