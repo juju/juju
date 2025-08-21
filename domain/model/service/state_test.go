@@ -377,6 +377,10 @@ func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []coremod
 	return nil, nil
 }
 
+func (d *dummyState) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
+	return nil, nil
+}
+
 func (d *dummyState) GetModelLife(ctx context.Context, uuid coremodel.UUID) (domainlife.Life, error) {
 	switch d.models[uuid].Life {
 	case life.Alive:

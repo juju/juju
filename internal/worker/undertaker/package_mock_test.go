@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
@@ -42,80 +41,80 @@ func (m *MockControllerModelService) EXPECT() *MockControllerModelServiceMockRec
 	return m.recorder
 }
 
-// GetModelLife mocks base method.
-func (m *MockControllerModelService) GetModelLife(arg0 context.Context, arg1 model.UUID) (life.Value, error) {
+// GetDeadModels mocks base method.
+func (m *MockControllerModelService) GetDeadModels(arg0 context.Context) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelLife", arg0, arg1)
-	ret0, _ := ret[0].(life.Value)
+	ret := m.ctrl.Call(m, "GetDeadModels", arg0)
+	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetModelLife indicates an expected call of GetModelLife.
-func (mr *MockControllerModelServiceMockRecorder) GetModelLife(arg0, arg1 any) *MockControllerModelServiceGetModelLifeCall {
+// GetDeadModels indicates an expected call of GetDeadModels.
+func (mr *MockControllerModelServiceMockRecorder) GetDeadModels(arg0 any) *MockControllerModelServiceGetDeadModelsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelLife", reflect.TypeOf((*MockControllerModelService)(nil).GetModelLife), arg0, arg1)
-	return &MockControllerModelServiceGetModelLifeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeadModels", reflect.TypeOf((*MockControllerModelService)(nil).GetDeadModels), arg0)
+	return &MockControllerModelServiceGetDeadModelsCall{Call: call}
 }
 
-// MockControllerModelServiceGetModelLifeCall wrap *gomock.Call
-type MockControllerModelServiceGetModelLifeCall struct {
+// MockControllerModelServiceGetDeadModelsCall wrap *gomock.Call
+type MockControllerModelServiceGetDeadModelsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerModelServiceGetModelLifeCall) Return(arg0 life.Value, arg1 error) *MockControllerModelServiceGetModelLifeCall {
+func (c *MockControllerModelServiceGetDeadModelsCall) Return(arg0 []model.UUID, arg1 error) *MockControllerModelServiceGetDeadModelsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerModelServiceGetModelLifeCall) Do(f func(context.Context, model.UUID) (life.Value, error)) *MockControllerModelServiceGetModelLifeCall {
+func (c *MockControllerModelServiceGetDeadModelsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockControllerModelServiceGetDeadModelsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerModelServiceGetModelLifeCall) DoAndReturn(f func(context.Context, model.UUID) (life.Value, error)) *MockControllerModelServiceGetModelLifeCall {
+func (c *MockControllerModelServiceGetDeadModelsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockControllerModelServiceGetDeadModelsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// WatchActivatedModels mocks base method.
-func (m *MockControllerModelService) WatchActivatedModels(arg0 context.Context) (watcher.Watcher[[]string], error) {
+// WatchModels mocks base method.
+func (m *MockControllerModelService) WatchModels(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchActivatedModels", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret := m.ctrl.Call(m, "WatchModels", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchActivatedModels indicates an expected call of WatchActivatedModels.
-func (mr *MockControllerModelServiceMockRecorder) WatchActivatedModels(arg0 any) *MockControllerModelServiceWatchActivatedModelsCall {
+// WatchModels indicates an expected call of WatchModels.
+func (mr *MockControllerModelServiceMockRecorder) WatchModels(arg0 any) *MockControllerModelServiceWatchModelsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActivatedModels", reflect.TypeOf((*MockControllerModelService)(nil).WatchActivatedModels), arg0)
-	return &MockControllerModelServiceWatchActivatedModelsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModels", reflect.TypeOf((*MockControllerModelService)(nil).WatchModels), arg0)
+	return &MockControllerModelServiceWatchModelsCall{Call: call}
 }
 
-// MockControllerModelServiceWatchActivatedModelsCall wrap *gomock.Call
-type MockControllerModelServiceWatchActivatedModelsCall struct {
+// MockControllerModelServiceWatchModelsCall wrap *gomock.Call
+type MockControllerModelServiceWatchModelsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerModelServiceWatchActivatedModelsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockControllerModelServiceWatchActivatedModelsCall {
+func (c *MockControllerModelServiceWatchModelsCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockControllerModelServiceWatchModelsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerModelServiceWatchActivatedModelsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockControllerModelServiceWatchActivatedModelsCall {
+func (c *MockControllerModelServiceWatchModelsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerModelServiceWatchModelsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerModelServiceWatchActivatedModelsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockControllerModelServiceWatchActivatedModelsCall {
+func (c *MockControllerModelServiceWatchModelsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerModelServiceWatchModelsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -66,6 +66,7 @@ CREATE INDEX idx_model_activated ON model (activated);
 CREATE VIEW v_model_all AS
 SELECT
     m.uuid,
+    m.life_id,
     m.cloud_uuid,
     c.name AS cloud_name,
     ct.type AS cloud_type,
@@ -123,6 +124,7 @@ SELECT
     model_type,
     name,
     qualifier,
+    life_id,
     life,
     activated,
     controller_uuid,

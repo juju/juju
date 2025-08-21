@@ -1896,6 +1896,38 @@ func (s *stateSuite) TestGetActivatedModelUUIDs(c *tc.C) {
 	c.Check(activatedModelUUIDs[1], tc.Equals, activatedModelUUID)
 }
 
+func (s *stateSuite) TestGetDeadModels(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Test no input model UUIDs.
+	deadModels, err := st.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deadModels, tc.HasLen, 0)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Insert a dying model.
+		_, err := tx.ExecContext(ctx, `UPDATE model SET life_id = 1 WHERE uuid = ?`, s.uuid.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	deadModels, err = st.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deadModels, tc.HasLen, 0)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Insert a dead model.
+		_, err := tx.ExecContext(ctx, `UPDATE model SET life_id = 2 WHERE uuid = ?`, s.uuid.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	deadModels, err = st.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(deadModels, tc.HasLen, 1)
+	c.Check(deadModels[0], tc.Equals, s.uuid)
+}
+
 func (s *stateSuite) TestGetModelLife(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

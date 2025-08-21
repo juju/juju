@@ -151,6 +151,9 @@ type State interface {
 	// empty slice is returned.
 	GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error)
 
+	// GetDeadModels returns all the dead model UUIDs in the controller.
+	GetDeadModels(ctx context.Context) ([]coremodel.UUID, error)
+
 	// GetModelLife returns the life associated with the provided uuid.
 	// The following error types can be expected to be returned:
 	// - [modelerrors.NotFound]: When the model does not exist.
@@ -191,72 +194,6 @@ func NewService(
 		logger:              logger,
 		clock:               clock,
 		statusHistoryGetter: statusHistoryGetter,
-	}
-}
-
-// WatcherFactory describes methods for creating watchers.
-type WatcherFactory interface {
-	// NewNamespaceMapperWatcher returns a new namespace watcher for events
-	// based on the input change mask. The initialStateQuery ensures the watcher
-	// starts with the current state of the system, preventing data loss from
-	// prior events.
-	NewNamespaceMapperWatcher(
-		ctx context.Context,
-		initialStateQuery eventsource.NamespaceQuery,
-		summary string,
-		mapper eventsource.Mapper,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
-
-	// NewNotifyWatcher returns a new watcher that filters changes from the input
-	// base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
-	NewNotifyWatcher(
-		ctx context.Context,
-		summary string,
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-
-	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
-	// input base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided. Filtering of values is done first
-	// by the filter, and then subsequently by the mapper. Based on the mapper's
-	// logic a subset of them (or none) may be emitted.
-	NewNotifyMapperWatcher(
-		ctx context.Context,
-		summary string,
-		mapper eventsource.Mapper,
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
-}
-
-// WatchableService extends Service to provide interactions with model state
-// and integrates a watcher factory for monitoring changes.
-type WatchableService struct {
-	// Service is the inherited model service to extend upon.
-	Service
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableService provides a new Service for interacting with the
-// underlying state and the ability to create watchers.
-func NewWatchableService(
-	st State,
-	watcherFactory WatcherFactory,
-	statusHistoryGetter StatusHistoryGetter,
-	clock clock.Clock,
-	logger logger.Logger,
-) *WatchableService {
-	return &WatchableService{
-		Service: Service{
-			st:                  st,
-			statusHistoryGetter: statusHistoryGetter,
-			clock:               clock,
-			logger:              logger,
-		},
-		watcherFactory: watcherFactory,
 	}
 }
 
@@ -671,6 +608,101 @@ func (s *Service) GetModelByNameAndQualifier(ctx context.Context, name string, q
 	return s.st.GetModelByName(ctx, qualifier.String(), name)
 }
 
+// // GetDeadModels returns all the dead model UUIDs in the controller.
+func (s *Service) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetDeadModels(ctx)
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceMapperWatcher returns a new namespace watcher for events
+	// based on the input change mask. The initialStateQuery ensures the watcher
+	// starts with the current state of the system, preventing data loss from
+	// prior events.
+	NewNamespaceMapperWatcher(
+		ctx context.Context,
+		initialStateQuery eventsource.NamespaceQuery,
+		summary string,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided. Filtering of values is done first
+	// by the filter, and then subsequently by the mapper. Based on the mapper's
+	// logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		ctx context.Context,
+		summary string,
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService extends Service to provide interactions with model state
+// and integrates a watcher factory for monitoring changes.
+type WatchableService struct {
+	// Service is the inherited model service to extend upon.
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService provides a new Service for interacting with the
+// underlying state and the ability to create watchers.
+func NewWatchableService(
+	st State,
+	watcherFactory WatcherFactory,
+	statusHistoryGetter StatusHistoryGetter,
+	clock clock.Clock,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st:                  st,
+			statusHistoryGetter: statusHistoryGetter,
+			clock:               clock,
+			logger:              logger,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchActivatedModels returns a watcher that emits an event containing the
+// model UUID when a model becomes activated or an activated model receives an
+// update. The events returned are maintained in the same order as they are
+// received. Newly created models will not be reported since they are not
+// activated at creation. Deletion of activated models is also not reported.
+func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	mapper := getWatchActivatedModelsMapper(s.st)
+	modelTableName, query := s.st.InitialWatchActivatedModelsStatement()
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(query),
+		"activated models watcher",
+		mapper,
+		eventsource.NamespaceFilter(modelTableName, changestream.All),
+	)
+}
+
 // getWatchActivatedModelsMapper returns a mapper function that filters change
 // events to include only those associated with activated models. The subset of
 // changes returned is maintained in the same order as they are received.
@@ -715,24 +747,15 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 	}
 }
 
-// WatchActivatedModels returns a watcher that emits an event containing the
-// model UUID when a model becomes activated or an activated model receives an
-// update. The events returned are maintained in the same order as they are
-// received. Newly created models will not be reported since they are not
-// activated at creation. Deletion of activated models is also not reported.
-func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
+// WatchModels returns a watcher that emits an event if the model changes.
+func (s WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	mapper := getWatchActivatedModelsMapper(s.st)
-	modelTableName, query := s.st.InitialWatchActivatedModelsStatement()
-
-	return s.watcherFactory.NewNamespaceMapperWatcher(
+	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
-		eventsource.InitialNamespaceChanges(query),
-		"activated models watcher",
-		mapper,
-		eventsource.NamespaceFilter(modelTableName, changestream.All),
+		"models watcher",
+		eventsource.NamespaceFilter("model", changestream.All),
 	)
 }
 
