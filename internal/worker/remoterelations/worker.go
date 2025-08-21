@@ -14,9 +14,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -88,9 +86,6 @@ type RemoteRelationsFacade interface {
 	// given entities in the local model.
 	ExportEntities(context.Context, []names.Tag) ([]params.TokenResult, error)
 
-	// GetToken returns the token associated with the entity with the given tag.
-	GetToken(context.Context, names.Tag) (string, error)
-
 	// Relations returns information about the relations
 	// with the specified keys in the local model.
 	Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error)
@@ -109,15 +104,8 @@ type RemoteRelationsFacade interface {
 	// from the remote/offering side of a relation.
 	ConsumeRemoteRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error
 
-	// ControllerAPIInfoForModel returns the controller api info for a model.
-	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
-
 	// SetRemoteApplicationStatus sets the status for the specified remote application.
 	SetRemoteApplicationStatus(ctx context.Context, applicationName string, status status.Status, message string) error
-
-	// UpdateControllerForModel ensures that there is an external controller record
-	// for the input info, associated with the input model ID.
-	UpdateControllerForModel(ctx context.Context, controller crossmodel.ControllerInfo, modelUUID string) error
 
 	// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
 	// originating from the remote/offering model.
@@ -271,7 +259,8 @@ func (w *Worker) loop() (err error) {
 func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 	w.logger.Debugf(ctx, "processing remote application changes")
 
-	// Fetch the current state of each of the remote applications that have changed.
+	// Fetch the current state of each of the remote applications that have
+	// changed.
 	results, err := w.crossModelRelationService.GetRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")

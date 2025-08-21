@@ -13,9 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	api "github.com/juju/juju/api"
 	watcher "github.com/juju/juju/api/watcher"
-	crossmodel "github.com/juju/juju/core/crossmodel"
 	status "github.com/juju/juju/core/status"
 	watcher0 "github.com/juju/juju/core/watcher"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
@@ -522,45 +520,6 @@ func (c *MockRemoteRelationsFacadeConsumeRemoteSecretChangesCall) DoAndReturn(f 
 	return c
 }
 
-// ControllerAPIInfoForModel mocks base method.
-func (m *MockRemoteRelationsFacade) ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerAPIInfoForModel", ctx, modelUUID)
-	ret0, _ := ret[0].(*api.Info)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerAPIInfoForModel indicates an expected call of ControllerAPIInfoForModel.
-func (mr *MockRemoteRelationsFacadeMockRecorder) ControllerAPIInfoForModel(ctx, modelUUID any) *MockRemoteRelationsFacadeControllerAPIInfoForModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAPIInfoForModel", reflect.TypeOf((*MockRemoteRelationsFacade)(nil).ControllerAPIInfoForModel), ctx, modelUUID)
-	return &MockRemoteRelationsFacadeControllerAPIInfoForModelCall{Call: call}
-}
-
-// MockRemoteRelationsFacadeControllerAPIInfoForModelCall wrap *gomock.Call
-type MockRemoteRelationsFacadeControllerAPIInfoForModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsFacadeControllerAPIInfoForModelCall) Return(arg0 *api.Info, arg1 error) *MockRemoteRelationsFacadeControllerAPIInfoForModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsFacadeControllerAPIInfoForModelCall) Do(f func(context.Context, string) (*api.Info, error)) *MockRemoteRelationsFacadeControllerAPIInfoForModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsFacadeControllerAPIInfoForModelCall) DoAndReturn(f func(context.Context, string) (*api.Info, error)) *MockRemoteRelationsFacadeControllerAPIInfoForModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ExportEntities mocks base method.
 func (m *MockRemoteRelationsFacade) ExportEntities(arg0 context.Context, arg1 []names.Tag) ([]params.TokenResult, error) {
 	m.ctrl.T.Helper()
@@ -596,45 +555,6 @@ func (c *MockRemoteRelationsFacadeExportEntitiesCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteRelationsFacadeExportEntitiesCall) DoAndReturn(f func(context.Context, []names.Tag) ([]params.TokenResult, error)) *MockRemoteRelationsFacadeExportEntitiesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetToken mocks base method.
-func (m *MockRemoteRelationsFacade) GetToken(arg0 context.Context, arg1 names.Tag) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetToken", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetToken indicates an expected call of GetToken.
-func (mr *MockRemoteRelationsFacadeMockRecorder) GetToken(arg0, arg1 any) *MockRemoteRelationsFacadeGetTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToken", reflect.TypeOf((*MockRemoteRelationsFacade)(nil).GetToken), arg0, arg1)
-	return &MockRemoteRelationsFacadeGetTokenCall{Call: call}
-}
-
-// MockRemoteRelationsFacadeGetTokenCall wrap *gomock.Call
-type MockRemoteRelationsFacadeGetTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsFacadeGetTokenCall) Return(arg0 string, arg1 error) *MockRemoteRelationsFacadeGetTokenCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsFacadeGetTokenCall) Do(f func(context.Context, names.Tag) (string, error)) *MockRemoteRelationsFacadeGetTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsFacadeGetTokenCall) DoAndReturn(f func(context.Context, names.Tag) (string, error)) *MockRemoteRelationsFacadeGetTokenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -788,44 +708,6 @@ func (c *MockRemoteRelationsFacadeSetRemoteApplicationStatusCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteRelationsFacadeSetRemoteApplicationStatusCall) DoAndReturn(f func(context.Context, string, status.Status, string) error) *MockRemoteRelationsFacadeSetRemoteApplicationStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpdateControllerForModel mocks base method.
-func (m *MockRemoteRelationsFacade) UpdateControllerForModel(ctx context.Context, controller crossmodel.ControllerInfo, modelUUID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerForModel", ctx, controller, modelUUID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateControllerForModel indicates an expected call of UpdateControllerForModel.
-func (mr *MockRemoteRelationsFacadeMockRecorder) UpdateControllerForModel(ctx, controller, modelUUID any) *MockRemoteRelationsFacadeUpdateControllerForModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerForModel", reflect.TypeOf((*MockRemoteRelationsFacade)(nil).UpdateControllerForModel), ctx, controller, modelUUID)
-	return &MockRemoteRelationsFacadeUpdateControllerForModelCall{Call: call}
-}
-
-// MockRemoteRelationsFacadeUpdateControllerForModelCall wrap *gomock.Call
-type MockRemoteRelationsFacadeUpdateControllerForModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsFacadeUpdateControllerForModelCall) Return(arg0 error) *MockRemoteRelationsFacadeUpdateControllerForModelCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsFacadeUpdateControllerForModelCall) Do(f func(context.Context, crossmodel.ControllerInfo, string) error) *MockRemoteRelationsFacadeUpdateControllerForModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsFacadeUpdateControllerForModelCall) DoAndReturn(f func(context.Context, crossmodel.ControllerInfo, string) error) *MockRemoteRelationsFacadeUpdateControllerForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
