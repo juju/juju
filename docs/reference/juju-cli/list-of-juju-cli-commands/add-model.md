@@ -16,7 +16,7 @@ Adds a workload model.
 | `--config` |  | Specify the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`) |
 | `--credential` |  | Specify the credential to be used by the model |
 | `--no-switch` | false | Choose not to switch to the newly created model |
-| `--owner` | current user | Specify the user who will own the model |
+| `--owner` |  | Specify the user who will own the model, if not the current user |
 
 ## Examples
 
