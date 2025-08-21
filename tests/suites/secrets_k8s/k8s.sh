@@ -355,6 +355,7 @@ run_user_secret_drain() {
 	destroy_model "$model_name"
 }
 
+
 run_test_add_multiple_secrets_parallel() {
 	controller_name='multiple-secrets-parallel-k8s-controller'
 	ctrl_log_file="${TEST_DIR}/${controller_name}.log"
@@ -368,6 +369,26 @@ run_test_add_multiple_secrets_parallel() {
 		destroy_controller "$controller_name"
 	}
 
+	check_secret_ids_from_log() {
+		local log_file=$1
+		local total=0 missing=0
+		while IFS= read -r id; do
+		[ -z "$id" ] && continue
+		total=$((total+1))
+		# success -> quiet; failure -> print Juju's error
+		if ! juju show-secret "$id" >/dev/null; then
+			missing=$((missing+1))
+		fi
+		done < <(sed -n 's/^[[:space:]]*secret:[[:space:]]*//p' "$log_file")
+
+		if [ "$missing" -gt 0 ]; then
+		echo "Failed: $missing of $total secret IDs not found (see errors above)."
+		return 1
+		fi
+		echo "Success: all $total secret IDs exist."
+	}
+
+	
 	trap cleanup_resources EXIT HUP INT TERM
 
 	bootstrap_custom_controller "$controller_name" microk8s
@@ -385,6 +406,9 @@ run_test_add_multiple_secrets_parallel() {
 		echo "Failed: could not add multiple secrets in parallel for non-controller model."
 		exit 1
 	fi
+
+
+	
 }
 
 prepare_vault() {
