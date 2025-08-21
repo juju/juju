@@ -9,43 +9,6 @@ import (
 )
 
 
-// ChangeLogTriggersForStorageAttachment generates the triggers for the
-// storage_attachment table.
-func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for StorageAttachment
-INSERT INTO change_log_namespace VALUES (%[2]d, 'storage_attachment', 'StorageAttachment changes based on %[1]s');
-
--- insert trigger for StorageAttachment
-CREATE TRIGGER trg_log_storage_attachment_insert
-AFTER INSERT ON storage_attachment FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
-END;
-
--- update trigger for StorageAttachment
-CREATE TRIGGER trg_log_storage_attachment_update
-AFTER UPDATE ON storage_attachment FOR EACH ROW
-WHEN 
-	NEW.storage_instance_uuid != OLD.storage_instance_uuid OR
-	NEW.unit_uuid != OLD.unit_uuid OR
-	NEW.life_id != OLD.life_id 
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;
--- delete trigger for StorageAttachment
-CREATE TRIGGER trg_log_storage_attachment_delete
-AFTER DELETE ON storage_attachment FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
-	}
-}
-
 // ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the
 // storage_filesystem_attachment table.
 func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
