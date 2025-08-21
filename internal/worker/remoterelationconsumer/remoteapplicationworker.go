@@ -54,7 +54,6 @@ type remoteApplicationWorker struct {
 	applicationName           string // name of the remote application proxy in the local model
 	localModelUUID            string // uuid of the model hosting the local application
 	remoteModelUUID           string // uuid of the model hosting the remote offer
-	isConsumerProxy           bool
 	consumeVersion            int
 	localRelationUnitChanges  chan RelationUnitChangeEvent
 	remoteRelationUnitChanges chan RelationUnitChangeEvent
@@ -161,13 +160,7 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 		result["relations"] = relationsInfo
 	}
 	result["remote-model-uuid"] = w.remoteModelUUID
-	if w.isConsumerProxy {
-		result["consumer-proxy"] = true
-		result["consume-version"] = w.consumeVersion
-	} else {
-		result["saas-application"] = true
-		result["offer-uuid"] = w.offerUUID
-	}
+	result["offer-uuid"] = w.offerUUID
 
 	return result
 }
@@ -188,40 +181,35 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 
 	// On the consuming side, watch for status changes to the offer.
-	var (
-		offerStatusWatcher watcher.OfferStatusWatcher
-		offerStatusChanges watcher.OfferStatusChannel
-	)
-	if !w.isConsumerProxy {
-		if err := w.newRemoteRelationsClient(ctx); err != nil {
-			msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
-			if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, msg); err != nil {
-				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-			}
-			return errors.Annotate(err, "cannot connect to external controller")
-		}
 
-		arg := params.OfferArg{
-			OfferUUID: w.offerUUID,
+	if err := w.newRemoteRelationsClient(ctx); err != nil {
+		msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
+		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, msg); err != nil {
+			return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 		}
-		if w.offerMacaroon != nil {
-			arg.Macaroons = macaroon.Slice{w.offerMacaroon}
-			arg.BakeryVersion = bakery.LatestVersion
-		}
-
-		offerStatusWatcher, err = w.remoteModelClient.WatchOfferStatus(ctx, arg)
-		if err != nil {
-			w.checkOfferPermissionDenied(ctx, err, "", "")
-			if isNotFound(err) {
-				return w.remoteOfferRemoved(ctx)
-			}
-			return errors.Annotate(err, "watching status for offer")
-		}
-		if err := w.catacomb.Add(offerStatusWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		offerStatusChanges = offerStatusWatcher.Changes()
+		return errors.Annotate(err, "cannot connect to external controller")
 	}
+
+	arg := params.OfferArg{
+		OfferUUID: w.offerUUID,
+	}
+	if w.offerMacaroon != nil {
+		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+		arg.BakeryVersion = bakery.LatestVersion
+	}
+
+	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, arg)
+	if err != nil {
+		w.checkOfferPermissionDenied(ctx, err, "", "")
+		if isNotFound(err) {
+			return w.remoteOfferRemoved(ctx)
+		}
+		return errors.Annotate(err, "watching status for offer")
+	}
+	if err := w.catacomb.Add(offerStatusWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	offerStatusChanges := offerStatusWatcher.Changes()
 
 	w.mu.Lock()
 	w.relations = make(map[string]*relation)
@@ -364,31 +352,28 @@ func (w *remoteApplicationWorker) newRemoteRelationsClient(ctx context.Context) 
 
 func (w *remoteApplicationWorker) processRelationDying(ctx context.Context, key string, r *relation, forceCleanup bool) error {
 	w.logger.Debugf(ctx, "relation %v dying (%v)", key, forceCleanup)
-	// On the consuming side, inform the remote side the relation is dying
-	// (but only if we are killing the relation due to it dying, not because
-	// it is suspended).
-	if !w.isConsumerProxy {
-		change := params.RemoteRelationChangeEvent{
-			RelationToken:           r.localRelationToken,
-			Life:                    life.Dying,
-			ApplicationOrOfferToken: r.localApplicationToken,
-			Macaroons:               macaroon.Slice{r.macaroon},
-			BakeryVersion:           bakery.LatestVersion,
-		}
-		// forceCleanup will be true if the worker has restarted and because the relation had
-		// already been removed, we won't get any more unit departed events.
-		if forceCleanup {
-			change.ForceCleanup = &forceCleanup
-		}
-		if err := w.remoteModelClient.PublishRelationChange(ctx, change); err != nil {
-			w.checkOfferPermissionDenied(ctx, err, r.localApplicationToken, r.localRelationToken)
-			if isNotFound(err) {
-				w.logger.Debugf(ctx, "relation %v dying but remote side already removed", key)
-				return nil
-			}
-			return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
-		}
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:           r.localRelationToken,
+		Life:                    life.Dying,
+		ApplicationOrOfferToken: r.localApplicationToken,
+		Macaroons:               macaroon.Slice{r.macaroon},
+		BakeryVersion:           bakery.LatestVersion,
 	}
+	// forceCleanup will be true if the worker has restarted and because the relation had
+	// already been removed, we won't get any more unit departed events.
+	if forceCleanup {
+		change.ForceCleanup = &forceCleanup
+	}
+	if err := w.remoteModelClient.PublishRelationChange(ctx, change); err != nil {
+		w.checkOfferPermissionDenied(ctx, err, r.localApplicationToken, r.localRelationToken)
+		if isNotFound(err) {
+			w.logger.Debugf(ctx, "relation %v dying but remote side already removed", key)
+			return nil
+		}
+		return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
+	}
+
 	return nil
 }
 
@@ -403,14 +388,6 @@ func (w *remoteApplicationWorker) processRelationSuspended(ctx context.Context, 
 	// as we need to always deal with units leaving scope etc if the relation is dying.
 	if relLife != life.Alive {
 		return nil
-	}
-
-	// On the offering side, if the relation is resumed,
-	// it will be treated like the relation has been joined
-	// for the first time; all workers will be restarted.
-	// The offering side has isConsumerProxy = true.
-	if w.isConsumerProxy {
-		delete(relations, key)
 	}
 
 	if relation.localUnitWorker != nil {
@@ -558,10 +535,6 @@ func (w *remoteApplicationWorker) relationChanged(ctx context.Context, key strin
 		}
 	}
 
-	if w.isConsumerProxy {
-		// Nothing else to do on the offering side.
-		return nil
-	}
 	return w.processConsumingRelation(ctx, key, localRelationInfo)
 }
 
