@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationconsumer
 
 import (
 	"context"
@@ -23,6 +23,13 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
+
+// ReportableWorker is an interface that allows a worker to be reported
+// on by the engine.
+type ReportableWorker interface {
+	worker.Worker
+	Report() map[string]any
+}
 
 // RemoteApplicationWorker is an interface that defines the methods that a
 // remote application worker must implement to be managed by the Worker.

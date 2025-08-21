@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationofferrer
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationConsumers(gomock.Any()).
+	s.crossModelRelationService.EXPECT().WatchRemoteApplicationOfferrers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -58,14 +58,14 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferrers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -102,14 +102,14 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferrers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -117,9 +117,9 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Dead,
 				OfferUUID:       "offer-uuid",
@@ -162,14 +162,14 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferrers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -177,9 +177,9 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{}, nil
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{}, nil
 		})
 
 	started := make(chan string, 1)
@@ -217,14 +217,14 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferrers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -232,9 +232,9 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferrers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferrer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -292,7 +292,6 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
 		ModelUUID:                  s.modelUUID.String(),
 		CrossModelRelationService:  s.crossModelRelationService,
-		RelationsFacade:            s.remoteRelationsFacade,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
 			defer func() {
