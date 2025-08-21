@@ -704,5 +704,5 @@ WHERE  sa.unit_uuid = $unitUUIDRef.unit_uuid
 		}
 		return storageIDs, nil
 	}
-	return "storage_attachment", queryFunc
+	return "custom_storage_attachment_storage_instance_uuid_lifecycle", queryFunc
 }
