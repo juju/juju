@@ -304,6 +304,18 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Offers
 		"offer",
 		"offer_endpoint",
+
+		// Actions
+		"operation_action",
+		"operation_exec",
+		"operation_machine_task",
+		"operation",
+		"operation_task",
+		"operation_task_log",
+		"operation_task_output",
+		"operation_task_status",
+		"operation_task_status_value",
+		"operation_unit_task",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
