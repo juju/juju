@@ -12,7 +12,7 @@ Deploys a new application or bundle.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--attach-storage` |  | Existing storage to attach to the deployed unit (not available on k8s models) |
+| `--attach-storage` |  | (Machine models only:) Specify an existing storage volume to attach to the deployed unit. |
 | `--base` |  | The base on which to deploy |
 | `--bind` |  | Configure application endpoint bindings to spaces |
 | `--channel` |  | Channel to use when deploying a charm or bundle from Charmhub |
@@ -29,7 +29,7 @@ Deploys a new application or bundle.
 | `--revision` | -1 | The revision to deploy |
 | `--series` |  | The series on which to deploy. DEPRECATED: use --base |
 | `--storage` |  | Charm storage constraints |
-| `--to` |  | The machine and/or container to deploy the unit in (bypasses constraints) |
+| `--to` |  | (Machine models only:) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
 | `--trust` | false | Allows charm to run hooks that require access credentials |
 
 ## Examples

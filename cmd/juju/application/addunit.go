@@ -26,34 +26,17 @@ import (
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
 var usageAddUnitDetails = `
-The add-unit is used to scale out an application for improved performance or
+The ` + "`add-unit`" + ` command is used to scale out an application for improved performance or
 availability.
 
-The usage of this command differs depending on whether it is being used on a
-k8s or cloud model.
-
-Many charms will seamlessly support horizontal scaling while others may need
+Note: Some charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-For k8s models the only valid argument is -n, --num-units.
-Anything additional will result in an error.
+Further reading:
 
-Example:
-
-Add five units of mysql:
-    juju add-unit mysql --num-units 5
-
-
-For cloud models, by default, units are deployed to newly provisioned machines
-in accordance with any application or model constraints.
-
-This command also supports the placement directive ("--to") for targeting
-specific machines or containers, which will bypass application and model
-constraints. --to accepts a comma-separated list of placement specifications
-(see examples below). If the length of this list is less than the number of
-units being added, the remaining units will be added in the default way (i.e.
-to new machines).
+- https://documentation.ubuntu.com/juju/3.6/reference/unit/
+- https://documentation.ubuntu.com/juju/3.6/reference/placement-directive/
 
 `[1:]
 
@@ -68,7 +51,7 @@ Add a unit of mysql to machine 23 (which already exists):
 
 Add two units of mysql to existing machines 3 and 4:
 
-   juju add-unit mysql -n 2 --to 3,4
+    juju add-unit mysql -n 2 --to 3,4
 
 Add three units of mysql, one to machine 3 and the others to new
 machines:
@@ -112,8 +95,8 @@ type UnitCommandBase struct {
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on k8s models)")
+	f.StringVar(&c.PlacementSpec, "to", "", "(Machine models only:) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines).")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "(Machine models only:) Specify an existing storage volume to attach to the deployed unit.")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -175,7 +158,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "Number of units to add")
+	f.IntVar(&c.NumUnits, "n", 1, "Specify the number of units to add.")
 }
 
 func (c *addUnitCommand) Init(args []string) error {
