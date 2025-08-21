@@ -47,6 +47,28 @@ func NewTestAPI(
 	}, nil
 }
 
+func NewTestAPIV4(
+	st InstanceMutaterState,
+	mutatorWatcher InstanceMutatorWatcher,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*InstanceMutaterAPIV4, error) {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
+	api := &InstanceMutaterAPI{
+		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
+		st:          st,
+		watcher:     mutatorWatcher,
+		resources:   resources,
+		authorizer:  authorizer,
+		getAuthFunc: getAuthFunc,
+	}
+	return &InstanceMutaterAPIV4{api}, nil
+}
+
 // NewTestLxdProfileWatcher is used by the lxd profile tests.
 func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterState) *machineLXDProfileWatcher {
 	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{

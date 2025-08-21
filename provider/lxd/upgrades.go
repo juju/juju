@@ -192,7 +192,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 
 		// Delete old profiles except "default".
 		profilesToDelete := currentProfilesSet.Difference(toAttachSet)
-		for _, oldProfile := range profilesToDelete.Values() {
+		for _, oldProfile := range profilesToDelete.SortedValues() {
 			if oldProfile != "default" && strings.HasPrefix(oldProfile, prefix) {
 				logger.Debugf("deleting profile %q in model %q", oldProfile, c.env.uuid)
 				// In reality, it's difficult to prove the ownership of the profile because the old

@@ -230,7 +230,7 @@ type UnitProfileChanges struct {
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
 func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
-	var result params.CharmProfilingInfoResult
+	var result params.CharmProfilingInfoResultV4
 	args := params.Entity{Tag: m.tag.String()}
 	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
 	if err != nil {
