@@ -25,6 +25,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// RemoteApplicationWorker is an interface that defines the methods that a
+// remote application worker must implement to be managed by the Worker.
+type RemoteApplicationWorker interface {
+	// ApplicationID returns the application ID for the remote application
+	// worker.
+	ApplicationID() string
+
+	// ApplicationName returns the application name for the remote application
+	// worker.
+	ApplicationName() string
+
+	// OfferUUID returns the offer UUID for the remote application worker.
+	OfferUUID() string
+}
+
 // RemoteModelRelationsClient instances publish local relation changes to the
 // model hosting the remote application involved in the relation, and also watches
 // for remote relation changes which are then pushed to the local model.
@@ -228,30 +243,29 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case applicationIds, ok := <-changes.Changes():
+		case applicationIDs, ok := <-changes.Changes():
 			if !ok {
 				return errors.New("change channel closed")
 			}
 
-			if err := w.handleApplicationChanges(ctx, applicationIds); err != nil {
+			if err := w.handleApplicationChanges(ctx, applicationIDs); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []string) error {
-	w.logger.Debugf(ctx, "processing remote application changes for: %s", applicationIds)
+func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIDs []string) error {
+	w.logger.Debugf(ctx, "processing remote application changes for: %s", applicationIDs)
 
 	// Fetch the current state of each of the remote applications that have changed.
-	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIds)
+	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIDs)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
 
-	for _, result := range results {
-		remoteApp := result.Result
-		appName := remoteApp.Name
+	for i, result := range results {
+		applicationID := applicationIDs[i]
 
 		// The remote application may refer to an offer that has been removed
 		// from the offering model, or it may refer to a new offer with a
@@ -259,9 +273,13 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		// worker for the old offer.
 		notFound := result.Error != nil && params.IsCodeNotFound(result.Error)
 		if result.Error != nil && !notFound {
-			return errors.Annotatef(result.Error, "querying remote application %q", appName)
+			return errors.Annotatef(result.Error, "querying remote applications")
 		} else if notFound || appTerminated(result.Result) {
 			// The remote application has been removed, stop its worker.
+			appName, err := w.getApplicationNameFromID(applicationID)
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				return errors.Annotatef(err, "getting application name for ID %q", applicationID)
+			}
 			if err := w.runner.StopAndRemoveWorker(appName, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
 				w.logger.Warningf(ctx, "error stopping remote application worker for %q: %v", appName, err)
 			}
@@ -270,6 +288,9 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 			// continue to the next one.
 			continue
 		}
+
+		remoteApp := result.Result
+		appName := remoteApp.Name
 
 		// Now check to see if the offer UUID has changed for the remote
 		// application.
@@ -288,6 +309,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 		if err := w.runner.StartWorker(ctx, appName, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
 				OfferUUID:                  remoteApp.OfferUUID,
+				ApplicationID:              applicationID,
 				ApplicationName:            remoteApp.Name,
 				LocalModelUUID:             w.config.ModelUUID,
 				RemoteModelUUID:            remoteApp.ModelUUID,
@@ -306,6 +328,28 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []
 	return nil
 }
 
+func (w *Worker) getApplicationNameFromID(applicationID string) (string, error) {
+	for _, name := range w.runner.WorkerNames() {
+		worker, err := w.runner.Worker(name, w.catacomb.Dying())
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return "", err
+		}
+
+		r, ok := worker.(RemoteApplicationWorker)
+		if !ok {
+			return "", errors.Errorf("worker %q is not a RemoteApplicationWorker", worker)
+		}
+
+		if r.ApplicationID() == applicationID {
+			return r.ApplicationName(), nil
+		}
+	}
+
+	return "", errors.NotFoundf("remote application with ID %q", applicationID)
+}
+
 func (w *Worker) hasRemoteAppChanged(name, offerUUID string) (bool, error) {
 	// If the worker for the name doesn't exist then that's ok, we just return
 	// false to indicate that the offer UUID has not changed.
@@ -320,10 +364,6 @@ func (w *Worker) hasRemoteAppChanged(name, offerUUID string) (bool, error) {
 	// RemoteApplicationWorker interface, which provides the OfferUUID method.
 	// If the offer UUID is different to the one we have, then we need to
 	// stop the worker and start a new one.
-
-	type RemoteApplicationWorker interface {
-		OfferUUID() string
-	}
 
 	appWorker, ok := remoteApp.(RemoteApplicationWorker)
 	if !ok {
