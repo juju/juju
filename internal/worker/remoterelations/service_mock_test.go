@@ -48,44 +48,6 @@ func (m *MockRemoteApplicationWorker) EXPECT() *MockRemoteApplicationWorkerMockR
 	return m.recorder
 }
 
-// ApplicationID mocks base method.
-func (m *MockRemoteApplicationWorker) ApplicationID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ApplicationID indicates an expected call of ApplicationID.
-func (mr *MockRemoteApplicationWorkerMockRecorder) ApplicationID() *MockRemoteApplicationWorkerApplicationIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationID", reflect.TypeOf((*MockRemoteApplicationWorker)(nil).ApplicationID))
-	return &MockRemoteApplicationWorkerApplicationIDCall{Call: call}
-}
-
-// MockRemoteApplicationWorkerApplicationIDCall wrap *gomock.Call
-type MockRemoteApplicationWorkerApplicationIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteApplicationWorkerApplicationIDCall) Return(arg0 string) *MockRemoteApplicationWorkerApplicationIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteApplicationWorkerApplicationIDCall) Do(f func() string) *MockRemoteApplicationWorkerApplicationIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteApplicationWorkerApplicationIDCall) DoAndReturn(f func() string) *MockRemoteApplicationWorkerApplicationIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ApplicationName mocks base method.
 func (m *MockRemoteApplicationWorker) ApplicationName() string {
 	m.ctrl.T.Helper()
