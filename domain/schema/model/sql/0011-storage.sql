@@ -147,7 +147,8 @@ CREATE TABLE storage_unit_owner (
 );
 
 CREATE TABLE storage_attachment (
-    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     CONSTRAINT fk_storage_attachment_storage_instance
