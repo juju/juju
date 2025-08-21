@@ -111,8 +111,8 @@ func (w *Worker) loop() error {
 			return w.catacomb.ErrDying()
 
 		case <-watcher.Changes():
-			// Get all activated models from the controller and handle all
-			// of the dead models. This ensures that we are able to
+			// Get all of the dead models from the controller model service
+			// and handle them all at once.
 			models, err := w.controllerModelService.GetDeadModels(ctx)
 			if err != nil {
 				return errors.Errorf("getting activated models: %w", err)
