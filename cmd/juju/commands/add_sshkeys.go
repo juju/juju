@@ -21,7 +21,7 @@ var usageAddSSHKeyDetails = `
 Juju maintains a per-model cache of public SSH keys which it copies to
 each unit (including units already deployed). By default this includes the
 key of the user who created the model (assuming it is stored in the
-default location ~/.ssh/). Additional keys may be added with this command,
+default location ` + "`~/.ssh/`" + `). Additional keys may be added with this command,
 quoting the entire public key as an argument.
 
 `[1:]
@@ -37,7 +37,7 @@ const usageAddSSHKeyExamples = `
     VCAfjjHObWHwNQ/ZU2KrX1/lv/+lBChx2tJliqQpyYMiA3nrtS
     jfqQgZfjVF5vz8LESQbGc6+vLcXZ9KQpuYDt joe@ubuntu"
 
-For ease of use it is possible to use shell substitution to pass the key 
+For ease of use it is possible to use shell substitution to pass the key
 to the command:
 
     juju add-ssh-key "$(cat ~/mykey.pub)"
