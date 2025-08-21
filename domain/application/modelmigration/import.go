@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -43,7 +42,6 @@ type Coordinator interface {
 // coordinator.
 func RegisterImport(
 	coordinator Coordinator,
-	registry corestorage.ModelStorageRegistryGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) {
