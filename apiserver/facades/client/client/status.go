@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -166,7 +167,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("cannot obtain space information: %w", err)
 	}
-	if context.allAppsUnitsCharmBindings, err =
+	if context.allAppsUnitsCharmBindings, context.units, err =
 		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
@@ -343,6 +344,7 @@ type statusContext struct {
 	offers map[string]offerStatus
 
 	allAppsUnitsCharmBindings applicationStatusInfo
+	units                     map[coreunit.Name]statusservice.Unit
 	relations                 map[string][]relationStatus
 	relationsByID             map[int]relationStatus
 	leaders                   map[string]string
@@ -455,21 +457,24 @@ func fetchNetworkInterfaces(
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(
+	ctx context.Context, statusService StatusService, applicationService ApplicationService,
+) (applicationStatusInfo, map[coreunit.Name]statusservice.Unit, error) {
 	var (
 		apps         = make(map[string]statusservice.Application)
+		units        = make(map[coreunit.Name]statusservice.Unit)
 		appCharmURL  = make(map[string]string)
 		latestCharms = make(map[applicationcharm.CharmLocator]applicationcharm.CharmLocator)
 	)
 
 	applications, err := statusService.GetApplicationAndUnitStatuses(ctx)
 	if err != nil {
-		return applicationStatusInfo{}, err
+		return applicationStatusInfo{}, nil, err
 	}
 
 	allBindingsByApp, err := applicationService.GetAllEndpointBindings(ctx)
 	if err != nil {
-		return applicationStatusInfo{}, err
+		return applicationStatusInfo{}, nil, err
 	}
 
 	// If the only binding is the default, and it's set to the
@@ -496,6 +501,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		if len(app.Units) == 0 {
 			continue
 		}
+		maps.Copy(units, app.Units)
 
 		// De-duplicate charms with the same name and architecture.
 		// Don't look up revision for local charms
@@ -510,18 +516,19 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 		if internalerrors.Is(err, applicationerrors.CharmNotFound) {
 			continue
 		} else if err != nil {
-			return applicationStatusInfo{}, err
+			return applicationStatusInfo{}, nil, err
 		}
 
 		latestCharms[baseURL] = locator
 	}
 
 	return applicationStatusInfo{
-		applications:     apps,
-		endpointBindings: allBindingsByApp,
-		latestCharms:     latestCharms,
-		lxdProfiles:      lxdProfiles,
-	}, nil
+		applications:        apps,
+		applicationCharmURL: appCharmURL,
+		endpointBindings:    allBindingsByApp,
+		latestCharms:        latestCharms,
+		lxdProfiles:         lxdProfiles,
+	}, units, nil
 }
 
 // fetchRelations returns a map of all relations keyed by application name,
@@ -991,7 +998,7 @@ func (c *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name 
 	}
 
 	// Locate the principal unit.
-	if unit, ok := c.unitByName(*unit.PrincipalName); ok {
+	if unit, ok := c.units[*unit.PrincipalName]; ok {
 		return c.unitMachineID(unit)
 	}
 	return ""
@@ -1046,8 +1053,9 @@ func (c *statusContext) processUnit(ctx context.Context, unitName coreunit.Name,
 	// Handle any subordinate units.
 	result.Subordinates = make(map[string]params.UnitStatus)
 	for _, name := range subUnits {
-		subUnit, ok := c.unitByName(name)
+		subUnit, ok := c.units[name]
 		if !ok {
+			logger.Debugf(ctx, "missing subordinate unit %q", name)
 			continue
 		}
 
@@ -1061,16 +1069,6 @@ func (c *statusContext) processUnit(ctx context.Context, unitName coreunit.Name,
 	}
 
 	return result
-}
-
-func (c *statusContext) unitByName(name coreunit.Name) (statusservice.Unit, bool) {
-	applicationName := name.Application()
-	application, ok := c.allAppsUnitsCharmBindings.applications[applicationName]
-	if !ok {
-		return statusservice.Unit{}, false
-	}
-	unit, ok := application.Units[name]
-	return unit, ok
 }
 
 func (c *statusContext) processApplicationRelations(
