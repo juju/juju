@@ -26,11 +26,8 @@ func newFacadeV7(stdCtx context.Context, context facade.ModelContext) (*CloudAPI
 	credentialService := domainServices.Credential()
 	modelService := domainServices.Model()
 
-	// Get the controller model UUID
-	controllerUUID, err := modelService.GetControllerModelUUID(stdCtx)
-	if err != nil {
-		return nil, errors.Errorf("failed to get controller model UUID: %v", err)
-	}
+	// Get the controller UUID
+	controllerUUID := context.ControllerUUID()
 
 	// Get the controller cloud name
 	controllerCloud, _, err := modelService.DefaultModelCloudInfo(stdCtx)
@@ -40,7 +37,7 @@ func newFacadeV7(stdCtx context.Context, context facade.ModelContext) (*CloudAPI
 
 	return NewCloudAPI(
 		stdCtx,
-		names.NewControllerTag(controllerUUID.String()),
+		names.NewControllerTag(controllerUUID),
 		controllerCloud,
 		domainServices.Cloud(),
 		domainServices.Access(),

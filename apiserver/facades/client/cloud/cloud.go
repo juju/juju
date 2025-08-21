@@ -22,6 +22,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -584,7 +585,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error {
 	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, api.controllerTag)
 	if err != nil {
-		return err
+		return internalerrors.Capture(err)
 	}
 
 	if cloudArgs.Cloud.Type != cloud.CloudTypeKubernetes {
