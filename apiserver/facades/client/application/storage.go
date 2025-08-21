@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	applicationservice "github.com/juju/juju/domain/application/service"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -37,13 +36,14 @@ func storageDirectives(
 			sdo.Size = &storageDirective.Size
 		}
 		if storageDirective.Pool != "" {
-			pool, err := storageService.GetStoragePoolByName(ctx,
-				storageDirective.Pool)
+			poolUUID, err := storageService.GetStoragePoolUUID(
+				ctx,
+				storageDirective.Pool,
+			)
 			if err != nil {
 				return nil, errors.Annotatef(err, "storage directive %s pool",
 					storageName)
 			}
-			poolUUID := domainstorage.StoragePoolUUID(pool.UUID)
 			sdo.PoolUUID = &poolUUID
 		}
 		res[storageName] = sdo

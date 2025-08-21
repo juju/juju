@@ -52,21 +52,20 @@ SELECT (asd.storage_name,
        cs.read_only,
        cs.location,
        cs.count_max) AS (&filesystemTemplate.*),
-       COALESCE(asd.storage_type, sp.type) AS &filesystemTemplate.storage_type
+       sp.type AS &filesystemTemplate.storage_type
 FROM   application_storage_directive AS asd
-       JOIN charm_storage cs 
+       JOIN charm_storage cs
             ON asd.charm_uuid = cs.charm_uuid
-            AND asd.storage_name = cs.name 
-       LEFT JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
+            AND asd.storage_name = cs.name
+       JOIN storage_pool sp ON asd.storage_pool_uuid = sp.uuid
 WHERE  asd.application_uuid = $entityUUID.uuid
-AND    (asd.storage_pool_uuid IS NULL OR asd.storage_type IS NULL)
 `, filesystemTemplate{}, id)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	fsAttributeQuery, err := st.Prepare(`
-SELECT (asd.storage_name, key, value) AS (&storageNameAttributes.*) 
+SELECT (asd.storage_name, key, value) AS (&storageNameAttributes.*)
 FROM storage_pool_attribute spa
 JOIN storage_pool sp ON spa.storage_pool_uuid = sp.uuid
 JOIN application_storage_directive asd ON sp.uuid = asd.storage_pool_uuid
@@ -403,7 +402,7 @@ FROM   storage_filesystem_attachment sfa
        JOIN storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
        LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
        -- Only join units when there is no machine.
-       LEFT JOIN unit u 
+       LEFT JOIN unit u
            ON sfa.net_node_uuid = u.net_node_uuid
            AND m.net_node_uuid IS NULL
 WHERE sfa.uuid IN ($filesystemAttachmentUUIDs[:])
@@ -590,13 +589,13 @@ SELECT &filesystemAttachmentParams.* FROM (
               mci.instance_id,
               cs.location,
               cs.read_only,
-              COALESCE(si.storage_type, sp.type, NULL) AS type
+              sp.type
     FROM      storage_filesystem_attachment sfa
     JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
     JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
-    JOIN      storage_instance si ON sif.storage_instance_uuid = si.uuid
+    JOIN 	  storage_instance si ON sif.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
     LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
-    LEFT JOIN storage_pool sp ON si.storage_pool_uuid = sp.uuid
     LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
     LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
     WHERE     sfa.uuid = $filesystemAttachmentUUID.uuid
@@ -636,7 +635,7 @@ SELECT &filesystemAttachmentParams.* FROM (
 
 	return storageprovisioning.FilesystemAttachmentParams{
 		MachineInstanceID: dbVal.InstanceID.V,
-		Provider:          dbVal.Type.V,
+		Provider:          dbVal.Type,
 		ProviderID:        dbVal.ProviderID.V,
 		MountPoint:        dbVal.Location.V,
 		ReadOnly:          dbVal.ReadOnly.V,
@@ -854,11 +853,11 @@ func (st *State) GetFilesystemParams(
 SELECT &filesystemParams.* FROM (
     SELECT sf.filesystem_id,
            si.requested_size_mib AS size_mib,
-           COALESCE(si.storage_type, sp.type, NULL) AS type
+           sp.type
     FROM   storage_filesystem sf
     JOIN   storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
     JOIN   storage_instance si ON sif.storage_instance_uuid = si.uuid
-    LEFT   JOIN storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
     WHERE  sf.uuid = $filesystemUUID.uuid
 )
 `,
@@ -930,7 +929,7 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 	return storageprovisioning.FilesystemParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.FilesystemID,
-		Provider:   paramsVal.Type.V,
+		Provider:   paramsVal.Type,
 		SizeMiB:    paramsVal.SizeMiB,
 	}, nil
 }

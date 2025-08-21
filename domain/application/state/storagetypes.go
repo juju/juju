@@ -4,7 +4,6 @@
 package state
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -12,11 +11,10 @@ import (
 // application_storage_directive table representing the storage directives of
 // an application.
 type applicationStorageDirective struct {
-	Count           uint32           `db:"count"`
-	SizeMiB         uint64           `db:"size_mib"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
+	Count           uint32 `db:"count"`
+	SizeMiB         uint64 `db:"size_mib"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
 
 // insertStorageFilesystem represents the set of values required for inserting a
@@ -55,14 +53,13 @@ type insertStorageFilesystemStatus struct {
 // insertStorageInstance represents the set of values required for inserting a
 // new storage instance into the model.
 type insertStorageInstance struct {
-	CharmUUID       string           `db:"charm_uuid"`
-	LifeID          int              `db:"life_id"`
-	RequestSizeMiB  uint64           `db:"requested_size_mib"`
-	StorageID       string           `db:"storage_id"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
-	UUID            string           `db:"uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	LifeID          int    `db:"life_id"`
+	RequestSizeMiB  uint64 `db:"requested_size_mib"`
+	StorageID       string `db:"storage_id"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	UUID            string `db:"uuid"`
 }
 
 // insertStorageInstanceAttachment represents the set of values required for
@@ -122,12 +119,11 @@ type storageVolumeUUIDRef struct {
 // unit_storage_directive table representing the storage directives of
 // a unit.
 type unitStorageDirective struct {
-	CharmUUID       string           `db:"charm_uuid"`
-	Count           uint32           `db:"count"`
-	SizeMiB         uint64           `db:"size_mib"`
-	StorageName     string           `db:"storage_name"`
-	StoragePoolUUID sql.Null[string] `db:"storage_pool_uuid"`
-	StorageType     sql.Null[string] `db:"storage_type"`
+	CharmUUID       string `db:"charm_uuid"`
+	Count           uint32 `db:"count"`
+	SizeMiB         uint64 `db:"size_mib"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
 
 // unitOwnedStorage is represents a storage instance that is owned by a unit.
@@ -146,7 +142,6 @@ type storageModelConfigKeys struct {
 // storageProvisioners is used to get the default storage provisioners, either
 // a pool or a provider.
 type storageProvisioners struct {
-	StorageType     string `db:"storage_type"`
-	ProviderType    string `db:"provider_type"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+	StorageType     string `db:"type"`
+	StoragePoolUUID string `db:"uuid"`
 }

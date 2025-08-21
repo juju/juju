@@ -193,24 +193,51 @@ INSERT INTO charm_storage (
 	return uuid
 }
 
-func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID) storage.StorageInstanceUUID {
-	ctx := c.Context()
+func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID, poolUUID storage.StoragePoolUUID) storage.StorageInstanceUUID {
 	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance (
     uuid, charm_uuid, storage_name, storage_id,
-    life_id, requested_size_mib, storage_type
+    life_id, requested_size_mib, storage_pool_uuid
 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			storageUUID, charmUUID, storageName,
-			fmt.Sprintf("%s/%d", storageName, s.storageInstCount),
-			life.Alive, 100, "pool")
-		return err
-	})
+		storageUUID, charmUUID, storageName,
+		fmt.Sprintf("%s/%d", storageName, s.storageInstCount),
+		life.Alive, 100, poolUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.storageInstCount++
 	return storageUUID
+}
+
+// newStoragePool creates a new storage pool with name, provider type and attrs.
+// It returns the UUID of the new storage pool.
+func (s *storageSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) storage.StoragePoolUUID {
+	spUUID := storagetesting.GenStoragePoolUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID
 }
 
 func (s *storageSuite) createFilesystemInstance(
@@ -218,7 +245,8 @@ func (s *storageSuite) createFilesystemInstance(
 	filesystemUUID storageprovisioning.FilesystemUUID,
 ) {
 	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
-	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID)
+	poolUUID := s.newStoragePool(c, "pool", "pool", nil)
+	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, poolUUID)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -292,14 +320,12 @@ VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
 
 func (s *storageSuite) createVolumeInstance(c *tc.C, volumeUUID storageprovisioning.VolumeUUID) {
 	charmUUID := s.insertCharmWithStorage(c, blockStorage)
-	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID)
+	poolUUID := s.newStoragePool(c, "blockpool", "blockpool", nil)
+	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID, poolUUID)
 
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance_volume(storage_volume_uuid, storage_instance_uuid)
 VALUES (?, ?)`, volumeUUID, storageUUID)
-		return err
-	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -603,12 +629,15 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
+
 	// Block device storage instance with no owner that is dying.
-	s0, _ := s.newStorageInstance(c, ch0, "blk")
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.changeStorageInstanceLife(c, s0.String(), life.Dying)
 
 	// Filesystem storage instance with an owning unit that is alive.
-	s1, _ := s.newStorageInstance(c, ch0, "fs")
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
@@ -646,12 +675,15 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
+
 	// Storage instance attachment of a block device storage instance with a
 	// unit only attachment.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "blk")
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s0, u0)
 
 	// Storage instance attachment of a filesystem storage instance with a unit
@@ -660,7 +692,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "fs")
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	s.newStorageAttachment(c, s1, u1)
 
 	st := s.NewModelState(c)
@@ -692,18 +724,20 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
+	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
+
 	// Filesystem with status, size and a provider id.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, _ := s.newUnitWithNetNode(c, a0, nn0)
-	s0, s0id := s.newStorageInstance(c, ch0, "fs")
+	s0, s0id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	s.newStorageAttachment(c, s0, u0)
 	f0, f0id := s.newFilesystem(c)
 	s.changeFilesystemInfo(c, f0, "my-provider-id-1", 123)
 	s.newStorageInstanceFilesystem(c, s0, f0)
 
 	// Filesystem backed by a volume with size and provider id.
-	s1, s1id := s.newStorageInstance(c, ch0, "fs")
+	s1, s1id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	f1, f1id := s.newFilesystem(c)
 	s.changeFilesystemInfo(c, f1, "my-provider-id-2", 456)
 	s.newStorageInstanceFilesystem(c, s1, f1)
@@ -757,11 +791,13 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
+	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
+
 	// Filesystem attachment to a unit with a read only mount.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "fs")
+	s0, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	s.newStorageAttachment(c, s0, u0)
 	f0, _ := s.newFilesystem(c)
 	s.newStorageInstanceFilesystem(c, s0, f0)
@@ -773,7 +809,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "fs")
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
 	s.newStorageAttachment(c, s1, u1)
 	f1, _ := s.newFilesystem(c)
 	s.newStorageInstanceFilesystem(c, s1, f1)
@@ -813,12 +849,14 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+
 	// Volume with a unit, status, size, provider id, hardware id, wwn and is
 	// persistent.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, _ := s.newUnitWithNetNode(c, a0, nn0)
-	s0, s0id := s.newStorageInstance(c, ch0, "blk")
+	s0, s0id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s0, u0)
 	v0, v0id := s.newVolume(c)
 	s.changeVolumeInfo(c, v0, "my-provider-id-1", 123, "hw0", "wwn0", true)
@@ -828,7 +866,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	a1 := s.newApplication(c, "bar", ch0)
 	nn1 := s.newNetNode(c)
 	u1, _ := s.newUnitWithNetNode(c, a1, nn1)
-	s1, s1id := s.newStorageInstance(c, ch0, "blk")
+	s1, s1id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s1, u1)
 	v1, v1id := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s1, v1)
@@ -880,11 +918,13 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+
 	// Volume attachment to a unit with no block device.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "blk")
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s0, u0)
 	v0, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s0, v0)
@@ -895,7 +935,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "blk")
+	s1, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s1, u1)
 	v1, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s1, v1)
@@ -906,7 +946,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn2 := s.newNetNode(c)
 	m2, m2n := s.newMachineWithNetNode(c, nn2)
 	u2, u2n := s.newUnitWithNetNode(c, a2, nn2)
-	s2, _ := s.newStorageInstance(c, ch0, "blk")
+	s2, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s2, u2)
 	v2, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s2, v2)
@@ -923,7 +963,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn3 := s.newNetNode(c)
 	_, m3n := s.newMachineWithNetNode(c, nn3)
 	u3, u3n := s.newUnitWithNetNode(c, a3, nn3)
-	s3, _ := s.newStorageInstance(c, ch0, "blk")
+	s3, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
 	s.newStorageAttachment(c, s3, u3)
 	v3, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s3, v3)
@@ -1246,18 +1286,19 @@ VALUES (?, ?, ?, 0, 1)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *storageStatusSuite) newStorageInstance(c *tc.C, charmUUID string, storageName string) (storage.StorageInstanceUUID, string) {
+func (s *storageStatusSuite) newStorageInstance(c *tc.C, charmUUID string, storageName string, poolUUID storage.StoragePoolUUID) (storage.StorageInstanceUUID, string) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
 
 	_, err := s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
-VALUES (?, ?, ?, ?, 0, 100, 'rootfs')
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, 0, 100, ?)
 `,
 		storageInstanceUUID.String(),
 		charmUUID,
 		storageName,
 		storageID,
+		poolUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1332,8 +1373,7 @@ func (s *storageStatusSuite) newStorageInstanceVolume(
 	c *tc.C, instanceUUID storage.StorageInstanceUUID,
 	volumeUUID storageprovisioning.VolumeUUID,
 ) {
-	ctx := c.Context()
-	_, err := s.DB().ExecContext(ctx, `
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
 VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1343,11 +1383,42 @@ func (s *storageStatusSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID storage.StorageInstanceUUID,
 	filesystemUUID storageprovisioning.FilesystemUUID,
 ) {
-	ctx := c.Context()
-	_, err := s.DB().ExecContext(ctx, `
+	_, err := s.DB().Exec(`
 INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
 VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newStoragePool creates a new storage pool with name, provider type and attrs.
+// It returns the UUID of the new storage pool.
+func (s *storageStatusSuite) newStoragePool(c *tc.C,
+	name string, providerType string,
+	attrs map[string]string,
+) storage.StoragePoolUUID {
+	spUUID := storagetesting.GenStoragePoolUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID
 }
 
 type preparer struct{}

@@ -66,28 +66,12 @@ type CreateUnitStorageArg struct {
 // model.
 type DefaultStorageProvisioners struct {
 	// BlockdevicePoolUUID describes the storage pool uuid that should be used
-	// when provisioning new block device storage in the model. If this value is
-	// set then [defaultStorageProvisioners.BlockdeviceProviderType] will not be
-	// set.
+	// when provisioning new block device storage in the model.
 	BlockdevicePoolUUID *domainstorage.StoragePoolUUID
 
-	// BlockdeviceProviderType describes the storage provider type that should
-	// be used when provisioning new block device storage in the model. If this
-	// value is set then [defaultStorageProvisioners.BlockdevicePoolUUID] will
-	// not be set.
-	BlockdeviceProviderType *string
-
 	// FilesystemPoolUUID describes the storage pool uuid that should be used
-	// when provisioning new filesystem storage in the model. If this value is
-	// set then [defaultStorageProvisioners.FilesystemProviderType] will not be
-	// set.
+	// when provisioning new filesystem storage in the model.
 	FilesystemPoolUUID *domainstorage.StoragePoolUUID
-
-	// FilesystemProviderType describes the storage provider type that should
-	// be used when provisioning new filesystem storage in the model. If this
-	// value is set then [defaultStorageProvisioners.FilesystemPoolUUID] will
-	// not be set.
-	FilesystemProviderType *string
 }
 
 // RegisterUnitStorageArg represents the arguments required for registering a
@@ -116,12 +100,7 @@ type StorageDirective struct {
 	// PoolUUID defines the storage pool uuid to use for the directive. This is
 	// an optional value and if not set it is expected that
 	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID *domainstorage.StoragePoolUUID
-
-	// ProviderType defines the storage provider type to use for the directive.
-	// This is an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
-	ProviderType *string
+	PoolUUID domainstorage.StoragePoolUUID
 
 	// Size defines the size of the storage directive in MiB.
 	Size uint64
@@ -140,12 +119,7 @@ type CreateStorageDirectiveArg struct {
 	// PoolUUID defines the storage pool uuid to use for the directive. This is
 	// an optional value and if not set it is expected that
 	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID *domainstorage.StoragePoolUUID
-
-	// ProviderType defines the storage provider type to use for the directive.
-	// This is an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.PoolUUID] is set.
-	ProviderType *string
+	PoolUUID domainstorage.StoragePoolUUID
 
 	// Size defines the size of the storage directive in MiB.
 	Size uint64

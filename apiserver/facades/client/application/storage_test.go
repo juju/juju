@@ -36,9 +36,7 @@ func (s *storageSuite) TestStorageDirectives(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolUUID := domainstorage.StoragePoolUUID(uuid.MustNewUUID().String())
-	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "test-pool").Return(domainstorage.StoragePool{
-		UUID: poolUUID.String(),
-	}, nil)
+	s.storageService.EXPECT().GetStoragePoolUUID(gomock.Any(), "test-pool").Return(poolUUID, nil)
 
 	directives := map[string]storage.Directive{
 		"a": {

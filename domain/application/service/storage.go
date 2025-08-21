@@ -167,18 +167,6 @@ type StorageProviderValidator interface {
 		domainstorage.StoragePoolUUID,
 		internalcharm.StorageType,
 	) (bool, error)
-
-	// CheckProviderTypeSupportsCharmStorage checks that the provider type can
-	// be used for provisioning a certain type of charm storage.
-	//
-	// The following errors may be expected:
-	// - [storageerrors.ProviderTypeNotFound] when no provider type for the
-	// supplied name exists.
-	CheckProviderTypeSupportsCharmStorage(
-		context.Context,
-		string,
-		internalcharm.StorageType,
-	) (bool, error)
 }
 
 // AttachStorage attached the specified storage to the specified unit.
@@ -307,46 +295,6 @@ func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
 	}
 }
 
-// CheckProviderTypeSupportsCharmStorage checks that the provider type can
-// be used for provisioning a certain type of charm storage.
-//
-// The following errors may be expected:
-// - [storageerrors.ProviderTypeNotFound] when no provider type for the
-// supplied name exists.
-func (v *DefaultStorageProviderValidator) CheckProviderTypeSupportsCharmStorage(
-	ctx context.Context,
-	providerTypeStr string,
-	storageType internalcharm.StorageType,
-) (bool, error) {
-	providerRegistry, err := v.providerRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return false, errors.Errorf(
-			"getting model storage provider registry: %w", err,
-		)
-	}
-
-	providerType := storage.ProviderType(providerTypeStr)
-	provider, err := providerRegistry.StorageProvider(providerType)
-	if errors.Is(err, coreerrors.NotFound) {
-		return false, errors.Errorf(
-			"provider type %q does not exist", providerTypeStr,
-		).Add(storageerrors.ProviderTypeNotFound)
-	} else if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	switch storageType {
-	case internalcharm.StorageFilesystem:
-		return provider.Supports(storage.StorageKindFilesystem), nil
-	case internalcharm.StorageBlock:
-		return provider.Supports(storage.StorageKindBlock), nil
-	default:
-		return false, errors.Errorf(
-			"unknown charm storage type %q", storageType,
-		)
-	}
-}
-
 // DetachStorageForUnit detaches the specified storage from the specified unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
@@ -444,11 +392,10 @@ func makeUnitStorageArgs(
 		// We make the storage directive args first. This is becase we know we
 		// will change the count in the struct later.
 		rvalDirectives = append(rvalDirectives, application.CreateUnitStorageDirectiveArg{
-			Count:        sd.Count,
-			Name:         sd.Name,
-			PoolUUID:     sd.PoolUUID,
-			ProviderType: sd.ProviderType,
-			Size:         sd.Size,
+			Count:    sd.Count,
+			Name:     sd.Name,
+			PoolUUID: sd.PoolUUID,
+			Size:     sd.Size,
 		})
 
 		existingStorageUUIDs := existingStorage[sd.Name]
@@ -546,11 +493,10 @@ func makeStorageDirectiveFromApplicationArg(
 	rval := make([]application.StorageDirective, 0, len(applicationArgs))
 	for _, arg := range applicationArgs {
 		rval = append(rval, application.StorageDirective{
-			Name:         arg.Name,
-			Count:        arg.Count,
-			PoolUUID:     arg.PoolUUID,
-			ProviderType: arg.ProviderType,
-			Size:         arg.Size,
+			Name:     arg.Name,
+			Count:    arg.Count,
+			PoolUUID: arg.PoolUUID,
+			Size:     arg.Size,
 		})
 	}
 

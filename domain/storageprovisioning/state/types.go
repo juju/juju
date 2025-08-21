@@ -90,8 +90,8 @@ func (l filesystemLives) Iter(yield func(string, life.Life) bool) {
 // filesystemAttachmentParams represents the attachment params for a filesystem
 // attachment from the model database.
 type filesystemAttachmentParams struct {
+	Type       string           `db:"type"`
 	InstanceID sql.Null[string] `db:"instance_id"`
-	Type       sql.Null[string] `db:"type"`
 	ProviderID sql.Null[string] `db:"provider_id"`
 	Location   sql.Null[string] `db:"location"`
 	ReadOnly   sql.Null[bool]   `db:"read_only"`
@@ -100,9 +100,9 @@ type filesystemAttachmentParams struct {
 // filesystemParams represents the attachment params for a filesystem from the
 // model database.
 type filesystemParams struct {
-	FilesystemID string           `db:"filesystem_id"`
-	Type         sql.Null[string] `db:"type"`
-	SizeMiB      uint64           `db:"size_mib"`
+	FilesystemID string `db:"filesystem_id"`
+	Type         string `db:"type"`
+	SizeMiB      uint64 `db:"size_mib"`
 }
 
 // filesystemUUID represents the UUID of a record in the filesystem table.

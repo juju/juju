@@ -16,3 +16,11 @@ func GenStorageInstanceUUID(c *tc.C) storage.StorageInstanceUUID {
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
+
+// GenStoragePoolUUID generates a new [storage.StoragePoolUUID] for
+// testing purposes.
+func GenStoragePoolUUID(c *tc.C) storage.StoragePoolUUID {
+	uuid, err := storage.NewStoragePoolUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	return uuid
+}
