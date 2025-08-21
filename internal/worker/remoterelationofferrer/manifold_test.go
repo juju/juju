@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationofferrer
 
 import (
 	"testing"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
@@ -40,9 +39,6 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		DomainServicesName:          "domain-services",
 		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
 			return nil, nil
-		},
-		NewLocalRemoteRelationFacade: func(apiCaller base.APICaller) RemoteRelationsFacade {
-			return nil
 		},
 		NewRemoteRelationClientGetter: func(acg apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
 			return nil

@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationconsumer
 
 import (
 	"context"
@@ -23,13 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ReportableWorker is an interface that allows a worker to be reported
-// on by the engine.
-type ReportableWorker interface {
-	worker.Worker
-	Report() map[string]any
-}
-
 // RemoteApplicationConfig defines the configuration for a remote application
 // worker.
 type RemoteApplicationConfig struct {
@@ -37,7 +30,6 @@ type RemoteApplicationConfig struct {
 	ApplicationName            string
 	LocalModelUUID             string
 	RemoteModelUUID            string
-	IsConsumerProxy            bool
 	ConsumeVersion             int
 	Macaroon                   *macaroon.Macaroon
 	RemoteRelationsFacade      RemoteRelationsFacade
@@ -94,7 +86,6 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		applicationName:            config.ApplicationName,
 		localModelUUID:             config.LocalModelUUID,
 		remoteModelUUID:            config.RemoteModelUUID,
-		isConsumerProxy:            config.IsConsumerProxy,
 		consumeVersion:             config.ConsumeVersion,
 		offerMacaroon:              config.Macaroon,
 		localRelationUnitChanges:   make(chan RelationUnitChangeEvent),

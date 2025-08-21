@@ -159,3 +159,20 @@ type RemoteApplicationConsumer struct {
 	// authenticate with the offerer model.
 	Macaroon *macaroon.Macaroon
 }
+
+// RemoteApplicationOfferrer represents a remote application
+type RemoteApplicationOfferrer struct {
+	// ApplicationName is the name of the remote application.
+	ApplicationName string
+
+	// Life is the lifecycle state of the remote application.
+	Life life.Life
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming.
+	OfferUUID string
+
+	// ConsumeVersion is the version of the offer that the remote application is
+	// consuming.
+	ConsumeVersion int
+}

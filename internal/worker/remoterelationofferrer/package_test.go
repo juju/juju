@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationofferrer
 
 import (
 	"time"
@@ -15,15 +15,14 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelations -destination service_mock_test.go -source worker.go
-//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelations -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelations RemoteRelationClientGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferrer -destination service_mock_test.go -source worker.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferrer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationofferrer RemoteRelationClientGetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
 	crossModelRelationService  *MockCrossModelRelationService
 	remoteModelRelationClient  *MockRemoteModelRelationsClient
-	remoteRelationsFacade      *MockRemoteRelationsFacade
 	remoteRelationClientGetter *MockRemoteRelationClientGetter
 
 	logger logger.Logger
@@ -34,7 +33,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
-	s.remoteRelationsFacade = NewMockRemoteRelationsFacade(ctrl)
 	s.remoteRelationClientGetter = NewMockRemoteRelationClientGetter(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)

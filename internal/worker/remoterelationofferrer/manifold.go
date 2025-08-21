@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationofferrer
 
 import (
 	"context"
@@ -13,9 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
-	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
@@ -52,7 +50,6 @@ type ManifoldConfig struct {
 	APIRemoteRelationCallerName string
 	DomainServicesName          string
 
-	NewLocalRemoteRelationFacade  func(base.APICaller) RemoteRelationsFacade
 	NewRemoteRelationClientGetter NewRemoteRelationClientGetterFunc
 
 	GetCrossModelServices GetCrossModelServicesFunc
@@ -62,12 +59,6 @@ type ManifoldConfig struct {
 
 	Logger logger.Logger
 	Clock  clock.Clock
-
-	// Active indicates if the worker should be started. This is only here so
-	// that we can work on implementing cross-model relations behind a flag,
-	// which prevents the dependency engine from starting the worker because
-	// of other errors.
-	Active bool
 }
 
 // Validate is called by start to check for bad configuration.
@@ -119,10 +110,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			if !config.Active {
-				return nil, dependency.ErrUninstall
-			}
-
 			var agent agent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
@@ -147,7 +134,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 				CrossModelRelationService: crossModelRelationService,
 
-				RelationsFacade:            config.NewLocalRemoteRelationFacade(apiConn),
 				RemoteRelationClientGetter: config.NewRemoteRelationClientGetter(apiRemoteCallerGetter),
 
 				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
@@ -172,12 +158,6 @@ func GetCrossModelServices(getter dependency.Getter, domainServicesName string) 
 	}
 
 	return services.CrossModelRelation(), nil
-}
-
-// NewLocalRemoteRelationFacade creates a new RemoteRelationsFacade using the
-// APICaller.
-func NewLocalRemoteRelationFacade(apiCaller base.APICaller) RemoteRelationsFacade {
-	return remoterelations.NewClient(apiCaller)
 }
 
 // NewRemoteRelationClientGetter creates a new RemoteRelationClientGetter
