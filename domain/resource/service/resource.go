@@ -341,7 +341,7 @@ func (s *Service) GetResource(
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return coreresource.Resource{}, errors.Errorf("application id: %w", err)
+		return coreresource.Resource{}, errors.Errorf("resource id: %w", err)
 	}
 	return s.st.GetResource(ctx, resourceUUID)
 }

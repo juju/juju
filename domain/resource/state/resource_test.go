@@ -647,6 +647,51 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 	c.Assert(obtained, tc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
+// TestGetResourcePending verifies the successful retrieval of a resource
+// from the database by its ID, even if the application does not yet exist.
+// Required to add a pending resource.
+func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
+	// Arrange : a simple resource
+	resID := coreresource.UUID("resource-id")
+	now := time.Now().Truncate(time.Second).UTC()
+	expected := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "resource-name",
+				Path:        "/path/to/resource",
+				Description: "this is a test resource",
+				Type:        charmresource.TypeFile,
+			},
+			Revision: 42,
+			Origin:   charmresource.OriginUpload,
+		},
+		UUID:      resID,
+		Timestamp: now,
+	}
+	input := resourceData{
+		UUID:        resID.String(),
+		Revision:    expected.Revision,
+		OriginType:  "uploaded",
+		CreatedAt:   now,
+		Name:        expected.Name,
+		Type:        charmresource.TypeFile,
+		Path:        expected.Path,
+		Description: expected.Description,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(c.Context(), tx)
+		return errors.Capture(err)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	obtained, err := s.state.GetResource(c.Context(), resID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	c.Assert(obtained, tc.DeepEquals, expected)
+}
+
 func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
