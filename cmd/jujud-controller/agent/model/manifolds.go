@@ -296,6 +296,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                     agentName,
 			APICallerName:                 apiCallerName,
 			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
+			DomainServicesName:            domainServicesName,
+			GetCrossModelServices:         remoterelations.GetCrossModelServices,
 			NewRemoteRelationClientGetter: remoterelations.NewRemoteRelationClientGetter,
 			NewLocalRemoteRelationFacade:  remoterelations.NewLocalRemoteRelationFacade,
 			NewWorker:                     remoterelations.NewWorker,

@@ -34,7 +34,6 @@ type ReportableWorker interface {
 // worker.
 type RemoteApplicationConfig struct {
 	OfferUUID                  string
-	ApplicationID              string
 	ApplicationName            string
 	LocalModelUUID             string
 	RemoteModelUUID            string
@@ -60,7 +59,6 @@ type remoteApplicationWorker struct {
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID                 string
-	applicationID             string
 	applicationName           string // name of the remote application proxy in the local model
 	localModelUUID            string // uuid of the model hosting the local application
 	remoteModelUUID           string // uuid of the model hosting the remote offer
@@ -93,7 +91,6 @@ type remoteApplicationWorker struct {
 func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
 	w := &remoteApplicationWorker{
 		offerUUID:                  config.OfferUUID,
-		applicationID:              config.ApplicationID,
 		applicationName:            config.ApplicationName,
 		localModelUUID:             config.LocalModelUUID,
 		remoteModelUUID:            config.RemoteModelUUID,
@@ -131,14 +128,14 @@ func (w *remoteApplicationWorker) Wait() error {
 	return err
 }
 
-// ApplicationID returns the application ID for the remote application worker.
-func (w *remoteApplicationWorker) ApplicationID() string {
-	return w.applicationID
-}
-
 // OfferUUID returns the offer UUID for the remote application worker.
 func (w *remoteApplicationWorker) OfferUUID() string {
 	return w.offerUUID
+}
+
+// ConsumeVersion returns the consume version for the remote application worker.
+func (w *remoteApplicationWorker) ConsumeVersion() int {
+	return w.consumeVersion
 }
 
 // Report provides information for the engine report.
