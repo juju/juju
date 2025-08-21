@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -36,6 +37,10 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		AgentName:                   "agent",
 		APICallerName:               "api-caller",
 		APIRemoteRelationCallerName: "api-remote-relation-caller",
+		DomainServicesName:          "domain-services",
+		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
+			return nil, nil
+		},
 		NewLocalRemoteRelationFacade: func(apiCaller base.APICaller) RemoteRelationsFacade {
 			return nil
 		},
@@ -72,6 +77,11 @@ func (s *ManifoldConfigSuite) TestMissingAPIRemoteRelationCallerName(c *tc.C) {
 	s.checkNotValid(c, "empty APIRemoteRelationCallerName not valid")
 }
 
+func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
+}
+
 func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *tc.C) {
 	s.config.NewRemoteRelationClientGetter = nil
 	s.checkNotValid(c, "nil NewRemoteRelationClientGetter not valid")
@@ -85,6 +95,11 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationClientGetter(c *tc.C) {
 	s.config.NewRemoteRelationClientGetter = nil
 	s.checkNotValid(c, "nil NewRemoteRelationClientGetter not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingGetCrossModelServices(c *tc.C) {
+	s.config.GetCrossModelServices = nil
+	s.checkNotValid(c, "nil GetCrossModelServices not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingClock(c *tc.C) {

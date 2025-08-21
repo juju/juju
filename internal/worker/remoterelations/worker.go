@@ -17,10 +17,11 @@ import (
 	"github.com/juju/juju/api"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/crossmodelrelation"
+	domainlife "github.com/juju/juju/domain/life"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,16 +29,16 @@ import (
 // RemoteApplicationWorker is an interface that defines the methods that a
 // remote application worker must implement to be managed by the Worker.
 type RemoteApplicationWorker interface {
-	// ApplicationID returns the application ID for the remote application
-	// worker.
-	ApplicationID() string
-
 	// ApplicationName returns the application name for the remote application
 	// worker.
 	ApplicationName() string
 
 	// OfferUUID returns the offer UUID for the remote application worker.
 	OfferUUID() string
+
+	// ConsumeVersion returns the consume version for the remote application
+	// worker.
+	ConsumeVersion() int
 }
 
 // RemoteModelRelationsClient instances publish local relation changes to the
@@ -94,17 +95,9 @@ type RemoteRelationsFacade interface {
 	// with the specified keys in the local model.
 	Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error)
 
-	// RemoteApplications returns the current state of the remote applications with
-	// the specified names in the local model.
-	RemoteApplications(ctx context.Context, names []string) ([]params.RemoteApplicationResult, error)
-
 	// WatchLocalRelationChanges returns a watcher that notifies of changes to the
 	// local units in the relation with the given key.
 	WatchLocalRelationChanges(ctx context.Context, relationKey string) (apiwatcher.RemoteRelationWatcher, error)
-
-	// WatchRemoteApplications watches for addition, removal and lifecycle
-	// changes to remote applications known to the local model.
-	WatchRemoteApplications(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 	// each specified application in the local model, and returns the watcher IDs
@@ -131,9 +124,22 @@ type RemoteRelationsFacade interface {
 	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
 }
 
+// CrossModelRelationService is an interface that defines the methods for
+// managing cross-model relations directly on the local model database.
+type CrossModelRelationService interface {
+	// WatchRemoteApplicationConsumers watches the changes to remote
+	// application consumers and notifies the worker of any changes.
+	WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error)
+
+	// GetRemoteApplicationConsumers returns the current state of all remote
+	// application consumers in the local model.
+	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                  string
+	CrossModelRelationService  CrossModelRelationService
 	RelationsFacade            RemoteRelationsFacade
 	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
@@ -145,6 +151,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
+	}
+	if config.CrossModelRelationService == nil {
+		return errors.NotValidf("nil CrossModelRelationService")
 	}
 	if config.RelationsFacade == nil {
 		return errors.NotValidf("nil Facade")
@@ -168,6 +177,8 @@ type Worker struct {
 	runner   *worker.Runner
 
 	config Config
+
+	crossModelRelationService CrossModelRelationService
 
 	logger logger.Logger
 }
@@ -197,7 +208,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		runner: runner,
 		config: config,
-		logger: config.Logger,
+
+		crossModelRelationService: config.CrossModelRelationService,
+		logger:                    config.Logger,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -231,11 +244,11 @@ func (w *Worker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	changes, err := w.config.RelationsFacade.WatchRemoteApplications(ctx)
+	watcher, err := w.crossModelRelationService.WatchRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(changes); err != nil {
+	if err := w.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -243,59 +256,44 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case applicationIDs, ok := <-changes.Changes():
+		case _, ok := <-watcher.Changes():
 			if !ok {
 				return errors.New("change channel closed")
 			}
 
-			if err := w.handleApplicationChanges(ctx, applicationIDs); err != nil {
+			if err := w.handleApplicationChanges(ctx); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIDs []string) error {
-	w.logger.Debugf(ctx, "processing remote application changes for: %s", applicationIDs)
+func (w *Worker) handleApplicationChanges(ctx context.Context) error {
+	w.logger.Debugf(ctx, "processing remote application changes")
 
 	// Fetch the current state of each of the remote applications that have changed.
-	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIDs)
+	results, err := w.crossModelRelationService.GetRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
 
-	for i, result := range results {
-		applicationID := applicationIDs[i]
-
-		// The remote application may refer to an offer that has been removed
-		// from the offering model, or it may refer to a new offer with a
-		// different UUID. If it is for a new offer, we need to stop any current
-		// worker for the old offer.
-		notFound := result.Error != nil && params.IsCodeNotFound(result.Error)
-		if result.Error != nil && !notFound {
-			return errors.Annotatef(result.Error, "querying remote applications")
-		} else if notFound || appTerminated(result.Result) {
-			// The remote application has been removed, stop its worker.
-			appName, err := w.getApplicationNameFromID(applicationID)
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "getting application name for ID %q", applicationID)
-			}
-			if err := w.runner.StopAndRemoveWorker(appName, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
-				w.logger.Warningf(ctx, "error stopping remote application worker for %q: %v", appName, err)
-			}
-
-			// We don't need to do anything else for this application, so
-			// continue to the next one.
+	witnessed := make(map[string]struct{})
+	for _, remoteApp := range results {
+		if remoteApp.Life == domainlife.Dead {
+			// If the remote application is dead, then we won't witness the
+			// application, so we can skip it, causing it to be removed and
+			// stopped.
 			continue
 		}
 
-		remoteApp := result.Result
-		appName := remoteApp.Name
+		appName := remoteApp.ApplicationName
 
-		// Now check to see if the offer UUID has changed for the remote
-		// application.
-		offerChanged, err := w.hasRemoteAppChanged(appName, result.Result.OfferUUID)
-		if err != nil {
+		// We've witnessed the application, so we need to either start a new
+		// worker or recreate it depending on if the offer has changed.
+		witnessed[remoteApp.ApplicationName] = struct{}{}
+
+		// Now check to see if the offer has changed for the remote application.
+		if offerChanged, err := w.hasRemoteAppChanged(remoteApp); err != nil {
 			return errors.Annotatef(err, "checking offer UUID for remote application %q", appName)
 		} else if offerChanged {
 			if err := w.runner.StopAndRemoveWorker(appName, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
@@ -309,11 +307,9 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIDs []
 		if err := w.runner.StartWorker(ctx, appName, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
 				OfferUUID:                  remoteApp.OfferUUID,
-				ApplicationID:              applicationID,
-				ApplicationName:            remoteApp.Name,
+				ApplicationName:            remoteApp.ApplicationName,
 				LocalModelUUID:             w.config.ModelUUID,
-				RemoteModelUUID:            remoteApp.ModelUUID,
-				IsConsumerProxy:            remoteApp.IsConsumerProxy,
+				RemoteModelUUID:            remoteApp.OffererModelUUID,
 				ConsumeVersion:             remoteApp.ConsumeVersion,
 				Macaroon:                   remoteApp.Macaroon,
 				RemoteRelationsFacade:      w.config.RelationsFacade,
@@ -325,35 +321,28 @@ func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIDs []
 			return errors.Annotate(err, "error starting remote application worker")
 		}
 	}
-	return nil
-}
 
-func (w *Worker) getApplicationNameFromID(applicationID string) (string, error) {
 	for _, name := range w.runner.WorkerNames() {
-		worker, err := w.runner.Worker(name, w.catacomb.Dying())
-		if errors.Is(err, errors.NotFound) {
+		if _, ok := witnessed[name]; ok {
+			// We have witnessed this application, so we don't need to stop it.
 			continue
-		} else if err != nil {
-			return "", err
 		}
 
-		r, ok := worker.(RemoteApplicationWorker)
-		if !ok {
-			return "", errors.Errorf("worker %q is not a RemoteApplicationWorker", worker)
-		}
-
-		if r.ApplicationID() == applicationID {
-			return r.ApplicationName(), nil
+		w.logger.Debugf(ctx, "stopping remote application worker %q", name)
+		if err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying()); err != nil && !errors.Is(err, errors.NotFound) {
+			w.logger.Warningf(ctx, "error stopping remote application worker %q: %v", name, err)
 		}
 	}
 
-	return "", errors.NotFoundf("remote application with ID %q", applicationID)
+	return nil
 }
 
-func (w *Worker) hasRemoteAppChanged(name, offerUUID string) (bool, error) {
+func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicationConsumer) (bool, error) {
+	appName := remoteApp.ApplicationName
+
 	// If the worker for the name doesn't exist then that's ok, we just return
 	// false to indicate that the offer UUID has not changed.
-	remoteApp, err := w.runner.Worker(name, w.catacomb.Dying())
+	worker, err := w.runner.Worker(remoteApp.ApplicationName, w.catacomb.Dying())
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	} else if err != nil {
@@ -362,19 +351,16 @@ func (w *Worker) hasRemoteAppChanged(name, offerUUID string) (bool, error) {
 
 	// Now check if the remote application worker implements the
 	// RemoteApplicationWorker interface, which provides the OfferUUID method.
-	// If the offer UUID is different to the one we have, then we need to
-	// stop the worker and start a new one.
+	// If the offer UUID of consume version is different to the one we have,
+	// then we need to stop the worker and start a new one.
 
-	appWorker, ok := remoteApp.(RemoteApplicationWorker)
+	appWorker, ok := worker.(RemoteApplicationWorker)
 	if !ok {
-		return false, errors.Errorf("worker %q is not a RemoteApplicationWorker", name)
+		return false, errors.Errorf("worker %q is not a RemoteApplicationWorker", appName)
 	}
 
-	return appWorker.OfferUUID() != offerUUID, nil
-}
-
-func appTerminated(remoteApp *params.RemoteApplication) bool {
-	return remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
+	return appWorker.OfferUUID() != remoteApp.OfferUUID ||
+		appWorker.ConsumeVersion() != remoteApp.ConsumeVersion, nil
 }
 
 // Report provides information for the engine report.
