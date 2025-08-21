@@ -19,11 +19,11 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
-// InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
-type InstanceMutaterV2 interface {
+// InstanceMutaterV4 defines the methods on the instance mutater API facade, version 4.
+type InstanceMutaterV4 interface {
 	Life(args params.Entities) (params.LifeResults, error)
 
-	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
+	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResultV4, error)
 	ContainerType(arg params.Entity) (params.ContainerTypeResult, error)
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
 	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
@@ -39,6 +39,19 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
+}
+
+type InstanceMutaterAPIV4 struct {
+	*InstanceMutaterAPI
+}
+
+type charmProfilingData struct {
+	InstanceId      instance.Id
+	ModelName       string
+	ModelUUID       string
+	ProfileChanges  []params.ProfileInfoResult
+	CurrentProfiles []string
+	Error           *params.Error
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
@@ -72,41 +85,84 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	}, nil
 }
 
+func NewInstanceMutaterAPIV4(st InstanceMutaterState,
+	watcher InstanceMutatorWatcher,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*InstanceMutaterAPIV4, error) {
+	api, err := NewInstanceMutaterAPI(st, watcher, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &InstanceMutaterAPIV4{api}, nil
+}
+
+func (api *InstanceMutaterAPI) gatherCharmProfilingData(arg params.Entity) (charmProfilingData, error) {
+	data := charmProfilingData{
+		ProfileChanges: make([]params.ProfileInfoResult, 0),
+	}
+
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return data, errors.Trace(err)
+	}
+	tag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		data.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		return data, nil
+	}
+	m, err := api.getMachine(canAccess, tag)
+	if err != nil {
+		data.Error = apiservererrors.ServerError(err)
+		return data, nil
+	}
+	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
+	if err != nil {
+		data.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
+		return data, nil
+	}
+
+	data.InstanceId = lxdProfileInfo.InstanceId
+	data.ModelName = lxdProfileInfo.ModelName
+	data.ModelUUID = lxdProfileInfo.ModelUUID
+	data.CurrentProfiles = lxdProfileInfo.MachineProfiles
+	data.ProfileChanges = lxdProfileInfo.ProfileUnits
+
+	return data, nil
+}
+
+// CharmProfilingInfo returns the same data as InstanceMutaterAPI implementation
+// with the addition of a ModelUUID field.
+func (api *InstanceMutaterAPIV4) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResultV4, error) {
+	data, err := api.gatherCharmProfilingData(arg)
+	if err != nil {
+		return params.CharmProfilingInfoResultV4{}, err
+	}
+	return params.CharmProfilingInfoResultV4{
+		InstanceId:      data.InstanceId,
+		ModelName:       data.ModelName,
+		ModelUUID:       data.ModelUUID,
+		CurrentProfiles: data.CurrentProfiles,
+		ProfileChanges:  data.ProfileChanges,
+		Error:           data.Error,
+	}, nil
+}
+
 // CharmProfilingInfo returns info to update lxd profiles on the machine. If
 // the machine is not provisioned, no profile change info will be returned,
 // nor will an error.
 func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
-	result := params.CharmProfilingInfoResult{
-		ProfileChanges: make([]params.ProfileInfoResult, 0),
-	}
-	canAccess, err := api.getAuthFunc()
+	data, err := api.gatherCharmProfilingData(arg)
 	if err != nil {
-		return params.CharmProfilingInfoResult{}, errors.Trace(err)
+		return params.CharmProfilingInfoResult{}, err
 	}
-	tag, err := names.ParseMachineTag(arg.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-		return result, nil
-	}
-	m, err := api.getMachine(canAccess, tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
-	}
-
-	// use the results from the machineLXDProfileInfo and apply them to the
-	// result
-	result.InstanceId = lxdProfileInfo.InstanceId
-	result.ModelName = lxdProfileInfo.ModelName
-	result.ModelUUID = lxdProfileInfo.ModelUUID
-	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
-	result.ProfileChanges = lxdProfileInfo.ProfileUnits
-
-	return result, nil
+	return params.CharmProfilingInfoResult{
+		InstanceId:      data.InstanceId,
+		ModelName:       data.ModelName,
+		CurrentProfiles: data.CurrentProfiles,
+		ProfileChanges:  data.ProfileChanges,
+		Error:           data.Error,
+	}, nil
 }
 
 // ContainerType returns the container type of a machine.

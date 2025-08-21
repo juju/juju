@@ -3382,7 +3382,7 @@
                             "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmProfilingInfoResult"
+                            "$ref": "#/definitions/CharmProfilingInfoResultV4"
                         }
                     }
                 },
@@ -3505,7 +3505,7 @@
                         "devices"
                     ]
                 },
-                "CharmProfilingInfoResult": {
+                "CharmProfilingInfoResultV4": {
                     "type": "object",
                     "properties": {
                         "current-profiles": {
