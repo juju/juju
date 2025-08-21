@@ -442,7 +442,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentsForUnit(gomock.Any(), unitUUID).Return(sourceWatcher, nil)
-	s.mockWatcherRegistry.EXPECT().Register(sourceWatcher).Return("66", nil)
+	s.mockWatcherRegistry.EXPECT().Register(gomock.Any(), sourceWatcher).Return("66", nil)
 
 	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
 		Entities: []params.Entity{
@@ -524,7 +524,7 @@ func (s *storageSuite) TestWatchStorageAttachmentsForMachine(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForMachine(gomock.Any(),
 		"foo/1", machineUUID,
 	).Return(sourceWatcher, nil)
-	s.mockWatcherRegistry.EXPECT().Register(sourceWatcher).Return("66", nil)
+	s.mockWatcherRegistry.EXPECT().Register(gomock.Any(), sourceWatcher).Return("66", nil)
 
 	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
@@ -755,7 +755,7 @@ func (s *storageSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
 		"foo/1", unitUUID,
 	).Return(sourceWatcher, nil)
-	s.mockWatcherRegistry.EXPECT().Register(sourceWatcher).Return("66", nil)
+	s.mockWatcherRegistry.EXPECT().Register(gomock.Any(), sourceWatcher).Return("66", nil)
 
 	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{
