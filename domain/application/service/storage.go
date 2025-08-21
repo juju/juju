@@ -464,7 +464,7 @@ func makeUnitStorageInstancesFromDirective(
 			)
 		}
 
-		fsUUID, err := domainstorageprov.NewFileystemUUID()
+		fsUUID, err := domainstorageprov.NewFilesystemUUID()
 		if err != nil {
 			return nil, errors.Errorf(
 				"generating new storage filesystem uuid: %w", err,

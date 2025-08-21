@@ -68,6 +68,7 @@ type insertStorageInstanceAttachment struct {
 	LifeID              int    `db:"life_id"`
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
+	UUID                string `db:"uuid"`
 }
 
 // insertStorageVolume represents the set of values required for inserting a

@@ -843,16 +843,21 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 // makeInsertUnitStorageAttachmentArgs is responsible for making the set of
 // storage instance attachment arguments that correspond to the storage uuids.
 func makeInsertUnitStorageAttachmentArgs(
-	ctx context.Context,
+	_ context.Context,
 	unitUUID coreunit.UUID,
 	storageToAttach []domainstorage.StorageInstanceUUID,
 ) ([]insertStorageInstanceAttachment, error) {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, instUUID := range storageToAttach {
+		saUUID, err := storageprovisioning.NewStorageAttachmentUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
 		rval = append(rval, insertStorageInstanceAttachment{
 			LifeID:              int(life.Alive),
 			StorageInstanceUUID: instUUID.String(),
 			UnitUUID:            unitUUID.String(),
+			UUID:                saUUID.String(),
 		})
 	}
 
@@ -863,7 +868,7 @@ func makeInsertUnitStorageAttachmentArgs(
 // storage instance unit owner arguments that correspond to the unit and storage
 // instances supplied.
 func makeInsertUnitStorageOwnerArgs(
-	ctx context.Context,
+	_ context.Context,
 	unitUUID coreunit.UUID,
 	storageToOwn []domainstorage.StorageInstanceUUID,
 ) []insertStorageUnitOwner {
@@ -1489,7 +1494,17 @@ func (st *State) attachmentParamsForStorageInstance(
 func (st *State) attachStorageToUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {
-	sa := storageAttachment{StorageUUID: storageUUID, UnitUUID: unitUUID, LifeID: life.Alive}
+	saUUID, err := storageprovisioning.NewStorageAttachmentUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	sa := storageAttachment{
+		StorageUUID: storageUUID,
+		UnitUUID:    unitUUID,
+		LifeID:      life.Alive,
+		UUID:        saUUID.String(),
+	}
+
 	attachmentQuery, err := st.Prepare(`
 SELECT &storageAttachment.* FROM storage_attachment
 WHERE  unit_uuid = $storageAttachment.unit_uuid
