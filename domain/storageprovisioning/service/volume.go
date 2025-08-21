@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/changestream"
+	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -109,6 +109,18 @@ type VolumeState interface {
 	// when no volume exists for the provided volume uuid.
 	GetVolumeUUIDForID(context.Context, string) (storageprovisioning.VolumeUUID, error)
 
+	// GetVolumeUUIDForStorageID returns the UUID for a volume with the supplied
+	// storage ID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
+	// for the provided storage ID.
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+	// for the provided volume uuid.
+	GetVolumeUUIDForStorageID(
+		ctx context.Context, storageID string,
+	) (storageprovisioning.VolumeUUID, error)
+
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
 	// machine provisioned and the initial query for getting the set of volumes
@@ -145,6 +157,10 @@ type VolumeState interface {
 	// getting the set of volume attachment plans in the model that are
 	// provisioned by the supplied machine in the model.
 	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+
+	// NamespaceForVolumeAttachments returns the change stream namespace
+	// for watching volume attachment changes.
+	NamespaceForVolumeAttachments() string
 }
 
 // GetVolumeAttachmentIDs returns the
@@ -364,7 +380,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 		ctx,
 		initialQuery,
 		"model provisioned volume watcher",
-		eventsource.NamespaceFilter(ns, changestream.All))
+		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
 // WatchMachineProvisionedVolumes returns a watcher that emits volume IDs,
@@ -396,7 +412,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumes(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -425,7 +441,7 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 		ctx,
 		initialQuery,
 		"model provisioned volume attachment watcher",
-		eventsource.NamespaceFilter(ns, changestream.All),
+		eventsource.NamespaceFilter(ns, corechangestream.All),
 	)
 }
 
@@ -459,7 +475,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -504,7 +520,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 	ns, initialLifeQuery := s.st.InitialWatchStatementVolumeAttachmentPlans(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -569,4 +585,31 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	blockDevice blockdevice.BlockDevice,
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
+}
+
+func (s *Service) watchVolumeAttachmentForNetNode(
+	ctx context.Context,
+	volumeUUID storageprovisioning.VolumeUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	watcherSummary string,
+) (watcher.NotifyWatcher, error) {
+	if err := netNodeUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	volAttachmentUUID, err := s.st.GetVolumeAttachmentUUIDForVolumeNetNode(
+		ctx, volumeUUID, netNodeUUID,
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(ctx,
+		watcherSummary,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForVolumeAttachments(),
+			corechangestream.All,
+			eventsource.EqualsPredicate(volAttachmentUUID.String()),
+		),
+	)
 }

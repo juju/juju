@@ -55,7 +55,7 @@ func (s *filesystemSuite) TestCheckFilesystemForIDNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
@@ -81,7 +81,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
+	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "rootfs", "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -776,6 +776,34 @@ func (s *filesystemSuite) TestGetFilesystemUUIDForID(c *tc.C) {
 	c.Check(gotUUID.String(), tc.Equals, fsUUID.String())
 }
 
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageID(c *tc.C) {
+	fsUUID, _ := s.newModelFilesystem(c)
+	storageInstanceUUID, storageID := s.newStorageInstance(c, "mystorage")
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	gotUUID, err := st.GetFilesystemUUIDForStorageID(c.Context(), storageID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUID.String(), tc.Equals, fsUUID.String())
+}
+
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemUUIDForStorageID(c.Context(), "foo/1")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemUUIDForStorageIDWithFilesystemNotFound(c *tc.C) {
+	_, storageID := s.newStorageInstance(c, "mystorage")
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetFilesystemUUIDForStorageID(c.Context(), storageID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
+}
+
 // TestSetFilesystemProvisionedInfo checks if SetFilesystemProvisionedInfo only
 // affects the specified filesystem.
 func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
@@ -863,7 +891,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsUsingProvider(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
+	suuid, _ := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
@@ -922,7 +950,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndMachi
 	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
+	suuid, _ := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
 	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newMachineFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "", false)
@@ -974,7 +1002,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingProviderAndUnit(
 	appUUID, charmUUID := s.newApplication(c, "myapp")
 	s.newUnitWithNetNode(c, "myapp/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
-	suuid := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
+	suuid, _ := s.newStorageInstanceForCharmWithProviderType(c, charmUUID, "myprovider", "mystorage")
 	fsUUID, _ := s.newModelFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newModelFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "", false)
