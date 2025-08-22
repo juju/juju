@@ -132,3 +132,4 @@ snap remove multipass
 - Read the [docs](https://canonical-juju.readthedocs-hosted.com).
 - Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and join our [chat](https://matrix.to/#/#charmhub-juju:ubuntu.com) and [forum](https://discourse.charmhub.io/) or [open an issue](https://github.com/juju/juju/issues).
 - Read our [CONTRIBUTING guide](./CONTRIBUTING.md) and contribute!
+- Foobar
