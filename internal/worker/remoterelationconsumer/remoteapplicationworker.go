@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationconsumer
 
 import (
 	"context"
@@ -16,21 +16,26 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
-// ReportableWorker is an interface that allows a worker to be reported
-// on by the engine.
-type ReportableWorker interface {
-	worker.Worker
-	Report() map[string]any
+// RemoteApplicationConfig defines the configuration for a remote application
+// worker.
+type RemoteApplicationConfig struct {
+	OfferUUID                  string
+	ApplicationName            string
+	LocalModelUUID             string
+	RemoteModelUUID            string
+	ConsumeVersion             int
+	Macaroon                   *macaroon.Macaroon
+	RemoteRelationsFacade      RemoteRelationsFacade
+	RemoteRelationClientGetter RemoteRelationClientGetter
+	Clock                      clock.Clock
+	Logger                     logger.Logger
 }
 
 // remoteApplicationWorker listens for localChanges to relations
@@ -49,7 +54,6 @@ type remoteApplicationWorker struct {
 	applicationName           string // name of the remote application proxy in the local model
 	localModelUUID            string // uuid of the model hosting the local application
 	remoteModelUUID           string // uuid of the model hosting the remote offer
-	isConsumerProxy           bool
 	consumeVersion            int
 	localRelationUnitChanges  chan RelationUnitChangeEvent
 	remoteRelationUnitChanges chan RelationUnitChangeEvent
@@ -66,32 +70,38 @@ type remoteApplicationWorker struct {
 	// localModelFacade interacts with the local (consuming) model.
 	localModelFacade RemoteRelationsFacade
 
-	// remoteModelFacade interacts with the remote (offering) model.
-	remoteModelFacade RemoteModelRelationsFacadeCloser
-
-	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc
+	// remoteModelClient interacts with the remote (offering) model.
+	remoteModelClient          RemoteModelRelationsClient
+	remoteRelationClientGetter RemoteRelationClientGetter
 
 	clock  clock.Clock
 	logger logger.Logger
 }
 
-// relation holds attributes relevant to a particular
-// relation between a local app and a remote offer.
-type relation struct {
-	relationId     int
-	localDead      bool
-	suspended      bool
-	localUnitCount int
-
-	localUnitWorker      ReportableWorker
-	remoteUnitWorker     ReportableWorker
-	remoteRelationWorker ReportableWorker
-
-	localApplicationToken string // token for app in local model
-	localRelationToken    string // token for relation in local model
-	localEndpoint         params.RemoteEndpoint
-	remoteEndpointName    string
-	macaroon              *macaroon.Macaroon
+// NewRemoteApplicationWorker creates a new remote application worker.
+func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
+	w := &remoteApplicationWorker{
+		offerUUID:                  config.OfferUUID,
+		applicationName:            config.ApplicationName,
+		localModelUUID:             config.LocalModelUUID,
+		remoteModelUUID:            config.RemoteModelUUID,
+		consumeVersion:             config.ConsumeVersion,
+		offerMacaroon:              config.Macaroon,
+		localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
+		remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
+		localModelFacade:           config.RemoteRelationsFacade,
+		remoteRelationClientGetter: config.RemoteRelationClientGetter,
+		clock:                      config.Clock,
+		logger:                     config.Logger,
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "remote-application",
+		Site: &w.catacomb,
+		Work: w.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 // Kill is defined on worker.Worker
@@ -108,48 +118,51 @@ func (w *remoteApplicationWorker) Wait() error {
 	return err
 }
 
-func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
-	// If consume permission has been revoked for the offer, set the
-	// status of the local remote application entity.
-	if params.ErrCode(err) == params.CodeDischargeRequired {
-		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, err.Error()); err != nil {
-			w.logger.Errorf(ctx,
-				"updating remote application %v status from remote model %v: %v",
-				w.applicationName, w.remoteModelUUID, err)
-		}
-		w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
-		// If we know a specific relation, update that too.
-		if localRelationToken != "" {
-			suspended := true
-			event := params.RemoteRelationChangeEvent{
-				RelationToken:           localRelationToken,
-				ApplicationOrOfferToken: appToken,
-				Suspended:               &suspended,
-				SuspendedReason:         "offer permission revoked",
-			}
-			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, event); err != nil {
-				w.logger.Errorf(ctx, "updating relation status: %v", err)
-			}
-		}
-	}
+// OfferUUID returns the offer UUID for the remote application worker.
+func (w *remoteApplicationWorker) OfferUUID() string {
+	return w.offerUUID
 }
 
-func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
-	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
-	if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Terminated, "offer has been removed"); err != nil {
-		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-	}
-	return nil
+// ConsumeVersion returns the consume version for the remote application worker.
+func (w *remoteApplicationWorker) ConsumeVersion() int {
+	return w.consumeVersion
 }
 
-// isNotFound allows either type of not found error
-// to be correctly handled.
-// TODO(wallyworld) - remove when all api facades are fixed
-func isNotFound(err error) bool {
-	if err == nil {
-		return false
+// Report provides information for the engine report.
+func (w *remoteApplicationWorker) Report() map[string]interface{} {
+	result := make(map[string]interface{})
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	relationsInfo := make(map[string]interface{})
+	for rel, info := range w.relations {
+		report := map[string]interface{}{
+			"relation-id":       info.relationId,
+			"local-dead":        info.localDead,
+			"suspended":         info.suspended,
+			"application-token": info.localApplicationToken,
+			"relation-token":    info.localRelationToken,
+			"local-endpoint":    info.localEndpoint.Name,
+			"remote-endpoint":   info.remoteEndpointName,
+		}
+		if info.remoteRelationWorker != nil {
+			report["last-status-event"] = info.remoteRelationWorker.Report()
+		}
+		if info.localUnitWorker != nil {
+			report["last-local-change"] = info.localUnitWorker.Report()
+		}
+		if info.remoteUnitWorker != nil {
+			report["last-remote-change"] = info.remoteUnitWorker.Report()
+		}
+		relationsInfo[rel] = report
 	}
-	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
+	if len(relationsInfo) > 0 {
+		result["relations"] = relationsInfo
+	}
+	result["remote-model-uuid"] = w.remoteModelUUID
+	result["offer-uuid"] = w.offerUUID
+
+	return result
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
@@ -168,45 +181,35 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 
 	// On the consuming side, watch for status changes to the offer.
-	var (
-		offerStatusWatcher watcher.OfferStatusWatcher
-		offerStatusChanges watcher.OfferStatusChannel
-	)
-	if !w.isConsumerProxy {
-		if err := w.newRemoteRelationsFacadeWithRedirect(ctx); err != nil {
-			msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
-			if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, msg); err != nil {
-				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-			}
-			return errors.Annotate(err, "cannot connect to external controller")
-		}
-		defer func() {
-			if err := w.remoteModelFacade.Close(); err != nil {
-				w.logger.Errorf(ctx, "error closing remote-relations facade: %s", err)
-			}
-		}()
 
-		arg := params.OfferArg{
-			OfferUUID: w.offerUUID,
+	if err := w.newRemoteRelationsClient(ctx); err != nil {
+		msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
+		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, msg); err != nil {
+			return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 		}
-		if w.offerMacaroon != nil {
-			arg.Macaroons = macaroon.Slice{w.offerMacaroon}
-			arg.BakeryVersion = bakery.LatestVersion
-		}
-
-		offerStatusWatcher, err = w.remoteModelFacade.WatchOfferStatus(ctx, arg)
-		if err != nil {
-			w.checkOfferPermissionDenied(ctx, err, "", "")
-			if isNotFound(err) {
-				return w.remoteOfferRemoved(ctx)
-			}
-			return errors.Annotate(err, "watching status for offer")
-		}
-		if err := w.catacomb.Add(offerStatusWatcher); err != nil {
-			return errors.Trace(err)
-		}
-		offerStatusChanges = offerStatusWatcher.Changes()
+		return errors.Annotate(err, "cannot connect to external controller")
 	}
+
+	arg := params.OfferArg{
+		OfferUUID: w.offerUUID,
+	}
+	if w.offerMacaroon != nil {
+		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+		arg.BakeryVersion = bakery.LatestVersion
+	}
+
+	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, arg)
+	if err != nil {
+		w.checkOfferPermissionDenied(ctx, err, "", "")
+		if isNotFound(err) {
+			return w.remoteOfferRemoved(ctx)
+		}
+		return errors.Annotate(err, "watching status for offer")
+	}
+	if err := w.catacomb.Add(offerStatusWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	offerStatusChanges := offerStatusWatcher.Changes()
 
 	w.mu.Lock()
 	w.relations = make(map[string]*relation)
@@ -245,7 +248,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			w.logger.Debugf(ctx, "local relation units changed -> publishing: %#v", &change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
-			if err := w.remoteModelFacade.PublishRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
+			if err := w.remoteModelClient.PublishRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
 				w.checkOfferPermissionDenied(ctx, err, change.ApplicationOrOfferToken, change.RelationToken)
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf(ctx, "relation %v changed but remote side already removed", change.Tag.Id())
@@ -299,73 +302,78 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 }
 
-// newRemoteRelationsFacadeWithRedirect attempts to open an API connection to
+func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
+	// If consume permission has been revoked for the offer, set the
+	// status of the local remote application entity.
+	if params.ErrCode(err) == params.CodeDischargeRequired {
+		if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Error, err.Error()); err != nil {
+			w.logger.Errorf(ctx,
+				"updating remote application %v status from remote model %v: %v",
+				w.applicationName, w.remoteModelUUID, err)
+		}
+		w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
+		// If we know a specific relation, update that too.
+		if localRelationToken != "" {
+			suspended := true
+			event := params.RemoteRelationChangeEvent{
+				RelationToken:           localRelationToken,
+				ApplicationOrOfferToken: appToken,
+				Suspended:               &suspended,
+				SuspendedReason:         "offer permission revoked",
+			}
+			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, event); err != nil {
+				w.logger.Errorf(ctx, "updating relation status: %v", err)
+			}
+		}
+	}
+}
+
+func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
+	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
+	if err := w.localModelFacade.SetRemoteApplicationStatus(ctx, w.applicationName, status.Terminated, "offer has been removed"); err != nil {
+		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+	}
+	return nil
+}
+
+// newRemoteRelationsClient attempts to open an API connection to
 // the remote model for the watcher's application.
 // If a redirect error is returned, we attempt to open a connection to the new
 // controller and update our local controller info for the model so that future
 // API connections are to the new location.
-func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect(ctx context.Context) error {
-	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(ctx, w.remoteModelUUID)
+func (w *remoteApplicationWorker) newRemoteRelationsClient(ctx context.Context) error {
+	var err error
+	w.remoteModelClient, err = w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.remoteModelUUID)
 	if err != nil {
-		return errors.Annotate(err, "cannot get controller api info for remote model")
+		return errors.Annotatef(err, "getting remote relation client for model %v", w.remoteModelUUID)
 	}
-	w.logger.Debugf(ctx, "remote controller API addresses: %v", apiInfo.Addrs)
-
-	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(ctx, apiInfo)
-	var redirectErr *api.RedirectError
-	if errors.As(errors.Cause(err), &redirectErr) {
-		apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
-		apiInfo.CACert = redirectErr.CACert
-
-		w.logger.Debugf(ctx, "received redirect; new API addresses: %v", apiInfo.Addrs)
-
-		if w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(ctx, apiInfo); err == nil {
-			// We successfully followed the redirect,
-			// so update the controller information for this model.
-			controllerInfo := crossmodel.ControllerInfo{
-				ControllerUUID: redirectErr.ControllerTag.Id(),
-				Alias:          redirectErr.ControllerAlias,
-				Addrs:          apiInfo.Addrs,
-				CACert:         apiInfo.CACert,
-			}
-
-			if err = w.localModelFacade.UpdateControllerForModel(ctx, controllerInfo, w.remoteModelUUID); err != nil {
-				_ = w.remoteModelFacade.Close()
-				err = errors.Annotate(err, "updating external controller info")
-			}
-		}
-	}
-
-	return errors.Annotate(err, "opening facade to remote model")
+	return nil
 }
 
 func (w *remoteApplicationWorker) processRelationDying(ctx context.Context, key string, r *relation, forceCleanup bool) error {
 	w.logger.Debugf(ctx, "relation %v dying (%v)", key, forceCleanup)
-	// On the consuming side, inform the remote side the relation is dying
-	// (but only if we are killing the relation due to it dying, not because
-	// it is suspended).
-	if !w.isConsumerProxy {
-		change := params.RemoteRelationChangeEvent{
-			RelationToken:           r.localRelationToken,
-			Life:                    life.Dying,
-			ApplicationOrOfferToken: r.localApplicationToken,
-			Macaroons:               macaroon.Slice{r.macaroon},
-			BakeryVersion:           bakery.LatestVersion,
-		}
-		// forceCleanup will be true if the worker has restarted and because the relation had
-		// already been removed, we won't get any more unit departed events.
-		if forceCleanup {
-			change.ForceCleanup = &forceCleanup
-		}
-		if err := w.remoteModelFacade.PublishRelationChange(ctx, change); err != nil {
-			w.checkOfferPermissionDenied(ctx, err, r.localApplicationToken, r.localRelationToken)
-			if isNotFound(err) {
-				w.logger.Debugf(ctx, "relation %v dying but remote side already removed", key)
-				return nil
-			}
-			return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
-		}
+
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:           r.localRelationToken,
+		Life:                    life.Dying,
+		ApplicationOrOfferToken: r.localApplicationToken,
+		Macaroons:               macaroon.Slice{r.macaroon},
+		BakeryVersion:           bakery.LatestVersion,
 	}
+	// forceCleanup will be true if the worker has restarted and because the relation had
+	// already been removed, we won't get any more unit departed events.
+	if forceCleanup {
+		change.ForceCleanup = &forceCleanup
+	}
+	if err := w.remoteModelClient.PublishRelationChange(ctx, change); err != nil {
+		w.checkOfferPermissionDenied(ctx, err, r.localApplicationToken, r.localRelationToken)
+		if isNotFound(err) {
+			w.logger.Debugf(ctx, "relation %v dying but remote side already removed", key)
+			return nil
+		}
+		return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
+	}
+
 	return nil
 }
 
@@ -380,14 +388,6 @@ func (w *remoteApplicationWorker) processRelationSuspended(ctx context.Context, 
 	// as we need to always deal with units leaving scope etc if the relation is dying.
 	if relLife != life.Alive {
 		return nil
-	}
-
-	// On the offering side, if the relation is resumed,
-	// it will be treated like the relation has been joined
-	// for the first time; all workers will be restarted.
-	// The offering side has isConsumerProxy = true.
-	if w.isConsumerProxy {
-		delete(relations, key)
 	}
 
 	if relation.localUnitWorker != nil {
@@ -535,10 +535,6 @@ func (w *remoteApplicationWorker) relationChanged(ctx context.Context, key strin
 		}
 	}
 
-	if w.isConsumerProxy {
-		// Nothing else to do on the offering side.
-		return nil
-	}
 	return w.processConsumingRelation(ctx, key, localRelationInfo)
 }
 
@@ -569,7 +565,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 
 	remoteUnitsWorker, err := newRemoteRelationUnitsWorker(
 		ctx,
-		w.remoteModelFacade,
+		w.remoteModelClient,
 		relationTag,
 		mac,
 		localRelationToken, remoteAppToken, applicationName,
@@ -616,7 +612,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	r, relationKnown := w.relations[key]
 	if !relationKnown {
 		// Totally new so start the lifecycle watcher.
-		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(ctx, params.RemoteEntityArg{
+		remoteRelationsWatcher, err := w.remoteModelClient.WatchRelationSuspendedStatus(ctx, params.RemoteEntityArg{
 			Token:         localRelationToken,
 			Macaroons:     macaroon.Slice{mac},
 			BakeryVersion: bakery.LatestVersion,
@@ -669,7 +665,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	}
 
 	if w.secretChangesWatcher == nil {
-		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(ctx, localApplicationToken, localRelationToken, w.offerMacaroon)
+		w.secretChangesWatcher, err = w.remoteModelClient.WatchConsumedSecretsChanges(ctx, localApplicationToken, localRelationToken, w.offerMacaroon)
 		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotImplemented) {
 			w.checkOfferPermissionDenied(ctx, err, "", "")
 			return errors.Annotate(err, "watching consumed secret changes")
@@ -730,7 +726,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
 		arg.BakeryVersion = bakery.LatestVersion
 	}
-	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(ctx, arg)
+	remoteRelation, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -759,51 +755,37 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	return localApplicationToken, offeringAppToken, localRelationToken, registerResult.Macaroon, nil
 }
 
-// Report provides information for the engine report.
-func (w *remoteApplicationWorker) Report() map[string]interface{} {
-	result := make(map[string]interface{})
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	relationsInfo := make(map[string]interface{})
-	for rel, info := range w.relations {
-		report := map[string]interface{}{
-			"relation-id":       info.relationId,
-			"local-dead":        info.localDead,
-			"suspended":         info.suspended,
-			"application-token": info.localApplicationToken,
-			"relation-token":    info.localRelationToken,
-			"local-endpoint":    info.localEndpoint.Name,
-			"remote-endpoint":   info.remoteEndpointName,
-		}
-		if info.remoteRelationWorker != nil {
-			report["last-status-event"] = info.remoteRelationWorker.Report()
-		}
-		if info.localUnitWorker != nil {
-			report["last-local-change"] = info.localUnitWorker.Report()
-		}
-		if info.remoteUnitWorker != nil {
-			report["last-remote-change"] = info.remoteUnitWorker.Report()
-		}
-		relationsInfo[rel] = report
-	}
-	if len(relationsInfo) > 0 {
-		result["relations"] = relationsInfo
-	}
-	result["remote-model-uuid"] = w.remoteModelUUID
-	if w.isConsumerProxy {
-		result["consumer-proxy"] = true
-		result["consume-version"] = w.consumeVersion
-	} else {
-		result["saas-application"] = true
-		result["offer-uuid"] = w.offerUUID
-	}
-
-	return result
-}
-
 func (w *remoteApplicationWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+// relation holds attributes relevant to a particular
+// relation between a local app and a remote offer.
+type relation struct {
+	relationId     int
+	localDead      bool
+	suspended      bool
+	localUnitCount int
+
+	localUnitWorker      ReportableWorker
+	remoteUnitWorker     ReportableWorker
+	remoteRelationWorker ReportableWorker
+
+	localApplicationToken string // token for app in local model
+	localRelationToken    string // token for relation in local model
+	localEndpoint         params.RemoteEndpoint
+	remoteEndpointName    string
+	macaroon              *macaroon.Macaroon
+}
+
+// isNotFound allows either type of not found error
+// to be correctly handled.
+// TODO(wallyworld) - remove when all api facades are fixed
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 func ptr[T any](v T) *T {
