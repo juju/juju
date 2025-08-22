@@ -31,8 +31,8 @@ var usageListCredentialsDetails = `
 This command list credentials from this client and credentials
 from a controller.
 
-Locally stored credentials are client specific and 
-are used with `[1:] + "`juju bootstrap`" + `  
+Locally stored credentials are client specific and
+are used with `[1:] + "`juju bootstrap`" + `
 and ` + "`juju add-model`" + `. It's paramount to understand that
 different client devices may have different locally stored credentials
 for the same user.
@@ -40,37 +40,33 @@ for the same user.
 Remotely stored credentials or controller stored credentials are
 stored on the controller.
 
-An arbitrary "credential name" is used to represent credentials, which are 
+An arbitrary credential name is used to represent credentials, which are
 added either via ` + "`juju add-credential` or `juju autoload-credentials`" + `.
-Note that there can be multiple sets of credentials and, thus, multiple 
+Note that there can be multiple sets of credentials and, thus, multiple
 names.
 
-Actual authentication material is exposed with the '--show-secrets' 
+Actual authentication material is exposed with the ` + "`--show-secrets`" + `
 option in json or yaml formats. Secrets are not shown in tabular format.
 
-A controller, and subsequently created models, can be created with a 
+A controller, and subsequently created models, can be created with a
 different set of credentials but any action taken within the model (e.g.:
-` + "`juju deploy`; `juju add-unit`" + `) applies the credential used 
-to create that model. This model credential is stored on the controller. 
+` + "`juju deploy`; `juju add-unit`" + `) applies the credential used
+to create that model. This model credential is stored on the controller.
 
 A credential for 'controller' model is determined at bootstrap time and
 will be stored on the controller. It is considered to be controller default.
 
-Recall that when a controller is created a 'default' model is also 
-created. This model will use the controller default credential. 
-To see details of your credentials use "juju show-credential" command.
-
 When adding a new model, Juju will reuse the controller default credential.
 To add a model that uses a different credential, specify a  credential
-from this client using --credential option. See ` + "`juju help add-model`" + ` 
+from this client using the ` + "`--credential`" + ` option. See ` + "`juju help add-model`" + `
 for more information.
 
-Credentials denoted with an asterisk '*' are currently set as the user default
+Credentials denoted with an asterisk ` + "`*`" + ` are currently set as the user default
 for a given cloud.
 
-Use --controller option to list credentials from a controller.
+Use the ` + "`--controller`" + ` option to list credentials from a controller.
 
-Use --client option to list credentials known locally on this client.
+Use ` + "`--client`" + ` option to list credentials known locally on this client.
 `
 
 const usageListCredentialsExamples = `
