@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	// StorageProviderType defines the Juju storage type for rootfs storage
-	// provisioning in Kuberntes.
+	// StorageProviderTypeRootfs defines the Juju storage type for rootfs
+	// storage provisioning in Kuberntes.
 	StorageProviderTypeRootfs = storage.ProviderType("rootfs")
 
-	// StorageProviderType defines the Juju storage type for tmpfs storage
+	// StorageProviderTypeTmpfs defines the Juju storage type for tmpfs storage
 	// provisioning in Kuberntes.
-	StorageProviderTypeTempfs = storage.ProviderType("tmpfs")
+	StorageProviderTypeTmpfs = storage.ProviderType("tmpfs")
 
 	// StorageProviderType defines the Juju storage type which can be used
 	// to provision storage on k8s models.

@@ -29,7 +29,7 @@ func (k *kubernetesClient) StorageProviderTypes() ([]jujustorage.ProviderType, e
 	return []jujustorage.ProviderType{
 		constants.StorageProviderType,
 		constants.StorageProviderTypeRootfs,
-		constants.StorageProviderTypeTempfs,
+		constants.StorageProviderTypeTmpfs,
 	}, nil
 }
 
@@ -40,7 +40,7 @@ func (k *kubernetesClient) StorageProvider(t jujustorage.ProviderType) (jujustor
 		return &storageProvider{k}, nil
 	case constants.StorageProviderTypeRootfs:
 		return &rootfsStorageProvider{}, nil
-	case constants.StorageProviderTypeTempfs:
+	case constants.StorageProviderTypeTmpfs:
 		return &tmpfsStorageProvider{}, nil
 	default:
 		return nil, errors.NotFoundf("storage provider %q", t)

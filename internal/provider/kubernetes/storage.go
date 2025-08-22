@@ -118,8 +118,8 @@ func (*storageProvider) DefaultPools() []*jujustorage.Config {
 // Implements the [jujustorage.Provider] interface.
 func (*tmpfsStorageProvider) DefaultPools() []*jujustorage.Config {
 	pool, _ := jujustorage.NewConfig(
-		constants.StorageProviderTypeTempfs.String(),
-		constants.StorageProviderTypeTempfs,
+		constants.StorageProviderTypeTmpfs.String(),
+		constants.StorageProviderTypeTmpfs,
 		jujustorage.Attrs{},
 	)
 	return []*jujustorage.Config{pool}
