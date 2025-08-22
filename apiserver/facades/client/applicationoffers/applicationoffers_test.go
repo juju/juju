@@ -673,7 +673,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	c.Assert(obtained.Results, tc.HasLen, 2)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
-	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.Ignore)
+	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
 	c.Assert(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 			OfferURL:               "fred-external/prod.hosted-db2",
