@@ -1237,7 +1237,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 			suffixLength++
 			continue
 		} else if !k8serrors.IsNotFound(err) {
-			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role %q", proposedName)
+			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", proposedName)
 		}
 		result, err := k.createClusterRoleBinding(ctx,
 			&rbacv1.ClusterRoleBinding{

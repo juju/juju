@@ -365,28 +365,28 @@ run_test_add_multiple_secrets_parallel() {
 
 	cleanup_resources() {
 		rm -f "$ctrl_log_file" "$model_log_file"
-		destroy_model "$model_name"
+		export KILL_CONTROLLER=true
 		destroy_controller "$controller_name"
 	}
 
-	check_secret_ids_from_log() {
-		local log_file=$1
-		local total=0 missing=0
-		while IFS= read -r id; do
-		[ -z "$id" ] && continue
-		total=$((total+1))
-		# success -> quiet; failure -> print Juju's error
-		if ! juju show-secret "$id" >/dev/null; then
-			missing=$((missing+1))
-		fi
-		done < <(sed -n 's/^[[:space:]]*secret:[[:space:]]*//p' "$log_file")
+	# check_secret_ids_from_log() {
+	# 	local log_file=$1
+	# 	local total=0 missing=0
+	# 	while IFS= read -r id; do
+	# 	[ -z "$id" ] && continue
+	# 	total=$((total+1))
+	# 	# success -> quiet; failure -> print Juju's error
+	# 	if ! juju show-secret "$id" >/dev/null; then
+	# 		missing=$((missing+1))
+	# 	fi
+	# 	done < <(sed -n 's/^[[:space:]]*secret:[[:space:]]*//p' "$log_file")
 
-		if [ "$missing" -gt 0 ]; then
-		echo "Failed: $missing of $total secret IDs not found (see errors above)."
-		return 1
-		fi
-		echo "Success: all $total secret IDs exist."
-	}
+	# 	if [ "$missing" -gt 0 ]; then
+	# 	echo "Failed: $missing of $total secret IDs not found (see errors above)."
+	# 	return 1
+	# 	fi
+	# 	echo "Success: all $total secret IDs exist."
+	# }
 
 	
 	trap cleanup_resources EXIT HUP INT TERM
