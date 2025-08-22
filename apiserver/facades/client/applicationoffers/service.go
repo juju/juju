@@ -57,7 +57,7 @@ type CrossModelRelationService interface {
 	GetOffers(
 		ctx context.Context,
 		filters []crossmodelrelation.OfferFilter,
-	) ([]*crossmodelrelation.OfferDetails, error)
+	) ([]*crossmodelrelation.OfferDetail, error)
 
 	// Offer updates an existing offer, or creates a new offer if it does not exist.
 	// Permissions are created for a new offer only.

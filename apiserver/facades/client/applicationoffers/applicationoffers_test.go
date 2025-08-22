@@ -5,6 +5,8 @@ package applicationoffers
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -624,7 +626,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		Source:       charm.CharmHubSource,
 		Architecture: architecture.AMD64,
 	}
-	offerDetails := []*crossmodelrelation.OfferDetails{
+	offerDetails := []*crossmodelrelation.OfferDetail{
 		{
 			OfferUUID:              uuid.MustNewUUID().String(),
 			OfferName:              domainFilters[0].OfferName,
@@ -634,6 +636,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "db"},
 			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
 		}, {
 			OfferUUID:              uuid.MustNewUUID().String(),
 			OfferName:              domainFilters[1].OfferName,
@@ -643,6 +646,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
@@ -677,6 +681,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Users: []params.OfferUserDetails{
+				{UserName: "george", Access: "consume"},
 				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
 			}},
 		ApplicationName: "test-app",
@@ -689,7 +694,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 			Users: []params.OfferUserDetails{
-				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
+				{UserName: "admin", Access: "admin"},
 			}},
 		ApplicationName: "test-app",
 		CharmURL:        "ch:amd64/app-42",
@@ -824,6 +829,37 @@ func (s *offerSuite) TestListRequiresFilter(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "at least one offer filter is required")
+}
+
+func (s *offerSuite) TestResolveOfferName(c *tc.C) {
+	// Arrange
+	offerName := "test-offer"
+
+	input := []string{
+		offerName,
+		// test from juju cli
+		fmt.Sprintf("^%v$", regexp.QuoteMeta(offerName)),
+		// another possibility
+		regexp.QuoteMeta(offerName),
+	}
+
+	// Act
+	for _, in := range input {
+		output, err := resolveOfferName(in)
+
+		// Assert
+		c.Assert(err, tc.IsNil)
+		c.Assert(output, tc.Equals, offerName)
+	}
+}
+
+func (s *offerSuite) TestResolveOfferNameEmptyString(c *tc.C) {
+	// Act
+	output, err := resolveOfferName("")
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(output, tc.Equals, "")
 }
 
 func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {

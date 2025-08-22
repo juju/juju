@@ -16,6 +16,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/application/architecture"
+	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
@@ -269,6 +272,326 @@ func (s *modelOfferSuite) TestUpdateOfferEndpointFail(c *tc.C) {
 
 }
 
+func (s *modelOfferSuite) TestGetOfferDetailsFilterMultiplePartialResult(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		OfferName: expected[0].OfferName,
+		// A charm with this metadata description does not exist,
+		// expect only 1 result.
+		ApplicationDescription: "failme",
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+// TestGetOfferDetailsNoFilter tests that if no filters are provided, all
+// offers are returned.
+func (s *modelOfferSuite) TestGetOfferDetailsNoFilter(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterNoResult(c *tc.C) {
+	// Arrange
+	// Create an offer with one endpoint
+	charmUUID := s.addCharm(c)
+	description := "testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Add a second relation
+	relation2 := charm.Relation{
+		Name:      "log",
+		Role:      charm.RoleProvider,
+		Interface: "log",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+	s.addApplicationEndpoint(c, appUUID, relationUUID2)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.HasLen, 0)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterOfferName(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		OfferName: expected[0].OfferName,
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterOfferUUID(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		OfferUUIDs: []string{expected[0].OfferUUID},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterPartialApplicationName(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		ApplicationName: "test",
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterPartialApplicationDescription(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		ApplicationDescription: "app",
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointName(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		Endpoints: []crossmodelrelation.EndpointFilterTerm{
+			{Name: "db-admin"},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointRole(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		Endpoints: []crossmodelrelation.EndpointFilterTerm{
+			{Role: domaincharm.RoleProvider},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterEndpointInterface(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+	s.setupOfferWithInterface(c, "testing")
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		Endpoints: []crossmodelrelation.EndpointFilterTerm{
+			{Interface: "db"},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Logf("%+v", results)
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferDetailsFilterMultiEndpoint(c *tc.C) {
+	// Arrange
+	expected := s.setupForGetOfferDetails(c)
+	expected = append(expected, s.setupOfferWithInterface(c, "db")...)
+	c.Check(expected, tc.HasLen, 2)
+
+	// Act
+	results, err := s.state.GetOfferDetails(c.Context(), internal.OfferFilter{
+		Endpoints: []crossmodelrelation.EndpointFilterTerm{
+			{Interface: "db"},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(results, tc.SameContents, expected)
+}
+
+// setupForGetOfferDetails
+func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
+	// Create an offer with one endpoint
+	charmUUID := s.addCharm(c)
+	description := "testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Add a second relation
+	relation2 := charm.Relation{
+		Name:      "log",
+		Role:      charm.RoleRequirer,
+		Interface: "log",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+	s.addApplicationEndpoint(c, appUUID, relationUUID2)
+
+	// Create an offer with the first relation.
+	args := internal.CreateOfferArgs{
+		UUID:            internaluuid.MustNewUUID(),
+		ApplicationName: appName,
+		Endpoints:       []string{relation.Name},
+		OfferName:       "test-offer",
+	}
+
+	err := s.state.CreateOffer(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	var offerUUID string
+	for _, offer := range s.readOffers(c) {
+		if offer.Name == args.OfferName {
+			offerUUID = offer.UUID
+		}
+	}
+	c.Assert(offerUUID, tc.IsUUID)
+
+	return []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              args.OfferName,
+			ApplicationName:        args.ApplicationName,
+			ApplicationDescription: description,
+			CharmLocator: domaincharm.CharmLocator{
+				Name:         charmUUID.String(),
+				Revision:     42,
+				Source:       domaincharm.CharmHubSource,
+				Architecture: architecture.AMD64,
+			},
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      relation.Name,
+					Role:      domaincharm.RoleProvider,
+					Interface: relation.Interface,
+				},
+			},
+		},
+	}
+}
+
+// setupForGetOfferDetails
+func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string) []*crossmodelrelation.OfferDetail {
+	// Create an offer with one endpoint
+	charmUUID := s.addCharm(c)
+	description := "second testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "second-admin",
+		Role:      charm.RoleProvider,
+		Interface: interfaceName,
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	appName := "second-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Create an offer with the first relation.
+	args := internal.CreateOfferArgs{
+		UUID:            internaluuid.MustNewUUID(),
+		ApplicationName: appName,
+		Endpoints:       []string{relation.Name},
+		OfferName:       appName,
+	}
+
+	err := s.state.CreateOffer(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var offerUUID string
+	for _, offer := range s.readOffers(c) {
+		if offer.Name == appName {
+			offerUUID = offer.UUID
+		}
+	}
+	c.Assert(offerUUID, tc.IsUUID)
+
+	return []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              args.ApplicationName,
+			ApplicationName:        args.ApplicationName,
+			ApplicationDescription: description,
+			CharmLocator: domaincharm.CharmLocator{
+				Name:         charmUUID.String(),
+				Revision:     42,
+				Source:       domaincharm.CharmHubSource,
+				Architecture: architecture.AMD64,
+			},
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      relation.Name,
+					Role:      domaincharm.RoleProvider,
+					Interface: relation.Interface,
+				},
+			},
+		},
+	}
+}
+
 // Txn executes a transactional function within a database context,
 // ensuring proper error handling and assertion.
 func (s *modelOfferSuite) Txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
@@ -321,10 +644,20 @@ func (s *modelOfferSuite) addCharm(c *tc.C) corecharm.ID {
 	// The UUID is also used as the reference_name as there is a unique
 	// constraint on the reference_name, revision and source_id.
 	s.query(c, `
-INSERT INTO charm (uuid, reference_name, architecture_id) 
-VALUES (?, ?, 0)
+INSERT INTO charm (uuid, reference_name, architecture_id, revision) 
+VALUES (?, ?, 0, 42)
 `, charmUUID, charmUUID)
 	return charmUUID
+}
+
+// addCharm inserts a new charm into the database and returns the UUID.
+func (s *modelOfferSuite) addCharmMetadataWithDescription(c *tc.C, charmUUID corecharm.ID, description string) {
+	// The UUID is also used as the reference_name as there is a unique
+	// constraint on the reference_name, revision and source_id.
+	s.query(c, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate, description) 
+VALUES (?, ?, false, ?)
+`, charmUUID, charmUUID, description)
 }
 
 func (s *modelOfferSuite) addCharmMetadata(c *tc.C, charmUUID corecharm.ID, subordinate bool) {

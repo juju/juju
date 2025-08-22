@@ -5,12 +5,16 @@ package state
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -148,4 +152,113 @@ WHERE  u.removed = false
 		return "", errors.Errorf("%q: %w", userName, accesserrors.UserAuthenticationDisabled)
 	}
 	return result.UUID, nil
+}
+
+// GetOfferUUIDsForUsersWithConsume returns offer uuids for any of the
+// given users whom has consumer access or greater. It returns found
+// Offers, with guarantee that offers for all users have been found.
+func (st *State) GetOfferUUIDsForUsersWithConsume(
+	ctx context.Context,
+	userNames []string,
+) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type names []string
+
+	stmt, err := st.Prepare(`
+SELECT p.grant_on AS &entityUUID.uuid
+FROM   v_permission_offer AS p
+JOIN   v_user_auth AS u ON p.grant_to = u.uuid
+WHERE  u.name IN ($names[:])
+AND    u.disabled = false
+AND    u.removed = false
+AND    (p.access_type = 'consume' OR p.access_type = 'admin')
+`, names{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get user with permission query: %w", err)
+	}
+
+	var results []entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, names(userNames)).GetAll(&results)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting offers for users %q: %w", strings.Join(userNames, ", "), err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	offerUUIDs := transform.Slice(
+		results,
+		func(in entityUUID) string { return in.UUID },
+	)
+
+	// Use set.Strings to ensure there are no duplicate offer UUIDs.
+	return set.NewStrings(offerUUIDs...).Values(), nil
+}
+
+// GetUsersForOfferUUIDs returns a map of offerUUIDs with a slice of users
+// whom have permissions on the offer. A map of offerUUIDs to a slice of
+// OfferUsers is returned.
+func (st *State) GetUsersForOfferUUIDs(ctx context.Context, offerUUIDs []string) (map[string][]crossmodelrelation.OfferUser, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type uuids []string
+
+	stmt, err := st.Prepare(`
+SELECT * AS &offerUser.*
+FROM   v_permission_offer AS p
+JOIN   v_user_auth AS u ON p.grant_to = u.uuid
+WHERE  p.grant_on IN ($uuids[:])
+AND    u.disabled = false
+AND    u.removed = false
+`, uuids{}, offerUser{})
+	if err != nil {
+		return nil, errors.Errorf("preparing get user with permission query: %w", err)
+	}
+
+	var offerUsers []offerUser
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuids(offerUUIDs)).GetAll(&offerUsers)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting users for offers %q: %w", strings.Join(offerUUIDs, ", "), err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// There are scenarios where an offer can have no users with direct
+	// permissions. Though a model admin always has implicit admin
+	// permissions on any offers in the model per the facade. Ensure
+	// that all requested offers are returned, though users are not
+	// guaranteed.
+	results := transform.SliceToMap(offerUUIDs, func(in string) (string, []crossmodelrelation.OfferUser) {
+		return in, make([]crossmodelrelation.OfferUser, 0)
+	})
+
+	for _, one := range offerUsers {
+		// Everyone is added by default for users not defined in the
+		// database. Do not return it.
+		if one.Name == corepermission.EveryoneUserName.String() {
+			continue
+		}
+		offerUser := crossmodelrelation.OfferUser{
+			Name:        one.Name,
+			DisplayName: one.DisplayName,
+			Access:      corepermission.Access(one.Access),
+		}
+		results[one.OfferUUID] = append(results[one.OfferUUID], offerUser)
+	}
+	return results, nil
 }

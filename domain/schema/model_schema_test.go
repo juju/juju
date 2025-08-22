@@ -359,6 +359,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_model_constraint",
 		"v_model_metrics",
 		"v_object_store_metadata",
+		"v_offer_detail",
 		"v_port_range",
 		"v_relation_endpoint",
 		"v_relation_endpoint_identifier",

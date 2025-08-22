@@ -9,7 +9,9 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
@@ -159,6 +161,339 @@ func (s *serviceSuite) TestOfferUpdate(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetOffersEmptyFilters(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+
+	inputFilter := internal.OfferFilter{}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+		},
+	}
+	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   "fred",
+				Access: permission.ConsumeAccess,
+			},
+		},
+	}
+	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	filters := []crossmodelrelation.OfferFilter{{}}
+
+	// Act
+	result, err := s.service(c).GetOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{
+					Name:   "fred",
+					Access: permission.ConsumeAccess,
+				},
+			},
+		},
+	})
+}
+
+func (s *serviceSuite) TestGetOffers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+
+	inputFilter := internal.OfferFilter{ApplicationName: "test-offer"}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+		},
+	}
+	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   "fred",
+				Access: permission.ConsumeAccess,
+			},
+		},
+	}
+	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	filters := []crossmodelrelation.OfferFilter{{
+		ApplicationName: inputFilter.ApplicationName,
+	}}
+
+	// Act
+	result, err := s.service(c).GetOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{
+					Name:   "fred",
+					Access: permission.ConsumeAccess,
+				},
+			},
+		},
+	})
+}
+
+func (s *serviceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	allowedConsumers := []string{"fred"}
+	offerUUIDs := []string{uuid.MustNewUUID().String(), uuid.MustNewUUID().String()}
+	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(offerUUIDs, nil)
+
+	inputFilter := internal.OfferFilter{
+		OfferUUIDs: offerUUIDs,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+		}, {
+			OfferUUID:              offerUUIDs[1],
+			OfferName:              "different offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "second",
+					Interface: "second",
+					Role:      charm.RoleProvider,
+				},
+			},
+		},
+	}
+	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   allowedConsumers[0],
+				Access: permission.ConsumeAccess,
+			},
+		},
+		offerUUIDs[1]: {
+			{
+				Name:   allowedConsumers[0],
+				Access: permission.AdminAccess,
+			},
+		},
+	}
+	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	filters := []crossmodelrelation.OfferFilter{
+		{
+			AllowedConsumers: allowedConsumers,
+		},
+	}
+
+	// Act
+	result, err := s.service(c).GetOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{
+					Name:   allowedConsumers[0],
+					Access: permission.ConsumeAccess,
+				},
+			},
+		}, {
+			OfferUUID:              offerUUIDs[1],
+			OfferName:              "different offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "second",
+					Interface: "second",
+					Role:      charm.RoleProvider,
+				},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{
+					Name:   allowedConsumers[0],
+					Access: permission.AdminAccess,
+				},
+			},
+		},
+	})
+}
+
+// TestGetOffersWithAllowedConsumersNotFound tests that if no allowed consumers
+// are found, and the filter has other content. Filter is an OR.
+func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilter(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	allowedConsumers := []string{"fred"}
+	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
+
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+		},
+	}
+	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), internal.OfferFilter{OfferName: "test-offer"}).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   "joe",
+				Access: permission.AdminAccess,
+			},
+		},
+	}
+	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	filters := []crossmodelrelation.OfferFilter{
+		{
+			OfferName:        "test-offer",
+			AllowedConsumers: allowedConsumers,
+		},
+	}
+
+	// Act
+	result, err := s.service(c).GetOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{
+					Name:   "joe",
+					Access: permission.AdminAccess,
+				},
+			},
+		},
+	})
+}
+
+// TestGetOffersWithAllowedConsumersNotFound tests that if no allowed consumers
+// are found, and no other content of the same filter, nothing is returned.
+func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	allowedConsumers := []string{"fred"}
+	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
+
+	filters := []crossmodelrelation.OfferFilter{
+		{
+			AllowedConsumers: allowedConsumers,
+		},
+	}
+
+	// Act
+	result, err := s.service(c).GetOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{})
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

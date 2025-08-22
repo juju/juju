@@ -23,7 +23,7 @@ type permission struct {
 	ObjectType string `db:"object_type"`
 }
 
-// user is an .
+// user represents the uuid and disabled status of a user.
 type user struct {
 	UUID     string `db:"uuid"`
 	Disabled bool   `db:"disabled"`
@@ -32,4 +32,17 @@ type user struct {
 // name is an agnostic container for a `name` column.
 type name struct {
 	Name string `db:"name"`
+}
+
+// entityUUID is an agnostic container for a `uuid` column.
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// offerUser represents a user and their access to a specific offer.
+type offerUser struct {
+	OfferUUID   string `db:"grant_on"`
+	Name        string `db:"name"`
+	DisplayName string `db:"display_name"`
+	Access      string `db:"access_type"`
 }

@@ -5,12 +5,14 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
@@ -124,6 +126,161 @@ func (st *State) UpdateOffer(
 	})
 
 	return errors.Capture(err)
+}
+
+// GetOfferDetails returns the OfferDetail of every offer in the model.
+// No error is returned if offers are found.
+func (st *State) GetOfferDetails(
+	ctx context.Context,
+	filter internal.OfferFilter,
+) ([]*crossmodelrelation.OfferDetail, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var offers offerDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if filter.Empty() {
+			offers, err = st.getOfferDetails(ctx, tx)
+			return err
+		}
+		offers, err = st.getFilteredOfferDetails(ctx, tx, filter)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if len(filter.OfferUUIDs) == 0 {
+			return nil
+		}
+
+		result, err := st.getOfferDetailsForUUIDs(ctx, tx, filter.OfferUUIDs)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		offers = append(offers, result...)
+
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return offers.TransformToOfferDetails(), nil
+}
+
+func (st *State) getOfferDetails(ctx context.Context, tx *sqlair.TX) (offerDetails, error) {
+	stmt, err := st.Prepare(`
+SELECT &offerDetail.*
+FROM   v_offer_detail
+`, offerDetail{})
+	if err != nil {
+		return nil, errors.Errorf("preparing offer detail query: %w", err)
+	}
+
+	var offers offerDetails
+	err = tx.Query(ctx, stmt).GetAll(&offers)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return offers, nil
+	}
+	if err != nil {
+		return nil, errors.Errorf("fetching offer all details: %w", err)
+	}
+	return offers, nil
+}
+
+func (st *State) getOfferDetailsForUUIDs(ctx context.Context, tx *sqlair.TX, offerUUIDs []string) (offerDetails, error) {
+	type uuids []string
+	stmt, err := st.Prepare(`
+SELECT &offerDetail.*
+FROM   v_offer_detail
+WHERE  offer_uuid IN ($uuids[:])
+`, offerDetail{}, uuids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing offer detail for UUID query: %w", err)
+	}
+
+	var offers offerDetails
+	err = tx.Query(ctx, stmt, uuids(offerUUIDs)).GetAll(&offers)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return offers, nil
+	}
+	if err != nil {
+		return nil, errors.Errorf("fetching offer details by uuid: %w", err)
+	}
+	return offers, nil
+}
+
+func (st *State) getFilteredOfferDetails(ctx context.Context, tx *sqlair.TX, input internal.OfferFilter) (offerDetails, error) {
+	stmt, err := st.Prepare(`
+SELECT &offerDetail.*
+FROM   v_offer_detail
+WHERE  offer_name = $offerFilter.offer_name
+OR     application_name LIKE $offerFilter.application_name
+OR     application_description LIKE $offerFilter.application_description
+OR     endpoint_name = $offerFilter.endpoint_name
+OR     endpoint_role = $offerFilter.endpoint_role
+OR     endpoint_interface = $offerFilter.endpoint_interface
+`, offerDetail{}, offerFilter{})
+	if err != nil {
+		return nil, errors.Errorf("preparing filtered offer detail query: %w", err)
+	}
+
+	filter, err := encodeOfferFilter(input)
+	if err != nil {
+		return nil, errors.Errorf("encoding offer filter: %w", err)
+	}
+
+	var result offerDetails
+	for _, f := range filter {
+		var offers []offerDetail
+		err = tx.Query(ctx, stmt, f).GetAll(&offers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// There is no guarantee of success with any filter.
+			continue
+		}
+		if err != nil {
+			return nil, errors.Errorf("fetching offer details by filter: %w", err)
+		}
+		result = append(result, offers...)
+	}
+	return result, nil
+}
+
+// encodeOfferFilter makes offerFilters, used to query the database,
+// from [crossmodelrelation.OfferFilter]. The filter parameters are ORed
+// together to find offers. Thus, the input can be split into multiple
+// output.
+//
+// Application name and description filter values should be contained with
+// the actual result. Setup their values to use the LIKE operator by adding
+// an `%` before and after the word if provided.
+func encodeOfferFilter(in internal.OfferFilter) ([]offerFilter, error) {
+	result := make([]offerFilter, 0)
+	if !in.EmptyModuloEndpoints() {
+		var (
+			applicationName, applicationDescription string
+		)
+		if in.ApplicationName != "" {
+			applicationName = fmt.Sprintf("%%%s%%", in.ApplicationName)
+		}
+		if in.ApplicationDescription != "" {
+			applicationDescription = fmt.Sprintf("%%%s%%", in.ApplicationDescription)
+		}
+		result = append(result, offerFilter{
+			OfferName:              in.OfferName,
+			ApplicationName:        applicationName,
+			ApplicationDescription: applicationDescription,
+		})
+	}
+	for _, endpoint := range in.Endpoints {
+		result = append(result, offerFilter{
+			EndpointName: endpoint.Name,
+			Interface:    endpoint.Interface,
+			Role:         string(endpoint.Role),
+		})
+	}
+	return result, nil
 }
 
 func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {

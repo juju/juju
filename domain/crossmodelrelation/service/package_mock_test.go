@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	user "github.com/juju/juju/core/user"
+	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
 	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
@@ -118,6 +119,45 @@ func (c *MockModelDBStateDeleteFailedOfferCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetOfferDetails mocks base method.
+func (m *MockModelDBState) GetOfferDetails(arg0 context.Context, arg1 internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferDetails", arg0, arg1)
+	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetail)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferDetails indicates an expected call of GetOfferDetails.
+func (mr *MockModelDBStateMockRecorder) GetOfferDetails(arg0, arg1 any) *MockModelDBStateGetOfferDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferDetails", reflect.TypeOf((*MockModelDBState)(nil).GetOfferDetails), arg0, arg1)
+	return &MockModelDBStateGetOfferDetailsCall{Call: call}
+}
+
+// MockModelDBStateGetOfferDetailsCall wrap *gomock.Call
+type MockModelDBStateGetOfferDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetOfferDetailsCall) Return(arg0 []*crossmodelrelation.OfferDetail, arg1 error) *MockModelDBStateGetOfferDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetOfferDetailsCall) Do(f func(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelDBStateGetOfferDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetOfferDetailsCall) DoAndReturn(f func(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockModelDBStateGetOfferDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelDBState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -217,6 +257,45 @@ func (c *MockControllerDBStateCreateOfferAccessCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetOfferUUIDsForUsersWithConsume mocks base method.
+func (m *MockControllerDBState) GetOfferUUIDsForUsersWithConsume(arg0 context.Context, arg1 []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferUUIDsForUsersWithConsume", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferUUIDsForUsersWithConsume indicates an expected call of GetOfferUUIDsForUsersWithConsume.
+func (mr *MockControllerDBStateMockRecorder) GetOfferUUIDsForUsersWithConsume(arg0, arg1 any) *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferUUIDsForUsersWithConsume", reflect.TypeOf((*MockControllerDBState)(nil).GetOfferUUIDsForUsersWithConsume), arg0, arg1)
+	return &MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall{Call: call}
+}
+
+// MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall wrap *gomock.Call
+type MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall) Return(arg0 []string, arg1 error) *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall) Do(f func(context.Context, []string) ([]string, error)) *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockControllerDBStateGetOfferUUIDsForUsersWithConsumeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUserUUIDByName mocks base method.
 func (m *MockControllerDBState) GetUserUUIDByName(arg0 context.Context, arg1 user.Name) (uuid.UUID, error) {
 	m.ctrl.T.Helper()
@@ -252,6 +331,45 @@ func (c *MockControllerDBStateGetUserUUIDByNameCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerDBStateGetUserUUIDByNameCall) DoAndReturn(f func(context.Context, user.Name) (uuid.UUID, error)) *MockControllerDBStateGetUserUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUsersForOfferUUIDs mocks base method.
+func (m *MockControllerDBState) GetUsersForOfferUUIDs(arg0 context.Context, arg1 []string) (map[string][]crossmodelrelation.OfferUser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUsersForOfferUUIDs", arg0, arg1)
+	ret0, _ := ret[0].(map[string][]crossmodelrelation.OfferUser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUsersForOfferUUIDs indicates an expected call of GetUsersForOfferUUIDs.
+func (mr *MockControllerDBStateMockRecorder) GetUsersForOfferUUIDs(arg0, arg1 any) *MockControllerDBStateGetUsersForOfferUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsersForOfferUUIDs", reflect.TypeOf((*MockControllerDBState)(nil).GetUsersForOfferUUIDs), arg0, arg1)
+	return &MockControllerDBStateGetUsersForOfferUUIDsCall{Call: call}
+}
+
+// MockControllerDBStateGetUsersForOfferUUIDsCall wrap *gomock.Call
+type MockControllerDBStateGetUsersForOfferUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateGetUsersForOfferUUIDsCall) Return(arg0 map[string][]crossmodelrelation.OfferUser, arg1 error) *MockControllerDBStateGetUsersForOfferUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateGetUsersForOfferUUIDsCall) Do(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferUser, error)) *MockControllerDBStateGetUsersForOfferUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateGetUsersForOfferUUIDsCall) DoAndReturn(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferUser, error)) *MockControllerDBStateGetUsersForOfferUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
