@@ -8,7 +8,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 )
 
 type trackedWorker struct {
@@ -20,12 +19,8 @@ type trackedWorker struct {
 // NewTrackedWorker creates a new tracked worker for a storage provider
 // registry.
 func NewTrackedWorker(reg storage.ProviderRegistry) (worker.Worker, error) {
-	// All providers must be chained to the common storage providers. This
-	// ensures that we also have rootfs, loop and tmpfs providers available.
-	regs := storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
-
 	w := &trackedWorker{
-		provider: regs,
+		provider: reg,
 	}
 
 	w.tomb.Go(w.loop)
