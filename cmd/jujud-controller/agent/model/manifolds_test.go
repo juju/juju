@@ -40,6 +40,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-relation-caller",
 		"async-charm-downloader",
 		"charm-revisioner",
 		"clock",
@@ -81,6 +82,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-relation-caller",
 		"async-charm-downloader",
 		"caas-application-provisioner",
 		"caas-firewaller",
@@ -112,6 +114,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-relation-caller",
 		"clock",
 		"is-responsible-flag",
 		"not-dead-flag",
@@ -208,6 +211,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"agent": {},
 
 	"api-caller": {"agent"},
+
+	"api-remote-relation-caller": {},
 
 	"api-config-watcher": {"agent"},
 
@@ -338,6 +343,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relations": {
 		"agent",
 		"api-caller",
+		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -393,6 +399,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"api-caller": {"agent"},
 
 	"api-config-watcher": {"agent"},
+
+	"api-remote-relation-caller": {},
 
 	"async-charm-downloader": {
 		"agent",
@@ -514,6 +522,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relations": {
 		"agent",
 		"api-caller",
+		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",

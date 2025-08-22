@@ -700,20 +700,21 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
-		Agent:                       modelAgent,
-		AgentConfigChanged:          a.configChangedVal,
-		Authority:                   cfg.Authority,
-		Clock:                       clock.WallClock,
-		LoggingContext:              cfg.LoggerContext,
-		RunFlagDuration:             time.Minute,
-		CharmRevisionUpdateInterval: 24 * time.Hour,
-		NewEnvironFunc:              newEnvirons,
-		NewContainerBrokerFunc:      newCAASBroker,
-		NewMigrationMaster:          migrationmaster.NewWorker,
-		DomainServices:              cfg.DomainServices,
-		ProviderServicesGetter:      cfg.ProviderServicesGetter,
-		LeaseManager:                cfg.LeaseManager,
-		HTTPClientGetter:            cfg.HTTPClientGetter,
+		Agent:                         modelAgent,
+		AgentConfigChanged:            a.configChangedVal,
+		Authority:                     cfg.Authority,
+		Clock:                         clock.WallClock,
+		LoggingContext:                cfg.LoggerContext,
+		RunFlagDuration:               time.Minute,
+		CharmRevisionUpdateInterval:   24 * time.Hour,
+		NewEnvironFunc:                newEnvirons,
+		NewContainerBrokerFunc:        newCAASBroker,
+		NewMigrationMaster:            migrationmaster.NewWorker,
+		DomainServices:                cfg.DomainServices,
+		ProviderServicesGetter:        cfg.ProviderServicesGetter,
+		LeaseManager:                  cfg.LeaseManager,
+		HTTPClientGetter:              cfg.HTTPClientGetter,
+		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
@@ -819,7 +820,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 			logger.Infof(context.TODO(), "skipping creating symlink %q as exsting path has a normal file", fullLink)
 			return nil
 		}
-	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.Annotatef(err, "cannot check if %q is a symlink", fullLink)
 	}
 

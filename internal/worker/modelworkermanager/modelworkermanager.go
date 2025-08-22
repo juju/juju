@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 )
 
 // MetricSink describes a way to unregister a model metrics collector. This
@@ -54,18 +55,19 @@ type GetControllerConfigFunc func(ctx context.Context, domainServices services.D
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	Authority              pki.Authority
-	ModelName              string
-	ModelQualifier         model.Qualifier
-	ModelUUID              string
-	ModelType              model.ModelType
-	ModelMetrics           MetricSink
-	LoggerContext          corelogger.LoggerContext
-	ControllerConfig       controller.Config
-	ProviderServicesGetter ProviderServicesGetter
-	DomainServices         services.DomainServices
-	LeaseManager           lease.Manager
-	HTTPClientGetter       http.HTTPClientGetter
+	Authority                     pki.Authority
+	ModelName                     string
+	ModelQualifier                model.Qualifier
+	ModelUUID                     string
+	ModelType                     model.ModelType
+	ModelMetrics                  MetricSink
+	LoggerContext                 corelogger.LoggerContext
+	ControllerConfig              controller.Config
+	ProviderServicesGetter        ProviderServicesGetter
+	DomainServices                services.DomainServices
+	LeaseManager                  lease.Manager
+	HTTPClientGetter              http.HTTPClientGetter
+	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -76,19 +78,20 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority              pki.Authority
-	Logger                 corelogger.Logger
-	ModelMetrics           ModelMetrics
-	Mux                    *apiserverhttp.Mux
-	NewModelWorker         NewModelWorkerFunc
-	ErrorDelay             time.Duration
-	LogSinkGetter          corelogger.ModelLogSinkGetter
-	ProviderServicesGetter ProviderServicesGetter
-	DomainServicesGetter   services.DomainServicesGetter
-	ModelService           ModelService
-	GetControllerConfig    GetControllerConfigFunc
-	LeaseManager           lease.Manager
-	HTTPClientGetter       http.HTTPClientGetter
+	Authority                     pki.Authority
+	Logger                        corelogger.Logger
+	ModelMetrics                  ModelMetrics
+	Mux                           *apiserverhttp.Mux
+	NewModelWorker                NewModelWorkerFunc
+	ErrorDelay                    time.Duration
+	LogSinkGetter                 corelogger.ModelLogSinkGetter
+	ProviderServicesGetter        ProviderServicesGetter
+	DomainServicesGetter          services.DomainServicesGetter
+	ModelService                  ModelService
+	GetControllerConfig           GetControllerConfigFunc
+	LeaseManager                  lease.Manager
+	HTTPClientGetter              http.HTTPClientGetter
+	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -129,6 +132,9 @@ func (config Config) Validate() error {
 	}
 	if config.HTTPClientGetter == nil {
 		return errors.NotValidf("nil HTTPClientGetter")
+	}
+	if config.APIRemoteRelationClientGetter == nil {
+		return errors.NotValidf("nil APIRemoteRelationClientGetter")
 	}
 	return nil
 }
@@ -269,6 +275,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 
 	cfg.LeaseManager = m.config.LeaseManager
 	cfg.HTTPClientGetter = m.config.HTTPClientGetter
+	cfg.APIRemoteRelationClientGetter = m.config.APIRemoteRelationClientGetter
 
 	// We don't want to get this in the start worker function because it
 	// won't change. Hammering the domainservices getter to get the services
