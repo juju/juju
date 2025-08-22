@@ -608,7 +608,7 @@ func (s *Service) GetModelByNameAndQualifier(ctx context.Context, name string, q
 	return s.st.GetModelByName(ctx, qualifier.String(), name)
 }
 
-// // GetDeadModels returns all the dead model UUIDs in the controller.
+// GetDeadModels returns all the dead model UUIDs in the controller.
 func (s *Service) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -748,8 +748,8 @@ func getWatchActivatedModelsMapper(st State) eventsource.Mapper {
 }
 
 // WatchModels returns a watcher that emits an event if the model changes.
-func (s WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
@@ -760,8 +760,8 @@ func (s WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatche
 }
 
 // WatchModel returns a watcher that emits an event if the model changes.
-func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+func (s *WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return s.watcherFactory.NewNotifyWatcher(
