@@ -5,7 +5,7 @@
 **Aliases:** set-default-region
 
 ## Summary
-Sets the default region for a cloud.
+Gets, sets, or unsets the default region for a cloud on this client.
 
 ## Usage
 ```juju default-region [options] <cloud name> [<region>]```
@@ -17,15 +17,14 @@ Sets the default region for a cloud.
 
 ## Examples
 
+Set the default region for the `azure-china` cloud to `chinaeast`:
+
     juju default-region azure-china chinaeast
+
+Get the default region for the `azure-china` cloud:
+
     juju default-region azure-china
+
+Unset the default region for the `azure-china` cloud:
+
     juju default-region azure-china --reset
-
-
-## Details
-The default region is specified directly as an argument.
-
-To unset previously set default region for a cloud, use --reset option.
-
-To confirm what region is currently set to be default for a cloud, 
-use the command without region argument.
