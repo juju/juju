@@ -150,6 +150,14 @@ func newTrackedDBWorker(
 }
 
 func (w *trackedDBWorker) openDatabase(ctx context.Context) (*sql.DB, error) {
+	// Set a timeout for the starting of the worker. This prevents us
+	// locking up indefinitely if something goes wrong. This will stall the
+	// controller completely if it's stuck on the controller database, but
+	// it will eventually timeout and return an error. Allowing another
+	// attempt later on.
+	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
+	defer cancel()
+
 	db, err := w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
