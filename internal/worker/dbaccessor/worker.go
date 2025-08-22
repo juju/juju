@@ -688,6 +688,14 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 // database or ErrTryAgain to force the runner to retry starting the worker
 // again.
 func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
+	// Set a timeout for the starting of the worker. This prevents us locking
+	// up indefinitely if something goes wrong. This will stall the controller
+	// completely if it's stuck on the controller database, but it will
+	// eventually timeout and return an error. Allowing another attempt later
+	// on.
+	ctx, cancel := context.WithTimeout(ctx, time.Second*15)
+	defer cancel()
+
 	// Note: Do not be tempted to create the worker outside of the StartWorker
 	// function. This will create potential data race if openDatabase is called
 	// multiple times for the same namespace.
@@ -717,8 +725,16 @@ func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	// Ensure that the worker starts up correctly, before returning.
+	if _, err := w.dbRunner.Worker(namespace, firstClosed(ctx.Done(), w.catacomb.Dying())); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 type killableWorker interface {
