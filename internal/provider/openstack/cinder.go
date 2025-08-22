@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 const (
@@ -71,7 +72,12 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	var types []storage.ProviderType
+	types := []storage.ProviderType{
+		storageprovider.TmpfsProviderType,
+		storageprovider.RootfsProviderType,
+		storageprovider.LoopProviderType,
+	}
+
 	if _, err := e.cinderProvider(); err == nil {
 		types = append(types, CinderProviderType)
 	} else if !errors.Is(err, errors.NotSupported) {
@@ -82,10 +88,18 @@ func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 
 // StorageProvider implements storage.ProviderRegistry.
 func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t != CinderProviderType {
+	switch t {
+	case CinderProviderType:
+		return e.cinderProvider()
+	case storageprovider.TmpfsProviderType:
+		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.RootfsProviderType:
+		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.LoopProviderType:
+		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
+	default:
 		return nil, errors.NotFoundf("storage provider %q", t)
 	}
-	return e.cinderProvider()
 }
 
 func (e *Environ) cinderProvider() (*cinderProvider, error) {
@@ -213,9 +227,15 @@ func (*cinderProvider) Releasable() bool {
 	return true
 }
 
-// DefaultPools implements storage.Provider.
+// DefaultPools returns the default pools available through the cinder provider.
+// By default a pool by the same name as the provider is offered.
+//
+// Implements [storage.Provider] interface.
 func (p *cinderProvider) DefaultPools() []*storage.Config {
-	return nil
+	defaultPool, _ := storage.NewConfig(
+		CinderProviderType.String(), CinderProviderType, storage.Attrs{},
+	)
+	return []*storage.Config{defaultPool}
 }
 
 type cinderVolumeSource struct {

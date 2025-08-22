@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 type poolType string
@@ -76,11 +77,19 @@ func (s *storageProvider) Releasable() bool {
 	return false
 }
 
+// DefaultPools returns the default pools available through the oci provider.
+// By default a pool by the same name as the provider is offered in addition to
+// a iscsi backed storage pool.
+//
+// Implements [storage.Provider] interface.
 func (s *storageProvider) DefaultPools() []*storage.Config {
-	pool, _ := storage.NewConfig("iscsi", ociStorageProviderType, map[string]interface{}{
+	defaultPool, _ := storage.NewConfig(
+		ociStorageProviderType.String(), ociStorageProviderType, storage.Attrs{},
+	)
+	iscsiPool, _ := storage.NewConfig("iscsi", ociStorageProviderType, storage.Attrs{
 		ociVolumeType: iscsiPool,
 	})
-	return []*storage.Config{pool}
+	return []*storage.Config{defaultPool, iscsiPool}
 }
 
 func (s *storageProvider) ValidateForK8s(map[string]any) error {
@@ -110,17 +119,29 @@ func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{ociStorageProviderType}, nil
+	return []storage.ProviderType{
+		ociStorageProviderType,
+		storageprovider.TmpfsProviderType,
+		storageprovider.RootfsProviderType,
+		storageprovider.LoopProviderType,
+	}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == ociStorageProviderType {
+	switch t {
+	case ociStorageProviderType:
 		return &storageProvider{
 			env: e,
 			api: e.Storage,
 		}, nil
+	case storageprovider.TmpfsProviderType:
+		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.RootfsProviderType:
+		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.LoopProviderType:
+		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
+	default:
+		return nil, errors.NotFoundf("storage provider %q", t)
 	}
-
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
