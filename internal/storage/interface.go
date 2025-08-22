@@ -380,3 +380,9 @@ type AttachFilesystemsResult struct {
 	FilesystemAttachment *FilesystemAttachment
 	Error                error
 }
+
+// String returns the string representation of [ProviderType]. This implements
+// the [fmt.Stringer] interface.
+func (p ProviderType) String() string {
+	return string(p)
+}
