@@ -24,37 +24,33 @@ Lists all clouds available to Juju.
 
     juju clouds
     juju clouds --format yaml
-    juju clouds --controller mycontroller 
+    juju clouds --controller mycontroller
     juju clouds --controller mycontroller --client
     juju clouds --client
 
 
 ## Details
-Display the fundamental properties for each cloud known to Juju:
-name, number of regions, number of registered credentials, default region, type, etc...
 
-Clouds known to this client are the clouds known to Juju out of the box 
+Display the fundamental properties for each cloud known to Juju: name, number of regions,
+number of registered credentials, default region, type, etc.
+
+Clouds known to this client are the clouds known to Juju out of the box
 along with any which have been added with `add-cloud --client`. These clouds can be
-used to create a controller and can be displayed using --client option.
+used to create a controller and can be displayed using the `--client`option.
 
-Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor
-is detected, the 'localhost' cloud is made available.  When a microk8s installation is
+"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor
+is detected, the 'localhost' cloud is made available.  When a MicroK8s installation is
 detected, the 'microk8s' cloud is displayed.
 
-Use --controller option to list clouds from a controller. 
-Use --client option to list clouds from this client. 
-This command's default output format is 'tabular'. Use 'json' and 'yaml' for
+Use the `--controller` option to list clouds from a controller.
+Use the `--client`option to list clouds from this client.
+
+This command's default output format is `tabular`. Use `json` and `yaml` for
 machine-readable output.
 
-Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-public-clouds`
+Cloud metadata sometimes changes, e.g., providers add regions. Use the `update-public-clouds`
 command to update public clouds or `update-cloud` to update other clouds.
-
 Use the `regions` command to list a cloud's regions.
-
 Use the `show-cloud` command to get more detail, such as regions and endpoints.
 
-Further reading:
- 
-    Documentation:   https://juju.is/docs/olm/manage-clouds
-    microk8s:        https://microk8s.io/docs
-    LXD hypervisor:  https://documentation.ubuntu.com/lxd
+See [cancel](https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/cancel-task/)
