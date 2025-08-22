@@ -5,7 +5,7 @@ package google
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
@@ -21,27 +21,21 @@ const (
 	NetworkAccessOneToOneNAT = "ONE_TO_ONE_NAT" // the default
 )
 
-func matchesPrefix(firewallName, namePrefix string) bool {
-	return firewallName == namePrefix || strings.HasPrefix(firewallName, namePrefix+"-")
-}
-
 // Firewalls collects the firewall rules for the given name prefix
 // (within the Connection's project) and returns them any matches.
 func (c *Connection) Firewalls(ctx context.Context, prefix string) ([]*compute.Firewall, error) {
+	filter := fmt.Sprintf("name eq '^%s(-.+)?$'", prefix)
 	call := c.Service.Firewalls.List(c.projectID).
-		Context(ctx)
-	firewallList, err := call.Do()
+		Context(ctx).Filter(filter)
+	var results []*compute.Firewall
+	err := call.Pages(ctx, func(page *compute.FirewallList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
 	if err != nil {
-		return nil, errors.Annotate(err, "while getting firewall from GCE")
+		return nil, errors.Trace(err)
 	}
-	var firewalls []*compute.Firewall
-	for _, fw := range firewallList.Items {
-		if matchesPrefix(fw.Name, prefix) {
-			firewalls = append(firewalls, fw)
-		}
-	}
-
-	return firewalls, nil
+	return results, nil
 }
 
 // AddFirewall adds a new firewall to the project.

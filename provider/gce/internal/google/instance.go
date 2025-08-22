@@ -22,19 +22,12 @@ func (c *Connection) AvailabilityZones(ctx context.Context, region string) ([]*c
 	}
 
 	var results []*compute.Zone
-	for {
-		zoneList, err := call.Do()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for _, zone := range zoneList.Items {
-			results = append(results, zone)
-		}
-		if zoneList.NextPageToken == "" {
-			break
-		}
-		call = call.PageToken(zoneList.NextPageToken)
+	err := call.Pages(ctx, func(page *compute.ZoneList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return results, nil
 }
@@ -224,13 +217,18 @@ func (c *Connection) UpdateMetadata(ctx context.Context, key, value string, ids 
 // ListMachineTypes returns a list of MachineType available for the
 // given zone.
 func (c *Connection) ListMachineTypes(ctx context.Context, zone string) ([]*compute.MachineType, error) {
-	op := c.MachineTypes.List(c.projectID, zone).
+	call := c.MachineTypes.List(c.projectID, zone).
 		Context(ctx)
-	machines, err := op.Do()
+
+	var results []*compute.MachineType
+	err := call.Pages(ctx, func(page *compute.MachineTypeList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "listing machine types for project %q and zone %q", c.projectID, zone)
 	}
-	return machines.Items, nil
+	return results, nil
 }
 
 func (c *Connection) updateInstanceMetadata(ctx context.Context, instance *compute.Instance, key, value string) error {
