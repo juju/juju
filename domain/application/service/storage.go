@@ -385,7 +385,7 @@ func makeUnitStorageArgs(
 ) (application.CreateUnitStorageArg, error) {
 	rvalDirectives := make([]application.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []application.CreateUnitStorageInstanceArg{}
-	rvalToAttach := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
+	rvalToAttach := make([]application.CreateStorageAttachmentArg, 0, len(storageDirectives))
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
 
 	for _, sd := range storageDirectives {
@@ -419,9 +419,6 @@ func makeUnitStorageArgs(
 		// Remove the already existing storage instances from the count.
 		sd.Count -= numExistingStorage
 
-		// Add the existing storage matching this directive to the list of
-		// attachments.
-		rvalToAttach = append(rvalToAttach, existingStorageUUIDs...)
 		rvalToOwn = append(rvalToOwn, existingStorageUUIDs...)
 
 		instArgs, err := makeUnitStorageInstancesFromDirective(sd)
@@ -437,9 +434,15 @@ func makeUnitStorageArgs(
 	// For all the new storage instances that need to be created add their uuids
 	// to the set of attachments.
 	for _, inst := range rvalInstances {
-		rvalToAttach = append(rvalToAttach, inst.UUID)
 		rvalToOwn = append(rvalToOwn, inst.UUID)
 	}
+	saArgs, err := makeStorageAttachmentArgs(rvalToOwn)
+	if err != nil {
+		return application.CreateUnitStorageArg{}, errors.Errorf(
+			"making new storage attachment args: %w", err,
+		)
+	}
+	rvalToAttach = append(rvalToAttach, saArgs...)
 
 	return application.CreateUnitStorageArg{
 		StorageDirectives: rvalDirectives,
@@ -447,6 +450,23 @@ func makeUnitStorageArgs(
 		StorageToAttach:   rvalToAttach,
 		StorageToOwn:      rvalToOwn,
 	}, nil
+}
+
+func makeStorageAttachmentArgs(
+	storageInstanceUUIDs []domainstorage.StorageInstanceUUID,
+) ([]application.CreateStorageAttachmentArg, error) {
+	var attachments []application.CreateStorageAttachmentArg
+	for _, inst := range storageInstanceUUIDs {
+		saUUID, err := domainstorageprov.NewStorageAttachmentUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		attachments = append(attachments, application.CreateStorageAttachmentArg{
+			UUID:                saUUID,
+			StorageInstanceUUID: inst,
+		})
+	}
+	return attachments, nil
 }
 
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage

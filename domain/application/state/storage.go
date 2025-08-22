@@ -280,7 +280,7 @@ func (st *State) insertUnitStorageAttachments(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-	storageToAttach []domainstorage.StorageInstanceUUID,
+	storageToAttach []application.CreateStorageAttachmentArg,
 ) error {
 	storageAttachmentArgs, err := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
@@ -291,9 +291,12 @@ func (st *State) insertUnitStorageAttachments(
 			err,
 		)
 	}
-
+	storageInstanceUUIDs := make([]domainstorage.StorageInstanceUUID, 0, len(storageToAttach))
+	for _, sa := range storageToAttach {
+		storageInstanceUUIDs = append(storageInstanceUUIDs, sa.StorageInstanceUUID)
+	}
 	fsAttachmentArgs, err := st.makeInsertUnitFilesystemAttachmentArgs(
-		ctx, tx, netNodeUUID, storageToAttach,
+		ctx, tx, netNodeUUID, storageInstanceUUIDs,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -303,7 +306,7 @@ func (st *State) insertUnitStorageAttachments(
 	}
 
 	volAttachmentArgs, err := st.makeInsertUnitVolumeAttachmentArgs(
-		ctx, tx, netNodeUUID, storageToAttach,
+		ctx, tx, netNodeUUID, storageInstanceUUIDs,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -845,19 +848,15 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID coreunit.UUID,
-	storageToAttach []domainstorage.StorageInstanceUUID,
+	storageToAttach []application.CreateStorageAttachmentArg,
 ) ([]insertStorageInstanceAttachment, error) {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
-	for _, instUUID := range storageToAttach {
-		saUUID, err := storageprovisioning.NewStorageAttachmentUUID()
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
+	for _, sa := range storageToAttach {
 		rval = append(rval, insertStorageInstanceAttachment{
 			LifeID:              int(life.Alive),
-			StorageInstanceUUID: instUUID.String(),
+			StorageInstanceUUID: sa.StorageInstanceUUID.String(),
 			UnitUUID:            unitUUID.String(),
-			UUID:                saUUID.String(),
+			UUID:                sa.UUID.String(),
 		})
 	}
 
