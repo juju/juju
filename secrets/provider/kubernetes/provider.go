@@ -655,6 +655,9 @@ func (k *kubernetesClient) ensureRoleBinding(
 		out, err = api.Create(ctx, rb, v1.CreateOptions{
 			FieldManager: resources.JujuFieldManager,
 		})
+		if k8serrors.IsAlreadyExists(err) {
+			return out, cleanups, nil
+		}
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
 		}
@@ -779,6 +782,10 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 				Rules: rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
 			},
 		)
+		// role could be created in the meantime by another client after initial get check
+		if errors.Is(err, errors.AlreadyExists) {
+			return cleanups, nil
+		}
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, role.GetName(), role.GetUID()) })
 		}
