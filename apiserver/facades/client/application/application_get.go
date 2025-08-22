@@ -5,18 +5,15 @@ package application
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -284,42 +281,6 @@ func (c *domainCharm) Revision() int {
 
 func (c *domainCharm) IsUploaded() bool {
 	return c.available
-}
-
-func (c *domainCharm) URL() string {
-	schema := charm.Local.String()
-	if c.locator.Source == applicationcharm.CharmHubSource {
-		schema = charm.CharmHub.String()
-	}
-
-	name := c.charm.Meta().Name
-	if name == "" {
-		panic(fmt.Sprintf("charm name is empty %+v", c.charm))
-	}
-
-	var a string
-	switch c.locator.Architecture {
-	case architecture.AMD64:
-		a = arch.AMD64
-	case architecture.ARM64:
-		a = arch.ARM64
-	case architecture.PPC64EL:
-		a = arch.PPC64EL
-	case architecture.S390X:
-		a = arch.S390X
-	case architecture.RISCV64:
-		a = arch.RISCV64
-	default:
-		// If there is no architecture set, we should ignore it.
-	}
-
-	curl := &charm.URL{
-		Schema:       schema,
-		Name:         name,
-		Revision:     c.locator.Revision,
-		Architecture: a,
-	}
-	return curl.String()
 }
 
 func (c *domainCharm) Version() string {
