@@ -364,41 +364,42 @@ run_test_add_multiple_secrets_parallel() {
 	model_log_file="${TEST_DIR}/${model_name}.log"
 
 	cleanup_resources() {
+		# remove files in this test in case other k8s test uses the same file names.
 		rm -f "$ctrl_log_file" "$model_log_file"
 		export KILL_CONTROLLER=true
 		destroy_controller "$controller_name"
 	}
+	trap cleanup_resources EXIT HUP INT TERM
 
-	check_secret_ids_from_log() {
+	# Verify all added secret IDs exist
+	verify_secrets_exist() {
 		local log_file=$1
 		local total=0 missing=0
 		while IFS= read -r id; do
 		[ -z "$id" ] && continue
 		total=$((total+1))
-		# success -> quiet; failure -> print Juju's error
 		if ! juju show-secret "$id" >/dev/null; then
 			missing=$((missing+1))
 		fi
 		done < <(sed -n 's/^[[:space:]]*secret:[[:space:]]*//p' "$log_file")
 
 		if [ "$missing" -gt 0 ]; then
-		echo "Failed: $missing of $total secret IDs not found (see errors above)."
+		echo "Failed: $missing of $total secret IDs not found."
 		return 1
 		fi
-		echo "Success: all $total secret IDs exist."
+		echo "Success: all $total secret IDs found."
 	}
 
-	
-	trap cleanup_resources EXIT HUP INT TERM
-
+	# bootstrap a controller with k8s secrets provider to test the controller model path.
 	bootstrap_custom_controller "$controller_name" microk8s
-
+    
 	juju switch controller
 	# check logs during juju add-secret in controller model for any errors
 	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for controller model."
 		exit 1
 	fi
+	verify_secrets_exist "$ctrl_log_file"
 
 	juju add-model "$model_name"
 	# check logs during juju add-secret in non-controller model for any errors
@@ -406,9 +407,7 @@ run_test_add_multiple_secrets_parallel() {
 		echo "Failed: could not add multiple secrets in parallel for non-controller model."
 		exit 1
 	fi
-
-
-	
+	verify_secrets_exist "$model_log_file"
 }
 
 prepare_vault() {

@@ -256,9 +256,6 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 		ID, err := s.createSecret(arg)
 		result.Results[i].Result = ID
 		if errors.Is(err, state.LabelExists) {
-			if arg.Label == nil {
-				continue
-			}
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -345,9 +342,6 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 	for i, arg := range args.Args {
 		err := s.updateSecret(arg)
 		if errors.Is(err, state.LabelExists) {
-			if arg.Label == nil {
-				continue
-			}
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
