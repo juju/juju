@@ -162,6 +162,9 @@ CREATE TABLE storage_attachment (
     REFERENCES life (id)
 );
 
+CREATE UNIQUE INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid
+ON storage_attachment (unit_uuid, storage_instance_uuid);
+
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_storage_attachment_unit
 ON storage_attachment (unit_uuid);
