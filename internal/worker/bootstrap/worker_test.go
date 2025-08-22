@@ -313,7 +313,6 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
-			ProviderRegistry:  provider.CommonStorageProviders(),
 			StorageService:    s.storageService,
 			Logger:            s.logger,
 		},
@@ -352,7 +351,6 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		KeyManagerService:          s.keyManagerService,
 		ControllerConfigService:    s.controllerConfigService,
 		StorageService:             s.storageService,
-		ProviderRegistry:           provider.CommonStorageProviders(),
 		CloudService:               s.cloudService,
 		NetworkService:             s.networkService,
 		BakeryConfigService:        s.bakeryConfigService,
