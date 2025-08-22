@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/gce/internal/google"
 	"github.com/juju/juju/storage"
 )
 

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/gce/internal/google"
 )
 
 // instStatus is the list of statuses to accept when filtering

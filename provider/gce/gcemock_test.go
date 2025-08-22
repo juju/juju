@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	google "github.com/juju/juju/provider/gce/google"
+	google "github.com/juju/juju/provider/gce/internal/google"
 	gomock "go.uber.org/mock/gomock"
 	compute "google.golang.org/api/compute/v1"
 )

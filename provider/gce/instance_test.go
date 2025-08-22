@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/gce/internal/google"
 )
 
 type instanceSuite struct {
