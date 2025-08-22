@@ -131,12 +131,6 @@ type ApplicationState interface {
 	// [applicationerrors.ScaleChangeInvalid] is returned.
 	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error)
 
-	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the
-	// application doesn't exist. If the application still has units, as error
-	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
-	DeleteApplication(context.Context, string) error
-
 	// GetCharmByApplicationID returns the charm, charm origin and charm
 	// platform for the specified application ID.
 	//
