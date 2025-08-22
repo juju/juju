@@ -9,10 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/testing"
 )
 
 type connConfigSuite struct {
-	google.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&connConfigSuite{})

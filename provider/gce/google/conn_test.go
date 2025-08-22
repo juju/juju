@@ -1,89 +1,162 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package google_test
+package google
 
 import (
-	"context"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/testing"
 )
 
-type connSuite struct {
-	google.BaseSuite
+type rawConnSuite struct {
+	testing.BaseSuite
+
+	op      *compute.Operation
+	rawConn *Connection
+
+	strategy retry.CallArgs
+
+	handleOperationErrorsF handleOperationErrors
+	callCount              int
+	opCallErr              error
 }
 
-var _ = gc.Suite(&connSuite{})
+var _ = gc.Suite(&rawConnSuite{})
 
-func (s *connSuite) TestConnect(c *gc.C) {
-	google.SetRawConn(s.Conn, nil)
+func (s *rawConnSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.op = &compute.Operation{
+		Name:   "some_op",
+		Status: StatusDone,
+	}
 	service := &compute.Service{}
-	s.PatchValue(google.NewService, func(ctx context.Context, creds *google.Credentials, httpClient *jujuhttp.Client) (*compute.Service, error) {
-		return service, nil
+	service.ZoneOperations = compute.NewZoneOperationsService(service)
+	service.RegionOperations = compute.NewRegionOperationsService(service)
+	service.GlobalOperations = compute.NewGlobalOperationsService(service)
+	s.rawConn = &Connection{Service: service, projectID: "proj"}
+	s.strategy = retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    time.Millisecond,
+		Attempts: 4,
+	}
+
+	s.callCount = 0
+	s.opCallErr = nil
+	s.PatchValue(&doOpCall, func(call opDoer) (*compute.Operation, error) {
+		s.callCount++
+		return s.op, s.opCallErr
 	})
-
-	conn, err := google.Connect(context.TODO(), s.ConnCfg, s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(google.ExposeRawService(conn), gc.Equals, service)
+	s.handleOperationErrorsF = logOperationErrors
 }
 
-func (s *connSuite) TestConnectionVerifyCredentials(c *gc.C) {
-	err := s.Conn.VerifyCredentials()
+func (s *rawConnSuite) TestConnectionCheckOperationError(c *gc.C) {
+	s.opCallErr = errors.New("<unknown>")
+
+	_, err := s.rawConn.checkOperation("proj", s.op)
+
+	c.Check(err, gc.ErrorMatches, ".*<unknown>")
+	c.Check(s.callCount, gc.Equals, 1)
+}
+
+func (s *rawConnSuite) TestConnectionCheckOperationZone(c *gc.C) {
+	original := &compute.Operation{Zone: "a-zone"}
+	op, err := s.rawConn.checkOperation("proj", original)
 
 	c.Check(err, jc.ErrorIsNil)
+	c.Check(op, gc.NotNil)
+	c.Check(op, gc.Not(gc.Equals), original)
+	c.Check(s.callCount, gc.Equals, 1)
 }
 
-func (s *connSuite) TestConnectionVerifyCredentialsAPI(c *gc.C) {
-	err := s.Conn.VerifyCredentials()
-	c.Assert(err, jc.ErrorIsNil)
+func (s *rawConnSuite) TestConnectionCheckOperationRegion(c *gc.C) {
+	original := &compute.Operation{Region: "a"}
+	op, err := s.rawConn.checkOperation("proj", original)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetProject")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op, gc.NotNil)
+	c.Check(op, gc.Not(gc.Equals), original)
+	c.Check(s.callCount, gc.Equals, 1)
 }
 
-func (s *connSuite) TestConnectionVerifyCredentialsInvalid(c *gc.C) {
-	s.FakeConn.Err = errors.New("retrieving auth token for user@mail.com: Invalid Key")
-	err := s.Conn.VerifyCredentials()
+func (s *rawConnSuite) TestConnectionCheckOperationGlobal(c *gc.C) {
+	original := &compute.Operation{}
+	op, err := s.rawConn.checkOperation("proj", original)
 
-	c.Check(err, gc.ErrorMatches, `retrieving auth token for user@mail.com: Invalid Key`)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op, gc.NotNil)
+	c.Check(op, gc.Not(gc.Equals), original)
+	c.Check(s.callCount, gc.Equals, 1)
 }
 
-func (s *connSuite) TestConnectionAvailabilityZones(c *gc.C) {
-	s.FakeConn.Zones = []*compute.Zone{{
-		Name:   "a-zone",
-		Status: google.StatusUp,
-	}}
+func (s *rawConnSuite) TestConnectionWaitOperation(c *gc.C) {
+	original := &compute.Operation{}
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	azs, err := s.Conn.AvailabilityZones("a")
-	c.Check(err, gc.IsNil)
-
-	c.Check(len(azs), gc.Equals, 1)
-	c.Check(azs[0].Name(), gc.Equals, "a-zone")
-	c.Check(azs[0].Status(), gc.Equals, google.StatusUp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.callCount, gc.Equals, 1)
 }
 
-func (s *connSuite) TestConnectionAvailabilityZonesAPI(c *gc.C) {
-	_, err := s.Conn.AvailabilityZones("a")
-	c.Assert(err, gc.IsNil)
+func (s *rawConnSuite) TestConnectionWaitOperationAlreadyDone(c *gc.C) {
+	original := &compute.Operation{
+		Status: StatusDone,
+	}
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListAvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "a")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.callCount, gc.Equals, 0)
 }
 
-func (s *connSuite) TestConnectionAvailabilityZonesErr(c *gc.C) {
-	s.FakeConn.Err = errors.New("<unknown>")
+func (s *rawConnSuite) TestConnectionWaitOperationWaiting(c *gc.C) {
+	s.op.Status = StatusRunning
+	s.PatchValue(&doOpCall, func(call opDoer) (*compute.Operation, error) {
+		s.callCount++
+		if s.callCount > 1 {
+			s.op.Status = StatusDone
+		}
+		return s.op, s.opCallErr
+	})
 
-	_, err := s.Conn.AvailabilityZones("a")
+	original := &compute.Operation{}
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
-	c.Check(err, gc.ErrorMatches, "<unknown>")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.callCount, gc.Equals, 2)
+}
+
+func (s *rawConnSuite) TestConnectionWaitOperationTimeout(c *gc.C) {
+	s.op.Status = StatusRunning
+	err := s.rawConn.waitOperation("proj", s.op, s.strategy, s.handleOperationErrorsF)
+
+	c.Check(err, gc.ErrorMatches, ".* timed out .*")
+	c.Check(s.callCount, gc.Equals, 4)
+}
+
+func (s *rawConnSuite) TestConnectionWaitOperationFailure(c *gc.C) {
+	s.opCallErr = errors.New("<unknown>")
+
+	original := &compute.Operation{}
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
+
+	c.Check(err, gc.ErrorMatches, ".*<unknown>")
+	c.Check(s.callCount, gc.Equals, 1)
+}
+
+func (s *rawConnSuite) TestConnectionWaitOperationError(c *gc.C) {
+	s.op.Error = &compute.OperationError{}
+	s.op.Name = "testing-wait-operation-error"
+
+	original := &compute.Operation{}
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
+
+	c.Check(err, gc.ErrorMatches, `.* "testing-wait-operation-error" .*`)
+	c.Check(s.callCount, gc.Equals, 1)
 }

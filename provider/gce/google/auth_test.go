@@ -12,10 +12,26 @@ import (
 )
 
 type authSuite struct {
-	BaseSuite
+	Credentials *Credentials
 }
 
 var _ = gc.Suite(&authSuite{})
+
+func (s *authSuite) SetUpTest(c *gc.C) {
+	s.Credentials = &Credentials{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("<some-key>"),
+		JSONKey: []byte(`
+{
+    "private_key_id": "mnopq",
+    "private_key": "<some-key>",
+    "client_email": "user@mail.com",
+    "client_id": "spam",
+    "type": "service_account"
+}`[1:]),
+	}
+}
 
 func (s *authSuite) TestNewComputeService(c *gc.C) {
 	_, err := newComputeService(context.TODO(), s.Credentials, jujuhttp.NewClient())

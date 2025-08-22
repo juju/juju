@@ -4,258 +4,270 @@
 package google
 
 import (
-	"fmt"
+	"context"
 	"path"
 
+	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
-
-	"github.com/juju/juju/core/network"
 )
 
-// InstanceSpec holds all the information needed to create a new GCE instance.
-// TODO(ericsnow) Validate the invariants?
-type InstanceSpec struct {
-	// ID is the "name" of the instance.
-	ID string
-
-	// Type is the name of the GCE instance type. The value is resolved
-	// relative to an availability zone when the API request is sent.
-	// The type must match one of the GCE-recognized types.
-	Type string
-
-	// Disks holds the information needed to request each of the disks
-	// that should be attached to a new instance. This must include a
-	// single root disk.
-	Disks []DiskSpec
-
-	// Network identifies the information for the network that a new
-	// instance should use. If the network does not exist then it will
-	// be added when the instance is. At least the network's name must
-	// be set.
-	Network NetworkSpec
-
-	// NetworkInterfaces is the names of the network interfaces to
-	// associate with the instance. They will be connected to the the
-	// network identified by the instance spec. At least one name must
-	// be provided.
-	NetworkInterfaces []string
-
-	// Metadata is the GCE instance "user-specified" metadata that will
-	// be initialized on the new instance.
-	Metadata map[string]string
-
-	// Tags are the labels to associate with the instance. This is
-	// useful when making bulk calls or in relation to some API methods
-	// (e.g. related to firewalls access rules).
-	Tags []string
-
-	// AvailabilityZone holds the name of the availability zone in which
-	// to create the instance.
-	AvailabilityZone string
-
-	// AllocatePublicIP is true if the instance should be assigned a public IP
-	// address, exposing it to access from outside the internal network.
-	AllocatePublicIP bool
-
-	// DefaultServiceAccount is the default project service account.
-	DefaultServiceAccount string
-}
-
-func (is InstanceSpec) raw() *compute.Instance {
-	inst := &compute.Instance{
-		Name:              is.ID,
-		Disks:             is.disks(),
-		NetworkInterfaces: is.networkInterfaces(),
-		Metadata:          packMetadata(is.Metadata),
-		Tags:              &compute.Tags{Items: is.Tags},
-		// MachineType is set in the addInstance call.
+// AvailabilityZones returns the list of availability zones for a given
+// GCE region. If none are found the the list is empty. Any failure in
+// the low-level request is returned as an error.
+func (c *Connection) AvailabilityZones(ctx context.Context, region string) ([]*compute.Zone, error) {
+	call := c.Zones.List(c.projectID).
+		Context(ctx)
+	if region != "" {
+		call = call.Filter("name eq " + region + "-.*")
 	}
-	if is.DefaultServiceAccount != "" {
-		inst.ServiceAccounts = []*compute.ServiceAccount{{
-			Email: is.DefaultServiceAccount,
-		}}
-	}
-	return inst
-}
 
-// Summary builds an InstanceSummary based on the spec and returns it.
-func (is InstanceSpec) Summary() InstanceSummary {
-	raw := is.raw()
-	return newInstanceSummary(raw)
-}
-
-func (is InstanceSpec) disks() []*compute.AttachedDisk {
-	var result []*compute.AttachedDisk
-	for _, spec := range is.Disks {
-		result = append(result, spec.newAttached())
-	}
-	return result
-}
-
-func (is InstanceSpec) networkInterfaces() []*compute.NetworkInterface {
-	var result []*compute.NetworkInterface
-	for _, name := range is.NetworkInterfaces {
-		result = append(result, is.Network.newInterface(name, is.AllocatePublicIP))
-	}
-	return result
-}
-
-// RootDisk identifies the root disk for a given instance (or instance
-// spec) and returns it. If the root disk could not be determined then
-// nil is returned.
-// TODO(ericsnow) Return an error?
-func (is InstanceSpec) RootDisk() *compute.AttachedDisk {
-	return is.Disks[0].newAttached()
-}
-
-// InstanceSummary captures all the data needed by Instance.
-type InstanceSummary struct {
-	// ID is the "name" of the instance.
-	ID string
-	// ZoneName is the unqualified name of the zone in which the
-	// instance was provisioned.
-	ZoneName string
-	// Status holds the status of the instance at a certain point in time.
-	Status string
-	// Metadata is the instance metadata.
-	Metadata map[string]string
-	// Addresses are the IP Addresses associated with the instance.
-	Addresses network.ProviderAddresses
-	// NetworkInterfaces are the network connections associated with
-	// the instance.
-	NetworkInterfaces []*compute.NetworkInterface
-	// ServiceAccount is the instance service account.
-	ServiceAccount string
-}
-
-func newInstanceSummary(raw *compute.Instance) InstanceSummary {
-	inst := InstanceSummary{
-		ID:                raw.Name,
-		ZoneName:          path.Base(raw.Zone),
-		Status:            raw.Status,
-		Metadata:          unpackMetadata(raw.Metadata),
-		Addresses:         extractAddresses(raw.NetworkInterfaces...),
-		NetworkInterfaces: raw.NetworkInterfaces,
-	}
-	if len(raw.ServiceAccounts) > 0 {
-		inst.ServiceAccount = raw.ServiceAccounts[0].Email
-	}
-	return inst
-}
-
-// Instance represents a single realized GCE compute instance.
-type Instance struct {
-	InstanceSummary
-
-	// spec is the InstanceSpec used to create this instance.
-	spec *InstanceSpec
-}
-
-func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
-	summary := newInstanceSummary(raw)
-	return NewInstance(summary, spec)
-}
-
-// NewInstance builds an instance from the provided summary and spec
-// and returns it.
-func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
-	if spec != nil {
-		// Make a copy.
-		val := *spec
-		spec = &val
-	}
-	return &Instance{
-		InstanceSummary: summary,
-		spec:            spec,
-	}
-}
-
-// RootDisk returns an AttachedDisk
-func (gi Instance) RootDisk() *compute.AttachedDisk {
-	if gi.spec == nil {
-		return nil
-	}
-	return gi.spec.RootDisk()
-}
-
-// RootDiskGB returns the size of the instance's root disk. If it
-// cannot be determined then 0 is returned.
-func (gi Instance) RootDiskGB() uint64 {
-	if gi.spec == nil {
-		return 0
-	}
-	attached := gi.RootDisk()
-	return uint64(attached.InitializeParams.DiskSizeGb)
-}
-
-// Status returns a string identifying the status of the instance. The
-// value will match one of the Status* constants in the package.
-func (gi Instance) Status() string {
-	return gi.InstanceSummary.Status
-}
-
-// Addresses identifies information about the network addresses
-// associated with the instance and returns it.
-func (gi Instance) Addresses() network.ProviderAddresses {
-	// TODO*ericsnow) return a copy?
-	return gi.InstanceSummary.Addresses
-}
-
-// Metadata returns the user-specified metadata for the instance.
-func (gi Instance) Metadata() map[string]string {
-	// TODO*ericsnow) return a copy?
-	return gi.InstanceSummary.Metadata
-}
-
-// NetworkInterfaces returns the details of the network connection for
-// this instance.
-func (gi Instance) NetworkInterfaces() []compute.NetworkInterface {
-	var results []compute.NetworkInterface
-	// Copy to prevent callers from mutating the source data.
-	for _, iface := range gi.InstanceSummary.NetworkInterfaces {
-		results = append(results, *iface)
-	}
-	return results
-}
-
-// packMetadata composes the provided data into the format required
-// by the GCE API.
-func packMetadata(data map[string]string) *compute.Metadata {
-	var items []*compute.MetadataItems
-	for key, value := range data {
-		// Needs to be a new variable so that &localValue is different
-		// each time round the loop.
-		localValue := value
-		item := compute.MetadataItems{
-			Key:   key,
-			Value: &localValue,
+	var results []*compute.Zone
+	for {
+		zoneList, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		items = append(items, &item)
+
+		for _, zone := range zoneList.Items {
+			results = append(results, zone)
+		}
+		if zoneList.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(zoneList.NextPageToken)
 	}
-	return &compute.Metadata{Items: items}
+	return results, nil
 }
 
-// unpackMetadata decomposes the provided data from the format used
-// in the GCE API.
-func unpackMetadata(data *compute.Metadata) map[string]string {
-	if data == nil {
+// AddInstance creates a new instance based on the spec's data and
+// returns it. The instance will be created using the provided
+// connection and in the provided zone.
+func (c *Connection) AddInstance(ctx context.Context, spec *compute.Instance) (*compute.Instance, error) {
+	var waitErr error
+	call := c.Service.Instances.Insert(c.projectID, spec.Zone, spec).
+		Context(ctx)
+	operation, err := call.Do()
+	if err != nil {
+		// We are guaranteed the insert failed at the point.
+		return nil, errors.Annotate(err, "sending new instance request")
+	}
+	err = c.waitOperation(c.projectID, operation, longRetryStrategy, logOperationErrors)
+
+	if isWaitError(err) {
+		waitErr = err
+	} else if err != nil {
+		// We are guaranteed the insert failed at the point.
+		return nil, errors.Annotate(err, "sending new instance request")
+	}
+
+	// Check if the instance was created.
+	realized, err := c.Instance(ctx, spec.Zone, spec.Name)
+	if err != nil {
+		if waitErr != nil {
+			return nil, errors.Trace(waitErr)
+		}
+		return nil, errors.Trace(err)
+	}
+	return realized, nil
+}
+
+// Instance gets the up-to-date info about the given instance
+// and returns it.
+func (c *Connection) Instance(ctx context.Context, zone, id string) (*compute.Instance, error) {
+	call := c.Service.Instances.Get(c.projectID, zone, id).
+		Context(ctx)
+	inst, err := call.Do()
+	return inst, errors.Trace(err)
+}
+
+// Instances sends a request to the GCE API for a list of all instances
+// (in the Connection's project) for which the name starts with the
+// provided prefix. The result is also limited to those instances with
+// one of the specified statuses (if any).
+func (c *Connection) Instances(ctx context.Context, prefix string, statuses ...string) ([]*compute.Instance, error) {
+	call := c.Service.Instances.AggregatedList(c.projectID).
+		Context(ctx)
+	call = call.Filter("name eq " + prefix + ".*")
+
+	var results []*compute.Instance
+	for {
+		rawResult, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for _, instList := range rawResult.Items {
+			for _, inst := range instList.Instances {
+				if !checkInstStatus(inst, statuses) {
+					continue
+				}
+				results = append(results, inst)
+			}
+		}
+		if rawResult.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(rawResult.NextPageToken)
+	}
+	return results, nil
+}
+
+func checkInstStatus(inst *compute.Instance, statuses []string) bool {
+	if len(statuses) == 0 {
+		return true
+	}
+	for _, status := range statuses {
+		if inst.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+// removeInstance sends a request to the GCE API to remove the instance
+// with the provided ID (in the specified zone). The call blocks until
+// the instance is removed (or the request fails).
+func (c *Connection) removeInstance(ctx context.Context, id, zone string) error {
+	call := c.Service.Instances.Delete(c.projectID, zone, id).
+		Context(ctx)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.waitOperation(c.projectID, operation, longRetryStrategy, returnNotFoundOperationErrors)
+	if err != nil {
+		if IsNotFound(err) {
+			return nil
+		}
+		// TODO(ericsnow) Try removing the firewall anyway?
+		return errors.Trace(err)
+	}
+
+	fwname := id
+	err = c.RemoveFirewall(ctx, fwname)
+	if err != nil {
+		if IsNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveInstances sends a request to the GCE API to terminate all
+// instances (in the Connection's project) that match one of the
+// provided IDs. If a prefix is provided, only IDs that start with the
+// prefix will be considered. The call blocks until all the instances
+// are removed or the request fails.
+func (c *Connection) RemoveInstances(ctx context.Context, prefix string, ids ...string) error {
+	if len(ids) == 0 {
 		return nil
 	}
 
-	result := make(map[string]string)
-	for _, item := range data.Items {
+	instances, err := c.Instances(ctx, prefix)
+	if err != nil {
+		return errors.Annotatef(err, "while removing instances %v", ids)
+	}
+
+	// TODO(ericsnow) Remove instances in parallel?
+	var failed []string
+	for _, instID := range ids {
+		for _, inst := range instances {
+			if inst.Name == instID {
+				zoneName := path.Base(inst.Zone)
+				if err := c.removeInstance(ctx, instID, zoneName); err != nil {
+					failed = append(failed, instID)
+					logger.Errorf("while removing instance %q: %v", instID, err)
+				}
+				break
+			}
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("some instance removals failed: %v", failed)
+	}
+	return nil
+}
+
+// UpdateMetadata sets the metadata key to the specified value for
+// all of the instance ids given. The call blocks until all
+// of the instances are updated or the request fails.
+func (c *Connection) UpdateMetadata(ctx context.Context, key, value string, ids ...string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	instances, err := c.Instances(ctx, "")
+	if err != nil {
+		return errors.Annotatef(err, "updating metadata for instances %v", ids)
+	}
+	var failed []string
+	for _, instID := range ids {
+		for _, inst := range instances {
+			if inst.Name == instID {
+				if err := c.updateInstanceMetadata(ctx, inst, key, value); err != nil {
+					failed = append(failed, instID)
+					logger.Errorf("while updating metadata for instance %q (%v=%q): %v",
+						instID, key, value, err)
+				}
+				break
+			}
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("some metadata updates failed: %v", failed)
+	}
+	return nil
+
+}
+
+// ListMachineTypes returns a list of MachineType available for the
+// given zone.
+func (c *Connection) ListMachineTypes(ctx context.Context, zone string) ([]*compute.MachineType, error) {
+	op := c.MachineTypes.List(c.projectID, zone).
+		Context(ctx)
+	machines, err := op.Do()
+	if err != nil {
+		return nil, errors.Annotatef(err, "listing machine types for project %q and zone %q", c.projectID, zone)
+	}
+	return machines.Items, nil
+}
+
+func (c *Connection) updateInstanceMetadata(ctx context.Context, instance *compute.Instance, key, value string) error {
+	metadata := instance.Metadata
+	existingItem := findMetadataItem(metadata.Items, key)
+	if existingItem != nil && existingItem.Value != nil && *existingItem.Value == value {
+		// The value's already right.
+		return nil
+	} else if existingItem == nil {
+		metadata.Items = append(metadata.Items, &compute.MetadataItems{Key: key, Value: &value})
+	} else {
+		existingItem.Value = &value
+	}
+	// The GCE API won't accept a full URL for the zone (lp:1667172).
+	zoneName := path.Base(instance.Zone)
+	return errors.Trace(c.setMetadata(ctx, c.projectID, zoneName, instance.Name, metadata))
+}
+
+func findMetadataItem(items []*compute.MetadataItems, key string) *compute.MetadataItems {
+	for _, item := range items {
 		if item == nil {
 			continue
 		}
-		value := ""
-		if item.Value != nil {
-			value = *item.Value
+		if item.Key == key {
+			return item
 		}
-		result[item.Key] = value
 	}
-	return result
+	return nil
 }
 
-func formatMachineType(zone, name string) string {
-	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
+func (c *Connection) setMetadata(ctx context.Context, projectID, zone, instanceID string, metadata *compute.Metadata) error {
+	call := c.Service.Instances.SetMetadata(projectID, zone, instanceID, metadata).
+		Context(ctx)
+	op, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.waitOperation(projectID, op, longRetryStrategy, logOperationErrors)
+	return errors.Trace(err)
 }

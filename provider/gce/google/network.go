@@ -4,16 +4,16 @@
 package google
 
 import (
-	"sort"
+	"context"
+	"strings"
 
+	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
-
-	"github.com/juju/juju/core/network"
 )
 
 const (
-	networkDefaultName = "default"
-	networkPathRoot    = "global/networks/"
+	NetworkDefaultName = "default"
+	NetworkPathRoot    = "global/networks/"
 )
 
 // The different kinds of network access.
@@ -21,108 +21,97 @@ const (
 	NetworkAccessOneToOneNAT = "ONE_TO_ONE_NAT" // the default
 )
 
-// NetworkSpec holds all the information needed to identify and create
-// a GCE network.
-type NetworkSpec struct {
-	// Name is the unqualified name of the network.
-	Name string
-	// TODO(ericsnow) support a CIDR for internal IP addr range?
+func matchesPrefix(firewallName, namePrefix string) bool {
+	return firewallName == namePrefix || strings.HasPrefix(firewallName, namePrefix+"-")
 }
 
-// Path returns the qualified name of the network.
-func (ns *NetworkSpec) Path() string {
-	name := ns.Name
-	if name == "" {
-		name = networkDefaultName
+// Firewalls collects the firewall rules for the given name prefix
+// (within the Connection's project) and returns them any matches.
+func (c *Connection) Firewalls(ctx context.Context, prefix string) ([]*compute.Firewall, error) {
+	call := c.Service.Firewalls.List(c.projectID).
+		Context(ctx)
+	firewallList, err := call.Do()
+	if err != nil {
+		return nil, errors.Annotate(err, "while getting firewall from GCE")
 	}
-	return networkPathRoot + name
+	var firewalls []*compute.Firewall
+	for _, fw := range firewallList.Items {
+		if matchesPrefix(fw.Name, prefix) {
+			firewalls = append(firewalls, fw)
+		}
+	}
+
+	return firewalls, nil
 }
 
-// newInterface builds up all the data needed by the GCE API to create
-// a new interface connected to the network.
-// If allocatePublicIP is false the interface will not have a public IP.
-// Such interfaces can not access the public internet unless a facility like
-// Cloud NAT is recruited by the VPC where they reside.
-// See: https://cloud.google.com/nat/docs/using-nat#gcloud_11
-func (ns *NetworkSpec) newInterface(name string, allocatePublicIP bool) *compute.NetworkInterface {
-	nic := &compute.NetworkInterface{
-		Network: ns.Path(),
+// AddFirewall adds a new firewall to the project.
+func (c *Connection) AddFirewall(ctx context.Context, firewall *compute.Firewall) error {
+	call := c.Service.Firewalls.Insert(c.projectID, firewall).
+		Context(ctx)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	if allocatePublicIP {
-		nic.AccessConfigs = []*compute.AccessConfig{{
-			Name: name,
-			Type: NetworkAccessOneToOneNAT,
-		}}
-	}
-
-	return nic
+	err = c.waitOperation(c.projectID, operation, longRetryStrategy, logOperationErrors)
+	return errors.Trace(err)
 }
 
-// firewallSpec expands a port range set in to compute.FirewallAllowed
-// and returns a compute.Firewall for the provided name.
-func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *compute.Firewall {
-	if len(sourceCIDRs) == 0 {
-		sourceCIDRs = []string{"0.0.0.0/0"}
+// UpdateFirewall updates an existing firewall.
+func (c *Connection) UpdateFirewall(ctx context.Context, name string, firewall *compute.Firewall) error {
+	call := c.Service.Firewalls.Update(c.projectID, name, firewall).
+		Context(ctx)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	firewall := compute.Firewall{
-		// Allowed is set below.
-		// Description is not set.
-		Name: name,
-		// Network: (defaults to global)
-		// SourceTags is not set.
-		TargetTags:   []string{target},
-		SourceRanges: sourceCIDRs,
-	}
-
-	var sortedProtocols []string
-	for protocol := range ports {
-		sortedProtocols = append(sortedProtocols, protocol)
-	}
-	sort.Strings(sortedProtocols)
-
-	for _, protocol := range sortedProtocols {
-		allowed := compute.FirewallAllowed{
-			IPProtocol: protocol,
-			Ports:      ports.portStrings(protocol),
-		}
-		firewall.Allowed = append(firewall.Allowed, &allowed)
-	}
-	return &firewall
+	err = c.waitOperation(c.projectID, operation, longRetryStrategy, logOperationErrors)
+	return errors.Trace(err)
 }
 
-func extractAddresses(interfaces ...*compute.NetworkInterface) []network.ProviderAddress {
-	var addresses []network.ProviderAddress
-
-	for _, netif := range interfaces {
-		// Add public addresses.
-		for _, accessConfig := range netif.AccessConfigs {
-			if accessConfig.NatIP == "" {
-				continue
-			}
-			address := network.ProviderAddress{
-				MachineAddress: network.MachineAddress{
-					Value: accessConfig.NatIP,
-					Type:  network.IPv4Address,
-					Scope: network.ScopePublic,
-				},
-			}
-			addresses = append(addresses, address)
+// RemoveFirewall removes the named firewall from the project.
+func (c *Connection) RemoveFirewall(ctx context.Context, fwname string) (err error) {
+	defer func() {
+		if IsNotFound(err) {
+			err = nil
 		}
-
-		// Add private address.
-		if netif.NetworkIP == "" {
-			continue
-		}
-		address := network.ProviderAddress{
-			MachineAddress: network.MachineAddress{
-				Value: netif.NetworkIP,
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
-			},
-		}
-		addresses = append(addresses, address)
+	}()
+	call := c.Service.Firewalls.Delete(c.projectID, fwname).
+		Context(ctx)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(convertRawAPIError(err))
 	}
 
-	return addresses
+	err = c.waitOperation(c.projectID, operation, longRetryStrategy, returnNotFoundOperationErrors)
+	return errors.Trace(err)
+}
+
+// Subnetworks returns the subnets available in this region.
+func (c *Connection) Subnetworks(ctx context.Context, region string) ([]*compute.Subnetwork, error) {
+	call := c.Service.Subnetworks.List(c.projectID, region).
+		Context(ctx)
+	var results []*compute.Subnetwork
+	err := call.Pages(ctx, func(page *compute.SubnetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
+}
+
+// Networks returns the networks available.
+func (c *Connection) Networks(ctx context.Context) ([]*compute.Network, error) {
+	call := c.Service.Networks.List(c.projectID).
+		Context(ctx)
+	var results []*compute.Network
+	err := call.Pages(ctx, func(page *compute.NetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }
