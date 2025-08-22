@@ -11,21 +11,32 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 )
 
-// NewWorkerFn is an alias function that allows the creation of
-// EventQueueWorker.
-type NewWorkerFn = func(WorkerConfig) (worker.Worker, error)
+// NewWorkerFunc function that allows the creation of ChangeStreamPruner.
+type NewWorkerFunc func(WorkerConfig) (worker.Worker, error)
+
+// NewModelPrunerFunc is a function that creates a ModelPruner for a given model
+type NewModelPrunerFunc func(
+	db coredatabase.TxnRunner,
+	namespace string,
+	initialWindow window,
+	updateWindow WindowUpdaterFunc,
+	clock clock.Clock,
+	logger logger.Logger,
+) worker.Worker
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
 	DBAccessor string
 
-	Clock     clock.Clock
-	Logger    logger.Logger
-	NewWorker NewWorkerFn
+	Clock          clock.Clock
+	Logger         logger.Logger
+	NewWorker      NewWorkerFunc
+	NewModelPruner NewModelPrunerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -40,6 +51,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if cfg.NewModelPruner == nil {
+		return errors.NotValidf("nil NewModelPruner")
 	}
 	return nil
 }
@@ -62,9 +76,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				DBGetter: dbGetter,
-				Clock:    config.Clock,
-				Logger:   config.Logger,
+				DBGetter:       dbGetter,
+				NewModelPruner: config.NewModelPruner,
+				Clock:          config.Clock,
+				Logger:         config.Logger,
 			}
 
 			w, err := config.NewWorker(cfg)

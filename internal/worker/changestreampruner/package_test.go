@@ -31,7 +31,7 @@ type baseSuite struct {
 // with the controller schema.
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
-	s.DqliteSuite.ApplyDDL(c, &domaintesting.SchemaApplier{
+	s.ApplyDDL(c, &domaintesting.SchemaApplier{
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	})
@@ -70,4 +70,18 @@ func (s *baseSuite) expectDBGetTimes(namespace string, txnRunner coredatabase.Tx
 
 func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+}
+
+func (s *baseSuite) expectTimerImmediate() {
+	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer)
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		ch := make(chan time.Time, 1)
+		ch <- time.Now()
+		return ch
+	})
+	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		ch := make(chan time.Time, 1)
+		return ch
+	})
+	s.timer.EXPECT().Stop().Return(true).AnyTimes()
 }

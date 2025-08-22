@@ -6,11 +6,14 @@ package changestreampruner
 import (
 	"testing"
 
+	clock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"go.uber.org/goleak"
 
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -43,6 +46,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig(c)
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.NewModelPruner = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
@@ -52,6 +59,16 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		Logger:     loggertesting.WrapCheckLog(c),
 		NewWorker: func(WorkerConfig) (worker.Worker, error) {
 			return nil, nil
+		},
+		NewModelPruner: func(
+			db coredatabase.TxnRunner,
+			namespace string,
+			initialWindow window,
+			updateWindow WindowUpdaterFunc,
+			clock clock.Clock,
+			logger logger.Logger,
+		) worker.Worker {
+			return nil
 		},
 	}
 }
