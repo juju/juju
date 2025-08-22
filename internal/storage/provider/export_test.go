@@ -30,12 +30,6 @@ func LoopVolumeSource(
 	return &loopVolumeSource{dirFuncs, run, storageDir}, dirFuncs
 }
 
-func LoopProvider(
-	run func(string, ...string) (string, error),
-) storage.Provider {
-	return &loopProvider{run}
-}
-
 func NewMockManagedFilesystemSource(
 	etcDir string,
 	run func(string, ...string) (string, error),
@@ -124,10 +118,6 @@ func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...strin
 	return &rootfsFilesystemSource{d, run, storageDir}, d
 }
 
-func RootfsProvider(run func(string, ...string) (string, error)) storage.Provider {
-	return &rootfsProvider{run}
-}
-
 func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error), fakeMountInfo ...string) storage.FilesystemSource {
 	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	return &tmpfsFilesystemSource{
@@ -139,8 +129,4 @@ func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string
 		run,
 		storageDir,
 	}
-}
-
-func TmpfsProvider(run func(string, ...string) (string, error)) storage.Provider {
-	return &tmpfsProvider{run}
 }

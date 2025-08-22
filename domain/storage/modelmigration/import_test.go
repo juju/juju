@@ -13,12 +13,12 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 )
 
 type importSuite struct {
-	coordinator *MockCoordinator
-	service     *MockImportService
+	coordinator             *MockCoordinator
+	service                 *MockImportService
+	storageProviderRegistry *MockProviderRegistry
 }
 
 func TestImportSuite(t *testing.T) {
@@ -30,6 +30,13 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.service = NewMockImportService(ctrl)
+	s.storageProviderRegistry = NewMockProviderRegistry(ctrl)
+
+	c.Cleanup(func() {
+		s.coordinator = nil
+		s.service = nil
+		s.storageProviderRegistry = nil
+	})
 
 	return ctrl
 }
@@ -46,7 +53,7 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 	s.coordinator.EXPECT().Add(gomock.Any())
 
 	RegisterImport(s.coordinator, corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return provider.CommonStorageProviders()
+		return s.storageProviderRegistry
 	}), loggertesting.WrapCheckLog(c))
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -25,15 +26,28 @@ const (
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{storageProviderType}, nil
+	return []storage.ProviderType{
+		storageProviderType,
+		storageprovider.TmpfsProviderType,
+		storageprovider.RootfsProviderType,
+		storageprovider.LoopProviderType,
+	}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == storageProviderType {
+	switch t {
+	case storageProviderType:
 		return &storageProvider{env}, nil
+	case storageprovider.TmpfsProviderType:
+		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.RootfsProviderType:
+		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
+	case storageprovider.LoopProviderType:
+		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
+	default:
+		return nil, errors.NotFoundf("storage provider %q", t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 type storageProvider struct {
@@ -67,9 +81,16 @@ func (e *storageProvider) Releasable() bool {
 	return true
 }
 
+// DefaultPools returns the default pools available through the gce provider.
+// By default a pool by the same name as the provider is offered.
+//
+// Implements [storage.Provider] interface.
 func (g *storageProvider) DefaultPools() []*storage.Config {
-	// TODO(perrito666) Add explicit pools.
-	return nil
+	defaultPool, _ := storage.NewConfig(
+		storageProviderType.String(), storageProviderType, storage.Attrs{},
+	)
+
+	return []*storage.Config{defaultPool}
 }
 
 func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {

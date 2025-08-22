@@ -23,20 +23,28 @@ const (
 	HostLoopProviderType = storage.ProviderType("hostloop")
 )
 
-// loopProviders create volume sources which use loop devices.
-type loopProvider struct {
+// LoopProvider provides a storage volume source to Juju that allows for regular
+// files on a machine to be used as volumes.
+type LoopProvider struct {
 	// run is a function used for running commands on the local machine.
-	run runCommandFunc
+	run RunCommandFunc
 }
 
-var _ storage.Provider = (*loopProvider)(nil)
+var _ storage.Provider = (*LoopProvider)(nil)
 
-func (*loopProvider) ValidateForK8s(map[string]any) error {
+// NewLoopProvider is responsible for consntructing a new loop storage provider.
+func NewLoopProvider(run RunCommandFunc) *LoopProvider {
+	return &LoopProvider{
+		run: run,
+	}
+}
+
+func (*LoopProvider) ValidateForK8s(map[string]any) error {
 	return errors.NotValidf("storage provider type %q", LoopProviderType)
 }
 
 // ValidateConfig is defined on the Provider interface.
-func (*loopProvider) ValidateConfig(*storage.Config) error {
+func (*LoopProvider) ValidateConfig(*storage.Config) error {
 	// Loop provider has no configuration.
 	return nil
 }
@@ -44,7 +52,7 @@ func (*loopProvider) ValidateConfig(*storage.Config) error {
 // validateFullConfig validates a fully-constructed storage config,
 // combining the user-specified config and any internally specified
 // config.
-func (lp *loopProvider) validateFullConfig(cfg *storage.Config) error {
+func (lp *LoopProvider) validateFullConfig(cfg *storage.Config) error {
 	if err := lp.ValidateConfig(cfg); err != nil {
 		return err
 	}
@@ -56,7 +64,7 @@ func (lp *loopProvider) validateFullConfig(cfg *storage.Config) error {
 }
 
 // VolumeSource is defined on the Provider interface.
-func (lp *loopProvider) VolumeSource(sourceConfig *storage.Config) (storage.VolumeSource, error) {
+func (lp *LoopProvider) VolumeSource(sourceConfig *storage.Config) (storage.VolumeSource, error) {
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
@@ -70,40 +78,50 @@ func (lp *loopProvider) VolumeSource(sourceConfig *storage.Config) (storage.Volu
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (lp *loopProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (lp *LoopProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
 // Supports is defined on the Provider interface.
-func (*loopProvider) Supports(k storage.StorageKind) bool {
+func (*LoopProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
 // Scope is defined on the Provider interface.
-func (*loopProvider) Scope() storage.Scope {
+func (*LoopProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
 // Dynamic is defined on the Provider interface.
-func (*loopProvider) Dynamic() bool {
+func (*LoopProvider) Dynamic() bool {
 	return true
 }
 
 // Releasable is defined on the Provider interface.
-func (*loopProvider) Releasable() bool {
+func (*LoopProvider) Releasable() bool {
 	return false
 }
 
-// DefaultPools is defined on the Provider interface.
-func (*loopProvider) DefaultPools() []*storage.Config {
-	return nil
+// DefaultPools provides the default storage pools available through this
+// provider.
+//
+// This pool offers one default pool named after it self.
+//
+// Implements [storage.Provider] interface.
+func (*LoopProvider) DefaultPools() []*storage.Config {
+	pool, _ := storage.NewConfig(
+		LoopProviderType.String(),
+		LoopProviderType,
+		storage.Attrs{},
+	)
+	return []*storage.Config{pool}
 }
 
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
 	dirFuncs   dirFuncs
-	run        runCommandFunc
+	run        RunCommandFunc
 	storageDir string
 }
 
@@ -254,7 +272,7 @@ func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
 
 // createBlockFile creates a file at the specified path, with the
 // given size in mebibytes.
-func createBlockFile(run runCommandFunc, filePath string, sizeInMiB uint64) error {
+func createBlockFile(run RunCommandFunc, filePath string, sizeInMiB uint64) error {
 	// fallocate will reserve the space without actually writing to it.
 	_, err := run("fallocate", "-l", fmt.Sprintf("%dMiB", sizeInMiB), filePath)
 	if err != nil {
@@ -266,7 +284,7 @@ func createBlockFile(run runCommandFunc, filePath string, sizeInMiB uint64) erro
 // attachLoopDevice attaches a loop device to the file with the
 // specified path, and returns the loop device's name (e.g. "loop0").
 // losetup will create additional loop devices as necessary.
-func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
+func attachLoopDevice(run RunCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
 	devices, err := associatedLoopDevices(run, filePath)
 	if err != nil {
 		return "", err
@@ -294,7 +312,7 @@ func attachLoopDevice(run runCommandFunc, filePath string, readOnly bool) (loopD
 }
 
 // detachLoopDevice detaches the loop device with the specified name.
-func detachLoopDevice(run runCommandFunc, deviceName string) error {
+func detachLoopDevice(run RunCommandFunc, deviceName string) error {
 	_, err := run("losetup", "-d", path.Join("/dev", deviceName))
 	if err != nil {
 		return errors.Annotatef(err, "detaching loop device %q", deviceName)
@@ -304,7 +322,7 @@ func detachLoopDevice(run runCommandFunc, deviceName string) error {
 
 // associatedLoopDevices returns the device names of the loop devices
 // associated with the specified file path.
-func associatedLoopDevices(run runCommandFunc, filePath string) ([]string, error) {
+func associatedLoopDevices(run RunCommandFunc, filePath string) ([]string, error) {
 	stdout, err := run("losetup", "-j", filePath)
 	if err != nil {
 		return nil, errors.Trace(err)

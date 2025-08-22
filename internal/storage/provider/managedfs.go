@@ -32,7 +32,7 @@ const (
 //
 // managedFilesystemSource is expected to be called from a single goroutine.
 type managedFilesystemSource struct {
-	run                runCommandFunc
+	run                RunCommandFunc
 	dirFuncs           dirFuncs
 	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems        map[names.FilesystemTag]storage.Filesystem
@@ -49,8 +49,8 @@ func NewManagedFilesystemSource(
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 ) storage.FilesystemSource {
 	return &managedFilesystemSource{
-		logAndExec,
-		&osDirFuncs{run: logAndExec},
+		LogAndExec,
+		&osDirFuncs{run: LogAndExec},
 		volumeBlockDevices, filesystems,
 	}
 }
@@ -180,7 +180,7 @@ func (s *managedFilesystemSource) DetachFilesystems(ctx context.Context, args []
 	return results, nil
 }
 
-func destroyPartitions(run runCommandFunc, devicePath string) error {
+func destroyPartitions(run RunCommandFunc, devicePath string) error {
 	logger.Debugf(context.TODO(), "destroying partitions on %q", devicePath)
 	if _, err := run("sgdisk", "--zap-all", devicePath); err != nil {
 		return errors.Annotate(err, "sgdisk failed")
@@ -190,7 +190,7 @@ func destroyPartitions(run runCommandFunc, devicePath string) error {
 
 // createPartition creates a single partition (1) on the disk with the
 // specified device path.
-func createPartition(run runCommandFunc, devicePath string) error {
+func createPartition(run RunCommandFunc, devicePath string) error {
 	logger.Debugf(context.TODO(), "creating partition on %q", devicePath)
 	if _, err := run("sgdisk", "-n", "1:0:-1", devicePath); err != nil {
 		return errors.Annotate(err, "sgdisk failed")
@@ -198,7 +198,7 @@ func createPartition(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func createFilesystem(run runCommandFunc, devicePath string) error {
+func createFilesystem(run RunCommandFunc, devicePath string) error {
 	logger.Debugf(context.TODO(), "attempting to create filesystem on %q", devicePath)
 	mkfscmd := "mkfs." + defaultFilesystemType
 	_, err := run(mkfscmd, devicePath)
@@ -209,7 +209,7 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, uuid, mountPoint string, readOnly bool) error {
+func mountFilesystem(run RunCommandFunc, dirFuncs dirFuncs, devicePath, uuid, mountPoint string, readOnly bool) error {
 	logger.Debugf(context.TODO(), "attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
@@ -365,7 +365,7 @@ func ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, entry string) error 
 	return os.Rename(newFsTab.Name(), filepath.Join(etcDir, "fstab"))
 }
 
-func maybeUnmount(run runCommandFunc, dirFuncs dirFuncs, mountPoint string) error {
+func maybeUnmount(run RunCommandFunc, dirFuncs dirFuncs, mountPoint string) error {
 	mounted, _, err := isMounted(dirFuncs, mountPoint)
 	if err != nil {
 		return errors.Trace(err)

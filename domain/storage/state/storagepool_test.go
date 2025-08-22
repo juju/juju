@@ -359,19 +359,6 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolFailedForBuiltInPool(c *tc.
 	c.Assert(err, tc.ErrorMatches, `built-in storage_pools are immutable, only insertions are allowed`)
 }
 
-// ensureBuiltInStoragePools ensures that the built-in storage pools are created in the state.
-// This is a temporary workaround until we implement the built-in and default storage pools
-// insertion during model creation.
-func (s *storagePoolStateSuite) ensureBuiltInStoragePools(c *tc.C) []domainstorage.StoragePool {
-	pools, err := domainstorage.BuiltInStoragePools()
-	c.Assert(err, tc.ErrorIsNil)
-
-	for _, sp := range pools {
-		s.createStoragePoolWithOrigin(c, sp, "built-in")
-	}
-	return pools
-}
-
 // ensureProviderDefaultStoragePools ensures that the default storage pools are created in the state.
 // This is a temporary workaround until we implement the default storage pools insertion during model creation.
 func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []domainstorage.StoragePool {
@@ -412,53 +399,9 @@ func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []dom
 	return pools
 }
 
-func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltIns(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	_ = s.ensureBuiltInStoragePools(c)
-	defaultPools := s.ensureProviderDefaultStoragePools(c)
-
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
-	sp2 := domainstorage.StoragePool{
-		Name:     "ebs-faster",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"baz": "baz val",
-		},
-	}
-	ctx := c.Context()
-	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-	err = st.CreateStoragePool(ctx, sp2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	out, err := st.ListStoragePoolsWithoutBuiltins(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	expected := []domainstorage.StoragePool{sp, sp2}
-	expected = append(expected, defaultPools...)
-	c.Assert(out, tc.SameContents, expected)
-}
-
-func (s *storagePoolStateSuite) TestListStoragePoolsWithoutBuiltinsEmpty(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	out, err := st.ListStoragePoolsWithoutBuiltins(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.HasLen, 0)
-}
-
 func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	builtInPools := s.ensureBuiltInStoragePools(c)
 	defaultPools := s.ensureProviderDefaultStoragePools(c)
 
 	sp := domainstorage.StoragePool{
@@ -486,7 +429,6 @@ func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []domainstorage.StoragePool{sp, sp2}
-	expected = append(expected, builtInPools...)
 	expected = append(expected, defaultPools...)
 	c.Assert(out, tc.SameContents, expected)
 }
@@ -494,14 +436,12 @@ func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {
 func (s *storagePoolStateSuite) TestListStoragePoolsNoUserPools(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	builtInPools := s.ensureBuiltInStoragePools(c)
 	defaultPools := s.ensureProviderDefaultStoragePools(c)
 
 	out, err := st.ListStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var expected []domainstorage.StoragePool
-	expected = append(expected, builtInPools...)
 	expected = append(expected, defaultPools...)
 	c.Assert(out, tc.SameContents, expected)
 }
@@ -509,7 +449,6 @@ func (s *storagePoolStateSuite) TestListStoragePoolsNoUserPools(c *tc.C) {
 func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	sp := domainstorage.StoragePool{
@@ -533,10 +472,6 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
 		sp,
 		{
-			Name:     "loop",
-			Provider: "loop",
-		},
-		{
 			Name:     "pool1",
 			Provider: "whatever",
 			Attrs: map[string]string{
@@ -557,7 +492,6 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNamesAndProviders(c *tc.C)
 func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	sp := domainstorage.StoragePool{
@@ -573,14 +507,10 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
 	err := st.CreateStoragePool(ctx, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := st.ListStoragePoolsByNames(c.Context(), []string{"pool1", "ebs-fast", "loop", "loop", ""})
+	out, err := st.ListStoragePoolsByNames(c.Context(), []string{"pool1", "ebs-fast", ""})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
 		sp,
-		{
-			Name:     "loop",
-			Provider: "loop",
-		},
 		{
 			Name:     "pool1",
 			Provider: "whatever",
@@ -594,7 +524,6 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByNames(c *tc.C) {
 func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	sp := domainstorage.StoragePool{
@@ -610,14 +539,10 @@ func (s *storagePoolStateSuite) TestListStoragePoolsByProviders(c *tc.C) {
 	err := st.CreateStoragePool(ctx, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	out, err := st.ListStoragePoolsByProviders(c.Context(), []string{"whatever", "ebs", "loop", "loop", ""})
+	out, err := st.ListStoragePoolsByProviders(c.Context(), []string{"whatever", "ebs", ""})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(out, tc.SameContents, []domainstorage.StoragePool{
 		sp,
-		{
-			Name:     "loop",
-			Provider: "loop",
-		},
 		{
 			Name:     "pool1",
 			Provider: "whatever",
@@ -676,7 +601,6 @@ func (s *storagePoolStateSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
 func (s *storagePoolStateSuite) TestGetStoragePool(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	sp := domainstorage.StoragePool{
@@ -700,27 +624,9 @@ func (s *storagePoolStateSuite) TestGetStoragePool(c *tc.C) {
 	c.Assert(out, tc.DeepEquals, sp)
 }
 
-func (s *storagePoolStateSuite) TestGetStoragePoolBuiltIn(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	_ = s.ensureBuiltInStoragePools(c)
-	_ = s.ensureProviderDefaultStoragePools(c)
-
-	poolUUID, err := st.GetStoragePoolUUID(c.Context(), "loop")
-	c.Assert(err, tc.ErrorIsNil)
-
-	out, err := st.GetStoragePool(c.Context(), poolUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(out, tc.DeepEquals, domainstorage.StoragePool{
-		Name:     "loop",
-		Provider: "loop",
-	})
-}
-
 func (s *storagePoolStateSuite) TestGetStoragePoolDefault(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	poolUUID, err := st.GetStoragePoolUUID(c.Context(), "pool1")
@@ -740,7 +646,6 @@ func (s *storagePoolStateSuite) TestGetStoragePoolDefault(c *tc.C) {
 func (s *storagePoolStateSuite) TestGetStoragePoolNotFound(c *tc.C) {
 	st := newStoragePoolState(s.TxnRunnerFactory())
 
-	_ = s.ensureBuiltInStoragePools(c)
 	_ = s.ensureProviderDefaultStoragePools(c)
 
 	poolUUID, err := domainstorage.NewStoragePoolUUID()

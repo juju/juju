@@ -15,15 +15,15 @@ import (
 
 var logger = internallogger.GetLogger("juju.storage.provider")
 
-// runCommandFunc is a function type used for running commands
+// RunCommandFunc is a function type used for running commands
 // on the local machine. We use this rather than os/exec directly
 // for testing purposes.
-type runCommandFunc func(cmd string, args ...string) (string, error)
+type RunCommandFunc func(cmd string, args ...string) (string, error)
 
-// logAndExec logs the specified command and arguments, executes
+// LogAndExec logs the specified command and arguments, executes
 // them, and returns the combined stdout/stderr and an error if
 // the command fails.
-func logAndExec(cmd string, args ...string) (string, error) {
+func LogAndExec(cmd string, args ...string) (string, error) {
 	logger.Debugf(context.TODO(), "running: %s %s", cmd, strings.Join(args, " "))
 	c := exec.Command(cmd, args...)
 	output, err := c.CombinedOutput()

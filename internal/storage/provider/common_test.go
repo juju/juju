@@ -21,24 +21,6 @@ func TestProviderCommonSuite(t *testing.T) {
 	tc.Run(t, &providerCommonSuite{})
 }
 
-func (s *providerCommonSuite) TestCommonProvidersExported(c *tc.C) {
-	registry := provider.CommonStorageProviders()
-	var common []storage.ProviderType
-	pTypes, err := registry.StorageProviderTypes()
-	c.Assert(err, tc.ErrorIsNil)
-	for _, pType := range pTypes {
-		common = append(common, pType)
-		p, err := registry.StorageProvider(pType)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(p, tc.NotNil)
-	}
-	c.Assert(common, tc.SameContents, []storage.ProviderType{
-		provider.LoopProviderType,
-		provider.RootfsProviderType,
-		provider.TmpfsProviderType,
-	})
-}
-
 // testDetachFilesystems is a test-case for detaching filesystems that use
 // the common "maybeUnmount" method.
 func testDetachFilesystems(

@@ -54,10 +54,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.StorageRegistryName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -105,7 +101,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		DomainServicesName:  "domain-services",
 		ProviderFactoryName: "provider-factory",
 		HTTPClientName:      "http-client",
-		StorageRegistryName: "storage-registry",
 		Logger:              s.logger,
 		Clock:               clock.WallClock,
 		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {

@@ -43,7 +43,7 @@ func (s *rootfsSuite) TearDownTest(c *tc.C) {
 
 func (s *rootfsSuite) rootfsProvider(c *tc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
-	return provider.RootfsProvider(s.commands.run)
+	return provider.NewRootfsProvider(s.commands.run)
 }
 
 func (s *rootfsSuite) TestFilesystemSource(c *tc.C) {

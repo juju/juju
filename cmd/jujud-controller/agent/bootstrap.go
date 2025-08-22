@@ -44,7 +44,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -319,7 +318,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AdminUser:                 adminTag,
 			StateInitializationParams: args,
 			BootstrapMachineAddresses: addrs,
-			StorageProviderRegistry:   provider.NewStorageProviderRegistry(env),
 			BootstrapDqlite:           c.DqliteInitializer,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})

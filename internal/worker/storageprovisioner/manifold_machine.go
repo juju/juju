@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
 
@@ -54,11 +55,17 @@ func (config MachineManifoldConfig) newWorker(_ context.Context, a agent.Agent, 
 		Volumes:     api,
 		Filesystems: api,
 		Life:        api,
-		Registry:    provider.CommonStorageProviders(),
-		Machines:    api,
-		Status:      api,
-		Clock:       config.Clock,
-		Logger:      config.Logger,
+		Registry: storage.StaticProviderRegistry{
+			Providers: map[storage.ProviderType]storage.Provider{
+				provider.LoopProviderType:   provider.NewLoopProvider(provider.LogAndExec),
+				provider.RootfsProviderType: provider.NewRootfsProvider(provider.LogAndExec),
+				provider.TmpfsProviderType:  provider.NewTmpfsProvider(provider.LogAndExec),
+			},
+		},
+		Machines: api,
+		Status:   api,
+		Clock:    config.Clock,
+		Logger:   config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

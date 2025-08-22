@@ -49,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -255,7 +254,6 @@ func (s *DomainServicesSuite) DomainServicesGetter(c *tc.C, objectStore objectst
 		// ideal. We should potentially use a mock storage provider
 		// instead.
 		dummy.StorageProviders(),
-		provider.CommonStorageProviders(),
 	})
 }
 

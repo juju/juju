@@ -39,7 +39,7 @@ func (s *loopSuite) TearDownTest(c *tc.C) {
 
 func (s *loopSuite) loopProvider(c *tc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
-	return provider.LoopProvider(s.commands.run)
+	return provider.NewLoopProvider(s.commands.run)
 }
 
 func (s *loopSuite) TestVolumeSource(c *tc.C) {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 )
 
 // Pool configuration attribute names.
@@ -60,22 +59,6 @@ func (n Names) Values() []string {
 // Values returns the unique values of the Providers.
 func (p Providers) Values() []string {
 	return deduplicateNamesOrProviders(p)
-}
-
-// BuiltInStoragePools returns the built in providers common to all.
-func BuiltInStoragePools() ([]StoragePool, error) {
-	providerTypes, err := provider.CommonStorageProviders().StorageProviderTypes()
-	if err != nil {
-		return nil, errors.Errorf("getting built in storage provider types: %w", err)
-	}
-	result := make([]StoragePool, len(providerTypes))
-	for i, pType := range providerTypes {
-		result[i] = StoragePool{
-			Name:     string(pType),
-			Provider: string(pType),
-		}
-	}
-	return result, nil
 }
 
 // DefaultStoragePools returns the default storage pools to add to a new model

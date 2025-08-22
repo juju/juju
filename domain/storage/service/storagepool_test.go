@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -49,7 +48,8 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 				},
 			},
 		},
-	}, provider.CommonStorageProviders()}
+	},
+	}
 
 	return ctrl
 }

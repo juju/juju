@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/manual"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -532,7 +531,7 @@ func (s *Suite) expectImportModel(c *tc.C) {
 			s.controllerConfigService,
 			s.domainServicesGetter,
 			corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-				return provider.CommonStorageProviders()
+				return nil
 			}),
 			s.objectStoreGetter,
 			loggertesting.WrapCheckLog(c),
