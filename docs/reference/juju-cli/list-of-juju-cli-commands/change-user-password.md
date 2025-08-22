@@ -12,8 +12,8 @@ Changes the password for the current or specified Juju user.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | don't prompt for password and just read a line from stdin |
-| `--reset` | false | Reset user password |
+| `--no-prompt` | false | Don't prompt for password; instead, read a line from stdin. |
+| `--reset` | false | Reset user password. |
 
 ## Examples
 
@@ -31,11 +31,11 @@ the `juju show-user` command.
 
 If no controller is specified, the current controller will be used.
 
-A controller administrator can change the password for another user 
-by providing desired username as an argument. 
+A controller administrator can change the password for another user
+by providing desired username as an argument.
 
-A controller administrator can also reset the password with a --reset option. 
-This will invalidate any passwords that were previously set 
+A controller administrator can also reset the password with a `--reset` option.
+This will invalidate any passwords that were previously set
 and registration strings that were previously issued for a user.
 This option will issue a new registration string to be used with
 `juju register`.
