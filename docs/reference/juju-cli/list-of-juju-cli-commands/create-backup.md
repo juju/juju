@@ -18,7 +18,7 @@ Create a backup.
 
 ## Examples
 
-    juju create-backup 
+    juju create-backup
     juju create-backup --no-download
 
 
@@ -29,12 +29,12 @@ You may provide a note to associate with the backup.
 
 By default, the backup archive and associated metadata are downloaded.
 
-Use --no-download to avoid getting a local copy of the backup downloaded 
+Use `--no-download` to avoid getting a local copy of the backup downloaded
 at the end of the backup process. In this case it is recommended that the
-model config attribute "backup-dir" be set to point to a path where the
+model config attribute `backup-dir` be set to point to a path where the
 backup archives should be stored long term. This could be a remotely mounted
 filesystem; the same path must exist on each controller if using HA.
 
-Use --verbose to see extra information about backup.
+Use `--verbose` to see extra information about backup.
 
-To access remote backups stored on the controller, see 'juju download-backup'.
+To access remote backups stored on the controller, see `juju download-backup`.
