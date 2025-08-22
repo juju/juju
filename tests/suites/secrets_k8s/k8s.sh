@@ -395,14 +395,14 @@ run_test_add_multiple_secrets_parallel() {
 
 	juju switch controller
 	# check logs during juju add-secret in controller model for any errors
-	if ! seq 1 100 | xargs -n1 -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
+	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for controller model."
 		exit 1
 	fi
 
 	juju add-model "$model_name"
 	# check logs during juju add-secret in non-controller model for any errors
-	if ! seq 1 100 | xargs -n1 -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$model_log_file" 2>&1 || grep -iq 'error' "$model_log_file"; then
+	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$model_log_file" 2>&1 || grep -iq 'error' "$model_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for non-controller model."
 		exit 1
 	fi

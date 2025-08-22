@@ -1070,7 +1070,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	// disambiguate the name.
 	disambiguateName, err := k.isExternalNamespace()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "checking if namespace is external")
 	}
 
 	sa, saCleanups, err := k.ensureServiceAccount(ctx, serviceAccountName, labels, annotations, disambiguateName)
@@ -1083,7 +1083,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 		cbCleanups, err := k.ensureClusterBindingForSecretAccessToken(ctx, sa.Name, baseResourceName, labels, annotations, owned, read, removed)
 		cleanups = append(cleanups, cbCleanups...)
 		if err != nil {
-			return "", errors.Trace(err)
+			return "", errors.Annotatef(err, "cannot ensure cluster binding for secret access token for %q", sa.Name)
 		}
 	} else {
 		// For roles and role bindings created in the namespace set up to hold the secrets,
@@ -1093,7 +1093,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 		rCleanups, err := k.ensureBindingForSecretAccessToken(ctx, sa, owned, read, removed)
 		cleanups = append(cleanups, rCleanups...)
 		if err != nil {
-			return "", errors.Trace(err)
+			return "", errors.Annotatef(err, "cannot ensure role binding for secret access token for %q", sa.Name)
 		}
 	}
 
