@@ -39,9 +39,14 @@ const (
 	errNotReady = errors.ConstError("started DB app, but it failed to become ready; waiting for topology updates")
 )
 
-// nodeShutdownTimeout is the timeout that we add to the context passed
-// handoff/shutdown calls when shutting down the Dqlite node.
-const nodeShutdownTimeout = 30 * time.Second
+const (
+	// nodeShutdownTimeout is the timeout that we add to the context passed
+	// handoff/shutdown calls when shutting down the Dqlite node.
+	nodeShutdownTimeout = 30 * time.Second
+
+	// dbOpenTimeout is the timeout for opening a database.
+	dbOpenTimeout = 15 * time.Second
+)
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
 type NodeManager interface {
@@ -693,7 +698,7 @@ func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
 	// completely if it's stuck on the controller database, but it will
 	// eventually timeout and return an error. Allowing another attempt later
 	// on.
-	ctx, cancel := context.WithTimeout(ctx, time.Second*15)
+	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
 	defer cancel()
 
 	// Note: Do not be tempted to create the worker outside of the StartWorker
@@ -766,6 +771,9 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 	if err := killable.Wait(); err != nil && !errors.Is(err, database.ErrDBDead) {
 		return errors.Annotatef(err, "waiting for worker to die")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
+	defer cancel()
 
 	// Open the database directly as we can't use the worker to do it for us.
 	db, err := w.dbApp.Open(ctx, namespace)
