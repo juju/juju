@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/services"
@@ -87,7 +86,6 @@ type ManifoldConfig struct {
 	DomainServicesName  string
 	HTTPClientName      string
 	ProviderFactoryName string
-	StorageRegistryName string
 
 	AgentBinaryUploader          AgentBinaryBootstrapFunc
 	ControllerCharmDeployer      ControllerCharmDeployerFunc
@@ -122,9 +120,7 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
 	}
-	if cfg.StorageRegistryName == "" {
-		return errors.NotValidf("empty StorageRegistryName")
-	}
+
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
@@ -168,7 +164,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.HTTPClientName,
 			config.ProviderFactoryName,
-			config.StorageRegistryName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -250,16 +245,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			applicationService := controllerModelDomainServices.Application()
 
-			var storageRegistryGetter corestorage.StorageRegistryGetter
-			if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			registry, err := storageRegistryGetter.GetStorageRegistry(ctx, controllerModel.UUID.String())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			w, err := NewWorker(WorkerConfig{
 				Agent:                      a,
 				ObjectStoreGetter:          objectStoreGetter,
@@ -269,7 +254,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CloudService:               controllerDomainServices.Cloud(),
 				UserService:                controllerDomainServices.Access(),
 				StorageService:             controllerModelDomainServices.Storage(),
-				ProviderRegistry:           registry,
 				AgentPasswordService:       controllerModelDomainServices.AgentPassword(),
 				ApplicationService:         applicationService,
 				ControllerModel:            controllerModel,
