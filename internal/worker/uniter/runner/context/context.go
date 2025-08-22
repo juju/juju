@@ -1239,9 +1239,6 @@ func (ctx *HookContext) GetRawK8sSpec() (string, error) {
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
-	if ctx.modelType == model.CAAS {
-		return nil, errors.NotSupportedf("credential-get on a %q model", model.CAAS)
-	}
 	var err error
 	ctx.cloudSpec, err = ctx.state.CloudSpec()
 	if err != nil {
