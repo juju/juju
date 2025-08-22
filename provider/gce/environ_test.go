@@ -4,19 +4,19 @@
 package gce_test
 
 import (
-	"fmt"
+	"context"
+	"strconv"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
-	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/testing"
 )
@@ -28,179 +28,196 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestName(c *gc.C) {
-	name := s.Env.Name()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(name, gc.Equals, "google")
+	env := s.SetupEnv(c, s.MockService)
+
+	name := env.Name()
+	c.Assert(name, gc.Equals, "google")
 }
 
 func (s *environSuite) TestProvider(c *gc.C) {
-	provider := s.Env.Provider()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(provider, gc.Equals, gce.Provider)
+	env := s.SetupEnv(c, s.MockService)
+
+	provider := env.Provider()
+	c.Assert(provider, gc.Equals, gce.Provider)
 }
 
 func (s *environSuite) TestRegion(c *gc.C) {
-	cloudSpec, err := s.Env.Region()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(cloudSpec.Region, gc.Equals, "us-east1")
-	c.Check(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
+	env := s.SetupEnv(c, s.MockService)
+
+	cloudSpec, err := env.Region()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudSpec.Region, gc.Equals, "us-east1")
+	c.Assert(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	cfg := s.NewConfig(c, testing.Attrs{"vpi-id": "foo"})
+	err := env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
-	c.Check(gce.ExposeEnvConnection(s.Env), gc.Equals, s.FakeConn)
-}
-
-func (s *environSuite) TestSetConfigFake(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
+	c.Assert(env.Config().AllAttrs(), jc.DeepEquals, cfg.AllAttrs())
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {
-	cfg := s.Env.Config()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(cfg, jc.DeepEquals, s.Config)
-}
-
-func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.FakeCommon.Arch = "amd64"
-	s.FakeCommon.Base = corebase.MakeDefaultBase("ubuntu", "22.04")
-	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
-		return nil
-	}
-	s.FakeCommon.BSFinalizer = finalizer
-
-	ctx := envtesting.BootstrapTODOContext(c)
-	params := environs.BootstrapParams{
-		ControllerConfig:        testing.FakeControllerConfig(),
-		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-	}
-	result, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
-	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
+	env := s.SetupEnv(c, s.MockService)
+	c.Assert(env.Config().AllAttrs(), jc.DeepEquals, s.NewConfig(c, nil).AllAttrs())
 }
 
 func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+
+	fwName := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return(nil, gce.InvalidCredentialError)
+
 	params := environs.BootstrapParams{
 		ControllerConfig:        testing.FakeControllerConfig(),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	_, err := s.Env.Bootstrap(envtesting.BootstrapTODOContext(c), s.CallCtx, params)
-	c.Check(err, gc.NotNil)
+	_, err := env.Bootstrap(envtesting.BootstrapContext(context.Background(), c), s.CallCtx, params)
+	c.Assert(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
-func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
+func (s *environSuite) TestBootstrap(c *gc.C) {
 	config := testing.FakeControllerConfig()
-	s.checkAPIPorts(c, config, []int{config.APIPort()})
+	s.assertBootstrap(c, config, []int{config.APIPort()})
 }
 
 func (s *environSuite) TestBootstrapOpensAPIPortsWithAutocert(c *gc.C) {
 	config := testing.FakeControllerConfig()
 	config["api-port"] = 443
 	config["autocert-dns-name"] = "example.com"
-	s.checkAPIPorts(c, config, []int{443, 80})
+	s.assertBootstrap(c, config, []int{443, 80})
 }
 
-func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expectedPorts []int) {
-	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
-		return nil
-	}
-	s.FakeCommon.BSFinalizer = finalizer
+func (s *environSuite) assertBootstrap(c *gc.C, config controller.Config, expectedPorts []int) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	ctx := envtesting.BootstrapTODOContext(c)
+	env := s.SetupEnv(c, s.MockService)
+
 	params := environs.BootstrapParams{
 		ControllerConfig:        config,
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(gce.Bootstrap, func(
+		ctx environs.BootstrapContext,
+		e environs.Environ,
+		callCtx envcontext.ProviderCallContext,
+		args environs.BootstrapParams,
+	) (*environs.BootstrapResult, error) {
+		c.Assert(env, gc.Equals, e)
+		c.Assert(args, jc.DeepEquals, params)
+		return &environs.BootstrapResult{
+			Arch: "amd64",
+			Base: base.MakeDefaultBase("ubuntu", "22.04"),
+		}, nil
+	})
 
-	called, calls := s.FakeConn.WasCalled("OpenPorts")
-	c.Check(called, gc.Equals, true)
-	// NOTE(achilleasa): the bootstrap code will merge the port ranges
-	// for the API and port 80 when using autocert in a single OpenPorts
-	// call
-	c.Check(calls, gc.HasLen, 1)
+	fwName := gce.GlobalFirewallName(env)
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+	}}, nil)
 
-	var expRules firewall.IngressRules
-	for _, port := range expectedPorts {
-		expRules = append(
-			expRules,
-			firewall.NewIngressRule(network.MustParsePortRange(fmt.Sprintf("%d/tcp", port))),
-		)
+	expectedPortsStr := make([]string, len(expectedPorts))
+	for i, port := range expectedPorts {
+		expectedPortsStr[i] = strconv.Itoa(port)
 	}
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &compute.Firewall{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      expectedPortsStr,
+		}},
+	})
 
-	call := calls[0]
-	c.Check(call.FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	c.Check(call.Rules, jc.DeepEquals, expRules)
-}
-
-func (s *environSuite) TestBootstrapCommon(c *gc.C) {
-	ctx := envtesting.BootstrapTODOContext(c)
-	params := environs.BootstrapParams{
-		ControllerConfig:        testing.FakeControllerConfig(),
-		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	result, err := env.Bootstrap(envtesting.BootstrapContext(context.Background(), c), s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "Bootstrap",
-		Args: gce.FakeCallArgs{
-			"ctx":    ctx,
-			"switch": s.Env,
-			"params": params,
-		},
-	}})
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 }
 
 func (s *environSuite) TestCreateInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.Create(s.CallCtx, environs.CreateParams{})
-	c.Check(err, gc.NotNil)
+
+	s.MockService.EXPECT().VerifyCredentials(gomock.Any()).Return(gce.InvalidCredentialError)
+
+	err := env.Create(s.CallCtx, environs.CreateParams{})
+	c.Assert(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroyInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.Destroy(s.CallCtx)
-	c.Check(err, gc.NotNil)
+
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
+		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
+		Return(nil, gce.InvalidCredentialError)
+
+	err := env.Destroy(s.CallCtx)
+	c.Assert(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	err := s.Env.Destroy(s.CallCtx)
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(err, jc.ErrorIsNil)
-}
+	env := s.SetupEnv(c, s.MockService)
 
-func (s *environSuite) TestDestroyAPI(c *gc.C) {
-	err := s.Env.Destroy(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
+		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
+		Return([]*compute.Instance{{
+			Name: "inst-0",
+			Zone: "home-zone",
+		}, {
+			Name: "inst-1",
+			Zone: "home-a-zone",
+		}}, nil)
+	s.MockService.EXPECT().RemoveInstances(gomock.Any(), s.Prefix(env), "inst-0", "inst-1")
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "RemoveFirewall")
-	fwname := common.EnvFullName(s.Env.Config().UUID())
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "Destroy",
-		Args: gce.FakeCallArgs{
-			"switch": s.Env,
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
+		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Status: "READY",
+		Labels: map[string]string{
+			"juju-model-uuid": s.ModelUUID,
 		},
-	}})
+	}}, nil)
+	s.MockService.EXPECT().RemoveDisk(gomock.Any(), "zone", "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868")
+	s.MockService.EXPECT().RemoveFirewall(gomock.Any(), gce.GlobalFirewallName(env))
+
+	err := env.Destroy(s.CallCtx)
+	c.Assert(err, jc.ErrorIsNil)
 }

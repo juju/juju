@@ -5,9 +5,13 @@ package gce_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -18,70 +22,131 @@ type instanceSuite struct {
 
 var _ = gc.Suite(&instanceSuite{})
 
-func (s *instanceSuite) TestNewInstance(c *gc.C) {
-	inst := gce.NewInstance(s.BaseInstance, s.Env)
-
-	c.Check(gce.ExposeInstBase(inst), gc.Equals, s.BaseInstance)
-	c.Check(gce.ExposeInstEnv(inst), gc.Equals, s.Env)
-	s.CheckNoAPI(c)
-}
-
 func (s *instanceSuite) TestID(c *gc.C) {
-	id := s.Instance.Id()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(id, gc.Equals, instance.Id("spam"))
-	s.CheckNoAPI(c)
+	env := s.SetupEnv(c, s.MockService)
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+	id := inst.Id()
+	c.Assert(id, gc.Equals, instance.Id("inst-0"))
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	status := s.Instance.Status(s.CallCtx).Message
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(status, gc.Equals, google.StatusRunning)
-	s.CheckNoAPI(c)
+	env := s.SetupEnv(c, s.MockService)
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+	status := inst.Status(s.CallCtx).Message
+	c.Assert(status, gc.Equals, google.StatusRunning)
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	addresses, err := s.Instance.Addresses(s.CallCtx)
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+	s.GoogleInstance(c, inst).NetworkInterfaces = []*compute.NetworkInterface{{
+		Name:       "somenetif",
+		NetworkIP:  "10.0.10.3",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/sub-network1",
+	}}
+
+	addresses, err := inst.Addresses(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(addresses, jc.DeepEquals, s.Addresses)
-	s.CheckNoAPI(c)
+	expectedAddresses := network.ProviderAddresses{
+		network.NewMachineAddress("10.0.10.3", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+	}
+	c.Assert(addresses, jc.DeepEquals, expectedAddresses)
 }
 
-func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
-	err := s.Instance.OpenPorts(s.CallCtx, "42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *instanceSuite) TestOpenPorts(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "OpenPorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
+	env := s.SetupEnv(c, s.MockService)
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+
+	fwName := s.Prefix(env) + "42"
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"81"},
+		}},
+	}}, nil)
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &compute.Firewall{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"81", "80"},
+		}},
+	})
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "0.0.0.0/0"),
+	}
+	err := inst.OpenPorts(s.CallCtx, "42", rules)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
-	err := s.Instance.ClosePorts(s.CallCtx, "42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *instanceSuite) TestClosePorts(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ClosePorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
+	env := s.SetupEnv(c, s.MockService)
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+
+	fwName := s.Prefix(env) + "42"
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"80"},
+		}},
+	}}, nil)
+	s.MockService.EXPECT().RemoveFirewall(gomock.Any(), fwName).Return(nil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "0.0.0.0/0"),
+	}
+	err := inst.ClosePorts(s.CallCtx, "42", rules)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *instanceSuite) TestPorts(c *gc.C) {
-	s.FakeConn.Rules = s.Rules
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	ports, err := s.Instance.IngressRules(s.CallCtx, "42")
+	env := s.SetupEnv(c, s.MockService)
+
+	fwName := s.Prefix(env) + "42"
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
+		Name:         fwName,
+		TargetTags:   []string{fwName},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*compute.FirewallAllowed{{
+			IPProtocol: "tcp",
+			Ports:      []string{"80"},
+		}},
+	}}, nil)
+
+	inst := s.NewEnvironInstance(c, env, "inst-0")
+	ports, err := inst.IngressRules(s.CallCtx, "42")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, s.Rules)
-}
-
-func (s *instanceSuite) TestPortsAPI(c *gc.C) {
-	_, err := s.Instance.IngressRules(s.CallCtx, "42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "0.0.0.0/0"),
+	}
+	c.Assert(ports, jc.DeepEquals, rules)
 }

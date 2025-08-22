@@ -6,117 +6,144 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/provider/gce/google"
 )
 
 type environNetSuite struct {
 	gce.BaseSuite
-	NetEnv environs.NetworkingEnviron
+
+	zones     []*compute.Zone
+	instances []*compute.Instance
+	networks  []*compute.Network
+	subnets   []*compute.Subnetwork
 }
 
 var _ = gc.Suite(&environNetSuite{})
 
 func (s *environNetSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	netEnv, ok := environs.SupportsNetworking(s.Env)
-	c.Assert(ok, jc.IsTrue)
-	s.NetEnv = netEnv
-}
-
-func (s *environNetSuite) cannedData() {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp, "", ""),
-		google.NewZone("b-zone", google.StatusUp, "", ""),
-	}
-	s.FakeConn.Networks_ = []*compute.Network{{
-		Id:                    9876,
-		Name:                  "go-team1",
-		AutoCreateSubnetworks: true,
-		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
-		Subnetworks: []string{
-			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
-			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/go-team",
-		},
+	s.zones = []*compute.Zone{{
+		Name:   "home-zone",
+		Status: "UP",
 	}, {
-		Id:                    8765,
-		Name:                  "albini",
-		AutoCreateSubnetworks: false,
-		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/albini",
-		Subnetworks: []string{
-			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
-			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/flour",
-		},
-	}, {
-		Id:                    4567,
-		Name:                  "legacy",
-		AutoCreateSubnetworks: false,
-		IPv4Range:             "10.240.0.0/16",
-		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
+		Name:   "away-zone",
+		Status: "UP",
 	}}
-	s.FakeConn.Subnets = []*compute.Subnetwork{{
-		Id:          1234,
-		IpCidrRange: "10.0.10.0/24",
-		Name:        "go-team",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
-		Region:      "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1",
-		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+	s.instances = []*compute.Instance{{
+		Name: "inst-0",
+		Zone: "home-zone",
+		NetworkInterfaces: []*compute.NetworkInterface{{
+			Name:       "netif-0",
+			NetworkIP:  "10.0.20.3",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
+		}},
 	}, {
-		Id:          1235,
+		Name: "inst-1",
+		Zone: "away-zone",
+		NetworkInterfaces: []*compute.NetworkInterface{{
+			Name:       "netif-0",
+			NetworkIP:  "10.0.10.42",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
+		}},
+	}}
+	s.networks = []*compute.Network{{
+		Name:     "default",
+		SelfLink: "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+		Subnetworks: []string{
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network3",
+		},
+	}, {
+		Name:     "another",
+		SelfLink: "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another",
+		Subnetworks: []string{
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network4",
+		},
+	}, {
+		Name:      "legacy",
+		IPv4Range: "10.240.0.0/16",
+		SelfLink:  "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
+	}}
+	s.subnets = []*compute.Subnetwork{{
+		Name:        "sub-network1",
+		IpCidrRange: "10.0.10.0/24",
+		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
+		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+	}, {
+		Name:        "sub-network2",
 		IpCidrRange: "10.0.20.0/24",
-		Name:        "shellac",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/albini",
-		Region:      "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1",
-		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
+		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another",
 	}}
 }
 
 func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, gce.InvalidCredentialError)
+
+	_, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
-	s.cannedData()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "go-team",
-		ProviderNetworkId: "go-team1",
+		ProviderId:        "sub-network1",
+		ProviderNetworkId: "default",
 		CIDR:              "10.0.10.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}, {
-		ProviderId:        "shellac",
-		ProviderNetworkId: "albini",
+		ProviderId:        "sub-network2",
+		ProviderNetworkId: "another",
 		CIDR:              "10.0.20.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}, {
 		ProviderId:        "legacy",
 		ProviderNetworkId: "legacy",
 		CIDR:              "10.240.0.0/16",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}})
 }
 
 func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
-	s.cannedData()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.SuperSubnets(s.CallCtx)
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+
+	subnets, err := env.SuperSubnets(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []string{
@@ -127,95 +154,141 @@ func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
 }
 
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
-	s.cannedData()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{
-		"shellac",
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{
+		"sub-network1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "shellac",
-		ProviderNetworkId: "albini",
-		CIDR:              "10.0.20.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "sub-network1",
+		ProviderNetworkId: "default",
+		CIDR:              "10.0.10.0/24",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}})
 }
 
 func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
-	s.cannedData()
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"shellac", "brunettes"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"sub-network1", "sub-network4"})
+	c.Assert(err, gc.ErrorMatches, `subnets \["sub-network4"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
 }
 
 func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", nil)
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil).Times(2)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, "inst-0", []corenetwork.Id{"sub-network2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "go-team",
-		ProviderNetworkId: "go-team1",
-		CIDR:              "10.0.10.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "sub-network2",
+		ProviderNetworkId: "another",
+		CIDR:              "10.0.20.0/24",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}})
 }
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team"})
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil).Times(2)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, "inst-0", []corenetwork.Id{"sub-network2"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "go-team",
-		ProviderNetworkId: "go-team1",
-		CIDR:              "10.0.10.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "sub-network2",
+		ProviderNetworkId: "another",
+		CIDR:              "10.0.20.0/24",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
 	}})
 }
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team", "shellac"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil).Times(2)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	subnets, err := env.Subnets(s.CallCtx, "inst-0", []corenetwork.Id{"sub-network1", "sub-network2"})
+	c.Assert(err, gc.ErrorMatches, `subnets \["sub-network1"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
 }
 
 func (s *environNetSuite) TestInterfaces(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "somenetif",
+		ProviderId:        "inst-0/netif-0",
+		ProviderSubnetId:  "sub-network2",
+		ProviderNetworkId: "another",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.3",
+			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
@@ -223,86 +296,64 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 }
 
 func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	s.cannedData()
-	baseInst := s.NewBaseInstance(c, "moana")
-	// This isn't possible in GCE at the moment, but we don't want to
-	// break when it is.
-	summary := &baseInst.InstanceSummary
-	summary.NetworkInterfaces = append(summary.NetworkInterfaces, &compute.NetworkInterface{
-		Name:       "othernetif",
-		NetworkIP:  "10.0.20.3",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(nil, gce.InvalidCredentialError)
+
+	_, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
+func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	s.instances[1].NetworkInterfaces = append(s.instances[1].NetworkInterfaces, &compute.NetworkInterface{
+		Name:       "netif-1",
+		NetworkIP:  "10.0.20.44",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
 		AccessConfigs: []*compute.AccessConfig{{
 			Type:  "ONE_TO_ONE_NAT",
 			Name:  "ExternalNAT",
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
-}
-
-func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
-	s.cannedData()
-	baseInst1 := s.NewBaseInstance(c, "i-1")
-
-	// Create a second instance and patch its interface list
-	baseInst2 := s.NewBaseInstance(c, "i-2")
-	b2summary := &baseInst2.InstanceSummary
-	b2summary.NetworkInterfaces = []*compute.NetworkInterface{
-		{
-			Name:       "netif-0",
-			NetworkIP:  "10.0.10.42",
-			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
-			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
-			AccessConfigs: []*compute.AccessConfig{{
-				Type:  "ONE_TO_ONE_NAT",
-				Name:  "ExternalNAT",
-				NatIP: "25.185.142.227",
-			}},
-		},
-		{
-			Name:       "netif-1",
-			NetworkIP:  "10.0.20.42",
-			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
-			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
-			// No public IP
-		},
-	}
-	s.FakeEnviron.Insts = []instances.Instance{
-		s.NewInstanceFromBase(baseInst1),
-		s.NewInstanceFromBase(baseInst2),
-	}
-
-	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{
-		"i-1",
-		"i-2",
-	})
+	infoLists, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoLists, gc.HasLen, 2)
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "i-1/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "somenetif",
+		ProviderId:        "inst-0/netif-0",
+		ProviderSubnetId:  "sub-network2",
+		ProviderNetworkId: "another",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.3",
+			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
@@ -310,12 +361,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for second instance
 	infos = infoLists[1]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "i-2/netif-0",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "inst-1/netif-0",
+		ProviderSubnetId:  "sub-network1",
+		ProviderNetworkId: "default",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
@@ -326,36 +377,43 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
-		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-		},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
-		ProviderId:        "i-2/netif-1",
-		ProviderSubnetId:  "shellac",
-		ProviderNetworkId: "albini",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "inst-1/netif-1",
+		ProviderSubnetId:  "sub-network1",
+		ProviderNetworkId: "default",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		InterfaceName:     "netif-1",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.20.42",
+			"10.0.20.44",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.20.0/24"),
+			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+		},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
 
 func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
-	s.cannedData()
-	baseInst1 := s.NewBaseInstance(c, "i-1")
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst1)}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"i-1", "bogus"})
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	infoLists, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0", "bogus"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(infoLists, gc.HasLen, 2)
 
@@ -363,18 +421,18 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	infos := infoLists[0]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "i-1/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "somenetif",
+		ProviderId:        "inst-0/netif-0",
+		ProviderSubnetId:  "sub-network2",
+		ProviderNetworkId: "another",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.3",
+			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
@@ -385,53 +443,41 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 }
 
 func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
-	s.cannedData()
-	baseInst := s.NewBaseInstance(c, "moana")
-	// This isn't possible in GCE at the moment, but we don't want to
-	// break when it is.
-	summary := &baseInst.InstanceSummary
-	summary.NetworkInterfaces = append(summary.NetworkInterfaces, &compute.NetworkInterface{
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &compute.NetworkInterface{
 		Name:       "othernetif",
-		NetworkIP:  "10.0.20.3",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+		NetworkIP:  "10.0.10.4",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
 		AccessConfigs: []*compute.AccessConfig{{
 			Type:  "ONE_TO_ONE_NAT",
 			Name:  "ExternalNAT",
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.3",
-			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.10.0/24"),
-			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
-		Origin: corenetwork.OriginProvider,
-	}, {
-		DeviceIndex:       1,
-		ProviderId:        "moana/othernetif",
-		ProviderSubnetId:  "shellac",
-		ProviderNetworkId: "albini",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "othernetif",
+		ProviderId:        "inst-0/netif-0",
+		ProviderSubnetId:  "sub-network2",
+		ProviderNetworkId: "another",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
@@ -439,6 +485,23 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
+			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		).AsProviderAddress()},
+		Origin: corenetwork.OriginProvider,
+	}, {
+		DeviceIndex:       1,
+		ProviderId:        "inst-0/othernetif",
+		ProviderSubnetId:  "sub-network1",
+		ProviderNetworkId: "default",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "othernetif",
+		InterfaceType:     corenetwork.EthernetDevice,
+		Disabled:          false,
+		NoAutoStart:       false,
+		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
+			"10.0.10.4",
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		ShadowAddresses: corenetwork.ProviderAddresses{
@@ -449,34 +512,38 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 }
 
 func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
-	s.cannedData()
-	baseInst := s.NewBaseInstance(c, "moana")
-	// When we're using a legacy network there'll be no subnet.
-	summary := &baseInst.InstanceSummary
-	summary.NetworkInterfaces = []*compute.NetworkInterface{{
-		Name:       "somenetif",
-		NetworkIP:  "10.240.0.2",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
-		Subnetwork: "",
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService) // When we're using a legacy network there'll be no subnet.
+
+	s.instances[0].NetworkInterfaces = []*compute.NetworkInterface{{
+		Name:      "somenetif",
+		NetworkIP: "10.240.0.2",
+		Network:   "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
 		AccessConfigs: []*compute.AccessConfig{{
 			Type:  "ONE_TO_ONE_NAT",
 			Name:  "ExternalNAT",
 			NatIP: "25.185.142.227",
 		}},
 	}}
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+
+	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
+		ProviderId:        "inst-0/somenetif",
 		ProviderSubnetId:  "",
 		ProviderNetworkId: "legacy",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		InterfaceName:     "somenetif",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
@@ -495,52 +562,57 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 }
 
 func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
-	s.cannedData()
-	baseInst := s.NewBaseInstance(c, "moana")
-	// This isn't possible in GCE at the moment, but we don't want to
-	// break when it is.
-	summary := &baseInst.InstanceSummary
-	summary.NetworkInterfaces = append(summary.NetworkInterfaces, &compute.NetworkInterface{
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &compute.NetworkInterface{
 		Name:       "othernetif",
 		NetworkIP:  "10.0.10.4",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
 		AccessConfigs: []*compute.AccessConfig{{
 			Type:  "ONE_TO_ONE_NAT",
 			Name:  "ExternalNAT",
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{"moana"})
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
+		Return(s.instances, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+
+	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		InterfaceName:     "somenetif",
+		ProviderId:        "inst-0/netif-0",
+		ProviderSubnetId:  "sub-network2",
+		ProviderNetworkId: "another",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		InterfaceName:     "netif-0",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,
 		NoAutoStart:       false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"10.0.10.3",
+			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			corenetwork.WithCIDR("10.0.10.0/24"),
+			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
-		ProviderId:        "moana/othernetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
+		ProviderId:        "inst-0/othernetif",
+		ProviderSubnetId:  "sub-network1",
+		ProviderNetworkId: "default",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
 		InterfaceName:     "othernetif",
 		InterfaceType:     corenetwork.EthernetDevice,
 		Disabled:          false,

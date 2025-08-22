@@ -16,7 +16,7 @@ import (
 )
 
 type ConfigSuite struct {
-	gce.BaseSuite
+	testing.BaseSuite
 
 	config *config.Config
 }

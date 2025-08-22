@@ -7,19 +7,23 @@ import (
 	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
-	gce.BaseSuite
+	testing.BaseSuite
 
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
+	config   *config.Config
 }
 
 var _ = gc.Suite(&providerSuite{})
@@ -32,6 +36,12 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	s.spec = gce.MakeTestCloudSpec()
+
+	uuid := utils.MustNewUUID().String()
+	s.config = testing.CustomModelConfig(c, testing.Attrs{
+		"uuid": uuid,
+		"type": "gce",
+	})
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
@@ -41,7 +51,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 func (s *providerSuite) TestOpen(c *gc.C) {
 	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
-		Config: s.Config,
+		Config: s.config,
 	})
 	c.Check(err, jc.ErrorIsNil)
 
@@ -68,14 +78,14 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
 		Cloud:  spec,
-		Config: s.Config,
+		Config: s.config,
 	})
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
 func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Config: s.Config,
+		Config: s.config,
 		Cloud:  gce.MakeTestCloudSpec(),
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -83,21 +93,21 @@ func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {
-	validCfg, err := s.provider.Validate(s.Config, nil)
+	validCfg, err := s.provider.Validate(s.config, nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
-	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+	c.Assert(s.config.AllAttrs(), gc.DeepEquals, validAttrs)
 }
 
 func (s *providerSuite) TestUpgradeConfig(c *gc.C) {
 	c.Assert(s.provider, gc.Implements, new(environs.ModelConfigUpgrader))
 	upgrader := s.provider.(environs.ModelConfigUpgrader)
 
-	_, ok := s.Config.StorageDefaultBlockSource()
+	_, ok := s.config.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsFalse)
 
-	outConfig, err := upgrader.UpgradeConfig(s.Config)
+	outConfig, err := upgrader.UpgradeConfig(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := outConfig.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
