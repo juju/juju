@@ -60,8 +60,6 @@ command to update public clouds or ` + "`update-cloud`" + ` to update other clou
 Use the ` + "`regions`" + ` command to list a cloud's regions.
 Use the ` + "`show-cloud`" + ` command to get more detail, such as regions and endpoints.
 
-See [cancel](https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/cancel-task/)
-
 `
 
 const listCloudsExamples = `
