@@ -2040,10 +2040,6 @@ func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.U
 		return nil, errors.Capture(err)
 	}
 
-	type modelUUID struct {
-		UUID coremodel.UUID `db:"uuid"`
-	}
-
 	stmt, err := st.Prepare(`
 SELECT &modelUUID.*
 FROM   v_model
@@ -2078,14 +2074,10 @@ func (st *State) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
 		return nil, errors.Capture(err)
 	}
 
-	type modelUUID struct {
-		UUID coremodel.UUID `db:"uuid"`
-	}
-
 	stmt, err := st.Prepare(`
 SELECT &modelUUID.*
-FROM   v_model
-WHERE  life_id = 2
+FROM   model
+WHERE  activated=1 AND life_id = 2
 `, modelUUID{})
 
 	if err != nil {
@@ -2101,7 +2093,7 @@ WHERE  life_id = 2
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting activated model UUIDs: %w", err)
+		return nil, errors.Errorf("getting deleted model UUIDs: %w", err)
 	}
 
 	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })

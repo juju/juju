@@ -115,7 +115,7 @@ func (w *Worker) loop() error {
 			// and handle them all at once.
 			models, err := w.controllerModelService.GetDeadModels(ctx)
 			if err != nil {
-				return errors.Errorf("getting activated models: %w", err)
+				return errors.Errorf("getting dead models: %w", err)
 			}
 
 			// Attempt to handle dead models first, this is graceful death.
