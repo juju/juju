@@ -343,3 +343,7 @@ type dbModelCloudCredentialUUID struct {
 type dbModelCredentialInvalidStatus struct {
 	CredentialInvalid bool `db:"cloud_credential_invalid"`
 }
+
+type modelUUID struct {
+	UUID coremodel.UUID `db:"uuid"`
+}

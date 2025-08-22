@@ -1190,6 +1190,45 @@ func (c *MockStateGetControllerModelUUIDCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetDeadModels mocks base method.
+func (m *MockState) GetDeadModels(arg0 context.Context) ([]model.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeadModels", arg0)
+	ret0, _ := ret[0].([]model.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeadModels indicates an expected call of GetDeadModels.
+func (mr *MockStateMockRecorder) GetDeadModels(arg0 any) *MockStateGetDeadModelsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeadModels", reflect.TypeOf((*MockState)(nil).GetDeadModels), arg0)
+	return &MockStateGetDeadModelsCall{Call: call}
+}
+
+// MockStateGetDeadModelsCall wrap *gomock.Call
+type MockStateGetDeadModelsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetDeadModelsCall) Return(arg0 []model.UUID, arg1 error) *MockStateGetDeadModelsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetDeadModelsCall) Do(f func(context.Context) ([]model.UUID, error)) *MockStateGetDeadModelsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetDeadModelsCall) DoAndReturn(f func(context.Context) ([]model.UUID, error)) *MockStateGetDeadModelsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModel mocks base method.
 func (m *MockState) GetModel(arg0 context.Context, arg1 model.UUID) (model.Model, error) {
 	m.ctrl.T.Helper()

@@ -116,6 +116,11 @@ func (w *WatchableDB) Report() map[string]any {
 }
 
 func (w *WatchableDB) loop() error {
-	<-w.catacomb.Dying()
-	return w.catacomb.ErrDying()
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+
+	case <-w.db.Dying():
+		return nil
+	}
 }

@@ -109,6 +109,41 @@ func (s *workerSuite) TestKillGetWatchableDBError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coredatabase.ErrChangeStreamDying)
 }
 
+func (s *workerSuite) TestKillGetWatchableDBDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	done := make(chan struct{})
+
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), "controller").Return(s.TxnRunner(), nil)
+	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
+	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
+		select {
+		case <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for Wait to be called")
+		}
+		return nil
+	})
+	s.watchableDBWorker.EXPECT().Dying().Return(done)
+
+	w := s.newWorker(c, 1)
+	defer workertest.DirtyKill(c, w)
+	stream, _ := w.(changestream.WatchableDBGetter)
+
+	db, err := stream.GetWatchableDB(c.Context(), "controller")
+	c.Assert(err, tc.ErrorIsNil)
+
+	close(done)
+
+	select {
+	case <-db.Dying():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for Dying channel to be closed")
+	}
+}
+
 func (s *workerSuite) TestEventSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -24,11 +23,11 @@ import (
 // ControllerModelService is an interface that defines the methods
 // required to interact with the domain services of a controller model.
 type ControllerModelService interface {
-	// GetModelLife returns the life associated with the provided uuid.
-	GetModelLife(ctx context.Context, uuid model.UUID) (life.Value, error)
-	// WatchActivatedModels watches for activated models in the controller.
+	// GetDeadModels returns the dead models in the controller.
+	GetDeadModels(ctx context.Context) ([]model.UUID, error)
+	// WatchModels watches for activated models in the controller.
 	// This also watches for changes in the model's state as well.
-	WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error)
+	WatchModels(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // GetControllerModelServiceFunc is a function type that retrieves the model

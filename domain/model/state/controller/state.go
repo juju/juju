@@ -2040,10 +2040,6 @@ func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.U
 		return nil, errors.Capture(err)
 	}
 
-	type modelUUID struct {
-		UUID coremodel.UUID `db:"uuid"`
-	}
-
 	stmt, err := st.Prepare(`
 SELECT &modelUUID.*
 FROM   v_model
@@ -2065,6 +2061,39 @@ WHERE uuid IN ($S[:])
 	})
 	if err != nil {
 		return nil, errors.Errorf("getting activated model UUIDs: %w", err)
+	}
+
+	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })
+	return res, nil
+}
+
+// GetDeadModels returns all the dead model UUIDs in the controller.
+func (st *State) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelUUID.*
+FROM   model
+WHERE  activated=1 AND life_id = 2
+`, modelUUID{})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	modelUUIDs := []modelUUID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&modelUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting deleted model UUIDs: %w", err)
 	}
 
 	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })
