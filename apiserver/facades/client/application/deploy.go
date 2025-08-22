@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/internal/charms"
 	coreapplication "github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -110,18 +109,9 @@ func DeployApplication(
 		}
 	}
 
-	chURL, err := charm.ParseURL(args.Charm.URL())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	var downloadInfo *applicationcharm.DownloadInfo
 	if args.CharmOrigin.Source == corecharm.CharmHub {
-		locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
+		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, args.Charm.locator)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -141,7 +131,7 @@ func DeployApplication(
 	}
 
 	applicationArg := applicationservice.AddApplicationArgs{
-		ReferenceName:    chURL.Name,
+		ReferenceName:    args.Charm.locator.Name,
 		DownloadInfo:     downloadInfo,
 		PendingResources: pendingResources,
 		EndpointBindings: args.EndpointBindings,
