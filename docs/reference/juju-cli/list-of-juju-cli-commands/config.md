@@ -3,10 +3,10 @@
 > See also: [deploy](#deploy), [status](#status), [model-config](#model-config), [controller-config](#controller-config)
 
 ## Summary
-Gets, sets, or resets configuration for a deployed application.
+Get, set, or reset configuration for a deployed application.
 
 ## Usage
-```juju config [options] <application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]```
+```juju config [options] <application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]```
 
 ### Options
 | Flag | Default | Usage |

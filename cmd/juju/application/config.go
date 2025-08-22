@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	configSummary = `Gets, sets, or resets configuration for a deployed application.`
+	configSummary = `Get, set, or reset configuration for a deployed application.`
 	configDetails = `
 To view all configuration values for an application:
 
@@ -161,7 +161,7 @@ type ApplicationAPI interface {
 func (c *configCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "config",
-		Args:     "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
+		Args:     "<application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose:  configSummary,
 		Doc:      configDetails,
 		Examples: examples,
