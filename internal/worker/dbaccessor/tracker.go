@@ -127,35 +127,9 @@ func newTrackedDBWorker(
 	// Set the db transaction metrics for the namespace.
 	w.dbTxnMetrics = w.metrics.DBMetricsForNamespace(namespace)
 
-	db, err := w.dbApp.Open(ctx, w.namespace)
+	db, err := w.openDatabase(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// Set the maximum number of idle and open connections to be the same and
-	// set to 2 (default is 0 for MaxOpenConns). From testing, it's better to
-	// have both set to the same value, and not setting these values can lead to
-	// a large number of open connections being created and not closed, which
-	// can lead to unbounded connections.
-	//
-	// If and when we change this number, be aware that a database will have 2
-	// connections per database, per dqlite App. So if we have 100 databases
-	// then that is 200 connections per dqlite App. Changing that number to
-	// match runtime.GOMAXPROCS will then be len(database) * runtime.GOMAXPROCS
-	// per dqlite App. This can lead to a lot of open connections, so be
-	// careful.
-	// If we ever move to sharding model databases across dqlite Apps,
-	// then this number can be increased, as the number of connections per
-	// dqlite App will be less because the number of databases per dqlite App
-	// will be less. Testing will need to be done to determine the best number
-	// for this.
-	db.SetMaxIdleConns(2)
-	db.SetMaxOpenConns(2)
-
-	// Ensure that foreign keys are enabled, as we rely on them for
-	// referential integrity.
-	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
-		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
 
 	w.db = sqlair.NewDB(db)
@@ -173,6 +147,23 @@ func newTrackedDBWorker(
 	w.tomb.Go(w.loop)
 
 	return w, nil
+}
+
+func (w *trackedDBWorker) openDatabase(ctx context.Context) (*sql.DB, error) {
+	db, err := w.dbApp.Open(ctx, w.namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	applyDBLimits(db)
+
+	// Ensure that foreign keys are enabled, as we rely on them for referential
+	// integrity.
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+		return nil, errors.Annotate(err, "setting foreign keys pragma")
+	}
+
+	return db, nil
 }
 
 func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
@@ -375,10 +366,11 @@ func (w *trackedDBWorker) loop() error {
 			// We've got a new DB. Close the old one and replace it with the
 			// new one, if they're not the same.
 			if newDB != currentDB {
-				w.mutex.Lock()
 				if err := currentDB.Close(); err != nil {
 					w.logger.Errorf(ctx, "error closing database: %v", err)
 				}
+
+				w.mutex.Lock()
 				w.db = sqlair.NewDB(newDB)
 				w.report.Set(func(r *report) {
 					r.dbReplacements++
@@ -413,7 +405,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 	//   These might be DB-locked or busy-syncing errors for example.
 	// - If the error is fatal, we discard the DB instance and reconnect
 	//   before attempting health verification again.
-	for i := 0; i < DefaultVerifyAttempts; i++ {
+	for i := range DefaultVerifyAttempts {
 		// Verify that we don't have a potential nil database from the retry
 		// semantics.
 		if db == nil {
@@ -460,12 +452,8 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 
 		// Attempt to open a new database. If there is an error, just crash
 		// the worker, we can't do anything else.
-		if db, err = w.dbApp.Open(ctx, w.namespace); err != nil {
+		if db, err = w.openDatabase(ctx); err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
-			return nil, errors.Annotate(err, "setting foreign keys pragma")
 		}
 	}
 	return nil, errors.NotValidf("database")
@@ -529,4 +517,26 @@ func (r *report) Set(f func(*report)) {
 // same time.
 func jitter(interval time.Duration, factor float64) time.Duration {
 	return time.Duration(float64(interval) * (1 + factor*(2*rand.Float64()-1)))
+}
+
+func applyDBLimits(db *sql.DB) {
+	// Set the maximum number of idle and open connections to be the same and
+	// set to 2 (default is 0 for MaxOpenConns). From testing, it's better to
+	// have both set to the same value, and not setting these values can lead to
+	// a large number of open connections being created and not closed, which
+	// can lead to unbounded connections.
+	//
+	// If and when we change this number, be aware that a database will have 2
+	// connections per database, per dqlite App. So if we have 100 databases
+	// then that is 200 connections per dqlite App. Changing that number to
+	// match runtime.GOMAXPROCS will then be len(database) * runtime.GOMAXPROCS
+	// per dqlite App. This can lead to a lot of open connections, so be
+	// careful.
+	// If we ever move to sharding model databases across dqlite Apps,
+	// then this number can be increased, as the number of connections per
+	// dqlite App will be less because the number of databases per dqlite App
+	// will be less. Testing will need to be done to determine the best number
+	// for this.
+	db.SetMaxIdleConns(2)
+	db.SetMaxOpenConns(2)
 }
