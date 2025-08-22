@@ -1280,8 +1280,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 						Name: "data",
 					},
 				},
-				StorageToAttach: []storage.StorageInstanceUUID{""},
-				StorageToOwn:    []storage.StorageInstanceUUID{""},
+				StorageToAttach: []application.CreateStorageAttachmentArg{
+					{},
+				},
+				StorageToOwn: []storage.StorageInstanceUUID{""},
 			},
 			Constraints: constraints.Constraints{
 				Arch: ptr(arch.AMD64),
@@ -1449,8 +1451,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 						Name: "data",
 					},
 				},
-				StorageToAttach: []storage.StorageInstanceUUID{"", "", ""},
-				StorageToOwn:    []storage.StorageInstanceUUID{"", "", ""},
+				StorageToAttach: []application.CreateStorageAttachmentArg{
+					{}, {}, {},
+				},
+				StorageToOwn: []storage.StorageInstanceUUID{"", "", ""},
 			},
 			Constraints: constraints.Constraints{
 				Arch: ptr(arch.AMD64),
@@ -1609,8 +1613,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 						Name: "data",
 					},
 				},
-				StorageToAttach: []storage.StorageInstanceUUID{""},
-				StorageToOwn:    []storage.StorageInstanceUUID{""},
+				StorageToAttach: []application.CreateStorageAttachmentArg{
+					{},
+				},
+				StorageToOwn: []storage.StorageInstanceUUID{""},
 			},
 			Constraints: constraints.Constraints{
 				Arch: ptr(arch.AMD64),
@@ -1775,8 +1781,10 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 						Name: "data",
 					},
 				},
-				StorageToAttach: []storage.StorageInstanceUUID{"", ""},
-				StorageToOwn:    []storage.StorageInstanceUUID{"", ""},
+				StorageToAttach: []application.CreateStorageAttachmentArg{
+					{}, {},
+				},
+				StorageToOwn: []storage.StorageInstanceUUID{"", ""},
 			},
 			Constraints: constraints.Constraints{
 				Arch: ptr(arch.AMD64),
@@ -2803,7 +2811,8 @@ func (s *providerServiceSuite) createUnitStorageArgChecker() tc.Checker {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.StorageInstances[_].UUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.StorageInstances[_].FilesystemUUID`, tc.Deref(tc.IsNonZeroUUID))
-	mc.AddExpr(`_.StorageToAttach[_]`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.StorageToAttach[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.StorageToAttach[_].StorageInstanceUUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.StorageToOwn[_]`, tc.IsNonZeroUUID)
 	return mc
 }

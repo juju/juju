@@ -37,6 +37,17 @@ type CreateUnitStorageInstanceArg struct {
 	VolumeUUID *domainstorageprov.VolumeUUID
 }
 
+// CreateStorageAttachmentArg describes the arguments required for creating a
+// storage attachment.
+type CreateStorageAttachmentArg struct {
+	// UUID is the unique identifier to associate with the storage attachment.
+	UUID domainstorageprov.StorageAttachmentUUID
+
+	// StorageInstanceUUID is the unique identifier of the storage instance
+	// to attach to the unit.
+	StorageInstanceUUID domainstorage.StorageInstanceUUID
+}
+
 // CreateUnitStorageArg represents the arguments required for making storage
 // for a unit. This will create and set the unit's storage directives and then
 // instantiate the instances and attachments for the units.
@@ -53,7 +64,7 @@ type CreateUnitStorageArg struct {
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []domainstorage.StorageInstanceUUID
+	StorageToAttach []CreateStorageAttachmentArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.

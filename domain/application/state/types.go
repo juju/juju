@@ -931,6 +931,7 @@ type storageAttachment struct {
 	StorageUUID domainstorage.StorageInstanceUUID `db:"storage_instance_uuid"`
 	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
 	LifeID      life.Life                         `db:"life_id"`
+	UUID        string                            `db:"uuid"`
 }
 
 type filesystemUUID struct {

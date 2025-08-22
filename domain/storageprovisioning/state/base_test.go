@@ -253,16 +253,11 @@ func (s *baseSuite) newStorageAttachment(
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
 ) {
-	err := s.TxnRunner().StdTxn(
-		c.Context(),
-		func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_attachment (storage_instance_uuid, unit_uuid, life_id)
-VALUES (?, ?, ?)
-`, storageInstanceUUID.String(), unitUUID.String(), life)
-			return err
-		},
-	)
+	saUUID := domaintesting.GenStorageAttachmentUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)
+`, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

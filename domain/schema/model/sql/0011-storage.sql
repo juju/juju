@@ -147,7 +147,8 @@ CREATE TABLE storage_unit_owner (
 );
 
 CREATE TABLE storage_attachment (
-    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     CONSTRAINT fk_storage_attachment_storage_instance
@@ -160,6 +161,9 @@ CREATE TABLE storage_attachment (
     FOREIGN KEY (life_id)
     REFERENCES life (id)
 );
+
+CREATE UNIQUE INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid
+ON storage_attachment (unit_uuid, storage_instance_uuid);
 
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_storage_attachment_unit

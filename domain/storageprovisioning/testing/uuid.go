@@ -9,10 +9,16 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 )
 
+func GenStorageAttachmentUUID(c *tc.C) storageprovisioning.StorageAttachmentUUID {
+	uuid, err := storageprovisioning.NewStorageAttachmentUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	return uuid
+}
+
 // GenFilesystemUUID generates a new [storageprovisioning.FilesystemUUID] for
 // testing purposes.
 func GenFilesystemUUID(c *tc.C) storageprovisioning.FilesystemUUID {
-	uuid, err := storageprovisioning.NewFileystemUUID()
+	uuid, err := storageprovisioning.NewFilesystemUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

@@ -1316,11 +1316,12 @@ VALUES (?, ?)
 }
 
 func (s *storageStatusSuite) newStorageAttachment(c *tc.C, storageInstanceUUID storage.StorageInstanceUUID, unitUUID unit.UUID) {
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
-INSERT INTO storage_attachment(storage_instance_uuid, unit_uuid, life_id)
-VALUES (?, ?, 0)
+INSERT INTO storage_attachment(uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, 0)
 `,
-		storageInstanceUUID, unitUUID,
+		saUUID.String(), storageInstanceUUID, unitUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }

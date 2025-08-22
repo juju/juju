@@ -500,8 +500,7 @@ func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID, err := storageprovisioning.NewFileystemUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
 	info := storageprovisioning.FilesystemProvisionedInfo{
 		ProviderID: "x",
 		SizeMiB:    100,
@@ -513,7 +512,7 @@ func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
 		Return(nil)
 
 	svc := NewService(s.state, s.watcherFactory)
-	err = svc.SetFilesystemProvisionedInfo(c.Context(), fsID, info)
+	err := svc.SetFilesystemProvisionedInfo(c.Context(), fsID, info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -521,8 +520,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForMachine(c
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID, err := storageprovisioning.NewFileystemUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
 	fsAttachmentUUID, err := storageprovisioning.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
@@ -568,8 +566,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID, err := storageprovisioning.NewFileystemUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	fsUUID := domaintesting.GenFilesystemUUID(c)
 	fsAttachmentUUID, err := storageprovisioning.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{

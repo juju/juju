@@ -791,35 +791,47 @@ func (s *caasStorageSuite) TestCreateCAASApplicationWithUnitsAndStorage(c *tc.C)
 	ctx := c.Context()
 
 	storageInstances := []application.CreateUnitStorageInstanceArg{}
-	storageToAttach := []domainstorage.StorageInstanceUUID{}
+	storageToAttach := []application.CreateStorageAttachmentArg{}
 
 	sUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "database",
 		UUID: sUUID,
 	})
-	storageToAttach = append(storageToAttach, sUUID)
+	storageToAttach = append(storageToAttach, application.CreateStorageAttachmentArg{
+		UUID:                storageprovtesting.GenStorageAttachmentUUID(c),
+		StorageInstanceUUID: sUUID,
+	})
 
 	sUUID = storagetesting.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "database",
 		UUID: sUUID,
 	})
-	storageToAttach = append(storageToAttach, sUUID)
+	storageToAttach = append(storageToAttach, application.CreateStorageAttachmentArg{
+		UUID:                storageprovtesting.GenStorageAttachmentUUID(c),
+		StorageInstanceUUID: sUUID,
+	})
 
 	sUUID = storagetesting.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "logs",
 		UUID: sUUID,
 	})
-	storageToAttach = append(storageToAttach, sUUID)
+	storageToAttach = append(storageToAttach, application.CreateStorageAttachmentArg{
+		UUID:                storageprovtesting.GenStorageAttachmentUUID(c),
+		StorageInstanceUUID: sUUID,
+	})
 
 	sUUID = storagetesting.GenStorageInstanceUUID(c)
 	storageInstances = append(storageInstances, application.CreateUnitStorageInstanceArg{
 		Name: "cache",
 		UUID: sUUID,
 	})
-	storageToAttach = append(storageToAttach, sUUID)
+	storageToAttach = append(storageToAttach, application.CreateStorageAttachmentArg{
+		UUID:                storageprovtesting.GenStorageAttachmentUUID(c),
+		StorageInstanceUUID: sUUID,
+	})
 
 	_, err := s.state.CreateCAASApplication(ctx, "foo", s.addCAASApplicationArgForStorage(c, "foo",
 		chStorage, directives), []application.AddCAASUnitArg{
