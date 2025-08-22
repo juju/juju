@@ -1182,6 +1182,10 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 				Rules: createRules(nil),
 			},
 		)
+		if errors.Is(err, errors.AlreadyExists) {
+			suffixLength = suffixLength + 1
+			continue
+		}
 		mu.Unlock()
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteClusterRole(ctx, result.GetName(), result.GetUID()) })
