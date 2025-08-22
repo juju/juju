@@ -46,7 +46,7 @@ func (s *tmpfsSuite) TearDownTest(c *tc.C) {
 
 func (s *tmpfsSuite) tmpfsProvider(c *tc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
-	return provider.TmpfsProvider(s.commands.run)
+	return provider.NewTmpfsProvider(s.commands.run)
 }
 
 func (s *tmpfsSuite) TestFilesystemSource(c *tc.C) {

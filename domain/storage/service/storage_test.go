@@ -16,7 +16,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -25,7 +24,7 @@ type storageSuite struct {
 	testhelpers.IsolationSuite
 
 	state              *MockState
-	registry           storage.ProviderRegistry
+	registry           *MockProviderRegistry
 	provider           *MockProvider
 	volumeSource       *MockVolumeSource
 	volumeImporter     *MockVolumeImporter
@@ -57,11 +56,19 @@ func (s *storageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.filesystemImporter = NewMockFilesystemImporter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 
-	registry := NewMockProviderRegistry(ctrl)
-	registry.EXPECT().StorageProvider(storage.ProviderType("ebs")).Return(s.provider, nil).AnyTimes()
-	registry.EXPECT().StorageProvider(storage.ProviderType("elastic")).Return(s.provider, nil).AnyTimes()
+	s.registry = NewMockProviderRegistry(ctrl)
+	s.registry.EXPECT().StorageProvider(storage.ProviderType("ebs")).Return(s.provider, nil).AnyTimes()
+	s.registry.EXPECT().StorageProvider(storage.ProviderType("elastic")).Return(s.provider, nil).AnyTimes()
 
-	s.registry = storage.ChainedProviderRegistry{registry, provider.CommonStorageProviders()}
+	c.Cleanup(func() {
+		s.state = nil
+		s.volumeSource = nil
+		s.volumeImporter = nil
+		s.filesystemSource = nil
+		s.filesystemImporter = nil
+		s.provider = nil
+		s.registry = nil
+	})
 
 	return ctrl
 }

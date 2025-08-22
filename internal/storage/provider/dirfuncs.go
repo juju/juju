@@ -41,7 +41,7 @@ type dirFuncs interface {
 // osDirFuncs is an implementation of dirFuncs that operates on the real
 // filesystem.
 type osDirFuncs struct {
-	run          runCommandFunc
+	run          RunCommandFunc
 	mountInfoRdr io.ReadSeeker
 }
 
@@ -169,7 +169,7 @@ func (o *osDirFuncs) mountPointSource(target string) (result string, _ error) {
 	return source, nil
 }
 
-func df(run runCommandFunc, path, field string) (string, error) {
+func df(run RunCommandFunc, path, field string) (string, error) {
 	output, err := run("df", "--output="+field, path)
 	if err != nil {
 		return "", errors.Trace(err)

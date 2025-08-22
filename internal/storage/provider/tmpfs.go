@@ -20,17 +20,25 @@ const (
 	TmpfsProviderType = storage.ProviderType("tmpfs")
 )
 
-// tmpfsProviders create storage sources which provide access to filesystems.
-type tmpfsProvider struct {
+// TmpfsProvider is a storage provider that uses tmpfs to create ephemeral
+// filesystems on a host.
+type TmpfsProvider struct {
 	// run is a function type used for running commands on the local machine.
-	run runCommandFunc
+	run RunCommandFunc
 }
 
 var (
-	_ storage.Provider = (*tmpfsProvider)(nil)
+	_ storage.Provider = (*TmpfsProvider)(nil)
 )
 
-func (p *tmpfsProvider) ValidateForK8s(attributes map[string]any) error {
+// NewTmpfsProvider creates a new tmpfs storage provider.
+func NewTmpfsProvider(run RunCommandFunc) storage.Provider {
+	return &TmpfsProvider{
+		run: run,
+	}
+}
+
+func (p *TmpfsProvider) ValidateForK8s(attributes map[string]any) error {
 	if attributes == nil {
 		return nil
 	}
@@ -40,7 +48,7 @@ func (p *tmpfsProvider) ValidateForK8s(attributes map[string]any) error {
 }
 
 // ValidateConfig is defined on the Provider interface.
-func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
+func (p *TmpfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Tmpfs provider has no configuration.
 	return nil
 }
@@ -48,7 +56,7 @@ func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
 // validateFullConfig validates a fully-constructed storage config,
 // combining the user-specified config and any internally specified
 // config.
-func (p *tmpfsProvider) validateFullConfig(cfg *storage.Config) error {
+func (p *TmpfsProvider) validateFullConfig(cfg *storage.Config) error {
 	if err := p.ValidateConfig(cfg); err != nil {
 		return err
 	}
@@ -60,12 +68,12 @@ func (p *tmpfsProvider) validateFullConfig(cfg *storage.Config) error {
 }
 
 // VolumeSource is defined on the Provider interface.
-func (p *tmpfsProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (p *TmpfsProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (p *tmpfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *TmpfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
 	if err := p.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
@@ -79,33 +87,43 @@ func (p *tmpfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.
 }
 
 // Supports is defined on the Provider interface.
-func (*tmpfsProvider) Supports(k storage.StorageKind) bool {
+func (*TmpfsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindFilesystem
 }
 
 // Scope is defined on the Provider interface.
-func (*tmpfsProvider) Scope() storage.Scope {
+func (*TmpfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
 // Dynamic is defined on the Provider interface.
-func (*tmpfsProvider) Dynamic() bool {
+func (*TmpfsProvider) Dynamic() bool {
 	return true
 }
 
 // Releasable is defined on the Provider interface.
-func (*tmpfsProvider) Releasable() bool {
+func (*TmpfsProvider) Releasable() bool {
 	return false
 }
 
-// DefaultPools is defined on the Provider interface.
-func (*tmpfsProvider) DefaultPools() []*storage.Config {
-	return nil
+// DefaultPools provides the default storage pools available through this
+// provider.
+//
+// This pool offers one default pool named after it self.
+//
+// Implements [storage.Provider] interface.
+func (*TmpfsProvider) DefaultPools() []*storage.Config {
+	pool, _ := storage.NewConfig(
+		TmpfsProviderType.String(),
+		TmpfsProviderType,
+		storage.Attrs{},
+	)
+	return []*storage.Config{pool}
 }
 
 type tmpfsFilesystemSource struct {
 	dirFuncs   dirFuncs
-	run        runCommandFunc
+	run        RunCommandFunc
 	storageDir string
 }
 
