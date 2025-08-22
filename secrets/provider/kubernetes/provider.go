@@ -656,7 +656,11 @@ func (k *kubernetesClient) ensureRoleBinding(
 			FieldManager: resources.JujuFieldManager,
 		})
 		if k8serrors.IsAlreadyExists(err) {
-			return out, cleanups, nil
+			// we need to ensure that the rb is not empty for callers
+			// by getting rb from api again eg cases like resource name empty for
+			// attempting to get rb name in caller
+			out, err = api.Get(ctx, rb.Name, v1.GetOptions{})
+			return out, cleanups, err
 		}
 		if err == nil {
 			cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
