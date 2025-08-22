@@ -5,12 +5,14 @@ package gce
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -76,7 +78,7 @@ func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (stor
 }
 
 type volumeSource struct {
-	gce       gceConnection
+	gce       ComputeService
 	envName   string // non-unique, informational only
 	modelUUID string
 }
@@ -91,9 +93,9 @@ func (g *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSourc
 	return source, nil
 }
 
-type instanceCache map[string]google.Instance
+type instanceCache map[string]*compute.Instance
 
-func (c instanceCache) update(gceClient gceConnection, ctx context.ProviderCallContext, ids ...string) error {
+func (c instanceCache) update(gceClient ComputeService, ctx context.ProviderCallContext, ids ...string) error {
 	if len(ids) == 1 {
 		if _, ok := c[ids[0]]; ok {
 			return nil
@@ -103,23 +105,23 @@ func (c instanceCache) update(gceClient gceConnection, ctx context.ProviderCallC
 	for _, id := range ids {
 		idMap[id] = 0
 	}
-	instances, err := gceClient.Instances("", google.StatusRunning)
+	instances, err := gceClient.Instances(ctx, "", google.StatusRunning)
 	if err != nil {
 		return google.HandleCredentialError(errors.Annotate(err, "querying instance details"), ctx)
 	}
 	for _, instance := range instances {
-		if _, ok := idMap[instance.ID]; !ok {
+		if _, ok := idMap[instance.Name]; !ok {
 			continue
 		}
-		c[instance.ID] = instance
+		c[instance.Name] = instance
 	}
 	return nil
 }
 
-func (c instanceCache) get(id string) (google.Instance, error) {
+func (c instanceCache) get(id string) (*compute.Instance, error) {
 	inst, ok := c[id]
 	if !ok {
-		return google.Instance{}, errors.Errorf("cannot attach to non-running instance %v", id)
+		return nil, errors.Errorf("cannot attach to non-running instance %v", id)
 	}
 	return inst, nil
 }
@@ -171,11 +173,9 @@ func (v *volumeSource) CreateVolumes(ctx context.ProviderCallContext, params []s
 	return results, nil
 }
 
-// mibToGib converts mebibytes to gibibytes.
-// GCE expects GiB, we work in MiB; round up
-// to nearest GiB.
-func mibToGib(m uint64) uint64 {
-	return (m + 1023) / 1024
+// gibToMib converts gibibytes to mebibytes.
+func gibToMib(g int64) uint64 {
+	return uint64(g) * 1024
 }
 
 func nameVolume(zone string) (string, error) {
@@ -194,7 +194,7 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 		if err == nil || volumeName == "" {
 			return
 		}
-		if err := v.gce.RemoveDisk(zone, volumeName); err != nil {
+		if err := v.gce.RemoveDisk(ctx, zone, volumeName); err != nil {
 			logger.Errorf("error cleaning up volume %v: %v", volumeName, google.HandleCredentialError(err, ctx))
 		}
 	}()
@@ -213,40 +213,42 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	if !ok {
 		persistentType = google.DiskPersistentStandard
 	}
+	if persistentType == google.DiskLocalSSD {
+		return nil, nil, errors.New("cannot create local ssd disks")
+	}
 
-	zone = inst.ZoneName
+	size := p.Size
+	if p.Size < google.MinDiskSizeGB {
+		p.Size = google.MinDiskSizeGB
+	}
+	zone = path.Base(inst.Zone)
 	volumeName, err = nameVolume(zone)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot create a new volume name")
 	}
 	// TODO(perrito666) the volumeName is arbitrary and it was crafted this
 	// way to help solve the need to have zone all over the place.
-	disk := google.DiskSpec{
-		SizeHintGB:         mibToGib(p.Size),
-		Name:               volumeName,
-		PersistentDiskType: persistentType,
-		Labels:             resourceTagsToDiskLabels(p.ResourceTags),
+	disk := &compute.Disk{
+		Name:   volumeName,
+		SizeGb: int64(size),
+		Type:   string(persistentType),
+		Labels: resourceTagsToDiskLabels(p.ResourceTags),
 	}
-
-	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
+	err = v.gce.CreateDisks(ctx, zone, []*compute.Disk{disk})
 	if err != nil {
 		return nil, nil, google.HandleCredentialError(errors.Annotate(err, "cannot create disk"), ctx)
 	}
-	if len(gceDisks) != 1 {
-		return nil, nil, errors.New(fmt.Sprintf("unexpected number of disks created: %d", len(gceDisks)))
-	}
-	gceDisk := gceDisks[0]
 
-	attachedDisk, err := v.attachOneVolume(ctx, gceDisk.Name, google.ModeRW, inst.ID)
+	attachedDisk, err := v.attachOneVolume(ctx, disk.Name, google.ModeRW, inst.Name)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
+		return nil, nil, errors.Annotatef(err, "attaching %q to %q", disk.Name, instId)
 	}
 
 	volume = &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
-			VolumeId:   gceDisk.Name,
-			Size:       gceDisk.Size,
+			VolumeId:   disk.Name,
+			Size:       gibToMib(disk.SizeGb),
 			Persistent: true,
 		},
 	}
@@ -307,7 +309,7 @@ func (v *volumeSource) destroyOneVolume(ctx context.ProviderCallContext, volName
 	if err != nil {
 		return errors.Annotatef(err, "invalid volume id %q", volName)
 	}
-	if err := v.gce.RemoveDisk(zone, volName); err != nil {
+	if err := v.gce.RemoveDisk(ctx, zone, volName); err != nil {
 		return google.HandleCredentialError(errors.Annotatef(err, "cannot destroy volume %q", volName), ctx)
 	}
 	return nil
@@ -318,11 +320,11 @@ func (v *volumeSource) releaseOneVolume(ctx context.ProviderCallContext, volName
 	if err != nil {
 		return errors.Annotatef(err, "invalid volume id %q", volName)
 	}
-	disk, err := v.gce.Disk(zone, volName)
+	disk, err := v.gce.Disk(ctx, zone, volName)
 	if err != nil {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	switch disk.Status {
+	switch google.DiskStatus(disk.Status) {
 	case google.StatusReady, google.StatusFailed:
 	default:
 		return errors.Errorf(
@@ -330,15 +332,19 @@ func (v *volumeSource) releaseOneVolume(ctx context.ProviderCallContext, volName
 			volName, disk.Status,
 		)
 	}
-	if len(disk.AttachedInstances) > 0 {
+	if len(disk.Users) > 0 {
+		attachedInstances := make([]string, len(disk.Users))
+		for i, u := range disk.Users {
+			attachedInstances[i] = path.Base(u)
+		}
 		return errors.Errorf(
 			"cannot release volume %q, attached to instances %q",
-			volName, disk.AttachedInstances,
+			volName, attachedInstances,
 		)
 	}
 	delete(disk.Labels, tags.JujuController)
 	delete(disk.Labels, tags.JujuModel)
-	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+	if err := v.gce.SetDiskLabels(ctx, zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
 		return google.HandleCredentialError(errors.Annotatef(err, "cannot remove labels from volume %q", volName), ctx)
 	}
 	return nil
@@ -346,7 +352,7 @@ func (v *volumeSource) releaseOneVolume(ctx context.ProviderCallContext, volName
 
 func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	var volumes []string
-	disks, err := v.gce.Disks()
+	disks, err := v.gce.Disks(ctx)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
@@ -368,11 +374,11 @@ func (v *volumeSource) ImportVolume(ctx context.ProviderCallContext, volName str
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
 	}
-	disk, err := v.gce.Disk(zone, volName)
+	disk, err := v.gce.Disk(ctx, zone, volName)
 	if err != nil {
 		return storage.VolumeInfo{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
 	}
-	if disk.Status != google.StatusReady {
+	if google.DiskStatus(disk.Status) != google.StatusReady {
 		return storage.VolumeInfo{}, errors.Errorf(
 			"cannot import volume %q with status %q",
 			volName, disk.Status,
@@ -384,12 +390,12 @@ func (v *volumeSource) ImportVolume(ctx context.ProviderCallContext, volName str
 	for k, v := range resourceTagsToDiskLabels(tags) {
 		disk.Labels[k] = v
 	}
-	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+	if err := v.gce.SetDiskLabels(ctx, zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
 		return storage.VolumeInfo{}, google.HandleCredentialError(errors.Annotatef(err, "cannot update labels on volume %q", volName), ctx)
 	}
 	return storage.VolumeInfo{
 		VolumeId:   disk.Name,
-		Size:       disk.Size,
+		Size:       gibToMib(disk.SizeGb),
 		Persistent: true,
 	}, nil
 }
@@ -411,13 +417,13 @@ func (v *volumeSource) describeOneVolume(ctx context.ProviderCallContext, volNam
 	if err != nil {
 		return storage.DescribeVolumesResult{}, errors.Annotatef(err, "cannot describe %q", volName)
 	}
-	disk, err := v.gce.Disk(zone, volName)
+	disk, err := v.gce.Disk(ctx, zone, volName)
 	if err != nil {
 		return storage.DescribeVolumesResult{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
 	}
 	desc := storage.DescribeVolumesResult{
 		&storage.VolumeInfo{
-			Size:     disk.Size,
+			Size:     gibToMib(disk.SizeGb),
 			VolumeId: disk.Name,
 		},
 		nil,
@@ -464,23 +470,43 @@ func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachPara
 	return results, nil
 }
 
-func (v *volumeSource) attachOneVolume(ctx context.ProviderCallContext, volumeName string, mode google.DiskMode, instanceId string) (*google.AttachedDisk, error) {
+// sourceToVolumeName will return the disk Name part of a
+// source URL for a compute disk, compute is a bit inconsistent
+// on its handling of disk resources, when used in requests it will
+// take the disk.Name but when used as a parameter it will take
+// the source url.
+// The source url (short) format is:
+// /projects/project/zones/zone/disks/disk
+// the relevant part is disk.
+func sourceToVolumeName(source string) string {
+	if source == "" {
+		return ""
+	}
+	parts := strings.Split(source, "/")
+	if len(parts) == 1 {
+		return source
+	}
+	lastItem := len(parts) - 1
+	return parts[lastItem]
+}
+
+func (v *volumeSource) attachOneVolume(ctx context.ProviderCallContext, volumeName string, mode google.DiskMode, instanceId string) (*compute.AttachedDisk, error) {
 	zone, _, err := parseVolumeId(volumeName)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid volume name")
 	}
-	instanceDisks, err := v.gce.InstanceDisks(zone, instanceId)
+	instanceDisks, err := v.gce.InstanceDisks(ctx, zone, instanceId)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Annotate(err, "cannot verify if the disk is already in the instance"), ctx)
 	}
 	// Is it already attached?
 	for _, disk := range instanceDisks {
-		if disk.VolumeName == volumeName {
+		if sourceToVolumeName(disk.Source) == volumeName {
 			return disk, nil
 		}
 	}
 
-	attachment, err := v.gce.AttachDisk(zone, volumeName, instanceId, mode)
+	attachment, err := v.gce.AttachDisk(ctx, zone, volumeName, instanceId, mode)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Annotate(err, "cannot attach volume"), ctx)
 	}
@@ -507,7 +533,7 @@ func (v *volumeSource) detachOneVolume(ctx context.ProviderCallContext, attachPa
 	if err != nil {
 		return errors.Annotatef(err, "%q is not a valid volume id", volumeName)
 	}
-	return google.HandleCredentialError(v.gce.DetachDisk(zone, string(instId), volumeName), ctx)
+	return google.HandleCredentialError(v.gce.DetachDisk(ctx, zone, string(instId), volumeName), ctx)
 }
 
 // resourceTagsToDiskLabels translates a set of

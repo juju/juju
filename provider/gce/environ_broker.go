@@ -4,9 +4,13 @@
 package gce
 
 import (
-	"strings"
+	"fmt"
+	"maps"
+	"path"
+	"slices"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -25,7 +29,7 @@ import (
 func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
 
-	spec, err := buildInstanceSpec(env, ctx, args)
+	spec, err := env.buildInstanceSpec(ctx, args)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -43,32 +47,20 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawInstance(env, ctx, args, spec)
+	inst, err := env.startInstance(ctx, args, spec.Image.Id, spec.InstanceType.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
-	inst := newInstance(raw, env)
+	envInst := newInstance(inst, env)
 
 	// Build the result.
-	hwc := getHardwareCharacteristics(env, spec, inst)
+	hwc := env.getHardwareCharacteristics(spec, envInst)
+	logger.Infof("started instance %q in zone %q", inst.Name, *hwc.AvailabilityZone)
 	result := environs.StartInstanceResult{
-		Instance: inst,
+		Instance: envInst,
 		Hardware: hwc,
 	}
 	return &result, nil
-}
-
-var buildInstanceSpec = func(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
-	return env.buildInstanceSpec(ctx, args)
-}
-
-var newRawInstance = func(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	return env.newRawInstance(ctx, args, spec)
-}
-
-var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
-	return env.getHardwareCharacteristics(spec, inst)
 }
 
 // finishInstanceConfig updates args.InstanceConfig in place. Setting up
@@ -151,12 +143,33 @@ func (env *environ) imageURLBase(os ostype.OSType) (string, error) {
 	return base, nil
 }
 
-// newRawInstance is where the new physical instance is actually
+// packMetadata composes the provided data into the format required
+// by the GCE API.
+func packMetadata(data map[string]string) *compute.Metadata {
+	// Sort for testing.
+	keys := maps.Keys(data)
+	var items []*compute.MetadataItems
+	for _, key := range slices.Sorted(keys) {
+		localValue := data[key]
+		item := compute.MetadataItems{
+			Key:   key,
+			Value: &localValue,
+		}
+		items = append(items, &item)
+	}
+	return &compute.Metadata{Items: items}
+}
+
+func formatMachineType(zone, name string) string {
+	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
+}
+
+// startInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(
-	ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec,
-) (_ *google.Instance, err error) {
+func (env *environ) startInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams, imageID, instanceTypeName string,
+) (_ *compute.Instance, err error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
@@ -176,13 +189,9 @@ func (env *environ) newRawInstance(
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
+	imageURL := imageURLBase + imageID
 
-	disks, err := getDisks(
-		spec, args.Constraints,
-		os,
-		env.Config().UUID(),
-		imageURLBase,
-	)
+	disks, err := getDisks(imageURL, args.Constraints, os)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -191,25 +200,38 @@ func (env *environ) newRawInstance(
 	if args.Constraints.HasAllocatePublicIP() {
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
-
-	instArg := google.InstanceSpec{
-		ID:                hostname,
-		Type:              spec.InstanceType.Name,
-		Disks:             disks,
-		NetworkInterfaces: []string{"ExternalNAT"},
-		Metadata:          metadata,
-		Tags:              tags,
-		AvailabilityZone:  args.AvailabilityZone,
-		AllocatePublicIP:  allocatePublicIP,
+	nic := &compute.NetworkInterface{
+		Network: fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName),
 	}
-	serviceAccount, err := env.gce.DefaultServiceAccount()
+
+	if allocatePublicIP {
+		nic.AccessConfigs = []*compute.AccessConfig{{
+			Name: "ExternalNAT",
+			Type: google.NetworkAccessOneToOneNAT,
+		}}
+	}
+
+	serviceAccount, err := env.gce.DefaultServiceAccount(ctx)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	logger.Debugf("using project service account: %s", serviceAccount)
 
-	instArg.DefaultServiceAccount = serviceAccount
-	inst, err := env.gce.AddInstance(instArg)
+	instArg := &compute.Instance{
+		Name:              hostname,
+		Zone:              args.AvailabilityZone,
+		MachineType:       formatMachineType(args.AvailabilityZone, instanceTypeName),
+		Disks:             disks,
+		NetworkInterfaces: []*compute.NetworkInterface{nic},
+		Metadata:          packMetadata(metadata),
+		Tags:              &compute.Tags{Items: tags},
+	}
+	if serviceAccount != "" {
+		instArg.ServiceAccounts = []*compute.ServiceAccount{{
+			Email: serviceAccount,
+		}}
+	}
+	inst, err := env.gce.AddInstance(ctx, instArg)
 	if err != nil {
 		// We currently treat all AddInstance failures
 		// as being zone-specific, so we'll retry in
@@ -255,41 +277,52 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os ostype.OSType, eUUID string, imageURLBase string) ([]google.DiskSpec, error) {
+func getDisks(imageURL string, cons constraints.Value, os ostype.OSType) ([]*compute.AttachedDisk, error) {
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
+		if size < google.MinDiskSizeGB {
+			msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
+			logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
+		}
 	}
-	if imageURLBase == "" {
-		return nil, errors.NotValidf("imageURLBase must be set")
+	if size < google.MinDiskSizeGB {
+		size = google.MinDiskSizeGB
 	}
-	imageURL := imageURLBase + spec.Image.Id
 	logger.Infof("fetching disk image from %v", imageURL)
-	dSpec := google.DiskSpec{
-		OS:         strings.ToLower(os.String()),
-		SizeHintGB: size,
-		ImageURL:   imageURL,
+
+	disk := &compute.AttachedDisk{
+		Type:       google.DiskPersistenceTypePersistent,
 		Boot:       true,
+		Mode:       string(google.ModeRW),
 		AutoDelete: true,
+		InitializeParams: &compute.AttachedDiskInitializeParams{
+			// DiskName (defaults to instance name)
+			DiskSizeGb: int64(size),
+			// DiskType (defaults to pd-standard, pd-ssd, local-ssd)
+			SourceImage: imageURL,
+		},
+		// Interface (defaults to SCSI)
+		// DeviceName (GCE sets this, persistent disk only)
 	}
-	if cons.RootDisk != nil && dSpec.TooSmall() {
-		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
-		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
-	}
-	return []google.DiskSpec{dSpec}, nil
+	return []*compute.AttachedDisk{disk}, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
-	rootDiskMB := inst.base.RootDiskGB() * 1024
+	rootDiskMB := uint64(0)
+	if len(inst.base.Disks) > 0 {
+		rootDiskMB = uint64(inst.base.Disks[0].DiskSizeGb * 1024)
+	}
+	zone := path.Base(inst.base.Zone)
 	hwc := instance.HardwareCharacteristics{
 		Arch:             &spec.Image.Arch,
 		Mem:              &spec.InstanceType.Mem,
 		CpuCores:         &spec.InstanceType.CpuCores,
 		CpuPower:         spec.InstanceType.CpuPower,
 		RootDisk:         &rootDiskMB,
-		AvailabilityZone: &inst.base.ZoneName,
+		AvailabilityZone: &zone,
 		// Tags: not supported in GCE.
 	}
 	return &hwc
@@ -329,6 +362,6 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 	}
 
 	prefix := env.namespace.Prefix()
-	err := env.gce.RemoveInstances(prefix, ids...)
+	err := env.gce.RemoveInstances(ctx, prefix, ids...)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
 }

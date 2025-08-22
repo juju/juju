@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package google
+package gce
 
 import (
 	"crypto/sha256"
@@ -20,7 +20,7 @@ import (
 // ruleSet is used to manipulate port ranges for a collection of
 // firewall rules or ingress rules. Each key is the identifier for a
 // set of source CIDRs that are allowed for a set of port ranges.
-type ruleSet map[string]*firewall
+type ruleSet map[string]*firewallInfo
 
 func newRuleSetFromRules(rules corefirewall.IngressRules) ruleSet {
 	result := make(ruleSet)
@@ -38,7 +38,7 @@ func (rs ruleSet) addRule(rule corefirewall.IngressRule) {
 	key := sourcecidrs(sourceCIDRs).key()
 	fw, ok := rs[key]
 	if !ok {
-		fw = &firewall{
+		fw = &firewallInfo{
 			SourceCIDRs:  sourceCIDRs,
 			AllowedPorts: make(protocolPorts),
 		}
@@ -73,7 +73,7 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 		sourceRanges = []string{"0.0.0.0/0"}
 	}
 	key := sourcecidrs(sourceRanges).key()
-	result := &firewall{
+	result := &firewallInfo{
 		Name:         fw.Name,
 		Target:       fw.TargetTags[0],
 		SourceCIDRs:  sourceRanges,
@@ -107,7 +107,7 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 	return nil
 }
 
-func (rs ruleSet) matchProtocolPorts(ports protocolPorts) (*firewall, bool) {
+func (rs ruleSet) matchProtocolPorts(ports protocolPorts) (*firewallInfo, bool) {
 	for _, fw := range rs {
 		if fw.AllowedPorts.String() == ports.String() {
 			return fw, true
@@ -116,7 +116,7 @@ func (rs ruleSet) matchProtocolPorts(ports protocolPorts) (*firewall, bool) {
 	return nil, false
 }
 
-func (rs ruleSet) matchSourceCIDRs(cidrs []string) (*firewall, bool) {
+func (rs ruleSet) matchSourceCIDRs(cidrs []string) (*firewallInfo, bool) {
 	result, ok := rs[sourcecidrs(cidrs).key()]
 	return result, ok
 }
@@ -165,17 +165,17 @@ func (s sourcecidrs) sorted() []string {
 	return values
 }
 
-// firewall represents a GCE firewall - if it was constructed from a
+// firewallInfo represents a GCE firewall - if it was constructed from a
 // set of ingress rules the name and target information won't be
 // populated.
-type firewall struct {
+type firewallInfo struct {
 	Name         string
 	Target       string
 	SourceCIDRs  []string
 	AllowedPorts protocolPorts
 }
 
-func (fw *firewall) toIngressRules() corefirewall.IngressRules {
+func (fw *firewallInfo) toIngressRules() corefirewall.IngressRules {
 	var results corefirewall.IngressRules
 	for _, portRanges := range fw.AllowedPorts {
 		for _, p := range portRanges {

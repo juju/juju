@@ -37,7 +37,7 @@ func (diskLabelsUpgradeStep) Description() string {
 // Run is part of the environs.UpgradeStep interface.
 func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	env := step.env
-	disks, err := env.gce.Disks()
+	disks, err := env.gce.Disks(ctx)
 	if err != nil {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
@@ -56,7 +56,7 @@ func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		}
 		disk.Labels[tags.JujuModel] = env.uuid
 		disk.Labels[tags.JujuController] = step.controllerUUID
-		if err := env.gce.SetDiskLabels(disk.Zone, disk.Name, disk.LabelFingerprint, disk.Labels); err != nil {
+		if err := env.gce.SetDiskLabels(ctx, disk.Zone, disk.Name, disk.LabelFingerprint, disk.Labels); err != nil {
 			return google.HandleCredentialError(errors.Annotatef(err, "cannot set labels on volume %q", disk.Name), ctx)
 		}
 	}

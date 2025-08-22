@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -71,12 +72,12 @@ var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFil
 	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]*compute.Instance, error) {
 	prefix := env.namespace.Prefix()
 	if len(statusFilters) == 0 {
 		statusFilters = instStatuses
 	}
-	instances, err := env.gce.Instances(prefix, statusFilters...)
+	instances, err := env.gce.Instances(ctx, prefix, statusFilters...)
 	return instances, google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
@@ -95,12 +96,33 @@ func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...
 	for _, base := range gceInstances {
 		// If we don't make a copy then the same pointer is used for the
 		// base of all resulting instances.
-		copied := base
+		copied := *base
 		inst := newInstance(&copied, env)
 		results = append(results, inst)
 	}
 
 	return results, err
+}
+
+// unpackMetadata decomposes the provided data from the format used
+// in the GCE API.
+func unpackMetadata(data *compute.Metadata) map[string]string {
+	if data == nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, item := range data.Items {
+		if item == nil {
+			continue
+		}
+		value := ""
+		if item.Value != nil {
+			value = *item.Value
+		}
+		result[item.Key] = value
+	}
+	return result
 }
 
 // ControllerInstances returns the IDs of the instances corresponding
@@ -113,13 +135,13 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 	var results []instance.Id
 	for _, inst := range instances {
-		metadata := inst.Metadata()
+		metadata := unpackMetadata(inst.Metadata)
 		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
 			continue
 		}
 		isController, ok := metadata[tags.JujuIsController]
 		if ok && isController == "true" {
-			results = append(results, instance.Id(inst.ID))
+			results = append(results, instance.Id(inst.Name))
 		}
 	}
 	if len(results) == 0 {
@@ -139,22 +161,17 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	for _, id := range instances {
 		stringIds = append(stringIds, string(id.Id()))
 	}
-	err = env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...)
+	err = env.gce.UpdateMetadata(ctx, tags.JujuController, controllerUUID, stringIds...)
 	if err != nil {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return nil
 }
 
-// TODO(ericsnow) Turn into an interface.
-type instPlacement struct {
-	Zone *google.AvailabilityZone
-}
-
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*instPlacement, error) {
+func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*compute.Zone, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -170,7 +187,7 @@ func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement st
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &instPlacement{Zone: zone}, nil
+		return zone, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

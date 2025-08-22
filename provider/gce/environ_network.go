@@ -62,7 +62,7 @@ func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
 }
 
 func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, error) {
-	networks, err := e.gce.Networks()
+	networks, err := e.gce.Networks(ctx)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
@@ -76,7 +76,7 @@ func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, er
 func (e *environ) getMatchingSubnets(
 	ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
-	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
+	allSubnets, err := e.gce.Subnetworks(ctx, e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
@@ -183,7 +183,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		// Note: we have already verified that we can safely cast inst
 		// to environInstance when we iterated the instance list to
 		// obtain the unique subnet URLs
-		for i, iface := range inst.(*environInstance).base.NetworkInterfaces() {
+		for i, iface := range inst.(*environInstance).base.NetworkInterfaces {
 			details, err := findNetworkDetails(iface, subnets, networks)
 			if err != nil {
 				return nil, errors.Annotatef(err, "instance %q", ids[idx])
@@ -246,7 +246,7 @@ func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Str
 			return nil, errors.Errorf("couldn't extract GCE instance for %q", ids[idx])
 		}
 
-		for _, iface := range envInst.base.NetworkInterfaces() {
+		for _, iface := range envInst.base.NetworkInterfaces {
 			if iface.Subnetwork != "" {
 				uniqueSet.Add(iface.Subnetwork)
 			}
@@ -266,7 +266,7 @@ type networkDetails struct {
 // populate an InterfaceInfo - if the interface is on a legacy network
 // we use information from the network because there'll be no subnet
 // linked.
-func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
+func findNetworkDetails(iface *compute.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
 	var result networkDetails
 	if iface.Subnetwork == "" {
 		// This interface is on a legacy network.
@@ -294,7 +294,7 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 		return make(map[string]corenetwork.SubnetInfo), nil
 	}
 	urlSet := includeSet{items: set.NewStrings(urls...)}
-	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
+	allSubnets, err := e.gce.Subnetworks(ctx, e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}

@@ -28,56 +28,65 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
-type gceConnection interface {
-	VerifyCredentials() error
-	DefaultServiceAccount() (string, error)
+// ComputeService defines a client used to interact with the Google Cloud API.
+type ComputeService interface {
+	// VerifyCredentials returns an error if the credential used is invalid.
+	VerifyCredentials(ctx stdcontext.Context) error
+	// DefaultServiceAccount returns the service account for the project.
+	DefaultServiceAccount(ctx stdcontext.Context) (string, error)
 
-	// Instance gets the up-to-date info about the given instance
-	// and returns it.
-	Instance(id, zone string) (google.Instance, error)
-	Instances(prefix string, statuses ...string) ([]google.Instance, error)
-	AddInstance(spec google.InstanceSpec) (*google.Instance, error)
-	RemoveInstances(prefix string, ids ...string) error
-	UpdateMetadata(key, value string, ids ...string) error
+	// Instance gets the up-to-date info about the given instance.
+	Instance(ctx stdcontext.Context, id, zone string) (*compute.Instance, error)
+	// Instances returns the instances with the given name prefix and statuses.
+	Instances(ctx stdcontext.Context, prefix string, statuses ...string) ([]*compute.Instance, error)
+	// AddInstance creates a new instance.
+	AddInstance(ctx stdcontext.Context, inst *compute.Instance) (*compute.Instance, error)
+	// RemoveInstances removes instances with the given ids.
+	RemoveInstances(ctx stdcontext.Context, prefix string, ids ...string) error
+	// UpdateMetadata updates the metadata for the given instance ids.
+	UpdateMetadata(ctx stdcontext.Context, key, value string, ids ...string) error
+	// ListMachineTypes returns a list of machines available in the project and zone provided.
+	ListMachineTypes(ctx stdcontext.Context, zone string) ([]*compute.MachineType, error)
 
-	IngressRules(fwname string) (firewall.IngressRules, error)
-	OpenPorts(fwname string, rules firewall.IngressRules) error
-	ClosePorts(fwname string, rules firewall.IngressRules) error
-	RemoveFirewall(fwname string) error
+	// Firewalls returns the firewalls with the given prefix.
+	Firewalls(ctx stdcontext.Context, prefix string) ([]*compute.Firewall, error)
+	// AddFirewall creates a new firewall.
+	AddFirewall(ctx stdcontext.Context, firewall *compute.Firewall) error
+	// UpdateFirewall updates the firewall with the given name.
+	UpdateFirewall(ctx stdcontext.Context, name string, firewall *compute.Firewall) error
+	// RemoveFirewall removes the firewall with the given name.
+	RemoveFirewall(ctx stdcontext.Context, fwname string) error
 
-	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+	// AvailabilityZones returns the availability zones for the region.
+	AvailabilityZones(ctx stdcontext.Context, region string) ([]*compute.Zone, error)
 	// Subnetworks returns the subnetworks that machines can be
 	// assigned to in the given region.
-	Subnetworks(region string) ([]*compute.Subnetwork, error)
+	Subnetworks(ctx stdcontext.Context, region string) ([]*compute.Subnetwork, error)
 	// Networks returns the available networks that exist across
 	// regions.
-	Networks() ([]*compute.Network, error)
-
-	// Storage related methods.
+	Networks(ctx stdcontext.Context) ([]*compute.Network, error)
 
 	// CreateDisks will attempt to create the disks described by <disks> spec and
 	// return a slice of Disk representing the created disks or error if one of them failed.
-	CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error)
+	CreateDisks(ctx stdcontext.Context, zone string, disks []*compute.Disk) error
 	// Disks will return a list of all Disks found in the project.
-	Disks() ([]*google.Disk, error)
+	Disks(ctx stdcontext.Context) ([]*compute.Disk, error)
 	// Disk will return a Disk representing the disk identified by the
 	// passed <name> or error.
-	Disk(zone, id string) (*google.Disk, error)
+	Disk(ctx stdcontext.Context, zone, id string) (*compute.Disk, error)
 	// RemoveDisk will destroy the disk identified by <name> in <zone>.
-	RemoveDisk(zone, id string) error
+	RemoveDisk(ctx stdcontext.Context, zone, id string) error
 	// SetDiskLabels sets the labels on a disk, ensuring that the disk's
 	// label fingerprint matches the one supplied.
-	SetDiskLabels(zone, id, labelFingerprint string, labels map[string]string) error
+	SetDiskLabels(ctx stdcontext.Context, zone, id, labelFingerprint string, labels map[string]string) error
 	// AttachDisk will attach the volume identified by <volumeName> into the instance
 	// <instanceId> and return an AttachedDisk representing it or error.
-	AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error)
+	AttachDisk(ctx stdcontext.Context, zone, volumeName, instanceId string, mode google.DiskMode) (*compute.AttachedDisk, error)
 	// DetachDisk will detach <volumeName> disk from <instanceId> if possible
 	// and return error.
-	DetachDisk(zone, instanceId, volumeName string) error
+	DetachDisk(ctx stdcontext.Context, zone, instanceId, volumeName string) error
 	// InstanceDisks returns a list of the disks attached to the passed instance.
-	InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error)
-	// ListMachineTypes returns a list of machines available in the project and zone provided.
-	ListMachineTypes(zone string) ([]google.MachineType, error)
+	InstanceDisks(ctx stdcontext.Context, zone, instanceId string) ([]*compute.AttachedDisk, error)
 }
 
 type environ struct {
@@ -87,7 +96,7 @@ type environ struct {
 	name  string
 	uuid  string
 	cloud environscloudspec.CloudSpec
-	gce   gceConnection
+	gce   ComputeService
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
@@ -106,7 +115,7 @@ var _ environs.NetworkingEnviron = (*environ)(nil)
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.
 var (
-	newConnection = func(ctx stdcontext.Context, conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
+	newConnection = func(ctx stdcontext.Context, conn google.ConnectionConfig, creds *google.Credentials) (ComputeService, error) {
 		return google.Connect(ctx, conn, creds)
 	}
 	destroyEnv = common.Destroy
@@ -224,7 +233,7 @@ func (env *environ) Config() *config.Config {
 // PrepareForBootstrap implements environs.Environ.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
-		if err := env.gce.VerifyCredentials(); err != nil {
+		if err := env.gce.VerifyCredentials(ctx.Context()); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -233,7 +242,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 
 // Create implements environs.Environ.
 func (env *environ) Create(ctx context.ProviderCallContext, p environs.CreateParams) error {
-	if err := env.gce.VerifyCredentials(); err != nil {
+	if err := env.gce.VerifyCredentials(ctx); err != nil {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return nil
@@ -261,7 +270,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("80/tcp")))
 	}
 
-	if err := env.gce.OpenPorts(env.globalFirewallName(), rules); err != nil {
+	if err := env.OpenPorts(callCtx, env.globalFirewallName(), rules); err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
 	}
 	return bootstrap(ctx, env, callCtx, params)

@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -16,13 +17,13 @@ import (
 )
 
 type environInstance struct {
-	base *google.Instance
+	base *compute.Instance
 	env  *environ
 }
 
 var _ instances.Instance = (*environInstance)(nil)
 
-func newInstance(base *google.Instance, env *environ) *environInstance {
+func newInstance(base *compute.Instance, env *environ) *environInstance {
 	return &environInstance{
 		base: base,
 		env:  env,
@@ -31,19 +32,19 @@ func newInstance(base *google.Instance, env *environ) *environInstance {
 
 // Id implements instances.Instance.
 func (inst *environInstance) Id() instance.Id {
-	return instance.Id(inst.base.ID)
+	return instance.Id(inst.base.Name)
 }
 
 // Status implements instances.Instance.
 func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	instStatus := inst.base.Status()
+	instStatus := inst.base.Status
 	var jujuStatus status.Status
 	switch instStatus {
-	case "PROVISIONING", "STAGING":
+	case google.StatusProvisioning, google.StatusStaging:
 		jujuStatus = status.Provisioning
-	case "RUNNING":
+	case google.StatusRunning:
 		jujuStatus = status.Running
-	case "STOPPING", "TERMINATED":
+	case google.StatusStopped, google.StatusTerminated:
 		jujuStatus = status.Empty
 	default:
 		jujuStatus = status.Empty
@@ -54,9 +55,45 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 	}
 }
 
+func extractAddresses(interfaces ...*compute.NetworkInterface) []corenetwork.ProviderAddress {
+	var addresses []corenetwork.ProviderAddress
+
+	for _, netif := range interfaces {
+		// Add public addresses.
+		for _, accessConfig := range netif.AccessConfigs {
+			if accessConfig.NatIP == "" {
+				continue
+			}
+			address := corenetwork.ProviderAddress{
+				MachineAddress: corenetwork.MachineAddress{
+					Value: accessConfig.NatIP,
+					Type:  corenetwork.IPv4Address,
+					Scope: corenetwork.ScopePublic,
+				},
+			}
+			addresses = append(addresses, address)
+		}
+
+		// Add private address.
+		if netif.NetworkIP == "" {
+			continue
+		}
+		address := corenetwork.ProviderAddress{
+			MachineAddress: corenetwork.MachineAddress{
+				Value: netif.NetworkIP,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopeCloudLocal,
+			},
+		}
+		addresses = append(addresses, address)
+	}
+
+	return addresses
+}
+
 // Addresses implements instances.Instance.
 func (inst *environInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	return inst.base.Addresses(), nil
+	return extractAddresses(inst.base.NetworkInterfaces...), nil
 }
 
 func findInst(id instance.Id, instances []instances.Instance) instances.Instance {
@@ -78,7 +115,7 @@ func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineI
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.OpenPorts(name, rules)
+	err = inst.env.OpenPorts(ctx, name, rules)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
@@ -89,7 +126,7 @@ func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machine
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.ClosePorts(name, rules)
+	err = inst.env.ClosePorts(ctx, name, rules)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
@@ -101,6 +138,6 @@ func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ports, err := inst.env.gce.IngressRules(name)
+	ports, err := inst.env.IngressRules(ctx, name)
 	return ports, google.HandleCredentialError(errors.Trace(err), ctx)
 }

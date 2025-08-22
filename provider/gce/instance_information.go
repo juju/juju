@@ -67,17 +67,17 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock c
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	zones, err := env.gce.AvailabilityZones(reg.Region)
+	zones, err := env.gce.AvailabilityZones(ctx, reg.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	resultUnique := map[string]instances.InstanceType{}
 
 	for _, z := range zones {
-		if !z.Available() {
+		if z.Status != google.StatusUp {
 			continue
 		}
-		machines, err := env.gce.ListMachineTypes(z.Name())
+		machines, err := env.gce.ListMachineTypes(ctx, z.Name)
 		if err != nil {
 			return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 		}
