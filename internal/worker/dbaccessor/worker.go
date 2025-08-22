@@ -122,16 +122,14 @@ const (
 // instances into the worker loop.
 type dbRequest struct {
 	op        opType
-	ctx       context.Context
 	namespace string
 	done      chan error
 }
 
 // makeDBGetRequest creates a new TrackedDB request for the input namespace.
-func makeDBGetRequest(ctx context.Context, namespace string) dbRequest {
+func makeDBGetRequest(namespace string) dbRequest {
 	return dbRequest{
 		op:        getOp,
-		ctx:       ctx,
 		namespace: namespace,
 		done:      make(chan error),
 	}
@@ -322,14 +320,9 @@ func (w *dbWorker) loop() (err error) {
 		// processed in order.
 		case req := <-w.dbRequests:
 			if req.op == getOp {
-				// Join the request context with the catacomb context. This
-				// ensures that if the caller cancels their context, we
-				// will honour that and not block indefinitely.
-				requestContext := joinContexts(ctx, req.ctx)
-
 				// Ensure the namespace exists or is allowed to open a new one
 				// before we attempt to open the database.
-				if err := w.ensureNamespace(requestContext, req.namespace); err != nil {
+				if err := w.ensureNamespace(ctx, req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
@@ -337,7 +330,7 @@ func (w *dbWorker) loop() (err error) {
 					}
 					continue
 				}
-				if err := w.openDatabase(requestContext, req.namespace); err != nil {
+				if err := w.openDatabase(ctx, req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
@@ -451,17 +444,9 @@ func (w *dbWorker) GetDB(ctx context.Context, namespace string) (database.TxnRun
 		return db, nil
 	}
 
-	// Set a timeout for the starting of the worker. This prevents us locking
-	// up indefinitely if something goes wrong. This will stall the controller
-	// completely if it's stuck on the controller database, but it will
-	// eventually timeout and return an error. Allowing another attempt later
-	// on.
-	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
-	defer cancel()
-
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
-	req := makeDBGetRequest(ctx, namespace)
+	req := makeDBGetRequest(namespace)
 	select {
 	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
@@ -1076,46 +1061,4 @@ func (w *dbWorker) nodeService() *service.Service {
 			database.NewTxnRunnerFactoryForNamespace(w.workerFromCache, database.ControllerNS)),
 		w.cfg.Logger.Child("controllernode"),
 	)
-}
-
-type joinedContext struct {
-	worker, request context.Context
-}
-
-func joinContexts(a, b context.Context) context.Context {
-	return &joinedContext{worker: a, request: b}
-}
-
-// Deadline returns the time when work done on behalf of this context.
-// The deadline is always of the request, not the worker.
-func (j *joinedContext) Deadline() (deadline time.Time, ok bool) {
-	return j.request.Deadline()
-}
-
-// Done returns a channel that's closed when work done on behalf of this
-// context should be canceled. The channel is closed when either the
-// worker or the request is done.
-func (j *joinedContext) Done() <-chan struct{} {
-	return firstClosed(j.worker.Done(), j.request.Done())
-}
-
-// If Done is not yet closed, Err returns nil.
-// Returns the request error over the worker error if both are
-// closed.
-func (j *joinedContext) Err() error {
-	if err := j.request.Err(); err != nil {
-		return err
-	}
-	return j.worker.Err()
-}
-
-// Value returns the value associated with this context for key, or nil
-// if no value is associated with key. Successive calls to Value with
-// the same key returns the same result.
-// The request context takes precedence over the worker context.
-func (j *joinedContext) Value(key any) any {
-	if v := j.request.Value(key); v != nil {
-		return v
-	}
-	return j.worker.Value(key)
 }
