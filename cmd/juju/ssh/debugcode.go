@@ -13,28 +13,6 @@ import (
 	"github.com/juju/juju/network/ssh"
 )
 
-const usageDebugCodeExamples = `
-Debug all hooks and actions of unit '0':
-
-    juju debug-code mysql/0
-
-Debug all hooks and actions of the leader:
-
-    juju debug-code mysql/leader
-
-Debug the 'config-changed' hook of unit '1':
-
-    juju debug-code mysql/1 config-changed
-
-Debug the 'pull-site' action and 'update-status' hook:
-
-    juju debug-code hello-kubecon/0 pull-site update-status
-
-Debug the 'leader-elected' hook and set 'JUJU_DEBUG_AT' variable to 'hook':
-
-    juju debug-code --at=hook mysql/0 leader-elected
-`
-
 func NewDebugCodeCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugCodeCommand)
 	c.hostChecker = hostChecker
@@ -51,23 +29,45 @@ type debugCodeCommand struct {
 }
 
 const debugCodeDoc = `
-The command launches a tmux session that will intercept matching hooks and/or
+The command launches a ` + "`tmux`" + ` session that will intercept matching hooks and/or
 actions.
 
-Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
+Initially, the ` + "`tmux`" + ` session will take you to ` + "`/var/lib/juju`" + ` or ` + "`/home/ubuntu`" + `.
 As soon as a matching hook or action is fired, the hook or action is executed
-and the JUJU_DEBUG_AT variable is set. Charms implementing support for this
+and the ` + "`JUJU_DEBUG_AT`" + ` variable is set. Charms implementing support for this
 should set debug breakpoints based on the environment variable. Charms written
 with the Ops library automatically provide support for this.
 
 Valid unit identifiers are:
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form <application>/leader, such as mysql/leader.
+- a standard unit ID, such as ` + "`mysql/0`" + ` or;
+- leader syntax of the form ` + "`<application>/leader`" + `, such as ` + "`mysql/leader`" + `.
 
 If no hook or action is specified, all hooks and actions will be intercepted.
 
-See the "juju help ssh" for information about SSH related options
-accepted by the debug-code command.
+See ` + "`juju help ssh`" + ` for information about SSH related options
+accepted by the ` + "`debug-code`" + ` command.
+`
+
+const usageDebugCodeExamples = `
+Debug all hooks and actions of unit ` + "`mysql/0`" + `:
+
+    juju debug-code mysql/0
+
+Debug all hooks and actions of the ` + "`mysql/leader`" + ` unit:
+
+    juju debug-code mysql/leader
+
+Debug the ` + "`config-changed`" + ` hook of unit '1':
+
+    juju debug-code mysql/1 config-changed
+
+Debug the ` + "`pull-site action`" + ` and ` + "`update-status`" + ` hook of the ` + "`hello-kubecon`" + ` charm:
+
+    juju debug-code hello-kubecon/0 pull-site update-status
+
+Debug the ` + "`leader-elected`" + ` hook and set ` + "`JUJU_DEBUG_AT`" + ` variable to ` + "`hook`" + `:
+
+    juju debug-code --at=hook mysql/0 leader-elected
 `
 
 func (c *debugCodeCommand) Info() *cmd.Info {
@@ -91,8 +91,7 @@ func (c *debugCodeCommand) Init(args []string) error {
 func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.debugHooksCommand.SetFlags(f)
 	f.StringVar(&c.debugAt, "at", "all",
-		"will set the JUJU_DEBUG_AT environment variable to this value, which will\n"+
-			"then be interpreted by the charm for where you want to stop, defaults to 'all'")
+		"Specify the value that the `JUJU_DEBUG_AT` environment variable will be set to. This variable tells the charm where you want to stop.")
 }
 
 // Run ensures c.Target is a unit, and resolves its address,
