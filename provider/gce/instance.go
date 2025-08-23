@@ -4,8 +4,8 @@
 package gce
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -17,13 +17,13 @@ import (
 )
 
 type environInstance struct {
-	base *compute.Instance
+	base *computepb.Instance
 	env  *environ
 }
 
 var _ instances.Instance = (*environInstance)(nil)
 
-func newInstance(base *compute.Instance, env *environ) *environInstance {
+func newInstance(base *computepb.Instance, env *environ) *environInstance {
 	return &environInstance{
 		base: base,
 		env:  env,
@@ -32,12 +32,12 @@ func newInstance(base *compute.Instance, env *environ) *environInstance {
 
 // Id implements instances.Instance.
 func (inst *environInstance) Id() instance.Id {
-	return instance.Id(inst.base.Name)
+	return instance.Id(inst.base.GetName())
 }
 
 // Status implements instances.Instance.
 func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	instStatus := inst.base.Status
+	instStatus := inst.base.GetStatus()
 	var jujuStatus status.Status
 	switch instStatus {
 	case google.StatusProvisioning, google.StatusStaging:
@@ -55,18 +55,18 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 	}
 }
 
-func extractAddresses(interfaces ...*compute.NetworkInterface) []corenetwork.ProviderAddress {
+func extractAddresses(interfaces ...*computepb.NetworkInterface) []corenetwork.ProviderAddress {
 	var addresses []corenetwork.ProviderAddress
 
 	for _, netif := range interfaces {
 		// Add public addresses.
 		for _, accessConfig := range netif.AccessConfigs {
-			if accessConfig.NatIP == "" {
+			if accessConfig.GetNatIP() == "" {
 				continue
 			}
 			address := corenetwork.ProviderAddress{
 				MachineAddress: corenetwork.MachineAddress{
-					Value: accessConfig.NatIP,
+					Value: accessConfig.GetNatIP(),
 					Type:  corenetwork.IPv4Address,
 					Scope: corenetwork.ScopePublic,
 				},
@@ -75,12 +75,12 @@ func extractAddresses(interfaces ...*compute.NetworkInterface) []corenetwork.Pro
 		}
 
 		// Add private address.
-		if netif.NetworkIP == "" {
+		if netif.GetNetworkIP() == "" {
 			continue
 		}
 		address := corenetwork.ProviderAddress{
 			MachineAddress: corenetwork.MachineAddress{
-				Value: netif.NetworkIP,
+				Value: netif.GetNetworkIP(),
 				Type:  corenetwork.IPv4Address,
 				Scope: corenetwork.ScopeCloudLocal,
 			},
@@ -93,7 +93,7 @@ func extractAddresses(interfaces ...*compute.NetworkInterface) []corenetwork.Pro
 
 // Addresses implements instances.Instance.
 func (inst *environInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	return extractAddresses(inst.base.NetworkInterfaces...), nil
+	return extractAddresses(inst.base.GetNetworkInterfaces()...), nil
 }
 
 func findInst(id instance.Id, instances []instances.Instance) instances.Instance {

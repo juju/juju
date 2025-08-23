@@ -74,24 +74,24 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock c
 	resultUnique := map[string]instances.InstanceType{}
 
 	for _, z := range zones {
-		if z.Status != google.StatusUp {
+		if z.GetStatus() != google.StatusUp {
 			continue
 		}
-		machines, err := env.gce.ListMachineTypes(ctx, z.Name)
+		machines, err := env.gce.ListMachineTypes(ctx, z.GetName())
 		if err != nil {
 			return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 		}
 		for _, m := range machines {
 			i := instances.InstanceType{
-				Id:       strconv.FormatUint(m.Id, 10),
-				Name:     m.Name,
-				CpuCores: uint64(m.GuestCpus),
-				Mem:      uint64(m.MemoryMb),
+				Id:       strconv.FormatUint(m.GetId(), 10),
+				Name:     m.GetName(),
+				CpuCores: uint64(m.GetGuestCpus()),
+				Mem:      uint64(m.GetMemoryMb()),
 				// TODO: support arm64 once the API can report arch.
 				Arch:     arch.AMD64,
 				VirtType: &virtType,
 			}
-			resultUnique[m.Name] = i
+			resultUnique[m.GetName()] = i
 		}
 	}
 

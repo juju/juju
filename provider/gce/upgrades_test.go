@@ -4,9 +4,9 @@
 package gce_test
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -61,11 +61,11 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *gc.C) 
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:             "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status:           "READY",
-		Zone:             "zone",
-		LabelFingerprint: "fingerprint",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           ptr("READY"),
+		Zone:             ptr("zone"),
+		LabelFingerprint: ptr("fingerprint"),
 	}}, nil)
 	s.MockService.EXPECT().SetDiskLabels(
 		gomock.Any(), "zone", "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868", "fingerprint",
@@ -86,9 +86,9 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescript
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status: "READY",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
@@ -106,11 +106,11 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:             "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status:           "READY",
-		Zone:             "zone",
-		LabelFingerprint: "fingerprint",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           ptr("READY"),
+		Zone:             ptr("zone"),
+		LabelFingerprint: ptr("fingerprint"),
 		Labels: map[string]string{
 			"juju-controller-uuid": s.ControllerUUID,
 			"juju-model-uuid":      s.ModelUUID,

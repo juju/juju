@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -75,21 +75,21 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{"juju-" + s.ModelUUID},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"81"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{"juju-" + s.ModelUUID},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"81", "80"},
 		}},
 	})
@@ -108,12 +108,12 @@ func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{"juju-" + s.ModelUUID},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80"},
 		}},
 	}}, nil)
@@ -166,16 +166,16 @@ func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{
+		Allowed: []*computepb.Allowed{
 			{
-				IPProtocol: "tcp",
+				IPProtocol: ptr("tcp"),
 				Ports:      []string{"80-81", "92"},
 			}, {
-				IPProtocol: "udp",
+				IPProtocol: ptr("udp"),
 				Ports:      []string{"443", "100-120"},
 			},
 		},
@@ -201,24 +201,24 @@ func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"81"},
 		}, {
-			IPProtocol: "tcp",
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"82"},
 		}, {
-			IPProtocol: "tcp",
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80"},
 		}, {
-			IPProtocol: "tcp",
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"83"},
 		}, {
-			IPProtocol: "tcp",
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"92"},
 		}},
 	}}, nil)
@@ -241,11 +241,11 @@ func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:       fwPrefix,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:       ptr(fwPrefix),
 		TargetTags: []string{fwPrefix},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "92"},
 		}},
 	}}, nil)
@@ -269,33 +269,33 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 
 	fwPrefix := "juju-" + s.ModelUUID
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, errors.NotFoundf(fwPrefix))
-	s.MockService.EXPECT().AddFirewall(gomock.Any(), &compute.Firewall{
-		Name:         fwPrefix + "-26",
+	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-26"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"100-120"},
 		}},
 	})
-	s.MockService.EXPECT().AddFirewall(gomock.Any(), &compute.Firewall{
-		Name:         fwPrefix + "-11",
+	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-11"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "udp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("udp"),
 			Ports:      []string{"67"},
 		}},
 	})
-	s.MockService.EXPECT().AddFirewall(gomock.Any(), &compute.Firewall{
-		Name:         fwPrefix,
+	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}, {
-			IPProtocol: "udp",
+			IPProtocol: ptr("udp"),
 			Ports:      []string{"80-81"},
 		}},
 	})
@@ -317,21 +317,21 @@ func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	})
@@ -350,21 +350,21 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}},
 	})
@@ -383,53 +383,53 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}},
 	}, {
-		Name:         fwPrefix + "-8e65efabcd",
+		Name:         ptr(fwPrefix + "-8e65efabcd"),
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"172.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"100-120", "443"},
 		}, {
-			IPProtocol: "udp",
+			IPProtocol: ptr("udp"),
 			Ports:      []string{"67"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-8e65efabcd", &compute.Firewall{
-		Name:         fwPrefix + "-8e65efabcd",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-8e65efabcd", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-8e65efabcd"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"172.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"100-120", "443"},
 		}, {
-			IPProtocol: "udp",
+			IPProtocol: ptr("udp"),
 			Ports:      []string{"67"},
 		}},
 	})
-	s.MockService.EXPECT().AddFirewall(gomock.Any(), &compute.Firewall{
-		Name:         fwPrefix + "-11",
+	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-11"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-100", "443"},
 		}},
 	})
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	})
@@ -451,12 +451,12 @@ func (s *environFirewallSuite) TestClosePortsRemove(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"443"},
 		}},
 	}}, nil)
@@ -476,21 +476,21 @@ func (s *environFirewallSuite) TestClosePortsUpdate(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81"},
 		}},
 	})
@@ -509,21 +509,21 @@ func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-80", "100-120", "81-81", "82-82"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"100-120"},
 		}},
 	})
@@ -542,21 +542,21 @@ func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &compute.Firewall{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	})
@@ -576,12 +576,12 @@ func (s *environFirewallSuite) TestCloseNoMatches(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwPrefix := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*compute.Firewall{{
-		Name:         fwPrefix + "-d01a82",
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80-81", "443"},
 		}},
 	}}, nil)

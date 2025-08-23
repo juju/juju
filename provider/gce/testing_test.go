@@ -6,12 +6,12 @@ package gce
 import (
 	"net/url"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -198,27 +198,27 @@ func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	return cfg
 }
 
-func (s *BaseSuite) NewComputeInstance(c *gc.C, id string) *compute.Instance {
-	inst := &compute.Instance{
-		Name:   id,
-		Zone:   "home-zone",
-		Status: google.StatusRunning,
-		ServiceAccounts: []*compute.ServiceAccount{{
-			Email: "fred@foo.com",
+func (s *BaseSuite) NewComputeInstance(id string) *computepb.Instance {
+	inst := &computepb.Instance{
+		Name:   &id,
+		Zone:   ptr("home-zone"),
+		Status: ptr(google.StatusRunning),
+		ServiceAccounts: []*computepb.ServiceAccount{{
+			Email: ptr("fred@foo.com"),
 		}},
-		Disks: []*compute.AttachedDisk{{
-			DiskSizeGb: 15,
+		Disks: []*computepb.AttachedDisk{{
+			DiskSizeGb: ptr(int64(15)),
 		}},
 	}
 	return inst
 }
 
-func (s *BaseSuite) NewEnvironInstance(c *gc.C, env *environ, id string) *environInstance {
-	base := s.NewComputeInstance(c, id)
+func (s *BaseSuite) NewEnvironInstance(env *environ, id string) *environInstance {
+	base := s.NewComputeInstance(id)
 	return newInstance(base, env)
 }
 
-func (s *BaseSuite) GoogleInstance(c *gc.C, inst instances.Instance) *compute.Instance {
+func (s *BaseSuite) GoogleInstance(c *gc.C, inst instances.Instance) *computepb.Instance {
 	envInst, ok := inst.(*environInstance)
 	c.Assert(ok, jc.IsTrue)
 	return envInst.base

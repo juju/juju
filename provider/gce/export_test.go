@@ -4,7 +4,7 @@
 package gce
 
 import (
-	"google.golang.org/api/compute/v1"
+	"cloud.google.com/go/compute/apiv1/computepb"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -25,7 +25,7 @@ func GlobalFirewallName(env *environ) string {
 	return env.globalFirewallName()
 }
 
-func ParsePlacement(env *environ, ctx context.ProviderCallContext, placement string) (*compute.Zone, error) {
+func ParsePlacement(env *environ, ctx context.ProviderCallContext, placement string) (*computepb.Zone, error) {
 	return env.parsePlacement(ctx, placement)
 }
 

@@ -6,6 +6,7 @@ package google
 import (
 	"context"
 
+	compute "cloud.google.com/go/compute/apiv1"
 	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,8 +34,8 @@ func (s *authSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *authSuite) TestNewComputeService(c *gc.C) {
-	_, err := newComputeService(context.TODO(), s.Credentials, jujuhttp.NewClient())
+func (s *authSuite) TestNewRESTClient(c *gc.C) {
+	_, err := newRESTClient(context.TODO(), s.Credentials, jujuhttp.NewClient(), compute.NewNetworksRESTClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

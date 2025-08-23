@@ -6,10 +6,10 @@ package gce
 import (
 	"time"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -28,7 +28,7 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").
-		Return([]*compute.Zone{{Name: "us-east1"}}, nil).Times(3)
+		Return([]*computepb.Zone{{Name: ptr("us-east1")}}, nil).Times(3)
 
 	now := time.Now()
 	clk := testclock.NewClock(now)

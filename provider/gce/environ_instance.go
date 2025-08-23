@@ -6,9 +6,9 @@ package gce
 import (
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -72,7 +72,7 @@ var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFil
 	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]*compute.Instance, error) {
+func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]*computepb.Instance, error) {
 	prefix := env.namespace.Prefix()
 	if len(statusFilters) == 0 {
 		statusFilters = instStatuses
@@ -94,10 +94,7 @@ func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...
 	// whether or not we got an error.
 	var results []instances.Instance
 	for _, base := range gceInstances {
-		// If we don't make a copy then the same pointer is used for the
-		// base of all resulting instances.
-		copied := *base
-		inst := newInstance(&copied, env)
+		inst := newInstance(base, env)
 		results = append(results, inst)
 	}
 
@@ -106,7 +103,7 @@ func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...
 
 // unpackMetadata decomposes the provided data from the format used
 // in the GCE API.
-func unpackMetadata(data *compute.Metadata) map[string]string {
+func unpackMetadata(data *computepb.Metadata) map[string]string {
 	if data == nil {
 		return nil
 	}
@@ -120,7 +117,7 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 		if item.Value != nil {
 			value = *item.Value
 		}
-		result[item.Key] = value
+		result[item.GetKey()] = value
 	}
 	return result
 }
@@ -135,13 +132,13 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 	var results []instance.Id
 	for _, inst := range instances {
-		metadata := unpackMetadata(inst.Metadata)
+		metadata := unpackMetadata(inst.GetMetadata())
 		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
 			continue
 		}
 		isController, ok := metadata[tags.JujuIsController]
 		if ok && isController == "true" {
-			results = append(results, instance.Id(inst.Name))
+			results = append(results, instance.Id(inst.GetName()))
 		}
 	}
 	if len(results) == 0 {
@@ -152,13 +149,13 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	instances, err := env.AllInstances(ctx)
+	insts, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}
 
 	var stringIds []string
-	for _, id := range instances {
+	for _, id := range insts {
 		stringIds = append(stringIds, string(id.Id()))
 	}
 	err = env.gce.UpdateMetadata(ctx, tags.JujuController, controllerUUID, stringIds...)
@@ -171,7 +168,7 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*compute.Zone, error) {
+func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*computepb.Zone, error) {
 	if placement == "" {
 		return nil, nil
 	}

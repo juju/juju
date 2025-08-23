@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 
 	corenetwork "github.com/juju/juju/core/network"
 	corefirewall "github.com/juju/juju/core/network/firewall"
@@ -48,7 +48,7 @@ func (rs ruleSet) addRule(rule corefirewall.IngressRule) {
 	ports[rule.PortRange.Protocol] = append(ports[rule.PortRange.Protocol], rule.PortRange)
 }
 
-func newRuleSetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
+func newRuleSetFromFirewalls(firewalls ...*computepb.Firewall) (ruleSet, error) {
 	result := make(ruleSet)
 	for _, firewall := range firewalls {
 		err := result.addFirewall(firewall)
@@ -59,38 +59,38 @@ func newRuleSetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
 	return result, nil
 }
 
-func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
-	if len(fw.TargetTags) != 1 {
+func (rs ruleSet) addFirewall(fw *computepb.Firewall) error {
+	if len(fw.GetTargetTags()) != 1 {
 		return errors.Errorf(
 			"firewall rule %q has %d targets (expected 1): %#v",
-			fw.Name,
-			len(fw.TargetTags),
-			fw.TargetTags,
+			fw.GetName(),
+			len(fw.GetTargetTags()),
+			fw.GetTargetTags(),
 		)
 	}
-	sourceRanges := fw.SourceRanges
+	sourceRanges := fw.GetSourceRanges()
 	if len(sourceRanges) == 0 {
 		sourceRanges = []string{"0.0.0.0/0"}
 	}
 	key := sourcecidrs(sourceRanges).key()
 	result := &firewallInfo{
-		Name:         fw.Name,
-		Target:       fw.TargetTags[0],
+		Name:         fw.GetName(),
+		Target:       fw.GetTargetTags()[0],
 		SourceCIDRs:  sourceRanges,
 		AllowedPorts: make(protocolPorts),
 	}
-	for _, allowed := range fw.Allowed {
+	for _, allowed := range fw.GetAllowed() {
 		ranges := make([]corenetwork.PortRange, len(allowed.Ports))
 		for i, rangeStr := range allowed.Ports {
 			portRange, err := corenetwork.ParsePortRange(rangeStr)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			portRange.Protocol = allowed.IPProtocol
+			portRange.Protocol = allowed.GetIPProtocol()
 			ranges[i] = portRange
 		}
 		p := result.AllowedPorts
-		p[allowed.IPProtocol] = append(p[allowed.IPProtocol], ranges...)
+		p[allowed.GetIPProtocol()] = append(p[allowed.GetIPProtocol()], ranges...)
 	}
 	for protocol, ranges := range result.AllowedPorts {
 		result.AllowedPorts[protocol] = corenetwork.CombinePortRanges(ranges...)
@@ -98,8 +98,8 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 	if other, ok := rs[key]; ok {
 		return errors.Errorf(
 			"duplicate firewall rules found matching CIDRs %#v: %q and %q",
-			fw.SourceRanges,
-			fw.Name,
+			fw.GetSourceRanges(),
+			fw.GetName(),
 			other.Name,
 		)
 	}

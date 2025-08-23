@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sort"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
@@ -24,16 +24,16 @@ func (env *environ) globalFirewallName() string {
 	return common.EnvFullName(env.uuid)
 }
 
-// firewallSpec expands a port range set in to compute.FirewallAllowed
-// and returns a compute.Firewall for the provided name.
-func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *compute.Firewall {
+// firewallSpec expands a port range set in to computepb.FirewallAllowed
+// and returns a computepb.Firewall for the provided name.
+func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *computepb.Firewall {
 	if len(sourceCIDRs) == 0 {
 		sourceCIDRs = []string{"0.0.0.0/0"}
 	}
-	firewall := compute.Firewall{
+	firewall := computepb.Firewall{
 		// Allowed is set below.
 		// Description is not set.
-		Name: name,
+		Name: &name,
 		// Network: (defaults to global)
 		// SourceTags is not set.
 		TargetTags:   []string{target},
@@ -47,8 +47,8 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 	sort.Strings(sortedProtocols)
 
 	for _, protocol := range sortedProtocols {
-		allowed := compute.FirewallAllowed{
-			IPProtocol: protocol,
+		allowed := computepb.Allowed{
+			IPProtocol: &protocol,
 			Ports:      ports.portStrings(protocol),
 		}
 		firewall.Allowed = append(firewall.Allowed, &allowed)
@@ -140,7 +140,7 @@ func (env *environ) openPorts(ctx stdcontext.Context, target string, rules firew
 			allNames.Add(name)
 			spec := firewallSpec(name, target, inputFirewall.SourceCIDRs, inputFirewall.AllowedPorts)
 			if err := env.gce.AddFirewall(ctx, spec); err != nil {
-				return errors.Annotatef(err, "opening port(s) %+v", rules)
+				return errors.Annotatef(err, "adding firewall %q opening port(s) %+v", name, rules)
 			}
 			continue
 		}
@@ -206,7 +206,7 @@ func (env *environ) closePorts(ctx stdcontext.Context, target string, rules fire
 			if len(remainingCidrs) == 0 {
 				// Delete a firewall.
 				if err := env.gce.RemoveFirewall(ctx, existingFirewall.Name); err != nil {
-					return errors.Annotatef(err, "closing port(s) %+v", rules)
+					return errors.Annotatef(err, "deleting firewall %q closing port(s) %+v", existingFirewall.Name, rules)
 				}
 				continue
 			}

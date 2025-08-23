@@ -7,9 +7,9 @@ import (
 	"context"
 	"strconv"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
@@ -135,8 +135,8 @@ func (s *environSuite) assertBootstrap(c *gc.C, config controller.Config, expect
 	})
 
 	fwName := gce.GlobalFirewallName(env)
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
-		Name:         fwName,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*computepb.Firewall{{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 	}}, nil)
@@ -145,12 +145,12 @@ func (s *environSuite) assertBootstrap(c *gc.C, config controller.Config, expect
 	for i, port := range expectedPorts {
 		expectedPortsStr[i] = strconv.Itoa(port)
 	}
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &compute.Firewall{
-		Name:         fwName,
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &computepb.Firewall{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      expectedPortsStr,
 		}},
 	})
@@ -199,18 +199,18 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
 		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
-		Return([]*compute.Instance{{
-			Name: "inst-0",
-			Zone: "home-zone",
+		Return([]*computepb.Instance{{
+			Name: ptr("inst-0"),
+			Zone: ptr("home-zone"),
 		}, {
-			Name: "inst-1",
-			Zone: "home-a-zone",
+			Name: ptr("inst-1"),
+			Zone: ptr("home-a-zone"),
 		}}, nil)
 	s.MockService.EXPECT().RemoveInstances(gomock.Any(), s.Prefix(env), "inst-0", "inst-1")
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status: "READY",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},

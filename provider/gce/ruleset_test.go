@@ -4,9 +4,9 @@
 package gce
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -49,18 +49,18 @@ func (s *RuleSetSuite) TestNewRuleSetFromRules(c *gc.C) {
 	})
 }
 
-func newFirewall(name, target string, sourceRanges []string, ports map[string][]string) *compute.Firewall {
-	allowed := make([]*compute.FirewallAllowed, len(ports))
+func newFirewall(name, target string, sourceRanges []string, ports map[string][]string) *computepb.Firewall {
+	allowed := make([]*computepb.Allowed, len(ports))
 	i := 0
 	for protocol, ranges := range ports {
-		allowed[i] = &compute.FirewallAllowed{
-			IPProtocol: protocol,
+		allowed[i] = &computepb.Allowed{
+			IPProtocol: &protocol,
 			Ports:      ranges,
 		}
 		i++
 	}
-	return &compute.Firewall{
-		Name:         name,
+	return &computepb.Firewall{
+		Name:         &name,
 		TargetTags:   []string{target},
 		SourceRanges: sourceRanges,
 		Allowed:      allowed,

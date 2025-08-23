@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 )
 
 const (
@@ -23,43 +23,39 @@ const (
 
 // Firewalls collects the firewall rules for the given name prefix
 // (within the Connection's project) and returns them any matches.
-func (c *Connection) Firewalls(ctx context.Context, prefix string) ([]*compute.Firewall, error) {
+func (c *Connection) Firewalls(ctx context.Context, prefix string) ([]*computepb.Firewall, error) {
 	filter := fmt.Sprintf("name eq '^%s(-.+)?$'", prefix)
-	call := c.Service.Firewalls.List(c.projectID).
-		Context(ctx).Filter(filter)
-	var results []*compute.Firewall
-	err := call.Pages(ctx, func(page *compute.FirewallList) error {
-		results = append(results, page.Items...)
-		return nil
+	iter := c.firewalls.List(ctx, &computepb.ListFirewallsRequest{
+		Project: c.projectID,
+		Filter:  &filter,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return results, nil
+	return fetchResults[computepb.Firewall](iter.Next, "firewalls")
 }
 
 // AddFirewall adds a new firewall to the project.
-func (c *Connection) AddFirewall(ctx context.Context, firewall *compute.Firewall) error {
-	call := c.Service.Firewalls.Insert(c.projectID, firewall).
-		Context(ctx)
-	operation, err := call.Do()
-	if err != nil {
-		return errors.Trace(err)
+func (c *Connection) AddFirewall(ctx context.Context, firewall *computepb.Firewall) error {
+	op, err := c.firewalls.Insert(ctx, &computepb.InsertFirewallRequest{
+		Project:          c.projectID,
+		FirewallResource: firewall,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-	err = c.waitOperation(c.projectID, operation, longRetryStrategy, logOperationErrors)
-	return errors.Trace(err)
+
+	return errors.Annotatef(err, "adding firewall %q", firewall.GetName())
 }
 
 // UpdateFirewall updates an existing firewall.
-func (c *Connection) UpdateFirewall(ctx context.Context, name string, firewall *compute.Firewall) error {
-	call := c.Service.Firewalls.Update(c.projectID, name, firewall).
-		Context(ctx)
-	operation, err := call.Do()
-	if err != nil {
-		return errors.Trace(err)
+func (c *Connection) UpdateFirewall(ctx context.Context, name string, firewall *computepb.Firewall) error {
+	op, err := c.firewalls.Update(ctx, &computepb.UpdateFirewallRequest{
+		Project:          c.projectID,
+		Firewall:         name,
+		FirewallResource: firewall,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-	err = c.waitOperation(c.projectID, operation, longRetryStrategy, logOperationErrors)
-	return errors.Trace(err)
+	return errors.Annotatef(err, "updating firewall %q", name)
 }
 
 // RemoveFirewall removes the named firewall from the project.
@@ -69,43 +65,29 @@ func (c *Connection) RemoveFirewall(ctx context.Context, fwname string) (err err
 			err = nil
 		}
 	}()
-	call := c.Service.Firewalls.Delete(c.projectID, fwname).
-		Context(ctx)
-	operation, err := call.Do()
-	if err != nil {
-		return errors.Trace(convertRawAPIError(err))
+	op, err := c.firewalls.Delete(ctx, &computepb.DeleteFirewallRequest{
+		Project:  c.projectID,
+		Firewall: fwname,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-
-	err = c.waitOperation(c.projectID, operation, longRetryStrategy, returnNotFoundOperationErrors)
-	return errors.Trace(err)
+	return errors.Annotatef(err, "deleting firewall %q", fwname)
 }
 
 // Subnetworks returns the subnets available in this region.
-func (c *Connection) Subnetworks(ctx context.Context, region string) ([]*compute.Subnetwork, error) {
-	call := c.Service.Subnetworks.List(c.projectID, region).
-		Context(ctx)
-	var results []*compute.Subnetwork
-	err := call.Pages(ctx, func(page *compute.SubnetworkList) error {
-		results = append(results, page.Items...)
-		return nil
+func (c *Connection) Subnetworks(ctx context.Context, region string) ([]*computepb.Subnetwork, error) {
+	iter := c.subnetworks.List(ctx, &computepb.ListSubnetworksRequest{
+		Project: c.projectID,
+		Region:  region,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return results, nil
+	return fetchResults[computepb.Subnetwork](iter.Next, "subnets")
 }
 
 // Networks returns the networks available.
-func (c *Connection) Networks(ctx context.Context) ([]*compute.Network, error) {
-	call := c.Service.Networks.List(c.projectID).
-		Context(ctx)
-	var results []*compute.Network
-	err := call.Pages(ctx, func(page *compute.NetworkList) error {
-		results = append(results, page.Items...)
-		return nil
+func (c *Connection) Networks(ctx context.Context) ([]*computepb.Network, error) {
+	iter := c.networks.List(ctx, &computepb.ListNetworksRequest{
+		Project: c.projectID,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return results, nil
+	return fetchResults[computepb.Network](iter.Next, "networks")
 }

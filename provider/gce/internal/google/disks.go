@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/iterator"
 )
 
 // The different types of disk persistence supported by GCE.
@@ -50,76 +51,81 @@ const MinDiskSizeGB = 10
 
 const diskTypesBase = "https://www.googleapis.com/compute/v1/projects/%s/zones/%s/diskTypes/%s"
 
-func formatDiskType(project, zone string, spec *compute.Disk) {
+func formatDiskType(project, zone string, spec *computepb.Disk) {
 	// empty will default in pd-standard
-	if spec.Type == "" {
+	if spec.GetType() == "" {
 		return
 	}
 	// see https://cloud.google.com/compute/docs/reference/latest/disks#resource
-	if strings.HasPrefix(spec.Type, "http") || strings.HasPrefix(spec.Type, "projects") || strings.HasPrefix(spec.Type, "global") {
+	if strings.HasPrefix(spec.GetType(), "http") || strings.HasPrefix(spec.GetType(), "projects") ||
+		strings.HasPrefix(spec.GetType(), "global") {
 		return
 	}
-	spec.Type = fmt.Sprintf(diskTypesBase, project, zone, spec.Type)
+	specType := fmt.Sprintf(diskTypesBase, project, zone, spec.GetType())
+	spec.Type = &specType
 }
 
-func (c *Connection) CreateDisk(ctx context.Context, zone string, spec *compute.Disk) error {
-	formatDiskType(c.projectID, zone, spec)
-	call := c.Service.Disks.Insert(c.projectID, zone, spec).
-		Context(ctx)
-	op, err := call.Do()
-	if err != nil {
-		return errors.Annotate(err, "could not create a new disk")
-	}
-	return errors.Trace(c.waitOperation(c.projectID, op, longRetryStrategy, logOperationErrors))
-}
+var trueVal = true
 
-func (c *Connection) Disks(ctx context.Context) ([]*compute.Disk, error) {
-	call := c.Service.Disks.AggregatedList(c.projectID).
-		Context(ctx)
-	var results []*compute.Disk
+// Disks will return a list of all Disks found in the project.
+func (c *Connection) Disks(ctx context.Context) ([]*computepb.Disk, error) {
+	iter := c.disks.AggregatedList(ctx, &computepb.AggregatedListDisksRequest{
+		Project:              c.projectID,
+		ReturnPartialSuccess: &trueVal,
+	})
+	var results []*computepb.Disk
 	for {
-		diskList, err := call.Do()
+		diskList, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, list := range diskList.Items {
-			results = append(results, list.Disks...)
-		}
-		if diskList.NextPageToken == "" {
-			break
-		}
-		call = call.PageToken(diskList.NextPageToken)
+		results = append(results, diskList.Value.GetDisks()...)
 	}
 	return results, nil
 }
 
+// RemoveDisk will destroy the disk identified by <name> in <zone>.
 func (c *Connection) RemoveDisk(ctx context.Context, zone, id string) error {
-	call := c.Service.Disks.Delete(c.projectID, zone, id).
-		Context(ctx)
-	op, err := call.Do()
-	if err != nil {
-		return errors.Annotatef(err, "could not delete disk %q", id)
+	op, err := c.disks.Delete(ctx, &computepb.DeleteDiskRequest{
+		Project: c.projectID,
+		Zone:    zone,
+		Disk:    id,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-	return errors.Trace(c.waitOperation(c.projectID, op, longRetryStrategy, returnNotFoundOperationErrors))
+	return errors.Annotatef(err, "deleting disk %q", id)
 }
 
-func (c *Connection) Disk(ctx context.Context, zone, id string) (*compute.Disk, error) {
-	call := c.Service.Disks.Get(c.projectID, zone, id).
-		Context(ctx)
-	disk, err := call.Do()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get disk %q at zone %q in project %q", id, zone, c.projectID)
-	}
-	return disk, nil
+// Disk will return a Disk representing the disk identified by the
+// passed <name> or error.
+func (c *Connection) Disk(ctx context.Context, zone, id string) (*computepb.Disk, error) {
+	disk, err := c.disks.Get(ctx, &computepb.GetDiskRequest{
+		Project: c.projectID,
+		Zone:    zone,
+		Disk:    id,
+	})
+	return disk, errors.Annotatef(err, "getting disk %q", id)
 }
 
+// SetDiskLabels sets the labels on a disk, ensuring that the disk's
+// label fingerprint matches the one supplied.
 func (c *Connection) SetDiskLabels(ctx context.Context, zone, id, labelFingerprint string, labels map[string]string) error {
-	call := c.Service.Disks.SetLabels(c.projectID, zone, id, &compute.ZoneSetLabelsRequest{
-		LabelFingerprint: labelFingerprint,
-		Labels:           labels,
-	}).Context(ctx)
-	_, err := call.Do()
-	return errors.Trace(err)
+	op, err := c.disks.SetLabels(ctx, &computepb.SetLabelsDiskRequest{
+		Project: c.projectID,
+		Zone:    zone,
+		ZoneSetLabelsRequestResource: &computepb.ZoneSetLabelsRequest{
+			LabelFingerprint: &labelFingerprint,
+			Labels:           labels,
+		},
+	})
+	if err == nil {
+		err = op.Wait(ctx)
+	}
+	return errors.Annotatef(err, "setting labels for disk %q", id)
 }
 
 // deviceName will generate a device name from the passed
@@ -131,25 +137,30 @@ func deviceName(zone string, diskId uint64) string {
 }
 
 // AttachDisk implements storage section of gceConnection.
-func (c *Connection) AttachDisk(ctx context.Context, zone, volumeName, instanceId string, mode DiskMode) (*compute.AttachedDisk, error) {
+func (c *Connection) AttachDisk(ctx context.Context, zone, volumeName, instanceId string, mode DiskMode) (*computepb.AttachedDisk, error) {
 	disk, err := c.Disk(ctx, zone, volumeName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot obtain disk %q to attach it", volumeName)
 	}
-	attachedDisk := &compute.AttachedDisk{
+	deviceNameStr := deviceName(zone, disk.GetId())
+	modeStr := string(mode)
+	attachedDisk := &computepb.AttachedDisk{
 		// Specifies a unique device name of your choice that
 		// is reflected into the /dev/disk/by-id/google-*
-		DeviceName: deviceName(zone, disk.Id),
+		DeviceName: &deviceNameStr,
 		Source:     disk.SelfLink,
-		Mode:       string(mode),
+		Mode:       &modeStr,
 	}
-	call := c.Service.Instances.AttachDisk(c.projectID, zone, instanceId, attachedDisk).
-		Context(ctx)
-	_, err = call.Do() // Perhaps return something from the Op
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot attach %q into %q", attachedDisk.DeviceName, instanceId)
+	op, err := c.instances.AttachDisk(ctx, &computepb.AttachDiskInstanceRequest{
+		Project:              c.projectID,
+		Zone:                 zone,
+		Instance:             instanceId,
+		AttachedDiskResource: attachedDisk,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-	return attachedDisk, nil
+	return attachedDisk, errors.Annotatef(err, "attaching disk to instance %q", instanceId)
 }
 
 // DetachDisk implements storage section of gceConnection.
@@ -159,16 +170,21 @@ func (c *Connection) DetachDisk(ctx context.Context, zone, instanceId, volumeNam
 	if err != nil {
 		return errors.Annotatef(err, "cannot obtain disk %q to detach it", volumeName)
 	}
-	dn := deviceName(zone, disk.Id)
-	call := c.Service.Instances.DetachDisk(c.projectID, zone, instanceId, dn)
-	_, err = call.Do() // Perhaps return something from the Op
-	if err != nil {
-		return errors.Annotatef(err, "cannot detach %q from %q", dn, instanceId)
+	dn := deviceName(zone, disk.GetId())
+	op, err := c.instances.DetachDisk(ctx, &computepb.DetachDiskInstanceRequest{
+		Project:    c.projectID,
+		Zone:       zone,
+		Instance:   instanceId,
+		DeviceName: dn,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
 	}
-	return nil
+	return errors.Annotatef(err, "detaching %q from %q", dn, instanceId)
 }
 
-func (c *Connection) InstanceDisks(ctx context.Context, zone, instanceId string) ([]*compute.AttachedDisk, error) {
+// InstanceDisks returns a list of the disks attached to the passed instance.
+func (c *Connection) InstanceDisks(ctx context.Context, zone, instanceId string) ([]*computepb.AttachedDisk, error) {
 	instance, err := c.Instance(ctx, zone, instanceId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get instance %q to list its disks", instanceId)
@@ -177,11 +193,24 @@ func (c *Connection) InstanceDisks(ctx context.Context, zone, instanceId string)
 }
 
 // CreateDisks implements storage section of gceConnection.
-func (c *Connection) CreateDisks(ctx context.Context, zone string, disks []*compute.Disk) error {
+func (c *Connection) CreateDisks(ctx context.Context, zone string, disks []*computepb.Disk) error {
 	for _, d := range disks {
-		if err := c.CreateDisk(ctx, zone, d); err != nil {
-			return errors.Annotatef(err, "cannot create disk %q", d.Name)
+		if err := c.createDisk(ctx, zone, d); err != nil {
+			return errors.Annotatef(err, "cannot create disk %q", d.GetName())
 		}
 	}
 	return nil
+}
+
+func (c *Connection) createDisk(ctx context.Context, zone string, spec *computepb.Disk) error {
+	formatDiskType(c.projectID, zone, spec)
+	op, err := c.disks.Insert(ctx, &computepb.InsertDiskRequest{
+		Project:      c.projectID,
+		Zone:         zone,
+		DiskResource: spec,
+	})
+	if err == nil {
+		err = op.Wait(ctx)
+	}
+	return errors.Annotate(err, "creating a new disk")
 }

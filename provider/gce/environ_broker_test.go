@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -56,16 +56,16 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environBrokerSuite) expectImageMetadata() {
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-1",
-		GuestCpus:    int64(s.spec.InstanceType.CpuCores),
-		MemoryMb:     int64(s.spec.InstanceType.Mem),
-		Architecture: s.spec.InstanceType.Arch,
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-1"),
+		GuestCpus:    ptr(int32(s.spec.InstanceType.CpuCores)),
+		MemoryMb:     ptr(int32(s.spec.InstanceType.Mem)),
+		Architecture: ptr(s.spec.InstanceType.Arch),
 	}}, nil)
 	s.StartInstArgs.ImageMetadata = []*imagemetadata.ImageMetadata{{
 		Id:   "ubuntu-220-jammy-v20141212",
@@ -73,50 +73,50 @@ func (s *environBrokerSuite) expectImageMetadata() {
 	}}
 }
 
-func (s *environBrokerSuite) startInstanceArg(c *gc.C, prefix string) *compute.Instance {
+func (s *environBrokerSuite) startInstanceArg(c *gc.C, prefix string) *computepb.Instance {
 	instName := fmt.Sprintf("%s0", prefix)
 	userData, err := providerinit.ComposeUserData(s.StartInstArgs.InstanceConfig, nil, gce.GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return &compute.Instance{
-		Name:        instName,
-		Zone:        "home-zone",
-		MachineType: "zones/home-zone/machineTypes/n1-standard-1",
-		Disks: []*compute.AttachedDisk{{
-			AutoDelete: true,
-			Boot:       true,
-			Mode:       "READ_WRITE",
-			Type:       "PERSISTENT",
-			InitializeParams: &compute.AttachedDiskInitializeParams{
-				DiskSizeGb:  10,
-				SourceImage: "projects/ubuntu-os-cloud/global/images/ubuntu-220-jammy-v20141212",
+	return &computepb.Instance{
+		Name:        &instName,
+		Zone:        ptr("home-zone"),
+		MachineType: ptr("zones/home-zone/machineTypes/n1-standard-1"),
+		Disks: []*computepb.AttachedDisk{{
+			AutoDelete: ptr(true),
+			Boot:       ptr(true),
+			Mode:       ptr("READ_WRITE"),
+			Type:       ptr("PERSISTENT"),
+			InitializeParams: &computepb.AttachedDiskInitializeParams{
+				DiskSizeGb:  ptr(int64(10)),
+				SourceImage: ptr("projects/ubuntu-os-cloud/global/images/ubuntu-220-jammy-v20141212"),
 			},
 		}},
-		NetworkInterfaces: []*compute.NetworkInterface{{
-			Network: "global/networks/default",
-			AccessConfigs: []*compute.AccessConfig{{
-				Name: "ExternalNAT",
-				Type: "ONE_TO_ONE_NAT",
+		NetworkInterfaces: []*computepb.NetworkInterface{{
+			Network: ptr("global/networks/default"),
+			AccessConfigs: []*computepb.AccessConfig{{
+				Name: ptr("ExternalNAT"),
+				Type: ptr("ONE_TO_ONE_NAT"),
 			}},
 		}},
-		Metadata: &compute.Metadata{
-			Items: []*compute.MetadataItems{{
-				Key:   "juju-controller-uuid",
+		Metadata: &computepb.Metadata{
+			Items: []*computepb.Items{{
+				Key:   ptr("juju-controller-uuid"),
 				Value: ptr(s.ControllerUUID),
 			}, {
-				Key:   "juju-is-controller",
+				Key:   ptr("juju-is-controller"),
 				Value: ptr("true"),
 			}, {
-				Key:   "user-data",
+				Key:   ptr("user-data"),
 				Value: ptr(string(userData)),
 			}, {
-				Key:   "user-data-encoding",
+				Key:   ptr("user-data-encoding"),
 				Value: ptr("base64"),
 			}},
 		},
-		Tags: &compute.Tags{Items: []string{"juju-" + s.ModelUUID, instName}},
-		ServiceAccounts: []*compute.ServiceAccount{{
-			Email: "fred@google.com",
+		Tags: &computepb.Tags{Items: []string{"juju-" + s.ModelUUID, instName}},
+		ServiceAccounts: []*computepb.ServiceAccount{{
+			Email: ptr("fred@google.com"),
 		}},
 	}
 }
@@ -133,19 +133,20 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env))
-	instResult := *instArg
-	instResult.Zone = "path/to/home-zone"
-	instResult.Disks = []*compute.AttachedDisk{{
-		DiskSizeGb: int64(s.spec.InstanceType.RootDisk / 1024),
+	// Can't copy instArg as it contains a mutex.
+	instResult := s.startInstanceArg(c, s.Prefix(env))
+	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Disks = []*computepb.AttachedDisk{{
+		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
-	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(&instResult, nil)
+	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
 
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.GoogleInstance(c, result.Instance), jc.DeepEquals, &instResult)
+	c.Check(s.GoogleInstance(c, result.Instance), jc.DeepEquals, instResult)
 
 	hwc := &instance.HardwareCharacteristics{
 		Arch:             &s.spec.InstanceType.Arch,
@@ -183,13 +184,14 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env))
-	instResult := *instArg
-	instResult.Zone = "path/to/home-zone"
-	instResult.Disks = []*compute.AttachedDisk{{
-		DiskSizeGb: int64(s.spec.InstanceType.RootDisk / 1024),
+	// Can't copy instArg as it contains a mutex.
+	instResult := s.startInstanceArg(c, s.Prefix(env))
+	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Disks = []*computepb.AttachedDisk{{
+		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
-	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(&instResult, nil)
+	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
 
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
@@ -308,8 +310,8 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 			c.Assert(diskSpecs, gc.HasLen, 1)
 			diskSpec := diskSpecs[0]
 			c.Assert(diskSpec.InitializeParams, gc.NotNil)
-			c.Check(diskSpec.InitializeParams.DiskSizeGb, gc.Equals, int64(10))
-			c.Check(diskSpec.InitializeParams.SourceImage, gc.Equals, "image-url")
+			c.Check(diskSpec.InitializeParams.GetDiskSizeGb(), gc.Equals, int64(10))
+			c.Check(diskSpec.InitializeParams.GetSourceImage(), gc.Equals, "image-url")
 		}
 	}
 }
@@ -320,7 +322,7 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	hwc := gce.GetHardwareCharacteristics(env, s.spec, s.NewEnvironInstance(c, env, "inst-0"))
+	hwc := gce.GetHardwareCharacteristics(env, s.spec, s.NewEnvironInstance(env, "inst-0"))
 
 	c.Assert(hwc, gc.NotNil)
 	c.Check(*hwc.Arch, gc.Equals, "amd64")
@@ -337,11 +339,11 @@ func (s *environBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	insts, err := env.AllRunningInstances(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(c, env, "inst-0")})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {

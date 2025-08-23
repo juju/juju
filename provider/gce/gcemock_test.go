@@ -13,9 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	google "github.com/juju/juju/provider/gce/internal/google"
 	gomock "go.uber.org/mock/gomock"
-	compute "google.golang.org/api/compute/v1"
 )
 
 // MockComputeService is a mock of ComputeService interface.
@@ -42,7 +42,7 @@ func (m *MockComputeService) EXPECT() *MockComputeServiceMockRecorder {
 }
 
 // AddFirewall mocks base method.
-func (m *MockComputeService) AddFirewall(arg0 context.Context, arg1 *compute.Firewall) error {
+func (m *MockComputeService) AddFirewall(arg0 context.Context, arg1 *computepb.Firewall) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddFirewall", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -56,10 +56,10 @@ func (mr *MockComputeServiceMockRecorder) AddFirewall(arg0, arg1 any) *gomock.Ca
 }
 
 // AddInstance mocks base method.
-func (m *MockComputeService) AddInstance(arg0 context.Context, arg1 *compute.Instance) (*compute.Instance, error) {
+func (m *MockComputeService) AddInstance(arg0 context.Context, arg1 *computepb.Instance) (*computepb.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddInstance", arg0, arg1)
-	ret0, _ := ret[0].(*compute.Instance)
+	ret0, _ := ret[0].(*computepb.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -71,10 +71,10 @@ func (mr *MockComputeServiceMockRecorder) AddInstance(arg0, arg1 any) *gomock.Ca
 }
 
 // AttachDisk mocks base method.
-func (m *MockComputeService) AttachDisk(arg0 context.Context, arg1, arg2, arg3 string, arg4 google.DiskMode) (*compute.AttachedDisk, error) {
+func (m *MockComputeService) AttachDisk(arg0 context.Context, arg1, arg2, arg3 string, arg4 google.DiskMode) (*computepb.AttachedDisk, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachDisk", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*compute.AttachedDisk)
+	ret0, _ := ret[0].(*computepb.AttachedDisk)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -86,10 +86,10 @@ func (mr *MockComputeServiceMockRecorder) AttachDisk(arg0, arg1, arg2, arg3, arg
 }
 
 // AvailabilityZones mocks base method.
-func (m *MockComputeService) AvailabilityZones(arg0 context.Context, arg1 string) ([]*compute.Zone, error) {
+func (m *MockComputeService) AvailabilityZones(arg0 context.Context, arg1 string) ([]*computepb.Zone, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AvailabilityZones", arg0, arg1)
-	ret0, _ := ret[0].([]*compute.Zone)
+	ret0, _ := ret[0].([]*computepb.Zone)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -101,7 +101,7 @@ func (mr *MockComputeServiceMockRecorder) AvailabilityZones(arg0, arg1 any) *gom
 }
 
 // CreateDisks mocks base method.
-func (m *MockComputeService) CreateDisks(arg0 context.Context, arg1 string, arg2 []*compute.Disk) error {
+func (m *MockComputeService) CreateDisks(arg0 context.Context, arg1 string, arg2 []*computepb.Disk) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateDisks", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -144,10 +144,10 @@ func (mr *MockComputeServiceMockRecorder) DetachDisk(arg0, arg1, arg2, arg3 any)
 }
 
 // Disk mocks base method.
-func (m *MockComputeService) Disk(arg0 context.Context, arg1, arg2 string) (*compute.Disk, error) {
+func (m *MockComputeService) Disk(arg0 context.Context, arg1, arg2 string) (*computepb.Disk, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Disk", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*compute.Disk)
+	ret0, _ := ret[0].(*computepb.Disk)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -159,10 +159,10 @@ func (mr *MockComputeServiceMockRecorder) Disk(arg0, arg1, arg2 any) *gomock.Cal
 }
 
 // Disks mocks base method.
-func (m *MockComputeService) Disks(arg0 context.Context) ([]*compute.Disk, error) {
+func (m *MockComputeService) Disks(arg0 context.Context) ([]*computepb.Disk, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Disks", arg0)
-	ret0, _ := ret[0].([]*compute.Disk)
+	ret0, _ := ret[0].([]*computepb.Disk)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -174,10 +174,10 @@ func (mr *MockComputeServiceMockRecorder) Disks(arg0 any) *gomock.Call {
 }
 
 // Firewalls mocks base method.
-func (m *MockComputeService) Firewalls(arg0 context.Context, arg1 string) ([]*compute.Firewall, error) {
+func (m *MockComputeService) Firewalls(arg0 context.Context, arg1 string) ([]*computepb.Firewall, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Firewalls", arg0, arg1)
-	ret0, _ := ret[0].([]*compute.Firewall)
+	ret0, _ := ret[0].([]*computepb.Firewall)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -189,10 +189,10 @@ func (mr *MockComputeServiceMockRecorder) Firewalls(arg0, arg1 any) *gomock.Call
 }
 
 // Instance mocks base method.
-func (m *MockComputeService) Instance(arg0 context.Context, arg1, arg2 string) (*compute.Instance, error) {
+func (m *MockComputeService) Instance(arg0 context.Context, arg1, arg2 string) (*computepb.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*compute.Instance)
+	ret0, _ := ret[0].(*computepb.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -204,10 +204,10 @@ func (mr *MockComputeServiceMockRecorder) Instance(arg0, arg1, arg2 any) *gomock
 }
 
 // InstanceDisks mocks base method.
-func (m *MockComputeService) InstanceDisks(arg0 context.Context, arg1, arg2 string) ([]*compute.AttachedDisk, error) {
+func (m *MockComputeService) InstanceDisks(arg0 context.Context, arg1, arg2 string) ([]*computepb.AttachedDisk, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceDisks", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*compute.AttachedDisk)
+	ret0, _ := ret[0].([]*computepb.AttachedDisk)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -219,14 +219,14 @@ func (mr *MockComputeServiceMockRecorder) InstanceDisks(arg0, arg1, arg2 any) *g
 }
 
 // Instances mocks base method.
-func (m *MockComputeService) Instances(arg0 context.Context, arg1 string, arg2 ...string) ([]*compute.Instance, error) {
+func (m *MockComputeService) Instances(arg0 context.Context, arg1 string, arg2 ...string) ([]*computepb.Instance, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Instances", varargs...)
-	ret0, _ := ret[0].([]*compute.Instance)
+	ret0, _ := ret[0].([]*computepb.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -239,10 +239,10 @@ func (mr *MockComputeServiceMockRecorder) Instances(arg0, arg1 any, arg2 ...any)
 }
 
 // ListMachineTypes mocks base method.
-func (m *MockComputeService) ListMachineTypes(arg0 context.Context, arg1 string) ([]*compute.MachineType, error) {
+func (m *MockComputeService) ListMachineTypes(arg0 context.Context, arg1 string) ([]*computepb.MachineType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListMachineTypes", arg0, arg1)
-	ret0, _ := ret[0].([]*compute.MachineType)
+	ret0, _ := ret[0].([]*computepb.MachineType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -254,10 +254,10 @@ func (mr *MockComputeServiceMockRecorder) ListMachineTypes(arg0, arg1 any) *gomo
 }
 
 // Networks mocks base method.
-func (m *MockComputeService) Networks(arg0 context.Context) ([]*compute.Network, error) {
+func (m *MockComputeService) Networks(arg0 context.Context) ([]*computepb.Network, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Networks", arg0)
-	ret0, _ := ret[0].([]*compute.Network)
+	ret0, _ := ret[0].([]*computepb.Network)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -330,10 +330,10 @@ func (mr *MockComputeServiceMockRecorder) SetDiskLabels(arg0, arg1, arg2, arg3, 
 }
 
 // Subnetworks mocks base method.
-func (m *MockComputeService) Subnetworks(arg0 context.Context, arg1 string) ([]*compute.Subnetwork, error) {
+func (m *MockComputeService) Subnetworks(arg0 context.Context, arg1 string) ([]*computepb.Subnetwork, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Subnetworks", arg0, arg1)
-	ret0, _ := ret[0].([]*compute.Subnetwork)
+	ret0, _ := ret[0].([]*computepb.Subnetwork)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -345,7 +345,7 @@ func (mr *MockComputeServiceMockRecorder) Subnetworks(arg0, arg1 any) *gomock.Ca
 }
 
 // UpdateFirewall mocks base method.
-func (m *MockComputeService) UpdateFirewall(arg0 context.Context, arg1 string, arg2 *compute.Firewall) error {
+func (m *MockComputeService) UpdateFirewall(arg0 context.Context, arg1 string, arg2 *computepb.Firewall) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateFirewall", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

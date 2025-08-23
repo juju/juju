@@ -4,11 +4,11 @@
 package gce_test
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -22,7 +22,7 @@ import (
 type environInstSuite struct {
 	gce.BaseSuite
 
-	zones []*compute.Zone
+	zones []*computepb.Zone
 }
 
 var _ = gc.Suite(&environInstSuite{})
@@ -30,12 +30,12 @@ var _ = gc.Suite(&environInstSuite{})
 func (s *environInstSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.zones = []*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.zones = []*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}, {
-		Name:   "away-zone",
-		Status: "UP",
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
 	}}
 }
 
@@ -46,7 +46,7 @@ func (s *environInstSuite) TestInstancesNotFound(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	_, err := env.Instances(s.CallCtx, ids)
@@ -85,11 +85,11 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	ids := []instance.Id{"inst-0", "inst-1"}
 	insts, err := env.Instances(s.CallCtx, ids)
-	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(c, env, "inst-0"), nil})
+	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0"), nil})
 	c.Assert(err, jc.ErrorIs, environs.ErrPartialInstances)
 }
 
@@ -100,7 +100,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	ids := []instance.Id{"inst-1"}
 	insts, err := env.Instances(s.CallCtx, ids)
@@ -116,12 +116,12 @@ func (s *environInstSuite) TestBasicInstances(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	ids := []instance.Id{"inst-0"}
 	insts, err := env.Instances(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(c, env, "inst-0")})
+	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
 }
 
 func (s *environInstSuite) TestControllerInstances(c *gc.C) {
@@ -130,16 +130,16 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	inst := s.NewComputeInstance(c, "inst-0")
-	inst.Metadata = &compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "juju-is-controller",
+	inst := s.NewComputeInstance("inst-0")
+	inst.Metadata = &computepb.Metadata{Items: []*computepb.Items{{
+		Key:   ptr("juju-is-controller"),
 		Value: ptr("true"),
 	}, {
-		Key:   "juju-controller-uuid",
+		Key:   ptr("juju-controller-uuid"),
 		Value: ptr(s.ControllerUUID),
 	}}}
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{inst, s.NewComputeInstance(c, "inst-1")}, nil)
+		Return([]*computepb.Instance{inst, s.NewComputeInstance("inst-1")}, nil)
 
 	ids, err := env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +153,7 @@ func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	_, err := env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIs, environs.ErrNotBootstrapped)
@@ -165,14 +165,14 @@ func (s *environInstSuite) TestParsePlacement(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	placement, err := gce.ParsePlacement(env, s.CallCtx, "zone=home-zone")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(placement, jc.DeepEquals, &compute.Zone{Name: "home-zone", Status: "UP"})
+	c.Assert(placement, jc.DeepEquals, &computepb.Zone{Name: ptr("home-zone"), Status: ptr("UP")})
 }
 
 func (s *environInstSuite) TestParsePlacementZoneFailure(c *gc.C) {
@@ -232,16 +232,16 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "DOWN",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("DOWN"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-1",
-		GuestCpus:    int64(2),
-		MemoryMb:     int64(4096),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-1"),
+		GuestCpus:    ptr(int32(2)),
+		MemoryMb:     ptr(int32(4096)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 
 	_, err := env.InstanceTypes(s.CallCtx, constraints.Value{})
@@ -249,9 +249,9 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 	// If a non-empty list of zones is available , we will make an API call
 	// to fetch the available machine types.
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	mem := uint64(1025)
@@ -277,7 +277,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
 		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
-		Return([]*compute.Instance{s.NewComputeInstance(c, "inst-0")}, nil)
+		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 	s.MockService.EXPECT().UpdateMetadata(gomock.Any(), tags.JujuController, "other-uuid", "inst-0")
 
 	err := env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))

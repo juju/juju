@@ -4,10 +4,10 @@
 package gce_test
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -40,15 +40,15 @@ func (s *environPolSuite) TestPrecheckInstanceFull(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil).Times(2)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-2",
-		GuestCpus:    int64(2),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=amd64 root-disk=1G")
@@ -64,15 +64,15 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-2",
-		GuestCpus:    int64(2),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2")
@@ -88,15 +88,15 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-1",
-		GuestCpus:    int64(2),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-1"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
@@ -112,15 +112,15 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-2",
-		GuestCpus:    int64(2),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=arm64")
@@ -136,12 +136,12 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "a-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("a-zone"),
+		Status: ptr("UP"),
 	}, {
-		Name:   "b-zone",
-		Status: "UP",
+		Name:   ptr("b-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	placement := "zone=a-zone"
@@ -157,9 +157,9 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "a-zone",
-		Status: "DOWN",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("a-zone"),
+		Status: ptr("DOWN"),
 	}}, nil)
 
 	placement := "zone=a-zone"
@@ -175,9 +175,9 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	placement := "zone=a-zone"
@@ -209,12 +209,12 @@ func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "away-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
 	}, {
-		Name:   "home-zone",
-		Status: "UP",
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
@@ -233,12 +233,12 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}, {
-		Name:   "away-zone",
-		Status: "UP",
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
 	}}, nil)
 
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
@@ -253,15 +253,15 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 }
 
 func (s *environPolSuite) expectConstraintsCalls() {
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}}, nil)
-	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*compute.MachineType{{
-		Id:           0,
-		Name:         "n1-standard-2",
-		GuestCpus:    int64(2),
-		Architecture: "amd64",
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
 	}}, nil)
 }
 

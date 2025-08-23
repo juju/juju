@@ -6,8 +6,8 @@ package gce
 import (
 	"path"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -18,15 +18,15 @@ import (
 )
 
 type gceAvailabilityZone struct {
-	*compute.Zone
+	*computepb.Zone
 }
 
 func (z *gceAvailabilityZone) Name() string {
-	return z.Zone.Name
+	return z.Zone.GetName()
 }
 
 func (z *gceAvailabilityZone) Available() bool {
-	return z.Zone.Status == google.StatusUp
+	return z.Zone.GetStatus() == google.StatusUp
 }
 
 // AvailabilityZones returns all availability zones in the environment.
@@ -38,7 +38,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.
 
 	var result network.AvailabilityZones
 	for _, zone := range zones {
-		if zone.Deprecated != nil {
+		if zone.GetDeprecated() != nil {
 			continue
 		}
 		result = append(result, &gceAvailabilityZone{Zone: zone})
@@ -61,7 +61,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 	results := make(map[instance.Id]string, len(ids))
 	for _, inst := range instances {
 		if eInst, ok := inst.(*environInstance); ok && eInst != nil {
-			results[inst.Id()] = path.Base(eInst.base.Zone)
+			results[inst.Id()] = path.Base(eInst.base.GetZone())
 		}
 	}
 
@@ -77,26 +77,26 @@ func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, arg
 	return nil, errors.Trace(err)
 }
 
-func (env *environ) availZone(ctx context.ProviderCallContext, name string) (*compute.Zone, error) {
+func (env *environ) availZone(ctx context.ProviderCallContext, name string) (*computepb.Zone, error) {
 	zones, err := env.gce.AvailabilityZones(ctx, env.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for _, z := range zones {
-		if z.Name == name {
+		if z.GetName() == name {
 			return z, nil
 		}
 	}
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
-func (env *environ) availZoneUp(ctx context.ProviderCallContext, name string) (*compute.Zone, error) {
+func (env *environ) availZoneUp(ctx context.ProviderCallContext, name string) (*computepb.Zone, error) {
 	zone, err := env.availZone(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if zone.Status != google.StatusUp {
-		return nil, errors.Errorf("availability zone %q is %s", zone.Name, zone.Status)
+	if zone.GetStatus() != google.StatusUp {
+		return nil, errors.Errorf("availability zone %q is %s", zone.GetName(), zone.GetStatus())
 	}
 	return zone, nil
 }
@@ -132,13 +132,13 @@ func (env *environ) instancePlacementZone(ctx context.ProviderCallContext, place
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if volumeAttachmentsZone != "" && zone.Name != volumeAttachmentsZone {
+	if volumeAttachmentsZone != "" && zone.GetName() != volumeAttachmentsZone {
 		return "", errors.Errorf(
 			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
 			placement, volumeAttachmentsZone,
 		)
 	}
-	return zone.Name, nil
+	return zone.GetName(), nil
 }
 
 func (e *environ) deriveAvailabilityZones(
@@ -157,10 +157,10 @@ func (e *environ) deriveAvailabilityZones(
 	if err != nil {
 		return "", err
 	}
-	if err := validateAvailabilityZoneConsistency(zone.Name, volumeAttachmentsZone); err != nil {
+	if err := validateAvailabilityZoneConsistency(zone.GetName(), volumeAttachmentsZone); err != nil {
 		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
 	}
-	return zone.Name, nil
+	return zone.GetName(), nil
 }
 
 func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {

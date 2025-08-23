@@ -4,9 +4,9 @@
 package gce_test
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -27,7 +27,7 @@ func (s *instanceSuite) TestID(c *gc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	inst := s.NewEnvironInstance(c, env, "inst-0")
+	inst := s.NewEnvironInstance(env, "inst-0")
 	id := inst.Id()
 	c.Assert(id, gc.Equals, instance.Id("inst-0"))
 }
@@ -37,7 +37,7 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	inst := s.NewEnvironInstance(c, env, "inst-0")
+	inst := s.NewEnvironInstance(env, "inst-0")
 	status := inst.Status(s.CallCtx).Message
 	c.Assert(status, gc.Equals, google.StatusRunning)
 }
@@ -47,12 +47,12 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	inst := s.NewEnvironInstance(c, env, "inst-0")
-	s.GoogleInstance(c, inst).NetworkInterfaces = []*compute.NetworkInterface{{
-		Name:       "somenetif",
-		NetworkIP:  "10.0.10.3",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/sub-network1",
+	inst := s.NewEnvironInstance(env, "inst-0")
+	s.GoogleInstance(c, inst).NetworkInterfaces = []*computepb.NetworkInterface{{
+		Name:       ptr("somenetif"),
+		NetworkIP:  ptr("10.0.10.3"),
+		Network:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/sub-network1"),
 	}}
 
 	addresses, err := inst.Addresses(s.CallCtx)
@@ -69,24 +69,24 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	inst := s.NewEnvironInstance(c, env, "inst-0")
+	inst := s.NewEnvironInstance(env, "inst-0")
 
 	fwName := s.Prefix(env) + "42"
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
-		Name:         fwName,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*computepb.Firewall{{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"81"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &compute.Firewall{
-		Name:         fwName,
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &computepb.Firewall{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"81", "80"},
 		}},
 	})
@@ -103,15 +103,15 @@ func (s *instanceSuite) TestClosePorts(c *gc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	inst := s.NewEnvironInstance(c, env, "inst-0")
+	inst := s.NewEnvironInstance(env, "inst-0")
 
 	fwName := s.Prefix(env) + "42"
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
-		Name:         fwName,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*computepb.Firewall{{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80"},
 		}},
 	}}, nil)
@@ -131,17 +131,17 @@ func (s *instanceSuite) TestPorts(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	fwName := s.Prefix(env) + "42"
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*compute.Firewall{{
-		Name:         fwName,
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*computepb.Firewall{{
+		Name:         &fwName,
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*compute.FirewallAllowed{{
-			IPProtocol: "tcp",
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
 			Ports:      []string{"80"},
 		}},
 	}}, nil)
 
-	inst := s.NewEnvironInstance(c, env, "inst-0")
+	inst := s.NewEnvironInstance(env, "inst-0")
 	ports, err := inst.IngressRules(s.CallCtx, "42")
 	c.Assert(err, jc.ErrorIsNil)
 

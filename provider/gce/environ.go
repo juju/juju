@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
@@ -36,44 +36,44 @@ type ComputeService interface {
 	DefaultServiceAccount(ctx stdcontext.Context) (string, error)
 
 	// Instance gets the up-to-date info about the given instance.
-	Instance(ctx stdcontext.Context, id, zone string) (*compute.Instance, error)
+	Instance(ctx stdcontext.Context, id, zone string) (*computepb.Instance, error)
 	// Instances returns the instances with the given name prefix and statuses.
-	Instances(ctx stdcontext.Context, prefix string, statuses ...string) ([]*compute.Instance, error)
+	Instances(ctx stdcontext.Context, prefix string, statuses ...string) ([]*computepb.Instance, error)
 	// AddInstance creates a new instance.
-	AddInstance(ctx stdcontext.Context, inst *compute.Instance) (*compute.Instance, error)
+	AddInstance(ctx stdcontext.Context, inst *computepb.Instance) (*computepb.Instance, error)
 	// RemoveInstances removes instances with the given ids.
 	RemoveInstances(ctx stdcontext.Context, prefix string, ids ...string) error
 	// UpdateMetadata updates the metadata for the given instance ids.
 	UpdateMetadata(ctx stdcontext.Context, key, value string, ids ...string) error
 	// ListMachineTypes returns a list of machines available in the project and zone provided.
-	ListMachineTypes(ctx stdcontext.Context, zone string) ([]*compute.MachineType, error)
+	ListMachineTypes(ctx stdcontext.Context, zone string) ([]*computepb.MachineType, error)
 
 	// Firewalls returns the firewalls with the given prefix.
-	Firewalls(ctx stdcontext.Context, prefix string) ([]*compute.Firewall, error)
+	Firewalls(ctx stdcontext.Context, prefix string) ([]*computepb.Firewall, error)
 	// AddFirewall creates a new firewall.
-	AddFirewall(ctx stdcontext.Context, firewall *compute.Firewall) error
+	AddFirewall(ctx stdcontext.Context, firewall *computepb.Firewall) error
 	// UpdateFirewall updates the firewall with the given name.
-	UpdateFirewall(ctx stdcontext.Context, name string, firewall *compute.Firewall) error
+	UpdateFirewall(ctx stdcontext.Context, name string, firewall *computepb.Firewall) error
 	// RemoveFirewall removes the firewall with the given name.
 	RemoveFirewall(ctx stdcontext.Context, fwname string) error
 
 	// AvailabilityZones returns the availability zones for the region.
-	AvailabilityZones(ctx stdcontext.Context, region string) ([]*compute.Zone, error)
+	AvailabilityZones(ctx stdcontext.Context, region string) ([]*computepb.Zone, error)
 	// Subnetworks returns the subnetworks that machines can be
 	// assigned to in the given region.
-	Subnetworks(ctx stdcontext.Context, region string) ([]*compute.Subnetwork, error)
+	Subnetworks(ctx stdcontext.Context, region string) ([]*computepb.Subnetwork, error)
 	// Networks returns the available networks that exist across
 	// regions.
-	Networks(ctx stdcontext.Context) ([]*compute.Network, error)
+	Networks(ctx stdcontext.Context) ([]*computepb.Network, error)
 
 	// CreateDisks will attempt to create the disks described by <disks> spec and
 	// return a slice of Disk representing the created disks or error if one of them failed.
-	CreateDisks(ctx stdcontext.Context, zone string, disks []*compute.Disk) error
+	CreateDisks(ctx stdcontext.Context, zone string, disks []*computepb.Disk) error
 	// Disks will return a list of all Disks found in the project.
-	Disks(ctx stdcontext.Context) ([]*compute.Disk, error)
+	Disks(ctx stdcontext.Context) ([]*computepb.Disk, error)
 	// Disk will return a Disk representing the disk identified by the
 	// passed <name> or error.
-	Disk(ctx stdcontext.Context, zone, id string) (*compute.Disk, error)
+	Disk(ctx stdcontext.Context, zone, id string) (*computepb.Disk, error)
 	// RemoveDisk will destroy the disk identified by <name> in <zone>.
 	RemoveDisk(ctx stdcontext.Context, zone, id string) error
 	// SetDiskLabels sets the labels on a disk, ensuring that the disk's
@@ -81,12 +81,16 @@ type ComputeService interface {
 	SetDiskLabels(ctx stdcontext.Context, zone, id, labelFingerprint string, labels map[string]string) error
 	// AttachDisk will attach the volume identified by <volumeName> into the instance
 	// <instanceId> and return an AttachedDisk representing it or error.
-	AttachDisk(ctx stdcontext.Context, zone, volumeName, instanceId string, mode google.DiskMode) (*compute.AttachedDisk, error)
+	AttachDisk(ctx stdcontext.Context, zone, volumeName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error)
 	// DetachDisk will detach <volumeName> disk from <instanceId> if possible
 	// and return error.
 	DetachDisk(ctx stdcontext.Context, zone, instanceId, volumeName string) error
 	// InstanceDisks returns a list of the disks attached to the passed instance.
-	InstanceDisks(ctx stdcontext.Context, zone, instanceId string) ([]*compute.AttachedDisk, error)
+	InstanceDisks(ctx stdcontext.Context, zone, instanceId string) ([]*computepb.AttachedDisk, error)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 type environ struct {

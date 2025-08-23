@@ -7,11 +7,11 @@ import (
 	"context"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/gce"
@@ -120,22 +120,22 @@ func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*compute.Instance{{
-		Name: "inst-0",
-		Zone: "path/to/zone",
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("path/to/zone"),
 	}}, nil)
 
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	expected := &compute.Disk{
-		Name:   "zone",
-		SizeGb: 1024,
-		Type:   "pd-standard",
+	expected := &computepb.Disk{
+		Name:   ptr("zone"),
+		SizeGb: ptr(int64(1024)),
+		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
 	s.MockService.EXPECT().CreateDisks(gomock.Any(), "zone", gomock.Any()).
-		DoAndReturn(func(ctx context.Context, zone string, disks []*compute.Disk) error {
+		DoAndReturn(func(ctx context.Context, zone string, disks []*computepb.Disk) error {
 			c.Assert(disks, gc.HasLen, 1)
-			if !strings.HasPrefix(disks[0].Name, "zone--") {
+			if !strings.HasPrefix(disks[0].GetName(), "zone--") {
 				c.Fail()
 			}
 			expected.Name = disks[0].Name
@@ -161,39 +161,39 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*compute.Instance{{
-		Name: "inst-0",
-		Zone: "path/to/zone",
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("path/to/zone"),
 	}}, nil)
 
-	expected := &compute.Disk{
-		Name:   "zone",
-		SizeGb: 1024,
-		Type:   "pd-standard",
+	expected := &computepb.Disk{
+		Name:   ptr("zone"),
+		SizeGb: ptr(int64(1024)),
+		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
 	s.MockService.EXPECT().CreateDisks(gomock.Any(), "zone", gomock.Any()).
-		DoAndReturn(func(ctx context.Context, zone string, disks []*compute.Disk) error {
+		DoAndReturn(func(ctx context.Context, zone string, disks []*computepb.Disk) error {
 			c.Assert(disks, gc.HasLen, 1)
-			if !strings.HasPrefix(disks[0].Name, "zone--") {
+			if !strings.HasPrefix(disks[0].GetName(), "zone--") {
 				c.Fail()
 			}
 			expected.Name = disks[0].Name
 			c.Assert(disks[0], jc.DeepEquals, expected)
 			return nil
 		})
-	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").Return([]*compute.AttachedDisk{{
-		Source: "not-already-attached",
+	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").Return([]*computepb.AttachedDisk{{
+		Source: ptr("not-already-attached"),
 	}}, nil)
 	var attachedVol string
 	s.MockService.EXPECT().AttachDisk(gomock.Any(), "zone", gomock.Any(), "inst-0", google.ModeRW).
-		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*compute.AttachedDisk, error) {
+		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error) {
 			if !strings.HasPrefix(volName, zone+"--") {
 				c.Fail()
 			}
 			attachedVol = volName
-			return &compute.AttachedDisk{
-				DeviceName: "zone-1234567",
+			return &computepb.AttachedDisk{
+				DeviceName: ptr("zone-1234567"),
 			}, nil
 		})
 
@@ -257,10 +257,10 @@ func (s *volumeSourceSuite) TestReleaseVolumes(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").Return(&compute.Disk{
-		Status:           "READY",
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").Return(&computepb.Disk{
+		Status:           ptr("READY"),
 		Users:            []string(nil),
-		LabelFingerprint: "fingerprint",
+		LabelFingerprint: ptr("fingerprint"),
 		Labels:           map[string]string{"foo": "bar"},
 	}, nil)
 	s.MockService.EXPECT().SetDiskLabels(
@@ -299,12 +299,12 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
-		Return(&compute.Disk{
-			Name:             "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-			Status:           "READY",
-			SizeGb:           1,
+		Return(&computepb.Disk{
+			Name:             ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+			Status:           ptr("READY"),
+			SizeGb:           ptr(int64(1)),
 			Users:            []string(nil),
-			LabelFingerprint: "fingerprint",
+			LabelFingerprint: ptr("fingerprint"),
 			Labels:           map[string]string{"foo": "bar"},
 		}, nil)
 	s.MockService.EXPECT().SetDiskLabels(
@@ -339,10 +339,10 @@ func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
-		Return(&compute.Disk{
-			Status:           "FAILED",
+		Return(&computepb.Disk{
+			Status:           ptr("FAILED"),
 			Users:            []string(nil),
-			LabelFingerprint: "fingerprint",
+			LabelFingerprint: ptr("fingerprint"),
 			Labels:           map[string]string{"foo": "bar"},
 		}, nil)
 
@@ -371,9 +371,9 @@ func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status: "READY",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
@@ -389,15 +389,15 @@ func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status: "READY",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
 	}, {
-		Name:   "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Status: "READY",
+		Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": utils.MustNewUUID().String(),
 		},
@@ -413,15 +413,15 @@ func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormattedDifferently(c *g
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
-	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*compute.Disk{{
-		Name:   "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Status: "READY",
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
 	}, {
-		Name:   "c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Status: "READY",
+		Name:   ptr("c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
@@ -453,9 +453,9 @@ func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
-		Return(&compute.Disk{
-			Name:   "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-			SizeGb: 1,
+		Return(&computepb.Disk{
+			Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+			SizeGb: ptr(int64(1)),
 		}, nil)
 
 	source := s.setUpSource(c)
@@ -473,16 +473,16 @@ func (s *volumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").
-		Return([]*compute.AttachedDisk{{
-			Source: "not-already-attached",
+		Return([]*computepb.AttachedDisk{{
+			Source: ptr("not-already-attached"),
 		}}, nil)
 	s.MockService.EXPECT().AttachDisk(gomock.Any(), "zone", gomock.Any(), "inst-0", google.ModeRW).
-		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*compute.AttachedDisk, error) {
+		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error) {
 			if !strings.HasPrefix(volName, zone+"--") {
 				c.Fail()
 			}
-			return &compute.AttachedDisk{
-				DeviceName: "zone-1234567",
+			return &computepb.AttachedDisk{
+				DeviceName: ptr("zone-1234567"),
 			}, nil
 		})
 

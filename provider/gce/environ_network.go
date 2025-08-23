@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -20,7 +20,7 @@ import (
 )
 
 type subnetMap map[string]corenetwork.SubnetInfo
-type networkMap map[string]*compute.Network
+type networkMap map[string]*computepb.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
@@ -68,7 +68,7 @@ func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, er
 	}
 	results := make(networkMap)
 	for _, network := range networks {
-		results[network.SelfLink] = network
+		results[network.GetSelfLink()] = network
 	}
 	return results, nil
 }
@@ -86,26 +86,26 @@ func (e *environ) getMatchingSubnets(
 	}
 	var results []corenetwork.SubnetInfo
 	for _, subnet := range allSubnets {
-		netwk, ok := networks[subnet.Network]
+		netwk, ok := networks[subnet.GetNetwork()]
 		if !ok {
 			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
 		}
-		if subnetIds.Include(subnet.Name) {
+		if subnetIds.Include(subnet.GetName()) {
 			results = append(results, makeSubnetInfo(
-				corenetwork.Id(subnet.Name),
-				corenetwork.Id(netwk.Name),
-				subnet.IpCidrRange,
+				corenetwork.Id(subnet.GetName()),
+				corenetwork.Id(netwk.GetName()),
+				subnet.GetIpCidrRange(),
 				zones,
 			))
 		}
 	}
 	// We have to include networks in 'LEGACY' mode that do not have subnetworks.
 	for _, netwk := range networks {
-		if netwk.IPv4Range != "" && subnetIds.Include(netwk.Name) {
+		if netwk.GetIPv4Range() != "" && subnetIds.Include(netwk.GetName()) {
 			results = append(results, makeSubnetInfo(
-				corenetwork.Id(netwk.Name),
-				corenetwork.Id(netwk.Name),
-				netwk.IPv4Range,
+				corenetwork.Id(netwk.GetName()),
+				corenetwork.Id(netwk.GetName()),
+				netwk.GetIPv4Range(),
 				zones,
 			))
 		}
@@ -194,12 +194,12 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			for _, accessConf := range iface.AccessConfigs {
 				// According to the gce docs only ONE_TO_ONE_NAT
 				// is currently supported for external IPs
-				if accessConf.Type != "ONE_TO_ONE_NAT" {
+				if accessConf.GetType() != "ONE_TO_ONE_NAT" {
 					continue
 				}
 
 				shadowAddrs = append(shadowAddrs,
-					corenetwork.NewMachineAddress(accessConf.NatIP, corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+					corenetwork.NewMachineAddress(accessConf.GetNatIP(), corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 				)
 			}
 
@@ -207,13 +207,13 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				DeviceIndex: i,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
-				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
+				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.GetName())),
 				ProviderSubnetId:  details.subnet,
 				ProviderNetworkId: details.network,
 				AvailabilityZones: copyStrings(zones),
-				InterfaceName:     iface.Name,
+				InterfaceName:     iface.GetName(),
 				Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-					iface.NetworkIP,
+					iface.GetNetworkIP(),
 					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 					corenetwork.WithCIDR(details.cidr),
 					corenetwork.WithConfigType(corenetwork.ConfigDHCP),
@@ -247,8 +247,8 @@ func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Str
 		}
 
 		for _, iface := range envInst.base.NetworkInterfaces {
-			if iface.Subnetwork != "" {
-				uniqueSet.Add(iface.Subnetwork)
+			if iface.GetSubnetwork() != "" {
+				uniqueSet.Add(iface.GetSubnetwork())
 			}
 		}
 	}
@@ -266,19 +266,19 @@ type networkDetails struct {
 // populate an InterfaceInfo - if the interface is on a legacy network
 // we use information from the network because there'll be no subnet
 // linked.
-func findNetworkDetails(iface *compute.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
+func findNetworkDetails(iface *computepb.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
 	var result networkDetails
-	if iface.Subnetwork == "" {
+	if iface.GetSubnetwork() == "" {
 		// This interface is on a legacy network.
-		netwk, ok := networks[iface.Network]
+		netwk, ok := networks[iface.GetNetwork()]
 		if !ok {
 			return result, errors.NotFoundf("network %q", iface.Network)
 		}
-		result.cidr = netwk.IPv4Range
+		result.cidr = netwk.GetIPv4Range()
 		result.subnet = ""
-		result.network = corenetwork.Id(netwk.Name)
+		result.network = corenetwork.Id(netwk.GetName())
 	} else {
-		subnet, ok := subnets[iface.Subnetwork]
+		subnet, ok := subnets[iface.GetSubnetwork()]
 		if !ok {
 			return result, errors.NotFoundf("subnet %q", iface.Subnetwork)
 		}
@@ -300,15 +300,15 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 	}
 	results := make(map[string]corenetwork.SubnetInfo)
 	for _, subnet := range allSubnets {
-		netwk, ok := networks[subnet.Network]
+		netwk, ok := networks[subnet.GetNetwork()]
 		if !ok {
 			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
 		}
-		if urlSet.Include(subnet.SelfLink) {
-			results[subnet.SelfLink] = makeSubnetInfo(
-				corenetwork.Id(subnet.Name),
-				corenetwork.Id(netwk.Name),
-				subnet.IpCidrRange,
+		if urlSet.Include(subnet.GetSelfLink()) {
+			results[subnet.GetSelfLink()] = makeSubnetInfo(
+				corenetwork.Id(subnet.GetName()),
+				corenetwork.Id(netwk.GetName()),
+				subnet.GetIpCidrRange(),
 				zones,
 			)
 		}

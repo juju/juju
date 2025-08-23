@@ -42,13 +42,13 @@ func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for _, disk := range disks {
-		if !isValidVolume(disk.Name) {
+		if !isValidVolume(disk.GetName()) {
 			continue
 		}
 		if disk.Labels[tags.JujuModel] != "" || disk.Labels[tags.JujuController] != "" {
 			continue
 		}
-		if disk.Description != "" && disk.Description != env.uuid {
+		if disk.GetDescription() != "" && disk.GetDescription() != env.uuid {
 			continue
 		}
 		if disk.Labels == nil {
@@ -56,8 +56,8 @@ func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		}
 		disk.Labels[tags.JujuModel] = env.uuid
 		disk.Labels[tags.JujuController] = step.controllerUUID
-		if err := env.gce.SetDiskLabels(ctx, disk.Zone, disk.Name, disk.LabelFingerprint, disk.Labels); err != nil {
-			return google.HandleCredentialError(errors.Annotatef(err, "cannot set labels on volume %q", disk.Name), ctx)
+		if err := env.gce.SetDiskLabels(ctx, disk.GetZone(), disk.GetName(), disk.GetLabelFingerprint(), disk.GetLabels()); err != nil {
+			return google.HandleCredentialError(errors.Annotatef(err, "cannot set labels on volume %q", disk.GetName()), ctx)
 		}
 	}
 	return nil

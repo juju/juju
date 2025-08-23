@@ -4,10 +4,10 @@
 package gce_test
 
 import (
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -19,69 +19,69 @@ import (
 type environNetSuite struct {
 	gce.BaseSuite
 
-	zones     []*compute.Zone
-	instances []*compute.Instance
-	networks  []*compute.Network
-	subnets   []*compute.Subnetwork
+	zones     []*computepb.Zone
+	instances []*computepb.Instance
+	networks  []*computepb.Network
+	subnets   []*computepb.Subnetwork
 }
 
 var _ = gc.Suite(&environNetSuite{})
 
 func (s *environNetSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.zones = []*compute.Zone{{
-		Name:   "home-zone",
-		Status: "UP",
+	s.zones = []*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
 	}, {
-		Name:   "away-zone",
-		Status: "UP",
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
 	}}
-	s.instances = []*compute.Instance{{
-		Name: "inst-0",
-		Zone: "home-zone",
-		NetworkInterfaces: []*compute.NetworkInterface{{
-			Name:       "netif-0",
-			NetworkIP:  "10.0.20.3",
-			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
+	s.instances = []*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("home-zone"),
+		NetworkInterfaces: []*computepb.NetworkInterface{{
+			Name:       ptr("netif-0"),
+			NetworkIP:  ptr("10.0.20.3"),
+			Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2"),
 		}},
 	}, {
-		Name: "inst-1",
-		Zone: "away-zone",
-		NetworkInterfaces: []*compute.NetworkInterface{{
-			Name:       "netif-0",
-			NetworkIP:  "10.0.10.42",
-			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
+		Name: ptr("inst-1"),
+		Zone: ptr("away-zone"),
+		NetworkInterfaces: []*computepb.NetworkInterface{{
+			Name:       ptr("netif-0"),
+			NetworkIP:  ptr("10.0.10.42"),
+			Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
 		}},
 	}}
-	s.networks = []*compute.Network{{
-		Name:     "default",
-		SelfLink: "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+	s.networks = []*computepb.Network{{
+		Name:     ptr("default"),
+		SelfLink: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
 		Subnetworks: []string{
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network3",
 		},
 	}, {
-		Name:     "another",
-		SelfLink: "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another",
+		Name:     ptr("another"),
+		SelfLink: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another"),
 		Subnetworks: []string{
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network4",
 		},
 	}, {
-		Name:      "legacy",
-		IPv4Range: "10.240.0.0/16",
-		SelfLink:  "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
+		Name:      ptr("legacy"),
+		IPv4Range: ptr("10.240.0.0/16"),
+		SelfLink:  ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy"),
 	}}
-	s.subnets = []*compute.Subnetwork{{
-		Name:        "sub-network1",
-		IpCidrRange: "10.0.10.0/24",
-		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
+	s.subnets = []*computepb.Subnetwork{{
+		Name:        ptr("sub-network1"),
+		IpCidrRange: ptr("10.0.10.0/24"),
+		SelfLink:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
+		Network:     ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
 	}, {
-		Name:        "sub-network2",
-		IpCidrRange: "10.0.20.0/24",
-		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another",
+		Name:        ptr("sub-network2"),
+		IpCidrRange: ptr("10.0.20.0/24"),
+		SelfLink:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2"),
+		Network:     ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another"),
 	}}
 }
 
@@ -322,15 +322,15 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
 	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
 
-	s.instances[1].NetworkInterfaces = append(s.instances[1].NetworkInterfaces, &compute.NetworkInterface{
-		Name:       "netif-1",
-		NetworkIP:  "10.0.20.44",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
-		AccessConfigs: []*compute.AccessConfig{{
-			Type:  "ONE_TO_ONE_NAT",
-			Name:  "ExternalNAT",
-			NatIP: "25.185.142.227",
+	s.instances[1].NetworkInterfaces = append(s.instances[1].NetworkInterfaces, &computepb.NetworkInterface{
+		Name:       ptr("netif-1"),
+		NetworkIP:  ptr("10.0.20.44"),
+		Network:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
+		AccessConfigs: []*computepb.AccessConfig{{
+			Type:  ptr("ONE_TO_ONE_NAT"),
+			Name:  ptr("ExternalNAT"),
+			NatIP: ptr("25.185.142.227"),
 		}},
 	})
 
@@ -448,15 +448,15 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &compute.NetworkInterface{
-		Name:       "othernetif",
-		NetworkIP:  "10.0.10.4",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
-		AccessConfigs: []*compute.AccessConfig{{
-			Type:  "ONE_TO_ONE_NAT",
-			Name:  "ExternalNAT",
-			NatIP: "25.185.142.227",
+	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &computepb.NetworkInterface{
+		Name:       ptr("othernetif"),
+		NetworkIP:  ptr("10.0.10.4"),
+		Network:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
+		AccessConfigs: []*computepb.AccessConfig{{
+			Type:  ptr("ONE_TO_ONE_NAT"),
+			Name:  ptr("ExternalNAT"),
+			NatIP: ptr("25.185.142.227"),
 		}},
 	})
 
@@ -517,14 +517,14 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService) // When we're using a legacy network there'll be no subnet.
 
-	s.instances[0].NetworkInterfaces = []*compute.NetworkInterface{{
-		Name:      "somenetif",
-		NetworkIP: "10.240.0.2",
-		Network:   "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
-		AccessConfigs: []*compute.AccessConfig{{
-			Type:  "ONE_TO_ONE_NAT",
-			Name:  "ExternalNAT",
-			NatIP: "25.185.142.227",
+	s.instances[0].NetworkInterfaces = []*computepb.NetworkInterface{{
+		Name:      ptr("somenetif"),
+		NetworkIP: ptr("10.240.0.2"),
+		Network:   ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy"),
+		AccessConfigs: []*computepb.AccessConfig{{
+			Type:  ptr("ONE_TO_ONE_NAT"),
+			Name:  ptr("ExternalNAT"),
+			NatIP: ptr("25.185.142.227"),
 		}},
 	}}
 
@@ -567,15 +567,15 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &compute.NetworkInterface{
-		Name:       "othernetif",
-		NetworkIP:  "10.0.10.4",
-		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default",
-		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1",
-		AccessConfigs: []*compute.AccessConfig{{
-			Type:  "ONE_TO_ONE_NAT",
-			Name:  "ExternalNAT",
-			NatIP: "25.185.142.227",
+	s.instances[0].NetworkInterfaces = append(s.instances[0].NetworkInterfaces, &computepb.NetworkInterface{
+		Name:       ptr("othernetif"),
+		NetworkIP:  ptr("10.0.10.4"),
+		Network:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
+		AccessConfigs: []*computepb.AccessConfig{{
+			Type:  ptr("ONE_TO_ONE_NAT"),
+			Name:  ptr("ExternalNAT"),
+			NatIP: ptr("25.185.142.227"),
 		}},
 	})
 
