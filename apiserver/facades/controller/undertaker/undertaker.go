@@ -120,6 +120,7 @@ func (u *UndertakerAPI) RemoveModelSecrets() error {
 	return nil
 }
 
+// RemoveModelProfiles removes any LXD profiles associated with the model.
 func (u *UndertakerAPI) RemoveModelProfiles() error {
 	model, err := u.st.Model()
 	if err != nil {

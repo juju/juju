@@ -174,12 +174,11 @@ func (mr *MockInstanceMutaterStateMockRecorder) ModelName() *gomock.Call {
 }
 
 // ModelUUID mocks base method.
-func (m *MockInstanceMutaterState) ModelUUID() (string, error) {
+func (m *MockInstanceMutaterState) ModelUUID() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelUUID")
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // ModelUUID indicates an expected call of ModelUUID.
