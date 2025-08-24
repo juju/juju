@@ -66,8 +66,9 @@ func (c *Client) RemoveModelSecrets() error {
 	return c.entityFacadeCall("RemoveModelSecrets", nil)
 }
 
-func (c *Client) RemoveModelProfile() error {
-	return c.entityFacadeCall("RemoveModelProfile", nil)
+// RemoveModelProfiles removes any profiles associated with the model.
+func (c *Client) RemoveModelProfiles() error {
+	return c.entityFacadeCall("RemoveModelProfiles", nil)
 }
 
 // SetStatus sets the status of the model.

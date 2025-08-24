@@ -71,14 +71,14 @@ func (s *UndertakerSuite) TestRemoveModelSecrets(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *UndertakerSuite) TestRemoveModelProfile(c *gc.C) {
+func (s *UndertakerSuite) TestRemoveModelProfiles(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "RemoveModelProfile", func(response interface{}) {
+	client := s.mockClient(c, "RemoveModelProfiles", func(response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
 	})
 
-	err := client.RemoveModelProfile()
+	err := client.RemoveModelProfiles()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

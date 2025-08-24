@@ -81,8 +81,8 @@ func (mock *mockFacade) RemoveModelSecrets() error {
 	return mock.stub.NextErr()
 }
 
-func (mock *mockFacade) RemoveModelProfile() error {
-	mock.stub.AddCall("RemoveModelProfile")
+func (mock *mockFacade) RemoveModelProfiles() error {
+	mock.stub.AddCall("RemoveModelProfiles")
 	return mock.stub.NextErr()
 }
 

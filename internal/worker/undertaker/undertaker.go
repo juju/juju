@@ -39,7 +39,7 @@ type Facade interface {
 	ProcessDyingModel() error
 	RemoveModel() error
 	RemoveModelSecrets() error
-	RemoveModelProfile() error
+	RemoveModelProfiles() error
 	SetStatus(status status.Status, message string, data map[string]interface{}) error
 }
 
@@ -278,9 +278,9 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 		return errors.Annotate(err, "cannot remove model secrets")
 	}
 
-	if err := u.config.Facade.RemoveModelProfile(); err != nil {
-		u.config.Logger.Errorf("remove model profile failed: %v", err)
-		return errors.Annotate(err, "cannot remove model profile")
+	if err := u.config.Facade.RemoveModelProfiles(); err != nil {
+		u.config.Logger.Errorf("remove model profiles failed: %v", err)
+		return errors.Annotate(err, "cannot remove model profiles")
 	}
 
 	// Finally, the model is going to be dead, and be removed.

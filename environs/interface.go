@@ -423,10 +423,10 @@ type ControllerDestroyer interface {
 	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
 }
 
-// ModelProfileDestroyer deletes a model LXD profile.
+// ModelProfileDestroyer deletes LXD profiles in a model.
 // Right now, only the LXD provider implements this.
 type ModelProfileDestroyer interface {
-	DestroyProfile(profileName string) error
+	DestroyProfiles() error
 }
 
 type ResourceAdopter interface {
