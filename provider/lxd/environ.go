@@ -114,7 +114,25 @@ func (env *environ) initProfile() error {
 		"security.nesting": "true",
 	}
 
-	return env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
+	// In ci, perhaps other places, there can be a race if more than one
+	// controller is starting up, where we try to create the profile more
+	// than once and get: The profile already exists.  LXD does not have
+	// typed errors. Therefore if CreateProfile fails, check to see if the
+	// profile exists.  No need to fail if it does.
+	err = env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
+	if err == nil {
+		return nil
+	}
+	hasProfile, hasErr := env.serverUnlocked.HasProfile(pName)
+	if hasErr != nil {
+		logger.Errorf("%s", err)
+		return errors.Trace(hasErr)
+	}
+	if hasProfile {
+		logger.Debugf("received %q, but no need to fail", err)
+		return nil
+	}
+	return err
 }
 
 func (env *environ) profileName() string {

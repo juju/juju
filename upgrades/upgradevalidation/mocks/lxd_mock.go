@@ -517,6 +517,21 @@ func (mr *MockServerMockRecorder) GetProfile(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfile", reflect.TypeOf((*MockServer)(nil).GetProfile), arg0)
 }
 
+// GetProfileNames mocks base method.
+func (m *MockServer) GetProfileNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfileNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfileNames indicates an expected call of GetProfileNames.
+func (mr *MockServerMockRecorder) GetProfileNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileNames", reflect.TypeOf((*MockServer)(nil).GetProfileNames))
+}
+
 // GetServer mocks base method.
 func (m *MockServer) GetServer() (*api.Server, string, error) {
 	m.ctrl.T.Helper()

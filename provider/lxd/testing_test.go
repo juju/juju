@@ -399,7 +399,7 @@ type StubClient struct {
 	ServerVer          string
 	NetworkNames       []string
 	NetworkState       map[string]api.NetworkState
-	ProfileExists      bool
+	ProfileNames       []string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -510,7 +510,12 @@ func (conn *StubClient) DeleteProfile(name string) error {
 
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
-	return conn.ProfileExists, conn.NextErr()
+	return false, conn.NextErr()
+}
+
+func (conn *StubClient) GetProfileNames() ([]string, error) {
+	conn.AddCall("GetProfileNames")
+	return conn.ProfileNames, conn.NextErr()
 }
 
 func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {

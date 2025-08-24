@@ -7,7 +7,6 @@ import (
 	"context"
 	stdcontext "context"
 	"fmt"
-	"github.com/juju/utils/v3"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -466,6 +466,15 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *gc.C) {
+	defer s.setup(c, nil).Finish()
+	s.expectForProfileCreateRace("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", errors.New("The profile already exists"))
+
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C) {
 	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
 	s.expectHasProfileFalse("juju-controller-2d02ee")
@@ -493,6 +502,14 @@ func (s *environCloudProfileSuite) setup(c *gc.C, cfgEdit map[string]interface{}
 	s.cloudSpecEnv = env
 
 	return ctrl
+}
+
+func (s *environCloudProfileSuite) expectForProfileCreateRace(name string) {
+	exp := s.svr.EXPECT()
+	gomock.InOrder(
+		exp.HasProfile(name).Return(false, nil),
+		exp.HasProfile(name).Return(true, nil),
+	)
 }
 
 func (s *environCloudProfileSuite) expectHasProfileFalse(name string) {
