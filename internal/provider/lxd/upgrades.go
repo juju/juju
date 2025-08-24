@@ -62,6 +62,8 @@ func ReadLegacyCloudCredentials(readFile func(string) ([]byte, error)) (cloud.Cr
 	}), nil
 }
 
+// UpgradeOperations returns a list of UpgradeOperations for upgrading
+// an Environ.
 func (env *environ) UpgradeOperations(context.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{
 		{
@@ -82,24 +84,21 @@ type profileAndInstance struct {
 	instance string
 }
 
+// Description returns a brief explanation what the upgrade step performs.
 func (c createProfilesStep) Description() string {
 	return "Create and assign LXD profiles to instances."
 }
 
+// Run executes the upgrade logic to create profiles with the new naming scheme.
 func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 	prefix := fmt.Sprintf("juju-%s", c.env.name)
 	server := c.env.server()
 
 	logger.Debugf("running create profile step for model %q", c.env.uuid)
 
-	// Create a model profile.
-	if exists, err := server.HasProfile(c.env.profileName()); err != nil {
-		return errors.Annotatef(err, "check for existing profile %q", c.env.profileName())
-	} else if !exists {
-		if err := server.CreateProfileWithConfig(c.env.profileName(), c.env.profileCfg()); err != nil {
-			return errors.Annotatef(err, "create profile %q with config %+v", c.env.provider, c.env.profileCfg())
-		}
-		logger.Debugf("created new profile %q for model %q", c.env.profileName(), c.env.uuid)
+	// Create a model profile if it doesn't exist.
+	if err := c.env.initProfile(); err != nil {
+		return errors.Annotatef(err, "init profile %q", c.env.profileName())
 	}
 
 	instances, err := c.env.AllInstances(ctx)
