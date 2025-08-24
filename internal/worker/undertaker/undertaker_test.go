@@ -67,7 +67,7 @@ func (s *OldUndertakerSuite) TestAlreadyDeadRemoves(c *gc.C) {
 	stub := s.fix.run(c, func(w worker.Worker) {
 		workertest.CheckKilled(c, w)
 	})
-	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModelSecrets", "RemoveModelProfile", "RemoveModel")
+	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModelSecrets", "RemoveModelProfiles", "RemoveModel")
 }
 
 func (s *OldUndertakerSuite) TestDyingDeadRemoved(c *gc.C) {
@@ -85,7 +85,7 @@ func (s *OldUndertakerSuite) TestDyingDeadRemoved(c *gc.C) {
 		"CloudSpec",
 		"Destroy",
 		"RemoveModelSecrets",
-		"RemoveModelProfile",
+		"RemoveModelProfiles",
 		"RemoveModel",
 	)
 }
@@ -96,7 +96,7 @@ func (s *OldUndertakerSuite) TestSetStatusDestroying(c *gc.C) {
 	})
 	stub.CheckCallNames(c,
 		"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel",
-		"SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModelSecrets", "RemoveModelProfile", "RemoveModel")
+		"SetStatus", "ModelConfig", "CloudSpec", "Destroy", "RemoveModelSecrets", "RemoveModelProfiles", "RemoveModel")
 	stub.CheckCall(
 		c, 2, "SetStatus", status.Destroying,
 		"cleaning up cloud resources", map[string]interface{}(nil),
@@ -176,7 +176,7 @@ func (s *OldUndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		"CloudSpec",
 		"Destroy",
 		"RemoveModelSecrets",
-		"RemoveModelProfile",
+		"RemoveModelProfiles",
 		"RemoveModel",
 	)
 }
@@ -241,20 +241,20 @@ func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, "cannot remove model: pow")
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModelSecrets", "RemoveModelProfile", "RemoveModel"})
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModelSecrets", "RemoveModelProfiles", "RemoveModel"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
 func (s *OldUndertakerSuite) TestRemoveModelProfileErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, nil, nil, nil, nil, nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, nil, nil, nil, nil, errors.New("connection issue")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker) {
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "cannot remove model profile: pow")
+		c.Check(err, gc.ErrorMatches, "cannot remove model profiles: connection issue")
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModelSecrets", "RemoveModelProfile"})
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModelSecrets", "RemoveModelProfiles"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 }
 
@@ -304,7 +304,7 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	})
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
-	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModelSecrets", "RemoveModelProfile", "RemoveModel"})
+	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModelSecrets", "RemoveModelProfiles", "RemoveModel"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
 	s.fix.logger.stub.CheckCall(c, 0, "Warningf", "timeout ignored for graceful model destroy", []interface{}(nil))
 }
