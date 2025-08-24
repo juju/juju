@@ -110,7 +110,10 @@ func (s *upgradesSuite) TestRunCreateModelAndCharmProfiles(c *gc.C) {
 	gomock.InOrder(
 		s.server.EXPECT().HasProfile(env.profileName()).Return(false, nil),
 		// re-create the model profile
-		s.server.EXPECT().CreateProfileWithConfig(env.profileName(), env.profileCfg()).Return(nil),
+		s.server.EXPECT().CreateProfileWithConfig(env.profileName(), map[string]string{
+			"boot.autostart":   "true",
+			"security.nesting": "true",
+		}).Return(nil),
 		s.server.EXPECT().AliveContainers(env.namespace.Prefix()).Return([]lxd.Container{
 			{
 				api.Instance{
@@ -267,5 +270,5 @@ func (s *upgradesSuite) TestRunErrorHasProfile(c *gc.C) {
 	err := profileStep.Run(s.ctx)
 
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("check for existing profile %q: connection issue", env.profileName()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("init profile %q: connection issue", env.profileName()))
 }
