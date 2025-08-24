@@ -98,13 +98,6 @@ func newEnviron(
 	return env, nil
 }
 
-func (env *environ) profileCfg() map[string]string {
-	return map[string]string{
-		"boot.autostart":   "true",
-		"security.nesting": "true",
-	}
-}
-
 func (env *environ) initProfile() error {
 	pName := env.profileName()
 
@@ -116,25 +109,12 @@ func (env *environ) initProfile() error {
 		return nil
 	}
 
-	// In ci, perhaps other places, there can be a race if more than one
-	// controller is starting up, where we try to create the profile more
-	// than once and get: The profile already exists.  LXD does not have
-	// typed errors. Therefore if CreateProfile fails, check to see if the
-	// profile exists.  No need to fail if it does.
-	err = env.serverUnlocked.CreateProfileWithConfig(pName, env.profileCfg())
-	if err == nil {
-		return nil
+	cfg := map[string]string{
+		"boot.autostart":   "true",
+		"security.nesting": "true",
 	}
-	hasProfile, hasErr := env.serverUnlocked.HasProfile(pName)
-	if hasErr != nil {
-		logger.Errorf("%s", err)
-		return errors.Trace(hasErr)
-	}
-	if hasProfile {
-		logger.Debugf("received %q, but no need to fail", err)
-		return nil
-	}
-	return err
+
+	return env.serverUnlocked.CreateProfileWithConfig(pName, cfg)
 }
 
 func (env *environ) profileName() string {
@@ -236,7 +216,7 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 		}
 	}
 
-	return env.DestroyProfile(env.profileName())
+	return env.DestroyProfiles()
 }
 
 // DestroyController implements the Environ interface.
@@ -281,22 +261,23 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	return errors.Trace(env.server().RemoveContainers(names))
 }
 
-// DestroyProfile implements ModelProfileDestroyer
-func (env *environ) DestroyProfile(profileName string) error {
+func (env *environ) DestroyProfiles() error {
 	server := env.server()
-	if exist, err := server.HasProfile(profileName); err != nil {
-		return errors.Annotate(err, "checking profile")
-	} else if !exist {
-		return nil
-	}
-
-	err := server.DeleteProfile(profileName)
+	profiles, err := server.GetProfileNames()
 	if err != nil {
-		logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profileName, err.Error())
-		return nil
+		return errors.Annotate(err, "get profiles")
 	}
 
-	logger.Infof("deleted profile %q", profileName)
+	for _, profile := range profiles {
+		if strings.HasPrefix(profile, env.profileName()) {
+			err := server.DeleteProfile(profile)
+			if err != nil {
+				logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			}
+
+			logger.Infof("deleted profile %q", profile)
+		}
+	}
 
 	return nil
 }

@@ -87,6 +87,7 @@ type Server interface {
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
 	GetInstance(name string) (*lxdapi.Instance, string, error)
 	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)
+	GetProfileNames() (names []string, err error)
 
 	// UseProject ensures that this server will use the input project.
 	// See: https://documentation.ubuntu.com/lxd/en/latest/projects.

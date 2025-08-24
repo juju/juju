@@ -700,13 +700,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	gomock.InOrder(
-		svr.EXPECT().GetContainerProfiles("juju-f75cba-1").Return([]string{"juju-model-2d02ee-watermelon-1"}, nil),
-		svr.EXPECT().GetContainerProfiles("juju-f75cba-2").Return([]string{"juju-model-2d02ee-avocado-1"}, nil),
-		svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(nil),
-		svr.EXPECT().DeleteProfile("juju-model-2d02ee-watermelon-1").Return(nil),
-		svr.EXPECT().DeleteProfile("juju-model-2d02ee-avocado-1").Return(nil),
-	)
+	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
@@ -719,11 +713,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	gomock.InOrder(
-		svr.EXPECT().GetContainerProfiles("juju-f75cba-1").Return([]string{"juju-model-2d02ee-watermelon-1"}, nil),
-		svr.EXPECT().GetContainerProfiles("juju-f75cba-2").Return([]string{"juju-model-2d02ee-avocado-1"}, nil),
-		svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized")),
-	)
+	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
