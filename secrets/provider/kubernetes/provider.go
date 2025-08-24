@@ -514,17 +514,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 	var out *rbacv1.Role
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-
-			// Always fetch the latest before update attempt
-			// latest, err := api.Get(ctx, role.Name, v1.GetOptions{})
-			// if k8serrors.IsNotFound(err) {
-			// 	return errors.NewNotFound(err, fmt.Sprintf("k8s role %q", role.Name))
-			// }
-			// if err != nil {
-			// 	return errors.Trace(err)
-			// }
-			// latest.Rules = role.Rules
-
 			patch := map[string]interface{}{
 				"rules": role.Rules,
 			}
@@ -536,7 +525,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 				FieldManager: resources.JujuFieldManager,
 			})
 
-			// out, err = api.Update(ctx, latest, v1.UpdateOptions{})
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
@@ -547,22 +535,6 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 		Delay:       time.Second,
 		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 	})
-
-	// api := k.client.RbacV1().Roles(k.namespace)
-
-	// patch := map[string]interface{}{
-	// 	"rules": role.Rules,
-	// }
-	// data, err := json.Marshal(patch)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
-	// out, err := api.Patch(ctx, role.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
-	// 	FieldManager: resources.JujuFieldManager,
-	// })
-	// if k8serrors.IsNotFound(err) {
-	// 	return nil, errors.NotFoundf("role %q", role.GetName())
-	// }
 	return out, errors.Trace(err)
 }
 
@@ -650,22 +622,21 @@ func (k *kubernetesClient) ensureRoleBinding(
 	}
 
 	api := k.client.RbacV1().RoleBindings(k.namespace)
-	out, err := api.Get(ctx, rb.Name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		out, err = api.Create(ctx, rb, v1.CreateOptions{
-			FieldManager: resources.JujuFieldManager,
-		})
-		if k8serrors.IsAlreadyExists(err) {
-			// we need to ensure that the rb is not empty for callers
-			// by getting rb from api again eg cases like resource name empty for
-			// attempting to get rb name in caller
-			out, err = api.Get(ctx, rb.Name, v1.GetOptions{})
-			return out, cleanups, err
-		}
-		if err == nil {
-			cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
-		}
+
+	out, err := api.Create(ctx, rb, v1.CreateOptions{
+		FieldManager: resources.JujuFieldManager,
+	})
+	if k8serrors.IsAlreadyExists(err) {
+		// we need to ensure that the rb is not empty for callers
+		// by getting rb from api again eg cases like resource name empty for
+		// attempting to get rb name in caller
+		out, err = api.Get(ctx, rb.Name, v1.GetOptions{})
+		return out, cleanups, err
 	}
+	if err == nil {
+		cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
+	}
+
 	return out, cleanups, errors.Trace(err)
 }
 
@@ -770,37 +741,34 @@ func rulesForSecretAccess(
 func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 	ctx context.Context, sa *core.ServiceAccount, owned, read, removed []string,
 ) (cleanups []func(), _ error) {
-	role, err := k.getRole(ctx, sa.Name)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return cleanups, errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotFound) {
-		role, err = k.createRole(ctx,
-			&rbacv1.Role{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        sa.Name,
-					Namespace:   k.namespace,
-					Labels:      sa.Labels,
-					Annotations: sa.Annotations,
-				},
-				Rules: rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
+	role, err := k.createRole(ctx,
+		&rbacv1.Role{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        sa.Name,
+				Namespace:   k.namespace,
+				Labels:      sa.Labels,
+				Annotations: sa.Annotations,
 			},
-		)
-		// role could be created in the meantime by another client after initial get check
-		if errors.Is(err, errors.AlreadyExists) {
-			return cleanups, nil
+			Rules: rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
+		},
+	)
+	if errors.Is(err, errors.AlreadyExists) {
+		role, err = k.getRole(ctx, sa.Name)
+		if err != nil {
+			return cleanups, errors.Annotatef(err, "getting role %q", sa.Name)
 		}
-		if err == nil {
-			cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, role.GetName(), role.GetUID()) })
-		}
-	} else {
 		role.Rules = rulesForSecretAccess(k.namespace, false, role.Rules, owned, read, removed)
-
 		_, err = k.updateRole(ctx, role)
+		if err != nil {
+			return cleanups, errors.Annotatef(err, "updating role %q", sa.Name)
+		}
 	}
 	if err != nil {
-		return cleanups, errors.Trace(err)
+		return cleanups, errors.Annotatef(err, "creating role %q", sa.Name)
 	}
+
+	cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, role.GetName(), role.GetUID()) })
+
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        sa.Name,
@@ -821,10 +789,11 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 			},
 		},
 	}
-	out, cleanups, err := k.ensureRoleBinding(ctx, rb)
+	out, rbCleanups, err := k.ensureRoleBinding(ctx, rb)
 	if err != nil {
 		return cleanups, errors.Trace(err)
 	}
+	cleanups = append(cleanups, rbCleanups...)
 
 	// Ensure role binding exists before we return to avoid a race where a client
 	// attempts to perform an operation before the role is allowed.
@@ -862,23 +831,6 @@ func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterRole *r
 func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
 	api := k.client.RbacV1().ClusterRoles()
 
-	// patch := map[string]interface{}{
-	// 	"rules": clusterRole.Rules,
-	// }
-	// data, err := json.Marshal(patch)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
-	// out, err := api.Patch(ctx, clusterRole.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
-	// 	FieldManager: resources.JujuFieldManager,
-	// })
-	// if k8serrors.IsNotFound(err) {
-	// 	return nil, errors.NotFoundf("cluster role %q", clusterRole.GetName())
-	// }
-	// data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, clusterRole)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
 	var out *rbacv1.ClusterRole
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
@@ -887,7 +839,7 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 			}
 			data, err := json.Marshal(patch)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Annotatef(err, "marshaling cluster role patch")
 			}
 			out, err = api.Patch(ctx, clusterRole.GetName(), types.StrategicMergePatchType, data, v1.PatchOptions{
 				FieldManager: resources.JujuFieldManager,
@@ -895,7 +847,7 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 			if k8serrors.IsNotFound(err) {
 				return errors.NotFoundf("cluster role %q", clusterRole.GetName())
 			}
-			return errors.Trace(err)
+			return errors.Annotatef(err, "patching cluster role %q", clusterRole.GetName())
 		},
 		IsFatalError: func(err error) bool {
 			return !errors.Is(err, errors.NotFound) && !k8serrors.IsConflict(err)
@@ -906,7 +858,7 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 	})
 
-	return out, errors.Trace(err)
+	return out, errors.Annotatef(err, "updating cluster role %q", clusterRole.GetName())
 }
 
 func (k *kubernetesClient) deleteClusterRole(ctx context.Context, name string, uid types.UID) error {
