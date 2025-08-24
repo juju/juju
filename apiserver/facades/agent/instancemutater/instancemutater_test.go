@@ -63,7 +63,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
+func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPIV3 {
 	facade, err := instancemutater.NewTestAPI(s.state, s.mutatorWatcher, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
@@ -497,7 +497,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUUID() {
 	modelExp := s.state.EXPECT()
-	modelExp.ModelUUID().Return(testing.ModelTag.Id(), nil)
+	modelExp.ModelUUID().Return(testing.ModelTag.Id())
 }
 
 type InstanceMutaterAPISetCharmProfilesSuite struct {
