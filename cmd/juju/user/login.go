@@ -39,34 +39,33 @@ import (
 )
 
 const loginDoc = `
-By default, the juju login command logs the user into a controller.
+By default, the ` + "`juju login`" + ` command logs the user into a controller.
 The argument to the command can be a public controller
 host name or alias (see Aliases below).
 
 If no argument is provided, the controller specified with
-the -c argument will be used, or the current controller
+the ` + "`-c`" + ` argument will be used, or the current controller
 if that's not provided.
 
 On success, the current controller is switched to the logged-in
 controller.
 
-If the user is already logged in, the juju login command does nothing
+If the user is already logged in, the ` + "`juju login`" + ` command does nothing
 except verify that fact.
 
-If the -u option is provided, the juju login command will attempt to log
+If the ` + "`-u`" + ` option is provided, the ` + "`juju login`" + ` command will attempt to log
 into the controller as that user.
 
-After login, a token ("macaroon") will become active. It has an expiration
-time of 24 hours. Upon expiration, no further Juju commands can be issued
+After login, a token ('macaroon') will become active. It has an expiration
+time of 24 hours. Upon expiration, no further ` + "`juju`" + ` commands can be issued
 and the user will be prompted to log in again.
 
-Aliases
--------
+### Aliases
 
 Public controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
-by setting the environment variable JUJU_DIRECTORY.
+by setting the environment variable ` + "`JUJU_DIRECTORY`" + `.
 `
 
 const loginExamples = `
@@ -138,10 +137,10 @@ func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(fset)
 	fset.StringVar(&c.controllerName, "c", "", "Controller to operate in")
 	fset.StringVar(&c.controllerName, "controller", "", "")
-	fset.StringVar(&c.username, "u", "", "log in as this local user")
+	fset.StringVar(&c.username, "u", "", "Log in as this local user")
 	fset.StringVar(&c.username, "user", "", "")
-	fset.BoolVar(&c.noPrompt, "no-prompt", false, "don't prompt for password just read a line from stdin")
-	fset.BoolVar(&c.trust, "trust", false, "automatically trust controller CA certificate")
+	fset.BoolVar(&c.noPrompt, "no-prompt", false, "Don't prompt for password just read a line from `stdin`")
+	fset.BoolVar(&c.trust, "trust", false, "Automatically trust controller CA certificate")
 }
 
 // Init implements Command.Init.

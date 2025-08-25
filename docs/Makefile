@@ -76,13 +76,19 @@ pa11y-install:
 convert-excalidraw-to-svg:
 	bash scripts/convert-excalidraw-to-svg-recursively.sh
 
+autogenerate-docs:
+	python3 scripts/autogenerate-docs.py
+
 pymarkdownlnt-install:
 	@. $(VENV); test -d $(SPHINXDIR)/venv/lib/python*/site-packages/pymarkdown || pip install pymarkdownlnt
 
 install: $(VENVDIR)
 
-run: install convert-excalidraw-to-svg
-	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT)  --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
+run: install
+	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
+	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
+	 --pre-build "$(MAKE) -C ../ go-install" --pre-build "python3 scripts/autogenerate-docs.py" \
+	 "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Does not depend on $(BUILDDIR) to rebuild properly at every run.
 html: install convert-excalidraw-to-svg

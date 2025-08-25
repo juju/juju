@@ -22,12 +22,13 @@ Add a remote offer to the model.
 
 
 ## Details
-Adds a remote offer to the model. Relations can be created later using "juju relate".
+
+Adds a remote offer to the model. Relations can be created later using `juju integrate`
 
 The path to the remote offer is formatted as follows:
 
     [<controller name>:][<model owner>/]<model name>.<application name>
-        
+
 If the controller name is omitted, Juju will use the currently active
 controller. Similarly, if the model owner is omitted, Juju will use the user
 that is currently logged in to the controller providing the offer.

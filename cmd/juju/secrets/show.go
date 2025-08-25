@@ -30,10 +30,10 @@ var showSecretsDoc = `
 Displays the details of a specified secret.
 
 For controller/model admins, the actual secret content is exposed
-with the '--reveal' option in json or yaml formats.
+with the ` + "`--reveal`" + ` option in the ` + "`json`" + ` or ` + "`yaml`" + ` formats.
 
-Use --revision to inspect a particular revision, else latest is used.
-Use --revisions to see the metadata for each revision.
+Use ` + "`--revision`" + ` to inspect a particular revision, else latest is used.
+Use ` + "`--revisions`" + ` to see the metadata for each revision.
 `
 
 const showSecretsExamples = `

@@ -12,7 +12,7 @@ Show help on a Juju charm hook command.
 
 For help on a specific hook command, supply the name of that hook command, for example:
 
-        juju help-hook-commands unit-get
+    juju help-hook-commands unit-get
 
 
 ## Details

@@ -202,7 +202,7 @@ to models.
 `
 
 const modelCredentialExamples = `
-For cloud 'aws', relate remote credential 'bob' to model 'trinity':
+For cloud ` + "`aws`" + `, relate remote credential ` + "`bob`" + ` to model ` + "`trinity`" + `:
 
     juju set-credential -m trinity aws bob
 `

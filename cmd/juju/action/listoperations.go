@@ -52,8 +52,8 @@ When an application is specified, all units from that application are relevant.
 
 When run without any arguments, operations corresponding to actions for all
 application units are returned.
-To see operations corresponding to juju run tasks, specify an action name
-"juju-exec" and/or one or more machines.
+To see operations corresponding to ` + "`juju run`" + ` tasks, specify an action name,
+` + "`juju-exec`" + `, and/or one or more machines.
 `
 
 const listOperationsExamples = `

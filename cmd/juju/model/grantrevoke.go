@@ -51,27 +51,27 @@ Users with read access are limited in what they can do with models:
 `[1:] + validAccessLevels
 
 const usageGrantExamples = `
-Grant user 'joe' 'read' access to model 'mymodel':
+Grant user ` + "`joe`" + ` ` + "`read`" + ` access to model ` + "`mymodel`" + `:
 
     juju grant joe read mymodel
 
-Grant user 'jim' 'write' access to model 'mymodel':
+Grant user ` + "`jim`" + ` ` + "`write`" + ` access to model ` + "`mymodel`" + `:
 
     juju grant jim write mymodel
 
-Grant user 'sam' 'read' access to models 'model1' and 'model2':
+Grant user ` + "`sam`" + ` ` + "`read`" + ` access to models ` + "`model1`" + ` and ` + "`model2`" + `:
 
     juju grant sam read model1 model2
 
-Grant user 'joe' 'read' access to application offer 'fred/prod.hosted-mysql':
+Grant user ` + "`joe`" + ` ` + "`read`" + ` access to application offer ` + "`fred/prod.hosted-mysql`" + `:
 
     juju grant joe read fred/prod.hosted-mysql
 
-Grant user 'jim' 'consume' access to application offer 'fred/prod.hosted-mysql':
+Grant user ` + "`jim`" + ` ` + "`consume`" + ` access to application offer ` + "`fred/prod.hosted-mysql`" + `:
 
     juju grant jim consume fred/prod.hosted-mysql
 
-Grant user 'sam' 'read' access to application offers 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
+Grant user ` + "`sam`" + ` ` + "`read`" + ` access to application offers ` + "`fred/prod.hosted-mysql`" + ` and ` + "`mary/test.hosted-mysql`" + `:
 
     juju grant sam read fred/prod.hosted-mysql mary/test.hosted-mysql
 
@@ -90,19 +90,19 @@ write access.
 `[1:] + validAccessLevels
 
 const usageRevokeExamples = `
-Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
+Revoke ` + "`read`" + ` (and ` + "`write`" + `) access from user ` + "`joe`" + ` for model ` + "`mymodel`" + `:
 
     juju revoke joe read mymodel
 
-Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
+Revoke ` + "`write`" + ` access from user ` + "`sam`" + ` for models ` + "`model1`" + ` and ` + "`model2`" + `:
 
     juju revoke sam write model1 model2
 
-Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/prod.hosted-mysql':
+Revoke ` + "`read`" + ` (and ` + "`write`" + `) access from user ` + "`joe`" + ` for application offer ` + "`fred/prod.hosted-mysql`" + `:
 
     juju revoke joe read fred/prod.hosted-mysql
 
-Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
+Revoke ` + "`consume`" + ` access from user ` + "`sam`" + ` for models ` + "`fred/prod.hosted-mysql`" + ` and ` + "`mary/test.hosted-mysql`" + `:
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
 `

@@ -13,7 +13,7 @@ Displays or sets configuration values on a model.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--color` | false | Use ANSI color codes in output |
-| `--file` |  | path to yaml-formatted configuration file |
+| `--file` |  | Path to yaml-formatted configuration file |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `--ignore-read-only-fields` | false | Ignore read only fields that might cause errors to be emitted while processing yaml documents |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
@@ -27,11 +27,11 @@ Print the value of default-base:
 
     juju model-config default-base
 
-Print the model config of model mycontroller:mymodel:
+Print the model config of model `mycontroller:mymodel`:
 
     juju model-config -m mycontroller:mymodel
 
-Set the value of ftp-proxy to 10.0.0.1:8000:
+Set the value of ftp-proxy to `10.0.0.1:8000`:
 
     juju model-config ftp-proxy=10.0.0.1:8000
 
@@ -50,44 +50,63 @@ Reset the values of the provided keys to model defaults:
 
 ## Details
 
-To view all configuration values for the current model, run
+To view all configuration values for the current model:
+
     juju model-config
-You can target a specific model using the -m flag:
+
+You can target a specific model using the `-m` flag:
+
     juju model-config -m <model>
     juju model-config -m <controller>:<model>
-By default, the config will be printed in a tabular format. You can instead
-print it in json or yaml format using the --format flag:
+
+	By default, the config will be printed in a tabular format. You can instead
+print it in the `json` or `yaml` format using the `--format` flag:
+
     juju model-config --format json
     juju model-config --format yaml
 
-To view the value of a single config key, run
+To view the value of a single config key:
+
     juju model-config key
-To set config values, run
+
+To set config values:
+
     juju model-config key1=val1 key2=val2 ...
+
 You can also reset config keys to their default values:
+
     juju model-config --reset key1
     juju model-config --reset key1,key2,key3
+
 You may simultaneously set some keys and reset others:
+
     juju model-config key1=val1 key2=val2 --reset key3,key4
 
-Config values can be imported from a yaml file using the --file flag:
+Config values can be imported from a yaml file using the `--file` flag:
+
     juju model-config --file=path/to/cfg.yaml
-This allows you to e.g. save a model's config to a file:
+
+This allows you to, e.g., save a model's config to a file:
+
     juju model-config --format=yaml > cfg.yaml
-and then import the config later. Note that the output of model-config
+
+and then import the config later. Note that the output of `model-config`
 may include read-only values, which will cause an error when importing later.
-To prevent the error, use the --ignore-read-only-fields flag:
+To prevent the error, use the `--ignore-read-only-fields` flag:
+
     juju model-config --file=cfg.yaml --ignore-read-only-fields
 
-You can also read from stdin using "-", which allows you to pipe config values
+You can also read from `stdi`n using `-`, which allows you to pipe config values
 from one model to another:
+
     juju model-config -c c1 --format=yaml \
       | juju model-config -c c2 --file=- --ignore-read-only-fields
+
 You can simultaneously read config from a yaml file and set config keys
 as above. The command-line args will override any values specified in the file.
 
-The default-series key is deprecated in favour of default-base
-e.g. default-base=ubuntu@22.04.
+The `default-series` key is deprecated in favour of `default-base`. For example:
+`default-base=ubuntu@22.04`.
 
 The following keys are available:
 

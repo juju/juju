@@ -50,23 +50,23 @@ var usageRemoveCredentialSummary = `
 Removes Juju credentials for a cloud.`[1:]
 
 var usageRemoveCredentialDetails = `
-The credential to be removed is specified by a "credential name".
+The credential to be removed is specified by a credential name.
 Credential names, and optionally the corresponding authentication
 material, can be listed with `[1:] + "`juju credentials`" + `.
 
-Use --controller option to remove credentials from a controller. 
+Use the ` + "`--controller`" + ` option to remove credentials from a controller.
 
 When removing cloud credential from a controller, Juju performs additional
 checks to ensure that there are no models using this credential.
-Occasionally, these check may not be desired by the user and can be by-passed using --force. 
-If force remove was performed and some models were still using the credential, these models 
-will be left with un-reachable machines.
+Occasionally, these check may not be desired by the user and can be by-passed using ` + "`--force`" + `.
+If force remove was performed and some models were still using the credential, these models
+will be left with unreachable machines.
 Consequently, it is not recommended as a default remove action.
-Models with un-reachable machines are most commonly fixed by using another cloud credential, 
-see ' + "'juju set-credential'" + ' for more information.
+Models with unreachable machines are most commonly fixed by using another cloud credential,
+see ` + "`juju set-credential`" + ` for more information.
 
 
-Use --client option to remove credentials from the current client.
+Use the ` + "`--client`" + ` option to remove credentials from the current client.
 
 `
 
@@ -131,7 +131,7 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 
 func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force remove controller side credential, ignore validation errors")
+	f.BoolVar(&c.Force, "force", false, "Force remove controller-side credential, ignore validation errors")
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {

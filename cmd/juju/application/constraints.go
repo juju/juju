@@ -23,13 +23,14 @@ var usageGetConstraintsSummary = `
 Displays machine constraints for an application.`[1:]
 
 var usageGetConstraintsDetails = `
-Shows machine constraints that have been set for an application with ` + "`juju set-\nconstraints`" + `.
+Shows machine constraints that have been set for an application with
+` + "`juju set-constraints`" + `.
+
 By default, the model is the current model.
-Application constraints are combined with model constraints, set with ` +
-	"`juju \nset-model-constraints`" + `, for commands (such as 'deploy') that provision
-machines for applications. Where model and application constraints overlap, the
-application constraints take precedence.
-Constraints for a specific model can be viewed with ` + "`juju model-\nconstraints`" + `.`
+
+Where model and application constraints overlap, the application constraints take precedence.
+
+`
 
 const usageGetConstraintsExamples = `
     juju constraints mysql
@@ -42,17 +43,17 @@ Sets machine constraints for an application.`[1:]
 // setConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var usageSetConstraintsDetails = `
-Sets constraints for an application, which are used for all new machines 
+Sets constraints for an application, which are used for all new machines
 provisioned for that application. They can be viewed with `[1:] + "`juju constraints`" + `.
 By default, the model is the current model.
 Application constraints are combined with model constraints, set with ` +
-	"`juju \nset-model-constraints`" + `, for commands (such as 'juju deploy') that 
+	"`juju set-model-constraints`" + `, for commands (such as ` + "`juju deploy`" + `) that
 provision machines for applications. Where model and application constraints
 overlap, the application constraints take precedence.
 Constraints for a specific model can be viewed with ` + "`juju model-constraints`" + `.
-This command requires that the application to have at least one unit. To apply 
+This command requires the application to have at least one unit. To apply
 constraints to
-the first unit set them at the model level or pass them as an argument
+the first unit, set them at the model level or pass them as an argument
 when deploying.
 `
 

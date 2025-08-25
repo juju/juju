@@ -18,15 +18,15 @@ Removes storage from the model.
 
 ## Examples
 
-Remove the detached storage pgdata/0:
+Remove the detached storage `pgdata/0`:
 
     juju remove-storage pgdata/0
 
-Remove the possibly attached storage pgdata/0:
+Remove the possibly attached storage `pgdata/0`:
 
     juju remove-storage --force pgdata/0
 
-Remove the storage pgdata/0, without destroying
+Remove the storage `pgdata/0`, without destroying
 the corresponding cloud storage:
 
     juju remove-storage --no-destroy pgdata/0
@@ -36,9 +36,9 @@ the corresponding cloud storage:
 ## Details
 
 Removes storage from the model. Specify one or more
-storage IDs, as output by "juju storage".
+storage IDs, as output by `juju storage`.
 
-By default, remove-storage will fail if the storage
+By default, `remove-storage` will fail if the storage
 is attached to any units. To override this behaviour,
-you can use "juju remove-storage --force".
-Note: forced detach is not available on container models.
+you can use `juju remove-storage --force`.
+Note: Forced detach is not available on container models.

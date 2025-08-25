@@ -37,40 +37,35 @@ type listCloudsCommand struct {
 
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
-var listCloudsDoc = "" +
-	"Display the fundamental properties for each cloud known to Juju:\n" +
-	"name, number of regions, number of registered credentials, default region, type, etc...\n" +
-	"\n" +
-	"Clouds known to this client are the clouds known to Juju out of the box \n" +
-	"along with any which have been added with `add-cloud --client`. These clouds can be\n" +
-	"used to create a controller and can be displayed using --client option.\n" +
-	"\n" +
-	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
-	"is detected, the 'localhost' cloud is made available.  When a microk8s installation is\n" +
-	"detected, the 'microk8s' cloud is displayed.\n" +
-	"\n" +
-	"Use --controller option to list clouds from a controller. \n" +
-	"Use --client option to list clouds from this client. \n" +
-	"This command's default output format is 'tabular'. Use 'json' and 'yaml' for\n" +
-	"machine-readable output.\n" +
-	"\n" +
-	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-public-clouds`\n" +
-	"command to update public clouds or `update-cloud` to update other clouds.\n" +
-	"\n" +
-	"Use the `regions` command to list a cloud's regions.\n" +
-	"\n" +
-	"Use the `show-cloud` command to get more detail, such as regions and endpoints.\n" +
-	"\n" +
-	"Further reading:\n " +
-	"\n" +
-	"    Documentation:   https://juju.is/docs/olm/manage-clouds\n" +
-	"    microk8s:        https://microk8s.io/docs\n" +
-	"    LXD hypervisor:  https://documentation.ubuntu.com/lxd\n"
+var listCloudsDoc = `
+Display the fundamental properties for each cloud known to Juju: name, number of regions,
+number of registered credentials, default region, type, etc.
+
+Clouds known to this client are the clouds known to Juju out of the box
+along with any which have been added with ` + "`add-cloud --client`" + `. These clouds can be
+used to create a controller and can be displayed using the ` + "`--client`" + `option.
+
+"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor
+is detected, the 'localhost' cloud is made available.  When a MicroK8s installation is
+detected, the 'microk8s' cloud is displayed.
+
+Use the ` + "`--controller`" + ` option to list clouds from a controller.
+Use the ` + "`--client`" + `option to list clouds from this client.
+
+This command's default output format is ` + "`tabular`" + `. Use ` + "`json`" + ` and ` + "`yaml`" + ` for
+machine-readable output.
+
+Cloud metadata sometimes changes, e.g., providers add regions. Use the ` + "`update-public-clouds`" + `
+command to update public clouds or ` + "`update-cloud`" + ` to update other clouds.
+Use the ` + "`regions`" + ` command to list a cloud's regions.
+Use the ` + "`show-cloud`" + ` command to get more detail, such as regions and endpoints.
+
+`
 
 const listCloudsExamples = `
     juju clouds
     juju clouds --format yaml
-    juju clouds --controller mycontroller 
+    juju clouds --controller mycontroller
     juju clouds --controller mycontroller --client
     juju clouds --client
 `

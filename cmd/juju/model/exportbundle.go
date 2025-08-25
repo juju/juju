@@ -36,10 +36,10 @@ type exportBundleCommand struct {
 const exportBundleHelpDoc = `
 Exports the current model configuration as a reusable bundle.
 
-If --filename is not used, the configuration is printed to stdout.
- --filename specifies an output file.
+If ` + "`--filename`" + ` is not used, the configuration is printed to ` + "`stdout`" + `.
+` + "` --filename`" + ` specifies an output file.
 
-If --include-series is used, the exported bundle will include the OS series
+If ` + "`--include-series`" + ` is used, the exported bundle will include the OS series
  alongside bases. This should be used as a compatibility option for older
  versions of Juju before bases were added.
 `
@@ -66,7 +66,7 @@ func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", "", "Bundle file")
 	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Whether to include charm config default values in the exported bundle")
-	f.BoolVar(&c.includeSeries, "include-series", false, "Comaptibility option. Set to include series in the bundle alongside bases")
+	f.BoolVar(&c.includeSeries, "include-series", false, "Compatibility option. Set to include series in the bundle alongside bases")
 }
 
 // Init implements Command.

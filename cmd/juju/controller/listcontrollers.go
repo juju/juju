@@ -26,8 +26,7 @@ var helpControllersSummary = `
 Lists all controllers.`[1:]
 
 var helpControllersDetails = `
-The output format may be selected with the '--format' option. In the
-default tabular output, the current controller is marked with an asterisk.
+In the default tabular output, the current controller is marked with an asterisk.
 
 `[1:]
 

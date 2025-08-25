@@ -26,9 +26,9 @@ If another client has logged in as the same user, they will remain logged
 in. This command only affects the local client.
 
 The command will fail if the user has not yet set a password
-(`juju change-user-password`). This scenario is only possible after 
+(`juju change-user-password`). This scenario is only possible after
 `juju bootstrap`since `juju register` sets a password. The
-failing behaviour can be overridden with the '--force' option.
+failing behaviour can be overridden with the `--force` option.
 
 If the same user is logged in with another client system, that user session
 will not be affected by this command; it only affects the local client.

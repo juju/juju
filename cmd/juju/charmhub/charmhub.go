@@ -46,7 +46,7 @@ type charmHubCommand struct {
 }
 
 func (c *charmHubCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.DefaultServerURL, "specify the Charmhub URL for querying the store")
+	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.DefaultServerURL, "Specify the Charmhub URL for querying the store")
 }
 
 // Init initializes the info command, including validating the provided

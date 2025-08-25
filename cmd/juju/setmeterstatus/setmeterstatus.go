@@ -18,7 +18,7 @@ import (
 
 const setMeterStatusDoc = `
 Set meter status on the given application or unit. This command is used
-to test the meter-status-changed hook for charms in development.
+to test the ` + "`meter-status-changed`" + ` hook for charms in development.
 `
 
 const setMeterStatusExamples = `

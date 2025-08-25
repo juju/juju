@@ -26,7 +26,7 @@ type removeSecretBackendCommand struct {
 var removeSecretBackendsDoc = `
 Removes a secret backend, used for storing secret content.
 If the backend is being used to store secrets currently in use,
-the --force option can be supplied to force the removal, but be
+the ` + "`--force`" + ` option can be supplied to force the removal, but be
 warned, this will affect charms which use those secrets.
 `
 
@@ -77,7 +77,7 @@ func (c *removeSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *removeSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "force removal even if the backend stores in-use secrets")
+	f.BoolVar(&c.Force, "force", false, "Force removal even if the backend stores in-use secrets")
 }
 
 func (c *removeSecretBackendCommand) Init(args []string) error {

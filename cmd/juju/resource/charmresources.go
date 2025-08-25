@@ -207,17 +207,16 @@ const charmResourcesDoc = `
 This command will report the resources and the current revision of each
 resource for a charm in a repository.
 
-Channel can be specified with --channel.  If not provided, stable is used.
+Channel can be specified with ` + "`--channel`" + `.  If not provided, ` + "`stable`" + ` is used.
 
-Where a channel is not supplied, stable is used.
 `
 
 const charmResourcesExamples = `
-Display charm resources for the postgresql charm:
+Display charm resources for the ` + "`postgresql`" + ` charm:
 
     juju charm-resources postgresql
 
-Display charm resources for mycharm in the 2.0/edge channel:
+Display charm resources for ` + "`mycharm`" + ` in the ` + "`2.0/edge`" + ` channel:
 
     juju charm-resources mycharm --channel 2.0/edge
 

@@ -58,18 +58,18 @@ storage, using `--destroy-storage` or `--release-storage` respectively.
 Sometimes, the destruction of a model may fail as Juju encounters errors
 that need to be dealt with before that model can be destroyed.
 However, at times, there is a need to destroy a controller ignoring
-such model errors. In these rare cases, use --force option but note 
+such model errors. In these rare cases, use --force option but note
 that --force will also remove all units of any hosted applications, their subordinates
 and, potentially, machines without given them the opportunity to shutdown cleanly.
 
 Model destruction is a multi-step process. Under normal circumstances, Juju will not
-proceed to the next step until the current step has finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
+proceed to the next step until the current step has finished.
+However, when using `--force`, users can also specify `--no-wait` to progress through steps
 without delay waiting for each step to complete.
 
-WARNING: Passing --force with --model-timeout will continue the final destruction without
-consideration or respect for clean shutdown or resource cleanup. If model-timeout 
-elapses with --force, you may have resources left behind that will require
-manual cleanup. If --force --model-timeout 0 is passed, the models are brutally
-removed with haste. It is recommended to use graceful destroy (without --force, --no-wait or
---model-timeout).
+WARNING: Passing `--force` with `--model-timeout` will continue the final destruction without
+consideration or respect for clean shutdown or resource cleanup. If `model-timeout`
+elapses with `--force`, you may have resources left behind that will require
+manual cleanup. If `--force --model-timeout 0` is passed, the models are brutally
+removed with haste. It is recommended to use graceful destroy (without `--force`, `--no-wait` or
+`--model-timeout`).

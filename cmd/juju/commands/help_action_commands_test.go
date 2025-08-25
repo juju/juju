@@ -55,9 +55,9 @@ The currently available charm action commands include:
 
 Examples:
 
-For help on a specific action command, supply the name of that action command, for example:
+For help on a specific action command, supply the name of that action command. For example:
 
-        juju help-action-commands action-fail
+    juju help-action-commands action-fail
 
 See also:
  - help

@@ -21,7 +21,7 @@ Displays information about an application.
 
     juju show-application myapplication
 
-where "myapplication" is the application name alias; see "juju help deploy" for more information.
+where `myapplication` is the application name alias; see `juju help deploy` for more information.
 
 
 ## Details

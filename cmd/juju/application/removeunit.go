@@ -50,23 +50,20 @@ const removeUnitDoc = `
 Remove application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
-k8s or cloud model.
+Kubernetes or a machine model.
 
 Removing all units of a application is not equivalent to removing the
 application itself; for that, the ` + "`juju remove-application`" + ` command
 is used.
 
-For k8s models only a single application can be supplied and only the
---num-units argument supported.
-Specific units cannot be targeted for removal as that is handled by k8s,
+For Kubernetes models only a single application can be supplied and only the
+` + "`--num-units`" + ` argument supported.
+Specific units cannot be targeted for removal as that is handled by Kubernetes;
 instead the total number of units to be removed is specified.
-
-Examples:
-    juju remove-unit wordpress --num-units 2
 
 For cloud models specific units can be targeted for removal.
 Units of a application are numbered in sequence upon creation. For example, the
-fourth unit of wordpress will be designated "wordpress/3". These identifiers
+fourth unit of wordpress will be designated ` + "`wordpress/3`" + `. These identifiers
 can be supplied in a space delimited list to remove unwanted units from the
 model.
 
@@ -78,13 +75,13 @@ and failures that need to be dealt with before a unit can be removed.
 For example, Juju will not remove a unit if there are hook failures.
 However, at times, there is a need to remove a unit ignoring
 all operational errors. In these rare cases, use --force option but note
-that --force will remove a unit and, potentially, its machine without
+that ` + "`--force`" + ` will remove a unit and, potentially, its machine without
 given them the opportunity to shutdown cleanly.
 
 Unit removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
-However, when using --force, users can also specify --no-wait to progress through steps
-without delay waiting for each step to complete.
+However, when using ` + "`--force`" + `, users can also specify ` + "`--no-wait`" + `
+to progress through steps without delay waiting for each step to complete.
 `
 
 const removeUnitExamples = `
@@ -95,6 +92,8 @@ const removeUnitExamples = `
     juju remove-unit wordpress/2 --force
 
     juju remove-unit wordpress/2 --force --no-wait
+
+	juju remove-unit wordpress --num-units 2
 `
 
 var removeUnitMsgNoDryRun = `

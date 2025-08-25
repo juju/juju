@@ -26,21 +26,22 @@ type setDefaultRegionCommand struct {
 }
 
 var usageSetDefaultRegionSummary = `
-Sets the default region for a cloud.`[1:]
+Gets, sets, or unsets the default region for a cloud on this client.`[1:]
 
 var usageSetDefaultRegionDetails = `
-The default region is specified directly as an argument.
-
-To unset previously set default region for a cloud, use --reset option.
-
-To confirm what region is currently set to be default for a cloud, 
-use the command without region argument.
-
 `[1:]
 
 const usageSetDefaultRegionnExamples = `
+Set the default region for the ` + "`azure-china`" + ` cloud to ` + "`chinaeast`" + `:
+
     juju default-region azure-china chinaeast
+
+Get the default region for the ` + "`azure-china`" + ` cloud:
+
     juju default-region azure-china
+
+Unset the default region for the ` + "`azure-china`" + ` cloud:
+
     juju default-region azure-china --reset
 `
 

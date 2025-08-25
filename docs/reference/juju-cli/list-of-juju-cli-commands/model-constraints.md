@@ -23,11 +23,11 @@ Displays machine constraints for a model.
 
 
 ## Details
-Shows constraints that have been set on the model with
-`juju set-model-constraints.`
+
+Shows constraints that have been set on the model with `juju set-model-constraints`.
 By default, the model is the current model.
-Model constraints are combined with constraints set on an application
-with `juju set-constraints` for commands (such as 'deploy') that provision
+Model constraints are combined with constraints set on an application.
+with `juju set-constraints` for commands (such as `deploy`) that provision
 machines/containers for applications. Where model and application constraints overlap, the
-application constraints take precedence.
-Constraints for a specific application can be viewed with `juju constraints`.
+application constraints take precedence. Constraints for a specific application
+can be viewed with `juju constraints`.

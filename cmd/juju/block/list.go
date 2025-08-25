@@ -36,7 +36,7 @@ func NewListCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List disabled commands for the model.
+Lists disabled commands for the model.
 ` + commandSets
 
 // listCommand list blocks.
@@ -57,7 +57,7 @@ func (c *listCommand) Init(args []string) (err error) {
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "disabled-commands",
-		Purpose: "List disabled commands.",
+		Purpose: "Lists disabled commands.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-disabled-commands"},
 		SeeAlso: []string{

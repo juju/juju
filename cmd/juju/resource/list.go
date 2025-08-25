@@ -94,7 +94,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":        cmd.FormatJson,
 	})
 
-	f.BoolVar(&c.details, "details", false, "show detailed information about resources used by each unit.")
+	f.BoolVar(&c.details, "details", false, "Show detailed information about the resources used by each unit.")
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying

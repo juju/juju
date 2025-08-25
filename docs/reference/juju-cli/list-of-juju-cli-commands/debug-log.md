@@ -57,7 +57,7 @@ Begin with the last 1000 lines and exclude messages from machine 3:
     juju debug-log -n 1000 --exclude machine-3
 
 Select all the messages emitted from a particular unit (you can also write it as
- mysql/0) and a particular machine in the entire log:
+ `mysql/0`) and a particular machine in the entire log:
 
 juju debug-log --replay --include unit-mysql-0 --include machine-1
 
@@ -70,7 +70,7 @@ new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
 
-View all logs on the cmr topic (label):
+View all logs on the `cmr` topic (label):
 
     juju debug-log --include-label cmr
 
@@ -81,7 +81,7 @@ Progressively exclude more content from the entire log:
     juju debug-log --replay --exclude-module juju
 
 Begin with the last 2000 lines and include messages pertaining to both the
-juju.cmd and the juju.worker modules:
+`juju.cmd` and the `juju.worker modules`:
 
     juju debug-log --lines 2000 \
         --include-module juju.cmd \
@@ -92,25 +92,25 @@ append filtered messages:
 
     juju debug-log --exclude machine-0 --lines 100
 
-Include only messages from the mysql/0 unit; show a maximum of 50 lines; and then
+Include only messages from the `mysql/0` unit; show a maximum of 50 lines; and then
 exit:
 
     juju debug-log --include mysql/0 --limit 50
 
-Show all messages from the apache/2 unit or machine 1 and then exit:
+Show all messages from the `apache/2` unit or machine 1 and then exit:
 
     juju debug-log --replay --include apache/2 --include machine-1 --no-tail
 
-Show all juju.worker.uniter logging module messages that are also unit
-wordpress/0 messages, and then show any new log messages which match the
+Show all `juju.worker.uniter` logging module messages that are also unit
+`wordpress/0` messages, and then show any new log messages which match the
 filter and append:
 
     juju debug-log --replay
         --include-module juju.worker.uniter \
         --include wordpress/0
 
-Show all messages from the juju.worker.uniter module, except those sent from
-machine-3 or machine-4, and then stop:
+Show all messages from the `juju.worker.uniter` module, except those sent from
+`machine-3` or `machine-4`, and then stop:
 
     juju debug-log --replay --no-tail
         --include-module juju.worker.uniter \
@@ -121,6 +121,7 @@ machine-3 or machine-4, and then stop:
 
 ## Details
 
+
 This command provides access to all logged Juju activity on a per-model
 basis. By default, the logs for the currently select model are shown.
 
@@ -128,49 +129,49 @@ Each log line is emitted in this format:
 
     <entity> <timestamp> <log-level> <module>:<line-no> <message>
 
-The "entity" is the source of the message: a machine or unit. The names for
+The `<entity>`is the source of the message: a machine or a unit. The names for
 machines and units can be seen in the output of `juju status`.
 
-The '--include' and '--exclude' options filter by entity. The entity can be
-a machine, unit, or application for vm models, but can be application only
-for k8s models. These filters support wildcards `*` if filtering on the
-entity full name (prefixed by `<entity type>-`)
+The `--include` and `--exclude` options filter by entity. The entity can be
+a machine, unit, or application for VM models, but can be application only
+for Kubernetes models. These filters support wildcards `*` if filtering on the
+entity full name (prefixed by `<entity type>-`).
 
-The '--include-module' and '--exclude-module' options filter by (dotted)
+The `--include-module` and `--exclude-module` options filter by the (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
-The '--include-label' and '--exclude-label' options filter by logging label.
+The `--include-label` and `--exclude-label` options filter by logging label.
 
 The filtering options combine as follows:
-* All --include options are logically ORed together.
-* All --exclude options are logically ORed together.
-* All --include-module options are logically ORed together.
-* All --exclude-module options are logically ORed together.
-* All --include-label options are logically ORed together.
-* All --exclude-label options are logically ORed together.
-* The combined --include, --exclude, --include-module, --exclude-module,
-  --include-label and --exclude-label selections are logically ANDed to form
+* All `--include` options are logically ORed together.
+* All `--exclude` options are logically ORed together.
+* All `--include-module` options are logically ORed together.
+* All `--exclude-module` options are logically ORed together.
+* All `--include-label` options are logically ORed together.
+* All `--exclude-label` options are logically ORed together.
+* The combined `--include`, `--exclude`, `--include-module`, `--exclude-module`,
+  `--include-label` and `--exclude-label` selections are logically ANDed to form
   the complete filter.
 
-The '--tail' option waits for and continuously prints new log lines after displaying the most recent log lines.
+The `--tail` option waits for and continuously prints new log lines after displaying the most recent log lines.
 
-The '--no-tail' option displays the most recent log lines and then exits immediately.
+The `--no-tail` option displays the most recent log lines and then exits immediately.
 
-The '--lines' and '--limit' options control the number of log lines displayed:
-* --lines option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
-* --limit option prints up to the specified number of the most recent lines and exits. This implies --no-tail.
-* setting --lines or --limit to 0 will print the maximum number of the most recent lines available.
+The `--lines` and `--limit` options control the number of log lines displayed:
+* the `--lines` option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
+* the `--limit` option prints up to the specified number of the most recent lines and exits. This implies --no-tail.
+* setting `--lines` or `--limit` to 0 will print the maximum number of the most recent lines available.
 
-The '--replay' option displays log lines starting from the beginning.
+The `--replay` option displays log lines starting from the beginning.
 
-Behavior when combining --replay with other options:
-* --replay and --limit prints the specified number of lines from the beginning of the log.
-* --replay and --lines is invalid as it causes confusion by skipping logs between the replayed lines and the current tailing point.
+Behavior when combining `--replay` with other options:
+* `--replay` and `--limit` prints the specified number of lines from the beginning of the log.
+* `--replay` and `--lines` is invalid as it causes confusion by skipping logs between the replayed lines and the current tailing point.
 
 Given the above, the following flag combinations are incompatible and cannot be specified together:
-* --tail and --no-tail
-* --tail and --limit
-* --no-tail and --lines (-n)
-* --limit and --lines (-n)
-* --replay and --lines (-n)
+* `--tail` and `--no-tail`
+* `--tail` and `--limit`
+* `--no-tail` and `--lines (-n)`
+* `--limit` and `--lines (-n)`
+* `--replay` and `--lines (-n)`

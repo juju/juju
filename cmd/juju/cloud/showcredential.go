@@ -258,24 +258,24 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 }
 
 var showCredentialDoc = `
-This command displays information about cloud credential(s) stored 
+This command displays information about cloud credential(s) stored
 either on this client or on a controller for this user.
 
 To see the contents of a specific credential, supply its cloud and name.
 To see all credentials stored for you, supply no arguments.
 
-To see secrets, content attributes marked as hidden, use --show-secrets option.
+To see secrets, content attributes marked as hidden, use the ` + "`--show-secrets`" + ` option.
 
-To see credentials from this client, use "--client" option.
+To see credentials from this client, use the ` + "`--client`" + ` option.
 
-To see credentials from a controller, use "--controller" option.
+To see credentials from a controller, use the ` + "`--controller`" + ` option.
 `
 
 const showCredentialExamples = `
     juju show-credential google my-admin-credential
-    juju show-credentials 
-    juju show-credentials --controller mycontroller --client 
-    juju show-credentials --controller mycontroller 
+    juju show-credentials
+    juju show-credentials --controller mycontroller --client
+    juju show-credentials --controller mycontroller
     juju show-credentials --client
     juju show-credentials --show-secrets
 `

@@ -32,16 +32,16 @@ Removes one or more machines from a model.
 Machines are specified by their numbers, which may be retrieved from the
 output of `juju status`.
 
-It is possible to remove machine from Juju model without affecting
-the corresponding cloud instance by using --keep-instance option.
+It is possible to remove a machine from Juju model without affecting
+the corresponding cloud instance by using the `--keep-instance` option.
 
 Machines responsible for the model cannot be removed.
 
-Machines running units or containers can be removed using the '--force'
+Machines running units or containers can be removed using the `--force`
 option; this will also remove those units and containers without giving
 them an opportunity to shut down cleanly.
 
 Machine removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to the next step until the current step has finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
-without delay waiting for each step to complete.
+proceed to the next step until the current step has finished.
+However, when using `--force`, users can also specify `--no-wait`
+to progress through steps without delay waiting for each step to complete.
