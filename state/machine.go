@@ -362,6 +362,11 @@ func (d *ModelInstanceData) InstanceNames(machineID string) (instance.Id, string
 	return instData.InstanceId, instData.DisplayName
 }
 
+// Len returns the number of machines.
+func (d *ModelInstanceData) Len() int {
+	return len(d.data)
+}
+
 // Tag returns a tag identifying the machine. The String method provides a
 // string representation that is safe to use as a file name. The returned name
 // will be different from other Tag values returned by any other entities

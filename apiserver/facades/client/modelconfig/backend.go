@@ -18,6 +18,7 @@ import (
 type Backend interface {
 	common.BlockGetter
 	ControllerTag() names.ControllerTag
+	Model() *state.Model
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
@@ -60,6 +61,10 @@ func (st stateShim) SpaceByName(name string) error {
 func (st stateShim) GetSecretBackend(name string) (*coresecrets.SecretBackend, error) {
 	backends := state.NewSecretBackends(st.State)
 	return backends.GetSecretBackend(name)
+}
+
+func (st stateShim) Model() *state.Model {
+	return st.model
 }
 
 // NewStateBackend creates a backend for the facade to use.

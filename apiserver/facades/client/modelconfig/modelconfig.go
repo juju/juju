@@ -23,9 +23,10 @@ import (
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend Backend
-	auth    facade.Authorizer
-	check   *common.BlockChecker
+	backend   Backend
+	auth      facade.Authorizer
+	check     *common.BlockChecker
+	cloudType string
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -38,10 +39,17 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+	model := backend.Model()
+	cloud, err := model.Cloud()
+	if err != nil {
+		return nil, err
+	}
+
 	client := &ModelConfigAPI{
-		backend: backend,
-		auth:    authorizer,
-		check:   common.NewBlockChecker(backend),
+		backend:   backend,
+		auth:      authorizer,
+		check:     common.NewBlockChecker(backend),
+		cloudType: cloud.Type,
 	}
 	return &ModelConfigAPIV3{client}, nil
 }
@@ -204,6 +212,8 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	// Make sure the passed config does not set authorized-keys.
 	checkAuthorizedKeys := c.checkAuthorizedKeys()
 
+	checkLXDProfile := c.checkLXDProfile()
+
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
 
@@ -216,7 +226,33 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		checkSecretBackend,
 		checkUpdateDefaultBase,
 		checkAuthorizedKeys,
+		checkLXDProfile,
 	)
+}
+
+func (c *ModelConfigAPI) checkLXDProfile() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if c.cloudType != "lxd" {
+			return nil
+		}
+
+		_, updateProject := updateAttrs["project"]
+		if !updateProject {
+			return nil
+		}
+
+		model := c.backend.Model()
+		instanceData, err := model.AllInstanceData()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if instanceData.Len() > 0 {
+			return fmt.Errorf("cannot change project because model %q is non-empty", model.Name())
+		}
+
+		return nil
+	}
 }
 
 // checkAuthorizedKeys checks that the passed config attributes does not
