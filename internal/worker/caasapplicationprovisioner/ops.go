@@ -210,7 +210,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
-		InitialScale:         provisionInfo.Scale,
+		InitialScale:         0,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -616,7 +616,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	}
 
 	desiredScale := ps.ScaleTarget
-	unitsToRemove := len(units) - desiredScale
+	unitsToRemove := 0
 
 	var deadUnits []params.CAASUnit
 	for _, unit := range units {
@@ -624,23 +624,29 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		if err != nil {
 			return fmt.Errorf("getting life for unit %q: %w", unit.Tag, err)
 		}
+		unitTag, ok := unit.Tag.(names.UnitTag)
+		if !ok {
+			return fmt.Errorf("expected a unit tag; got %q", unit.Tag)
+		}
+
+		if unitTag.Number() < desiredScale {
+			// This is a unit we want to keep.
+			continue
+		}
+		unitsToRemove++
+
 		if unitLife == life.Dead {
 			deadUnits = append(deadUnits, unit)
 		}
 	}
 
-	if unitsToRemove <= 0 {
-		unitsToRemove = len(deadUnits)
-	}
-
 	// We haven't met the threshold to initiate scale down in the CAAS provider
 	// yet.
-	if unitsToRemove != len(deadUnits) {
+	if unitsToRemove != len(deadUnits) || len(deadUnits) == 0 {
 		return nil
 	}
 
-	logger.Infof("scaling application %q to desired scale %d", appName, desiredScale)
-	if err := app.Scale(desiredScale); err != nil && !errors.Is(err, errors.NotFound) {
+	if err := ensureScaleWithFsAttachments(appName, app, desiredScale, facade, logger); err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			appName,
@@ -708,9 +714,10 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return err
 	}
+
 	if ps.ScaleTarget >= len(units) {
-		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
-		err = app.Scale(ps.ScaleTarget)
+		err := ensureScaleWithFsAttachments(appName, app, ps.ScaleTarget, facade, logger)
+
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
 		} else if err != nil {
@@ -739,7 +746,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		logger.Debugf("application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
-
 	return nil
 }
 
@@ -762,4 +768,37 @@ func updateProvisioningState(appName string, scaling bool, scaleTarget int,
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)
 	}
 	return nil
+}
+
+// ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
+func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTarget int,
+	facade CAASProvisionerFacade, logger Logger,
+) error {
+	logger.Infof("scaling application %q to desired scale %d", appName, scaleTarget)
+
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Ensure PVC exists.
+	pvcCleanupFunc, err := app.EnsurePVC(info.Filesystems, info.FilesystemUnitAttachments)
+	if err != nil {
+		return err
+	}
+
+	// Roll back applyed PVC if error scaling below.
+	defer func() {
+		if err == nil || errors.Is(err, tryAgain) {
+			return
+		}
+		if pvcCleanupFunc != nil {
+			if cleanupErr := pvcCleanupFunc(); cleanupErr != nil {
+				// Still return the original error but leave a record here for tracing.
+				logger.Errorf("Can not clean up PVC %w", cleanupErr)
+			}
+		}
+	}()
+	return app.Scale(scaleTarget)
 }

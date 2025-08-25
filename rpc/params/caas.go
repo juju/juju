@@ -62,6 +62,12 @@ type CAASApplicationProvisioningInfo struct {
 	Error                *Error                       `json:"error,omitempty"`
 }
 
+// CAASApplicationFilesystemProvisioningInfo holds info needed to provision a caas application filesystem.
+type CAASApplicationFilesystemProvisioningInfo struct {
+	Filesystems               []KubernetesFilesystemParams                          `json:"filesystems,omitempty"`
+	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
+}
+
 // DockerImageInfo holds the details for a Docker resource type.
 type DockerImageInfo struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
@@ -196,4 +202,11 @@ type CAASApplicationProvisionerConfig struct {
 type CAASApplicationProvisionerConfigResult struct {
 	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
 	Error             *Error                            `json:"error,omitempty"`
+}
+
+// CAASApplicationFilesystemProvisioningInfoResult is the result of getting the provisioning info for
+// a CAAS application filesystem.
+type CAASApplicationFilesystemProvisioningInfoResult struct {
+	Result *CAASApplicationFilesystemProvisioningInfo `json:"result,omitempty"`
+	Error  *Error                                     `json:"error,omitempty"`
 }
