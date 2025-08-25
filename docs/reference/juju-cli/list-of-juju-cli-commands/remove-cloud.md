@@ -27,7 +27,7 @@ Removes a cloud from Juju.
 
 Remove a cloud from Juju.
 
-If --controller is used, also remove the cloud from the specified controller,
+If `--controller` is used, also remove the cloud from the specified controller,
 if it is not in use.
 
-If --client is specified, Juju removes the cloud from this client.
+If `--client` is specified, Juju removes the cloud from this client.
