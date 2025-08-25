@@ -3,7 +3,7 @@
 > See also: [disabled-commands](#disabled-commands), [enable-command](#enable-command)
 
 ## Summary
-Disable commands for the model.
+Disables commands for the model.
 
 ## Usage
 ```juju disable-command [options] <command set> [message...]```
@@ -37,7 +37,7 @@ execution of operations that could alter model.
 This is done by disabling certain sets of commands from successful execution.
 Disabled commands must be manually enabled to proceed.
 
-Some commands offer a --force option that can be used to bypass the disabling.
+Some commands offer a `--force` option that can be used to bypass the disabling.
 
 Commands that can be disabled are grouped based on logical operations as follows:
 

@@ -14,12 +14,12 @@ Compares a bundle with a model and reports any differences.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--annotations` | false | Include differences in annotations |
 | `--arch` |  | specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
-| `--base` |  | specify a base |
+| `--base` |  | Specify a base |
 | `--channel` |  | Channel to use when getting the bundle from Charmhub |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--map-machines` |  | Indicates how existing machines correspond to bundle machines |
 | `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
-| `--series` |  | specify a series. DEPRECATED: use `--base` |
+| `--series` |  | Specify a series. DEPRECATED: use `--base` |
 
 ## Examples
 
