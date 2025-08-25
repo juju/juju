@@ -291,6 +291,18 @@ type StorageProvisioningService interface {
 		ctx context.Context, volumeID string, unitUUID coreunit.UUID,
 	) (storageprovisioning.VolumeAttachmentUUID, error)
 
+	// GetVolumeParams returns the volume params for the supplied uuid.
+	GetVolumeParams(
+		ctx context.Context, uuid storageprovisioning.VolumeUUID,
+	) (storageprovisioning.VolumeParams, error)
+
+	// GetVolumeAttachmentParams retrieves the attachment parameters for a given
+	// volume attachment.
+	GetVolumeAttachmentParams(
+		ctx context.Context,
+		volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
+	) (storageprovisioning.VolumeAttachmentParams, error)
+
 	// GetVolumeAttachmentLife returns the current life value for a volume
 	// attachment uuid.
 	//
