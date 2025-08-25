@@ -78,3 +78,12 @@ type VolumeAttachmentParams struct {
 	ProviderID        string
 	ReadOnly          bool
 }
+
+// VolumeParams defines the set of parameters that a caller needs to know in
+// order to provision a volume in the model.
+type VolumeParams struct {
+	Attributes map[string]string
+	ID         string
+	Provider   string
+	SizeMiB    uint64
+}

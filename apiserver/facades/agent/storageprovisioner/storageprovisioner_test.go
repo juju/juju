@@ -885,6 +885,101 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *tc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestVolumeParamsNotFound(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any()).Return(map[string]string{}, nil).AnyTimes()
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id()).Return(
+		"",
+		storageprovisioningerrors.VolumeNotFound,
+	)
+
+	results, err := s.api.VolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestVolumeParamsNotFoundWithUUID(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any()).Return(map[string]string{}, nil).AnyTimes()
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id()).Return(volUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeParams(
+		gomock.Any(), volUUID).Return(
+		storageprovisioning.VolumeParams{},
+		storageprovisioningerrors.VolumeNotFound,
+	)
+
+	results, err := s.api.VolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
+	defer s.setupAPI(c).Finish()
+
+	tag := names.NewVolumeTag("123")
+	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
+
+	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+		gomock.Any(),
+	).Return(map[string]string{
+		"tag1": "value1",
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+		gomock.Any(), tag.Id(),
+	).Return(volUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeParams(
+		gomock.Any(), volUUID,
+	).Return(storageprovisioning.VolumeParams{
+		Attributes: map[string]string{
+			"foo": "bar",
+		},
+		ID:       "vol-id123",
+		Provider: "myprovider",
+		SizeMiB:  10,
+	}, nil)
+
+	results, err := s.api.VolumeParams(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Result, tc.DeepEquals, params.VolumeParams{
+		Attributes: map[string]any{
+			"foo": "bar",
+		},
+		VolumeTag: tag.String(),
+		Size:      10,
+		Provider:  "myprovider",
+		Tags: map[string]string{
+			"tag1": "value1",
+		},
+	})
+}
+
 func (s *provisionerSuite) TestWatchVolumesForModel(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
