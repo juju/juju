@@ -749,41 +749,41 @@ func (c *MockStateGetStorageAttachmentLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// GetStorageIDsForUnit mocks base method.
-func (m *MockState) GetStorageIDsForUnit(ctx context.Context, unitUUID string, storageInstanceUUID []string) ([]string, error) {
+// GetStorageAttachmentLifeForUnit mocks base method.
+func (m *MockState) GetStorageAttachmentLifeForUnit(ctx context.Context, unitUUID string) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStorageIDsForUnit", ctx, unitUUID, storageInstanceUUID)
-	ret0, _ := ret[0].([]string)
+	ret := m.ctrl.Call(m, "GetStorageAttachmentLifeForUnit", ctx, unitUUID)
+	ret0, _ := ret[0].(map[string]life.Life)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetStorageIDsForUnit indicates an expected call of GetStorageIDsForUnit.
-func (mr *MockStateMockRecorder) GetStorageIDsForUnit(ctx, unitUUID, storageInstanceUUID any) *MockStateGetStorageIDsForUnitCall {
+// GetStorageAttachmentLifeForUnit indicates an expected call of GetStorageAttachmentLifeForUnit.
+func (mr *MockStateMockRecorder) GetStorageAttachmentLifeForUnit(ctx, unitUUID any) *MockStateGetStorageAttachmentLifeForUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageIDsForUnit", reflect.TypeOf((*MockState)(nil).GetStorageIDsForUnit), ctx, unitUUID, storageInstanceUUID)
-	return &MockStateGetStorageIDsForUnitCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentLifeForUnit", reflect.TypeOf((*MockState)(nil).GetStorageAttachmentLifeForUnit), ctx, unitUUID)
+	return &MockStateGetStorageAttachmentLifeForUnitCall{Call: call}
 }
 
-// MockStateGetStorageIDsForUnitCall wrap *gomock.Call
-type MockStateGetStorageIDsForUnitCall struct {
+// MockStateGetStorageAttachmentLifeForUnitCall wrap *gomock.Call
+type MockStateGetStorageAttachmentLifeForUnitCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageIDsForUnitCall) Return(arg0 []string, arg1 error) *MockStateGetStorageIDsForUnitCall {
+func (c *MockStateGetStorageAttachmentLifeForUnitCall) Return(arg0 map[string]life.Life, arg1 error) *MockStateGetStorageAttachmentLifeForUnitCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageIDsForUnitCall) Do(f func(context.Context, string, []string) ([]string, error)) *MockStateGetStorageIDsForUnitCall {
+func (c *MockStateGetStorageAttachmentLifeForUnitCall) Do(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetStorageAttachmentLifeForUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageIDsForUnitCall) DoAndReturn(f func(context.Context, string, []string) ([]string, error)) *MockStateGetStorageIDsForUnitCall {
+func (c *MockStateGetStorageAttachmentLifeForUnitCall) DoAndReturn(f func(context.Context, string) (map[string]life.Life, error)) *MockStateGetStorageAttachmentLifeForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1452,11 +1452,11 @@ func (c *MockStateGetVolumeUUIDForStorageIDCall) DoAndReturn(f func(context.Cont
 }
 
 // InitialWatchStatementForUnitStorageAttachments mocks base method.
-func (m *MockState) InitialWatchStatementForUnitStorageAttachments(ctx context.Context, unitUUID string) (string, eventsource.NamespaceQuery) {
+func (m *MockState) InitialWatchStatementForUnitStorageAttachments(ctx context.Context, unitUUID string) (string, eventsource.Query[map[string]life.Life]) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatementForUnitStorageAttachments", ctx, unitUUID)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	ret1, _ := ret[1].(eventsource.Query[map[string]life.Life])
 	return ret0, ret1
 }
 
@@ -1473,19 +1473,19 @@ type MockStateInitialWatchStatementForUnitStorageAttachmentsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
+func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) Return(arg0 string, arg1 eventsource.Query[map[string]life.Life]) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) Do(f func(context.Context, string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
+func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) Do(f func(context.Context, string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) DoAndReturn(f func(context.Context, string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
+func (c *MockStateInitialWatchStatementForUnitStorageAttachmentsCall) DoAndReturn(f func(context.Context, string) (string, eventsource.Query[map[string]life.Life])) *MockStateInitialWatchStatementForUnitStorageAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

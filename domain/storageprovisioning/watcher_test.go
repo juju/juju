@@ -644,6 +644,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 
 	watcher, err := svc.WatchStorageAttachmentsForUnit(
 		c.Context(), unitUUID,
@@ -652,9 +653,9 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	storageInstanceUUID1, storageID1 := s.newStorageInstanceWithCharmUUID(c, charmUUID)
-	storageInstanceUUID2, storageID2 := s.newStorageInstanceWithCharmUUID(c, charmUUID)
-	storageInstanceUUID3, storageID3 := s.newStorageInstanceWithCharmUUID(c, charmUUID)
+	storageInstanceUUID1, storageID1 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID2, storageID2 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID3, storageID3 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 	harness.AddTest(c, func(c *tc.C) {
 		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
 		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)
@@ -693,7 +694,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 		)
 	})
 
-	harness.Run(c, []string{})
+	harness.Run(c, []string(nil))
 }
 
 func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
@@ -702,7 +703,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	machineUUID := s.newMachine(c, netNodeUUID)
 	_, charmUUID := s.newApplication(c, "foo")
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -745,7 +747,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForMachineVolume(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	machineUUID := s.newMachine(c, netNodeUUID)
 	_, charmUUID := s.newApplication(c, "foo")
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
 	volumeUUID, _ := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
@@ -781,7 +784,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -824,7 +828,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitVolume(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
 	volumeUUID, _ := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
@@ -1674,8 +1679,36 @@ func (s *watcherSuite) nextStorageSequenceNumber(
 	return id
 }
 
+func (s *watcherSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) string {
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID.String()
+}
+
 func (s *watcherSuite) newStorageInstanceWithCharmUUID(
-	c *tc.C, charmUUID string,
+	c *tc.C, charmUUID, poolUUID string,
 ) (domainstorage.StorageInstanceUUID, string) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	seq := s.nextStorageSequenceNumber(c)
@@ -1689,13 +1722,14 @@ VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName,
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_type)
-VALUES (?, ?, ?, ?, 0, 100, ?)`,
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, 0, 100, ?)
+`,
 		storageInstanceUUID.String(),
 		charmUUID,
 		storageName,
 		storageID,
-		"rootfs",
+		poolUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return storageInstanceUUID, storageID
@@ -1707,9 +1741,11 @@ func (s *watcherSuite) newStorageAttachment(
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
 ) {
+	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
-INSERT INTO storage_attachment (storage_instance_uuid, unit_uuid, life_id)
-VALUES (?, ?, ?)`, storageInstanceUUID.String(), unitUUID.String(), life)
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)
+`, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

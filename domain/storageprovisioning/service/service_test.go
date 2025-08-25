@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
@@ -296,12 +294,13 @@ func (s *serviceSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	s.state.EXPECT().InitialWatchStatementForUnitStorageAttachments(gomock.Any(), unitUUID.String()).
 		Return(
-			"table_foo",
-			func(context.Context, database.TxnRunner) ([]string, error) { return nil, nil },
+			"namespace_foo",
+			namespaceLifeQueryReturningError(c.T),
 		)
-	matcher := eventSourceFilterMatcher{
+	matcher := eventSourcePredFilterMatcher{
 		ChangeMask: changestream.All,
-		Namespace:  "table_foo",
+		Namespace:  "namespace_foo",
+		Predicate:  unitUUID.String(),
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
 		gomock.Any(), gomock.Any(),

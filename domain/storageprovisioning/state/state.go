@@ -5,6 +5,8 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"maps"
 
 	"github.com/canonical/sqlair"
 
@@ -502,37 +504,40 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 	return storageIDs, nil
 }
 
-// GetStorageIDsForUnit retrieves the storage IDs for a specific unit and
-// storage instances.
+// GetStorageAttachmentLifeForUnit returns a mapping of storage IDs to the
+// current life value of each storage attachment for the unit.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
-func (st *State) GetStorageIDsForUnit(
+func (st *State) GetStorageAttachmentLifeForUnit(
 	ctx context.Context,
 	unitUUID string,
-	storageInstanceUUIDStrs []string,
-) ([]string, error) {
-	if len(storageInstanceUUIDStrs) == 0 {
-		return nil, nil
-	}
-
+) (map[string]domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	return st.getStorageAttachmentLifeForUnit(ctx, db, unitUUID)
+}
+
+func (st *State) getStorageAttachmentLifeForUnit(
+	ctx context.Context,
+	db domain.TxnRunner,
+	unitUUID string,
+) (map[string]domainlife.Life, error) {
 	unitRef := unitUUIDRef{UUID: unitUUID}
-	sIUUIDs := storageInstanceUUIDs(storageInstanceUUIDStrs)
+
 	stmt, err := st.Prepare(`
-SELECT &storageID.*
-FROM   storage_attachment sa
-JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
-WHERE  sa.unit_uuid = $unitUUIDRef.unit_uuid
-AND    sa.storage_instance_uuid IN ($storageInstanceUUIDs[:])`, unitRef, sIUUIDs, storageID{})
+SELECT DISTINCT (si.storage_id, sa.life_id) AS (&storageAttachmentLife.*)
+FROM            storage_attachment sa
+JOIN            storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE           sa.unit_uuid = $unitUUIDRef.unit_uuid
+`, unitRef, storageAttachmentLife{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var ids storageIDs
+	var saLives storageAttachmentLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
 			return errors.Capture(err)
@@ -542,22 +547,16 @@ AND    sa.storage_instance_uuid IN ($storageInstanceUUIDs[:])`, unitRef, sIUUIDs
 			)
 		}
 
-		err := tx.Query(ctx, stmt, unitRef, sIUUIDs).GetAll(&ids)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// No storage attachments for the unit, return an empty slice.
-			return nil
+		err = tx.Query(ctx, stmt, unitRef).GetAll(&saLives)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	storageIDs := make([]string, 0, len(ids))
-	for _, id := range ids {
-		storageIDs = append(storageIDs, id.ID)
-	}
-	return storageIDs, nil
+	return maps.Collect(saLives.Iter), nil
 }
 
 // GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
@@ -666,43 +665,9 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 func (st *State) InitialWatchStatementForUnitStorageAttachments(
 	ctx context.Context,
 	unitUUID string,
-) (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		input := unitUUIDRef{UUID: unitUUID}
-		stmt, err := st.Prepare(`
-SELECT &storageID.*
-FROM   storage_attachment sa
-JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
-WHERE  sa.unit_uuid = $unitUUIDRef.unit_uuid
-`, input, storageID{})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		var ids storageIDs
-		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
-				return errors.Capture(err)
-			} else if !exists {
-				return errors.Errorf("unit %q does not exist", unitUUID).Add(
-					applicationerrors.UnitNotFound,
-				)
-			}
-
-			err := tx.Query(ctx, stmt, input).GetAll(&ids)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				// No storage attachments for the unit, return an empty slice.
-				return nil
-			}
-			return err
-		})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		storageIDs := make([]string, 0, len(ids))
-		for _, id := range ids {
-			storageIDs = append(storageIDs, id.ID)
-		}
-		return storageIDs, nil
+) (string, eventsource.Query[map[string]domainlife.Life]) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) (map[string]domainlife.Life, error) {
+		return st.getStorageAttachmentLifeForUnit(ctx, runner, unitUUID)
 	}
-	return "custom_storage_attachment_storage_instance_uuid_lifecycle", queryFunc
+	return "custom_storage_attachment_unit_uuid_lifecycle", queryFunc
 }

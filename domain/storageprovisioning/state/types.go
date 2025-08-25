@@ -30,6 +30,23 @@ func (l attachmentLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
+type storageAttachmentLife struct {
+	ID   string    `db:"storage_id"`
+	Life life.Life `db:"life_id"`
+}
+
+type storageAttachmentLives []storageAttachmentLife
+
+// Iter provides a seq2 implementation for iterating the values of
+// [storageAttachmentLives].
+func (l storageAttachmentLives) Iter(yield func(string, life.Life) bool) {
+	for _, v := range l {
+		if !yield(v.ID, v.Life) {
+			return
+		}
+	}
+}
+
 // entityLife represents the current life value of a storage entity in the model.
 type entityLife struct {
 	LifeID int `db:"life_id"`
