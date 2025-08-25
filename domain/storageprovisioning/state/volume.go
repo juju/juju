@@ -18,6 +18,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -528,6 +529,18 @@ func (st *State) GetVolumeParams(
 	context.Context, domainstorageprovisioning.VolumeUUID,
 ) (domainstorageprovisioning.VolumeParams, error) {
 	return domainstorageprovisioning.VolumeParams{}, nil
+}
+
+// GetVolumeAttachmentParams retrieves the attachment params for the given
+// volume attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied uuid.
+func (st *State) GetVolumeAttachmentParams(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachmentParams, error) {
+	return domainstorageprovisioning.VolumeAttachmentParams{}, nil
 }
 
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
