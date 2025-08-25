@@ -24,6 +24,34 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// checkVolumeAttachmentExists checks if a volume attachment for the provided
+// uuid exists. True is returned when the volume attachment exists.
+func (st *State) checkVolumeAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid storageprovisioning.VolumeAttachmentUUID,
+) (bool, error) {
+	vaUUIDInput := volumeAttachmentUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &volumeAttachmentUUID.*
+FROM   storage_volume_attachment
+WHERE  uuid = $volumeAttachmentUUID.uuid
+`, vaUUIDInput)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, vaUUIDInput).Get(&vaUUIDInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkVolumeExists checks if a volume for the provided uuid exists.
 // Returning when this case is satisfied.
 func (st *State) checkVolumeExists(
@@ -631,7 +659,71 @@ WHERE  sv.uuid = $volumeUUID.uuid
 func (st *State) GetVolumeAttachmentParams(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
 ) (storageprovisioning.VolumeAttachmentParams, error) {
-	return domainstorageprovisioning.VolumeAttachmentParams{}, nil
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+	}
+
+	var (
+		vaUUIDInput = volumeAttachmentUUID{UUID: uuid.String()}
+		dbVal       volumeAttachmentParams
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &volumeAttachmentParams.* FROM (
+    SELECT    sv.provider_id,
+              mci.instance_id,
+              cs.read_only,
+              sp.type
+    FROM      storage_volume_attachment sva
+    JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+    JOIN      storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
+    JOIN 	  storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
+    LEFT JOIN machine m ON sva.net_node_uuid = m.net_node_uuid
+    LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
+    WHERE     sva.uuid = $volumeAttachmentUUID.uuid
+)
+`,
+		vaUUIDInput, dbVal,
+	)
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeAttachmentExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking if volume attachment %q exists: %w", uuid, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, vaUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New(
+				"volume attachment is not associated with a storage instance",
+			)
+		}
+		return err
+	})
+
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+	}
+
+	return storageprovisioning.VolumeAttachmentParams{
+		MachineInstanceID: dbVal.InstanceID,
+		Provider:          dbVal.Type,
+		ProviderID:        dbVal.ProviderID,
+		ReadOnly:          dbVal.ReadOnly,
+	}, nil
 }
 
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
