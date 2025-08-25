@@ -1151,9 +1151,69 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.VolumeAttachmentParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.VolumeAttachmentParamsResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
 	results := params.VolumeAttachmentParamsResults{
-		Results: make([]params.VolumeAttachmentParamsResult, len(args.Ids)),
+		Results: make([]params.VolumeAttachmentParamsResult, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.VolumeAttachmentParams, error) {
+		hostTag, err := names.ParseTag(arg.MachineTag)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+		if hostTag.Kind() != names.MachineTagKind {
+			return params.VolumeAttachmentParams{}, errors.Errorf(
+				"volume attachment host tag %q not valid", hostTag,
+			).Add(coreerrors.NotValid)
+		}
+		volumeTag, err := names.ParseVolumeTag(arg.AttachmentTag)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+		if !canAccess(hostTag, volumeTag) {
+			return params.VolumeAttachmentParams{}, apiservererrors.ErrPerm
+		}
+
+		attachmentUUID, err := s.getVolumeAttachmentUUID(
+			ctx, volumeTag, hostTag,
+		)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+
+		volParams, err := s.storageProvisioningService.GetVolumeAttachmentParams(
+			ctx, attachmentUUID,
+		)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			err = errors.Errorf(
+				"volume attachment for volume %q and host %q not found",
+				volumeTag, hostTag,
+			).Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return params.VolumeAttachmentParams{}, errors.Capture(err)
+		}
+
+		return params.VolumeAttachmentParams{
+			VolumeTag:  volumeTag.String(),
+			MachineTag: hostTag.String(),
+			InstanceId: volParams.MachineInstanceID,
+			Provider:   volParams.Provider,
+			ProviderId: volParams.ProviderID,
+			ReadOnly:   volParams.ReadOnly,
+		}, nil
+	}
+	for _, arg := range args.Ids {
+		var result params.VolumeAttachmentParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
