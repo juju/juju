@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelagent"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -118,7 +121,7 @@ type ModelState interface {
 
 	// CreateStoragePools is responsible for creating storage pools in the model
 	// based on the supplied arguments.
-	CreateStoragePools(context.Context, []model.CreateModelStoragePoolArg) error
+	CreateStoragePools(context.Context, []model.CreateModelDefaultStoragePoolArg) error
 
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
@@ -165,6 +168,14 @@ type ModelState interface {
 	// the model's state layer.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
+	// EnsureStoragePools is responsible for ensuring that the supplied storage
+	// pools already exist in the model. A pool is considered to exist if a pool
+	// by the same name, provider type and origin already exists.
+	//
+	// Pools by the same name but with different type's or origin's will result
+	// in an error for the caller.
+	EnsureDefaultStoragePools(context.Context, []model.CreateModelDefaultStoragePoolArg) error
+
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
 	// The following error types can be expected:
@@ -210,8 +221,7 @@ func NewModelService(
 		modelSt:               modelSt,
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
-
-		agentBinaryFinder: agentBinaryFinder,
+		agentBinaryFinder:     agentBinaryFinder,
 	}
 }
 
@@ -488,6 +498,73 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 	return s.modelSt.Create(ctx, args)
 }
 
+// SeedDefaultStoragePools ensures that all of the default storage pools
+// available to the model have been seeded for use. This function will not seed
+// and ignore default storage pools that already exist by the same name and
+// provider in the model.
+func (s *ProviderModelService) SeedDefaultStoragePools(
+	ctx context.Context,
+) error {
+	modelStorageRegistry, err := s.storageProviderRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting storage provider registry for model: %w", err,
+		)
+	}
+
+	providerTypes, err := modelStorageRegistry.StorageProviderTypes()
+	if err != nil {
+		return errors.Errorf(
+			"getting storage provider types for model storage registry: %w", err,
+		)
+	}
+
+	poolArgs := make([]model.CreateModelDefaultStoragePoolArg, 0, len(providerTypes))
+	for _, providerType := range providerTypes {
+		registry, err := modelStorageRegistry.StorageProvider(providerType)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage provider %q from registry: %w",
+				providerType, err,
+			)
+		}
+
+		providerDefaultPools := registry.DefaultPools()
+		for _, providerDefaultPool := range providerDefaultPools {
+			uuid, err := storage.NewStoragePoolUUID()
+			if err != nil {
+				return errors.Errorf(
+					"generating new default storage pool %q uuid: %w",
+					providerDefaultPool.Name(), err,
+				)
+			}
+
+			poolArgs = append(poolArgs, model.CreateModelDefaultStoragePoolArg{
+				Attributes: transformStoragePoolAttributes(providerDefaultPool.Attrs()),
+				Name:       providerDefaultPool.Name(),
+				Origin:     storage.StoragePoolOriginProviderDefault,
+				Type:       providerDefaultPool.Provider().String(),
+				UUID:       uuid,
+			})
+		}
+	}
+
+	return s.modelSt.EnsureDefaultStoragePools(ctx, poolArgs)
+}
+
+// transformStoragePoolAttributes exists to transform internal storage pool
+// attribute representations from map[string]any to map[string]string.
+//
+// Within Juju there has never existed a definitive coerce function for this
+// data. This is not ideal but it is what we have today.
+func transformStoragePoolAttributes(attr map[string]any) map[string]string {
+	rval := make(map[string]string, len(attr))
+	for k, v := range attr {
+		rval[k] = fmt.Sprint(v)
+	}
+	return rval
+}
+
 // DeleteModel is responsible for removing a model from the system.
 //
 // The following error types can be expected to be returned:
@@ -580,9 +657,10 @@ func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
 	ModelService
-	providerGetter      providertracker.ProviderGetter[ModelResourcesProvider]
-	cloudInfoGetter     providertracker.ProviderGetter[CloudInfoProvider]
-	environRegionGetter providertracker.ProviderGetter[RegionProvider]
+	providerGetter                providertracker.ProviderGetter[ModelResourcesProvider]
+	cloudInfoGetter               providertracker.ProviderGetter[CloudInfoProvider]
+	environRegionGetter           providertracker.ProviderGetter[RegionProvider]
+	storageProviderRegistryGetter StorageProviderRegistryGetter
 }
 
 // NewProviderModelService returns a new Service for interacting with a models state.
@@ -594,6 +672,7 @@ func NewProviderModelService(
 	providerGetter providertracker.ProviderGetter[ModelResourcesProvider],
 	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
 	environRegionGetter providertracker.ProviderGetter[RegionProvider],
+	storageProviderRegistryGetter StorageProviderRegistryGetter,
 	agentBinaryFinder AgentBinaryFinder,
 ) *ProviderModelService {
 	return &ProviderModelService{
@@ -605,9 +684,10 @@ func NewProviderModelService(
 			environProviderGetter: environProviderGetter,
 			agentBinaryFinder:     agentBinaryFinder,
 		},
-		providerGetter:      providerGetter,
-		cloudInfoGetter:     cloudInfoGetter,
-		environRegionGetter: environRegionGetter,
+		providerGetter:                providerGetter,
+		cloudInfoGetter:               cloudInfoGetter,
+		environRegionGetter:           environRegionGetter,
+		storageProviderRegistryGetter: storageProviderRegistryGetter,
 	}
 }
 
