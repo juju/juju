@@ -1087,7 +1087,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			Size:       volParams.SizeMiB,
 			Tags:       volModelTags,
 			// Attachment is left nil to force the storage provisoner to resolve
-			// it seperately.
+			// it separately.
 			Attachment: nil,
 		}
 

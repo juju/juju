@@ -18,7 +18,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -29,7 +28,7 @@ import (
 func (st *State) checkVolumeAttachmentExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storageprovisioning.VolumeAttachmentUUID,
+	uuid domainstorageprovisioning.VolumeAttachmentUUID,
 ) (bool, error) {
 	vaUUIDInput := volumeAttachmentUUID{UUID: uuid.String()}
 
@@ -558,7 +557,7 @@ func (st *State) GetVolumeParams(
 ) (domainstorageprovisioning.VolumeParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return storageprovisioning.VolumeParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -581,7 +580,7 @@ SELECT &volumeParams.* FROM (
 		paramsVal, input,
 	)
 	if err != nil {
-		return storageprovisioning.VolumeParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	poolAttributesStmt, err := st.Prepare(`
@@ -596,7 +595,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		storagePoolAttribute{}, input,
 	)
 	if err != nil {
-		return storageprovisioning.VolumeParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var attributeVals []storagePoolAttribute
@@ -634,7 +633,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 	})
 
 	if err != nil {
-		return storageprovisioning.VolumeParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	attributesRval := make(map[string]string, len(attributeVals))
@@ -642,7 +641,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		attributesRval[attr.Key] = attr.Value
 	}
 
-	return storageprovisioning.VolumeParams{
+	return domainstorageprovisioning.VolumeParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.VolumeID,
 		Provider:   paramsVal.Type,
@@ -657,11 +656,11 @@ WHERE  sv.uuid = $volumeUUID.uuid
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the supplied uuid.
 func (st *State) GetVolumeAttachmentParams(
-	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
-) (storageprovisioning.VolumeAttachmentParams, error) {
+	ctx context.Context, uuid domainstorageprovisioning.VolumeAttachmentUUID,
+) (domainstorageprovisioning.VolumeAttachmentParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -689,7 +688,7 @@ SELECT &volumeAttachmentParams.* FROM (
 		vaUUIDInput, dbVal,
 	)
 	if err != nil {
-		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -715,10 +714,10 @@ SELECT &volumeAttachmentParams.* FROM (
 	})
 
 	if err != nil {
-		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
-	return storageprovisioning.VolumeAttachmentParams{
+	return domainstorageprovisioning.VolumeAttachmentParams{
 		MachineInstanceID: dbVal.InstanceID,
 		Provider:          dbVal.Type,
 		ProviderID:        dbVal.ProviderID,
