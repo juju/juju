@@ -63,37 +63,6 @@ CREATE TABLE cloud (
     REFERENCES cloud_type (id)
 );
 
--- v_cloud is used to fetch well constructed information about a cloud. This
--- view also includes information on whether the cloud is the controller
--- model's cloud.
-CREATE VIEW v_cloud
-AS
--- This selects the controller model's cloud uuid. We use this when loading
--- clouds to know if the cloud is the controller's cloud.
-WITH
-controllers AS (
-    SELECT m.cloud_uuid
-    FROM model AS m
-    WHERE
-        m.name = 'controller'
-        AND m.qualifier = 'admin'
-        AND m.activated = true
-)
-
-SELECT
-    c.uuid,
-    c.name,
-    c.cloud_type_id,
-    ct.type AS cloud_type,
-    c.endpoint,
-    c.identity_endpoint,
-    c.storage_endpoint,
-    c.skip_tls_verify,
-    IIF(controllers.cloud_uuid IS null, false, true) AS is_controller_cloud
-FROM cloud AS c
-JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
-LEFT JOIN controllers ON c.uuid = controllers.cloud_uuid;
-
 -- v_cloud_auth is a connivance view similar to v_cloud but includes a row for
 -- each cloud and auth type pair.
 CREATE VIEW v_cloud_auth
