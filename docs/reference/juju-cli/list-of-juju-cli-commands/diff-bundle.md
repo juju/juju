@@ -3,7 +3,7 @@
 > See also: [deploy](#deploy)
 
 ## Summary
-Compare a bundle with a model and report any differences.
+Compares a bundle with a model and reports any differences.
 
 ## Usage
 ```juju diff-bundle [options] <bundle file or name>```
@@ -19,7 +19,7 @@ Compare a bundle with a model and report any differences.
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--map-machines` |  | Indicates how existing machines correspond to bundle machines |
 | `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
-| `--series` |  | specify a series. DEPRECATED: use --base |
+| `--series` |  | specify a series. DEPRECATED: use `--base` |
 
 ## Examples
 
@@ -37,11 +37,11 @@ Bundle can be a local bundle file or the name of a bundle in
 Charmhub. The bundle can also be combined with overlays (in the
 same way as the deploy command) before comparing with the model.
 
-The map-machines option works similarly as for the deploy command, but
+The `map-machines` option works similarly as for the `deploy` command, but
 existing is always assumed, so it doesn't need to be specified.
 
-Config values for comparison are always source from the "current" model
+Config values for comparison are always sourced from the current model
 generation.
 
 Specifying a base will retrieve the bundle for the relevant store for
-the give base.
+the given base.
