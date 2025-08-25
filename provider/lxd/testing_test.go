@@ -17,6 +17,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -78,10 +79,11 @@ type BaseSuiteUnpatched struct {
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
 
-	Rules          firewall.IngressRules
-	EndpointAddrs  []string
-	InterfaceAddr  string
-	InterfaceAddrs []net.Addr
+	Rules             firewall.IngressRules
+	EndpointAddrs     []string
+	InterfaceAddr     string
+	InterfaceAddrs    []net.Addr
+	MockServerFactory *MockServerFactory
 }
 
 func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
@@ -107,7 +109,12 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
-	s.Provider = &environProvider{}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.MockServerFactory = NewMockServerFactory(ctrl)
+	s.Provider = &environProvider{
+		serverFactory: s.MockServerFactory,
+	}
 	s.EndpointAddrs = []string{"1.2.3.4"}
 	s.InterfaceAddr = "1.2.3.4"
 	s.InterfaceAddrs = []net.Addr{

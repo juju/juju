@@ -155,7 +155,17 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	oldProject := env.ecfgUnlocked.project()
 	env.ecfgUnlocked = ecfg
+
+	if ecfg.project() != oldProject {
+		serverFactory := env.provider.serverFactory
+		server, err := serverFactory.RemoteServer(CloudSpec{CloudSpec: env.cloud, Project: env.ecfgUnlocked.project()})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		env.serverUnlocked = server
+	}
 	return nil
 }
 
@@ -171,6 +181,7 @@ func (env *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Cl
 	}
 
 	env.serverUnlocked = server
+	env.cloud = spec
 	return env.initProfile()
 }
 

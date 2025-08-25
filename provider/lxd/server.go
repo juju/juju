@@ -211,7 +211,14 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 
 func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
-		return s.LocalServer()
+		svr, err := s.LocalServer()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if spec.Project != "" {
+			svr.UseProject(spec.Project)
+		}
+		return svr, nil
 	}
 
 	cred := spec.Credential
