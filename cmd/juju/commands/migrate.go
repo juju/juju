@@ -60,18 +60,18 @@ type userListAPI interface {
 }
 
 const migrateDoc = `
-The 'migrate' command begins the migration of a workload model from
+The ` + "`juju migrate`" + ` command begins the migration of a workload model from
 its current controller to a new controller. This is useful for load
 balancing when a controller is too busy, or as a way to upgrade a
 model's controller to a newer Juju version.
 
 In order to start a migration, the target controller must be in the
-juju client's local configuration cache. See the 'login' command
+` + "`juju`" + ` client's local configuration cache. See the ` + "`login`" + ` command
 for details of how to do this.
 
-The 'migrate' command only starts a model migration - it does not wait
+The ` + "`migrate`" + ` command only starts a model migration -- it does not wait
 for its completion. The progress of a migration can be tracked using
-the 'status' command and by consulting the logs.
+the ` + "`status`" + ` command and by consulting the logs.
 
 Once the migration is complete, the model's machine and unit agents
 will be connected to the new controller. The model will no longer be

@@ -14,7 +14,7 @@ Displays or sets configuration settings for a controller.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-c`, `--controller` |  | Controller to operate in |
 | `--color` | false | Use ANSI color codes in output |
-| `--file` |  | path to yaml-formatted configuration file |
+| `--file` |  | Path to yaml-formatted configuration file |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `--ignore-read-only-fields` | false | Ignore read-only fields that might cause errors to be emitted while processing yaml documents |
 | `--no-color` | false | Disable ANSI color codes in tabular output |

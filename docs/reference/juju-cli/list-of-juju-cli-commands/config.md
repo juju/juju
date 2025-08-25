@@ -13,7 +13,7 @@ Get, set, or reset configuration for a deployed application.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--color` | false | Use ANSI color codes in output |
-| `--file` |  | path to yaml-formatted configuration file |
+| `--file` |  | Path to yaml-formatted configuration file |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-color` | false | Disable ANSI color codes in tabular output |
