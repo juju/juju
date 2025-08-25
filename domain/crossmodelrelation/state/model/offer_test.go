@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/charm"
@@ -461,6 +462,59 @@ func (s *modelOfferSuite) TestGetOfferDetailsFilterMultiEndpoint(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(results, tc.SameContents, expected)
+}
+
+func (s *modelOfferSuite) TestGetOfferUUID(c *tc.C) {
+	// Arrange
+	// Create an offer with one endpoint
+	charmUUID := s.addCharm(c)
+	description := "testing application"
+	s.addCharmMetadataWithDescription(c, charmUUID, description)
+	relation := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	args := internal.CreateOfferArgs{
+		UUID:            internaluuid.MustNewUUID(),
+		ApplicationName: appName,
+		Endpoints:       []string{relation.Name},
+		OfferName:       "test-offer",
+	}
+
+	err := s.state.CreateOffer(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	var offerUUID string
+	for _, offer := range s.readOffers(c) {
+		if offer.Name == args.OfferName {
+			offerUUID = offer.UUID
+		}
+	}
+	c.Assert(offerUUID, tc.IsUUID)
+
+	// Act
+	obtainedOfferUUID, err := s.state.GetOfferUUID(c.Context(), args.OfferName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
+}
+
+func (s *modelOfferSuite) TestGetOfferUUIDNotFound(c *tc.C) {
+	// Act
+	offerUUID, err := s.state.GetOfferUUID(c.Context(), "failure")
+
+	// Assert
+	s.DumpTable(c, "offer", "application")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+	c.Assert(offerUUID, tc.Equals, "")
 }
 
 // setupForGetOfferDetails

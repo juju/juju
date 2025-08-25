@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
@@ -494,6 +495,38 @@ func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{})
+}
+
+func (s *serviceSuite) TestGetOfferUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
+	c.Assert(err, tc.IsNil)
+	offerUUID := uuid.MustNewUUID()
+	s.modelDBState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return(offerUUID.String(), nil)
+
+	// Act
+	obtainedOfferUUID, err := s.service(c).GetOfferUUID(c.Context(), offerURL)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
+}
+
+func (s *serviceSuite) TestGetOfferUUIDError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
+	c.Assert(err, tc.IsNil)
+	s.modelDBState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return("", crossmodelrelationerrors.OfferNotFound)
+
+	// Act
+	_, err = s.service(c).GetOfferUUID(c.Context(), offerURL)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -305,7 +305,7 @@ To integrate with a new offer with the same name, first run
 'juju remove-saas %s' to remove the SAAS record from this model.`, offerName, offerName))
 		}
 		if c.remoteEndpoint != nil && strings.HasSuffix(err.Error(), "not alive") {
-			saasName := c.remoteEndpoint.ApplicationName
+			saasName := c.remoteEndpoint.Name
 			return errors.New(fmt.Sprintf(
 				`SAAS application %q has been removed but termination has not completed.
 To integrate with a new offer with the same name, first run
@@ -341,7 +341,7 @@ func (c *addRelationCommand) maybeConsumeOffer(ctx context.Context, targetClient
 	// it's safe to do so again.
 	arg := crossmodel.ConsumeApplicationArgs{
 		Offer:            *consumeDetails.Offer,
-		ApplicationAlias: c.remoteEndpoint.ApplicationName,
+		ApplicationAlias: c.remoteEndpoint.Name,
 		Macaroon:         consumeDetails.Macaroon,
 	}
 	if consumeDetails.ControllerInfo != nil {
@@ -373,7 +373,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 				return errors.NotSupportedf("providing more than one remote endpoints")
 			}
 			c.remoteEndpoint = url
-			c.endpoints = append(c.endpoints, url.ApplicationName)
+			c.endpoints = append(c.endpoints, url.Name)
 			continue
 		}
 		// at this stage, we are assuming that this could be a local endpoint
