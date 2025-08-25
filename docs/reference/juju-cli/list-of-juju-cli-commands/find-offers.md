@@ -13,11 +13,11 @@ Find offered application endpoints.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--interface` |  | return results matching the interface name |
+| `--interface` |  | Return results matching the interface name |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
-| `--offer` |  | return results matching the offer name |
-| `--url` |  | return results matching the offer URL |
+| `--offer` |  | Return results matching the offer name |
+| `--url` |  | Return results matching the offer URL |
 
 ## Examples
 
@@ -27,7 +27,7 @@ Find offered application endpoints.
     juju find-offers --interface mysql
     juju find-offers --url fred/prod.db2
     juju find-offers --offer db2
-   
+
 
 
 ## Details
