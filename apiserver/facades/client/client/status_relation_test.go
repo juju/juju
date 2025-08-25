@@ -34,6 +34,12 @@ func (s *relationStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	logger = loggertesting.WrapCheckLog(c)
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
+
+	c.Cleanup(func() {
+		s.relationService = nil
+		s.statusService = nil
+	})
+
 	return ctrl
 }
 
