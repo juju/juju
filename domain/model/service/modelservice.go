@@ -28,14 +28,104 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// AgentBinaryFinder represents a helper for establishing if agent binaries for
+// a specific Juju version are available.
+type AgentBinaryFinder interface {
+	// HasBinariesForVersion will interrogate agent binaries available in the
+	// system and return true or false if agent binaries exist for the provided
+	// version.
+	HasBinariesForVersion(semversion.Number) (bool, error)
+}
+
+// CloudInfoProvider instances provide a means to get
+// the API version of the underlying cloud.
+type CloudInfoProvider interface {
+	// APIVersion returns the version info for provider's cloud.
+	APIVersion() (string, error)
+}
+
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
+type ControllerState interface {
+	// GetModelSeedInformation returns information related to a model for the
+	// purposes of seeding this information into other parts of a Juju controller.
+	// This method is similar to [State.GetModel] but it allows for the returning of
+	// information on models that are not activated yet.
+	//
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: When the model is not found for the given uuid
+	// regardless of the activated status.
+	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
+
+	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
+
+	// GetModelSummary provides summary based information for the model
+	// identified by the uuid. The information returned is intended to augment
+	// the information that lives in the model state.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	GetModelSummary(context.Context, coremodel.UUID) (model.ModelSummary, error)
+
+	// GetUserModelSummary returns a summary of the model information that is
+	// only available in the controller database from the perspective of the
+	// user. This assumes that the user has access to the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+	// is not found for the given user uuid.
+	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
+	// user does not have access to the model.
+	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
+}
+
+// ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
+// used by the model service when creating a new model.
+type ModelResourcesProvider interface {
+	// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+	ValidateProviderForNewModel(ctx context.Context) error
+	// CreateModelResources is part of the [environs.ModelResources] interface.
+	CreateModelResources(context.Context, environs.CreateParams) error
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator(ctx context.Context) (coreconstraints.Validator, error)
+}
+
+// ModelService defines a service for interacting with the underlying model
+// state, as opposed to the controller state.
+type ModelService struct {
+	agentBinaryFinder     AgentBinaryFinder
+	controllerSt          ControllerState
+	clock                 clock.Clock
+	environProviderGetter EnvironVersionProviderFunc
+	modelSt               ModelState
+	modelUUID             coremodel.UUID
+}
+
 // ModelState is the model state required by this service. This is the model
 // database state, not the controller state.
 type ModelState interface {
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, model.ModelDetailArgs) error
 
+	// CreateStoragePools is responsible for creating storage pools in the model
+	// based on the supplied arguments.
+	CreateStoragePools(context.Context, []model.CreateModelStoragePoolArg) error
+
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
+
+	// GetAllStoragePoolNames returns all of the storage pool names that are
+	// currently present in the model.
+	GetAllStoragePoolNames(context.Context) ([]string, error)
 
 	// GetControllerUUID returns the controller uuid for the model.
 	// It is expected that CreateModel has been called before reading this value
@@ -91,77 +181,6 @@ type ModelState interface {
 	IsControllerModel(context.Context) (bool, error)
 }
 
-// ControllerState is the controller state required by this service. This is the
-// controller database, not the model state.
-type ControllerState interface {
-	// GetModelSeedInformation returns information related to a model for the
-	// purposes of seeding this information into other parts of a Juju controller.
-	// This method is similar to [State.GetModel] but it allows for the returning of
-	// information on models that are not activated yet.
-	//
-	// The following error types can be expected:
-	// - [modelerrors.NotFound]: When the model is not found for the given uuid
-	// regardless of the activated status.
-	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
-
-	// GetModelState returns the model state for the given model.
-	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
-	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
-
-	// GetModelSummary provides summary based information for the model
-	// identified by the uuid. The information returned is intended to augment
-	// the information that lives in the model state.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model is not found for the given model
-	// uuid.
-	GetModelSummary(context.Context, coremodel.UUID) (model.ModelSummary, error)
-
-	// GetUserModelSummary returns a summary of the model information that is
-	// only available in the controller database from the perspective of the
-	// user. This assumes that the user has access to the model.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model is not found for the given model
-	// uuid.
-	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
-	// is not found for the given user uuid.
-	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
-	// user does not have access to the model.
-	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
-
-	// HasValidCredential returns true if the model has a valid credential.
-	// The following errors may be returned:
-	// - [modelerrors.NotFound] when the model no longer exists.
-	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
-}
-
-// AgentBinaryFinder represents a helper for establishing if agent binaries for
-// a specific Juju version are available.
-type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate agent binaries available in the
-	// system and return true or false if agent binaries exist for the provided
-	// version.
-	HasBinariesForVersion(semversion.Number) (bool, error)
-}
-
-// ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
-// used by the model service when creating a new model.
-type ModelResourcesProvider interface {
-	// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
-	ValidateProviderForNewModel(ctx context.Context) error
-	// CreateModelResources is part of the [environs.ModelResources] interface.
-	CreateModelResources(context.Context, environs.CreateParams) error
-	// ConstraintsValidator returns a Validator instance which
-	// is used to validate and merge constraints.
-	ConstraintsValidator(ctx context.Context) (coreconstraints.Validator, error)
-}
-
-// CloudInfoProvider instances provide a means to get
-// the API version of the underlying cloud.
-type CloudInfoProvider interface {
-	// APIVersion returns the version info for provider's cloud.
-	APIVersion() (string, error)
-}
-
 // RegionProvider instances provide a means to get the CloudSpec for this
 // model from a provider which supports it.
 type RegionProvider interface {
@@ -170,15 +189,11 @@ type RegionProvider interface {
 	Region() (simplestreams.CloudSpec, error)
 }
 
-// ModelService defines a service for interacting with the underlying model
-// state, as opposed to the controller state.
-type ModelService struct {
-	clock                 clock.Clock
-	modelUUID             coremodel.UUID
-	controllerSt          ControllerState
-	modelSt               ModelState
-	environProviderGetter EnvironVersionProviderFunc
-	agentBinaryFinder     AgentBinaryFinder
+// StorageProviderRegistryGetter represents a getter for returning the storage
+// provider registry of the current model.
+type StorageProviderRegistryGetter interface {
+	// GetStorageRegistry returns the provider registry for the current model.
+	GetStorageRegistry(context.Context) (internalstorage.ProviderRegistry, error)
 }
 
 // NewModelService creates a new instance of ModelService.
