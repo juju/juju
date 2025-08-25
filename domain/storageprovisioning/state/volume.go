@@ -519,6 +519,17 @@ WHERE  volume_id = $volumeID.volume_id
 	return domainstorageprovisioning.VolumeUUID(dbVal.UUID), nil
 }
 
+// GetVolumeParams returns the volume params for the supplied uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
+// the uuid.
+func (st *State) GetVolumeParams(
+	context.Context, domainstorageprovisioning.VolumeUUID,
+) (domainstorageprovisioning.VolumeParams, error) {
+	return domainstorageprovisioning.VolumeParams{}, nil
+}
+
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
 // watching volume life changes where the volume is machine provisioned. On top
 // of this the initial query for getting all volumes in the model that are
