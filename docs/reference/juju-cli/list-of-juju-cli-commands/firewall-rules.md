@@ -28,6 +28,7 @@ Prints the firewall rules.
 Lists the firewall rules which control ingress to well known services
 within a Juju model.
 
-DEPRECATION WARNING: Firewall rules have been moved to model-config settings "ssh-allow" and
-"saas-ingress-allow". This command is deprecated in favour of
+DEPRECATION WARNING: 
+Firewall rules have been moved to model configuration settings `ssh-allow` and
+`saas-ingress-allow` This command is deprecated in favour of
 reading/writing directly to these settings.
