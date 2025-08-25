@@ -57,7 +57,7 @@ Examples:
 
 For help on a specific action command, supply the name of that action command, for example:
 
-        juju help-action-commands action-fail
+    juju help-action-commands action-fail
 
 See also:
  - help
