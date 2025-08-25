@@ -210,7 +210,7 @@ permission: consume
 	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckLocalAccessRequest(opc)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, `offer access check for user "mary" to offer "mysql-uuid" in model ".*": permission denied`)
 }
 
 func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
