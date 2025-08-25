@@ -287,14 +287,16 @@ func (env *environ) DestroyProfiles() error {
 	}
 
 	for _, profile := range profiles {
-		if strings.HasPrefix(profile, env.profileName()) {
-			err := server.DeleteProfile(profile)
-			if err != nil {
-				logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
-			}
-
-			logger.Infof("deleted profile %q", profile)
+		if !strings.HasPrefix(profile, env.profileName()) {
+			continue
 		}
+
+		err := server.DeleteProfile(profile)
+		if err != nil {
+			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+		}
+
+		logger.Infof("deleted profile %q", profile)
 	}
 
 	return nil
