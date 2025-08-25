@@ -71,6 +71,26 @@ func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 	c.Check(lxd.ExposeEnvServer(s.Env), gc.Equals, s.Client)
 }
 
+func (s *environSuite) TestSetConfigUpdatesProject(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.BaseSuiteUnpatched.MockServerFactory.EXPECT().RemoteServer(lxd.CloudSpec{
+		CloudSpec: lxdCloudSpec(),
+		Project:   "new-project",
+	}).Return(lxd.NewMockServer(ctrl), nil)
+
+	cfg, err := s.Config.Apply(map[string]interface{}{"project": "new-project"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.Env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(lxd.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	// Ensure the client did not change.
+	c.Check(lxd.ExposeEnvServer(s.Env), gc.Equals, s.Client)
+}
+
 func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
 

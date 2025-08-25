@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
@@ -37,6 +38,10 @@ type modelconfigSuite struct {
 var _ = gc.Suite(&modelconfigSuite{})
 
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockModel := mocks.NewMockModel(ctrl)
+	mockModel.EXPECT().Cloud().Return(cloud.Cloud{Type: "lxd"}, nil)
 	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
@@ -60,6 +65,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 				"endpoint": "http://0.0.0.0:8200",
 			},
 		},
+		model: mockModel,
 	}
 	var err error
 	s.api, err = modelconfig.NewModelConfigAPI(s.backend, &s.authorizer)
@@ -379,6 +385,38 @@ func (s *modelconfigSuite) TestSetSecretBackendExternalValidationFailed(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, `cannot ping backend "backend-1": not reachable`)
 }
 
+func (s *modelconfigSuite) TestSetModelSetLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	model := mocks.NewMockModel(ctrl)
+	s.backend.model = model
+	model.EXPECT().MachinesLen().Return(0, nil)
+
+	args := params.ModelSet{
+		Config: map[string]interface{}{"project": "cool-project"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["project"].Value, gc.Equals, "cool-project")
+}
+
+func (s *modelconfigSuite) TestSetModelSetLXDProfileFailsBecauseModelIsNotEmpty(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	model := mocks.NewMockModel(ctrl)
+	s.backend.model = model
+	model.EXPECT().MachinesLen().Return(3, nil)
+	model.EXPECT().Name().Return("my-model")
+
+	args := params.ModelSet{
+		Config: map[string]interface{}{"project": "cool-project"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, "cannot change project because model \"my-model\" is non-empty")
+}
+
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -459,6 +497,11 @@ type mockBackend struct {
 	msg           string
 	cons          constraints.Value
 	secretBackend *coresecrets.SecretBackend
+	model         modelconfig.Model
+}
+
+func (m *mockBackend) Model() modelconfig.Model {
+	return m.model
 }
 
 func (m *mockBackend) SetModelConstraints(value constraints.Value) error {

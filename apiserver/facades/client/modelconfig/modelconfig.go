@@ -242,12 +242,9 @@ func (c *ModelConfigAPI) checkLXDProfile() state.ValidateConfigFunc {
 		}
 
 		model := c.backend.Model()
-		instanceData, err := model.AllInstanceData()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if instanceData.Len() > 0 {
+		if length, err := model.MachinesLen(); err != nil {
+			return err
+		} else if length > 0 {
 			return fmt.Errorf("cannot change project because model %q is non-empty", model.Name())
 		}
 
