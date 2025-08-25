@@ -11,6 +11,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -729,6 +730,41 @@ func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(gotUUID.String(), tc.Equals, fsUUID.String())
+}
+
+// TestGetVolumeParamsNotFound checks that when asking for volume params and the
+// volume doesn't exist, the caller gets back an error satisfying a volume not
+// found error.
+func (s *volumeSuite) TestGetVolumeParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	_, err := st.GetVolumeParams(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := s.newStoragePool(c, "mypool", "mypoolprovider", map[string]string{
+		"foo": "bar",
+	})
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	volUUID, volID := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+
+	params, err := st.GetVolumeParams(c.Context(), volUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeParams{
+		Attributes: map[string]string{
+			"foo": "bar",
+		},
+		ID:       volID,
+		Provider: "mypoolprovider",
+		SizeMiB:  100,
+	})
 }
 
 // changeVolumeLife is a utility function for updating the life value of a

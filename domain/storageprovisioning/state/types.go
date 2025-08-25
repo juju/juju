@@ -231,6 +231,14 @@ type filesystemTemplate struct {
 	Location     string `db:"location"`
 }
 
+// volumeParams represents the attachment params for a volume from the model
+// database.
+type volumeParams struct {
+	VolumeID         string `db:"volume_id"`
+	Type             string `db:"type"`
+	RequestedSizeMiB uint64 `db:"requested_size_mib"`
+}
+
 // storageNameAttributes represents each key/value attribute for a given storage
 // derived from the provider/pool used to provisioner the storage.
 type storageNameAttributes struct {
