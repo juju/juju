@@ -11,7 +11,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -757,7 +756,7 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 	params, err := st.GetVolumeParams(c.Context(), volUUID)
 
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeParams{
+	c.Check(params, tc.DeepEquals, domainstorageprovisioning.VolumeParams{
 		Attributes: map[string]string{
 			"foo": "bar",
 		},
@@ -796,7 +795,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	params, err := st.GetVolumeAttachmentParams(c.Context(), vaUUID)
 
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeAttachmentParams{
+	c.Check(params, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentParams{
 		MachineInstanceID: "machine-id-123",
 		Provider:          "canonical",
 		ProviderID:        "provider-id",
@@ -849,7 +848,7 @@ WHERE  uuid = ?
 
 func (s *volumeSuite) setVolumeProviderID(
 	c *tc.C,
-	volUUID storageprovisioning.VolumeUUID,
+	volUUID domainstorageprovisioning.VolumeUUID,
 	providerID string,
 ) {
 	_, err := s.DB().Exec(`
