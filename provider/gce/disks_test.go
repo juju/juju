@@ -227,10 +227,10 @@ func (s *volumeSourceSuite) TestImportVolumesInvalidCredentialError(c *gc.C) {
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	_, err := s.source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		s.BaseDisk.Name, map[string]string{
+		s.BaseDisk.Name, "", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
-		},
+		}, false,
 	)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
@@ -242,10 +242,10 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 	c.Assert(s.source, gc.Implements, new(storage.VolumeImporter))
 	volumeInfo, err := s.source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		s.BaseDisk.Name, map[string]string{
+		s.BaseDisk.Name, "", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
-		},
+		}, false,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
@@ -272,7 +272,7 @@ func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
 
 	_, err := s.source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		s.BaseDisk.Name, map[string]string{},
+		s.BaseDisk.Name, "", map[string]string{}, false,
 	)
 	c.Check(err, gc.ErrorMatches, `cannot import volume "`+s.BaseDisk.Name+`" with status "floop"`)
 
