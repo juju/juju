@@ -21,7 +21,7 @@ func TestStatusSuite(t *testing.T) {
 
 func (s *statusSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
-- Full status (assert on machine, application, unit, relation, offers, model).
+- Full status (assert on machine, application, unit, relation, model).
 - Full status with leadership (assert a unit is leader).
 - Full status before and after a unit has been scaled.
 - Full status before and after a machine has been scaled.

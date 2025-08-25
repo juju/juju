@@ -31,14 +31,15 @@ type Client struct {
 	logDir string
 	clock  clock.Clock
 
-	applicationService ApplicationService
-	statusService      StatusService
-	blockDeviceService BlockDeviceService
-	machineService     MachineService
-	modelInfoService   ModelInfoService
-	networkService     NetworkService
-	portService        PortService
-	relationService    RelationService
+	applicationService        ApplicationService
+	blockDeviceService        BlockDeviceService
+	crossModelRelationService CrossModelRelationService
+	machineService            MachineService
+	modelInfoService          ModelInfoService
+	networkService            NetworkService
+	portService               PortService
+	relationService           RelationService
+	statusService             StatusService
 
 	isControllerModel bool
 }

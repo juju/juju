@@ -43,14 +43,15 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		auth:             authorizer,
 		leadershipReader: leadershipReader,
 
-		applicationService: domainServices.Application(),
-		statusService:      domainServices.Status(),
-		blockDeviceService: domainServices.BlockDevice(),
-		machineService:     domainServices.Machine(),
-		modelInfoService:   domainServices.ModelInfo(),
-		networkService:     domainServices.Network(),
-		portService:        domainServices.Port(),
-		relationService:    domainServices.Relation(),
+		applicationService:        domainServices.Application(),
+		crossModelRelationService: domainServices.CrossModelRelation(),
+		blockDeviceService:        domainServices.BlockDevice(),
+		machineService:            domainServices.Machine(),
+		modelInfoService:          domainServices.ModelInfo(),
+		networkService:            domainServices.Network(),
+		portService:               domainServices.Port(),
+		relationService:           domainServices.Relation(),
+		statusService:             domainServices.Status(),
 
 		isControllerModel: ctx.IsControllerModelScoped(),
 	}
