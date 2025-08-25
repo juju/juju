@@ -16,19 +16,19 @@ Revokes access from a Juju user for a model, controller, or application offer.
 
 ## Examples
 
-Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
+Revoke `read` (and `write`) access from user `joe` for model `mymodel`:
 
     juju revoke joe read mymodel
 
-Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
+Revoke `write` access from user `sam` for models `model1` and `model2`:
 
     juju revoke sam write model1 model2
 
-Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/prod.hosted-mysql':
+Revoke `read` (and `write`) access from user `joe` for application offer `fred/prod.hosted-mysql`:
 
     juju revoke joe read fred/prod.hosted-mysql
 
-Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 'mary/test.hosted-mysql':
+Revoke `consume` access from user `sam` for models `fred/prod.hosted-mysql` and `mary/test.hosted-mysql`:
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
 
