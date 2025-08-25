@@ -524,7 +524,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetConsumeDetails(c.Context(), "badurl")
-	c.Assert(err, tc.ErrorMatches, "application offer URL is missing application")
+	c.Assert(err, tc.ErrorMatches, "offer URL is missing the name")
 }
 
 func (s *crossmodelMockSuite) TestDestroyOffers(c *tc.C) {

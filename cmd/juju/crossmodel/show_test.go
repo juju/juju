@@ -60,7 +60,7 @@ func (s *showSuite) TestShowApiError(c *tc.C) {
 }
 
 func (s *showSuite) TestShowURLError(c *tc.C) {
-	s.assertShowError(c, []string{"prod/model.foo/db2"}, "application offer URL has invalid form.*")
+	s.assertShowError(c, []string{"prod/model.foo/db2"}, "offer URL has invalid form.*")
 }
 
 func (s *showSuite) TestShowWrongModelError(c *tc.C) {

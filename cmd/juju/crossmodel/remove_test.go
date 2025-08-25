@@ -51,7 +51,7 @@ func (s *removeSuite) TestNonExistentController(c *tc.C) {
 
 func (s *removeSuite) TestRemoveURLError(c *tc.C) {
 	_, err := s.runRemove(c, "prod/model.foo/db2")
-	c.Assert(err, tc.ErrorMatches, "application offer URL has invalid form.*")
+	c.Assert(err, tc.ErrorMatches, "offer URL has invalid form.*")
 }
 
 func (s *removeSuite) TestRemoveURLWithEndpoints(c *tc.C) {
