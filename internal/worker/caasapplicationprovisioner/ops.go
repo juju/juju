@@ -616,7 +616,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	}
 
 	desiredScale := ps.ScaleTarget
-	unitsToRemove := len(units) - desiredScale
+	unitsToRemove := 0
 
 	var deadUnits []params.CAASUnit
 	for _, unit := range units {
@@ -624,18 +624,25 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		if err != nil {
 			return fmt.Errorf("getting life for unit %q: %w", unit.Tag, err)
 		}
+		unitTag, ok := unit.Tag.(names.UnitTag)
+		if !ok {
+			return fmt.Errorf("expected a unit tag; got %q", unit.Tag)
+		}
+
+		if unitTag.Number() < desiredScale {
+			// This is a unit we want to keep.
+			continue
+		}
+		unitsToRemove++
+
 		if unitLife == life.Dead {
 			deadUnits = append(deadUnits, unit)
 		}
 	}
 
-	if unitsToRemove <= 0 {
-		unitsToRemove = len(deadUnits)
-	}
-
 	// We haven't met the threshold to initiate scale down in the CAAS provider
 	// yet.
-	if unitsToRemove != len(deadUnits) {
+	if unitsToRemove != len(deadUnits) || len(deadUnits) == 0 {
 		return nil
 	}
 
