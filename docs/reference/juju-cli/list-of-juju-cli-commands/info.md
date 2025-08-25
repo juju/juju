@@ -14,7 +14,7 @@ Displays detailed information about CharmHub charms.
 | `--arch` | all | Specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
 | `--base` |  | Specify a base |
 | `--channel` |  | Specify a channel to use instead of the default release |
-| `--charmhub-url` | https://api.charmhub.io | specify the Charmhub URL for querying the store |
+| `--charmhub-url` | https://api.charmhub.io | Specify the Charmhub URL for querying the store |
 | `--config` | false | Display config for this charm |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |

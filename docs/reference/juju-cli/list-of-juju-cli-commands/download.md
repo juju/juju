@@ -14,7 +14,7 @@ Locates and then downloads a Charmhub charm.
 | `--arch` | all | Specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
 | `--base` |  | Specify a base |
 | `--channel` |  | Specify a channel to use instead of the default release |
-| `--charmhub-url` | https://api.charmhub.io | specify the Charmhub URL for querying the store |
+| `--charmhub-url` | https://api.charmhub.io | Specify the Charmhub URL for querying the store |
 | `--filepath` |  | Specify the filepath location of the charm to download to |
 | `--no-progress` | false | Disable the progress bar |
 | `--resources` | false | Download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0) |
