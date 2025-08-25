@@ -25,11 +25,13 @@ List disabled commands for the model.
 
 Commands that can be disabled are grouped based on logical operations as follows:
 
-"destroy-model" prevents:
+`destroy-model` prevents:
+
     destroy-controller
     destroy-model
 
-"remove-object" prevents:
+`remove-object` prevents:
+
     destroy-controller
     destroy-model
     detach-storage
@@ -40,7 +42,8 @@ Commands that can be disabled are grouped based on logical operations as follows
     remove-storage
     remove-unit
 
-"all" prevents:
+`all` prevents:
+
     add-machine
     integrate
     add-unit
@@ -73,7 +76,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     retry-provisioning
     run
     scale-application
-    set-application-base    
+    set-application-base
     set-credential
     set-constraints
     sync-agents
