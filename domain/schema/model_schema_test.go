@@ -643,9 +643,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_machine_update_life_start_time",
 		"trg_log_machine_delete_life_start_time",
 
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_delete",
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_insert",
-		"trg_log_custom_storage_attachment_storage_instance_uuid_lifecycle_update",
+		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_delete",
+		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_insert",
+		"trg_log_custom_storage_attachment_unit_uuid_lifecycle_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
