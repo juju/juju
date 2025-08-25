@@ -44,21 +44,21 @@ type setApplicationBase struct {
 }
 
 var setApplicationBaseDoc = `
-The specified application's base value will be set within juju. Any subordinates 
-of the application will also have their base set to the provided value. A base 
-can be specified using the OS name and the version of the OS, separated by @.
+The specified application's base value will be set within juju. Any subordinates
+of the application will also have their base set to the provided value. A base
+can be specified using the OS name and the version of the OS, separated by ` + "`@`" + `.
 
 This will not change the base of any existing units, rather new units will use
 the new base when deployed.
 
-It is recommended to only do this after upgrade-machine has been run for 
+It is recommended to only do this after upgrade-machine has been run for
 machine containing all existing units of the application.
 
-To ensure correct binaries, run 'juju refresh' before running 'juju add-unit'.
+To ensure correct binaries, run ` + "`juju refresh`" + ` before running ` + "`juju add-unit`" + `.
 `
 
 const setApplicationBaseExamples = `
-Set the base for the ubuntu application to ubuntu@20.04:
+Set the base for the ` + "`ubuntu`" + ` application to ` + "`ubuntu@20.04`" + `:
 
 	juju set-application-base ubuntu ubuntu@20.04
 `

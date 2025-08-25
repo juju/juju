@@ -9,7 +9,7 @@ Retries provisioning for failed machines.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--all` | false | retry provisioning all failed machines |
+| `--all` | false | Retry provisioning all failed machines |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples

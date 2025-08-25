@@ -26,6 +26,6 @@ Show a machine's status.
 
 ## Details
 
-Show a specified machine on a model.  Default format is in yaml,
-other formats can be specified with the "--format" option.
-Available formats are yaml, tabular, and json
+Show a specified machine on a model.  The default format is `yaml`;
+other formats can be specified with the `--format` option.
+Available formats are `yaml`, `tabular`, and `json`.

@@ -44,43 +44,43 @@ type runCommand struct {
 
 const runDoc = `
 Run a charm action for execution on the given unit(s), with a given set of params.
-An ID is returned for use with 'juju show-operation <ID>'.
+An ID is returned for use with ` + "`juju show-operation <ID>`" + `.
 
 All units must be of the same application.
 
-A action executed on a given unit becomes a task with an ID that can be
-used with 'juju show-task <ID>'.
+An action executed on a given unit becomes a task with an ID that can be
+used with ` + "`juju show-task <ID>`" + `.
 
 Running an action returns the overall operation ID as well as the individual
 task ID(s) for each unit.
 
-To queue a action to be run in the background without waiting for it to finish,
-use the --background option.
+To queue an action to be run in the background without waiting for it to finish,
+use the ` + "`--background`" + ` option.
 
-To set the maximum time to wait for a action to complete, use the --wait option.
+To set the maximum time to wait for an action to complete, use the ` + "`--wait`" + ` option.
 
 By default, a single action will output its failure message if the action fails,
 followed by any results set by the action. For multiple actions, each action's
 results will be printed with the action id and action status. To see more detailed
-information about run timings etc, use --format yaml.
+information about run timings etc, use ` + "`--format`" + ` yaml.
 
-Valid unit identifiers are: 
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form <application>/leader, such as mysql/leader.
+Valid unit identifiers are:
+  - a standard unit ID, such as mysql/0 or;
+  - leader syntax of the form ` + "`<application>/leader`" + `, such as ` + "`mysql/leader`" + `.
 
 If the leader syntax is used, the leader unit for the application will be
 resolved before the action is enqueued.
 
 Params are validated according to the charm for the unit's application.  The
-valid params can be seen using "juju actions <application> --schema".
-Params may be in a yaml file which is passed with the --params option, or they
-may be specified by a key.key.key...=value format (see examples below.)
+valid params can be seen using ` + "`juju actions <application> --schema`" + `.
+Params may be in a ` + "`YAML`" + ` file which is passed with the ` + "`--params`" + ` option, or they
+may be specified by a ` + "`key.key.key...=value`" + ` format (see examples below.)
 
-Params given in the CLI invocation will be parsed as YAML unless the
---string-args option is set.  This can be helpful for values such as 'y', which
+Params given in the CLI invocation will be parsed as ` + "`YAML`" + ` unless the
+` + "`--string-args`" + ` option is set.  This can be helpful for values such as ` + "`y`" + `, which
 is a boolean true in YAML.
 
-If --params is passed, along with key.key...=value explicit arguments, the
+If ` + "`--params`" + ` is passed, along with ` + "`key.key...=value`" + ` explicit arguments, the
 explicit arguments will override the parameter file.
 `
 

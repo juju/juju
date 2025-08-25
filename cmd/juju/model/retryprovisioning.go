@@ -59,7 +59,7 @@ func (c *retryProvisioningCommand) Info() *cmd.Info {
 }
 
 func (c *retryProvisioningCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.all, "all", false, "retry provisioning all failed machines")
+	f.BoolVar(&c.all, "all", false, "Retry provisioning all failed machines")
 }
 
 func (c *retryProvisioningCommand) Init(args []string) error {
