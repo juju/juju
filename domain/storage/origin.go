@@ -13,10 +13,6 @@ const (
 	// user.
 	StoragePoolOriginUser = 1
 
-	// StoragePoolOriginBuiltIn indicates that the storage pool is built-in to
-	// the Juju controller.
-	StoragePoolOriginBuiltIn = 2
-
 	// StoragePoolOriginProviderDefault indicates that the storage pool is a
 	// default offered by the storage provider.
 	StoragePoolOriginProviderDefault = 3
