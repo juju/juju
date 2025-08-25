@@ -1053,6 +1053,7 @@ func (api *ProvisionerAPI) HostChangesForContainers(args params.Entities) (param
 type containerProfileContext struct {
 	result    params.ContainerProfileResults
 	modelName string
+	modelTag  names.ModelTag
 }
 
 // Implements perContainerHandler.ProcessOneContainer
@@ -1081,13 +1082,15 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 			logger.Tracef("no profile to return for %q", unit.Name())
 			continue
 		}
+		profileName := lxdprofile.Name(ctx.modelName, ctx.modelTag.ShortId(), app.Name(), ch.Revision())
+
 		resPro = append(resPro, &params.ContainerLXDProfile{
 			Profile: params.CharmLXDProfile{
 				Config:      profile.Config,
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			Name: lxdprofile.Name(ctx.modelName, app.Name(), ch.Revision()),
+			Name: profileName,
 		})
 	}
 
@@ -1115,6 +1118,7 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
 		modelName: api.m.Name(),
+		modelTag:  api.m.ModelTag(),
 	}
 	if err := api.processEachContainer(args, ctx); err != nil {
 		return ctx.result, errors.Trace(err)

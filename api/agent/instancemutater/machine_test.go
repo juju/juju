@@ -142,7 +142,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	defer s.setup(c).Finish()
 
 	args := params.Entity{Tag: s.tag.String()}
-	results := params.CharmProfilingInfoResult{
+	results := params.CharmProfilingInfoResultV4{
 		InstanceId:      instance.Id("juju-gd4c23-0"),
 		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},
@@ -169,7 +169,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNo
 	defer s.setup(c).Finish()
 
 	args := params.Entity{Tag: s.tag.String()}
-	results := params.CharmProfilingInfoResult{
+	results := params.CharmProfilingInfoResultV4{
 		InstanceId:      instance.Id("juju-gd4c23-0"),
 		ModelName:       "default",
 		CurrentProfiles: []string{"juju-default-neutron-ovswitch-255"},

@@ -5,6 +5,7 @@ package lxd
 
 import (
 	stdcontext "context"
+	"fmt"
 	"net"
 	"net/url"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
@@ -134,7 +136,7 @@ func (env *environ) initProfile() error {
 }
 
 func (env *environ) profileName() string {
-	return "juju-" + env.Name()
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewModelTag(env.uuid).ShortId())
 }
 
 // Name returns the name of the environ.
@@ -231,7 +233,8 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
-	return nil
+
+	return env.DestroyProfiles()
 }
 
 // DestroyController implements the Environ interface.
@@ -274,6 +277,29 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	logger.Debugf("removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
+}
+
+func (env *environ) DestroyProfiles() error {
+	server := env.server()
+	profiles, err := server.GetProfileNames()
+	if err != nil {
+		return errors.Annotate(err, "get profiles")
+	}
+
+	for _, profile := range profiles {
+		if !strings.HasPrefix(profile, env.profileName()) {
+			continue
+		}
+
+		err := server.DeleteProfile(profile)
+		if err != nil {
+			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+		}
+
+		logger.Infof("deleted profile %q", profile)
+	}
+
+	return nil
 }
 
 // lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
@@ -489,7 +515,9 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		return report(errors.Trace(err))
 	}
 
+	logger.Debugf("profiles to delete  %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
+		logger.Debugf("deleting profile %q", name)
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", name, err)

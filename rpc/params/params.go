@@ -1486,6 +1486,17 @@ type CharmProfilingInfoResult struct {
 	Error           *Error              `json:"error"`
 }
 
+// CharmProfilingInfoResultV4 has the same data as CharmProfilingInfoResult with
+// the addition of a ModelUUID field.
+type CharmProfilingInfoResultV4 struct {
+	InstanceId      instance.Id         `json:"instance-id"`
+	ModelName       string              `json:"model-name"`
+	ModelUUID       string              `json:"model-uuid"`
+	ProfileChanges  []ProfileInfoResult `json:"profile-changes"`
+	CurrentProfiles []string            `json:"current-profiles"`
+	Error           *Error              `json:"error"`
+}
+
 // WatchContainerStartArg contains arguments for watching for container start
 // events on a CAAS application.
 type WatchContainerStartArg struct {

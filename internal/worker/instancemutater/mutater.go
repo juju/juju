@@ -230,7 +230,8 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return report(errors.Annotatef(err, "%s", m.id))
 	}
 
-	expectedProfiles := m.context.getRequiredLXDProfiles(info.ModelName)
+	modelProfileName := fmt.Sprintf("%s-%s", info.ModelName, names.NewModelTag(info.ModelUUID).ShortId())
+	expectedProfiles := m.context.getRequiredLXDProfiles(modelProfileName)
 	for _, p := range post {
 		if p.Profile != nil {
 			expectedProfiles = append(expectedProfiles, p.Name)
@@ -280,7 +281,8 @@ func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 			// already, move on.  A charm without an lxd profile.
 			continue
 		}
-		name := lxdprofile.Name(info.ModelName, pu.ApplicationName, pu.Revision)
+		modelShortId := names.NewModelTag(info.ModelUUID).ShortId()
+		name := lxdprofile.Name(info.ModelName, modelShortId, pu.ApplicationName, pu.Revision)
 		if oldName != "" && name != oldName {
 			// add the old profile name to the result, so the profile can
 			// be deleted from the lxd server.

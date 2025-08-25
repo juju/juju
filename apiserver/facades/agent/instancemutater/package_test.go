@@ -30,15 +30,27 @@ func NewTestAPI(
 	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-) (*InstanceMutaterAPI, error) {
+) (*InstanceMutaterAPIV3, error) {
+	api, err := NewTestAPIV4(st, mutatorWatcher, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &InstanceMutaterAPIV3{api}, nil
+}
+
+func NewTestAPIV4(
+	st InstanceMutaterState,
+	mutatorWatcher InstanceMutatorWatcher,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*InstanceMutaterAPIV4, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
-
-	return &InstanceMutaterAPI{
-		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
+	return &InstanceMutaterAPIV4{LifeGetter: common.NewLifeGetter(st, getAuthFunc),
 		st:          st,
 		watcher:     mutatorWatcher,
 		resources:   resources,

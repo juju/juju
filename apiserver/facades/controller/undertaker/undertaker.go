@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/watcher"
@@ -20,7 +21,8 @@ import (
 
 // For testing.
 var (
-	GetProvider = provider.Provider
+	GetProvider        = provider.Provider
+	GetEnvironProvider = environs.Provider
 )
 
 // UndertakerAPI implements the API used by the model undertaker worker.
@@ -116,6 +118,31 @@ func (u *UndertakerAPI) RemoveModelSecrets() error {
 		}
 	}
 	return nil
+}
+
+// RemoveModelProfiles removes any LXD profiles associated with the model.
+func (u *UndertakerAPI) RemoveModelProfiles() error {
+	model, err := u.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return err
+	}
+
+	environ, err := GetEnvironProvider(modelConfig.Type())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelProfileDestroyer, ok := environ.(environs.ModelProfileDestroyer)
+	if !ok {
+		return nil
+	}
+
+	return modelProfileDestroyer.DestroyProfiles()
 }
 
 func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {

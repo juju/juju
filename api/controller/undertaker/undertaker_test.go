@@ -71,6 +71,18 @@ func (s *UndertakerSuite) TestRemoveModelSecrets(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *UndertakerSuite) TestRemoveModelProfiles(c *gc.C) {
+	var called bool
+	client := s.mockClient(c, "RemoveModelProfiles", func(response interface{}) {
+		called = true
+		c.Assert(response, gc.IsNil)
+	})
+
+	err := client.RemoveModelProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *UndertakerSuite) mockClient(c *gc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string,

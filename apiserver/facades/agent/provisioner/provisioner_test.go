@@ -1940,7 +1940,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	res := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{}},
 	}
-	ctx := provisioner.NewContainerProfileContext(res, "testme")
+	ctx := provisioner.NewContainerProfileContext(res, "testme", coretesting.ModelTag)
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
@@ -1950,7 +1950,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[0].LXDProfiles, gc.HasLen, 1)
 	profile := res.Results[0].LXDProfiles[0]
-	c.Check(profile.Name, gc.Equals, "juju-testme-application-3")
+	c.Check(profile.Name, gc.Equals, "juju-testme-deadbe-application-3")
 	c.Check(profile.Profile.Config, gc.DeepEquals,
 		map[string]string{
 			"security.nesting":    "true",
@@ -1970,7 +1970,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 	res := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{}},
 	}
-	ctx := provisioner.NewContainerProfileContext(res, "testme")
+	ctx := provisioner.NewContainerProfileContext(res, "testme", coretesting.ModelTag)
 
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.

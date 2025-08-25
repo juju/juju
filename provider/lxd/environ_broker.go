@@ -457,6 +457,8 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 	err := env.server().RemoveContainers(names)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	return nil
 }
