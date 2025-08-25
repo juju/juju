@@ -767,6 +767,43 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 	})
 }
 
+// TestGetVolumeAttachmentParamsNotFound ensures a volume attachment not found
+// error is returned when the volume attachment does not exist.
+func (s *volumeSuite) TestGetVolumeAttachmentParamsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	_, err := st.GetVolumeAttachmentParams(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	charmUUID := s.newCharm(c)
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	volUUID, _ := s.newMachineVolume(c)
+	s.setVolumeProviderID(c, volUUID, "provider-id")
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+
+	params, err := st.GetVolumeAttachmentParams(c.Context(), vaUUID)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeAttachmentParams{
+		MachineInstanceID: "machine-id-123",
+		Provider:          "canonical",
+		ProviderID:        "provider-id",
+		ReadOnly:          true,
+	})
+}
+
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
 func (s *volumeSuite) changeVolumeLife(
@@ -808,4 +845,19 @@ WHERE  uuid = ?
 		int(life), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 
+}
+
+func (s *volumeSuite) setVolumeProviderID(
+	c *tc.C,
+	volUUID storageprovisioning.VolumeUUID,
+	providerID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume
+SET    provider_id = ?
+WHERE  uuid = ?
+`,
+		providerID, volUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }
