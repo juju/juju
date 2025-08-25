@@ -105,18 +105,20 @@ type State interface {
 		ctx context.Context, unitUUID, storageInstanceUUID string,
 	) (domainlife.Life, error)
 
-	// GetStorageIDsForUnit retrieves the storage IDs for a specific unit and
-	// storage instances.
+	// GetStorageAttachmentLifeForUnit returns a mapping of storage IDs to the
+	// current life value of each storage attachment for the unit.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist.
-	GetStorageIDsForUnit(
-		ctx context.Context, unitUUID string, storageInstanceUUID []string,
-	) ([]string, error)
+	GetStorageAttachmentLifeForUnit(
+		ctx context.Context, unitUUID string,
+	) (map[string]domainlife.Life, error)
 
 	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
 	// statement for unit storage attachments.
-	InitialWatchStatementForUnitStorageAttachments(ctx context.Context, unitUUID string) (string, eventsource.NamespaceQuery)
+	InitialWatchStatementForUnitStorageAttachments(
+		ctx context.Context, unitUUID string,
+	) (string, eventsource.Query[map[string]domainlife.Life])
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -332,33 +334,31 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 // for the provided unit when the unit's storage attachments are changed.
 //
 // The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// is not valid.
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	ns, initialQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+		return s.st.GetStorageAttachmentLifeForUnit(ctx, unitUUID.String())
+	}
+
+	ns, initialLifeQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(unitUUID.String()),
+	)
 	return s.watcherFactory.NewNamespaceMapperWatcher(ctx,
 		initialQuery,
 		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-			if len(changes) == 0 {
-				return nil, nil
-			}
-			s.logger.Debugf(ctx, "processing storage attachment changes for unit %q: %v", unitUUID, changes)
-			storageInstanceUUIDs := make([]string, 0, len(changes))
-			for _, change := range changes {
-				storageInstanceUUIDs = append(storageInstanceUUIDs, change.Changed())
-			}
-			storageIDs, err := s.st.GetStorageIDsForUnit(
-				ctx, unitUUID.String(), storageInstanceUUIDs,
-			)
-			if err != nil {
-				return nil, errors.Errorf("getting storage IDs for unit %q: %w", unitUUID, err)
-			}
-			return storageIDs, nil
-		},
-		eventsource.NamespaceFilter(ns, changestream.All),
+		mapper,
+		filter,
 	)
 }
 
