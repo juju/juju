@@ -33,10 +33,10 @@ To block until the result is known completed or failed, use
 the `--wait` option with a duration, as in `--wait 5s` or `--wait 1h`.
 Use `--watch` to wait indefinitely.
 
-The default behavior without --wait or --watch is to immediately check and return;
-if the results are "pending" then only the available information will be
+The default behavior without `--wait` or `--watch` is to immediately check and return;
+if the results are `pending`, then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
 
 Note: if Juju has been upgraded from 2.6 and there are old action UUIDs still in use,
 and you want to specify just the UUID prefix to match on, you will need to include up
-to at least the first "-" to disambiguate from a newer numeric id.
+to at least the first `-` to disambiguate from a newer numeric ID.

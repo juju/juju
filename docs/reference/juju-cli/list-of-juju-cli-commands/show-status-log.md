@@ -56,6 +56,7 @@ Show the status history for the model:
 
 This command will report the history of status changes for
 a given entity.
+
 The statuses are available for the following types.
 -type supports:
     application:  statuses for the specified application
@@ -70,4 +71,5 @@ The statuses are available for the following types.
     workload:  statuses for unit's workload
 
  and sorted by time of occurrence.
+
  The default is unit.
