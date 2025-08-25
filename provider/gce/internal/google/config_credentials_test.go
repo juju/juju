@@ -11,11 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/gce/internal/google"
+	"github.com/juju/juju/testing"
 )
 
 type credentialsSuite struct {
-	google.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&credentialsSuite{})
