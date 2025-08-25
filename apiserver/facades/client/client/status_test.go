@@ -11,12 +11,18 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	permission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	statusservice "github.com/juju/juju/domain/status/service"
+	charm0 "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -187,6 +193,86 @@ func (s *statusSuite) TestStatusHistoryError(c *tc.C) {
 	}})
 }
 
+func (s *statusSuite) TestFetchOffers(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cmrService := NewMockCrossModelRelationService(ctrl)
+
+	// Arrange
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              uuid.MustNewUUID().String(),
+			OfferName:              "one",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "george", Access: permission.ConsumeAccess}},
+		}, {
+			OfferUUID:              uuid.MustNewUUID().String(),
+			OfferName:              "two",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "endpoint"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+		},
+	}
+	cmrService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelation.OfferFilter{{}}).Return(offerDetails, nil)
+
+	// Act
+	output, err := fetchOffers(c.Context(), cmrService)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(output, tc.HasLen, 2)
+	outputOne, ok := output["one"]
+	c.Check(ok, tc.IsTrue)
+
+	c.Check(outputOne, tc.DeepEquals, offerStatus{
+		ApplicationOffer: crossmodel.ApplicationOffer{
+			OfferUUID:              offerDetails[0].OfferUUID,
+			OfferName:              offerDetails[0].OfferName,
+			ApplicationName:        offerDetails[0].ApplicationName,
+			ApplicationDescription: offerDetails[0].ApplicationDescription,
+			Endpoints: map[string]charm0.Relation{
+				"db": {
+					Name: "db",
+				},
+			},
+		},
+		err:      nil,
+		charmURL: "ch:amd64/app-42",
+	})
+	outputTwo, ok := output["two"]
+	c.Check(ok, tc.IsTrue)
+	c.Check(outputTwo, tc.DeepEquals, offerStatus{
+		ApplicationOffer: crossmodel.ApplicationOffer{
+			OfferUUID:              offerDetails[1].OfferUUID,
+			OfferName:              offerDetails[1].OfferName,
+			ApplicationName:        offerDetails[1].ApplicationName,
+			ApplicationDescription: offerDetails[1].ApplicationDescription,
+			Endpoints: map[string]charm0.Relation{
+				"endpoint": {
+					Name: "endpoint",
+				},
+			},
+		},
+		err:      nil,
+		charmURL: "ch:amd64/app-42",
+	})
+}
+
 func (s *statusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -195,6 +281,13 @@ func (s *statusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.authorizer = NewMockAuthorizer(ctrl)
 
 	s.modelUUID = modeltesting.GenModelUUID(c)
+
+	c.Cleanup(func() {
+		s.authorizer = nil
+		s.modelInfoService = nil
+		s.statusService = nil
+		s.modelUUID = ""
+	})
 
 	return ctrl
 }

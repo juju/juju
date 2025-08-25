@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	domainrelation "github.com/juju/juju/domain/relation"
@@ -110,6 +111,14 @@ type NetworkService interface {
 	// GetAllDevicesByMachineNames retrieves a mapping of machine names to their
 	// associated network interfaces in the model.
 	GetAllDevicesByMachineNames(ctx context.Context) (map[machine.Name][]domainnetwork.NetInterface, error)
+}
+
+// CrossModelRelationService defines the methods for interacting with the
+// crossmodelrelation domain.
+type CrossModelRelationService interface {
+	// GetOffers returns offer details for all offers satisfying any of the
+	// provided filters.
+	GetOffers(context.Context, []crossmodelrelation.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
 }
 
 // PortService defines the methods that the facade assumes from the Port
