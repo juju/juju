@@ -317,6 +317,48 @@ func (s *filesystemSuite) TestGetVolumeParamsNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
+// TestGetVolumeAttachmentParams tests that volume attachment params are
+// returned.
+func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetVolumeAttachmentParams(gomock.Any(), vaUUID).Return(
+		storageprovisioning.VolumeAttachmentParams{
+			MachineInstanceID: "inst-1",
+			Provider:          "myprovider",
+			ProviderID:        "p-123",
+			ReadOnly:          true,
+		}, nil,
+	)
+
+	params, err := svc.GetVolumeAttachmentParams(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(params, tc.DeepEquals, storageprovisioning.VolumeAttachmentParams{
+		MachineInstanceID: "inst-1",
+		Provider:          "myprovider",
+		ProviderID:        "p-123",
+		ReadOnly:          true,
+	})
+}
+
+// TestGetVolumeAttachmentParamsNotFound ensures a volume attachment plan not
+// found error is passed through.
+func (s *volumeSuite) TestGetVolumeAttachmentParamsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, s.watcherFactory)
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetVolumeAttachmentParams(gomock.Any(), vaUUID).Return(
+		storageprovisioning.VolumeAttachmentParams{},
+		storageprovisioningerrors.VolumeAttachmentNotFound,
+	)
+
+	_, err := svc.GetVolumeAttachmentParams(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
 func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

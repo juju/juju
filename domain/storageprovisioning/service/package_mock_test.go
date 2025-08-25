@@ -983,6 +983,45 @@ func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetVolumeAttachmentParams mocks base method.
+func (m *MockState) GetVolumeAttachmentParams(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentParams indicates an expected call of GetVolumeAttachmentParams.
+func (mr *MockStateMockRecorder) GetVolumeAttachmentParams(arg0, arg1 any) *MockStateGetVolumeAttachmentParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentParams", reflect.TypeOf((*MockState)(nil).GetVolumeAttachmentParams), arg0, arg1)
+	return &MockStateGetVolumeAttachmentParamsCall{Call: call}
+}
+
+// MockStateGetVolumeAttachmentParamsCall wrap *gomock.Call
+type MockStateGetVolumeAttachmentParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeAttachmentParamsCall) Return(arg0 storageprovisioning.VolumeAttachmentParams, arg1 error) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeAttachmentParamsCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error)) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeAttachmentParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error)) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeAttachmentPlanLifeForNetNode mocks base method.
 func (m *MockState) GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
