@@ -5,7 +5,5 @@
 package cloudinit
 
 var (
-	NetworkInterfacesFile       = &networkInterfacesFile
-	SystemNetworkInterfacesFile = &systemNetworkInterfacesFile
-	JujuNetplanFile             = &jujuNetplanFile
+	JujuNetplanFile = &jujuNetplanFile
 )
