@@ -172,7 +172,7 @@ func (c *findCommand) validateOrSetURL() error {
 	}
 	c.modelQualifier = qualifier
 	c.modelName = urlParts.ModelName
-	c.offerName = urlParts.ApplicationName
+	c.offerName = urlParts.Name
 	return nil
 }
 
