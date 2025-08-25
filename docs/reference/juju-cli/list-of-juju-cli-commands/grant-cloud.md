@@ -16,7 +16,7 @@ Grants access level to a Juju user for a cloud.
 
 ## Examples
 
-Grant user 'joe' 'add-model' access to cloud 'fluffy':
+Grant user `joe` `add-model` access to cloud `fluffy`:
 
     juju grant-cloud joe add-model fluffy
 
