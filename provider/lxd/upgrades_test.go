@@ -154,17 +154,14 @@ func (s *upgradesSuite) TestRunCreateModelAndCharmProfiles(c *gc.C) {
 		s.server.EXPECT().GetContainerProfiles("juju-1").Return([]string{"default", oldModelProfileName, oldMyCharmProfileName}, nil),
 		s.server.EXPECT().UpdateContainerProfiles("juju-1", []string{"default", newModelProfileName, newMyCharmProfileName}).Return(nil),
 
-		// Delete the old profiles for instance "juju-1"
-		s.server.EXPECT().DeleteProfile(oldModelProfileName).Return(nil),
-		// Doesn't crash the worker
-		s.server.EXPECT().DeleteProfile(oldMyCharmProfileName).Return(fmt.Errorf("used by an instance")),
-
 		// Attach the new profiles for instance "juju-2"
 		s.server.EXPECT().GetContainerProfiles("juju-2").Return([]string{"default", oldModelProfileName}, nil),
 		s.server.EXPECT().UpdateContainerProfiles("juju-2", []string{"default", newModelProfileName}).Return(nil),
 
-		// Delete the old profile for instance "juju-2"
+		// Delete the old profiles for instance "juju-1"
 		s.server.EXPECT().DeleteProfile(oldModelProfileName).Return(nil),
+		// Doesn't crash the worker
+		s.server.EXPECT().DeleteProfile(oldMyCharmProfileName).Return(fmt.Errorf("used by an instance")),
 	)
 
 	profileStep := createProfilesStep{env: env}
@@ -239,17 +236,14 @@ func (s *upgradesSuite) TestRunCreateCharmProfiles(c *gc.C) {
 		// Despite the new model profile already attached, we re-attach it here. The LXD API treats this as a safe operation.
 		s.server.EXPECT().UpdateContainerProfiles("juju-1", []string{"default", newModelProfileName, newMyCharmProfileName}).Return(nil),
 
-		// Delete the old profiles for instance "juju-1"
-		s.server.EXPECT().DeleteProfile(oldModelProfileName).Return(nil),
-		// Doesn't crash the worker
-		s.server.EXPECT().DeleteProfile(oldMyCharmProfileName).Return(fmt.Errorf("used by an instance")),
-
 		// Attach the new profiles for instance "juju-2"
 		s.server.EXPECT().GetContainerProfiles("juju-2").Return([]string{"default", oldModelProfileName}, nil),
 		s.server.EXPECT().UpdateContainerProfiles("juju-2", []string{"default", newModelProfileName}).Return(nil),
 
-		// Delete the old profile for instance "juju-2"
+		// Delete the old profiles for instance "juju-1"
 		s.server.EXPECT().DeleteProfile(oldModelProfileName).Return(nil),
+		// Doesn't crash the worker
+		s.server.EXPECT().DeleteProfile(oldMyCharmProfileName).Return(fmt.Errorf("used by an instance")),
 	)
 
 	profileStep := createProfilesStep{env: env}

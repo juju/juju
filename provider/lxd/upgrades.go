@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -91,7 +92,6 @@ func (c createProfilesStep) Description() string {
 
 // Run executes the upgrade logic to create profiles with the new naming scheme.
 func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
-	prefix := fmt.Sprintf("juju-%s", c.env.name)
 	server := c.env.server()
 
 	logger.Debugf("running create profile step for model %q", c.env.uuid)
@@ -108,18 +108,21 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 
 	var profilesToAttach []profileAndInstance
 
+	prefix := fmt.Sprintf("juju-%s", c.env.name)
+	prefixTrailingHyphen := fmt.Sprintf("%s-", prefix)
 	// Create charm profiles for each instance.
 	for _, inst := range instances {
 		instanceID := string(inst.Id())
-
+		log.Println("instanceID is", instanceID)
 		profiles, err := server.GetContainerProfiles(instanceID)
 		if err != nil {
 			return errors.Annotatef(err, "get container profiles for instance %q", instanceID)
 		}
+		log.Println("profiles are", profiles)
 
 		var newProfiles []string
 		for _, profileName := range profiles {
-			isCharmProfile := strings.HasPrefix(profileName, prefix) && lxdprofile.IsValidName(profileName)
+			isCharmProfile := strings.HasPrefix(profileName, prefixTrailingHyphen) && lxdprofile.IsValidName(profileName)
 			if !isCharmProfile {
 				continue
 			}
@@ -129,7 +132,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 				return errors.Annotatef(err, "get profile %q", profileName)
 			}
 
-			appAndRevName := profileName[len(prefix)+1:]
+			appAndRevName := profileName[len(prefixTrailingHyphen):]
 			newProfileName := fmt.Sprintf("%s-%s", c.env.profileName(), appAndRevName)
 			if exists, err := server.HasProfile(newProfileName); err != nil {
 				return err
@@ -163,6 +166,8 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 		})
 	}
 
+	profilesToDeleteSet := set.NewStrings()
+
 	// Attach new profiles and delete old profiles.
 	for _, attach := range profilesToAttach {
 		currentProfiles, err := server.GetContainerProfiles(attach.instance)
@@ -172,7 +177,8 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 
 		currentProfilesSet := set.NewStrings(currentProfiles...)
 		toAttachSet := set.NewStrings(attach.profiles...)
-
+		toDeleteSet := currentProfilesSet.Difference(toAttachSet)
+		profilesToDeleteSet = profilesToDeleteSet.Union(toDeleteSet)
 		// This may happen if on a previous run, the upgrade step has attached the new profiles
 		// but crashed and retries. It is safe to skip it.
 		if toAttachSet.IsEmpty() {
@@ -188,20 +194,24 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 			return errors.Annotatef(err, "updating instance %q with profiles %+v", attach.instance, toAttach)
 		}
 		logger.Debugf("attached profiles %v to instance %q in model %q", toAttach, attach.instance, c.env.uuid)
+	}
 
-		// Delete old profiles except "default".
-		profilesToDelete := currentProfilesSet.Difference(toAttachSet)
-		for _, oldProfile := range profilesToDelete.SortedValues() {
-			if oldProfile != "default" && strings.HasPrefix(oldProfile, prefix) {
-				logger.Debugf("deleting profile %q in model %q", oldProfile, c.env.uuid)
-				// In reality, it's difficult to prove the ownership of the profile because the old
-				// naming scheme isn't unique. We attempt to delete it here. If it's used by another instance
-				// then it will fail, and we are okay with this (it'll be kept).
-				err := server.DeleteProfile(oldProfile)
-				if err != nil {
-					logger.Errorf("failed to delete old profile %q due to %q, not a fatal error", oldProfile, err.Error())
-				}
-			}
+	// Delete old profiles except "default".
+	for _, oldProfile := range profilesToDeleteSet.SortedValues() {
+		if oldProfile == "default" {
+			continue
+		}
+		if !strings.HasPrefix(oldProfile, prefix) {
+			continue
+		}
+
+		logger.Debugf("deleting profile %q in model %q", oldProfile, c.env.uuid)
+		// In reality, it's difficult to prove the ownership of the profile because the old
+		// naming scheme isn't unique. We attempt to delete it here. If it's used by another instance
+		// then it will fail, and we are okay with this (it'll be kept).
+		err := server.DeleteProfile(oldProfile)
+		if err != nil {
+			logger.Errorf("failed to delete old profile %q due to %q, not a fatal error", oldProfile, err.Error())
 		}
 	}
 
