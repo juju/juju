@@ -34,6 +34,10 @@ type ModelDBState interface {
 	// No error is returned if offers are found.
 	GetOfferDetails(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
 
+	// GetOfferUUID returns the offer uuid for provided name.
+	// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
+	GetOfferUUID(ctx context.Context, name string) (string, error)
+
 	// UpdateOffer updates the endpoints of the given offer.
 	UpdateOffer(
 		ctx context.Context,
