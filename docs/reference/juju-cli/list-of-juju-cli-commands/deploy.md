@@ -27,7 +27,7 @@ Deploys a new application or bundle.
 | `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
 | `--resource` |  | Resource to be uploaded to the controller |
 | `--revision` | -1 | The revision to deploy |
-| `--series` |  | The series on which to deploy. DEPRECATED: use --base |
+| `--series` |  | The series on which to deploy. DEPRECATED: use `--base` |
 | `--storage` |  | Charm storage constraints |
 | `--to` |  | (Machine models only:) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
 | `--trust` | false | Allows charm to run hooks that require access credentials |
@@ -79,11 +79,11 @@ Deploy to a machine that is in the 'dmz' network space but not in either the
 
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
 
-Deploy a k8s charm that requires a single Nvidia GPU:
+Deploy a Kubernetes charm that requires a single Nvidia GPU:
 
     juju deploy mycharm --device miner=1,nvidia.com/gpu
 
-Deploy a k8s charm that requires two Nvidia GPUs that have an
+Deploy a Kubernetes charm that requires two Nvidia GPUs that have an
 attribute of 'gpu=nvidia-tesla-p100':
 
     juju deploy mycharm --device \
@@ -105,7 +105,7 @@ or channel can optionally be specified:
     juju deploy ch:ubuntu --revision 17 --channel edge
 
 All the above deployments use remote charms found in Charmhub, denoted by the
-'ch:' prefix.  Remote charms with no prefix will be deployed from Charmhub.
+`ch:` prefix.  Remote charms with no prefix will be deployed from Charmhub.
 
 If a channel is specified, it will be used as the source for looking up the
 charm or bundle from Charmhub. When used in a bundle deployment context,
@@ -144,7 +144,7 @@ preferred to least):
 - the `--base` command option
 - for a bundle, the series stated in each charm URL (in the bundle file)
 - for a bundle, the series given at the top level (in the bundle file)
-- the 'default-base' model key
+- the `default-base` model configuration key
 - the first base specified in the charm's manifest file
 
 An 'application name' provides an alternate name for the application. It works
@@ -222,29 +222,29 @@ The format is
 
     --resource <resource name>=<resource>
 
-where the resource name is the name from the metadata.yaml file of the charm
+where the resource name is the name from the `metadata.yaml` file of the charm
 and where, depending on the type of the resource, the resource can be specified
 as follows:
 
-(1) If the resource is type 'file', you can specify it by providing
-  (a) the resource revision number or
-  (b) a path to a local file.
+- If the resource is type `file`, you can specify it by providing one of the following:
 
-(2) If the resource is type 'oci-image', you can specify it by providing
-  (a) the resource revision number,
-  (b) a path to a local file = private OCI image,
-  (c) a link to a public OCI image.
+    a. the resource revision number.
 
+    b. a path to a local file. Caveat: If you choose this, you will not be able
+	 to go back to using a resource from Charmhub.
 
-Note: If you choose (1b) or (2b-c), i.e., a resource that is not from Charmhub:
-You will not be able to go back to using a resource from Charmhub.
+- If the resource is type `oci-image`, you can specify it by providing one of the following:
 
-Note: If you choose (1b) or (2b): This uploads a file from your local disk to the juju
-controller to be streamed to the charm when "resource-get" is called by a hook.
+    a. the resource revision number.
 
-Note: If you choose (2b): You will need to specify:
-(i) the local path to the private OCI image as well as
-(ii) the username/password required to access the private OCI image.
+	b. a path to the local file for your private OCI image as well as the
+	username and password required to access the private OCI image.
+	Caveat: If you choose this, you will not be able to go back to using a
+	resource from Charmhub.
+
+    c. a link to a public OCI image. Caveat: If you choose this, you will not be
+	 able to go back to using a resource from Charmhub.
+
 
 Note: If multiple resources are needed, repeat the option.
 
@@ -252,9 +252,9 @@ Note: If multiple resources are needed, repeat the option.
 Use the `--to` option to deploy to an existing machine or container by
 specifying a "placement directive". The `status` command should be used for
 guidance on how to refer to machines. A few placement directives are
-provider-dependent (e.g.: 'zone').
+provider-dependent (e.g.: `zone`).
 
-In more complex scenarios, "network spaces" are used to partition the cloud
+In more complex scenarios, network spaces are used to partition the cloud
 networking layer into sets of subnets. Instances hosting units inside the same
 space can communicate with each other without any firewalls. Traffic crossing
 space boundaries could be subject to firewall and access restrictions. Using
@@ -264,14 +264,14 @@ high availability for applications. Spaces help isolate applications and their
 units, both for security purposes and to manage both traffic segregation and
 congestion.
 
-When deploying an application or adding machines, the 'spaces' constraint can
+When deploying an application or adding machines, the `spaces ` constraint can
 be used to define a comma-delimited list of required and forbidden spaces (the
 latter prefixed with '^', similar to the 'tags' constraint).
 
 When deploying bundles, machines specified in the bundle are added to the model
 as new machines. Use the `--map-machines=existing` option to make use of any
 existing machines. To map particular existing machines to machines defined in
-the bundle, multiple comma separated values of the form 'bundle-id=existing-id'
+the bundle, multiple comma separated values of the form `bundle-id=existing-id`
 can be passed. For example, for a bundle that specifies machines 1, 2, and 3;
 and a model that has existing machines 1, 2, 3, and 4, the below deployment
 would have existing machines 1 and 2 assigned to machines 1 and 2 defined in
@@ -287,5 +287,3 @@ When charms that include LXD profiles are deployed the profiles are validated
 for security purposes by allowing only certain configurations and devices. Use
 the `--force` option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
-
-Further reading: https://juju.is/docs/olm/manage-applications
