@@ -172,6 +172,18 @@ func (s *Service) GetVolumeAttachmentIDs(
 	return s.st.GetVolumeAttachmentIDs(ctx, uuids)
 }
 
+// GetVolumeAttachmentParams retrieves the attachment parameters for a given
+// volume attachment.
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied values.
+func (s *Service) GetVolumeAttachmentParams(
+	ctx context.Context,
+	volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachmentParams, error) {
+	return storageprovisioning.VolumeAttachmentParams{}, errors.New("not implemented")
+}
+
 // GetVolumeAttachmentLife returns the current life value for a volume
 // attachment uuid.
 //

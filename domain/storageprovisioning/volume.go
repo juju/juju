@@ -69,3 +69,12 @@ type VolumeAttachmentPlanProvisionedInfo struct {
 	DeviceType       string
 	DeviceAttributes map[string]string
 }
+
+// VolumeAttachmentParams defines the set of parameters that a caller needs to
+// know in order to provision a volume attachment in the model.
+type VolumeAttachmentParams struct {
+	MachineInstanceID string
+	Provider          string
+	ProviderID        string
+	ReadOnly          bool
+}
