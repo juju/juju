@@ -109,6 +109,15 @@ type VolumeState interface {
 	// when no volume exists for the provided volume uuid.
 	GetVolumeUUIDForID(context.Context, string) (storageprovisioning.VolumeUUID, error)
 
+	// GetVolumeParams returns the volume params for the supplied uuid.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
+	// the uuid.
+	GetVolumeParams(
+		context.Context, storageprovisioning.VolumeUUID,
+	) (storageprovisioning.VolumeParams, error)
+
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
 	// machine provisioned and the initial query for getting the set of volumes
@@ -179,7 +188,16 @@ func (s *Service) GetVolumeAttachmentIDs(
 func (s *Service) GetVolumeParams(
 	ctx context.Context, uuid storageprovisioning.VolumeUUID,
 ) (storageprovisioning.VolumeParams, error) {
-	return storageprovisioning.VolumeParams{}, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return storageprovisioning.VolumeParams{}, errors.New(
+			"volume uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	return s.st.GetVolumeParams(ctx, uuid)
 }
 
 // GetVolumeAttachmentParams retrieves the attachment parameters for a given
