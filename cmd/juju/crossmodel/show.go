@@ -107,7 +107,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Trace(err)
 		}
 		url = &crossmodel.OfferURL{
-			ApplicationName: c.url,
+			Name: c.url,
 		}
 	}
 	accountDetails, err := c.CurrentAccountDetails()

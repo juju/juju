@@ -158,6 +158,45 @@ func (c *MockModelDBStateGetOfferDetailsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetOfferUUID mocks base method.
+func (m *MockModelDBState) GetOfferUUID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferUUID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferUUID indicates an expected call of GetOfferUUID.
+func (mr *MockModelDBStateMockRecorder) GetOfferUUID(arg0, arg1 any) *MockModelDBStateGetOfferUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferUUID", reflect.TypeOf((*MockModelDBState)(nil).GetOfferUUID), arg0, arg1)
+	return &MockModelDBStateGetOfferUUIDCall{Call: call}
+}
+
+// MockModelDBStateGetOfferUUIDCall wrap *gomock.Call
+type MockModelDBStateGetOfferUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetOfferUUIDCall) Return(arg0 string, arg1 error) *MockModelDBStateGetOfferUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetOfferUUIDCall) Do(f func(context.Context, string) (string, error)) *MockModelDBStateGetOfferUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelDBStateGetOfferUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelDBState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()

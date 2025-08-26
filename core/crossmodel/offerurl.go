@@ -22,7 +22,7 @@ type OfferURL struct {
 	Source string // "<controller-name>" or "<jaas>" or ""
 
 	// ModelQualifier disambiguates the name of the model hosting the offer.
-	// Older clients may set this to a user name so we just deal with it as
+	// Older clients may set this to a username so we just deal with it as
 	// a string and let the target controller which needs to use it to
 	// resolve the offer figure out how to interpret it.
 	ModelQualifier string
@@ -32,8 +32,10 @@ type OfferURL struct {
 	// controller.
 	ModelName string
 
-	// ApplicationName is the name of the application providing the exported endpoints.
-	ApplicationName string
+	// Name is the name of the offer. This defaults to the name of the
+	// application providing the exported endpoints if not specified by
+	// when the offer is created.
+	Name string
 }
 
 // Path returns the path component of the URL.
@@ -46,7 +48,7 @@ func (u *OfferURL) Path() string {
 		parts = append(parts, u.ModelName)
 	}
 	path := strings.Join(parts, "/")
-	path = fmt.Sprintf("%s.%s", path, u.ApplicationName)
+	path = fmt.Sprintf("%s.%s", path, u.Name)
 	if u.Source == "" {
 		return path
 	}
@@ -67,21 +69,23 @@ func (u *OfferURL) AsLocal() *OfferURL {
 // HasEndpoint returns whether this offer URL includes an
 // endpoint name in the application name.
 func (u *OfferURL) HasEndpoint() bool {
-	return strings.Contains(u.ApplicationName, ":")
+	return strings.Contains(u.Name, ":")
 }
 
-// modelApplicationRegexp parses urls of the form controller:qualifier/model.application[:relname]
-var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
+// modelApplicationRegexp parses urls of the form source:qualifier/model.offername[:relname]
+var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<qualifier>[^/]+)/)?(?P<model>[^.]*)(\.(?P<offername>[^:]*(:.*)?))?)?`)
 
 // ParseOfferURL parses the specified URL string into an OfferURL.
 // The URL string is of one of the forms:
 //
-//	<model-name>.<application-name>
-//	<model-name>.<application-name>:<relation-name>
-//	<qualifier>/<model-name>.<application-name>
-//	<qualifier>/<model-name>.<application-name>:<relation-name>
-//	<controller>:<qualifier>/<model-name>.<application-name>
-//	<controller>:<qualifier>/<model-name>.<application-name>:<relation-name>
+//	<model-name>.<offer-name>
+//	<model-name>.<offer-name>:<relation-name>
+//	<qualifier>/<model-name>.<offer-name>
+//	<qualifier>/<model-name>.<offer-name>:<relation-name>
+//	<source>:<model-name>.<offer-name>
+//	<source>:<model-name>.<offer-name>:<relation-name>
+//	<source>:<qualifier>/<model-name>.<offer-name>
+//	<source>:<qualifier>/<model-name>.<offer-name>:<relation-name>
 func ParseOfferURL(urlStr string) (*OfferURL, error) {
 	return parseOfferURL(urlStr)
 }
@@ -131,22 +135,21 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 		result.Source = source
 		result.ModelQualifier = modelApplicationRegexp.ReplaceAllString(urlParts, "$qualifier")
 		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlParts, "$model")
-		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlParts, "$application")
+		result.Name = modelApplicationRegexp.ReplaceAllString(urlParts, "$offername")
 	}
-	if !valid || strings.Contains(result.ModelName, "/") || strings.Contains(result.ApplicationName, "/") {
-		// TODO(wallyworld) - update error message when we support multi-controller and JAAS CMR
-		return nil, errors.Errorf("application offer URL has invalid form, must be [<qualifier/]<model>.<appname>: %q", urlStr)
+	if !valid || strings.Contains(result.ModelName, "/") || strings.Contains(result.Name, "/") {
+		return nil, errors.Errorf("offer URL has invalid form, must be [<source>:][<qualifier>]<model>.<offername>: %q", urlStr)
 	}
 	if !allowIncomplete && result.ModelName == "" {
-		return nil, errors.Errorf("application offer URL is missing model")
+		return nil, errors.Errorf("offer URL is missing model")
 	}
-	if !allowIncomplete && result.ApplicationName == "" {
-		return nil, errors.Errorf("application offer URL is missing application")
+	if !allowIncomplete && result.Name == "" {
+		return nil, errors.Errorf("offer URL is missing the name")
 	}
 
-	// Application name part may contain a relation name part, so strip that bit out
+	// Offer name part may contain a relation name part, so strip that bit out
 	// before validating the name.
-	appName := strings.Split(result.ApplicationName, ":")[0]
+	offerName := strings.Split(result.Name, ":")[0]
 	// Validate the resulting URL part values.
 	// The qualifier part may come from older clients which use a username.
 	// This is no longer a reasonable qualifier check, so we don't perform
@@ -155,17 +158,18 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
 		return nil, errors.Errorf("model name %q %w", result.ModelName, coreerrors.NotValid)
 	}
-	if appName != "" && !names.IsValidApplication(appName) {
-		return nil, errors.Errorf("application name %q %w", appName, coreerrors.NotValid)
+	// An offer name has the same requirements as an application name.
+	if offerName != "" && !names.IsValidApplication(offerName) {
+		return nil, errors.Errorf("offer name %q %w", offerName, coreerrors.NotValid)
 	}
 	return &result, nil
 }
 
 // MakeURL constructs an offer URL from the specified components.
-func MakeURL(user, model, application, controller string) string {
-	base := fmt.Sprintf("%s/%s.%s", user, model, application)
-	if controller == "" {
+func MakeURL(user, model, name, source string) string {
+	base := fmt.Sprintf("%s/%s.%s", user, model, name)
+	if source == "" {
 		return base
 	}
-	return fmt.Sprintf("%s:%s", controller, base)
+	return fmt.Sprintf("%s:%s", source, base)
 }

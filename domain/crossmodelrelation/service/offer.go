@@ -9,7 +9,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/crossmodel"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -19,8 +18,16 @@ import (
 )
 
 // GetOfferUUID returns the uuid for the provided offer URL.
+// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
 func (s *Service) GetOfferUUID(ctx context.Context, offerURL *crossmodel.OfferURL) (uuid.UUID, error) {
-	return uuid.UUID{}, coreerrors.NotImplemented
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	offerUUID, err := s.modelState.GetOfferUUID(ctx, offerURL.Name)
+	if err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+	return uuid.UUIDFromString(offerUUID)
 }
 
 // Offer updates an existing offer, or creates a new offer if it does not exist.

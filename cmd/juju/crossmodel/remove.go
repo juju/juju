@@ -136,7 +136,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		if c.offerSource != url.Source {
 			return errors.New("all offer URLs must use the same controller")
 		}
-		if strings.Contains(url.ApplicationName, ":") {
+		if strings.Contains(url.Name, ":") {
 			invalidOffers = append(invalidOffers, " -"+c.offers[i])
 		}
 	}
@@ -185,8 +185,8 @@ func makeURLFromCurrentModel(
 	// We may have just been given an offer name.
 	// Try again with the current model as the host model.
 	url := &crossmodel.OfferURL{
-		Source:          offerSource,
-		ApplicationName: offerName,
+		Source: offerSource,
+		Name:   offerName,
 	}
 	if url.ModelName == "" {
 		if jujuclient.IsQualifiedModelName(modelName) {

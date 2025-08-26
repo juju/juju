@@ -128,6 +128,23 @@ func (st *State) UpdateOffer(
 	return errors.Capture(err)
 }
 
+// GetOfferUUID returns the offer uuid for provided name.
+// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
+func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var offerUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		offerUUID, _, err = st.getOfferAndApplicationUUID(ctx, tx, name)
+		return err
+	})
+
+	return offerUUID, err
+}
+
 // GetOfferDetails returns the OfferDetail of every offer in the model.
 // No error is returned if offers are found.
 func (st *State) GetOfferDetails(
