@@ -1005,14 +1005,13 @@ func (c *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name 
 }
 
 func (c *statusContext) unitPublicAddress(unit statusservice.Unit) string {
-	_, ok := c.allMachines[c.unitMachineID(unit)]
+	m, ok := c.allMachines[c.unitMachineID(unit)]
 	if !ok {
 		return ""
 	}
-	// TODO (stickupkid): Return the public address of the unit's machine.
-	// We don't care if the machine doesn't have an address yet.
-	// addr, _ := machine.PublicAddress()
-	// return addr.Value
+	if len(m.IPAddresses) > 0 {
+		return m.IPAddresses[0]
+	}
 	return ""
 }
 
