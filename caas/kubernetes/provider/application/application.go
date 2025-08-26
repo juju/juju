@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -97,6 +98,7 @@ type app struct {
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	extendedClient apiextensionsclientset.Interface
+	dynamicClient  dynamic.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
@@ -124,6 +126,7 @@ func NewApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -138,6 +141,7 @@ func NewApplication(
 		deploymentType,
 		client,
 		extendedClient,
+		dynamicClient,
 		newWatcher,
 		clock,
 		randomPrefix,
@@ -155,6 +159,7 @@ func newApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -1002,6 +1007,7 @@ func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) 
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
+	ctx := context.Background()
 	logger.Debugf("deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
@@ -1026,13 +1032,86 @@ func (a *app) Delete() error {
 	// Cleanup lists of resources.
 	cleanup := []resources.Resource(nil)
 
+	// Create selector labels.
+	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
+	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
+	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
+
+	// List mutating webhook configurations to be deleted.
+	mws, err := resources.ListMutatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().MutatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: mergedLabel.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list mutating webhook configurations for deletion")
+	}
+
+	// List validating webhook configurations to be deleted.
+	vws, err := resources.ListValidatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().ValidatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: mergedLabel.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list validating webhook configurations for deletion")
+	}
+
+	// List ingress to be deleted.
+	igs, err := resources.ListIngresses(ctx, a.client.NetworkingV1().Ingresses(a.namespace), metav1.ListOptions{
+		LabelSelector: mergedLabel.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list ingresses for deletion")
+	}
+
 	// List secrets to be deleted.
-	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(ctx, a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to list secrets for deletion")
 	}
+
+	// List configmaps to be deleted.
+	cms, err := resources.ListConfigMaps(ctx, a.client.CoreV1().ConfigMaps(a.namespace), metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list configmaps for deletion")
+	}
+
+	// List CRDs to be deleted.
+	crds, err := resources.ListCRDs(ctx, a.extendedClient, metav1.ListOptions{
+		LabelSelector: mergedLabel.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list CRDs for deletion")
+	}
+
+	// List CRs for each CRD to be deleted.
+	var crs []*resources.CustomResource
+	for _, crd := range crds {
+		res, err := resources.ListCRsForCRD(ctx, a.dynamicClient, a.namespace, &crd.CustomResourceDefinition, metav1.ListOptions{
+			LabelSelector: a.labelSelector(),
+		})
+		if err != nil {
+			return errors.Annotatef(err, "failed to list CRs for CRD %q", crd.Name)
+		}
+		crs = append(crs, res...)
+	}
+
+	for _, mw := range mws {
+		cleanup = append(cleanup, mw)
+	}
+	for _, vw := range vws {
+		cleanup = append(cleanup, vw)
+	}
+
+	for _, ig := range igs {
+		cleanup = append(cleanup, ig)
+	}
+
+	for _, cr := range crs {
+		cleanup = append(cleanup, cr)
+	}
+
 	for _, s := range secrets {
 		secret := s
 		if a.matchImagePullSecret(secret.Name) {
@@ -1040,17 +1119,10 @@ func (a *app) Delete() error {
 		}
 	}
 
-	// List crds to be deleted.
-	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
-	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
-	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
-	crds, err := resources.ListCRDs(context.Background(), a.extendedClient, metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
-	},
-	)
-	if err != nil {
-		return errors.Trace(err)
+	for _, cm := range cms {
+		cleanup = append(cleanup, cm)
 	}
+
 	for _, crd := range crds {
 		cleanup = append(cleanup, crd)
 	}

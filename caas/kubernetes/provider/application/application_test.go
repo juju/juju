@@ -22,6 +22,7 @@ import (
 	apiextensionsfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
@@ -43,12 +44,14 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
 
 type applicationSuite struct {
 	testing.BaseSuite
 	client         *fake.Clientset
 	extendedClient *apiextensionsfake.Clientset
+	dynamicClient  *dynamicfake.FakeDynamicClient
 
 	namespace    string
 	appName      string
@@ -69,6 +72,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.appName = "gitlab"
 	s.client = fake.NewSimpleClientset()
 	s.extendedClient = apiextensionsfake.NewSimpleClientset()
+	s.dynamicClient = dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	s.clock = testclock.NewClock(time.Time{})
 }
 
@@ -106,6 +110,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 		deploymentType,
 		s.client,
 		s.extendedClient,
+		s.dynamicClient,
 		watcherFn,
 		s.clock,
 		func() (string, error) {

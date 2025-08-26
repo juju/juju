@@ -24,7 +24,7 @@ type CustomResourceDefinition struct {
 	apiextensionsv1.CustomResourceDefinition
 }
 
-// CustomResourceDefinition creates a new customresourcedefinition resource.
+// NewCustomResourceDefinition creates a new customresourcedefinition resource.
 func NewCustomResourceDefinition(client v1.CustomResourceDefinitionInterface, name string, in *apiextensionsv1.CustomResourceDefinition) *CustomResourceDefinition {
 	if in == nil {
 		in = &apiextensionsv1.CustomResourceDefinition{}

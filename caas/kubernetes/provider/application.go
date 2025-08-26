@@ -18,6 +18,7 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		deploymentType,
 		k.client(),
 		k.extendedClient(),
+		k.dynamicClient(),
 		k.newWatcher,
 		k.clock,
 		k.randomPrefix,
