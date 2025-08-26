@@ -14,7 +14,7 @@ Sets the trust status of a deployed application to true.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--remove` | false | Remove trusted access from a trusted application |
-| `--scope` |  | (Kubernetes models only:) Needs to be set to `cluster` |
+| `--scope` |  | (Kubernetes models only) Needs to be set to `cluster` |
 
 ## Examples
 

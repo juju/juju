@@ -11,10 +11,10 @@ Adds one or more units to a deployed application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--attach-storage` |  | (Machine models only:) Specify an existing storage volume to attach to the deployed unit. |
+| `--attach-storage` |  | (Machine models only) Specify an existing storage volume to attach to the deployed unit. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-n`, `--num-units` | 1 | Specify the number of units to add. |
-| `--to` |  | (Machine models only:) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
+| `--to` |  | (Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
 
 ## Examples
 

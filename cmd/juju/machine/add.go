@@ -49,7 +49,7 @@ used as a placement directive for deploying applications. Machine IDs
 are also accessible via ` + "`juju status` " + `and ` + "`juju machines`" + `.
 
 
-**Provisioning a new machine**
+### Provisioning a new machine
 
 When add-machine is called without arguments, Juju provisions a new
 machine instance from the current cloud. The machine's specifications,
@@ -67,7 +67,7 @@ about how to allocate the machine in the cloud. For example, one can direct
 the MAAS provider to acquire a particular node by specifying its hostname.
 
 
-**Manual provisioning**
+### Manual provisioning
 
 Call ` + "`add-machine` " + ` with the address of a network-accessible computer to
 allocate that machine to the model.
@@ -77,7 +77,7 @@ and bringing it under Juju's management. The Juju controller must be able to
 access the new machine over the network.
 
 
-**Container creation**
+### Container creation
 
 If a operating system container type is specified (e.g. "lxd" or "kvm"),
 then ` + "`add-machine` " + `will allocate a container of that type on a new machine

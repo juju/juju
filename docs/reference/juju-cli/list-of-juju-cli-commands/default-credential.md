@@ -5,7 +5,7 @@
 **Aliases:** set-default-credentials
 
 ## Summary
-Get, set, or unset the default credential for a cloud on this client.
+Gets, sets, or unsets the default credential for a cloud on this client.
 
 ## Usage
 ```juju default-credential [options] <cloud name> [<credential name>]```

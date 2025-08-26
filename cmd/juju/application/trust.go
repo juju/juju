@@ -67,7 +67,7 @@ func (c *trustCommand) Info() *cmd.Info {
 func (c *trustCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.removeTrust, "remove", false, "Remove trusted access from a trusted application")
-	f.StringVar(&c.scope, "scope", "", "(Kubernetes models only:) Needs to be set to `cluster`")
+	f.StringVar(&c.scope, "scope", "", "(Kubernetes models only) Needs to be set to `cluster`")
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real

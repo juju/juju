@@ -17,7 +17,7 @@ import (
 )
 
 var usageSetDefaultCredentialSummary = `
-Get, set, or unset the default credential for a cloud on this client.`[1:]
+Gets, sets, or unsets the default credential for a cloud on this client.`[1:]
 
 var usageSetDefaultCredentialDetails = `
 This command sets a locally stored credential to be used as a default.
