@@ -9,8 +9,8 @@ run_deploy_bundle() {
 	ensure "test-bundles-deploy" "${file}"
 
 	juju deploy juju-qa-bundle-test
-	wait_for "juju-qa-test" ".applications | keys[0]"
-	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
+	wait_for "dummy-subordinate-focal" "$(idle_subordinate_condition "dummy-subordinate-focal" "juju-qa-test-focal")"
 
 	destroy_model "test-bundles-deploy"
 }
