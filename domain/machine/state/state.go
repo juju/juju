@@ -1010,30 +1010,34 @@ WHERE uuid = $entityUUID.uuid
 
 // GetMachineContainers returns the names of the machines which have as parent
 // the specified machine.
-func (st *State) GetMachineContainers(ctx context.Context, mUUID string) ([]string, error) {
+func (st *State) GetMachineContainers(ctx context.Context, mName string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	ident := entityUUID{UUID: mUUID}
 	query := `
 SELECT &machineName.*
 FROM machine
 JOIN machine_parent ON machine.uuid = machine_parent.machine_uuid
 WHERE parent_uuid = $entityUUID.uuid`
-	queryStmt, err := st.Prepare(query, machineName{}, ident)
+	queryStmt, err := st.Prepare(query, machineName{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var results []machineName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkMachineNotDead(ctx, tx, mUUID)
+		mUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
+		if err != nil {
+			return err
+		}
+		err = st.checkMachineNotDead(ctx, tx, mUUID.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = tx.Query(ctx, queryStmt, ident).GetAll(&results)
+
+		err = tx.Query(ctx, queryStmt, mUUID).GetAll(&results)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}

@@ -654,11 +654,9 @@ func (s *stateSuite) TestGetMachineContainersNotContainers(c *tc.C) {
 	// Arrange:
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	mUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
-	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
-	containers, err := s.state.GetMachineContainers(c.Context(), mUUID.String())
+	containers, err := s.state.GetMachineContainers(c.Context(), mNames[0].String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -675,8 +673,6 @@ func (s *stateSuite) TestGetMachineContainers(c *tc.C) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	mName := mNames[0]
-	mUUID, err := s.state.GetMachineUUID(c.Context(), mName)
-	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Directive: deployment.Placement{
@@ -697,7 +693,7 @@ func (s *stateSuite) TestGetMachineContainers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
-	res, err := s.state.GetMachineContainers(c.Context(), mUUID.String())
+	res, err := s.state.GetMachineContainers(c.Context(), mName.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -720,11 +716,8 @@ func (s *stateSuite) TestGetMachineContainersOnContainer(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	cUUID, err := s.state.GetMachineUUID(c.Context(), "0/lxd/0")
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Act:
-	res, err := s.state.GetMachineContainers(c.Context(), cUUID.String())
+	res, err := s.state.GetMachineContainers(c.Context(), "0/lxd/0")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
