@@ -37,14 +37,14 @@ func newUnitCommand() cmd.Command {
 }
 
 const unitCommandDoc = `
-The wait-for unit command waits for the unit to reach a goal state. The goal
+The ` + "`wait-for unit`" + ` command waits for the unit to reach a goal state. The goal
 state can be defined programmatically using the query DSL (domain specific
-language). The default query for a unit just waits for the unit to be created 
+language). The default query for a unit just waits for the unit to be created
 and active.
 
-The wait-for command is an optimized alternative to the status command for 
-determining programmatically if a goal state has been reached. The wait-for
-command streams delta changes from the underlying database, unlike the status
+The ` + "`wait-for`" + ` command is an optimized alternative to the ` + "`status`" + ` command for
+determining programmatically if a goal state has been reached. The ` + "`wait-for`" + `
+command streams delta changes from the underlying database, unlike the ` + "`status`" + `
 command which performs a full query of the database.
 
 The unit query DSL can be used to programmatically define the goal state
@@ -95,9 +95,9 @@ func (c *unitCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *unitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && workload-status=="active"`, "query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && workload-status=="active"`, "Query the goal state")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.

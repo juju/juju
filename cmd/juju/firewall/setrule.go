@@ -123,8 +123,8 @@ type SetFirewallRuleAPI interface {
 }
 
 var deprecationWarning = `
-Firewall rules have been moved to model-config settings "ssh-allow" and
-"saas-ingress-allow". This command is deprecated in favour of
+Firewall rules have been moved to model configuration settings ` + "`ssh-allow`" + ` and
+` + "`saas-ingress-allow`" + `. This command is deprecated in favour of
 reading/writing directly to these settings.
 `[1:]
 

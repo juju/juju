@@ -24,9 +24,9 @@ Removes a k8s cloud from Juju.
 
 ## Details
 
-Removes the specified k8s cloud from this client.
+Removes the specified Kubernetes cloud from this client.
 
-If --controller is used, also removes the cloud 
+If `--controller` is used, also removes the cloud
 from the specified controller (if it is not in use).
 
-Use --client option to update your current client.
+Use the `--client` option to update your current client.

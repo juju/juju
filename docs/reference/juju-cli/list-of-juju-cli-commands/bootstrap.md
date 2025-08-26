@@ -17,24 +17,24 @@ Initializes a cloud environment.
 | `--auto-upgrade` | false | After bootstrap, upgrade to the latest patch release |
 | `--bootstrap-base` |  | Specify the base of the bootstrap machine |
 | `--bootstrap-constraints` | [] | Specify bootstrap machine constraints |
-| `--bootstrap-image` |  | Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture) |
-| `--bootstrap-series` |  | Specify the series of the bootstrap machine (deprecated use bootstrap-base) |
+| `--bootstrap-image` |  | Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture) |
+| `--bootstrap-series` |  | Specify the series of the bootstrap machine (deprecated; use `bootstrap-base`) |
 | `--build-agent` | false | Build local version of agent binary before bootstrapping |
 | `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
-| `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (--config config.yaml [--config key=value ...]) |
+| `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
 | `--constraints` | [] | Set model constraints |
 | `--controller-charm-channel` | 3.6/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
 | `--controller-charm-path` |  | Path to a locally built controller charm |
 | `--credential` |  | Credentials to use when bootstrapping |
-| `--db-snap` |  | Path to a locally built .snap to use as the internal juju-db service. |
-| `--db-snap-asserts` |  | Path to a local .assert file. Requires --db-snap |
+| `--db-snap` |  | Path to a locally built `.snap` to use as the internal `juju-db` service. |
+| `--db-snap-asserts` |  | Path to a local `.assert` file. Requires `--db-snap` |
 | `--force` | false | Allow the bypassing of checks such as supported series |
 | `--keep-broken` | false | Do not destroy the provisioned controller instance if bootstrap fails |
 | `--metadata-source` |  | Local path to use as agent and/or image metadata source |
-| `--model-default` |  | Specify a configuration file, or one or more configuration     options to be set for all models, unless otherwise specified     (--model-default config.yaml [--model-default key=value ...]) |
+| `--model-default` |  | Specify a configuration file, or one or more configuration     options to be set for all models, unless otherwise specified     (`--model-default config.yaml [--model-default key=value ...])` |
 | `--no-switch` | false | Do not switch to the newly created controller |
 | `--regions` |  | Print the available regions for the specified cloud |
-| `--storage-pool` |  | Specify options for an initial storage pool     'name' and 'type' are required, plus any additional attributes     (--storage-pool pool-config.yaml [--storage-pool key=value ...]) |
+| `--storage-pool` |  | Specify options for an initial storage pool     'name' and 'type' are required, plus any additional attributes     (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`) |
 | `--to` |  | Placement directive indicating an instance to bootstrap |
 
 ## Examples
@@ -51,14 +51,17 @@ Initializes a cloud environment.
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
 	juju bootstrap lxd --bootstrap-base=ubuntu@22.04
 
-    # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
+For a bootstrap on Kubernetes, setting the service type of the Juju controller service to LoadBalancer:
+
     juju bootstrap --config controller-service-type=loadbalancer
 
-    # For a bootstrap on k8s, setting the service type of the Juju controller service to External
+For a bootstrap on Kubernetes, setting the service type of the Juju controller service to External:
+
     juju bootstrap --config controller-service-type=external --config controller-external-name=controller.juju.is
 
 
 ## Details
+
 Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
@@ -66,29 +69,27 @@ a 'controller' model and provisioning a machine to act as controller.
 Controller names may only contain lowercase letters, digits and hyphens, and
 may not start with a hyphen.
 We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’.
-See --clouds for a list of clouds and credentials.
-See --regions &lt;cloud&gt; for a list of available regions for a given cloud.
+See `--clouds` for a list of clouds and credentials.
+See `--regions <cloud>`for a list of available regions for a given cloud.
 
 Credentials are set beforehand and are distinct from any other
 configuration (see `juju add-credential`).
+
 The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
 cloud. Additional models should be created with `juju add-model` for workload purposes.
-Note that a 'default' model is also created and becomes the current model
-of the environment once the command completes. It can be discarded if
-other models are created.
 
-If '--bootstrap-constraints' is used, its values will also apply to any
+If `--bootstrap-constraints` is used, its values will also apply to any
 future controllers provisioned for high availability (HA).
 
-If '--constraints' is used, its values will be set as the default
+If `--constraints` is used, its values will be set as the default
 constraints for all future workload machines in the model, exactly as if
 the constraints were set with `juju set-model-constraints`.
 
 It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be
-used with the MAAS provider ('--to &lt;host&gt;.maas').
+used with the MAAS provider (`--to <host>.maas`).
 
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
@@ -101,46 +102,46 @@ bootstrap by changing the following settings in your configuration
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10  # default: 10 seconds
 
-It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
-to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
+It is possible to override the base e.g. `ubuntu@22.04`, Juju attempts
+to bootstrap on to, by supplying a base argument to `--bootstrap-base`.
 
 An error is emitted if the determined base is not supported. Using the
-'--force' option to override this check:
+`--force` option to override this check:
 
     juju bootstrap --bootstrap-base=ubuntu@22.04 --force
 
-The '--bootstrap-series' flag can be still used, but is deprecated in favour
-of '--bootstrap-base'.
+The `--bootstrap-series` flag can be still used, but is deprecated in favour
+of `--bootstrap-base`.
 
 Private clouds may need to specify their own custom image metadata and
-tools/agent. Use '--metadata-source' whose value is a local directory.
+tools/agent. Use `--metadata-source` whose value is a local directory.
 
 By default, the Juju version of the agent binary that is downloaded and
 installed on all models for the new controller will be the same as that
 of the Juju client used to perform the bootstrap.
-However, a user can specify a different agent version via '--agent-version'
+However, a user can specify a different agent version via the `--agent-version`
 option to bootstrap command. Juju will use this version for models' agents
 as long as the client's version is from the same Juju release base.
-In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
-bootstrap any 2.0.x or 2.1.x agents.
-The agent version can be specified a simple numeric version, e.g. 2.2.4.
+In other words, a 3.6.1 client can bootstrap any 3.6.x agents but cannot
+bootstrap any 3.5.x or 3.4.x agents.
+The agent version can be specified a simple numeric version, e.g. 3.6.9.
 
-For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released and your
-agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
-   * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
-   * 2.3.1 controller by running '... bootstrap ...';
-   * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
-However, if this client has a copy of codebase, then a local copy of Juju
-will be built and bootstrapped - 2.3.1.1.
+For example, at the time when 3.6.0, 3.6.1 and 3.6.2 are released and your
+agent stream is 'released' (default), then a 3.6.1 client can bootstrap:
+   * a 3.6.0 controller by running `... bootstrap --agent-version=3.6.0 ...`;
+   * a 3.6.1 controller by running `... bootstrap ...`;
+   * a 3.6.2 controller by running `bootstrap --auto-upgrade`.
+However, if this client has a copy of the codebase, then a local copy of Juju
+will be built and bootstrapped -- 3.6.1.1.
 
-Bootstrapping to a k8s cluster requires that the service set up to handle
+Bootstrapping to a Kubernetes cluster requires that the service set up to handle
 requests to the controller be accessible outside the cluster. Typically this
 means a service type of LoadBalancer is needed, and Juju does create such a
 service if it knows it is supported by the cluster. This is performed by
 interrogating the cluster for a well known managed deployment such as microk8s,
 GKE or EKS.
 
-When bootstrapping to a k8s cluster Juju does not recognise, there's no
+When bootstrapping to a Kubernetes cluster Juju does not recognise, there's no
 guarantee a load balancer is available, so Juju defaults to a controller
 service type of ClusterIP. This may not be suitable, so there are three bootstrap
 options available to tell Juju how to set up the controller service. Part of
@@ -150,18 +151,18 @@ first, or perhaps an external k8s service via a FQDN will be used
 informed about so it can set things up correctly). The three relevant bootstrap
 options are (see list of bootstrap config items below for a full explanation):
 
-- controller-service-type
-- controller-external-name
-- controller-external-ips
+- `controller-service-type`
+- `controller-external-name`
+- `controller-external-ips`
 
 Juju advertises those addresses to other controllers, so they must be resolveable from
 other controllers for cross-model (cross-controller, actually) relations to work.
 
-If a storage pool is specified using --storage-pool, this will be created
+If a storage pool is specified using `--storage-pool`, this will be created
 in the controller model.
 
 
-Available keys for use with --config are:
+Available keys for use with `--config` are:
 
 Bootstrap configuration keys:
 

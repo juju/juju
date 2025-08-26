@@ -36,13 +36,13 @@ type showOperationCommand struct {
 }
 
 const showOperationDoc = `
-Show the results returned by an operation with the given ID.  
+Show the results returned by an operation with the given ID.
 To block until the result is known completed or failed, use
-the --wait option with a duration, as in --wait 5s or --wait 1h.
-Use --watch to wait indefinitely.  
+the ` + "`--wait`" + ` option with a duration, as in ` + "`--wait 5s`" + ` or ` + "`--wait 1h`" + `.
+Use ` + "`--watch`" + ` to wait indefinitely.
 
-The default behavior without --wait or --watch is to immediately check and return;
-if the results are "pending" then only the available information will be
+The default behavior without ` + "`--wait`" + ` or ` + "`--watch`" + ` is to immediately check and return;
+if the results are ` + "`pending`" + `, then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
 `
 

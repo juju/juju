@@ -46,57 +46,58 @@ are able to use this command.
 Targets are specified using either machine ids, application names or unit
 names.  At least one target specifier is needed.
 
-Multiple values can be set for --machine, --application, and --unit by using
+Multiple values can be set for `--machine`, `--application`, and `--unit` by using
 comma separated values.
 
 Depending on the type of target, the user which the command runs as will be:
-  unit -&gt; "root"
-  machine -&gt; "ubuntu"
-The target and user are independent of whether --all or --application are used.
-For example, --all will run as "ubuntu" on machines and "root" on units.
-And --application will run as "root" on all units of that application.
+
+  unit -&gt; `root`
+  machine -&gt; `ubuntu`
+
+The target and user are independent of whether `--all` or `--application` are used.
+For example, `--all` will run as `ubuntu` on machines and `root` on units.
+And `--application` will run as `root` on all units of that application.
 
 Some options are shortened for usabilty purpose in CLI
---application can also be specified as --app and -a
---unit can also be specified as -u
 
-Valid unit identifiers are: 
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form &lt;application&gt;/leader, such as mysql/leader.
+- `--application` can also be specified as `--app` and `-a`
+- `--unit` can also be specified as `-u`
+
+Valid unit identifiers are:
+
+  - a standard unit ID, such as `mysql/0` or;
+  - leader syntax of the form `<application>/leader`, such as `mysql/leader`.
 
 If the target is an application, the command is run on all units for that
-application. For example, if there was an application "mysql" and that application
-had two units, "mysql/0" and "mysql/1", then
-  --application mysql
-is equivalent to
-  --unit mysql/0,mysql/1
+application. For example, if there was an application `mysql` and that application
+had two units, `mysql/0` and `mysql/1`, then `--application mysql`
+is equivalent to `--unit mysql/0,mysql/1`.
 
-If --operator is provided on k8s models, commands are executed on the operator
-instead of the workload. On IAAS models, --operator has no effect.
+If `--operator` is provided on Kubernetes models, commands are executed on the operator
+instead of the workload. On machine models, `--operator` has no effect.
 
-Commands run for applications or units are executed in a 'hook context' for
+Commands run for applications or units are executed in a hook context for
 the unit.
 
-Commands run on machines via the --machine argument are run in parallel
+Commands run on machines via the -`-machine` argument are run in parallel
 by default.
 If you want commands to be run sequentially in order of submission,
-use --parallel=false.
+use `--parallel=false`.
 Such commands will first acquire a global execution lock on the host machine
 before running, and release the lock when done.
 It's also possible to group commands so that those in the same group run
 sequentially, but in parallel with other groups. This is done using
---execution-group=somegroup.
+`--execution-group=somegroup`.
 
---all is provided as a simple way to run the command on all the machines
-in the model.  If you specify --all you cannot provide additional
+`--all` is provided as a simple way to run the command on all the machines
+in the model.  If you specify `--all` you cannot provide additional
 targets.
 
-Since juju exec creates tasks, you can query for the status of commands
-started with juju run by calling 
-"juju operations --machines &lt;id&gt;,... --actions juju-exec".
+Since `juju exec` creates tasks, you can query for the status of commands
+started with `juju run` by calling `juju operations --machines <id>,... --actions juju-exec`.
 
 If you need to pass options to the command being run, you must precede the
-command and its arguments with "--", to tell "juju exec" to stop processing
+command and its arguments with `--`, to tell `juju exec` to stop processing
 those arguments. For example:
 
     juju exec --all -- hostname -f

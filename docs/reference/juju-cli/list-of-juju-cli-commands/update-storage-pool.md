@@ -16,7 +16,7 @@ Update storage pool attributes.
 
 ## Examples
 
-Update the storage-pool named iops with new configuration details:
+Update the storage-pool named `iops` with new configuration details:
 
       juju update-storage-pool operator-storage volume-type=provisioned-iops iops=40
 

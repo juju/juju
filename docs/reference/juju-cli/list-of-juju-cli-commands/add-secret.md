@@ -9,8 +9,8 @@ Add a new secret.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--file` |  | a YAML file containing secret key values |
-| `--info` |  | the secret description |
+| `--file` |  | A YAML file containing secret key values |
+| `--info` |  | The secret description |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -20,7 +20,7 @@ Add a new secret.
     juju add-secret my-secret key#file=/path/to/file another-key=s3cret
     juju add-secret db-password \
         --info "my database password" \
-        data#base64=s3cret== 
+        data#base64=s3cret==
     juju add-secret db-password \
         --info "my database password" \
         --file=/path/to/file
@@ -30,11 +30,11 @@ Add a new secret.
 
 Add a secret with a list of key values.
 
-If a key has the '#base64' suffix, the value is already in base64 format and no
+If a key has the `#base64` suffix, the value is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
 
-If a key has the '#file' suffix, the value is read from the corresponding file.
+If a key has the `#file` suffix, the value is read from the corresponding file.
 
 A secret is owned by the model, meaning only the model admin
 can manage it, ie grant/revoke access, update, remove etc.

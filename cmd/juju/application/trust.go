@@ -22,9 +22,9 @@ const (
 	trustSummary = `Sets the trust status of a deployed application to true.`
 	trustDetails = `Sets the trust configuration value to true.
 
-On k8s models, the trust operation currently grants the charm full access to the cluster.
-Until the permissions model is refined to grant more granular role based access, the use of
-'--scope=cluster' is required to confirm this choice.
+On Kubernetes models, the ` + "`trust`" + ` operation currently grants the charm full access to the cluster.
+Until the permissions model is refined to grant more granular role-based access, the use of
+` + "`--scope=cluster`" + ` is required to confirm this choice.
 `
 
 	trustExamples = `
@@ -67,7 +67,7 @@ func (c *trustCommand) Info() *cmd.Info {
 func (c *trustCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.removeTrust, "remove", false, "Remove trusted access from a trusted application")
-	f.StringVar(&c.scope, "scope", "", "k8s models only - needs to be set to 'cluster'")
+	f.StringVar(&c.scope, "scope", "", "(Kubernetes models only) Needs to be set to `cluster`")
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real

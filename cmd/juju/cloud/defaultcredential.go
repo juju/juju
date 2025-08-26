@@ -17,28 +17,27 @@ import (
 )
 
 var usageSetDefaultCredentialSummary = `
-Sets local default credentials for a cloud on this client.`[1:]
+Gets, sets, or unsets the default credential for a cloud on this client.`[1:]
 
 var usageSetDefaultCredentialDetails = `
-The default credentials are specified with a "credential name". 
-
-A credential name is created during the process of adding credentials either 
-via `[1:] + "`juju add-credential` or `juju autoload-credentials`" + `. 
-Credential names can be listed with ` + "`juju credentials`" + `.
-
 This command sets a locally stored credential to be used as a default.
-Default credentials avoid the need to specify a particular set of 
-credentials when more than one are available for a given cloud.
 
-To unset previously set default credential for a cloud, use --reset option.
+Default credentials avoid the need to specify a particular set of
+credentials when more than one credential is available on the client for a given cloud.
 
-To view currently set default credential for a cloud, use the command
-without a credential name argument.
 `
 
 const usageSetDefaultCredentialExamples = `
-    juju default-credential google credential_name
+Set the default credential for the ` + "`google`" + ` cloud:
+
+    juju default-credential google <credential>
+
+View the default credential for the ` + "`google`" + ` cloud:
+
     juju default-credential google
+
+Unset the default credential for the ` + "`google`" + ` cloud:
+
     juju default-credential google --reset
 `
 

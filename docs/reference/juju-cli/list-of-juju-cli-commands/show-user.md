@@ -25,5 +25,6 @@ Show information about a user.
 
 
 ## Details
-By default, the YAML format is used and the user name is the current
+
+By default, the `YAML`format is used and the user name is the current
 user.

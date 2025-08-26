@@ -55,10 +55,12 @@ type statusHistoryCommand struct {
 var statusHistoryDoc = fmt.Sprintf(`
 This command will report the history of status changes for
 a given entity.
+
 The statuses are available for the following types.
 -type supports:
 %v
  and sorted by time of occurrence.
+
  The default is unit.
 `, supportedHistoryKindDescs())
 

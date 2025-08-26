@@ -184,7 +184,7 @@ func (s *RemoveSuite) TestRunWithForceWithNoError(c *gc.C) {
 	spaceName := "default"
 	api.EXPECT().RemoveSpace(spaceName, false, true).Return(params.RemoveSpaceResult{}, nil)
 	expectedErrMsg := `
-WARNING! This command will remove the space. 
+WARNING! This command will remove the space.
 Safe removal possible. No constraints, bindings or controller config found with dependency on the given space.
 
 Continue [y/N]? `[1:]

@@ -41,7 +41,7 @@ type removeCommand struct {
 const destroyOfferDoc = `
 Remove one or more application offers.
 
-If the --force option is specified, any existing relations to the
+If the ` + "`--force`" + ` option is specified, any existing relations to the
 offer will also be removed.
 
 Offers to remove are normally specified by their URL.
@@ -73,7 +73,7 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "remove the offer as well as any relations to the offer")
+	f.BoolVar(&c.force, "force", false, "Remove the offer as well as any relations to the offer")
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }

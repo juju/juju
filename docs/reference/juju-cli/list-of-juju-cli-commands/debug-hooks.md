@@ -22,40 +22,40 @@ Launch a tmux session to debug hooks and/or actions.
 
 ## Examples
 
-Debug all hooks and actions of unit '0':
+Debug all hooks and actions of unit `mysql/0`:
 
     juju debug-hooks mysql/0
 
-Debug all hooks and actions of the leader:
+Debug all hooks and actions of unit `mysql/0`:
 
     juju debug-hooks mysql/leader
 
-Debug the 'config-changed' hook of unit '1':
+Debug the `config-changed`hook of unit `mysql/0`:
 
     juju debug-hooks mysql/1 config-changed
 
-Debug the 'pull-site' action and 'update-status' hook of unit '0':
+Debug the `pull-site`action and `update-status` hook of unit `hello-kubecon/0`:
 
     juju debug-hooks hello-kubecon/0 pull-site update-status
 
 
 ## Details
 
-The command launches a tmux session that will intercept matching hooks and/or
+The command launches a `tmux` session that will intercept matching hooks and/or
 actions.
 
-Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
-As soon as a matching hook or action is fired, the tmux session will
-automatically navigate you to '/var/lib/juju/agents/&lt;unit-id&gt;/charm' with a
-properly configured environment. Unlike the 'juju debug-code' command,
+Initially, the `tmux` session will take you to `/var/lib/juju` or `/home/ubuntu`.
+As soon as a matching hook or action is fired, the `tmux` session will
+automatically navigate you to `/var/lib/juju/agents/<unit-id>/charm`with a
+properly configured environment. Unlike the `juju debug-code` command,
 the fired hooks and/or actions are not executed directly; instead, the user
 needs to manually run the dispatch script inside the charm's directory.
 
 Valid unit identifiers are:
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form &lt;application&gt;/leader, such as mysql/leader.
+- a standard unit ID, such as `mysql/0` or;
+- leader syntax of the form `<application>/leader`, such as `mysql/leader`.
 
 If no hook or action is specified, all hooks and actions will be intercepted.
 
-See the "juju help ssh" for information about SSH related options
-accepted by the debug-hooks command.
+See `juju help ssh` for information about SSH related options
+accepted by the `debug-hooks` command.

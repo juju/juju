@@ -16,19 +16,20 @@ Revokes access from a Juju user for a cloud.
 
 ## Examples
 
-Revoke 'add-model' (and 'admin') access from user 'joe' for cloud 'fluffy':
+Revoke `add-model` (and 'admin') access from user `joe` for cloud `fluffy`:
 
     juju revoke-cloud joe add-model fluffy
 
-Revoke 'admin' access from user 'sam' for clouds 'fluffy' and 'rainy':
+Revoke `admin` access from user `sam` for clouds `fluffy` and `rainy`:
 
     juju revoke-cloud sam admin fluffy rainy
 
 
 
 ## Details
+
 Revoking admin access, from a user who has that permission, will leave
-that user with add-model access. Revoking add-model access, however, also revokes
+that user with `add-model` access. Revoking `add-model`access, however, also revokes
 admin access.
 
 Valid access levels are:

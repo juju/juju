@@ -23,4 +23,4 @@ Sets the meter status on an application or unit.
 ## Details
 
 Set meter status on the given application or unit. This command is used
-to test the meter-status-changed hook for charms in development.
+to test the `meter-status-changed` hook for charms in development.

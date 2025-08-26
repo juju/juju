@@ -19,5 +19,5 @@ Enable destroy-controller by removing disabled commands in the controller.
 Any model in the controller that has disabled commands will block a controller
 from being destroyed.
 
-A controller administrator is able to enable all the commands across all the models
-in a Juju controller so that the controller can be destoyed if desired.
+A controller administrator can enable all the commands across all the models
+in a Juju controller so that the controller can be destroyed if desired.

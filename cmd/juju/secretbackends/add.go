@@ -47,7 +47,7 @@ Config may be specified as key values ot read from a file.
 Any key values override file content if both are specified.
 
 To rotate the backend access credential/token (if specified), use
-the "token-rotate" config and supply a duration.
+the ` + "`token-rotate` " + `config and supply a duration.
 
 `
 
@@ -99,8 +99,8 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted configuration file")
-	f.StringVar(&c.ImportID, "import-id", "", "add the backend with the specified id")
+	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
+	f.StringVar(&c.ImportID, "import-id", "", "Add the backend with the specified ID")
 }
 
 func (c *addSecretBackendCommand) Init(args []string) error {

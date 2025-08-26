@@ -20,15 +20,16 @@ import (
 
 // getConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
-const getConstraintsDoc = "" +
-	"Shows constraints that have been set on the model with\n" +
-	"`juju set-model-constraints.`\n" +
-	"By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set on an application\n" +
-	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines/containers for applications. Where model and application constraints overlap, the\n" +
-	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju constraints`.\n"
+const getConstraintsDoc = `
+Shows constraints that have been set on the model with ` + "`juju set-model-constraints`" + `.
+By default, the model is the current model.
+Model constraints are combined with constraints set on an application.
+with ` + "`juju set-constraints`" + ` for commands (such as ` + "`deploy`" + `) that provision
+machines/containers for applications. Where model and application constraints overlap, the
+application constraints take precedence. Constraints for a specific application
+can be viewed with ` + "`juju constraints`" + `.
+
+`
 
 const getConstraintsDocExamples = `
     juju model-constraints
@@ -37,14 +38,15 @@ const getConstraintsDocExamples = `
 
 // setConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
-const setConstraintsDoc = "" +
-	"Sets constraints on the model that can be viewed with\n" +
-	"`juju model-constraints`.  By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set for an application with\n" +
-	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines/containers for applications. Where model and application constraints overlap, the\n" +
-	"application constraints take precedence.\n" +
-	"Constraints for a specific application can be viewed with `juju constraints`.\n"
+const setConstraintsDoc = `
+Sets constraints on the model that can be viewed with ` + "`juju model-constraints`" + `.
+By default, the model is the current model.
+Model constraints are combined with constraints set for an application with
+` + "`juju set-constraints`" + ` for commands (such as ` + "`deploy`" + `) that provision
+machines/containers for applications. Where model and application constraints overlap, the
+application constraints take precedence.
+Constraints for a specific application can be viewed with ` + "`juju constraints`" + `.
+`
 
 const setConstraintsDocExamples = `
     juju set-model-constraints cores=8 mem=16G

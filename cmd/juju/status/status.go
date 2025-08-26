@@ -86,62 +86,53 @@ do not match.
 
     juju status [<selector> [...]]
 
-<selector> selects machines, units or applications from the model to display.
-Wildcard characters (*) enable multiple entities to be matched at the same
+` + "`<selector>`" + ` selects machines, units or applications from the model to display.
+Wildcard characters (` + "`*`" + `) enable multiple entities to be matched at the same
 time.
 
     (<machine>|<unit>|<application>)[*]
 
-When an entity that matches <selector> is integrated with other applications, the 
-status of those applications will also be presented. By default (without a 
-<selector>) the status of all applications and their units will be displayed.
+When an entity that matches <selector> is integrated with other applications, the
+status of those applications will also be presented. By default (without a
+` + "`<selector>`" + `) the status of all applications and their units will be displayed.
 
 
-Altering the output format
+### Altering the output format
 
-The '--format' option allows you to specify how the status report is formatted.
+The ` + "`--format`" + ` option allows you to specify how the status report is formatted.
 
-  --format=tabular  (default)
-                    Display information about all aspects of the model in a 
-                    human-centric manner. Omits some information by default.
-                    Use the '--integrations' and '--storage' options to include
-                    all available information.
+- ` + "`--format=tabular`" + ` (default):
+Displays information about all aspects of the model in a human-centric manner.
+Omits some information by default.
+Use the ` + "`--relations`" + ` and ` + "`--storage`" + ` options to include all available information.
+- ` + "`--format=line`" + `, ` + "`--format=short`" + `, ` + "`--format=oneline `" + `:
+Reports information from units. Includes their IP address, open ports and the status of the workload and agent.
+- ` + "`--format=summary`" + `:
+Reports aggregated information about the model. Includes a description of subnets and ports that are in use,
+the counts of applications, units, and machines by status code.
+- ` + "`--format=json`" + `, ` + "`--format=yaml`" + `:
+Provides information in a ` + "`JSON`" + ` or ` + "`YAML`" + ` format for programmatic use.
 
-  --format=line
-  --format=short
-  --format=oneline
-                    Reports information from units. Includes their IP address,
-                    open ports and the status of the workload and agent.
-
-  --format=summary
-                    Reports aggregated information about the model. Includes 
-                    a description of subnets and ports that are in use, the
-                    counts of applications, units, and machines by status code.
-
-  --format=json
-  --format=yaml
-                    Provide information in a JSON or YAML formats for 
-                    programmatic use.
 `
 
 const usageExamples = `
-Report the status of units hosted on machine 0:
+Report the status of units hosted on machine ` + "`0`" + `:
 
     juju status 0
 
-Report the status of the the mysql application:
+Report the status of the ` + "`mysql`" + ` application:
 
     juju status mysql
 
-Report the status for applications that start with nova-:
+Report the status for applications that start with ` + "`nova-`" + `:
 
     juju status nova-*
 
-Include information about storage and integrations in output:
+Include information about storage and relations in output:
 
-    juju status --storage --integrations
+    juju status --storage --relations
 
-Provide output as valid JSON:
+Provide output as valid ` + "`JSON`" + `:
 
     juju status --format=json
 
@@ -180,9 +171,9 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
 	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
-	f.BoolVar(&c.integrations, "integrations", false, "Show 'integrations' section in tabular output")
-	f.BoolVar(&c.relations, "relations", false, "The same as '--integrations'")
-	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
+	f.BoolVar(&c.integrations, "integrations", false, "Same as `--relations`")
+	f.BoolVar(&c.relations, "relations", false, "Show relations section in tabular output")
+	f.BoolVar(&c.storage, "storage", false, "Show storage section in tabular output")
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")

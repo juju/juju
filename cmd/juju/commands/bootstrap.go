@@ -76,29 +76,27 @@ a 'controller' model and provisioning a machine to act as controller.
 Controller names may only contain lowercase letters, digits and hyphens, and
 may not start with a hyphen.
 We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’.
-See --clouds for a list of clouds and credentials.
-See --regions <cloud> for a list of available regions for a given cloud.
+See ` + "`--clouds`" + ` for a list of clouds and credentials.
+See ` + "`--regions <cloud>`" + ` for a list of available regions for a given cloud.
 
 Credentials are set beforehand and are distinct from any other
 configuration (see `[1:] + "`juju add-credential`" + `).
+
 The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
 cloud. Additional models should be created with ` + "`juju add-model`" + ` for workload purposes.
-Note that a 'default' model is also created and becomes the current model
-of the environment once the command completes. It can be discarded if
-other models are created.
 
-If '--bootstrap-constraints' is used, its values will also apply to any
+If ` + "`--bootstrap-constraints`" + ` is used, its values will also apply to any
 future controllers provisioned for high availability (HA).
 
-If '--constraints' is used, its values will be set as the default
+If ` + "`--constraints`" + ` is used, its values will be set as the default
 constraints for all future workload machines in the model, exactly as if
 the constraints were set with ` + "`juju set-model-constraints`" + `.
 
 It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be
-used with the MAAS provider ('--to <host>.maas').
+used with the MAAS provider (` + "`--to <host>.maas`" + `).
 
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
@@ -111,46 +109,46 @@ bootstrap by changing the following settings in your configuration
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10  # default: 10 seconds
 
-It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
-to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
+It is possible to override the base e.g. ` + "`ubuntu@22.04`" + `, Juju attempts
+to bootstrap on to, by supplying a base argument to ` + "`--bootstrap-base`" + `.
 
 An error is emitted if the determined base is not supported. Using the
-'--force' option to override this check:
+` + "`--force`" + ` option to override this check:
 
     juju bootstrap --bootstrap-base=ubuntu@22.04 --force
 
-The '--bootstrap-series' flag can be still used, but is deprecated in favour
-of '--bootstrap-base'.
+The ` + "`--bootstrap-series`" + ` flag can be still used, but is deprecated in favour
+of ` + "`--bootstrap-base`" + `.
 
 Private clouds may need to specify their own custom image metadata and
-tools/agent. Use '--metadata-source' whose value is a local directory.
+tools/agent. Use ` + "`--metadata-source`" + ` whose value is a local directory.
 
 By default, the Juju version of the agent binary that is downloaded and
 installed on all models for the new controller will be the same as that
 of the Juju client used to perform the bootstrap.
-However, a user can specify a different agent version via '--agent-version'
+However, a user can specify a different agent version via the ` + "`--agent-version`" + `
 option to bootstrap command. Juju will use this version for models' agents
 as long as the client's version is from the same Juju release base.
-In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
-bootstrap any 2.0.x or 2.1.x agents.
-The agent version can be specified a simple numeric version, e.g. 2.2.4.
+In other words, a 3.6.1 client can bootstrap any 3.6.x agents but cannot
+bootstrap any 3.5.x or 3.4.x agents.
+The agent version can be specified a simple numeric version, e.g. 3.6.9.
 
-For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released and your
-agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
-   * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
-   * 2.3.1 controller by running '... bootstrap ...';
-   * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
-However, if this client has a copy of codebase, then a local copy of Juju
-will be built and bootstrapped - 2.3.1.1.
+For example, at the time when 3.6.0, 3.6.1 and 3.6.2 are released and your
+agent stream is 'released' (default), then a 3.6.1 client can bootstrap:
+   * a 3.6.0 controller by running ` + "`... bootstrap --agent-version=3.6.0 ...`" + `;
+   * a 3.6.1 controller by running ` + "`... bootstrap ...`" + `;
+   * a 3.6.2 controller by running ` + "`bootstrap --auto-upgrade`" + `.
+However, if this client has a copy of the codebase, then a local copy of Juju
+will be built and bootstrapped -- 3.6.1.1.
 
-Bootstrapping to a k8s cluster requires that the service set up to handle
+Bootstrapping to a Kubernetes cluster requires that the service set up to handle
 requests to the controller be accessible outside the cluster. Typically this
 means a service type of LoadBalancer is needed, and Juju does create such a
 service if it knows it is supported by the cluster. This is performed by
 interrogating the cluster for a well known managed deployment such as microk8s,
 GKE or EKS.
 
-When bootstrapping to a k8s cluster Juju does not recognise, there's no
+When bootstrapping to a Kubernetes cluster Juju does not recognise, there's no
 guarantee a load balancer is available, so Juju defaults to a controller
 service type of ClusterIP. This may not be suitable, so there are three bootstrap
 options available to tell Juju how to set up the controller service. Part of
@@ -160,20 +158,20 @@ first, or perhaps an external k8s service via a FQDN will be used
 informed about so it can set things up correctly). The three relevant bootstrap
 options are (see list of bootstrap config items below for a full explanation):
 
-- controller-service-type
-- controller-external-name
-- controller-external-ips
+- ` + "`controller-service-type`" + `
+- ` + "`controller-external-name`" + `
+- ` + "`controller-external-ips`" + `
 
 Juju advertises those addresses to other controllers, so they must be resolveable from
 other controllers for cross-model (cross-controller, actually) relations to work.
 
-If a storage pool is specified using --storage-pool, this will be created
+If a storage pool is specified using ` + "`--storage-pool`" + `, this will be created
 in the controller model.
 `
 
 var usageBootstrapConfigTxt = `
 
-Available keys for use with --config are:
+Available keys for use with ` + "`--config`" + ` are:
 `
 
 var usageBootstrapDetailsPartTwo = `
@@ -192,10 +190,12 @@ const usageBootstrapExamples = `
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
 	juju bootstrap lxd --bootstrap-base=ubuntu@22.04
 
-    # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
+For a bootstrap on Kubernetes, setting the service type of the Juju controller service to LoadBalancer:
+
     juju bootstrap --config controller-service-type=loadbalancer
 
-    # For a bootstrap on k8s, setting the service type of the Juju controller service to External
+For a bootstrap on Kubernetes, setting the service type of the Juju controller service to External:
+
     juju bootstrap --config controller-service-type=external --config controller-external-name=controller.juju.is
 `
 
@@ -357,13 +357,13 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.Var(&c.ConstraintsStr, "constraints", "Set model constraints")
 	f.Var(&c.BootstrapConstraintsStr, "bootstrap-constraints", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated; use `bootstrap-base`)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
-	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
-		"Path to a locally built .snap to use as the internal juju-db service.")
-	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
+		"Path to a locally built `.snap` to use as the internal `juju-db` service.")
+	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local `.assert` file. Requires `--db-snap`")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
@@ -372,11 +372,11 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config",
-		"Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.\n    (--config config.yaml [--config key=value ...])")
+		"Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.\n    (`--config config.yaml [--config key=value ...])`")
 	f.Var(&c.modelDefaults, "model-default",
-		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
+		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (`--model-default config.yaml [--model-default key=value ...])`")
 	f.Var(&c.storagePool, "storage-pool",
-		"Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
+		"Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`)")
 	f.StringVar(&c.initialModelName, "add-model", "", "Name of an initial model to create on the new controller")
 	f.BoolVar(&c.showClouds, "clouds", false,
 		"Print the available clouds which can be used to bootstrap a Juju environment")

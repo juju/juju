@@ -39,6 +39,6 @@ using the optional --space and/or --zone arguments to only display
 subnets associated with a given network space and/or availability zone.
 
 Like with other Juju commands, the output and its format can be changed
-using the --format and --output (or -o) optional arguments. Supported
-output formats include "yaml" (default) and "json". To redirect the
-output to a file, use --output.
+using the `--format` and `--output` (or `-o`) optional arguments. Supported
+output formats include `yaml` (default) and `json`. To redirect the
+output to a file, use `--output`.

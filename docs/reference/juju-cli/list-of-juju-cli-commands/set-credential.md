@@ -16,7 +16,7 @@ Relates a remote credential to a model.
 
 ## Examples
 
-For cloud 'aws', relate remote credential 'bob' to model 'trinity':
+For cloud `aws`, relate remote credential `bob` to model `trinity`:
 
     juju set-credential -m trinity aws bob
 

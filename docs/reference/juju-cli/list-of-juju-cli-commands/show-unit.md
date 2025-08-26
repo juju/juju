@@ -12,12 +12,12 @@ Displays information about a unit.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--app` | false | only show application relation data |
-| `--endpoint` |  | only show relation data for the specified endpoint |
+| `--app` | false | Only show application relation data |
+| `--endpoint` |  | Only show relation data for the specified endpoint |
 | `--format` | yaml | Specify output format (json&#x7c;smart&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
-| `--related-unit` |  | only show relation data for the specified unit |
+| `--related-unit` |  | Only show relation data for the specified unit |
 
 ## Examples
 

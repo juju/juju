@@ -31,7 +31,7 @@ const showApplicationExamples = `
 
     juju show-application myapplication
 
-where "myapplication" is the application name alias; see "juju help deploy" for more information.
+where ` + "`myapplication`" + ` is the application name alias; see ` + "`juju help deploy`" + ` for more information.
 `
 
 // NewShowApplicationCommand returns a command that displays applications info.

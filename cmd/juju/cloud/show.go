@@ -36,16 +36,16 @@ type showCloudCommand struct {
 }
 
 var showCloudDoc = `
-Provided information includes 'defined' (public, built-in), 'type',
-'auth-type', 'regions', 'endpoints', and cloud specific configuration
+Provided information includes ` + "`defined`" + ` (public, built-in), ` + "`type`" + `,
+` + "`auth-type`" + `, ` + "`regions`" + `, ` + "`endpoints`" + `, and cloud specific configuration
 options.
 
-If ‘--include-config’ is used, additional configuration (key, type, and
+If ` + "`--include-config`" + ` is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-Use --controller option to show a cloud from a controller.
+Use the ` + "`--controller`" + ` option to show a cloud from a controller.
 
-Use --client option to show a cloud known on this client.
+Use the ` + "`--client`" + ` option to show a cloud known on this client.
 `
 
 const showCloudExamples = `

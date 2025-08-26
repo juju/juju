@@ -14,7 +14,7 @@ Sets the trust status of a deployed application to true.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--remove` | false | Remove trusted access from a trusted application |
-| `--scope` |  | k8s models only - needs to be set to 'cluster' |
+| `--scope` |  | (Kubernetes models only) Needs to be set to `cluster` |
 
 ## Examples
 
@@ -25,6 +25,6 @@ Sets the trust status of a deployed application to true.
 ## Details
 Sets the trust configuration value to true.
 
-On k8s models, the trust operation currently grants the charm full access to the cluster.
-Until the permissions model is refined to grant more granular role based access, the use of
-'--scope=cluster' is required to confirm this choice.
+On Kubernetes models, the `trust` operation currently grants the charm full access to the cluster.
+Until the permissions model is refined to grant more granular role-based access, the use of
+`--scope=cluster` is required to confirm this choice.

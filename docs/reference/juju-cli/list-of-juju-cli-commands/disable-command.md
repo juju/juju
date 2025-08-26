@@ -3,7 +3,7 @@
 > See also: [disabled-commands](#disabled-commands), [enable-command](#enable-command)
 
 ## Summary
-Disable commands for the model.
+Disables commands for the model.
 
 ## Usage
 ```juju disable-command [options] <command set> [message...]```
@@ -37,15 +37,17 @@ execution of operations that could alter model.
 This is done by disabling certain sets of commands from successful execution.
 Disabled commands must be manually enabled to proceed.
 
-Some commands offer a --force option that can be used to bypass the disabling.
+Some commands offer a `--force` option that can be used to bypass the disabling.
 
 Commands that can be disabled are grouped based on logical operations as follows:
 
-"destroy-model" prevents:
+`destroy-model` prevents:
+
     destroy-controller
     destroy-model
 
-"remove-object" prevents:
+`remove-object` prevents:
+
     destroy-controller
     destroy-model
     detach-storage
@@ -56,7 +58,8 @@ Commands that can be disabled are grouped based on logical operations as follows
     remove-storage
     remove-unit
 
-"all" prevents:
+`all` prevents:
+
     add-machine
     integrate
     add-unit
@@ -89,7 +92,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     retry-provisioning
     run
     scale-application
-    set-application-base    
+    set-application-base
     set-credential
     set-constraints
     sync-agents

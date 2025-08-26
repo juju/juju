@@ -67,7 +67,7 @@ type enableHACommand struct {
 
 const enableHADoc = `
 To ensure availability of deployed applications, the Juju infrastructure
-must itself be highly available. The enable-ha command will ensure
+must itself be highly available. The ` + "`enable-ha`" + ` command will ensure
 that the specified number of controller machines are used to make up the
 controller.
 
@@ -83,15 +83,15 @@ then that number will be ensured.
 
 Ensure that 5 controllers are available:
 
-    juju enable-ha -n 5 
+    juju enable-ha -n 5
 
 Ensure that 7 controllers are available, with newly created
 controller machines having at least 8GB RAM.
 
     juju enable-ha -n 7 --constraints mem=8G
 
-Ensure that 7 controllers are available, with machines server1 and
-server2 used first, and if necessary, newly created controller
+Ensure that 7 controllers are available, with machines ` + "`server1`" + ` and
+` + "`server2`" + ` used first, and if necessary, newly created controller
 machines having at least 8GB RAM.
 
     juju enable-ha -n 7 --to server1,server2 --constraints mem=8G

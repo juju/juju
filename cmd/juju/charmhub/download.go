@@ -31,21 +31,21 @@ import (
 )
 
 const (
-	downloadSummary = "Locates and then downloads a CharmHub charm."
+	downloadSummary = "Locates and then downloads a Charmhub charm."
 	downloadDoc     = `
-Download a charm to the current directory from the CharmHub store
+Download a charm to the current directory from the Charmhb store
 by a specified name. Downloading for a specific base can be done via
---base. --base can be specified using the OS name and the version of
-the OS, separated by @. For example, --base ubuntu@22.04.
+` + "`--base`" + `. ` + "`--base`" + ` can be specified using the OS name and the version of
+the OS, separated by ` + "`@`" + `. For example, ` + "`--base ubuntu@22.04`" + `.
 
 By default, the latest revision in the default channel will be
 downloaded. To download the latest revision from another channel,
-use --channel. To download a specific revision, use --revision,
-which cannot be used together with --arch, --base, --channel or
---series.
+use ` + "`--channel`" + `. To download a specific revision, use ` + "`--revision`" + `,
+which cannot be used together with ` + "`--arch`" + `, ` + "`--base`" + `, ` + "`--channel`" + ` or
+` + "`--series`" + `.
 
 Adding a hyphen as the second argument allows the download to be piped
-to stdout.
+to ` + "`stdout`" + `.
 `
 
 	downloadExamples = `
@@ -97,14 +97,14 @@ func (c *downloadCommand) Info() *cmd.Info {
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
-	f.StringVar(&c.base, "base", "", "specify a base")
-	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.IntVar(&c.revision, "revision", -1, "specify a revision of the charm to download")
-	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
-	f.BoolVar(&c.noProgress, "no-progress", false, "disable the progress bar")
-	f.BoolVar(&c.resources, "resources", false, "download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0)")
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specify an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "Specify a series. DEPRECATED use `--base`")
+	f.StringVar(&c.base, "base", "", "Specify a base")
+	f.StringVar(&c.channel, "channel", "", "Specify a channel to use instead of the default release")
+	f.IntVar(&c.revision, "revision", -1, "Specify a revision of the charm to download")
+	f.StringVar(&c.archivePath, "filepath", "", "Specify the filepath location of the charm to download to")
+	f.BoolVar(&c.noProgress, "no-progress", false, "Disable the progress bar")
+	f.BoolVar(&c.resources, "resources", false, "Download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0)")
 }
 
 // Init initializes the download command, including validating the provided

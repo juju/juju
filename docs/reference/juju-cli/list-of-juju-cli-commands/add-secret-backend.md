@@ -12,8 +12,8 @@ Add a new secret backend to the controller.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | path to yaml-formatted configuration file |
-| `--import-id` |  | add the backend with the specified id |
+| `--config` |  | Path to yaml-formatted configuration file |
+| `--import-id` |  | Add the backend with the specified ID |
 
 ## Examples
 
@@ -32,4 +32,4 @@ Config may be specified as key values ot read from a file.
 Any key values override file content if both are specified.
 
 To rotate the backend access credential/token (if specified), use
-the "token-rotate" config and supply a duration.
+the `token-rotate` config and supply a duration.
