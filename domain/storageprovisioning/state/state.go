@@ -20,6 +20,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -670,4 +671,70 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 		return st.getStorageAttachmentLifeForUnit(ctx, runner, unitUUID)
 	}
 	return "custom_storage_attachment_unit_uuid_lifecycle", queryFunc
+}
+
+// GetStorageInstanceAttachmentUUID returns the UUID of either the storage filesystem
+// attachment or the storage volume attachment for a given storage ID and network node UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [networkerrors.NetNodeNotFound] if the network node does not exist.
+func (st *State) GetStorageInstanceAttachmentUUID(
+	ctx context.Context,
+	storageIDStr, netNodeUUIDStr string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		storageIDInput = storageID{ID: storageIDStr}
+		netNodeInput   = netNodeUUID{UUID: netNodeUUIDStr}
+		dbVal          entityUUID
+	)
+	stmt, err := st.Prepare(`
+SELECT    COALESCE(sva.uuid, sfa.uuid) AS &entityUUID.uuid
+FROM      storage_instance si
+LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+LEFT JOIN storage_volume_attachment sva ON sv.uuid = sva.storage_volume_uuid
+LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+LEFT JOIN storage_filesystem_attachment sfa ON sf.uuid = sfa.storage_filesystem_uuid
+WHERE     si.storage_id = $storageID.storage_id
+AND       (sva.net_node_uuid = $netNodeUUID.uuid OR sfa.net_node_uuid = $netNodeUUID.uuid)`,
+		storageIDInput, netNodeInput, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if _, err := st.getStorageInstanceUUIDByStorageID(ctx, tx, storageIDInput.ID); err != nil {
+			// Check if storage instance exists for the provided storage ID.
+			return err
+		}
+
+		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(netNodeInput.UUID)); err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", netNodeInput.UUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		err := tx.Query(ctx, stmt, storageIDInput, netNodeInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"storage attachment for %q and net node %q does not exist",
+				storageIDInput.ID, netNodeInput.UUID,
+			)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return dbVal.UUID, nil
 }

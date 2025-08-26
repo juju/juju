@@ -731,42 +731,6 @@ func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
 	c.Check(gotUUID.String(), tc.Equals, fsUUID.String())
 }
 
-func (s *volumeSuite) TestGetVolumeUUIDForStorageID(c *tc.C) {
-	volUUID, _ := s.newModelVolume(c)
-	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
-	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
-	storageID := s.getStorageID(c, storageInstanceUUID)
-
-	st := NewState(s.TxnRunnerFactory())
-
-	gotUUID, err := st.GetVolumeUUIDForStorageID(c.Context(), storageID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotUUID.String(), tc.Equals, volUUID.String())
-}
-
-func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	_, err := st.GetVolumeUUIDForStorageID(c.Context(), "foo/1")
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
-}
-
-func (s *volumeSuite) TestGetVolumeUUIDForStorageIDWithVolumeNotFound(c *tc.C) {
-	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
-	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-
-	storageID := s.getStorageID(c, storageInstanceUUID)
-	st := NewState(s.TxnRunnerFactory())
-
-	_, err := st.GetVolumeUUIDForStorageID(c.Context(), storageID)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
-}
-
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
 func (s *volumeSuite) changeVolumeLife(
