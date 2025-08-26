@@ -119,16 +119,8 @@ type ModelState interface {
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, model.ModelDetailArgs) error
 
-	// CreateStoragePools is responsible for creating storage pools in the model
-	// based on the supplied arguments.
-	CreateStoragePools(context.Context, []model.CreateModelDefaultStoragePoolArg) error
-
 	// Delete deletes a model.
 	Delete(context.Context, coremodel.UUID) error
-
-	// GetAllStoragePoolNames returns all of the storage pool names that are
-	// currently present in the model.
-	GetAllStoragePoolNames(context.Context) ([]string, error)
 
 	// GetControllerUUID returns the controller uuid for the model.
 	// It is expected that CreateModel has been called before reading this value
@@ -168,13 +160,13 @@ type ModelState interface {
 	// the model's state layer.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
-	// EnsureStoragePools is responsible for ensuring that the supplied storage
-	// pools already exist in the model. A pool is considered to exist if a pool
-	// by the same name, provider type and origin already exists.
-	//
-	// Pools by the same name but with different type's or origin's will result
-	// in an error for the caller.
-	EnsureDefaultStoragePools(context.Context, []model.CreateModelDefaultStoragePoolArg) error
+	// CreateDefaultStoragePools is responsible for inserting a model's set of
+	// default storage pools into the model. It is the responsability of the
+	// caller to make sure that no conflicts exist and the operation is
+	// performed once.
+	CreateDefaultStoragePools(
+		context.Context, []model.CreateModelDefaultStoragePoolArg,
+	) error
 
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
@@ -549,7 +541,7 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 		}
 	}
 
-	return s.modelSt.EnsureDefaultStoragePools(ctx, poolArgs)
+	return s.modelSt.CreateDefaultStoragePools(ctx, poolArgs)
 }
 
 // transformStoragePoolAttributes exists to transform internal storage pool
@@ -758,6 +750,13 @@ func (s *ProviderModelService) CreateModel(
 		return errors.Capture(err)
 	}
 
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
+	}
+
 	return s.createModelProviderResources(ctx)
 }
 
@@ -778,6 +777,13 @@ func (s *ProviderModelService) CreateModelWithAgentVersion(
 
 	if err := s.ModelService.CreateModelWithAgentVersion(ctx, agentVersion); err != nil {
 		return errors.Capture(err)
+	}
+
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
 	}
 
 	return s.createModelProviderResources(ctx)
@@ -805,6 +811,13 @@ func (s *ProviderModelService) CreateModelWithAgentVersionStream(
 		ctx, agentVersion, agentStream,
 	); err != nil {
 		return errors.Capture(err)
+	}
+
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
 	}
 
 	return s.createModelProviderResources(ctx)

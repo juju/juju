@@ -996,12 +996,93 @@ func (s *providerModelServiceSuite) providerService(modelUUID coremodel.UUID) *P
 	)
 }
 
+// defaultStoragePool represents a default storage pool from a storage provider
+// within this testing scope. It can be directly used in go mock expect calls
+// where a [model.CreateModelDefaultStoragePoolArg] is expected.
+type defaultStoragePool struct {
+	Name       string
+	Type       string
+	Attributes map[string]string
+}
+
+// Matches implements the [gomock.Matcher] interface. This type can be mateched
+// against a [model.CreateModelDefaultStoragePoolArg] or a slice.
+func (d defaultStoragePool) Matches(x any) bool {
+	arg, isSingular := x.(model.CreateModelDefaultStoragePoolArg)
+
+	sliceOf, isSliceType := x.([]model.CreateModelDefaultStoragePoolArg)
+	if isSliceType {
+		if len(sliceOf) != 1 {
+			return false
+		}
+		arg = sliceOf[0]
+	} else if !isSingular {
+		return false
+	}
+
+	if len(d.Attributes) != len(arg.Attributes) {
+		return false
+	}
+
+	for k, v := range d.Attributes {
+		if v != arg.Attributes[k] {
+			return false
+		}
+	}
+	return arg.Name == d.Name && arg.Type == d.Type
+}
+
+// String describes what this gomock matcher matches. Implements the
+// [gomock.Matcher] interface.
+func (d defaultStoragePool) String() string {
+	return "matches a defaultStoragePool against a single CreatemodelDefaultStoragePoolArg or a slice"
+}
+
+// newDefaultStoragePool established a new storage provider with a default
+// storage pool in the testing dependencies.
+func (s *providerModelServiceSuite) newDefaultStoragePool(
+	c *tc.C, ctrl *gomock.Controller,
+) defaultStoragePool {
+	rval := defaultStoragePool{
+		Name: "my-def-pool-A",
+		Type: "test1",
+		Attributes: map[string]string{
+			"attr1": "val1",
+		},
+	}
+
+	storageAttributes := internalstorage.Attrs{}
+	for k, v := range rval.Attributes {
+		storageAttributes[k] = v
+	}
+	defaultPool1, _ := internalstorage.NewConfig(
+		rval.Name,
+		internalstorage.ProviderType(rval.Type),
+		storageAttributes,
+	)
+	sp1 := NewMockStorageProvider(ctrl)
+	s.mockStorageProviderRegistry.EXPECT().StorageProviderTypes().Return(
+		[]internalstorage.ProviderType{
+			"test1",
+		},
+		nil,
+	)
+	s.mockStorageProviderRegistry.EXPECT().StorageProvider(
+		internalstorage.ProviderType("test1"),
+	).Return(sp1, nil).AnyTimes()
+
+	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
+
+	return rval
+}
+
 func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
+	defaultPool := s.newDefaultStoragePool(c, ctrl)
 	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
 		UUID:           modelUUID,
 		ControllerUUID: controllerUUID,
@@ -1025,7 +1106,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(nil)
-
+	s.mockModelState.EXPECT().CreateDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
 	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
 	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
@@ -1178,7 +1259,7 @@ func (s *providerModelServiceSuite) TestSeedDefaultStoragePools(c *tc.C) {
 	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
 	sp2.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool2})
 
-	s.mockModelState.EXPECT().EnsureDefaultStoragePools(
+	s.mockModelState.EXPECT().CreateDefaultStoragePools(
 		gomock.Any(),
 		gomock.Any(),
 	).DoAndReturn(func(
