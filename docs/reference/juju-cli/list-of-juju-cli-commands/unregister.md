@@ -20,7 +20,8 @@ Unregisters a Juju controller.
 
 ## Details
 
-Removes local connection information for the specified controller.  This
-command does not destroy the controller.  In order to regain access to an
-unregistered controller, it will need to be added again using the juju register
+Removes local connection information for the specified controller.
+
+This command does not destroy the controller.  In order to regain access to an
+unregistered controller, it will need to be added again using the `juju register`
 command.

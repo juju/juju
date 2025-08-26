@@ -21,9 +21,9 @@ var suspendHelpSummary = `
 Suspends a relation to an application offer.`[1:]
 
 var suspendHelpDetails = `
-A relation between an application in another model and an offer in this model will be suspended. 
-The relation-departed and relation-broken hooks will be run for the relation, and the relation
-status will be set to suspended. The relation is specified using its id.
+A relation between an application in another model and an offer in this model will be suspended.
+The ` + "`relation-departed`" + ` and ` + "`relation-broken`" + ` hooks will be run for the relation, and the relation
+status will be set to suspended. The relation is specified using its ID.
 `
 
 const suspendHelpExamples = `
@@ -84,7 +84,7 @@ func (c *suspendRelationCommand) Init(args []string) (err error) {
 
 func (c *suspendRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.message, "message", "", "reason for suspension")
+	f.StringVar(&c.message, "message", "", "Reason for suspension")
 }
 
 // SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.

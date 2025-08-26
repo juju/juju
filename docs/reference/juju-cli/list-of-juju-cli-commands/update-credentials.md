@@ -31,30 +31,31 @@ Updates a controller credential for a cloud.
 
 
 ## Details
+
 Cloud credentials are used for model operations and manipulations.
-Since it is common to have long-running models, it is also common to 
-have these cloud credentials become invalid during models' lifetime.
-When this happens, a user must update the cloud credential that 
-a model was created with to the new and valid details on controller.
+Since it is common to have long-running models, it is also common to
+have these cloud credentials become invalid during a model's lifetime.
+When this happens, a user must update the cloud credential that
+a model was created with to the new and valid details on the controller.
 
 This command allows to update an existing, already-stored, named,
 cloud-specific credential on a controller as well as the one from this client.
 
-Use --controller option to update a credential definition on a controller. 
+Use the `--controller `option to update a credential definition on a controller.
 
 When updating cloud credential on a controller, Juju performs additional
 checks to ensure that the models that use this credential can still
 access cloud instances after the update. Occasionally, these checks may not be desired
-by the user and can be by-passed using --force option. 
-Force update may leave some models with un-reachable machines.
+by the user and can be by-passed using the `--force` option.
+Force update may leave some models with unreachable machines.
 Consequently, it is not recommended as a default update action.
-Models with un-reachable machines are most commonly fixed by using another cloud credential, 
-see ' + "'juju set-credential'" + ' for more information.
+Models with unreachable machines are most commonly fixed by using another cloud credential,
+see `juju set-credential` for more information.
 
-Use --client to update a credential definition on this client.
-If a user will use a different client, say a different laptop, 
+Use `--client` to update a credential definition on this client.
+If a user will use a different client, say a different laptop,
 the update will not affect that client's (laptop's) copy.
 
-Before credential is updated, the new content is validated. For some providers, 
-cloud credentials are region specific. To validate the credential for a non-default region, 
-use --region.
+Before credential is updated, the new content is validated. For some providers,
+cloud credentials are region specific. To validate the credential for a non-default region,
+use `--region`

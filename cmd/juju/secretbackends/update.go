@@ -39,11 +39,11 @@ followed by any necessary backend specific config values.
 Config may be specified as key values ot read from a file.
 Any key values override file content if both are specified.
 
-Config attributes may be reset back to the default value using --reset.
+Config attributes may be reset back to the default value using ` + "`--reset`" + `.
 
 To rotate the backend access credential/token (if specified), use
-the "token-rotate" config and supply a duration. To reset any existing
-token rotation period, supply a value of 0.
+the ` + "`token-rotate`" + ` config and supply a duration. To reset any existing
+token rotation period, supply a value of ` + "`0`" + `.
 
 `
 
@@ -98,10 +98,10 @@ func (c *updateSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *updateSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted configuration file")
+	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
 	f.Var(cmd.NewAppendStringsValue(&c.Reset), "reset",
 		"Reset the provided comma delimited config keys")
-	f.BoolVar(&c.Force, "force", false, "force update even if the backend is unreachable")
+	f.BoolVar(&c.Force, "force", false, "Force update even if the backend is unreachable")
 }
 
 func (c *updateSecretBackendCommand) Init(args []string) error {

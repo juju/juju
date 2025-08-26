@@ -29,13 +29,14 @@ Updates cloud information available to Juju.
 
 Update cloud information on this client and/or on a controller.
 
-A cloud can be updated from a file. This requires a &lt;cloud name&gt; and a yaml file
-containing the cloud details. 
-This method can be used for cloud updates on the client side and on a controller. 
+A cloud can be updated from a file. This requires a `<cloud name>` and a `YAML` file
+containing the cloud details.
+
+This method can be used for cloud updates on the client side and on a controller.
 
 A cloud on the controller can also be updated just by using a name of a cloud
 from this client.
 
-Use --controller option to update a cloud on a controller. 
+Use the `--controller` option to update a cloud on a controller.
 
-Use --client to update cloud definition on this client.
+Use `--client` to update cloud definition on this client.

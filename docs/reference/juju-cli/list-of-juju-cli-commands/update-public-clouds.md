@@ -28,7 +28,7 @@ If any new information for public clouds (such as regions and connection
 endpoints) are available this command will update Juju accordingly. It is
 suggested to run this command periodically.
 
-Use --controller option to update public cloud(s) on a controller. The command
-will only update the clouds that a controller knows about. 
+Use `--controller` to update public cloud(s) on a controller. The command
+will only update the clouds that a controller knows about.
 
-Use --client to update a definition of public cloud(s) on this client.
+Use `--client` to update a definition of public cloud(s) on this client.

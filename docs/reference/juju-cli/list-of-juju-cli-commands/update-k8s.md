@@ -3,7 +3,7 @@
 > See also: [add-k8s](#add-k8s), [remove-k8s](#remove-k8s)
 
 ## Summary
-Updates an existing k8s endpoint used by Juju.
+Updates an existing Kubernetes endpoint used by Juju.
 
 ## Usage
 ```juju update-k8s [options] <k8s name>```
@@ -28,16 +28,16 @@ Updates an existing k8s endpoint used by Juju.
 
 ## Details
 
-Update k8s cloud information on this client and/or on a controller.
+Update Kubernetes cloud information on this client and/or on a controller.
 
-The k8s cloud can be a built-in cloud like microk8s.
+The Kubernetes cloud can be a built-in cloud such as MicroK8s.
 
-A k8s cloud can also be updated from a file. This requires a &lt;cloud name&gt; and
-a yaml file containing the cloud details.
+A Kubernetes cloud can also be updated from a file. This requires a `<cloud name>` and
+a `YAML` file containing the cloud details.
 
-A k8s cloud on the controller can also be updated just by using a name of a k8s cloud
+A Kubernetes cloud on the controller can also be updated just by using a name of a Kubernetes cloud
 from this client.
 
-Use --controller option to update a k8s cloud on a controller.
+Use `--controller` to update a Kubernetes cloud on a controller.
 
-Use --client to update a k8s cloud definition on this client.
+Use `--client` to update a Kubernetes cloud definition on this client.

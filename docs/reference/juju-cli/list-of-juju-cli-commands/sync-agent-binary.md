@@ -28,9 +28,9 @@ Copy agent binaries from the official agent store into a local controller.
 
 ## Details
 
-This copies the Juju agent software from the official agent binaries store 
+This copies the Juju agent software from the official agent binaries store
 (located at https://streams.canonical.com/juju) into the controller.
-It is generally done when the controller is without Internet access.
+It is generally done when the controller is without internet access.
 
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get

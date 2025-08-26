@@ -13,9 +13,9 @@ Wait for a unit to reach a specified state.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--query` | life=="alive" &amp;&amp; workload-status=="active" | query the goal state |
-| `--summary` | true | output a summary of the application query on exit |
-| `--timeout` | 10m0s | how long to wait, before timing out |
+| `--query` | life=="alive" &amp;&amp; workload-status=="active" | Query the goal state |
+| `--summary` | true | Output a summary of the application query on exit |
+| `--timeout` | 10m0s | How long to wait, before timing out |
 
 ## Examples
 
@@ -30,14 +30,14 @@ Waits for the unit to be created and active.
 
 ## Details
 
-The wait-for unit command waits for the unit to reach a goal state. The goal
+The `wait-for unit` command waits for the unit to reach a goal state. The goal
 state can be defined programmatically using the query DSL (domain specific
-language). The default query for a unit just waits for the unit to be created 
+language). The default query for a unit just waits for the unit to be created
 and active.
 
-The wait-for command is an optimized alternative to the status command for 
-determining programmatically if a goal state has been reached. The wait-for
-command streams delta changes from the underlying database, unlike the status
+The `wait-for` command is an optimized alternative to the `status` command for
+determining programmatically if a goal state has been reached. The `wait-for`
+command streams delta changes from the underlying database, unlike the `status`
 command which performs a full query of the database.
 
 The unit query DSL can be used to programmatically define the goal state

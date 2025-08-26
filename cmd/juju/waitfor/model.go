@@ -45,34 +45,34 @@ func newModelCommand() cmd.Command {
 }
 
 const modelCommandDoc = `
-The wait-for model command waits for the model to reach a goal state. The goal
+The ` + "`wait-for model`" + ` command waits for the model to reach a goal state. The goal
 state can be defined programmatically using the query DSL (domain specific
 language). The default query for a model just waits for the model to be
 created and available.
 
-The wait-for command is an optimized alternative to the status command for 
-determining programmatically if a goal state has been reached. The wait-for
-command streams delta changes from the underlying database, unlike the status
+The ` + "`wait-for`" + ` command is an optimized alternative to the ` + "`status`" + ` command for
+determining programmatically if a goal state has been reached. The ` + "`wait-for`" + `
+command streams delta changes from the underlying database, unlike the ` + "`status`" + `
 command which performs a full query of the database.
 
 The model query DSL can be used to programmatically define the goal state
 for applications, machines and units within the scope of the model. This can
 be achieved by using lambda expressions to iterate over the applications,
-machines and units within the model. Multiple expressions can be combined to 
+machines and units within the model. Multiple expressions can be combined to
 define a complex goal state.
 `
 
 const modelCommandExamples = `
-Waits for all the model units to start with ubuntu.
+Waits for all the model units to start with ` + "`ubuntu`" + `:
 
     juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
 
-Waits for all the model applications to be active.
+Waits for all the model applications to be active:
 
     juju wait-for model default --query='forEach(applications, app => app.status == "active")'
 
 Waits for the model to be created and available and for all the model
-applications to be active.
+applications to be active:
 
     juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
 `
@@ -112,9 +112,9 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "Query the goal state")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.

@@ -36,14 +36,14 @@ func newMachineCommand() cmd.Command {
 }
 
 const machineCommandDoc = `
-The wait-for machine command waits for a machine to reach a goal state.
+The ` + "`wait-for machine`" + ` command waits for a machine to reach a goal state.
 The goal state can be defined programmatically using the query DSL
 (domain specific language). The default query for a machine just waits for the
 machine to be created and started.
 
-The wait-for command is an optimized alternative to the status command for 
-determining programmatically if a goal state has been reached. The wait-for
-command streams delta changes from the underlying database, unlike the status
+The ` + "`wait-for`" + ` command is an optimized alternative to the ` + "`status`" + ` command for
+determining programmatically if a goal state has been reached. The ` + "`wait-for`" + `
+command streams delta changes from the underlying database, unlike the ` + "`status`" + `
 command which performs a full query of the database.
 
 Multiple expressions can be combined to define a complex goal state.
@@ -86,9 +86,9 @@ func (c *machineCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *machineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="started"`, "query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="started"`, "Query the goal state")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
