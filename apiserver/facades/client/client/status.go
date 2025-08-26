@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/deployment"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
@@ -151,9 +152,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	var noStatus params.FullStatus
 	context := statusContext{
-		applicationService: c.applicationService,
-		statusService:      c.statusService,
-		machineService:     c.machineService,
+		applicationService:        c.applicationService,
+		statusService:             c.statusService,
+		machineService:            c.machineService,
+		crossModelRelationService: c.crossModelRelationService,
 
 		machineJobFetcher: machineJobFetcher,
 	}
@@ -173,10 +175,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
-		// TODO(gfouillet): Re-enable fetching for offer details once
-		//   CMR will be moved in their own domain.
-		logger.Tracef(ctx, "cross model relations are disabled until "+
-			"backend functionality is moved to domain")
+		context.offers, err = fetchOffers(ctx, c.crossModelRelationService)
+		if err != nil {
+			return noStatus, internalerrors.Errorf("could not fetch offers: %w", err)
+		}
 	}
 	if err = context.fetchMachines(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
@@ -206,7 +208,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef(ctx, "Applications: %v", context.allAppsUnitsCharmBindings.applications)
 		logger.Tracef(ctx, "Offers: %v", context.offers)
-		logger.Tracef(ctx, "Leaders", context.leaders)
+		logger.Tracef(ctx, "Leaders: %v", context.leaders)
 		logger.Tracef(ctx, "Relations: %v", context.relations)
 	}
 
@@ -240,6 +242,42 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Volumes:             volumes,
 		ControllerTimestamp: &now,
 	}, nil
+}
+
+func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[string]offerStatus, error) {
+	modelOffers, err := service.GetOffers(ctx, []crossmodelrelation.OfferFilter{{}})
+	if err != nil {
+		return nil, err
+	}
+
+	return transform.SliceToMap(modelOffers, func(in *crossmodelrelation.OfferDetail) (string, offerStatus) {
+		charmURL, err := charms.CharmURLFromLocator(in.CharmLocator.Name, in.CharmLocator)
+
+		endpoints := transform.SliceToMap(in.Endpoints, func(in crossmodelrelation.OfferEndpoint) (string, charm.Relation) {
+			return in.Name, charm.Relation{
+				Name:      in.Name,
+				Role:      charm.RelationRole(in.Role),
+				Interface: in.Interface,
+				Limit:     in.Limit,
+			}
+		})
+		out := offerStatus{
+			ApplicationOffer: crossmodel.ApplicationOffer{
+				OfferUUID:              in.OfferUUID,
+				OfferName:              in.OfferName,
+				ApplicationName:        in.ApplicationName,
+				ApplicationDescription: in.ApplicationDescription,
+				Endpoints:              endpoints,
+			},
+			err:      err,
+			charmURL: charmURL,
+			// TODO: cmr
+			// Fill in data during the cmr epic.
+			activeConnectedCount: 0,
+			totalConnectedCount:  0,
+		}
+		return in.OfferName, out
+	}), nil
 }
 
 type applicationStatusInfo struct {
@@ -312,9 +350,10 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 type MachineJobFetcherFunc func(context.Context, coremachine.Name) []model.MachineJob
 
 type statusContext struct {
-	applicationService ApplicationService
-	statusService      StatusService
-	machineService     MachineService
+	applicationService        ApplicationService
+	crossModelRelationService CrossModelRelationService
+	machineService            MachineService
+	statusService             StatusService
 
 	machineJobFetcher MachineJobFetcherFunc
 
@@ -423,25 +462,25 @@ func fetchNetworkInterfaces(
 	}
 
 	// Remove loopback addresses
-	devices = transform.Map(devices, func(k coremachine.Name, v []domainnetwork.NetInterface) (coremachine.
-		Name,
-		[]domainnetwork.NetInterface) {
-		var filtered []domainnetwork.NetInterface
-		for _, dev := range v {
-			var nonLoopBack []domainnetwork.NetAddr
-			for _, addr := range dev.Addrs {
-				if addr.ConfigType == network.ConfigLoopback {
-					continue
+	devices = transform.Map(devices,
+		func(k coremachine.Name, v []domainnetwork.NetInterface) (coremachine.Name, []domainnetwork.NetInterface) {
+			var filtered []domainnetwork.NetInterface
+			for _, dev := range v {
+				var nonLoopBack []domainnetwork.NetAddr
+				for _, addr := range dev.Addrs {
+					if addr.ConfigType == network.ConfigLoopback {
+						continue
+					}
+					nonLoopBack = append(nonLoopBack, addr)
 				}
-				nonLoopBack = append(nonLoopBack, addr)
+				if len(nonLoopBack) > 0 {
+					dev.Addrs = nonLoopBack
+					filtered = append(filtered, dev)
+				}
 			}
-			if len(nonLoopBack) > 0 {
-				dev.Addrs = nonLoopBack
-				filtered = append(filtered, dev)
-			}
-		}
-		return k, filtered
-	})
+			return k, filtered
+		},
+	)
 
 	ipAddresses := transform.Map(devices, func(k coremachine.Name,
 		v []domainnetwork.NetInterface) (coremachine.Name, []domainnetwork.NetAddr) {
