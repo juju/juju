@@ -5,7 +5,6 @@ package application
 
 import (
 	"github.com/juju/clock"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -36,16 +35,14 @@ func NewApplicationForTest(
 	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
-	extendedClient clientset.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix k8sutils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
-	controllerUUID string,
 ) ApplicationInterfaceForTest {
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
-		client, extendedClient, newWatcher, clock, randomPrefix, newApplier, controllerUUID,
+		client, newWatcher, clock, randomPrefix, newApplier,
 	)
 }
 

@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
 
 	k8spod "github.com/juju/juju/caas/kubernetes/pod"
 	"github.com/juju/juju/core/status"
@@ -25,19 +24,17 @@ import (
 
 // Pod extends the k8s service.
 type Pod struct {
-	client      v1.PodInterface
-	eventClient v1.EventInterface
 	corev1.Pod
 }
 
 // NewPod creates a new service resource.
-func NewPod(client v1.PodInterface, eventClient v1.EventInterface, namespace string, name string, in *corev1.Pod) *Pod {
+func NewPod(name string, namespace string, in *corev1.Pod) *Pod {
 	if in == nil {
 		in = &corev1.Pod{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &Pod{client, eventClient, *in}
+	return &Pod{*in}
 }
 
 // ListPods returns a list of Pods.
@@ -72,16 +69,17 @@ func (p *Pod) ID() ID {
 }
 
 // Apply patches the resource change.
-func (p *Pod) Apply(ctx context.Context) error {
+func (p *Pod) Apply(ctx context.Context, client kubernetes.Interface) error {
+	api := client.CoreV1().Pods(p.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &p.Pod)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := p.client.Patch(ctx, p.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, p.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = p.client.Create(ctx, &p.Pod, metav1.CreateOptions{
+		res, err = api.Create(ctx, &p.Pod, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
@@ -96,8 +94,9 @@ func (p *Pod) Apply(ctx context.Context) error {
 }
 
 // Get refreshes the resource.
-func (p *Pod) Get(ctx context.Context) error {
-	res, err := p.client.Get(ctx, p.Name, metav1.GetOptions{})
+func (p *Pod) Get(ctx context.Context, client kubernetes.Interface) error {
+	api := client.CoreV1().Pods(p.Namespace)
+	res, err := api.Get(ctx, p.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -108,8 +107,9 @@ func (p *Pod) Get(ctx context.Context) error {
 }
 
 // Delete removes the resource.
-func (p *Pod) Delete(ctx context.Context) error {
-	err := p.client.Delete(ctx, p.Name, metav1.DeleteOptions{
+func (p *Pod) Delete(ctx context.Context, client kubernetes.Interface) error {
+	api := client.CoreV1().Pods(p.Namespace)
+	err := api.Delete(ctx, p.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -120,11 +120,14 @@ func (p *Pod) Delete(ctx context.Context) error {
 	return nil
 }
 
+// Events emitted by the resource.
+func (p *Pod) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, p.Namespace, p.Name, "Pod")
+}
+
 // ComputeStatus returns a juju status for the resource.
-func (p *Pod) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
-	return PodToJujuStatus(p.Pod, now, func() ([]corev1.Event, error) {
-		return ListEventsForObject(ctx, p.eventClient, p.Name, "Pod")
-	})
+func (p *Pod) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	return PodToJujuStatus(p.Pod, now, func() ([]corev1.Event, error) { return p.Events(ctx, client) })
 }
 
 type EventGetter func() ([]corev1.Event, error)

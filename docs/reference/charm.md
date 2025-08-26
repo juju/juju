@@ -19,7 +19,7 @@ Charms are often published on [Charmhub](https://charmhub.io/).
 ### By substrate
 
 (kubernetes-charm)=
-#### Kubernetes charm
+#### Kubernetes
 
 A **Kubernetes charm** is a charm designed to run on a resource from a Kubernetes cloud -- i.e., in a container in a pod.
 
@@ -30,7 +30,7 @@ Example Kubernetes charms:
 - [Postgresql K8s](https://charmhub.io/postgresql-k8s)
 
 (machine-charm)=
-#### Machine charm
+#### Machine
 
 A **machine charm** is a charm designed to run on a resource from a machine cloud -- i.e., a bare metal machine, a virtual machine, or a system container.
 
@@ -40,7 +40,7 @@ Example machine charms:
 - [Rsyslog](https://charmhub.io/rsyslog)
 
 (infrastructure-agnostic-charm)=
-#### Infrastructure-agnostic charm
+#### Infrastructure-agnostic
 
 While charms are still very much either for {ref}`Kubernetes <kubernetes-charm>` or {ref}`machines <machine-charm>`, some {ref}`workloadless <workloadless-charm>` charms are in fact infrastructure-agnostic and can be deployed on both.
 
@@ -56,9 +56,9 @@ While charms are fundamentally about codifying operations for a given workload, 
 
 
 (workloadless-charm)=
-#### Workloadless charm
+#### Workloadless
 
-A **workloadless charm** is a charm that does not run any workload locally.
+A **workloadless** charm is a charm that does not run any workload locally.
 
 Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agnostic-charm>`.
 
@@ -67,7 +67,7 @@ Examples:
 - [Data Integrator](https://charmhub.io/data-integrator)
 
 (configurator-charm)=
-#### Configurator charm
+#### Configurator
 
 A **configurator charm** is a {ref}`workloadless charm <workloadless-charm>` that configures another charm, once they're integrated.
 
@@ -77,7 +77,7 @@ Examples:
 - [Prometheus Scrape Config (K8s)](https://charmhub.io/prometheus-scrape-config-k8s)
 
 (proxy-charm)=
-#### Proxy charm
+#### Proxy
 
 A **proxy charm** is a {ref}`configurator charm <configurator-charm>` where the configuration is about how to interact with a non-charmed workload.
 
@@ -86,7 +86,7 @@ Examples:
 - [Parca Scrape Target](https://charmhub.io/parca-scrape-target)
 
 (integrator-charm)=
-#### Integrator charm
+#### Integrator
 
 An **integrator charm** is a {ref}`proxy charm <proxy-charm>` where the non-charmed workload is some {ref}`cloud <cloud>`-related functionality.
 
@@ -99,12 +99,12 @@ Examples:
 ### By role
 
 (principal-charm)=
-#### Principal charm
+#### Principal
 
 In {ref}`machine charms <machine-charm>`, a **principal charm** is any charm that has a {ref}`subordinate <subordinate-charm>`.
 
 (subordinate-charm)=
-#### Subordinate charm
+#### Subordinate
 
 In {ref}`machine charms <machine-charm>`, a **subordinate charm** is a charm designed to be deployed adjacent to another charm and to augment the functionality of that charm, known as its {ref}`principal <principal-charm>`.
 
@@ -123,7 +123,7 @@ Subordinate charms are written in the same way as other charms, with the additio
 ### By architecture
 
 (sidecar-charm)=
-#### Sidecar charm
+#### Sidecar
 
 > This is the state-of-the-art way to develop Kubernetes charms. Both [Charmcraft](https://canonical-charmcraft.readthedocs-hosted.com/) and [Ops](https://ops.readthedocs.io/) are designed to produce *sidecar* Kubernetes charms, where the way these charms manage the workload across their respective container boundaries is through [Pebble](https://documentation.ubuntu.com/pebble/).
 
@@ -134,7 +134,7 @@ Examples:
 - [Traefik k8s](https://charmhub.io/traefik-k8s)
 
 (podspec-charm)=
-#### Podspec charm
+#### Podspec
 
 > Superseded by {ref}`sidecar charms <sidecar-charm>`. Also deprecated in Juju 3+.
 
@@ -148,7 +148,7 @@ Charm development has been going on for years, so naturally many attempts have b
 
 
 (ops-charm)=
-#### Ops charm
+#### Ops
 
 > This is the state-of-the-art way to develop a charm.
 
@@ -175,7 +175,7 @@ When you initialise a rock with a 12-Factor-app-charm-geared profile, the initia
 > - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Go app <write-your-first-kubernetes-charm-for-a-go-app>`
 
 (reactive-charm)=
-#### Reactive charm
+#### Reactive
 > Superseded by {ref}`Ops <ops-charm>`.
 
 A **Reactive charm** is a charm developed using the [Reactive](https://charmsreactive.readthedocs.io/en/latest/) framework.
@@ -187,7 +187,7 @@ Examples:
 - [Canonical Livepatch](https://charmhub.io/canonical-livepatch) (no longer maintained)
 
 (bare-charm)=
-#### Bare charm
+#### Bare
 > Superseded by {ref}`Ops <ops-charm>`.
 
 A **bare charm** is a charm developed without the help of a framework, with all the {ref}`hook <hook>` invocations being coded manually (which is why such charms are sometimes also called 'hooks-based' or 'hooks-only').

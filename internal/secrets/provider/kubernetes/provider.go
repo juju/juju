@@ -138,7 +138,7 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 		isControllerModel: cfg.ModelName == bootstrap.ControllerModelName,
 		client:            k8sClient,
 	}
-	return broker, nil
+	return broker, errors.Trace(err)
 }
 
 func configToK8sRestConfig(cfg *backendConfig) (*rest.Config, error) {

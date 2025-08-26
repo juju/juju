@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -32,18 +31,18 @@ func (s *roleSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	roleResource := resources.NewRole(s.client.RbacV1().Roles("test"), "test", "role1", role)
-	c.Assert(roleResource.Apply(context.TODO()), tc.ErrorIsNil)
-	result, err := s.client.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
+	roleResource := resources.NewRole("role1", "test", role)
+	c.Assert(roleResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	result, err := s.client.RbacV1().Roles("test").Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	role.SetAnnotations(map[string]string{"a": "b"})
-	roleResource = resources.NewRole(s.client.RbacV1().Roles("test"), "test", "role1", role)
-	c.Assert(roleResource.Apply(context.TODO()), tc.ErrorIsNil)
+	roleResource = resources.NewRole("role1", "test", role)
+	c.Assert(roleResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 
-	result, err = s.client.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
+	result, err = s.client.RbacV1().Roles("test").Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `role1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
@@ -59,12 +58,12 @@ func (s *roleSuite) TestGet(c *tc.C) {
 	}
 	role1 := template
 	role1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.RbacV1().Roles("test").Create(context.TODO(), &role1, metav1.CreateOptions{})
+	_, err := s.client.RbacV1().Roles("test").Create(c.Context(), &role1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	roleResource := resources.NewRole(s.client.RbacV1().Roles("test"), "test", "role1", &template)
+	roleResource := resources.NewRole("role1", "test", &template)
 	c.Assert(len(roleResource.GetAnnotations()), tc.Equals, 0)
-	err = roleResource.Get(context.TODO())
+	err = roleResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roleResource.GetName(), tc.Equals, `role1`)
 	c.Assert(roleResource.GetNamespace(), tc.Equals, `test`)
@@ -78,20 +77,20 @@ func (s *roleSuite) TestDelete(c *tc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.RbacV1().Roles("test").Create(context.TODO(), &role, metav1.CreateOptions{})
+	_, err := s.client.RbacV1().Roles("test").Create(c.Context(), &role, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
+	result, err := s.client.RbacV1().Roles("test").Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `role1`)
 
-	roleResource := resources.NewRole(s.client.RbacV1().Roles("test"), "test", "role1", &role)
-	err = roleResource.Delete(context.TODO())
+	roleResource := resources.NewRole("role1", "test", &role)
+	err = roleResource.Delete(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = roleResource.Get(context.TODO())
-	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	err = roleResource.Get(c.Context(), s.client)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
-	_, err = s.client.RbacV1().Roles("test").Get(context.TODO(), "role1", metav1.GetOptions{})
+	_, err = s.client.RbacV1().Roles("test").Get(c.Context(), "role1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }

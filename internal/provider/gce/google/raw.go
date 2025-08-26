@@ -43,13 +43,10 @@ type rawConn struct {
 	*compute.Service
 }
 
-func (rc *rawConn) GetProjectServiceAccount(projectID string) (string, error) {
-	call := rc.Projects.Get(projectID).Fields("defaultServiceAccount")
+func (rc *rawConn) GetProject(projectID string) (*compute.Project, error) {
+	call := rc.Projects.Get(projectID)
 	proj, err := call.Do()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return proj.DefaultServiceAccount, nil
+	return proj, errors.Trace(err)
 }
 
 func (rc *rawConn) GetInstance(projectID, zone, id string) (*compute.Instance, error) {

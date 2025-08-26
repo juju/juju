@@ -156,11 +156,7 @@ func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		AdmissionPathForModel(currentConfig.Model().Id()),
 		k8sBroker.LabelVersion(),
 		admissionCreator,
-		rbacMapper,
-		currentConfig.Controller().Id(),
-		k8sBroker.ModelUUID(),
-		k8sBroker.ModelName(),
-	)
+		rbacMapper)
 }
 
 // Validate is used to to establish if the configuration is valid for use when

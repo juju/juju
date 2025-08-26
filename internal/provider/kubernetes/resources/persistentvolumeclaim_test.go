@@ -31,16 +31,16 @@ func (s *persistentVolumeClaimSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	dsResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(c.Context()), tc.ErrorIsNil)
+	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(c.Context()), tc.ErrorIsNil)
+	dsResource = resources.NewPersistentVolumeClaim("ds1", "test", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -61,9 +61,9 @@ func (s *persistentVolumeClaimSuite) TestGet(c *tc.C) {
 	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), &ds1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	dsResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(ds1.Namespace), "test", "ds1", &template)
+	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", &template)
 	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(c.Context())
+	err = dsResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
 	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
@@ -84,12 +84,12 @@ func (s *persistentVolumeClaimSuite) TestDelete(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
-	dsResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(ds.Namespace), "test", "ds1", &ds)
-	err = dsResource.Delete(c.Context())
+	dsResource := resources.NewPersistentVolumeClaim("ds1", "test", &ds)
+	err = dsResource.Delete(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(c.Context())
-	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	err = dsResource.Get(c.Context(), s.client)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)

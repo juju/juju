@@ -41,7 +41,7 @@ func (s *eventsSuite) TestList(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		res = append(res, ev)
 	}
-	events, err := resources.ListEventsForObject(c.Context(), s.client.CoreV1().Events("test"), "test", "Pod")
+	events, err := resources.ListEventsForObject(c.Context(), s.client, "test", "test", "Pod")
 	c.Assert(err, tc.ErrorIsNil)
 
 	toInt := func(s string) int {

@@ -189,15 +189,6 @@ The charm can expose provides/requires interfaces for integration ready to be ad
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Newly proposed relations have been reviewed and approved by experts to ensure:<p>&#8226; The relation is ready for adoption by other charmers from a development best practice point of view.<p>&#8226;  No conflicts with existing relations of published charms.<p>&#8226;  Relation naming and structuring are consistent with existing relations.<p>&#8226; Tests cover integration with the applications consuming the relations. | A [Github project](https://github.com/canonical/charm-relation-interfaces) structures and defines the implementation of relations.<p>No new relation should conflict with the ones covered by the relation integration set [published on Github](https://github.com/canonical/charm-relation-interfaces).<p>&#8226; See more: [Charmcraft | Manage relations](https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charms/#manage-relations), [Ops | Manage relations](https://ops.readthedocs.io/en/latest/howto/manage-relations.html)|
 
-
-#### The charm respects juju model-config
-
-Most developers are keenly aware of their own charm's configs, without being aware that `juju model-config` is another point of administrative control.
-
-| Objectives  | Tips, examples, further reading |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Avoid duplicating configuration options that are best controlled at a model level: <p>&#8226; `juju-http-proxy`, `juju-https-proxy`, `juju-no-proxy` should influence the charm's behavior when the charm or charm workload makes any HTTP request. | A [Github project](https://github.com/canonical/charms.proxylib) provides a library to help charms direct url requests and subprocess calls through the model-configured proxy environment. |
-
 #### The charm upgrades the application safely
 
 The charm supports upgrading the workload and the application. An upgrade task preserves data and settings of both.
@@ -237,3 +228,7 @@ Engineers and administrators who operate an application at a production-grade le
 Everyone can publish charms to [https://charmhub.io/](https://charmhub.io/). Then, the charm can be accessed for deployments using Juju or via a web browser by its URL. If a charm is published in Charmhub.io and included in search results, the charm entry needs to be switched into the listed mode. To bring your charm into the listing, [reach out to the community](https://discourse.charmhub.io/c/charmhub-requests/46) to announce your charm and ask for a review by an experienced community member.
 
 The Stage 1- Important qualities reference is the requirement for switching a charm into the *listed* mode. The points listed in the first stage ensure a useful charm project is suitable for presentation on [https://charmhub.io/](https://charmhub.io/) and for testing by others.
+
+
+
+

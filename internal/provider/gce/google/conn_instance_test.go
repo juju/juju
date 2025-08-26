@@ -100,10 +100,6 @@ func (s *instanceSuite) TestConnectionAddInstanceAPI(c *tc.C) {
 		NetworkInterfaces: networkInterfaces,
 		Metadata:          &metadata,
 		Tags:              &compute.Tags{Items: []string{"spam"}},
-		ServiceAccounts: []*compute.ServiceAccount{{
-			Email:  "fred@foo.com",
-			Scopes: nil,
-		}},
 	})
 }
 

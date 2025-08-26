@@ -163,8 +163,8 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	// Handle PVC
-	pvc := resources.NewPersistentVolumeClaim(client.CoreV1().PersistentVolumeClaims(namespace), namespace, volume.PersistentVolumeClaim.ClaimName, nil)
-	err := pvc.Get(ctx)
+	pvc := resources.NewPersistentVolumeClaim(volume.PersistentVolumeClaim.ClaimName, namespace, nil)
+	err := pvc.Get(ctx, client)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get persistent volume claim")
 	}
@@ -192,7 +192,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		eventList, err := resources.ListEventsForObject(ctx, client.CoreV1().Events(pvc.Namespace), pvc.Name, "PersistentVolumeClaim")
+		eventList, err := pvc.Events(ctx, client)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
@@ -202,8 +202,8 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 		}
 	}
 
-	pv := resources.NewPersistentVolume(client.CoreV1().PersistentVolumes(), pvc.Spec.VolumeName, nil)
-	err = pv.Get(ctx)
+	pv := resources.NewPersistentVolume(pvc.Spec.VolumeName, nil)
+	err = pv.Get(ctx, client)
 	if errors.Is(err, errors.NotFound) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil

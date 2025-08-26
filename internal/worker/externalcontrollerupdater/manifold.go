@@ -64,7 +64,6 @@ func manifoldStart(
 		client,
 		newExternalControllerWatcherClient,
 		clock.WallClock,
-		nil,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

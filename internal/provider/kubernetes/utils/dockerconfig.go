@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/distribution/reference"
+	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 )
 

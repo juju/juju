@@ -76,7 +76,7 @@ func (a *app) Trust(trust bool) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = applier.Run(context.Background(), false)
+	err = applier.Run(context.Background(), a.client, false)
 	return errors.Annotatef(err, "configuring trust for %q", a.name)
 }
 
@@ -96,8 +96,8 @@ func (a *app) roleRules(trust bool) []rbacv1.PolicyRule {
 }
 
 func (a *app) applyRoles(applier resources.Applier, trust bool) error {
-	role := resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), nil)
-	err := role.Get(context.Background())
+	role := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
+	err := role.Get(context.Background(), a.client)
 	if err != nil {
 		return errors.Annotatef(err, "getting service account role %q", a.serviceAccountName())
 	}
@@ -116,8 +116,8 @@ func (a *app) clusterRoleRules(trust bool) []rbacv1.PolicyRule {
 }
 
 func (a *app) applyClusterRoles(applier resources.Applier, trust bool) error {
-	role := resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil)
-	err := role.Get(context.Background())
+	role := resources.NewClusterRole(a.qualifiedClusterName(), nil)
+	err := role.Get(context.Background(), a.client)
 	if err != nil {
 		return errors.Annotatef(err, "getting service account cluster role %q", a.qualifiedClusterName())
 	}

@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -31,18 +30,18 @@ func (s *storageClassSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	dsResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
-	result, err := s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	dsResource := resources.NewStorageClass("ds1", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	result, err := s.client.StorageV1().StorageClasses().Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
+	dsResource = resources.NewStorageClass("ds1", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 
-	result, err = s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err = s.client.StorageV1().StorageClasses().Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
@@ -56,12 +55,12 @@ func (s *storageClassSuite) TestGet(c *tc.C) {
 	}
 	ds1 := template
 	ds1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.StorageV1().StorageClasses().Create(context.TODO(), &ds1, metav1.CreateOptions{})
+	_, err := s.client.StorageV1().StorageClasses().Create(c.Context(), &ds1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	dsResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "ds1", &template)
+	dsResource := resources.NewStorageClass("ds1", &template)
 	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(context.TODO())
+	err = dsResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
 	c.Assert(dsResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
@@ -73,20 +72,20 @@ func (s *storageClassSuite) TestDelete(c *tc.C) {
 			Name: "ds1",
 		},
 	}
-	_, err := s.client.StorageV1().StorageClasses().Create(context.TODO(), &ds, metav1.CreateOptions{})
+	_, err := s.client.StorageV1().StorageClasses().Create(c.Context(), &ds, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err := s.client.StorageV1().StorageClasses().Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
-	dsResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "ds1", &ds)
-	err = dsResource.Delete(context.TODO())
+	dsResource := resources.NewStorageClass("ds1", &ds)
+	err = dsResource.Delete(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(context.TODO())
-	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	err = dsResource.Get(c.Context(), s.client)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
-	_, err = s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	_, err = s.client.StorageV1().StorageClasses().Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }

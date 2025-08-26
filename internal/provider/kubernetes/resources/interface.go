@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/status"
 )
@@ -25,15 +27,17 @@ type Resource interface {
 	// Clone returns a copy of the resource.
 	Clone() Resource
 	// Apply patches the resource change.
-	Apply(ctx context.Context) error
+	Apply(ctx context.Context, client kubernetes.Interface) error
 	// Get refreshes the resource.
-	Get(ctx context.Context) error
+	Get(ctx context.Context, client kubernetes.Interface) error
 	// Delete removes the resource.
-	Delete(ctx context.Context) error
+	Delete(ctx context.Context, client kubernetes.Interface) error
 	// String returns a string format containing the name and type of the resource.
 	String() string
 	// ComputeStatus returns a juju status for the resource.
-	ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error)
+	ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error)
+	// Events emitted by the object.
+	Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error)
 	// ID returns a comparable ID for the Resource
 	ID() ID
 }
@@ -48,7 +52,7 @@ type Applier interface {
 	// desired slice. All items in the desired slice are applied.
 	ApplySet(current []Resource, desired []Resource)
 	// Run processes the slice of the operations.
-	Run(ctx context.Context, noRollback bool) error
+	Run(ctx context.Context, client kubernetes.Interface, noRollback bool) error
 }
 
 // ID represents a compareable identifier for Resources.

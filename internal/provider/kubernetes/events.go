@@ -48,7 +48,7 @@ func (k *kubernetesClient) getEvents(ctx context.Context, objName string, objKin
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	return resources.ListEventsForObject(ctx, k.client().CoreV1().Events(k.namespace), objName, objKind)
+	return resources.ListEventsForObject(ctx, k.client(), k.namespace, objName, objKind)
 }
 
 func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.NotifyWatcher, error) {

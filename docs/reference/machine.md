@@ -7,7 +7,7 @@ In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested
 
 ```{important}
 
-This definition suggests that, regardless of whether the cloud is a bare metal cloud, a virtual machine cloud, or a LXD container- or VM-based cloud, and regardless of whether the command targets a regular instance or rather a LXD container on a regular instance (all the commands above can apply to both), what's being provisioned is always, from the point of view of Juju, a 'machine'.
+This definition suggests that, regardless of whether the cloud is a bare metal cloud, a virtual machine cloud, or a LXD container- or VM-based cloud, and regardless of whether the command targets a regular instance or rather a LXD container on a regular instance (all the commands above can apply to both), what's being provisioned is always, from the point of view of Juju, a 'machine'. 
 
 From the point of view of an end user, this is absolutely true, with one small caveat -- even though listed in `juju` outputs under 'Machines', and in general handled via the same CLI commands as a machine, a LXD container provisioned on top of a regular cloud instance will be named after its host machine; e.g., `0/lxd/5` = LXD container `5` on machine `0`.
 
@@ -16,12 +16,12 @@ From the point of view of an end user, this is absolutely true, with one small c
 (machines-and-units)=
 ## Machines and units
 
-When you deploy an {ref}`application <application>` on a machine, there is usually one {ref}`unit <unit>` per machine. However, it is usually possible to optimise resources by deploying multiple units of the same or of different applications to the same machine.
+When you deploy an {ref}`application <application>` on a machine, there is usually one {ref}`unit <unit>` per machine. However, it is usually possible to optimise resources by deploying multiple units of the same or of different applications to the same machine. 
 
 
 ## Machines and system (LXD) containers
 
-In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
+In Juju, they are both essentially the same -- 'machines'.  For example, most Juju CLI commands that target machines can actually target system containers in the exact same way.  
 
 
 ````{dropdown} Example
@@ -36,7 +36,7 @@ $ juju machines
 Machine  State    Address         Inst id        Base          AZ  Message
 0        started  10.154.118.110  juju-dadfb7-0  ubuntu@22.04      Running
 1        pending                  pending        ubuntu@22.04      Creating container
-1/lxd/0  pending                  pending        ubuntu@22.04
+1/lxd/0  pending                  pending        ubuntu@22.04      
 ```
 
 And if you then deploy an application to a LXD container (without specifying any particular container), that will again provision two machines:
@@ -61,9 +61,16 @@ Machine  State    Address         Inst id              Base          AZ  Message
 
 In Juju, many different commands have a machine argument. The shape of this argument depends on whether the machine is existing vs. new and a regular cloud instance vs. a LXD container on top of a regular cloud instance. The argument can also contain combinations, in comma-separated format. The examples below illustrate all the various cases:
 
+<!--
+- When the machine is a regular cloud instance, the ID is numeric, e.g., `1`. 
+- When the machine is a LXD container provisioned on top of a regular cloud instance, the ID will take the form `<host instance ID>/lxd/<container ID>`, e.g., `0/lxd/4`. 
+- When the target machine does not yet exist, and thus does not yet have an ID, it is omitted. 
+- When the target container 'machine' does not yet exist but the target host instance does, so its ID is known, the ID will take the form `lxd:<host instance ID>`, e.g., `lxd:4`. When the target is more than one machine, the IDs can be specified at the same time, in comma-separated format. For more concreteness, some examples along with their gloss:
+-->
+
 | shape of the machine argument | meaning|
 |-|-|
-|  | a new machine |
+|  | a new machine | 
 |`0`| machine 0 |
 |`0,4`| machines 0 and 4|
 | `lxd` | a new LXD container  on a new machine |
@@ -78,14 +85,11 @@ A machine's specific hardware can be customised via {ref}`constraints <constrain
 (machine-base)=
 ## Machine base
 
-```{versionadded} 3.1.0
-```
+> Starting with Juju 3.1, a 'base' replaces the older notion of 'series'.
 
-In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`.
+In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`. 
 
 This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.
-
-A 'base' replaces the older notion of 'series'.
 
 <!--If we link to the doc on Channel https://juju.is/docs/sdk/channel , we need to specify that the notion of `branch` is not relevant here. -->
 

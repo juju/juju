@@ -6,10 +6,10 @@ package externalcontrollerupdater
 import (
 	"context"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -56,15 +56,13 @@ type ExternalControllerWatcherClient interface {
 // returns an ExternalControllerWatcherClientCloser, given an
 // *api.Info. The api.Info should be for making a controller-only
 // connection to a remote/external controller.
-type NewExternalControllerWatcherClientFunc func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, string, error)
+type NewExternalControllerWatcherClientFunc func(context.Context, *api.Info) (ExternalControllerWatcherClientCloser, error)
 
 // New returns a new external controller updater worker.
 func New(
 	externalControllers ExternalControllerUpdaterClient,
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
 	clock clock.Clock,
-	// If not nil, used for testing.
-	noChanges func(),
 ) (worker.Worker, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name: "external-controller-updater",
@@ -86,7 +84,6 @@ func New(
 		externalControllerInfo:             externalControllers.ExternalControllerInfo,
 		setExternalControllerInfo:          externalControllers.SetExternalControllerInfo,
 		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
-		noChanges:                          noChanges,
 		runner:                             runner,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -108,9 +105,6 @@ type updaterWorker struct {
 	externalControllerInfo             func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	setExternalControllerInfo          func(context.Context, crossmodel.ControllerInfo) error
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
-
-	// Used for testing.
-	noChanges func()
 }
 
 // Kill is part of the worker.Worker interface.
@@ -174,7 +168,6 @@ func (w *updaterWorker) loop() error {
 						w.setExternalControllerInfo,
 						w.externalControllerInfo,
 						w.newExternalControllerWatcherClient,
-						w.noChanges,
 					)
 				}); err != nil {
 					return errors.Annotatef(err, "starting watcher for external controller %q", tag.Id())
@@ -198,9 +191,6 @@ type controllerWatcher struct {
 	setExternalControllerInfo          func(context.Context, crossmodel.ControllerInfo) error
 	externalControllerInfo             func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
-
-	// Used for testing.
-	noChanges func()
 }
 
 func newControllerWatcher(
@@ -208,14 +198,12 @@ func newControllerWatcher(
 	setExternalControllerInfo func(context.Context, crossmodel.ControllerInfo) error,
 	externalControllerInfo func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error),
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
-	noChanges func(),
 ) (*controllerWatcher, error) {
 	cw := &controllerWatcher{
 		tag:                                tag,
 		setExternalControllerInfo:          setExternalControllerInfo,
 		externalControllerInfo:             externalControllerInfo,
 		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
-		noChanges:                          noChanges,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -257,11 +245,8 @@ func (w *controllerWatcher) loop() error {
 	}
 	logger.Debugf(ctx, "controller info for controller %q: %v", w.tag.Id(), info)
 
-	var (
-		client          ExternalControllerWatcherClientCloser
-		nw              watcher.NotifyWatcher
-		connectedIPAddr string
-	)
+	var nw watcher.NotifyWatcher
+	var client ExternalControllerWatcherClientCloser
 	defer func() {
 		if client != nil {
 			_ = client.Close()
@@ -275,7 +260,7 @@ func (w *controllerWatcher) loop() error {
 				CACert: info.CACert,
 				Tag:    names.NewUserTag(api.AnonymousUsername),
 			}
-			client, nw, connectedIPAddr, err = w.connectAndWatch(ctx, apiInfo)
+			client, nw, err = w.connectAndWatch(ctx, apiInfo)
 			if err == w.catacomb.ErrDying() {
 				return err
 			} else if err != nil {
@@ -302,13 +287,7 @@ func (w *controllerWatcher) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "getting external controller info")
 			}
-
-			newAddrs := set.NewStrings(newInfo.Addrs...)
-			existingAddrs := set.NewStrings(info.Addrs...)
-			if newAddrs.Difference(existingAddrs).IsEmpty() {
-				if w.noChanges != nil {
-					w.noChanges()
-				}
+			if reflect.DeepEqual(newInfo.Addrs, info.Addrs) {
 				continue
 			}
 
@@ -331,11 +310,6 @@ func (w *controllerWatcher) loop() error {
 			// we can reuse it in the next iteration.
 			info.Addrs = newInfo.Addrs
 
-			if newAddrs.Contains(connectedIPAddr) {
-				logger.Debugf(ctx, "controller %q already connected to %q", w.tag.Id(), connectedIPAddr)
-				continue
-			}
-
 			if err := worker.Stop(nw); err != nil {
 				return errors.Trace(err)
 			}
@@ -351,18 +325,17 @@ func (w *controllerWatcher) loop() error {
 // connectAndWatch connects to the specified controller and watches for changes.
 // It aborts if signalled, which prevents the watcher loop from blocking any shutdown
 // of the watcher the may be requested by the parent worker.
-func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.Info) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, string, error) {
+func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.Info) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
 	type result struct {
 		client ExternalControllerWatcherClientCloser
 		nw     watcher.NotifyWatcher
-		ipAddr string
 	}
 
 	response := make(chan result)
 	errs := make(chan error)
 
 	go func() {
-		client, ipAddr, err := w.newExternalControllerWatcherClient(ctx, apiInfo)
+		client, err := w.newExternalControllerWatcherClient(ctx, apiInfo)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -384,17 +357,17 @@ func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.In
 		select {
 		case <-ctx.Done():
 			_ = client.Close()
-		case response <- result{client: client, nw: nw, ipAddr: ipAddr}:
+		case response <- result{client: client, nw: nw}:
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		return nil, nil, "", w.catacomb.ErrDying()
+		return nil, nil, w.catacomb.ErrDying()
 	case err := <-errs:
-		return nil, nil, "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	case r := <-response:
-		return r.client, r.nw, r.ipAddr, nil
+		return r.client, r.nw, nil
 	}
 }
 

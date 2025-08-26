@@ -407,18 +407,11 @@ func (env *environ) getHardwareCharacteristics(
 	}
 	cores := uint64(container.CPUs())
 	mem := uint64(container.Mem())
-	location := container.Location
-	// In non-cluster mode, the container location has value as "none".
-	// Use the single server name to make it human friendly.
-	if location == "none" {
-		location = env.server().Name()
-	}
 	return &instance.HardwareCharacteristics{
-		Arch:             &archStr,
-		CpuCores:         &cores,
-		Mem:              &mem,
-		VirtType:         &container.Type,
-		AvailabilityZone: &location,
+		Arch:     &archStr,
+		CpuCores: &cores,
+		Mem:      &mem,
+		VirtType: &container.Type,
 	}
 }
 

@@ -1,26 +1,16 @@
-# Environment
-*env*/
+# Starter pack rules start here
+/*env*/
 .sphinx/venv/
-
-# Sphinx
 .sphinx/warnings.txt
 .sphinx/.wordlist.dic
 .sphinx/.doctrees/
-.sphinx/update/
 .sphinx/node_modules/
-
-# Vale
-.sphinx/styles/*
-.sphinx/vale.ini
-
-# Build outputs
-_build
-
-# Node.js
 package*.json
-
-# Unrelated cache and config files
+_build
 .DS_Store
 __pycache__
 .idea/
 .vscode/
+.sphinx/styles/*
+.sphinx/vale.ini
+sp-docs/_build

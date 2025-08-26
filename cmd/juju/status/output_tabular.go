@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/distribution/reference"
+	"github.com/docker/distribution/reference"
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 

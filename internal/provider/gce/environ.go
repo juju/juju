@@ -29,7 +29,6 @@ import (
 
 type gceConnection interface {
 	VerifyCredentials() error
-	DefaultServiceAccount() (string, error)
 
 	// Instance gets the up-to-date info about the given instance
 	// and returns it.

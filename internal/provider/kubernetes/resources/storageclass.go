@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 
 	"github.com/juju/juju/core/status"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -23,17 +23,16 @@ import (
 
 // StorageClass extends the k8s storageClass.
 type StorageClass struct {
-	client v1.StorageClassInterface
 	storagev1.StorageClass
 }
 
 // NewStorageClass creates a new storage class resource.
-func NewStorageClass(client v1.StorageClassInterface, name string, in *storagev1.StorageClass) *StorageClass {
+func NewStorageClass(name string, in *storagev1.StorageClass) *StorageClass {
 	if in == nil {
 		in = &storagev1.StorageClass{}
 	}
 	in.SetName(name)
-	return &StorageClass{client, *in}
+	return &StorageClass{*in}
 }
 
 // ListStorageClass returns a list of storage classes.
@@ -68,16 +67,17 @@ func (sc *StorageClass) ID() ID {
 }
 
 // Apply patches the resource change.
-func (sc *StorageClass) Apply(ctx context.Context) error {
+func (sc *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) error {
+	api := client.StorageV1().StorageClasses()
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &sc.StorageClass)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := sc.client.Patch(ctx, sc.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, sc.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
-		res, err = sc.client.Create(ctx, &sc.StorageClass, metav1.CreateOptions{
+		res, err = api.Create(ctx, &sc.StorageClass, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 	}
@@ -92,8 +92,9 @@ func (sc *StorageClass) Apply(ctx context.Context) error {
 }
 
 // Get refreshes the resource.
-func (sc *StorageClass) Get(ctx context.Context) error {
-	res, err := sc.client.Get(ctx, sc.Name, metav1.GetOptions{})
+func (sc *StorageClass) Get(ctx context.Context, client kubernetes.Interface) error {
+	api := client.StorageV1().StorageClasses()
+	res, err := api.Get(ctx, sc.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s")
 	} else if err != nil {
@@ -104,8 +105,9 @@ func (sc *StorageClass) Get(ctx context.Context) error {
 }
 
 // Delete removes the resource.
-func (sc *StorageClass) Delete(ctx context.Context) error {
-	err := sc.client.Delete(ctx, sc.Name, metav1.DeleteOptions{
+func (sc *StorageClass) Delete(ctx context.Context, client kubernetes.Interface) error {
+	api := client.StorageV1().StorageClasses()
+	err := api.Delete(ctx, sc.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -116,8 +118,13 @@ func (sc *StorageClass) Delete(ctx context.Context) error {
 	return nil
 }
 
+// Events emitted by the resource.
+func (sc *StorageClass) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, "", sc.Name, "StorageClass")
+}
+
 // ComputeStatus returns a juju status for the resource.
-func (sc *StorageClass) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
+func (sc *StorageClass) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	if sc.DeletionTimestamp != nil {
 		return "", status.Terminated, sc.DeletionTimestamp.Time, nil
 	}

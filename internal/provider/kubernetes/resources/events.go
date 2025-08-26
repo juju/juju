@@ -10,14 +10,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const maxEventsToPage = 100
 
 // ListEventsForObject returns all the events for the specified object.
 func ListEventsForObject(
-	ctx context.Context, client v1.EventInterface, name, kind string,
+	ctx context.Context, client kubernetes.Interface, namespace, name, kind string,
 ) ([]corev1.Event, error) {
 	selector := fields.AndSelectors(
 		fields.OneTermEqualSelector("involvedObject.name", name),
@@ -28,7 +28,7 @@ func ListEventsForObject(
 	}
 	var items []corev1.Event
 	for len(items) < maxEventsToPage {
-		res, err := client.List(ctx, opts)
+		res, err := client.CoreV1().Events(namespace).List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -15,7 +15,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,11 +36,8 @@ import (
 // commands. This interfaces is scoped down to the exact components needed by
 // the ensure model operator routines.
 type ModelOperatorBroker interface {
-	// Client returns the core Kubernetes client to use for model operator actions.
+	// Client returns the Kubernetes client to use for model operator actions.
 	Client() kubernetes.Interface
-
-	// ExtendedClient returns the extended Kubernetes client to use for model operator actions.
-	ExtendedClient() clientset.Interface
 
 	// EnsureConfigMap ensures the supplied kubernetes config map exists in the
 	// targeted cluster. Error returned if this action is not able to be
@@ -89,8 +85,7 @@ type ModelOperatorBroker interface {
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
 // the ModelOperatorBroker interface
 type modelOperatorBrokerBridge struct {
-	client         kubernetes.Interface
-	extendedClient clientset.Interface
+	client kubernetes.Interface
 
 	ensureConfigMap      func(context.Context, *core.ConfigMap) ([]func(), error)
 	ensureDeployment     func(context.Context, *apps.Deployment) ([]func(), error)
@@ -127,11 +122,6 @@ var (
 // Client implements ModelOperatorBroker
 func (m *modelOperatorBrokerBridge) Client() kubernetes.Interface {
 	return m.client
-}
-
-// ExtendedClient implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) ExtendedClient() clientset.Interface {
-	return m.extendedClient
 }
 
 // EnsureConfigMap implements ModelOperatorBroker
@@ -327,8 +317,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 	}
 
 	bridge := &modelOperatorBrokerBridge{
-		client:         k.client(),
-		extendedClient: k.extendedClient(),
+		client: k.client(),
 		ensureConfigMap: func(ctx context.Context, c *core.ConfigMap) ([]func(), error) {
 			cleanUp, err := k.ensureConfigMap(ctx, c)
 			return []func(){cleanUp}, err
@@ -602,7 +591,7 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring service account")
 	}
 
-	clusterRole := resources.NewClusterRole(broker.Client().RbacV1().ClusterRoles(), objMetaGlobal.GetName(), &rbac.ClusterRole{
+	clusterRole := resources.NewClusterRole(objMetaGlobal.GetName(), &rbac.ClusterRole{
 		ObjectMeta: objMetaGlobal,
 		Rules: []rbac.PolicyRule{
 			{
@@ -626,6 +615,7 @@ func ensureModelOperatorRBAC(
 
 	c, err = clusterRole.Ensure(
 		ctx,
+		broker.Client(),
 		resources.ClaimJujuOwnership,
 	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
@@ -633,7 +623,7 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role")
 	}
 
-	clusterRoleBinding := resources.NewClusterRoleBinding(broker.Client().RbacV1().ClusterRoleBindings(), objMetaGlobal.GetName(), &rbac.ClusterRoleBinding{
+	clusterRoleBinding := resources.NewClusterRoleBinding(objMetaGlobal.GetName(), &rbac.ClusterRoleBinding{
 		ObjectMeta: objMetaGlobal,
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -649,7 +639,7 @@ func ensureModelOperatorRBAC(
 		},
 	})
 
-	c, err = clusterRoleBinding.Ensure(ctx, resources.ClaimJujuOwnership)
+	c, err = clusterRoleBinding.Ensure(ctx, broker.Client(), resources.ClaimJujuOwnership)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role binding")

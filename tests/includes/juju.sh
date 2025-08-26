@@ -71,16 +71,6 @@ ensure() {
 # ```
 bootstrap() {
 	local cloud name output model bootstrapped_name
-	# Handle provider aliases.
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"aws")
-		BOOTSTRAP_PROVIDER="ec2"
-		;;
-	"google")
-		BOOTSTRAP_PROVIDER="gce"
-		;;
-	esac
-
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		cloud="aws"
@@ -354,17 +344,6 @@ pre_bootstrap() {
 	else
 		if [[ -n ${CONTROLLER_CHARM_PATH_IAAS:-} ]]; then
 			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-charm-path=${CONTROLLER_CHARM_PATH_IAAS}"
-		fi
-		case "${BOOTSTRAP_PROVIDER:-}" in
-		"ec2" | "gce" | "openstack")
-			# Don't use fan unless we really need to.
-			if [[ -z ${CONTAINER_NETWORKING_METHOD:-} ]]; then
-				CONTAINER_NETWORKING_METHOD="local"
-			fi
-			;;
-		esac
-		if [[ -n ${CONTAINER_NETWORKING_METHOD:-} ]]; then
-			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default container-networking-method=${CONTAINER_NETWORKING_METHOD}"
 		fi
 	fi
 

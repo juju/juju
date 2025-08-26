@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -32,18 +31,18 @@ func (s *serviceSuite) TestApply(c *tc.C) {
 		},
 	}
 	// Create.
-	dsResource := resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
-	result, err := s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
+	dsResource := resources.NewService("ds1", "test", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
+	result, err := s.client.CoreV1().Services("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
+	dsResource = resources.NewService("ds1", "test", ds)
+	c.Assert(dsResource.Apply(c.Context(), s.client), tc.ErrorIsNil)
 
-	result, err = s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err = s.client.CoreV1().Services("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
@@ -59,12 +58,12 @@ func (s *serviceSuite) TestGet(c *tc.C) {
 	}
 	ds1 := template
 	ds1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), &ds1, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), &ds1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	dsResource := resources.NewService(s.client.CoreV1().Services(ds1.Namespace), "test", "ds1", &template)
+	dsResource := resources.NewService("ds1", "test", &template)
 	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(context.TODO())
+	err = dsResource.Get(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
 	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
@@ -78,20 +77,20 @@ func (s *serviceSuite) TestDelete(c *tc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), &ds, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), &ds, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err := s.client.CoreV1().Services("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
-	dsResource := resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", &ds)
-	err = dsResource.Delete(context.TODO())
+	dsResource := resources.NewService("ds1", "test", &ds)
+	err = dsResource.Delete(c.Context(), s.client)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(context.TODO())
-	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	err = dsResource.Get(c.Context(), s.client)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
-	_, err = s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
+	_, err = s.client.CoreV1().Services("test").Get(c.Context(), "ds1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
