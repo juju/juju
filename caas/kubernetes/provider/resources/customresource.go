@@ -7,9 +7,11 @@ import (
 	"context"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/retry"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,15 +98,25 @@ func (cr *CustomResource) Get(ctx context.Context) error {
 
 // Delete removes the resource.
 func (cr *CustomResource) Delete(ctx context.Context) error {
-	err := cr.client.Delete(ctx, cr.GetName(), metav1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			err := cr.client.Delete(ctx, cr.GetName(), metav1.DeleteOptions{
+				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+			})
+			if k8serrors.IsNotFound(err) {
+				return errors.NotFoundf("custom resource %q", cr.GetName())
+			}
+			return errors.Annotatef(err, "deleting custom resource %q", cr.GetName())
+		},
+		IsFatalError: func(err error) bool {
+			return !k8serrors.IsConflict(err)
+		},
+		Clock:       jujuclock.WallClock,
+		Attempts:    5,
+		Delay:       time.Second,
+		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
