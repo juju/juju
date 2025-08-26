@@ -694,6 +694,16 @@ func (st *State) GetStorageInstanceAttachmentUUID(
 		netNodeInput   = netNodeUUID{UUID: netNodeUUIDStr}
 		dbVal          entityUUID
 	)
+	/*
+		ID	PARENT	NOTUSED	DETAIL
+		11	0     	0      	SEARCH si USING INDEX idx_storage_instance_id (storage_id=?)
+		16	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
+		23	0     	0      	SEARCH sv USING COVERING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
+		30	0     	0      	SCAN sva LEFT-JOIN
+		37	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
+		44	0     	0      	SEARCH sf USING COVERING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
+		61	0     	0      	SEARCH sfa USING AUTOMATIC COVERING INDEX (storage_filesystem_uuid=?) LEFT-JOIN
+	*/
 	stmt, err := st.Prepare(`
 SELECT    COALESCE(sva.uuid, sfa.uuid) AS &entityUUID.uuid
 FROM      storage_instance si

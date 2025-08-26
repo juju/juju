@@ -366,7 +366,7 @@ func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID c
 	)
 	return s.watcherFactory.NewNamespaceMapperWatcher(ctx,
 		initialQuery,
-		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
+		fmt.Sprintf("storage attachments watcher for unit %q", unitUUID),
 		mapper,
 		filter,
 	)
