@@ -20,7 +20,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
@@ -113,6 +112,17 @@ type State interface {
 	GetStorageAttachmentLifeForUnit(
 		ctx context.Context, unitUUID string,
 	) (map[string]domainlife.Life, error)
+
+	// GetStorageInstanceAttachmentUUID returns the UUID of either the storage filesystem
+	// attachment or the storage volume attachment for a given storage ID and network node UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+	// instance does not exist for the provided storage ID.
+	// - [networkerrors.NetNodeNotFound] if the network node does not exist.
+	GetStorageInstanceAttachmentUUID(
+		ctx context.Context, storageID, netNodeUUID string,
+	) (string, error)
 
 	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
 	// statement for unit storage attachments.
@@ -370,16 +380,9 @@ func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID c
 // is not valid.
 // - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no machine exists
 // for the provided machine UUID.
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-// for the provided filesystem ID.
-// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
-// for the provided values.
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
-// for the provided storage ID.
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [networkerrors.NetNodeNotFound] if the network node does not exist.
 func (s *Service) WatchStorageAttachmentForMachine(
 	ctx context.Context,
 	storageID string,
@@ -397,8 +400,23 @@ func (s *Service) WatchStorageAttachmentForMachine(
 		return nil, errors.Capture(err)
 	}
 
-	return s.watchStorageAttachmentForNetNode(ctx, storageID, netNodeUUID,
+	storageInstanceAttachmentUUID, err := s.st.GetStorageInstanceAttachmentUUID(ctx, storageID, netNodeUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(ctx,
 		fmt.Sprintf("storage attachment watcher for machine %q storage ID %q", machineUUID, storageID),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForFilesystemAttachments(),
+			changestream.All,
+			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
+		),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForVolumeAttachments(),
+			changestream.All,
+			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
+		),
 	)
 }
 
@@ -410,16 +428,9 @@ func (s *Service) WatchStorageAttachmentForMachine(
 // is not valid.
 // - [github.com/juju/juju/domain/unit/errors.UnitNotFound] when no unit exists
 // for the provided unit UUID.
-// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-// for the provided filesystem ID.
-// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-// attachment exists for the provided values.
-// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
-// for the provided values.
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
-// for the provided storage ID.
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [networkerrors.NetNodeNotFound] if the network node does not exist.
 func (s *Service) WatchStorageAttachmentForUnit(
 	ctx context.Context,
 	storageID string,
@@ -437,27 +448,22 @@ func (s *Service) WatchStorageAttachmentForUnit(
 		return nil, errors.Capture(err)
 	}
 
-	return s.watchStorageAttachmentForNetNode(ctx, storageID, netNodeUUID,
-		fmt.Sprintf("storage attachment watcher for unit %q storage ID %q", unitUUID, storageID),
-	)
-}
-
-func (s *Service) watchStorageAttachmentForNetNode(
-	ctx context.Context,
-	storageID string,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	watcherSummary string,
-) (watcher.NotifyWatcher, error) {
-	filesystemUUID, err := s.st.GetFilesystemUUIDForStorageID(ctx, storageID)
-	if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-		volumeUUID, err := s.st.GetVolumeUUIDForStorageID(ctx, storageID)
-		if err != nil {
-			return nil, errors.Errorf("getting volume UUID for storage ID %q: %w", storageID, err)
-		}
-		return s.watchVolumeAttachmentForNetNode(ctx, volumeUUID, netNodeUUID, watcherSummary)
-	} else if err != nil {
-		return nil, errors.Errorf("getting filesystem UUID for storage ID %q: %w", storageID, err)
+	storageInstanceAttachmentUUID, err := s.st.GetStorageInstanceAttachmentUUID(ctx, storageID, netNodeUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
-	return s.watchFilesystemAttachmentForNetNode(ctx, filesystemUUID, netNodeUUID, watcherSummary)
+	return s.watcherFactory.NewNotifyWatcher(ctx,
+		fmt.Sprintf("storage attachment watcher for unit %q storage ID %q", unitUUID, storageID),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForFilesystemAttachments(),
+			changestream.All,
+			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
+		),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForVolumeAttachments(),
+			changestream.All,
+			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
+		),
+	)
 }

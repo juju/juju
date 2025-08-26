@@ -788,6 +788,45 @@ func (c *MockStateGetStorageAttachmentLifeForUnitCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetStorageInstanceAttachmentUUID mocks base method.
+func (m *MockState) GetStorageInstanceAttachmentUUID(ctx context.Context, storageID, netNodeUUID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceAttachmentUUID", ctx, storageID, netNodeUUID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceAttachmentUUID indicates an expected call of GetStorageInstanceAttachmentUUID.
+func (mr *MockStateMockRecorder) GetStorageInstanceAttachmentUUID(ctx, storageID, netNodeUUID any) *MockStateGetStorageInstanceAttachmentUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceAttachmentUUID", reflect.TypeOf((*MockState)(nil).GetStorageInstanceAttachmentUUID), ctx, storageID, netNodeUUID)
+	return &MockStateGetStorageInstanceAttachmentUUIDCall{Call: call}
+}
+
+// MockStateGetStorageInstanceAttachmentUUIDCall wrap *gomock.Call
+type MockStateGetStorageInstanceAttachmentUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageInstanceAttachmentUUIDCall) Return(arg0 string, arg1 error) *MockStateGetStorageInstanceAttachmentUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageInstanceAttachmentUUIDCall) Do(f func(context.Context, string, string) (string, error)) *MockStateGetStorageInstanceAttachmentUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageInstanceAttachmentUUIDCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockStateGetStorageInstanceAttachmentUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageInstanceUUIDByID mocks base method.
 func (m *MockState) GetStorageInstanceUUIDByID(ctx context.Context, storageID string) (string, error) {
 	m.ctrl.T.Helper()

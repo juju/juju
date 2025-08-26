@@ -150,18 +150,6 @@ type FilesystemState interface {
 		context.Context, string,
 	) (storageprovisioning.FilesystemUUID, error)
 
-	// GetFilesystemUUIDForStorageID returns the UUID for a filesystem with the supplied
-	// storage ID.
-	//
-	// The following errors may be returned:
-	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
-	// for the provided storage ID.
-	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-	// for the provided storage ID.
-	GetFilesystemUUIDForStorageID(
-		ctx context.Context, storageID string,
-	) (storageprovisioning.FilesystemUUID, error)
-
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
 	// machine provisioned and the query for getting the current set of machine
@@ -804,30 +792,4 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	}
 
 	return nil
-}
-
-func (s *Service) watchFilesystemAttachmentForNetNode(
-	ctx context.Context,
-	filesystemUUID storageprovisioning.FilesystemUUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	watcherSummary string,
-) (watcher.NotifyWatcher, error) {
-	if err := netNodeUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	fsAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
-		ctx, filesystemUUID, netNodeUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.watcherFactory.NewNotifyWatcher(ctx,
-		watcherSummary,
-		eventsource.PredicateFilter(
-			s.st.NamespaceForFilesystemAttachments(),
-			corechangestream.All,
-			eventsource.EqualsPredicate(fsAttachmentUUID.String()),
-		),
-	)
 }
