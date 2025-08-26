@@ -940,6 +940,7 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 		"SELECT key, value FROM storage_pool_attribute WHERE storage_pool_uuid = ?",
 		createArgs[0].UUID.String(),
 	)
+	defer rows.Close()
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rows.Next(), tc.IsFalse)
 }

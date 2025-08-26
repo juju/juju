@@ -118,7 +118,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 }
 
 // CreateDefaultStoragePools is responsible for inserting a model's set of
-// default storage pools into the model. It is the responsability of the caller
+// default storage pools into the model. It is the responsibility of the caller
 // to make sure that no conflicts exist and the operation is performed once.
 func (s *ModelState) CreateDefaultStoragePools(
 	ctx context.Context, args []model.CreateModelDefaultStoragePoolArg,

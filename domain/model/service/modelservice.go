@@ -161,7 +161,7 @@ type ModelState interface {
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
 	// CreateDefaultStoragePools is responsible for inserting a model's set of
-	// default storage pools into the model. It is the responsability of the
+	// default storage pools into the model. It is the responsibility of the
 	// caller to make sure that no conflicts exist and the operation is
 	// performed once.
 	CreateDefaultStoragePools(
