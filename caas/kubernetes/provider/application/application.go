@@ -175,6 +175,7 @@ func newApplication(
 		deploymentType: deploymentType,
 		client:         client,
 		extendedClient: extendedClient,
+		dynamicClient:  dynamicClient,
 		newWatcher:     newWatcher,
 		clock:          clock,
 		randomPrefix:   randomPrefix,
