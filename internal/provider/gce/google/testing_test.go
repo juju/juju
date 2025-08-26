@@ -60,7 +60,11 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 		ProjectID:  "spam",
 		HTTPClient: jujuhttp.NewClient(),
 	}
-	fake := &fakeConn{}
+	fake := &fakeConn{
+		Project: &compute.Project{
+			DefaultServiceAccount: "fred@foo.com",
+		},
+	}
 	s.Conn = &Connection{
 		service:   fake,
 		projectID: "spam",
@@ -123,15 +127,16 @@ func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.RawInstanceFull.Status = StatusRunning
 	s.RawInstanceFull.MachineType = "zones/a-zone/machineTypes/mtype"
 	s.InstanceSpec = InstanceSpec{
-		ID:                "spam",
-		Type:              "mtype",
-		Disks:             []DiskSpec{s.DiskSpec},
-		Network:           s.NetworkSpec,
-		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.Metadata,
-		Tags:              []string{"spam"},
-		AvailabilityZone:  "a-zone",
-		AllocatePublicIP:  true,
+		ID:                    "spam",
+		Type:                  "mtype",
+		Disks:                 []DiskSpec{s.DiskSpec},
+		Network:               s.NetworkSpec,
+		NetworkInterfaces:     []string{"somenetif"},
+		Metadata:              s.Metadata,
+		Tags:                  []string{"spam"},
+		AvailabilityZone:      "a-zone",
+		AllocatePublicIP:      true,
+		DefaultServiceAccount: "fred@foo.com",
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{
@@ -193,7 +198,7 @@ type fakeConn struct {
 	Subnetworks   []*compute.Subnetwork
 }
 
-func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
+func (rc *fakeConn) GetProjectServiceAccount(projectID string) (string, error) {
 	call := fakeCall{
 		FuncName:  "GetProject",
 		ProjectID: projectID,
@@ -204,7 +209,7 @@ func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
 	if len(rc.Calls) != rc.FailOnCall+1 {
 		err = nil
 	}
-	return rc.Project, err
+	return rc.Project.DefaultServiceAccount, err
 }
 
 func (rc *fakeConn) GetInstance(projectID, zone, id string) (*compute.Instance, error) {

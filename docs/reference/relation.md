@@ -18,8 +18,15 @@ A certain charm knows that it requires, say, a database and, correspondingly, a 
 
 ![relation-taxonomy](relation-taxonomy.svg)
 
+(peer-relation)=
+### Peer relation
+
+A **peer** relation is a relation that an application has to itself (i.e., its units respond to one another) automatically by virtue of having a `peers` endpoint.
+
+Because every relation results in the creation of unit and application databags in Juju's database, peer relations are sometimes used by charm authors as a way to persist charm data. When the application has multiple units, peer relations are also the mechanism behind {ref}`high availability <high-availability>`.
+
 (non-peer-relation)=
-### Non-peer
+### Non-peer relation
 
 A **non-peer** relation is a relation from one application to another, where the applications support the same endpoint interface and have opposite `provides` / `requires` endpoint roles.
 
@@ -29,17 +36,17 @@ A **non-peer** relation is a relation from one application to another, where the
 -->
 
 (non-subordinate-relation)=
-#### Non-subordinate
+#### Non-subordinate relation
 
 A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer <non-peer-relation>` relation where the applications are both principal.
 
-##### Non-cross-model
+##### Non-cross-model relation
 
 A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
 
 (cross-model-relation)=
-##### Cross-model
+##### Cross-model relation
 > See also: {ref}`manage-relations`
 
 
@@ -56,18 +63,11 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
 
 (subordinate-relation)=
-#### Subordinate
+#### Subordinate relation
 
 A **subordinate** relation is a {ref}`non-peer <non-peer-relation>` relation where one application is principal and the other subordinate.
 
 A subordinate charm is by definition a charm deployed on the same machine as the principal charm it is intended to accompany. When you deploy a subordinate charm, it appears in your Juju model as an application with no unit. The subordinate relation helps the subordinate application acquire a unit. The subordinate application then scales automatically when the principal application does, by virtue of this relation.
-
-(peer-relation)=
-### Peer
-
-A **peer** relation is a relation that an application has to itself (i.e., its units respond to one another) automatically by virtue of having a `peers` endpoint.
-
-Because every relation results in the creation of unit and application databags in Juju's database, peer relations are sometimes used by charm authors as a way to persist charm data. When the application has multiple units, peer relations are also the mechanism behind {ref}`high availability <high-availability>`.
 
 <!--
 

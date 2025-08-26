@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -43,11 +42,11 @@ type operation struct {
 	resource Resource
 }
 
-func (op *operation) process(ctx context.Context, api kubernetes.Interface, rollback Applier) error {
+func (op *operation) process(ctx context.Context, rollback Applier) error {
 	existingRes := op.resource.Clone()
 	// TODO: consider to `list` using label selectors instead of `get` by `name`.
 	// Because it's not good for non namespaced resources.
-	err := existingRes.Get(ctx, api)
+	err := existingRes.Get(ctx)
 	found := true
 	if errors.Is(err, errors.NotFound) {
 		found = false
@@ -63,7 +62,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	}
 	switch op.opType {
 	case opApply:
-		err = op.resource.Apply(ctx, api)
+		err = op.resource.Apply(ctx)
 		if found {
 			// apply the previously existing resource.
 			rollback.Apply(existingRes)
@@ -72,7 +71,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 			rollback.Delete(op.resource)
 		}
 	case opDelete:
-		err = op.resource.Delete(ctx, api)
+		err = op.resource.Delete(ctx)
 		if found {
 			rollback.Apply(existingRes)
 		}
@@ -105,19 +104,19 @@ func (a *applier) ApplySet(current []Resource, desired []Resource) {
 	a.Apply(desired...)
 }
 
-func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollback bool) (err error) {
+func (a *applier) Run(ctx context.Context, noRollback bool) (err error) {
 	rollback := NewApplier()
 
 	defer func() {
 		if noRollback || err == nil {
 			return
 		}
-		if rollbackErr := rollback.Run(ctx, client, true); rollbackErr != nil {
-			logger.Warningf(context.TODO(), "rollback failed %s", rollbackErr.Error())
+		if rollbackErr := rollback.Run(ctx, true); rollbackErr != nil {
+			logger.Warningf(ctx, "rollback failed %s", rollbackErr.Error())
 		}
 	}()
 	for _, op := range a.ops {
-		if err = op.process(ctx, client, rollback); err != nil {
+		if err = op.process(ctx, rollback); err != nil {
 			return errors.Trace(err)
 		}
 	}

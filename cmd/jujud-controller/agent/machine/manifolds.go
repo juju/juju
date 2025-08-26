@@ -283,13 +283,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	newExternalControllerWatcherClient := func(ctx context.Context, apiInfo *api.Info) (
-		externalcontrollerupdater.ExternalControllerWatcherClientCloser, error,
+		externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error,
 	) {
 		conn, err := apicaller.NewExternalControllerConnection(ctx, apiInfo)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, "", errors.Trace(err)
 		}
-		return crosscontroller.NewClient(conn), nil
+		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
 
 	var externalUpdateProxyFunc func(proxy.Settings) error

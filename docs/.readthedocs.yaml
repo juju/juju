@@ -16,6 +16,7 @@ build:
 sphinx:
   builder: dirhtml
   configuration: docs/conf.py
+  fail_on_warning: false
 
 # If using Sphinx, optionally build your docs in additional formats such as PDF
 formats:
@@ -24,4 +25,4 @@ formats:
 # Optionally declare the Python requirements required to build your docs
 python:
   install:
-    - requirements: docs/.sphinx/requirements.txt
+    - requirements: docs/requirements.txt
