@@ -20,7 +20,7 @@ Display status information about known payloads.
 
 This command will report on the runtime state of defined payloads.
 
-When one or more pattern is given, `juju` will limit the results to only
+When one or more pattern is given, Juju will limit the results to only
 those payloads which match *any* of the provided patterns. Each pattern
 will be checked against the following info in Juju:
 
