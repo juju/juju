@@ -135,9 +135,10 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		return handleErr(err), nil
 	}
 
-	// If the owner and caller are not the same, checkAdmin for the offer model.
+	// If the caller is not the owner of the offer, the owner should be an
+	// admin of the model.
 	if apiUserTag != ownerTag {
-		if err := api.checkAdmin(ctx, ownerTag, offerModelUUID); err != nil {
+		if err := api.checkModelPermission(ctx, ownerTag, offerModelUUID, permission.AdminAccess); err != nil {
 			msgerr := errors.Errorf("checking user %q has admin permission on model %q: %w", ownerTag.String(), offerModelUUID.String(), err).Add(coreerrors.NotValid)
 			return handleErr(msgerr), nil
 		}
@@ -183,7 +184,7 @@ func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.
 		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
 	}
 
-	offers, err := api.getApplicationOffersDetails(ctx, apiUser, filters)
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.AdminAccess, filters)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
@@ -195,6 +196,7 @@ func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.
 func (api *OffersAPI) getApplicationOffersDetails(
 	ctx context.Context,
 	apiUser names.UserTag,
+	requiredAccess permission.Access,
 	filters params.OfferFilters,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	// If there are no filters specified, that's an error since the
@@ -224,7 +226,14 @@ func (api *OffersAPI) getApplicationOffersDetails(
 	var result []params.ApplicationOfferAdminDetailsV5
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.applicationOffersFromModel(ctx, modelUUID, apiUser, apiUserDisplayName, filters)
+		offers, err := api.applicationOffersFromModel(
+			ctx,
+			modelUUID,
+			apiUser,
+			apiUserDisplayName,
+			requiredAccess,
+			filters,
+		)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -300,9 +309,10 @@ func (api *OffersAPI) applicationOffersFromModel(
 	modelUUID string,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
+	requiredAccess permission.Access,
 	filters []crossmodelrelation.OfferFilter,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
-	if err := api.checkAdmin(ctx, apiUser, model.UUID(modelUUID)); err != nil {
+	if err := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), requiredAccess); err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
 
@@ -320,7 +330,13 @@ func (api *OffersAPI) applicationOffersFromModel(
 	// Process data.
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
-		offerParams := api.makeOfferParams(model.UUID(modelUUID), appOffer, apiUser, apiUserDisplayName)
+		offerParams := api.makeOfferParams(
+			model.UUID(modelUUID),
+			appOffer,
+			apiUser,
+			apiUserDisplayName,
+			requiredAccess,
+		)
 
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
 		if err != nil {
@@ -340,6 +356,7 @@ func (api *OffersAPI) makeOfferParams(
 	offer *crossmodelrelation.OfferDetail,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
+	apiUserAccess permission.Access,
 ) *params.ApplicationOfferDetailsV5 {
 	if offer == nil {
 		return nil
@@ -349,6 +366,25 @@ func (api *OffersAPI) makeOfferParams(
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,
+	}
+
+	for _, ep := range offer.Endpoints {
+		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      charm.RelationRole(ep.Role),
+			Limit:     ep.Limit,
+		})
+	}
+
+	// All OfferUsers only provided if apiUserAccess if Admin.
+	if apiUserAccess != permission.AdminAccess {
+		result.Users = append(result.Users, params.OfferUserDetails{
+			UserName:    apiUser.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      findOfferUserAccess(apiUser.Id(), offer.OfferUsers).String(),
+		})
+		return &result
 	}
 
 	var apiUserFound bool
@@ -370,16 +406,19 @@ func (api *OffersAPI) makeOfferParams(
 		})
 	}
 
-	for _, ep := range offer.Endpoints {
-		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
-			Name:      ep.Name,
-			Interface: ep.Interface,
-			Role:      charm.RelationRole(ep.Role),
-			Limit:     ep.Limit,
-		})
-
-	}
 	return &result
+}
+
+func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) permission.Access {
+	if userName == coreuser.AdminUserName.Name() {
+		return permission.AdminAccess
+	}
+	for _, offerUser := range in {
+		if offerUser.Name == userName {
+			return offerUser.Access
+		}
+	}
+	return permission.NoAccess
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.OfferFilter, error) {
@@ -634,7 +673,19 @@ func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferUR
 
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
-	return params.QueryApplicationOffersResultsV5{}, nil
+	var result params.QueryApplicationOffersResultsV5
+
+	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
+	}
+
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, filters)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
+	result.Results = offers
+	return result, nil
 }
 
 // GetConsumeDetails returns the details necessary to pass to another model
@@ -703,19 +754,20 @@ func (api *OffersAPI) destroyOneOffer(ctx context.Context, offerModel offerModel
 	return removalService.RemoveOffer(ctx, offerUUID, force)
 }
 
-// checkAdmin ensures that the specified in user is a model or controller admin.
-func (api *OffersAPI) checkAdmin(
-	ctx context.Context, user names.UserTag, modelUUID model.UUID,
+// checkModelPermission ensures that the specified in user is a controller superuser or has
+// the provided access on the model.
+func (api *OffersAPI) checkModelPermission(
+	ctx context.Context, user names.UserTag, modelUUID model.UUID, access permission.Access,
 ) error {
 	controllerTag := names.NewControllerTag(api.controllerUUID)
 	err := api.authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, controllerTag)
 	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		err = api.authorizer.EntityHasPermission(ctx, user, permission.AdminAccess, names.NewModelTag(modelUUID.String()))
+		err = api.authorizer.EntityHasPermission(ctx, user, access, names.NewModelTag(modelUUID.String()))
 	}
 	return errors.Capture(err)
 }
 
-// checkAdmin ensures that the specified in user is a model or controller admin.
+// checkAPIUserAdmin ensures that the specified in user is a model or controller admin.
 func (api *OffersAPI) checkAPIUserAdmin(
 	ctx context.Context, modelUUID model.UUID,
 ) error {
