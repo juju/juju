@@ -491,9 +491,8 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 }
 
 // SeedDefaultStoragePools ensures that all of the default storage pools
-// available to the model have been seeded for use. This function will not seed
-// and ignore default storage pools that already exist by the same name and
-// provider in the model.
+// available to the model have been seeded for use. If the default storage pools
+// already exist the function will return an error to the caller.
 func (s *ProviderModelService) SeedDefaultStoragePools(
 	ctx context.Context,
 ) error {
