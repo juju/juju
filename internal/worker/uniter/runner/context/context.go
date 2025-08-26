@@ -5,6 +5,8 @@ package context
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -1239,12 +1241,64 @@ func (ctx *HookContext) GetRawK8sSpec() (string, error) {
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
+	if ctx.modelType == model.CAAS {
+		return ctx.cloudSpecK8s()
+	}
 	var err error
 	ctx.cloudSpec, err = ctx.state.CloudSpec()
 	if err != nil {
 		return nil, err
 	}
 	return ctx.cloudSpec, nil
+}
+
+// cloudSpecK8s loads the in-cluster configuration to connect to the Kubernetes API.
+//
+// Loosely based on the Kubernetes Go client's rest.InClusterConfig function:
+// https://github.com/kubernetes/client-go/blob/0341f077c9d600b7a68d6f637cbd5da9ace4df3d/rest/config.go#L543
+func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
+	const (
+		tokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+		certPath  = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	)
+
+	// Hit controller's CloudSpec API to determine whether we have permission,
+	// but don't use the credentials in the result (the model's credential).
+	modelSpec, err := ctx.state.CloudSpec()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get model credentials")
+	}
+
+	host := os.Getenv("KUBERNETES_SERVICE_HOST")
+	port := os.Getenv("KUBERNETES_SERVICE_PORT")
+	if host == "" || port == "" {
+		return nil, errors.New("cannot read in-cluster configuration (KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be set)")
+	}
+
+	tokenBytes, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read token file")
+	}
+	certBytes, err := os.ReadFile(certPath)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read certificate file")
+	}
+
+	credential := &params.CloudSpec{
+		Type:     modelSpec.Type, // "kubernetes"
+		Name:     modelSpec.Name, // for example, "microk8s"
+		Region:   "localhost",
+		Endpoint: "https://" + net.JoinHostPort(host, port),
+		Credential: &params.CloudCredential{
+			AuthType: "oauth2",
+			Attributes: map[string]string{
+				"Token": string(tokenBytes),
+			},
+		},
+		CACertificates:    []string{string(certBytes)},
+		IsControllerCloud: modelSpec.IsControllerCloud,
+	}
+	return credential, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
