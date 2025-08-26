@@ -334,15 +334,3 @@ type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
 }
-
-type storageInstanceFileSystemIdentifier struct {
-	StorageInstanceUUID string `db:"storage_instance_uuid"`
-	FilesystemUUID      string `db:"storage_filesystem_uuid"`
-}
-
-type storageInstanceVolumeIdentifier struct {
-	StorageInstanceUUID string `db:"storage_instance_uuid"`
-	VolumeUUID          string `db:"storage_volume_uuid"`
-}
-
-type storageInstanceUUIDs []string

@@ -980,54 +980,6 @@ WHERE  filesystem_id = $filesystemID.filesystem_id
 	return storageprovisioning.FilesystemUUID(dbVal.UUID), nil
 }
 
-// GetFilesystemUUIDForStorageID returns the uuid for a filesystem with the supplied
-// storage ID.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
-// for the provided storage ID.
-// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
-// for the provided storage ID.
-func (st *State) GetFilesystemUUIDForStorageID(
-	ctx context.Context, storageID string,
-) (storageprovisioning.FilesystemUUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	dbVal := storageInstanceFileSystemIdentifier{}
-	stmt, err := st.Prepare(`
-SELECT &storageInstanceFileSystemIdentifier.*
-FROM   storage_instance_filesystem
-WHERE  storage_instance_uuid = $storageInstanceFileSystemIdentifier.storage_instance_uuid`, dbVal)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		dbVal.StorageInstanceUUID, err = st.getStorageInstanceUUIDByStorageID(ctx, tx, storageID)
-		if err != nil {
-			return errors.Errorf("getting storage instance UUID for storage ID %q: %w", storageID, err)
-		}
-
-		err = tx.Query(ctx, stmt, dbVal).Get(&dbVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"filesystem for storage id %q does not exist", storageID,
-			).Add(storageprovisioningerrors.FilesystemNotFound)
-		}
-		return err
-	})
-
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return storageprovisioning.FilesystemUUID(dbVal.FilesystemUUID), nil
-}
-
 // InitialWatchStatementMachineProvisionedFilesystems returns both the
 // namespace for watching filesystem life changes where the filesystem is
 // machine provisioned. On top of this the initial query for getting all
