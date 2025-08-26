@@ -377,8 +377,13 @@ func (api *OffersAPI) makeOfferParams(
 		})
 	}
 
-	// OfferUsers only provided if apiUserAccess if Admin.
+	// All OfferUsers only provided if apiUserAccess if Admin.
 	if apiUserAccess != permission.AdminAccess {
+		result.Users = append(result.Users, params.OfferUserDetails{
+			UserName:    apiUser.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      findOfferUserAccess(apiUser.Id(), offer.OfferUsers).String(),
+		})
 		return &result
 	}
 
@@ -402,6 +407,18 @@ func (api *OffersAPI) makeOfferParams(
 	}
 
 	return &result
+}
+
+func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) permission.Access {
+	if userName == coreuser.AdminUserName.Name() {
+		return permission.AdminAccess
+	}
+	for _, offerUser := range in {
+		if offerUser.Name == userName {
+			return offerUser.Access
+		}
+	}
+	return permission.NoAccess
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelation.OfferFilter, error) {
@@ -656,7 +673,19 @@ func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferUR
 
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
-	return params.QueryApplicationOffersResultsV5{}, nil
+	var result params.QueryApplicationOffersResultsV5
+
+	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
+	}
+
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, filters)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
+	result.Results = offers
+	return result, nil
 }
 
 // GetConsumeDetails returns the details necessary to pass to another model
