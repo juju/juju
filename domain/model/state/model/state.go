@@ -117,6 +117,82 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
+// CreateDefaultStoragePools is responsible for inserting a model's set of
+// default storage pools into the model. It is the responsability of the caller
+// to make sure that no conflicts exist and the operation is performed once.
+func (s *ModelState) CreateDefaultStoragePools(
+	ctx context.Context, args []model.CreateModelDefaultStoragePoolArg,
+) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertPoolStmt, err := s.Prepare(
+		"INSERT INTO storage_pool (*) VALUES ($dbInsertStoragePool.*)",
+		dbInsertStoragePool{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertAttrStmt, err := s.Prepare(
+		"INSERT INTO storage_pool_attribute (*) VALUES ($dbInsertStoragePoolAttribute.*)",
+		dbInsertStoragePoolAttribute{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertArgs := make([]dbInsertStoragePool, 0, len(args))
+	insertAttributeArgs := make([]dbInsertStoragePoolAttribute, 0, len(args))
+	for _, arg := range args {
+		insertArgs = append(insertArgs, dbInsertStoragePool{
+			UUID:     arg.UUID.String(),
+			Name:     arg.Name,
+			Type:     arg.Type,
+			OriginID: int(arg.Origin),
+		})
+
+		for k, v := range arg.Attributes {
+			insertAttributeArgs = append(
+				insertAttributeArgs,
+				dbInsertStoragePoolAttribute{
+					StoragePoolUUID: arg.UUID.String(),
+					Key:             k,
+					Value:           v,
+				})
+		}
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, insertPoolStmt, insertArgs).Run()
+		if err != nil {
+			return err
+		}
+
+		// Attempting to insert zero attributes will result in an error.
+		if len(insertAttributeArgs) == 0 {
+			return nil
+		}
+
+		err = tx.Query(ctx, insertAttrStmt, insertAttributeArgs).Run()
+		if err != nil {
+			return errors.Errorf(
+				"inserting default storage pool attributes: %w", err,
+			)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) (coremodel.UUID, error) {
 	var modelUUID dbUUID
 	stmt, err := preparer.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
