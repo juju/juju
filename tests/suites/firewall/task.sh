@@ -8,8 +8,10 @@ test_firewall() {
 
 	setup_awscli_credential
 
+	setup_gcloudcli_credential
+
 	echo "==> Checking for dependencies"
-	check_dependencies juju aws
+	check_dependencies juju aws gcloud
 
 	file="${TEST_DIR}/test-firewall.txt"
 
