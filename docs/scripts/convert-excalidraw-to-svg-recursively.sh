@@ -13,10 +13,10 @@ excalidraw_files_without_extension=$(git diff --name-only --relative HEAD -- '*.
 svg_files_without_extension=$(git diff --name-status --relative HEAD -- '*.svg' | awk '{print $2}' | sed 's/\.svg$//')
 
 # Unite list of excalidraw_files_without_extension and svg_files_without_extension excluding duplicates
-files_without_extention=$(echo -e "$excalidraw_files_without_extension\n$svg_files_without_extension" | sort -u)
+files_without_extension=$(echo -e "$excalidraw_files_without_extension\n$svg_files_without_extension" | sort -u)
 
 # If no files are found, exit the script
-if [ -z "$files_without_extention" ]; then
+if [ -z "$files_without_extension" ]; then
   echo "No .excalidraw files to convert, exiting."
   exit 0
 fi
@@ -33,13 +33,14 @@ echo "Installing Playwright browsers..."
 npx playwright install
 
 echo "Starting conversion of .excalidraw files to .svg..."
-echo $files_without_extention | tr ' ' '\n' | while IFS= read -r file; do
+echo $files_without_extension | tr ' ' '\n' | while IFS= read -r file; do
   # Check if the excalidraw file exists
   if [[ ! -f "$file.excalidraw" ]]; then
     echo "File $file.excalidraw does not exist, skipping."
     continue
   fi
 
+  # Generate the normal SVG file from the excalidraw file
   echo "Exporting → $file.excalidraw  to  $file.svg"
   npx excalidraw-brute-export-cli \
         -i "$file.excalidraw" \
@@ -50,4 +51,15 @@ echo $files_without_extention | tr ' ' '\n' | while IFS= read -r file; do
         --format svg \
         --quiet \
         -o "$file.svg"
+  # Generate the dark mode SVG file from the excalidraw file
+  echo "Exporting → $file.excalidraw  to  $file.dark.svg"
+  npx excalidraw-brute-export-cli \
+        -i "$file.excalidraw" \
+        --background 0 \
+        --embed-scene 1 \
+        --dark-mode 1 \
+        --scale 1 \
+        --format svg \
+        --quiet \
+        -o "$file.dark.svg"
 done
