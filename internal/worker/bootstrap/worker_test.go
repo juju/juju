@@ -77,6 +77,7 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectBootstrapFlagSet()
 	s.expectControllerAgentInfo()
 	s.expectReloadSpaces()
+	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
 	s.expectSetAPIHostPorts()
 
@@ -103,6 +104,7 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
 	s.expectControllerAgentInfo()
+	s.expectSeedDefaultStoragePools()
 	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
 	s.expectInitialiseBakeryConfig(nil)
 
@@ -307,12 +309,14 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *tc.C) {
 func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectSeedDefaultStoragePools()
 	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "loop-pool", provider.LoopProviderType, map[string]any{"foo": "bar"})
 
 	w := &bootstrapWorker{
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
+			ModelInfoService:  s.modelInfoService,
 			StorageService:    s.storageService,
 			Logger:            s.logger,
 		},
@@ -346,6 +350,7 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		ApplicationService:         s.applicationService,
 		ControllerNodeService:      s.controllerNodeService,
 		ModelConfigService:         s.modelConfigService,
+		ModelInfoService:           s.modelInfoService,
 		MachineService:             s.machineService,
 		ControllerModel:            s.controllerModel,
 		KeyManagerService:          s.keyManagerService,
@@ -462,6 +467,10 @@ func (s *workerSuite) expectObjectStoreGetter(num int) {
 
 func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
+}
+
+func (s *workerSuite) expectSeedDefaultStoragePools() {
+	s.modelInfoService.EXPECT().SeedDefaultStoragePools(gomock.Any())
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {

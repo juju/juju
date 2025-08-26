@@ -59,6 +59,7 @@ type WorkerConfig struct {
 	ApplicationService         ApplicationService
 	ControllerModel            coremodel.Model
 	ModelConfigService         ModelConfigService
+	ModelInfoService           ModelInfoService
 	MachineService             MachineService
 	KeyManagerService          KeyManagerService
 	FlagService                FlagService
@@ -404,6 +405,11 @@ func (w *bootstrapWorker) seedInitialAuthorizedKeys(
 }
 
 func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {
+	err := w.cfg.ModelInfoService.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return fmt.Errorf("seeding default storage pools into model: %w", err)
+	}
+
 	storagePools, err := initialStoragePools(poolParams)
 	if err != nil {
 		return errors.Trace(err)

@@ -130,12 +130,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":            s.agent,
-		"object-store":     s.objectStoreGetter,
-		"bootstrap-gate":   s.bootstrapUnlocker,
-		"http-client":      s.httpClientGetter,
-		"domain-services":  s.domainServices,
-		"storage-registry": s.storageRegistryGetter,
+		"agent":           s.agent,
+		"object-store":    s.objectStoreGetter,
+		"bootstrap-gate":  s.bootstrapUnlocker,
+		"http-client":     s.httpClientGetter,
+		"domain-services": s.domainServices,
 	}
 	return dependencytesting.StubGetter(resources)
 }
@@ -147,7 +146,6 @@ var expectedInputs = []string{
 	"domain-services",
 	"http-client",
 	"provider-factory",
-	"storage-registry",
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
