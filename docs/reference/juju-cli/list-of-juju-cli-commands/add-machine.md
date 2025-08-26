@@ -126,7 +126,7 @@ access the new machine over the network.
 
 ### Container creation
 
-If a operating system container type is specified (e.g. "lxd" or "kvm"),
+If a operating system container type is specified (e.g., `lxd` or `kvm`),
 then `add-machine` will allocate a container of that type on a new machine
 instance. Both the new instance, and the new container will be available
 as machines in the model.

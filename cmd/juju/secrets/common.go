@@ -19,8 +19,8 @@ type SecretUpsertContentCommand struct {
 
 // SetFlags implements cmd.Command.
 func (c *SecretUpsertContentCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Description, "info", "", "the secret description")
-	f.StringVar(&c.FileName, "file", "", "a YAML file containing secret key values")
+	f.StringVar(&c.Description, "info", "", "The secret description")
+	f.StringVar(&c.FileName, "file", "", "A YAML file containing secret key values")
 }
 
 // Init implements cmd.Command.

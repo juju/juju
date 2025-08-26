@@ -41,7 +41,7 @@ To set two keys in the current controller to a different value:
 
 To save a controller's current config to a yaml file:
 
-    juju controller-config --format=yaml > cfg.yaml
+    juju controller-config --format=yaml > <configuration-filename>.yaml
 
 To set the current controller's config from a yaml file ignoring read-only fields,
 then override the value for one key:

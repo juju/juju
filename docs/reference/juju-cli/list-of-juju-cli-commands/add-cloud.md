@@ -69,17 +69,17 @@ A cloud definition file has the following YAML format:
             endpoint: https://london.mycloud.com:35574/v3.0/
 
 Cloud types for private clouds:
- - lxd
- - maas
- - manual
- - openstack
- - vsphere
+ - `lxd`
+ - `maas`
+ - `manual`
+ - `openstack`
+ - `vsphere`
 
 Cloud types for public clouds:
- - azure
- - ec2
- - gce
- - oci
+ - `azure`
+ - `ec2`
+ - `gce`
+ - `oci`
 
 When a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs

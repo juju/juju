@@ -75,7 +75,7 @@ To prevent the error, use the ` + "`--ignore-read-only-fields`" + ` flag:
 
     juju model-config --file=cfg.yaml --ignore-read-only-fields
 
-You can also read from ` + "`stdi`" + `n using ` + "`-`" + `, which allows you to pipe config values
+You can also read from ` + "`stdin`" + ` using ` + "`-`" + `, which allows you to pipe config values
 from one model to another:
 
     juju model-config -c c1 --format=yaml \

@@ -12,8 +12,8 @@ Add a new secret backend to the controller.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | path to yaml-formatted configuration file |
-| `--import-id` |  | add the backend with the specified id |
+| `--config` |  | Path to yaml-formatted configuration file |
+| `--import-id` |  | Add the backend with the specified ID |
 
 ## Examples
 

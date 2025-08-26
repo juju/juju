@@ -99,8 +99,8 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted configuration file")
-	f.StringVar(&c.ImportID, "import-id", "", "add the backend with the specified id")
+	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
+	f.StringVar(&c.ImportID, "import-id", "", "Add the backend with the specified ID")
 }
 
 func (c *addSecretBackendCommand) Init(args []string) error {

@@ -10,8 +10,8 @@ Update an existing secret.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--auto-prune` | nil | Used to allow Juju to automatically remove revisions which are no longer being tracked by any observers |
-| `--file` |  | a YAML file containing secret key values |
-| `--info` |  | the secret description |
+| `--file` |  | A YAML file containing secret key values |
+| `--info` |  | The secret description |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--name` |  | The new secret name |
 
