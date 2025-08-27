@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,92 +37,78 @@ func NewValidatingWebhookConfig(client admissionclient.ValidatingWebhookConfigur
 }
 
 // Clone returns a copy of the resource.
-func (v *ValidatingWebhookConfiguration) Clone() Resource {
-	clone := *v
+func (m *ValidatingWebhookConfiguration) Clone() Resource {
+	clone := *m
 	return &clone
 }
 
 // ID returns a comparable ID for the Resource
-func (v *ValidatingWebhookConfiguration) ID() ID {
-	return ID{"ValidatingWebhookConfiguration", v.Name, v.Namespace}
+func (m *ValidatingWebhookConfiguration) ID() ID {
+	return ID{"ValidatingWebhookConfiguration", m.Name, m.Namespace}
 }
 
 // Apply patches the resource change.
-func (v *ValidatingWebhookConfiguration) Apply(ctx context.Context) (err error) {
-	existing, err := v.client.Get(ctx, v.Name, metav1.GetOptions{})
+func (m *ValidatingWebhookConfiguration) Apply(ctx context.Context) (err error) {
+	existing, err := m.client.Get(ctx, m.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Create if not found
-		created, err := v.client.Create(ctx, &v.ValidatingWebhookConfiguration, metav1.CreateOptions{
+		created, err := m.client.Create(ctx, &m.ValidatingWebhookConfiguration, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 		if err != nil {
 			return errors.Trace(err)
 		}
-		v.ValidatingWebhookConfiguration = *created
+		m.ValidatingWebhookConfiguration = *created
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Update if exists (set ResourceVersion to prevent conflict)
-	v.ResourceVersion = existing.ResourceVersion
-	updated, err := v.client.Update(ctx, &v.ValidatingWebhookConfiguration, metav1.UpdateOptions{
+	m.ResourceVersion = existing.ResourceVersion
+	updated, err := m.client.Update(ctx, &m.ValidatingWebhookConfiguration, metav1.UpdateOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsConflict(err) {
-		return errors.Annotatef(errConflict, "ValidatingWebhookConfiguration %q", v.Name)
+		return errors.Annotatef(errConflict, "ValidatingWebhookConfiguration %q", m.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	v.ValidatingWebhookConfiguration = *updated
+	m.ValidatingWebhookConfiguration = *updated
 	return nil
 }
 
 // Get refreshes the resource.
-func (v *ValidatingWebhookConfiguration) Get(ctx context.Context) error {
-	res, err := v.client.Get(context.TODO(), v.Name, metav1.GetOptions{})
+func (m *ValidatingWebhookConfiguration) Get(ctx context.Context) error {
+	res, err := m.client.Get(context.TODO(), m.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("mutating webhook configuration: %q", v.Name)
+		return errors.NotFoundf("mutating webhook configuration: %q", m.Name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	v.ValidatingWebhookConfiguration = *res
+	m.ValidatingWebhookConfiguration = *res
 	return nil
 }
 
 // Delete removes the resource.
-func (v *ValidatingWebhookConfiguration) Delete(ctx context.Context) error {
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			err := v.client.Delete(ctx, v.Name, metav1.DeleteOptions{
-				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-			})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			if k8serrors.IsConflict(err) {
-				_ = v.Get(ctx) // refresh resource version
-				return err
-			}
-			return errors.Annotatef(err, "deleting validating webhook configuration %q", v.GetName())
-		},
-		IsFatalError: func(err error) bool {
-			return !k8serrors.IsConflict(err)
-		},
-		Clock:       jujuclock.WallClock,
-		Attempts:    5,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+func (m *ValidatingWebhookConfiguration) Delete(ctx context.Context) error {
+	err := m.client.Delete(ctx, m.Name, metav1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (v *ValidatingWebhookConfiguration) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
-	if v.DeletionTimestamp != nil {
-		return "", status.Terminated, v.DeletionTimestamp.Time, nil
+func (m *ValidatingWebhookConfiguration) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
+	if m.DeletionTimestamp != nil {
+		return "", status.Terminated, m.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
 }

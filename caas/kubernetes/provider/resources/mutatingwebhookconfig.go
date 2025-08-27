@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,29 +94,15 @@ func (m *MutatingWebhookConfiguration) Get(ctx context.Context) error {
 
 // Delete removes the resource.
 func (m *MutatingWebhookConfiguration) Delete(ctx context.Context) error {
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			err := m.client.Delete(ctx, m.Name, metav1.DeleteOptions{
-				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-			})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			if k8serrors.IsConflict(err) {
-				_ = m.Get(ctx) // refresh resource version
-				return err
-			}
-			return errors.Annotatef(err, "deleting mutating webhook configuration %q", m.GetName())
-		},
-		IsFatalError: func(err error) bool {
-			return !k8serrors.IsConflict(err)
-		},
-		Clock:       jujuclock.WallClock,
-		Attempts:    5,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+	err := m.client.Delete(ctx, m.Name, metav1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ComputeStatus returns a juju status for the resource.
