@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/gce/internal/google"
 )
 
 type credentialsSuite struct {
