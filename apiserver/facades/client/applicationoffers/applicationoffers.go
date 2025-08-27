@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -667,8 +668,92 @@ func (api *OffersAPI) modelForName(ctx context.Context, modelName, ownerName str
 
 // ApplicationOffers gets details about remote applications that match given URLs.
 func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+	var results params.ApplicationOffersResults
+	results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
+	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return results, apiservererrors.ErrPerm
+	}
 
-	return params.ApplicationOffersResults{}, nil
+	var filters []params.OfferFilter
+	// fullURLs contains the URL strings mapped to the result index
+	// from the url args, with any optional parts like model owner
+	// filled in. It is used to process the result offers.
+	fullURLs := make(map[string]int, 0)
+
+	for i, urlStr := range urls.OfferURLs {
+		url, filter, err := applicationOfferURLAndFilter(urlStr, apiUser.Id())
+		if err != nil {
+			results.Results[i].Error = err
+			continue
+		}
+		filters = append(filters, filter)
+		fullURLs[url] = i
+	}
+
+	if len(filters) == 0 {
+		return results, nil
+	}
+
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, params.OfferFilters{filters})
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	offersByURL := transform.SliceToMap(offers, func(in params.ApplicationOfferAdminDetailsV5) (string, params.ApplicationOfferAdminDetailsV5) {
+		return in.OfferURL, in
+	})
+
+	// getApplicationOffersDetails does not return an error if any filter
+	// criteria is not met. Ensure that all requested offers were found, or
+	// return a NotFound error.
+	for urlStr, i := range fullURLs {
+		if results.Results[i].Error != nil {
+			continue
+		}
+		offer, ok := offersByURL[urlStr]
+		if !ok {
+			results.Results[i].Error = &params.Error{
+				Code:    params.CodeNotFound,
+				Message: fmt.Sprintf("application offer %q", urlStr),
+			}
+			continue
+		}
+		results.Results[i].Result = &offer
+	}
+	return results, nil
+}
+
+func applicationOfferURLAndFilter(in, apiUserID string) (string, params.OfferFilter, *params.Error) {
+	url, err := corecrossmodel.ParseOfferURL(in)
+	if err != nil {
+		return "", params.OfferFilter{}, apiservererrors.ServerError(err)
+	}
+	if url.ModelQualifier == "" {
+		url.ModelQualifier = apiUserID
+	}
+	if url.HasEndpoint() {
+		return "", params.OfferFilter{}, &params.Error{
+			Code:    params.CodeNotSupported,
+			Message: fmt.Sprintf("saas application %q shouldn't include endpoint", url),
+		}
+	}
+	if url.Source != "" {
+		return "", params.OfferFilter{}, &params.Error{
+			Code:    params.CodeNotSupported,
+			Message: "query for non-local application offers",
+		}
+	}
+	return url.String(), filterFromURL(url), nil
+}
+
+func filterFromURL(url *corecrossmodel.OfferURL) params.OfferFilter {
+	f := params.OfferFilter{
+		ModelQualifier: url.ModelQualifier,
+		ModelName:      url.ModelName,
+		OfferName:      url.Name,
+	}
+	return f
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
