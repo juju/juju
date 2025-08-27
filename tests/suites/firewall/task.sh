@@ -21,6 +21,9 @@ test_firewall() {
 	"ec2")
 		test_firewall_ssh_ec2
 		;;
+	"gce")
+		test_firewall_ssh_gce
+		;;
 	*)
 		echo "==> TEST SKIPPED: test_firewall_ssh test runs on aws only"
 		;;
