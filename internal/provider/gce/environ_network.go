@@ -179,15 +179,16 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 				DeviceIndex: i,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
-				ProviderId:       corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
-				ProviderSubnetId: details.subnet,
-				InterfaceName:    iface.Name,
+				ProviderId:    corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
+				InterfaceName: iface.Name,
 				Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 					iface.NetworkIP,
 					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 					corenetwork.WithCIDR(details.cidr),
 					corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-				).AsProviderAddress()},
+				).AsProviderAddress(
+					corenetwork.WithProviderSubnetID(details.subnet),
+				)},
 				ShadowAddresses: shadowAddrs,
 				InterfaceType:   corenetwork.EthernetDevice,
 				Disabled:        false,
