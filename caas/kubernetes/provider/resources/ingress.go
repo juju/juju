@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,15 +96,29 @@ func (ig *Ingress) Get(ctx context.Context) error {
 
 // Delete removes the resource.
 func (ig *Ingress) Delete(ctx context.Context) error {
-	err := ig.client.Delete(ctx, ig.Name, metav1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			err := ig.client.Delete(ctx, ig.Name, metav1.DeleteOptions{
+				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+			})
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			if k8serrors.IsConflict(err) {
+				_ = ig.Get(ctx) // refresh resource version
+				return err
+			}
+			return errors.Annotatef(err, "deleting ingress %q", ig.GetName())
+		},
+		IsFatalError: func(err error) bool {
+			return !k8serrors.IsConflict(err)
+		},
+		Clock:       jujuclock.WallClock,
+		Attempts:    5,
+		Delay:       time.Second,
+		BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.

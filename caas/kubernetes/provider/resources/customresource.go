@@ -104,7 +104,11 @@ func (cr *CustomResource) Delete(ctx context.Context) error {
 				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 			})
 			if k8serrors.IsNotFound(err) {
-				return errors.NotFoundf("custom resource %q", cr.GetName())
+				return nil
+			}
+			if k8serrors.IsConflict(err) {
+				_ = cr.Get(ctx) // refresh resource version
+				return err
 			}
 			return errors.Annotatef(err, "deleting custom resource %q", cr.GetName())
 		},
