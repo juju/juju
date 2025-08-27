@@ -304,7 +304,7 @@ func (s *serviceSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	}
 	s.watcherFactory.EXPECT().NewNamespaceMapperWatcher(
 		gomock.Any(), gomock.Any(),
-		fmt.Sprintf("storage attachment watcher for unit %q", unitUUID),
+		fmt.Sprintf("storage attachments watcher for unit %q", unitUUID),
 		gomock.Any(),
 		matcher,
 	)

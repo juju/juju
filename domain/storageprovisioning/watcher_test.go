@@ -50,7 +50,7 @@ func TestWatcherSuite(t *testing.T) {
 func (s *watcherSuite) setupService(c *tc.C) *service.Service {
 	logger := loggertesting.WrapCheckLog(c)
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storageprovisioning"),
 		logger,
 	)
 	return service.NewService(state.NewState(s.TxnRunnerFactory()), factory, logger)
@@ -61,7 +61,7 @@ func (s *watcherSuite) setupService(c *tc.C) *service.Service {
 func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchMachineProvisionedFilesystems(c.Context(), coremachine.UUID(machineUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -129,7 +129,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchMachineProvisionedFilesystemAttachments(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -192,7 +192,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C)
 func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchModelProvisionedFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -308,7 +308,7 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchMachineProvisionedVolumes(c.Context(), coremachine.UUID(machineUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -375,7 +375,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchMachineProvisionedVolumeAttachments(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -438,7 +438,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchModelProvisionedVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -552,7 +552,7 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchVolumeAttachmentPlans(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -609,7 +609,7 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 	svc := s.setupService(c)
 
-	machineUUID := s.newMachine(c, "")
+	machineUUID := s.newMachine(c)
 	watcher, err := svc.WatchMachineCloudInstance(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -641,9 +641,8 @@ func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	svc := s.setupService(c)
 
-	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
-	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	unitUUID, _, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 
 	watcher, err := svc.WatchStorageAttachmentsForUnit(
@@ -700,8 +699,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
 	svc := s.setupService(c)
 
-	netNodeUUID := s.newNetNode(c)
-	machineUUID := s.newMachine(c, netNodeUUID)
+	machineUUID := s.newMachine(c)
 	_, charmUUID := s.newApplication(c, "foo")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
@@ -744,8 +742,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
 func (s *watcherSuite) TestWatchStorageAttachmentForMachineVolume(c *tc.C) {
 	svc := s.setupService(c)
 
-	netNodeUUID := s.newNetNode(c)
-	machineUUID := s.newMachine(c, netNodeUUID)
+	machineUUID := s.newMachine(c)
 	_, charmUUID := s.newApplication(c, "foo")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
@@ -781,9 +778,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForMachineVolume(c *tc.C) {
 func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
 	svc := s.setupService(c)
 
-	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
-	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
@@ -825,9 +821,8 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
 func (s *watcherSuite) TestWatchStorageAttachmentForUnitVolume(c *tc.C) {
 	svc := s.setupService(c)
 
-	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
-	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 
@@ -1189,27 +1184,28 @@ WHERE  uuid = ?
 // newMachineWithNetNode creates a new machine in the model attached to the
 // supplied net node. The newly created machines uuid is returned along with the
 // name.
-func (s *watcherSuite) newMachine(c *tc.C, netNodeUUID domainnetwork.NetNodeUUID) string {
-	if netNodeUUID == "" {
-		var err error
-		netNodeUUID, err = domainnetwork.NewNetNodeUUID()
-		c.Assert(err, tc.ErrorIsNil)
-
-		_, err = s.DB().Exec(`
-INSERT INTO net_node VALUES (?)`,
-			netNodeUUID.String(),
-		)
-		c.Assert(err, tc.ErrorIsNil)
-	}
+func (s *watcherSuite) newMachine(c *tc.C) string {
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
-	_, err := s.DB().Exec(`
+	nodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
 INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
-		machineUUID.String(),
-		name,
-		netNodeUUID.String(),
-	)
+			machineUUID.String(),
+			name,
+			nodeUUID.String(),
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return machineUUID.String()
@@ -1540,31 +1536,22 @@ func (s *watcherSuite) newModelVolumeAttachmentForMachine(
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(
-			ctx,
-			`
+		err := tx.QueryRow(`
 SELECT net_node_uuid
 FROM machine
-WHERE uuid = ?
-			`,
-			machineUUID,
-		).Scan(&netNodeUUID)
+WHERE uuid = ?`, machineUUID).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = tx.ExecContext(
-			ctx,
-			`
-INSERT INTO storage_volume_attachment (uuid,
-                                       storage_volume_uuid,
-                                       net_node_uuid,
-                                       life_id,
-                                       provision_scope_id)
-VALUES (?, ?, ?, 0, 0)
-`,
-			attachmentUUID.String(), vsUUID, netNodeUUID,
-		)
+		_, err = tx.Exec(`
+INSERT INTO storage_volume_attachment (
+    uuid,
+    storage_volume_uuid,
+    net_node_uuid,
+    life_id,
+    provision_scope_id)
+VALUES (?, ?, ?, 0, 0)`, attachmentUUID.String(), vsUUID, netNodeUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1579,83 +1566,69 @@ func (s *watcherSuite) newModelVolumeAttachmentForNetNode(
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_volume_attachment (uuid,
-								   storage_volume_uuid,
-								   net_node_uuid,
-								   life_id,
-								   provision_scope_id)
-VALUES (?, ?, ?, 0, 0)`,
-		attachmentUUID.String(), vsUUID, netNodeUUID,
-	)
+INSERT INTO storage_volume_attachment (
+    uuid,
+    storage_volume_uuid,
+    net_node_uuid,
+    life_id,
+    provision_scope_id)
+VALUES (?, ?, ?, 0, 0)`, attachmentUUID.String(), vsUUID, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
 }
 
-func (s *watcherSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
-	nodeUUID, err := domainnetwork.NewNetNodeUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().Exec(`
-INSERT INTO net_node VALUES (?)`, nodeUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	return nodeUUID
-}
-
 func (s *watcherSuite) newApplication(c *tc.C, name string) (string, string) {
 	appUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-
-	charmUUID := s.newCharm(c)
-
-	_, err = s.DB().Exec(`
-INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
-	c.Assert(err, tc.ErrorIsNil)
-	return appUUID.String(), charmUUID
-}
-
-func (s *watcherSuite) newCharm(c *tc.C) string {
 	charmUUID := charmtesting.GenCharmID(c)
 
-	_, err := s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
 INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
-VALUES (?, 0, ?, 1, 0)
-`,
-		charmUUID.String(), "foo",
-	)
-	c.Assert(err, tc.ErrorIsNil)
+VALUES (?, 0, ?, 1, 0)`, charmUUID.String(), "foo")
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().Exec(`
+		_, err = tx.Exec(`
 INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, 'myapp')
-`,
-		charmUUID.String(),
-	)
+VALUES (?, 'myapp')`, charmUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	return charmUUID.String()
+	return appUUID.String(), charmUUID.String()
 }
 
 func (s *watcherSuite) newUnitWithNetNode(
-	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
-) (coreunit.UUID, coreunit.Name) {
-	var charmUUID string
-	err := s.DB().QueryRow(`
-SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID,
-	).Scan(&charmUUID)
+	c *tc.C, name, appUUID, charmUUID string,
+) (coreunit.UUID, coreunit.Name, domainnetwork.NetNodeUUID) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	nodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = s.DB().Exec(`
+INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
 VALUES (?, ?, ?, ?, ?, 0)`,
-		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
-	)
+			unitUUID.String(), name, appUUID, charmUUID, nodeUUID.String())
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unitUUID, coreunit.Name(name)
+	return unitUUID, coreunit.Name(name), nodeUUID
 }
 
 type preparer struct{}
@@ -1717,14 +1690,12 @@ func (s *watcherSuite) newStorageInstanceWithCharmUUID(
 
 	_, err := s.DB().Exec(`
 INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName,
-	)
+VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
 INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)
-`,
+VALUES (?, ?, ?, ?, 0, 100, ?)`,
 		storageInstanceUUID.String(),
 		charmUUID,
 		storageName,
@@ -1744,8 +1715,8 @@ func (s *watcherSuite) newStorageAttachment(
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
-VALUES (?, ?, ?, ?)
-`, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
+VALUES (?, ?, ?, ?)`,
+		saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
