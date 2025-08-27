@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -70,7 +72,18 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Errorf("cannot run on all machines with a %s model", modelInfo.Type)
 	}
 
-	return results, errors.NotSupportedf("actions in Dqlite")
+	machineNames, err := a.machineService.AllMachineNames(ctx)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	machines := transform.Slice(machineNames, func(machineName machine.Name) names.Tag {
+		return names.NewMachineTag(machineName.String())
+	})
+	actionParams, err := a.createRunActionsParams(machines, run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	return a.EnqueueOperation(ctx, actionParams)
 }
 
 func (a *ActionAPI) createRunActionsParams(

@@ -28,6 +28,7 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 		ctx.LeadershipReader,
 		domainServices.Application(),
 		domainServices.BlockCommand(),
+		domainServices.Machine(),
 		domainServices.ModelInfo(),
 		ctx.ModelUUID(),
 	)

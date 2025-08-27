@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
@@ -48,6 +49,14 @@ type ApplicationService interface {
 	GetUnitNamesForApplication(ctx context.Context, name string) ([]coreunit.Name, error)
 }
 
+// MachineService provides access to information about the machines belonging
+// to the model.
+type MachineService interface {
+	// AllMachineNames retrieves the names of all machines in the model.
+	// If there's no machine, it returns an empty slice.
+	AllMachineNames(context.Context) ([]machine.Name, error)
+}
+
 // ModelInfoService provides access to information about the model.
 type ModelInfoService interface {
 	// GetModelInfo returns information about the current model.
@@ -57,11 +66,12 @@ type ModelInfoService interface {
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	modelTag           names.ModelTag
-	modelInfoService   ModelInfoService
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
 	leadership         leadership.Reader
 	applicationService ApplicationService
+	machineService     MachineService
+	modelInfoService   ModelInfoService
 }
 
 // APIv7 provides the Action API facade for version 7.
@@ -74,6 +84,7 @@ func newActionAPI(
 	getLeadershipReader func() (leadership.Reader, error),
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	machineService MachineService,
 	modelInfoService ModelInfoService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
@@ -90,11 +101,12 @@ func newActionAPI(
 
 	return &ActionAPI{
 		modelTag:           modelTag,
-		modelInfoService:   modelInfoService,
 		authorizer:         authorizer,
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,
 		applicationService: applicationService,
+		machineService:     machineService,
+		modelInfoService:   modelInfoService,
 	}, nil
 }
 
