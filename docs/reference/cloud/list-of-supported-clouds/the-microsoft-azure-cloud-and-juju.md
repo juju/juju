@@ -2,9 +2,9 @@
 # The Microsoft Azure cloud and Juju
 
 
-This document describes details specific to using your existing Microsoft Azure cloud with Juju. 
+This document describes details specific to using your existing Microsoft Azure cloud with Juju.
 
-> See more: [Microsoft Azure](https://azure.microsoft.com/en-us) 
+> See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -14,7 +14,7 @@ As the differences related to (1) are already documented generically in the rest
 
 
 
-## Requirements 
+## Requirements
 
 **If you're in a locked-down environment:** <br> Permissions: <p>- `Microsoft.Compute/skus (read)` <p> - `Microsoft.Resources/subscriptions/resourceGroups (read, write, delete)` <p> - `Microsoft.Resources/deployments/ (write/read/delete/cancel/validate)` <p> - `Microsoft.Network/networkSecurityGroups (write, read, delete, other - join)` <p> - `Microsoft.Network/virtualNetworks/ (write, read, delete)` <p> - `Microsoft.Compute/virtualMachineScaleSets/ (write, read, delete, other - start action, other - deallocate action, other - restart action, other powerOff action)` <p> - `Microsoft.Network/virtualNetworks/subnets/ (read, write, delete, other - join)` <p> - `Microsoft.Compute/availabilitySets (write, read, delete)` <p> - `Microsoft.Network/publicIPAddresses (write, read, delete, other - join - optional for public services)` <p> - `Microsoft.Network/networkInterfaces (write, read, delete, other - join)` <p> - `Microsoft.Compute/virtualMachines (write, read, delete, other - start, power off, restart, deallocate)` <p> - `Microsoft.Compute/disks (write, read, delete)`
 
@@ -34,33 +34,29 @@ Credentials for the `azure` cloud have been reported to occasionally stop workin
 ```
 
 ```{note}
-
 See Appendix: Example authentication workflows.
-
-
 ```
 
 ### Authentication types
 
 #### `managed-identity` (preferred)
-> *Requirements:*  
-> - Juju 3.6+. 
+> *Requirements:*
+> - Juju 3.6+.
 > - A managed identity. See more: Appendix: How to create a managed identity.
-> - The managed identity and the Juju resources must be created on the same subscription. 
+> - The managed identity and the Juju resources must be created on the same subscription.
 > - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
 This is the recommended way to authenticate with Azure as this way you are never touching your cloud credentials directly.
 
 > See more: {ref}`azure-appendix-workflow-1`
 
-
 #### `interactive` = "service-principal-secret-via-browser"
 
 This is the recommended way to authenticate with Azure if you want to use a service principal secret.
 
-When you add the credential in this way and provide the subscription ID, Juju will open up a browser and you’ll be prompted to log in to Azure. 
+When you add the credential in this way and provide the subscription ID, Juju will open up a browser and you’ll be prompted to log in to Azure.
 
-Note: If you are using the unconfined `juju` snap `/snap/juju/current/bin/juju add-credential azure` and have the `azure` CLI and you are logged in and you want to use the currently logged in user: You may leave the subscription ID empty -- Juju will fill it in for you. 
+Note: If you are using the unconfined `juju` snap `/snap/juju/current/bin/juju add-credential azure` and have the `azure` CLI and you are logged in and you want to use the currently logged in user: You may leave the subscription ID empty -- Juju will fill it in for you.
 
 Caution: If you decide to fill in the optional fields as well: Make sure to set them to unique values (i.e., the `application-name` and `role-definition-name` fields cannot be the same).
 
@@ -78,13 +74,12 @@ Starting with Juju 3.6, you can also combine this with a managed identity by boo
 
 ## Notes on `juju bootstrap`
 
-If during `juju add-credential` you chose `interactive` (= "service-principal-secret-via-browser") or `service-principal-secret`: You can still combine this with a managed identity by running `juju bootstrap` with `--constraints instance-role=...`. 
+If during `juju add-credential` you chose `interactive` (= "service-principal-secret-via-browser") or `service-principal-secret`: You can still combine this with a managed identity by running `juju bootstrap` with `--constraints instance-role=...`.
 
 > See more: {ref}`azure-appendix-workflow-1`, Supported constraints
 
 
 ## Cloud-specific model configuration keys
-
 
 ### `load-balancer-sku-name`
 Mirrors the LoadBalancerSkuName type in the Azure SDK.
@@ -115,7 +110,7 @@ If set, use the specified virtual network for all model machines instead of crea
 | default value | schema.omit{} |
 | immutable | true |
 | mandatory | false |
-## Supported constraints 
+## Supported constraints
 
 | {ref}`CONSTRAINT <constraint>`         |                                                |
 |----------------------------------------|------------------------------------------------|
@@ -147,46 +142,58 @@ If set, use the specified virtual network for all model machines instead of crea
 | {ref}`placement-directive-system-id`             | &#10005; |
 | {ref}`placement-directive-zone`                  | TBA      |
 
+## Cloud-specific storage providers
 
+> See first: {ref}`storage-provider`
 
+(storage-provider-azure)=
+### `azure`
+
+Configuration options:
+
+- `account-type` The account type. Accepts one of two values:
+    - `Standard_LRS`, associated with Juju pool `azure`
+    - `Premium_LRS`, associated with Juju pool `azure-premium`.
+
+Newly-created models configured in this way use "Azure Managed Disks". See [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview) for information on what this entails (in particular, what the difference is between standard and premium disk types).
 
 ## Appendix: Example authentication workflows
 
 (azure-appendix-workflow-1)=
 ### Worflow 1 -- Managed identity only (recommended)
-> *Requirements:*  
-> - Juju 3.6+. 
+> *Requirements:*
+> - Juju 3.6+.
 > - A managed identity. See more: Appendix: How to create a managed identity.
-> - The managed identity and the Juju resources must be created on the same subscription. 
+> - The managed identity and the Juju resources must be created on the same subscription.
 > - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
-1. Create a managed identity. See more: Appendix: How to create a managed identity. 
-1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the“managed-identity-path” must be of the form `<resourcegroup>/<identityname>`). 
-1. Bootstrap as usual.  
+1. Create a managed identity. See more: Appendix: How to create a managed identity.
+1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the“managed-identity-path” must be of the form `<resourcegroup>/<identityname>`).
+1. Bootstrap as usual.
 
 ```{tip}
 
-**Did you know?** With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them. 
+**Did you know?** With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
 
 ```
 
 (azure-appendix-workflow-2)=
-### Workflow 2 -- Service principal secret + managed identity 
-> *Requirements:*  
-> - Juju 3.6+. 
+### Workflow 2 -- Service principal secret + managed identity
+> *Requirements:*
+> - Juju 3.6+.
 > - A managed identity. See more: Appendix: How to create a managed identity.
 
 1. Create a managed identity.
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):
-        - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you. 
+        - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
          - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
-    - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.  
+    - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
 1. During bootstrap, provide the managed identity to the controller by using the `instance-role` constraint.
 
 ```{tip}
 
-**Did you know?** With this workflow where you provide the managed identity during `bootstrap` you avoid the need for your Juju controller to store your credential secrets. Relatedly, the user running / `bootstrap` doesn't need to have any credential secrets supplied to them. 
+**Did you know?** With this workflow where you provide the managed identity during `bootstrap` you avoid the need for your Juju controller to store your credential secrets. Relatedly, the user running / `bootstrap` doesn't need to have any credential secrets supplied to them.
 
 ```
 
@@ -195,9 +202,9 @@ If set, use the specified virtual network for all model machines instead of crea
 
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):
-        - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you. 
+        - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
          - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
-    - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.  
+    - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
 1. Bootstrap as usual.
 
 
@@ -258,4 +265,5 @@ A resource scoped managed identity is similar except:
 - the role assignment scope becomes
 
 `--scope "/subscriptions/${subscription}/resourcegroups/${group}"`
+
 
