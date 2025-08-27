@@ -633,8 +633,6 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_charm_term_immutable_update",
 
 		"trg_storage_pool_guard_update",
-		"trg_storage_pool_immutable_delete",
-		"trg_storage_pool_immutable_update",
 
 		"trg_application_guard_life",
 		"trg_machine_cloud_instance_guard_life",
