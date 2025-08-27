@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
 
 type applicationSuite struct {
