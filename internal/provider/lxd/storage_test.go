@@ -34,21 +34,32 @@ func (s *storageSuite) TestStorageProviderTypes(c *tc.C) {
 	s.Client.StorageIsSupported = false
 	types, err := s.Env.StorageProviderTypes()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(types, tc.HasLen, 0)
+	c.Assert(types, tc.HasLen, 3)
 
 	s.Client.StorageIsSupported = true
 	types, err = s.Env.StorageProviderTypes()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(types, tc.DeepEquals, []storage.ProviderType{"lxd"})
+	c.Assert(types, tc.SameContents, []storage.ProviderType{
+		"lxd", "loop", "rootfs", "tmpfs",
+	})
 }
 
+// TestStorageDefaultPools tests that the lxd storage provider returns a default
+// storage pool for the standard lxd storage driver, the zfs storage driver and
+// the btrfs storage driver.
 func (s *storageSuite) TestStorageDefaultPools(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	pools := s.provider.DefaultPools()
-	c.Assert(pools, tc.HasLen, 2)
-	c.Assert(pools[0].Name(), tc.Equals, "lxd-zfs")
-	c.Assert(pools[1].Name(), tc.Equals, "lxd-btrfs")
+
+	var poolNames []string
+	for _, p := range pools {
+		poolNames = append(poolNames, p.Name())
+	}
+
+	c.Check(poolNames, tc.SameContents, []string{
+		"lxd", "lxd-zfs", "lxd-btrfs",
+	})
 	s.Stub.CheckCallNames(c, "CreatePool", "CreatePool")
 }
 
@@ -60,8 +71,13 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *tc.C) {
 		errors.NotFoundf("zfs storage pool"),
 	)
 	pools := s.provider.DefaultPools()
-	c.Assert(pools, tc.HasLen, 1)
-	c.Assert(pools[0].Name(), tc.Equals, "lxd-btrfs")
+	var poolNames []string
+	for _, p := range pools {
+		poolNames = append(poolNames, p.Name())
+	}
+	c.Check(poolNames, tc.SameContents, []string{
+		"lxd", "lxd-btrfs",
+	})
 	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreatePool")
 }
 
