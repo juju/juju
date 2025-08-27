@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ApplicationOfferArgs contains parameters used to create or update
@@ -120,4 +121,11 @@ type OfferUser struct {
 	Name        string
 	DisplayName string
 	Access      permission.Access
+}
+
+type OfferImport struct {
+	UUID            uuid.UUID
+	Name            string
+	ApplicationName string
+	Endpoints       []string
 }
