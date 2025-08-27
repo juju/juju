@@ -32,7 +32,10 @@ import (
 
 var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
-const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
+const (
+	bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
+	profileNotFound  = "Profile not found"
+)
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
@@ -279,6 +282,10 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	return errors.Trace(env.server().RemoveContainers(names))
 }
 
+// DestroyProfiles deletes the LXD profiles associated with this model.
+// It includes the:
+//  - model profile `juju-<modelname>-<id>`, and
+//  - charm profiles `juju-<modelname>-<id>-<appname>-<rev>`
 func (env *environ) DestroyProfiles() error {
 	server := env.server()
 	profiles, err := server.GetProfileNames()
@@ -293,7 +300,10 @@ func (env *environ) DestroyProfiles() error {
 
 		err := server.DeleteProfile(profile)
 		if err != nil {
-			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			if !strings.Contains(err.Error(), profileNotFound) {
+				logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			}
+			continue
 		}
 
 		logger.Infof("deleted profile %q", profile)

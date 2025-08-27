@@ -66,11 +66,6 @@ func (c *Client) RemoveModelSecrets() error {
 	return c.entityFacadeCall("RemoveModelSecrets", nil)
 }
 
-// RemoveModelProfiles removes any profiles associated with the model.
-func (c *Client) RemoveModelProfiles() error {
-	return c.entityFacadeCall("RemoveModelProfiles", nil)
-}
-
 // SetStatus sets the status of the model.
 func (c *Client) SetStatus(status status.Status, message string, data map[string]interface{}) error {
 	args := params.SetStatus{

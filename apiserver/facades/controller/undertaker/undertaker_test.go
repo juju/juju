@@ -15,7 +15,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
@@ -27,7 +26,6 @@ import (
 type undertakerSuite struct {
 	coretesting.BaseSuite
 	secrets *mockSecrets
-	profile *mockProfileDestroyer
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -47,12 +45,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	c.Assert(err, gc.IsNil)
 	st := newMockState(names.NewUserTag("admin"), modelName, isSystem, *modelCfg)
 	s.secrets = &mockSecrets{}
-	s.profile = &mockProfileDestroyer{}
 	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
-	s.PatchValue(&undertaker.GetEnvironProvider, func(providerType string) (environs.EnvironProvider, error) {
-		c.Assert(providerType, gc.Equals, "someprovider")
-		return s.profile, nil
-	})
 
 	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
@@ -68,9 +61,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 		}, secretsConfigError
 	}
 
-	mockCloudSpecer := mockCloudSpec{}
-
-	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, mockCloudSpecer)
+	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
@@ -186,15 +177,6 @@ func (s *undertakerSuite) TestRemoveModelSecrets(c *gc.C) {
 	err := hostedAPI.RemoveModelSecrets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.secrets.cleanedUUID, gc.Equals, otherSt.model.uuid)
-}
-
-func (s *undertakerSuite) TestRemoveModelProfiles(c *gc.C) {
-	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel", nil)
-
-	err := hostedAPI.RemoveModelProfiles()
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.profile.destroyedProfiles, gc.Equals, true)
 }
 
 func (s *undertakerSuite) TestRemoveModelSecretsConfigNotFound(c *gc.C) {

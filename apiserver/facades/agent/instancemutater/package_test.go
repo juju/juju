@@ -39,6 +39,8 @@ func NewTestAPI(
 	return &InstanceMutaterAPIV3{api}, nil
 }
 
+// NewTestAPIV4 is exported for use by tests that need
+// to create an instance-mutater API V4 facade.
 func NewTestAPIV4(
 	st InstanceMutaterState,
 	mutatorWatcher InstanceMutatorWatcher,
