@@ -383,6 +383,45 @@ func (c *MockMachineServiceGetMachineUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// WatchMachineCloudInstances mocks base method.
+func (m *MockMachineService) WatchMachineCloudInstances(arg0 context.Context, arg1 machine.UUID) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineCloudInstances", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineCloudInstances indicates an expected call of WatchMachineCloudInstances.
+func (mr *MockMachineServiceMockRecorder) WatchMachineCloudInstances(arg0, arg1 any) *MockMachineServiceWatchMachineCloudInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineCloudInstances", reflect.TypeOf((*MockMachineService)(nil).WatchMachineCloudInstances), arg0, arg1)
+	return &MockMachineServiceWatchMachineCloudInstancesCall{Call: call}
+}
+
+// MockMachineServiceWatchMachineCloudInstancesCall wrap *gomock.Call
+type MockMachineServiceWatchMachineCloudInstancesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceWatchMachineCloudInstancesCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockMachineServiceWatchMachineCloudInstancesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceWatchMachineCloudInstancesCall) Do(f func(context.Context, machine.UUID) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineCloudInstancesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceWatchMachineCloudInstancesCall) DoAndReturn(f func(context.Context, machine.UUID) (watcher.Watcher[struct{}], error)) *MockMachineServiceWatchMachineCloudInstancesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockStorageProvisioningService is a mock of StorageProvisioningService interface.
 type MockStorageProvisioningService struct {
 	ctrl     *gomock.Controller
