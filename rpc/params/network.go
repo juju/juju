@@ -110,10 +110,6 @@ type NetworkConfig struct {
 	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
 
-	// ProviderAddressId is the provider-specific id of the assigned address,
-	// if supported and known.
-	ProviderAddressId string `json:"provider-address-id"`
-
 	// ProviderVLANId is the provider-specific id of the assigned address's
 	// VLAN, if supported and known.
 	ProviderVLANId string `json:"provider-vlan-id"`
@@ -183,17 +179,22 @@ type NetworkConfig struct {
 	// NetworkOrigin represents the authoritative source of the NetworkConfig.
 	// It is expected that either the provider gave us this info or the
 	// machine gave us this info.
-	// Giving us this information allows us to reason about when a InterfaceInfo
-	// is in use.
+	// Giving us this information allows us to reason about when an
+	// InterfaceInfo is in use.
 	NetworkOrigin NetworkOrigin `json:"origin,omitempty"`
 
-	// These deprecated fields had to be retained for backwards compatibility,
+	// These deprecated fields had to be retained for backwards compatibility
 	// because their tags did not include the `omitempty` option.
 
 	// ProviderSubnetId is a provider-specific subnet id, to which the
 	// interface is attached to.
 	// Deprecated: no longer written or read.
 	ProviderSubnetId string `json:"provider-subnet-id"`
+
+	// ProviderAddressId is the provider-specific id of the assigned address,
+	// if supported and known.
+	// Deprecated: no longer written or read.
+	ProviderAddressId string `json:"provider-address-id"`
 }
 
 // NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
@@ -221,7 +222,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			ProviderId:          string(v.ProviderId),
 			ProviderSpaceId:     string(v.ProviderSpaceId),
 			ProviderVLANId:      string(v.ProviderVLANId),
-			ProviderAddressId:   string(v.ProviderAddressId),
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
@@ -267,7 +267,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			ProviderId:          network.Id(v.ProviderId),
 			ProviderSpaceId:     network.Id(v.ProviderSpaceId),
 			ProviderVLANId:      network.Id(v.ProviderVLANId),
-			ProviderAddressId:   network.Id(v.ProviderAddressId),
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
