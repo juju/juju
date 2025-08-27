@@ -682,8 +682,8 @@ func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.Pro
 			Scope:            providerAddr.Scope,
 			IsSecondary:      providerAddr.IsSecondary,
 			IsShadow:         isShadow,
-			ProviderID:       ptr(device.ProviderAddressId),
-			ProviderSubnetID: ptr(device.ProviderSubnetId),
+			ProviderID:       ptr(providerAddr.ProviderID),
+			ProviderSubnetID: ptr(providerAddr.ProviderSubnetID),
 		}
 	}
 }
