@@ -75,6 +75,18 @@ type VolumeProvisionedInfo struct {
 	Persistent bool
 }
 
+// VolumeAttachment is a struct that provides the information about a volume
+// attachment.
+type VolumeAttachment struct {
+	VolumeID string
+
+	ReadOnly bool
+
+	BlockDeviceName       string
+	BlockDeviceLink       string
+	BlockDeviceBusAddress string
+}
+
 // VolumeAttachmentProvisionedInfo is information set by the storage provisioner
 // for volume attachments it has provisioned.
 type VolumeAttachmentProvisionedInfo struct {

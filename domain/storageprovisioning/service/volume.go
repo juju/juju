@@ -262,6 +262,18 @@ func (s *Service) GetVolumeAttachmentLife(
 	return life, nil
 }
 
+// GetVolumeAttachment returns information about a volume attachment.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the volume attachment uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+// when no volume attachment exists for the provided uuid.
+func (s *Service) GetVolumeAttachment(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachment, error) {
+	return storageprovisioning.VolumeAttachment{}, errors.New("not implemented")
+}
+
 // GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment
 // uuid for the supplied volume ID which is attached to the machine.
 //

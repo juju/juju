@@ -322,6 +322,11 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
 	) (domainlife.Life, error)
 
+	// GetVolumeAttachment returns information about a volume attachment.
+	GetVolumeAttachment(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	) (storageprovisioning.VolumeAttachment, error)
+
 	// GetVolumeLife returns the current life value for a volume UUID.
 	//
 	// The following errors may be returned:
@@ -345,7 +350,9 @@ type StorageProvisioningService interface {
 
 	// GetVolumeByID retrieves the [storageprovisioning.Volume] for the given
 	// volume ID.
-	GetVolumeByID(ctx context.Context, volumeID string) (storageprovisioning.Volume, error)
+	GetVolumeByID(
+		ctx context.Context, volumeID string,
+	) (storageprovisioning.Volume, error)
 
 	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
 	// whenever the given machine's provisioned filsystem's life changes.
