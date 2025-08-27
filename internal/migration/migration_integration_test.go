@@ -51,7 +51,7 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 	importer := migration.NewModelImporter(
 		scope, s.controllerConfigService, s.domainServicesGetter,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return nil
+			return &storage.StaticProviderRegistry{}
 		}),
 		s.objectStoreGetter,
 		loggertesting.WrapCheckLog(c),

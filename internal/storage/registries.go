@@ -4,7 +4,8 @@
 package storage
 
 import (
-	"sort"
+	"maps"
+	"slices"
 
 	"github.com/juju/errors"
 )
@@ -49,18 +50,14 @@ type StaticProviderRegistry struct {
 	Providers map[ProviderType]Provider
 }
 
-// StorageProviderTypes implements ProviderRegistry.
+// StorageProviderTypes returns all the provider types located within this
+// registy. The returns slice is sorted in ascending order.
+//
+// Implements [Provider.StorageProviderTypes].
 func (r StaticProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
-	typeStrings := make([]string, 0, len(r.Providers))
-	for t := range r.Providers {
-		typeStrings = append(typeStrings, string(t))
-	}
-	sort.Strings(typeStrings)
-	types := make([]ProviderType, len(typeStrings))
-	for i, s := range typeStrings {
-		types[i] = ProviderType(s)
-	}
-	return types, nil
+	rval := slices.Collect(maps.Keys(r.Providers))
+	slices.Sort(rval)
+	return rval, nil
 }
 
 // StorageProvider implements ProviderRegistry.
