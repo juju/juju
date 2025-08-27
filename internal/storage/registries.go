@@ -51,7 +51,7 @@ type StaticProviderRegistry struct {
 }
 
 // StorageProviderTypes returns all the provider types located within this
-// registy. The returns slice is sorted in ascending order.
+// registry. The returns slice is sorted in ascending order.
 //
 // Implements [Provider.StorageProviderTypes].
 func (r StaticProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {

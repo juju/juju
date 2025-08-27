@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
-	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 const (
@@ -48,12 +48,7 @@ func (env *environ) storageSupported() bool {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	types := []storage.ProviderType{
-		storageprovider.TmpfsProviderType,
-		storageprovider.RootfsProviderType,
-		storageprovider.LoopProviderType,
-	}
-
+	types := common.CommonIAASStorageProviderTypes()
 	if env.storageSupported() {
 		types = append(types, lxdStorageProviderType)
 	}
@@ -65,14 +60,8 @@ func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, e
 	switch t {
 	case lxdStorageProviderType:
 		return &lxdStorageProvider{env}, nil
-	case storageprovider.TmpfsProviderType:
-		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.RootfsProviderType:
-		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.LoopProviderType:
-		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
 	default:
-		return nil, errors.NotFoundf("storage provider %q", t)
+		return common.GetCommonIAASStorageProvider(t)
 	}
 }
 

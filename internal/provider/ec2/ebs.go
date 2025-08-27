@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
-	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 const (
@@ -163,12 +162,10 @@ var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in 
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{
+	return append(
+		common.CommonIAASStorageProviderTypes(),
 		EBS_ProviderType,
-		storageprovider.TmpfsProviderType,
-		storageprovider.RootfsProviderType,
-		storageprovider.LoopProviderType,
-	}, nil
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
@@ -176,14 +173,8 @@ func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, err
 	switch t {
 	case EBS_ProviderType:
 		return &ebsProvider{e}, nil
-	case storageprovider.TmpfsProviderType:
-		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.RootfsProviderType:
-		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.LoopProviderType:
-		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
 	default:
-		return nil, errors.NotFoundf("storage provider %q", t)
+		return common.GetCommonIAASStorageProvider(t)
 	}
 }
 
