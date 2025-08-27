@@ -22,8 +22,7 @@ import (
 )
 
 type serviceSuite struct {
-	controllerDBState *MockControllerDBState
-	modelDBState      *MockModelDBState
+	baseSuite
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -514,6 +513,14 @@ func (s *serviceSuite) TestGetOfferUUID(c *tc.C) {
 	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
 }
 
+func (s *serviceSuite) service(c *tc.C) *Service {
+	return &Service{
+		controllerState: s.controllerDBState,
+		modelState:      s.modelDBState,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
+}
+
 func (s *serviceSuite) TestGetOfferUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -527,26 +534,6 @@ func (s *serviceSuite) TestGetOfferUUIDError(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
-}
-
-func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.controllerDBState = NewMockControllerDBState(ctrl)
-	s.modelDBState = NewMockModelDBState(ctrl)
-
-	c.Cleanup(func() {
-		s.controllerDBState = nil
-		s.modelDBState = nil
-	})
-	return ctrl
-}
-
-func (s *serviceSuite) service(c *tc.C) *Service {
-	return &Service{
-		controllerState: s.controllerDBState,
-		modelState:      s.modelDBState,
-		logger:          loggertesting.WrapCheckLog(c),
-	}
 }
 
 type createOfferArgsMatcher struct {
