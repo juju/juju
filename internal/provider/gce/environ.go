@@ -47,6 +47,8 @@ type ComputeService interface {
 	UpdateMetadata(ctx stdcontext.Context, key, value string, ids ...string) error
 	// ListMachineTypes returns a list of machines available in the project and zone provided.
 	ListMachineTypes(ctx stdcontext.Context, zone string) ([]*computepb.MachineType, error)
+	// MachineType retrieves the machine type definition for the specified instance type.
+	MachineType(ctx stdcontext.Context, zone, instanceType string) (*computepb.MachineType, error)
 
 	// Firewalls returns the firewalls with the given prefix.
 	Firewalls(ctx stdcontext.Context, prefix string) ([]*computepb.Firewall, error)

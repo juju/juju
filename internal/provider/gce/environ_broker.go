@@ -217,6 +217,13 @@ func (env *environ) startInstance(
 	}
 	logger.Debugf("using project service account: %s", serviceAccount)
 
+	hasAccelerator, err := env.hasAccelerator(ctx, args.AvailabilityZone, instanceTypeName)
+	if err != nil {
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+	logger.Debugf("Accelerator support in zone %s for instance type %s: %t",
+		args.AvailabilityZone, args.Constraints.InstanceType, hasAccelerator)
+
 	instArg := &computepb.Instance{
 		Name:              &hostname,
 		Zone:              &args.AvailabilityZone,
@@ -230,6 +237,14 @@ func (env *environ) startInstance(
 		instArg.ServiceAccounts = []*computepb.ServiceAccount{{
 			Email: &serviceAccount,
 		}}
+	}
+
+	// For the instance types which don't support live migration E.g. gpu instance
+	// https://cloud.google.com/compute/docs/instances/live-migration-process#limitations
+	if hasAccelerator {
+		instArg.Scheduling = &computepb.Scheduling{
+			OnHostMaintenance: ptr(google.HostMaintenanceTerminate),
+		}
 	}
 	inst, err := env.gce.AddInstance(ctx, instArg)
 	if err != nil {
@@ -306,6 +321,25 @@ func getDisks(imageURL string, cons constraints.Value, os ostype.OSType) ([]*com
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return []*computepb.AttachedDisk{disk}, nil
+}
+
+// hasAccelerator checks if the given instance type has any accelerators (e.g., GPUs).
+func (env *environ) hasAccelerator(ctx context.ProviderCallContext, zone string, instanceType string) (bool, error) {
+	if len(instanceType) == 0 {
+		return false, nil
+	}
+
+	mt, err := env.gce.MachineType(ctx, zone, instanceType)
+	if err != nil {
+		return false, google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	for _, accelerator := range mt.GetAccelerators() {
+		if accelerator != nil && accelerator.GuestAcceleratorCount != nil && *accelerator.GuestAcceleratorCount > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about

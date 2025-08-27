@@ -22,3 +22,9 @@ const (
 	StatusTerminated   = "TERMINATED"
 	StatusUp           = "UP"
 )
+
+// HostMaintenanceTerminate is a host maintenance policy that terminates instances
+// instead of performing live migration (e.g., for GPU instances).
+const (
+	HostMaintenanceTerminate = "TERMINATE"
+)

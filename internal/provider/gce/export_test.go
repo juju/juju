@@ -49,3 +49,7 @@ func BuildInstanceSpec(env *environ, ctx context.ProviderCallContext, args envir
 func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	return env.getHardwareCharacteristics(spec, inst)
 }
+
+func HasAccelerator(env *environ, ctx context.ProviderCallContext, zone string, instanceType string) (bool, error) {
+	return env.hasAccelerator(ctx, zone, instanceType)
+}
