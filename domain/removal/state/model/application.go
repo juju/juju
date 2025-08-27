@@ -339,6 +339,10 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting device constraint attributes: %w", err)
 		}
 
+		if err := st.deleteApplicationResources(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("deleting application resources: %w", err)
+		}
+
 		if err := st.deleteSimpleApplicationReferences(ctx, tx, aUUID); err != nil {
 			return errors.Errorf("deleting simple application references: %w", err)
 		}
@@ -379,7 +383,6 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"DELETE FROM application_endpoint WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_extra_endpoint WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_storage_directive WHERE application_uuid = $entityUUID.uuid",
-		"DELETE FROM application_resource WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_status WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_workload_version WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM device_constraint WHERE application_uuid = $entityUUID.uuid",
@@ -441,6 +444,42 @@ WHERE device_constraint_uuid IN (
 
 	if err := tx.Query(ctx, deleteDeviceConstraintAttributesStmt, appID).Run(); err != nil {
 		return errors.Errorf("deleting device constraint attributes: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteApplicationResources(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+	appID := entityUUID{UUID: aUUID}
+
+	getApplicationResourcesStmt, err := st.Prepare(`
+SELECT resource_uuid AS &entityUUID.uuid
+FROM application_resource
+WHERE application_uuid = $entityUUID.uuid
+`, appID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteApplicationResourceStmt, err := st.Prepare(`
+DELETE FROM application_resource
+WHERE application_uuid = $entityUUID.uuid
+`, appID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var resourceUUIDs = []entityUUID{}
+	err = tx.Query(ctx, getApplicationResourcesStmt, appID).GetAll(&resourceUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting charm resources: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteApplicationResourceStmt, appID).Run(); err != nil {
+		return errors.Errorf("deleting application resource reference: %w", err)
+	}
+
+	if err := st.deleteResources(ctx, tx, resourceUUIDs); err != nil {
+		return errors.Errorf("deleting charm resources: %w", err)
 	}
 	return nil
 }
@@ -528,26 +567,6 @@ WHERE  charm_uuid = $entityAssociationCount.uuid`, uuidCount)
 func (st *State) deleteCharm(ctx context.Context, tx *sqlair.TX, cUUID string) error {
 	charmUUID := entityUUID{UUID: cUUID}
 
-	getCharmResourcesStmt, err := st.Prepare(`
-SELECT &entityUUID.*
-FROM resource
-WHERE charm_uuid = $entityUUID.uuid
-`, charmUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var resourceUUIDs = []entityUUID{}
-	err = tx.Query(ctx, getCharmResourcesStmt, charmUUID).GetAll(&resourceUUIDs)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("getting charm resources: %w", err)
-	}
-	for _, resourceUUID := range resourceUUIDs {
-		if err := st.deleteResource(ctx, tx, resourceUUID); err != nil {
-			return errors.Errorf("deleting charm resource: %w", err)
-		}
-	}
-
 	for _, table := range []string{
 		"DELETE FROM charm_config WHERE charm_uuid = $entityUUID.uuid",
 		"DELETE FROM charm_manifest_base WHERE charm_uuid = $entityUUID.uuid",
@@ -613,57 +632,85 @@ WHERE uuid = $entityUUID.uuid`, charmUUID)
 	return nil
 }
 
-func (st *State) deleteResource(ctx context.Context, tx *sqlair.TX, resourceUUID entityUUID) error {
+func (st *State) deleteResources(ctx context.Context, tx *sqlair.TX, resources []entityUUID) error {
+	type resourceUUIDs []string
+	resourceUUIDsRec := resourceUUIDs(transform.Slice(resources, func(e entityUUID) string { return e.UUID }))
+
 	getObjectStoreEntryStmt, err := st.Prepare(`
 SELECT store_uuid AS &entityUUID.uuid
 FROM resource_file_store
-WHERE resource_uuid = $entityUUID.uuid 
-`, resourceUUID)
+WHERE resource_uuid IN ($resourceUUIDs[:])
+`, entityUUID{}, resourceUUIDsRec)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	var objectStoreUUIDs []entityUUID
-	err = tx.Query(ctx, getObjectStoreEntryStmt, resourceUUID).GetAll(&objectStoreUUIDs)
+	err = tx.Query(ctx, getObjectStoreEntryStmt, resourceUUIDsRec).GetAll(&objectStoreUUIDs)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Errorf("getting object store UUIDs for resource: %w", err)
 	}
 
 	for _, table := range []string{
-		"DELETE FROM pending_application_resource WHERE resource_uuid = $entityUUID.uuid",
-		"DELETE FROM resource_retrieved_by WHERE resource_uuid = $entityUUID.uuid",
-		"DELETE FROM resource_file_store WHERE resource_uuid = $entityUUID.uuid",
-		"DELETE FROM resource_image_store WHERE resource_uuid = $entityUUID.uuid",
+		"DELETE FROM pending_application_resource WHERE resource_uuid IN ($resourceUUIDs[:])",
+		"DELETE FROM resource_retrieved_by WHERE resource_uuid IN ($resourceUUIDs[:])",
+		"DELETE FROM resource_file_store WHERE resource_uuid IN ($resourceUUIDs[:])",
+		"DELETE FROM resource_image_store WHERE resource_uuid IN ($resourceUUIDs[:])",
 	} {
-		deleteResourceReferenceStmt, err := st.Prepare(table, resourceUUID)
+		deleteResourceReferenceStmt, err := st.Prepare(table, resourceUUIDsRec)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, deleteResourceReferenceStmt, resourceUUID).Run(); err != nil {
+		if err := tx.Query(ctx, deleteResourceReferenceStmt, resourceUUIDsRec).Run(); err != nil {
 			return errors.Errorf("deleting reference to resource in %s: %w", table, err)
 		}
 	}
 
 	for _, objectStoreUUID := range objectStoreUUIDs {
-		if err := st.deleteFromObjectStore(ctx, tx, objectStoreUUID.UUID); err != nil {
-			return errors.Errorf("deleting resource %q object store entry: %w", resourceUUID.UUID, err)
+		if err := st.deleteResourceFromObjectStoreIfUnused(ctx, tx, objectStoreUUID.UUID); err != nil {
+			return errors.Errorf("deleting object store entry: %w", err)
 		}
 	}
 
 	deleteResourceStmt, err := st.Prepare(`
 DELETE FROM resource
-WHERE uuid = $entityUUID.uuid
-`, resourceUUID)
+WHERE uuid IN ($resourceUUIDs[:])
+`, resourceUUIDsRec)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteResourceStmt, resourceUUID).Run(); err != nil {
-		return errors.Errorf("deleting resource %q: %w", resourceUUID, err)
+	if err := tx.Query(ctx, deleteResourceStmt, resourceUUIDsRec).Run(); err != nil {
+		return errors.Errorf("deleting resources %q: %w", resourceUUIDsRec, err)
 	}
 
 	return nil
+}
+
+func (st *State) deleteResourceFromObjectStoreIfUnused(ctx context.Context, tx *sqlair.TX, objectStoreUUID string) error {
+	uuidCount := entityAssociationCount{UUID: objectStoreUUID}
+
+	resourceStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &entityAssociationCount.count
+FROM resource_file_store
+WHERE store_uuid = $entityAssociationCount.uuid
+`, uuidCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// It is possible for an underlying object store item to be used by multiple resources.
+	// Only delete the object store entry if it is not used by any resources.
+	var resourceCount entityAssociationCount
+	if err := tx.Query(ctx, resourceStmt, uuidCount).Get(&resourceCount); err != nil {
+		return errors.Errorf("running resource usage query: %w", err)
+	} else if resourceCount.Count > 0 {
+		st.logger.Infof(ctx, "object store %q is still used by %d resource(s), not deleting", objectStoreUUID, resourceCount.Count)
+		return nil
+	}
+
+	return st.deleteFromObjectStore(ctx, tx, objectStoreUUID)
 }
 
 func (st *State) deleteFromObjectStore(ctx context.Context, tx *sqlair.TX, objectStoreUUID string) error {
@@ -687,11 +734,11 @@ WHERE uuid = $entityUUID.uuid
 	}
 
 	if err := tx.Query(ctx, deleteObjectStorePathStmt, ident).Run(); err != nil {
-		return errors.Errorf("deleting charm object store path: %w", err)
+		return errors.Errorf("deleting object store path: %w", err)
 	}
 
 	if err := tx.Query(ctx, deleteObjectStoreStmt, ident).Run(); err != nil {
-		return errors.Errorf("deleting charm object store entry: %w", err)
+		return errors.Errorf("deleting object store entry: %w", err)
 	}
 
 	return nil
