@@ -19,7 +19,7 @@ test_firewall() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
-		test_firewall_ssh
+		test_firewall_ssh_ec2
 		;;
 	*)
 		echo "==> TEST SKIPPED: test_firewall_ssh test runs on aws only"

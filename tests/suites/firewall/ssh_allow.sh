@@ -1,4 +1,4 @@
-run_firewall_ssh() {
+run_firewall_ssh_ec2() {
 	echo
 
 	file="${TEST_DIR}/network-health.txt"
@@ -33,9 +33,9 @@ run_firewall_ssh() {
 	done
 }
 
-test_firewall_ssh() {
-	if [ "$(skip 'test_firewall_ssh')" ]; then
-		echo "==> TEST SKIPPED: test_firewall_ssh"
+test_firewall_ssh_ec2() {
+	if [ "$(skip 'test_firewall_ssh_ec2')" ]; then
+		echo "==> TEST SKIPPED: test_firewall_ssh_ec2"
 		return
 	fi
 
@@ -44,6 +44,6 @@ test_firewall_ssh() {
 
 		cd .. || exit
 
-		run "run_firewall_ssh"
+		run "run_firewall_ssh_ec2"
 	)
 }
