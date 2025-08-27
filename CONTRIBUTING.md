@@ -6,7 +6,7 @@ an issue or by creating a PR. This document gives detailed information about
 both.
 
 > Note: If at any point you get stuck, come chat with us on
-[Matrix](https://matrix.to/#/#charmhub-juju:ubuntu.com).
+> [Matrix](https://matrix.to/#/#charmhub-juju:ubuntu.com).
 
 ## Open an issue
 
@@ -19,18 +19,18 @@ docs](https://documentation.ubuntu.com/juju),
 then use the **Give feedback** button.
 
 To open an issue for docs in general, do the same for the homepage of the docs
- or go to https://github.com/juju/juju/issues , click on **New issue** (top
+or go to https://github.com/juju/juju/issues , click on **New issue** (top
 right corner of the page), select “Documentation issue”, then fill out the issue
 template and submit the issue.
 
 ### Open an issue for code
 
-Go to https://github.com/juju/juju/issues  click on **New issue** (top right
+Go to https://github.com/juju/juju/issues click on **New issue** (top right
 corner of the page), select whatever is appropriate, then fill out the issue
 template and submit the issue.
 
 > Note: For feature requests please use
-https://matrix.to/#/#charmhub-juju:ubuntu.com
+> https://matrix.to/#/#charmhub-juju:ubuntu.com
 
 ## Make your first contribution
 
@@ -95,8 +95,8 @@ git checkout -b 3.6-new-stuff # your feature branch
 
 8. Make the desired changes. Test changes locally.
 
+---
 
-----------------
 <details>
 
 <summary>Further info: Docs</summary>
@@ -130,9 +130,10 @@ errors, try `make clean`, then `make run` again. For other checks, see `make
 
 </details>
 
-----------------
+---
 
-----------------
+---
+
 <details>
 
 <summary>Further info: Code</summary>
@@ -140,16 +141,25 @@ errors, try `make clean`, then `make run` again. For other checks, see `make
 ### Installing Go
 
 `juju` is written in [Go](https://go.dev/). To install Go see [Go
-docs](https://golang.org/doc/install#install).
+docs](https://golang.org/doc/install#install). If Go is not installed, it will installed when running `install-dependencies` during the building/dependencies step below.
+
+### Installing native prerequisites
+
+`juju` uses [make](https://www.gnu.org/software/make/) and [go-sqlite3](https://github.com/mattn/go-sqlite3) which is cgo package requiring a C compiler.
+First time native prerequisites (example for Debian/Ubuntu): ensure make and gcc are present.
+
+```
+sudo apt-get update && sudo apt-get install -y build-essential
+```
 
 ### Building Juju and its dependencies
 
-Fork and clone the Juju repo, then navigate to the root directory and run `make
-install`:
+Fork and clone the Juju repo, then navigate to the root directory and run `make install-dependencies` first then `make install`:
 
 ```
 git clone https://github.com/<user>/juju.git
 cd juju
+make install-dependencies
 make install
 ```
 
@@ -158,7 +168,6 @@ make install
 Juju uses Go modules to manage dependencies. To update a dependency, use the
 following, ensuring that the dependency is using a version where possible, or a
 commit hash if not available:
-
 
 ```
 go get -u github.com/the/dependency@v1.2.3
@@ -192,11 +201,10 @@ subset of test names.
 go test -gocheck.f '$REGEX'
 ```
 
-
 ### Testing and MongoDB
 
 Many tests use a standalone instance of `mongod` as part of their setup. The
-`mongod` binary found in `$PATH` is executed by these suites.  If you don't
+`mongod` binary found in `$PATH` is executed by these suites. If you don't
 already have MongoDB installed, run
 
 ```
@@ -209,9 +217,7 @@ For more information see [CODING.md](CODING.md)
 
 </details>
 
-----------------
-
-
+---
 
 9. As you make your changes, ensure that you always remain in sync with the upstream:
 
@@ -231,14 +237,14 @@ git push origin 3.6-new-stuff
 ```
 
 > Note: For most code PRs, it's best to type just `git commit`, then return; the
-terminal will open a text editor, enabling you to write a lengthier, more
-explicit message.
+> terminal will open a text editor, enabling you to write a lengthier, more
+> explicit message.
 
 > Tip: If you've set things up correctly, typing just `git push` and returning
-may be enough for `git` to prompt you with the correct arguments.
+> may be enough for `git` to prompt you with the correct arguments.
 
 > Tip: If you don't want to create a new commit message every time, do
-`git commit --amend --no-edit`, then `git push --force`.
+> `git commit --amend --no-edit`, then `git push --force`.
 
 11. Create the PR. In the PR window make sure to select the correct target base
     branch. In your PR description make sure to comply with the template rules (e.g.,
