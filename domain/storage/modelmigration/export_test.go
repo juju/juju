@@ -46,7 +46,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	})
 	c.Assert(dst.StoragePools(), tc.HasLen, 0)
 
-	s.service.EXPECT().ListStoragePoolsWithoutBuiltins(gomock.Any()).
+	s.service.EXPECT().ListStoragePools(gomock.Any()).
 		Times(1).
 		Return([]domainstorage.StoragePool{
 			{

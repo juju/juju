@@ -28,7 +28,8 @@ func RegisterExport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ExportService provides a subset of the storage domain
 // service methods needed for storage pool export.
 type ExportService interface {
-	ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error)
+	// ListStoragePools returns all of the storage pools in the model.
+	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -55,7 +56,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the export, adding the storage pools to the model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	pools, err := e.service.ListStoragePoolsWithoutBuiltins(ctx)
+	pools, err := e.service.ListStoragePools(ctx)
 	if err != nil {
 		return errors.Errorf("listing pools: %w", err)
 	}
