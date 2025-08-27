@@ -1,7 +1,7 @@
--- The cloud and accompanying tables drive the provider tracker. It is not safe 
+-- The cloud and accompanying tables drive the provider tracker. It is not safe
 -- to modify the cloud or other tables in a patch/build release. Only make 
 -- changes to this table during a major/minor release. Changes to the cloud
--- table will cause undefined behavior in the provider tracker.
+-- table will cause undefined behaviour in the provider tracker.
 CREATE TABLE cloud_type (
     id INT PRIMARY KEY,
     type TEXT NOT NULL
@@ -62,26 +62,6 @@ CREATE TABLE cloud (
     FOREIGN KEY (cloud_type_id)
     REFERENCES cloud_type (id)
 );
-
--- v_cloud_auth is a connivance view similar to v_cloud but includes a row for
--- each cloud and auth type pair.
-CREATE VIEW v_cloud_auth
-AS
-SELECT
-    c.uuid,
-    c.name,
-    c.cloud_type_id,
-    c.cloud_type,
-    c.endpoint,
-    c.identity_endpoint,
-    c.storage_endpoint,
-    c.skip_tls_verify,
-    c.is_controller_cloud,
-    at.id AS auth_type_id,
-    at.type AS auth_type
-FROM v_cloud AS c
-LEFT JOIN cloud_auth_type AS cat ON c.uuid = cat.cloud_uuid
-JOIN auth_type AS at ON cat.auth_type_id = at.id;
 
 CREATE TABLE cloud_defaults (
     cloud_uuid TEXT NOT NULL,
@@ -174,9 +154,9 @@ CREATE TABLE cloud_credential (
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
 ON cloud_credential (cloud_uuid, owner_uuid, name);
 
--- view_cloud_credential provides a convenience view for accessing a
--- credentials uuid baseD on the natural key used to display the credential to
--- users.
+-- view_cloud_credential is a convenience view for accessing a
+-- credential UUID based on the natural key used to display the
+-- credential to users.
 CREATE VIEW v_cloud_credential
 AS
 SELECT
@@ -207,8 +187,8 @@ CREATE TABLE cloud_credential_attribute (
     REFERENCES cloud_credential (uuid)
 );
 
--- v_cloud_credential_attribute is responsible for return a view of all cloud
--- credentials and their attributes repeated for every attribute.
+-- v_cloud_credential_attribute returns a view of all cloud credentials
+-- and their attributes repeated for every attribute.
 CREATE VIEW v_cloud_credential_attribute
 AS
 SELECT
@@ -226,6 +206,4 @@ SELECT
     cca."key" AS attribute_key,
     cca.value AS attribute_value
 FROM v_cloud_credential AS cc
-JOIN
-    cloud_credential_attribute AS cca
-    ON cc.uuid = cca.cloud_credential_uuid;
+JOIN cloud_credential_attribute AS cca ON cc.uuid = cca.cloud_credential_uuid;
