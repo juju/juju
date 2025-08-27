@@ -5,9 +5,13 @@ package resources
 
 import (
 	"context"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -52,26 +56,73 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 	} else if err != nil {
 		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes.ID())
 	}
-	if found {
-		ver := op.resource.GetObjectMeta().GetResourceVersion()
-		if ver != "" && ver != existingRes.GetObjectMeta().GetResourceVersion() {
-			id := op.resource.ID()
-			return errors.Annotatef(errConflict, "%s %s", id.Type, id.Name)
-		}
-	}
+	// if found {
+	// 	ver := op.resource.GetObjectMeta().GetResourceVersion()
+	// 	if ver != "" && ver != existingRes.GetObjectMeta().GetResourceVersion() {
+	// 		id := op.resource.ID()
+	// 		return errors.Annotatef(errConflict, "%s %s", id.Type, id.Name)
+	// 	}
+	// }
 	switch op.opType {
 	case opApply:
-		err = op.resource.Apply(ctx)
-		if found {
-			// apply the previously existing resource.
-			rollback.Apply(existingRes)
-		} else {
-			// delete the new resource just created.
-			rollback.Delete(op.resource)
+		err = retry.Call(retry.CallArgs{
+			Func: func() error {
+				err := op.resource.Apply(ctx)
+				if k8serrors.IsConflict(err) {
+					_ = op.resource.Get(ctx) // refresh resource version
+					return err
+				}
+				// this might happen if it were deleted by another apiserver.
+				if k8serrors.IsNotFound(err) {
+					return err
+				}
+				return errors.Annotatef(err, "applying resource %q", op.resource.ID().Name)
+			},
+			IsFatalError: func(err error) bool {
+				return !k8serrors.IsConflict(err)
+			},
+			Clock:       jujuclock.WallClock,
+			Attempts:    5,
+			Delay:       time.Second,
+			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+		})
+
+		// we do not want to rollback if the resource is not found, not applied or it has been deleted by another apiserver
+		// during the retry call process.
+		if err == nil {
+			if found {
+				// apply the previously existing resource.
+				rollback.Apply(existingRes)
+			} else {
+				// delete the new resource just created.
+				rollback.Delete(op.resource)
+			}
 		}
 	case opDelete:
-		err = op.resource.Delete(ctx)
-		if found {
+		// delete with retry
+		err = retry.Call(retry.CallArgs{
+			Func: func() error {
+				err := op.resource.Delete(ctx)
+				if k8serrors.IsConflict(err) {
+					_ = op.resource.Get(ctx) // refresh resource version
+					return err
+				}
+				if k8serrors.IsNotFound(err) {
+					return err
+				}
+				return errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
+			},
+			IsFatalError: func(err error) bool {
+				return !k8serrors.IsConflict(err)
+			},
+			Clock:       jujuclock.WallClock,
+			Attempts:    5,
+			Delay:       time.Second,
+			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+		})
+
+		// do not rollback if the resource is not found or update still has conflicts after retries.
+		if err == nil {
 			rollback.Apply(existingRes)
 		}
 	}
