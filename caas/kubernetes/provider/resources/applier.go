@@ -56,13 +56,7 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 	} else if err != nil {
 		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes.ID())
 	}
-	// if found {
-	// 	ver := op.resource.GetObjectMeta().GetResourceVersion()
-	// 	if ver != "" && ver != existingRes.GetObjectMeta().GetResourceVersion() {
-	// 		id := op.resource.ID()
-	// 		return errors.Annotatef(errConflict, "%s %s", id.Type, id.Name)
-	// 	}
-	// }
+
 	switch op.opType {
 	case opApply:
 		err = retry.Call(retry.CallArgs{
