@@ -49,7 +49,7 @@ func ParamsNetworkConfigToDomain(
 			IsEnabled:        !arg.Disabled,
 			ParentDeviceName: arg.ParentInterfaceName,
 			GatewayAddress:   nilIfEmpty(arg.GatewayAddress),
-			IsDefaultGateway: false,
+			IsDefaultGateway: arg.IsDefaultGateway,
 			VLANTag:          uint64(arg.VLANTag),
 			DNSSearchDomains: arg.DNSSearchDomains,
 			DNSAddresses:     arg.DNSServers,
@@ -72,9 +72,6 @@ func ParamsNetworkConfigToDomain(
 		}
 
 		nics[i].Addrs = addrs
-
-		// TODO (manadart 2025-05-30): Process shadow addresses for
-		// payloads coming from the provider.
 	}
 
 	return nics, nil
