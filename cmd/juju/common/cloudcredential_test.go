@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 )
 
 var _ = gc.Suite(&cloudCredentialSuite{})

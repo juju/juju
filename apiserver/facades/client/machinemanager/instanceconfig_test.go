@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	coretesting "github.com/juju/juju/testing"

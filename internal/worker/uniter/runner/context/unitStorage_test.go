@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"

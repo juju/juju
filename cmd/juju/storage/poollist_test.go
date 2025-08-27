@@ -15,7 +15,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 )
 

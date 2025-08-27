@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )

@@ -32,7 +32,7 @@ import (
 ## Setting up tests for new packages
 
 Let's say we are creating a new provider for "magic" cloud, and we have a package
-called "magic" that lives at `github.com/juju/juju/provider/magic`.  The
+called "magic" that lives at `github.com/juju/juju/internal/provider/magic`.  The
 general approach for testing in juju is to have the tests in a separate package.
 Continuing with this example the tests would be in a package called "magic_test".
 

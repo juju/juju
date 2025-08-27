@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"

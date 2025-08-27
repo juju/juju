@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"

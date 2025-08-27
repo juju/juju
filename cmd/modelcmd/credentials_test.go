@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 )
 
 func init() {

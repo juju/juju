@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 )
 

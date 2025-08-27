@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/manual"
+	"github.com/juju/juju/internal/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/manual"
 	"github.com/juju/juju/testing"
 )
 

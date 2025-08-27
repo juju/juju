@@ -15,7 +15,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/storage"
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 )
 
