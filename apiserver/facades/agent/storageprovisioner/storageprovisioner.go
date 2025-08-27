@@ -824,10 +824,68 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 
 // Volumes returns details of volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entities) (params.VolumeResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.VolumeResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	one := func(arg params.Entity) (params.Volume, error) {
+		tag, err := names.ParseVolumeTag(arg.Tag)
+		if err != nil {
+			return params.Volume{}, errors.Errorf(
+				"volume tag %q invalid", arg.Tag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.Volume{}, apiservererrors.ErrPerm
+		}
+		vol, err := s.storageProvisioningService.GetVolumeByID(ctx, tag.Id())
+		if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+			return params.Volume{}, errors.Errorf(
+				"volume %q not found", tag.Id(),
+			).Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return params.Volume{}, errors.Errorf(
+				"getting volume %q: %v", tag.Id(), err,
+			)
+		}
+		if vol.SizeMiB == 0 {
+			// TODO: We think that a volume with size 0 is not provisioned.
+			// The size is set when the storage provisioner worker calls SetVolumeInfo.
+			// This is a temporary workaround for checking the provision state of the volume.
+			// Ideally, we should have a consistent way to check provisioning status
+			// for all storage entities.
+			return params.Volume{}, errors.Errorf(
+				"volume %q is not provisioned", tag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		}
+		result := params.Volume{
+			VolumeTag: tag.String(),
+			Info: params.VolumeInfo{
+				ProviderId: vol.ProviderID,
+				HardwareId: vol.HardwareID,
+				WWN:        vol.WWN,
+				Persistent: vol.Persistent,
+				SizeMiB:    vol.SizeMiB,
+			},
+		}
+		return result, nil
+	}
+
 	results := params.VolumeResults{
 		Results: make([]params.VolumeResult, len(args.Entities)),
 	}
-	// TODO: implement this method using the storageProvisioningService.
+	for i, arg := range args.Entities {
+		var result params.VolumeResult
+		volume, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volume
+		}
+		results.Results[i] = result
+	}
 	return results, nil
 }
 

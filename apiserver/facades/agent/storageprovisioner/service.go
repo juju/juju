@@ -343,6 +343,10 @@ type StorageProvisioningService interface {
 		ctx context.Context, volumeID string,
 	) (storageprovisioning.VolumeUUID, error)
 
+	// GetVolumeByID retrieves the [storageprovisioning.Volume] for the given
+	// volume ID.
+	GetVolumeByID(ctx context.Context, volumeID string) (storageprovisioning.Volume, error)
+
 	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
 	// whenever the given machine's provisioned filsystem's life changes.
 	//

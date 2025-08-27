@@ -1147,6 +1147,45 @@ func (c *MockStorageProvisioningServiceGetVolumeAttachmentUUIDForVolumeIDUnitCal
 	return c
 }
 
+// GetVolumeByID mocks base method.
+func (m *MockStorageProvisioningService) GetVolumeByID(arg0 context.Context, arg1 string) (storageprovisioning.Volume, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeByID", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.Volume)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeByID indicates an expected call of GetVolumeByID.
+func (mr *MockStorageProvisioningServiceMockRecorder) GetVolumeByID(arg0, arg1 any) *MockStorageProvisioningServiceGetVolumeByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeByID", reflect.TypeOf((*MockStorageProvisioningService)(nil).GetVolumeByID), arg0, arg1)
+	return &MockStorageProvisioningServiceGetVolumeByIDCall{Call: call}
+}
+
+// MockStorageProvisioningServiceGetVolumeByIDCall wrap *gomock.Call
+type MockStorageProvisioningServiceGetVolumeByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceGetVolumeByIDCall) Return(arg0 storageprovisioning.Volume, arg1 error) *MockStorageProvisioningServiceGetVolumeByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceGetVolumeByIDCall) Do(f func(context.Context, string) (storageprovisioning.Volume, error)) *MockStorageProvisioningServiceGetVolumeByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceGetVolumeByIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.Volume, error)) *MockStorageProvisioningServiceGetVolumeByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeLife mocks base method.
 func (m *MockStorageProvisioningService) GetVolumeLife(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) (life0.Life, error) {
 	m.ctrl.T.Helper()

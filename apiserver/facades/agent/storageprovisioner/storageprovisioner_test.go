@@ -100,6 +100,97 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *provisionerSuite) TestVolumes(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	vol := storageprovisioning.Volume{
+		VolumeID:   "123",
+		ProviderID: "vol-1234",
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+		SizeMiB:    1000,
+	}
+
+	s.mockStorageProvisioningService.EXPECT().GetVolumeByID(
+		gomock.Any(), tag.Id()).Return(vol, nil)
+
+	result, err := s.api.Volumes(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.VolumeResults{
+		Results: []params.VolumeResult{
+			{
+				Result: params.Volume{
+					VolumeTag: tag.String(),
+					Info: params.VolumeInfo{
+						ProviderId: "vol-1234",
+						HardwareId: "hwid",
+						WWN:        "wwn",
+						Persistent: true,
+						SizeMiB:    1000,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestVolumesNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	s.mockStorageProvisioningService.EXPECT().GetVolumeByID(
+		gomock.Any(), tag.Id(),
+	).Return(
+		storageprovisioning.Volume{},
+		storageprovisioningerrors.VolumeNotFound,
+	)
+
+	results, err := s.api.Volumes(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestVolumesNotProvisioned(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	vol := storageprovisioning.Volume{
+		ProviderID: "fs-1234",
+	}
+
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeByID(gomock.Any(), tag.Id()).
+		Return(vol, nil)
+
+	results, err := s.api.Volumes(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
 func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()

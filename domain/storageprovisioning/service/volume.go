@@ -414,6 +414,18 @@ func (s *Service) GetVolumeUUIDForID(
 	return uuid, nil
 }
 
+// GetVolumeByID retrieves the [storageprovisioning.Volume] for the given
+// volume ID.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+// when no volume exists for the provided volume uuid.
+func (s *Service) GetVolumeByID(
+	ctx context.Context, volumeID string,
+) (storageprovisioning.Volume, error) {
+	return storageprovisioning.Volume{}, errors.New("not implemented")
+}
+
 // WatchModelProvisionedVolumes returns a watcher that emits volume IDs,
 // whenever a model provisioned volume's life changes.
 func (s *Service) WatchModelProvisionedVolumes(
