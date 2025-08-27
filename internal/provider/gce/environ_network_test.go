@@ -193,19 +193,20 @@ func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/netif-0",
-		ProviderSubnetId: "sub-network2",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network2"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -256,56 +257,60 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	// Check interfaces for first instance
 	infos := infoLists[0]
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/netif-0",
-		ProviderSubnetId: "sub-network2",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network2"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 
 	// Check interfaces for second instance
 	infos = infoLists[1]
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-1/netif-0",
-		ProviderSubnetId: "sub-network1",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-1/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network1"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:      1,
-		ProviderId:       "inst-1/netif-1",
-		ProviderSubnetId: "sub-network1",
-		InterfaceName:    "netif-1",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   1,
+		ProviderId:    "inst-1/netif-1",
+		InterfaceName: "netif-1",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.44",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network1"),
+		)},
+		ShadowAddresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
+			"25.185.142.227",
+			corenetwork.WithScope(corenetwork.ScopePublic),
 		).AsProviderAddress()},
-		ShadowAddresses: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-		},
 		Origin: corenetwork.OriginProvider,
 	}})
 }
@@ -329,19 +334,20 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	// Check interfaces for first instance
 	infos := infoLists[0]
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/netif-0",
-		ProviderSubnetId: "sub-network2",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network2"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}})
 
@@ -379,34 +385,36 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/netif-0",
-		ProviderSubnetId: "sub-network2",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network2"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:      1,
-		ProviderId:       "inst-0/othernetif",
-		ProviderSubnetId: "sub-network1",
-		InterfaceName:    "othernetif",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   1,
+		ProviderId:    "inst-0/othernetif",
+		InterfaceName: "othernetif",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.4",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network1"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
@@ -442,13 +450,12 @@ func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/somenetif",
-		ProviderSubnetId: "",
-		InterfaceName:    "somenetif",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/somenetif",
+		InterfaceName: "somenetif",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.240.0.2",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -492,34 +499,36 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:      0,
-		ProviderId:       "inst-0/netif-0",
-		ProviderSubnetId: "sub-network2",
-		InterfaceName:    "netif-0",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   0,
+		ProviderId:    "inst-0/netif-0",
+		InterfaceName: "netif-0",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.20.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network2"),
+		)},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:      1,
-		ProviderId:       "inst-0/othernetif",
-		ProviderSubnetId: "sub-network1",
-		InterfaceName:    "othernetif",
-		InterfaceType:    corenetwork.EthernetDevice,
-		Disabled:         false,
-		NoAutoStart:      false,
+		DeviceIndex:   1,
+		ProviderId:    "inst-0/othernetif",
+		InterfaceName: "othernetif",
+		InterfaceType: corenetwork.EthernetDevice,
+		Disabled:      false,
+		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.4",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			corenetwork.WithCIDR("10.0.10.0/24"),
 			corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(
+			corenetwork.WithProviderSubnetID("sub-network1"),
+		)},
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("25.185.142.227", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
 		},
