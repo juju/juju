@@ -375,44 +375,6 @@ func (c *MockModelDBStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
-// ImportOffers mocks base method.
-func (m *MockModelDBState) ImportOffers(arg0 context.Context, arg1 []crossmodelrelation.OfferImport) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportOffers", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ImportOffers indicates an expected call of ImportOffers.
-func (mr *MockModelDBStateMockRecorder) ImportOffers(arg0, arg1 any) *MockModelDBStateImportOffersCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportOffers", reflect.TypeOf((*MockModelDBState)(nil).ImportOffers), arg0, arg1)
-	return &MockModelDBStateImportOffersCall{Call: call}
-}
-
-// MockModelDBStateImportOffersCall wrap *gomock.Call
-type MockModelDBStateImportOffersCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateImportOffersCall) Return(arg0 error) *MockModelDBStateImportOffersCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateImportOffersCall) Do(f func(context.Context, []crossmodelrelation.OfferImport) error) *MockModelDBStateImportOffersCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateImportOffersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.OfferImport) error) *MockModelDBStateImportOffersCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateOffer mocks base method.
 func (m *MockModelDBState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
