@@ -5,7 +5,6 @@ package context
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
@@ -182,6 +182,10 @@ type HookContext struct {
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
+
+	// inClusterConfig supplies the K8s rest.InClusterConfig function,
+	// overrideable for testing.
+	inClusterConfig func() (*rest.Config, error)
 
 	// principal is the unitName of the principal charm.
 	principal string
@@ -1253,46 +1257,42 @@ func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 }
 
 // cloudSpecK8s loads the in-cluster configuration to connect to the Kubernetes API.
-//
-// Loosely based on the Kubernetes Go client's rest.InClusterConfig function:
-// https://github.com/kubernetes/client-go/blob/0341f077c9d600b7a68d6f637cbd5da9ace4df3d/rest/config.go#L543
 func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
-	const (
-		tokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-		certPath  = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	)
-
 	// Hit controller's CloudSpec API to determine whether we have permission,
-	// but don't use the credentials in the result (the model's credential).
+	// and we need it for some of the fields (but not the credentials).
 	modelSpec, err := ctx.state.CloudSpec()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get model credentials")
 	}
 
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	port := os.Getenv("KUBERNETES_SERVICE_PORT")
-	if host == "" || port == "" {
-		return nil, errors.New("cannot read in-cluster configuration (KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be set)")
+	inClusterConfig := ctx.inClusterConfig
+	if inClusterConfig == nil {
+		inClusterConfig = rest.InClusterConfig
+	}
+	config, err := inClusterConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read in-cluster config")
 	}
 
-	tokenBytes, err := os.ReadFile(tokenPath)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read token file")
+	// InClusterConfig doesn't actually load the certificate file, so do it ourselves.
+	if config.TLSClientConfig.CAFile == "" {
+		// Oddly, InClusterConfig logs this error, but does not return it.
+		return nil, errors.New("cannot read certificate file")
 	}
-	certBytes, err := os.ReadFile(certPath)
+	certBytes, err := os.ReadFile(config.TLSClientConfig.CAFile)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read certificate file")
 	}
 
 	credential := &params.CloudSpec{
 		Type:     modelSpec.Type, // "kubernetes"
-		Name:     modelSpec.Name, // for example, "microk8s"
-		Region:   "localhost",
-		Endpoint: "https://" + net.JoinHostPort(host, port),
+		Name:     modelSpec.Name,
+		Region:   modelSpec.Region,
+		Endpoint: config.Host,
 		Credential: &params.CloudCredential{
 			AuthType: "oauth2",
 			Attributes: map[string]string{
-				"Token": string(tokenBytes),
+				"Token": config.BearerToken,
 			},
 		},
 		CACertificates:    []string{string(certBytes)},
