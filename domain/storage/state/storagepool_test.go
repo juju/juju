@@ -14,6 +14,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -48,7 +49,11 @@ WHERE     sp.name = ?`, name).Scan(&origin)
 	return origin
 }
 
-func (s *storagePoolStateSuite) createStoragePoolWithOrigin(c *tc.C, sp domainstorage.StoragePool, origin string) {
+func (s *storagePoolStateSuite) createStoragePoolWithOrigin(
+	c *tc.C,
+	sp domainstorage.StoragePool,
+	origin storage.StoragePoolOrigin,
+) {
 	if sp.UUID == "" {
 		spUUID, err := domainstorage.NewStoragePoolUUID()
 		c.Assert(err, tc.ErrorIsNil)
@@ -56,18 +61,9 @@ func (s *storagePoolStateSuite) createStoragePoolWithOrigin(c *tc.C, sp domainst
 	}
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var originID int
-		err := tx.QueryRowContext(ctx, `
-SELECT id
-FROM   storage_pool_origin
-WHERE  origin = ?`, origin).Scan(&originID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_pool (uuid, name, type, origin_id)
-VALUES (?, ?, ?, ?)`, sp.UUID, sp.Name, sp.Provider, originID)
+VALUES (?, ?, ?, ?)`, sp.UUID, sp.Name, sp.Provider, int(origin))
 		if err != nil {
 			return err
 		}
@@ -219,27 +215,6 @@ func (s *storagePoolStateSuite) TestReplaceStoragePool(c *tc.C) {
 	})
 }
 
-func (s *storagePoolStateSuite) TestReplaceStoragePoolForbiddenForBuiltInPool(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	ctx := c.Context()
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	s.createStoragePoolWithOrigin(c, domainstorage.StoragePool{
-		UUID:     poolUUID.String(),
-		Name:     "loop",
-		Provider: "loop",
-	}, "built-in")
-
-	sp2 := domainstorage.StoragePool{
-		UUID:     poolUUID.String(),
-		Name:     "loop",
-		Provider: "ebs",
-	}
-	err = st.ReplaceStoragePool(ctx, sp2)
-	c.Assert(err, tc.ErrorMatches, `updating storage pool: built-in storage_pools are immutable, only insertions are allowed`)
-}
-
 // TestStoragePoolImmutableOrigin tests that the origin of a storage pool cannot be changed
 // after it has been created. This is not a state method test but a schema trigger test.
 func (s *storagePoolStateSuite) TestStoragePoolImmutableOrigin(c *tc.C) {
@@ -258,7 +233,7 @@ func (s *storagePoolStateSuite) TestStoragePoolImmutableOrigin(c *tc.C) {
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE storage_pool
-SET    origin_id = (SELECT id FROM storage_pool_origin WHERE origin = 'built-in')
+SET    origin_id = 2
 WHERE  name = ?`, "ebs-fast")
 		return err
 	})
@@ -346,19 +321,6 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
-func (s *storagePoolStateSuite) TestDeleteStoragePoolFailedForBuiltInPool(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	ctx := c.Context()
-	s.createStoragePoolWithOrigin(c, domainstorage.StoragePool{
-		Name:     "loop",
-		Provider: "loop",
-	}, "built-in")
-
-	err := st.DeleteStoragePool(ctx, "loop")
-	c.Assert(err, tc.ErrorMatches, `built-in storage_pools are immutable, only insertions are allowed`)
-}
-
 // ensureProviderDefaultStoragePools ensures that the default storage pools are created in the state.
 // This is a temporary workaround until we implement the default storage pools insertion during model creation.
 func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []domainstorage.StoragePool {
@@ -392,7 +354,7 @@ func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []dom
 		for k, v := range pcfg.Attrs() {
 			sp.Attrs[k] = fmt.Sprintf("%s", v)
 		}
-		s.createStoragePoolWithOrigin(c, sp, "provider-default")
+		s.createStoragePoolWithOrigin(c, sp, storage.StoragePoolOriginProviderDefault)
 
 		pools = append(pools, sp)
 	}
