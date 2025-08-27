@@ -4,8 +4,6 @@ run_postgresql_deploy() {
     file="${2}"
 
     ensure "test-postgresql-deploy" "${file}"
-    # TODO: remove this once default storage pools are created.
-    juju create-storage-pool kubernetes kubernetes
 
     # Deploy the postgresql-k8s charm
     juju deploy postgresql-k8s --trust --channel 16/edge
