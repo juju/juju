@@ -37,9 +37,14 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 	offer := nameAndUUID{Name: args.OfferName, UUID: args.UUID.String()}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		applicationUUID, err := st.getApplicationUUID(ctx, tx, args.ApplicationName)
+		h, err := st.getApplicationUUIDs(ctx, tx, []string{args.ApplicationName})
 		if err != nil {
 			return errors.Capture(err)
+		}
+
+		applicationUUID, ok := h[args.ApplicationName]
+		if !ok {
+			return errors.Errorf("application %q not found", args.ApplicationName).Add(applicationerrors.ApplicationNotFound)
 		}
 
 		err = tx.Query(ctx, createOfferStmt, offer).Run()
@@ -300,30 +305,31 @@ func encodeOfferFilter(in internal.OfferFilter) ([]offerFilter, error) {
 	return result, nil
 }
 
-func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {
-	appID := nameAndUUID{
-		Name: appName,
-	}
+func (st *State) getApplicationUUIDs(ctx context.Context, tx *sqlair.TX, appNames []string) (map[string]string, error) {
+	type names []string
 
 	// Prepare the SQL statement to retrieve the application UUID.
 	stmt, err := st.Prepare(`
-SELECT &nameAndUUID.uuid
+SELECT &nameAndUUID.*
 FROM   application            
-WHERE  name = $nameAndUUID.name
-`, appID)
+WHERE  name IN ($names[:])
+`, nameAndUUID{}, names{})
 	if err != nil {
-		return "", errors.Errorf("preparing application uuid query: %w", err)
+		return nil, errors.Errorf("preparing application uuid query: %w", err)
 	}
 
 	// Execute the SQL transaction.
-	err = tx.Query(ctx, stmt, appID).Get(&appID)
+	var appIDs []nameAndUUID
+	err = tx.Query(ctx, stmt, names(appNames)).GetAll(&appIDs)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.ApplicationNotFound
+		return nil, applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return "", errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	return appID.UUID, nil
+	return transform.SliceToMap(appIDs, func(in nameAndUUID) (string, string) {
+		return in.Name, in.UUID
+	}), nil
 }
 
 func (st *State) getEndpointUUIDs(ctx context.Context, tx *sqlair.TX, appUUID string, endpoints []string) ([]string, error) {
