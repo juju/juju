@@ -49,8 +49,7 @@ CREATE TABLE storage_pool_origin (
 
 INSERT INTO storage_pool_origin (id, origin) VALUES
 (1, 'user'),
-(2, 'built-in'),
-(3, 'provider-default');
+(2, 'provider-default');
 
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
