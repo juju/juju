@@ -68,7 +68,8 @@ type SubnetV3 struct {
 type NetworkRoute struct {
 	// DestinationCIDR is the Subnet CIDR of traffic that needs a custom route.
 	DestinationCIDR string `json:"destination-cidr"`
-	// GatewayIP is the target IP to use as the next-hop when sending traffic to DestinationCIDR
+	// GatewayIP is the target IP to use as the next-hop when sending traffic to
+	// DestinationCIDR
 	GatewayIP string `json:"gateway-ip"`
 	// Metric is the cost for this particular route.
 	Metric int `json:"metric"`
@@ -105,17 +106,9 @@ type NetworkConfig struct {
 	// Deprecated: no longer written or read.
 	ProviderNetworkId string `json:"provider-network-id"`
 
-	// ProviderSubnetId is a provider-specific subnet id, to which the
-	// interface is attached to.
-	ProviderSubnetId string `json:"provider-subnet-id"`
-
 	// ProviderSpaceId is a provider-specific space id to which the interface
 	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
-
-	// ProviderAddressId is the provider-specific id of the assigned address,
-	// if supported and known.
-	ProviderAddressId string `json:"provider-address-id"`
 
 	// ProviderVLANId is the provider-specific id of the assigned address's
 	// VLAN, if supported and known.
@@ -156,12 +149,6 @@ type NetworkConfig struct {
 	// assumed to be the primary IP address for the interface.
 	Addresses []Address `json:"addresses,omitempty"`
 
-	// ShadowAddresses contains an optional list of additional IP addresses
-	// that the underlying network provider associates with this network
-	// interface instance. These IP addresses are not typically visible
-	// to the machine that the interface is connected to.
-	ShadowAddresses []Address `json:"shadow-addresses,omitempty"`
-
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
@@ -192,9 +179,22 @@ type NetworkConfig struct {
 	// NetworkOrigin represents the authoritative source of the NetworkConfig.
 	// It is expected that either the provider gave us this info or the
 	// machine gave us this info.
-	// Giving us this information allows us to reason about when a InterfaceInfo
-	// is in use.
+	// Giving us this information allows us to reason about when an
+	// InterfaceInfo is in use.
 	NetworkOrigin NetworkOrigin `json:"origin,omitempty"`
+
+	// These deprecated fields had to be retained for backwards compatibility
+	// because their tags did not include the `omitempty` option.
+
+	// ProviderSubnetId is a provider-specific subnet id, to which the
+	// interface is attached to.
+	// Deprecated: no longer written or read.
+	ProviderSubnetId string `json:"provider-subnet-id"`
+
+	// ProviderAddressId is the provider-specific id of the assigned address,
+	// if supported and known.
+	// Deprecated: no longer written or read.
+	ProviderAddressId string `json:"provider-address-id"`
 }
 
 // NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
@@ -220,10 +220,8 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
-			ProviderSubnetId:    string(v.ProviderSubnetId),
 			ProviderSpaceId:     string(v.ProviderSpaceId),
 			ProviderVLANId:      string(v.ProviderVLANId),
-			ProviderAddressId:   string(v.ProviderAddressId),
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
@@ -231,7 +229,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			Addresses:           FromProviderAddresses(v.Addresses...),
-			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
@@ -268,10 +265,8 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			MACAddress:          network.NormalizeMACAddress(v.MACAddress),
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
-			ProviderSubnetId:    network.Id(v.ProviderSubnetId),
 			ProviderSpaceId:     network.Id(v.ProviderSpaceId),
 			ProviderVLANId:      network.Id(v.ProviderVLANId),
-			ProviderAddressId:   network.Id(v.ProviderAddressId),
 			VLANTag:             v.VLANTag,
 			InterfaceName:       v.InterfaceName,
 			ParentInterfaceName: v.ParentInterfaceName,
@@ -280,7 +275,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
-			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),

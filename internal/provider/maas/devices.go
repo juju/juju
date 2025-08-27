@@ -85,14 +85,14 @@ func (env *maasEnviron) deviceInterfaceInfo(
 					link.IPAddress(),
 					corenetwork.WithCIDR(subnet.CIDR()),
 					corenetwork.WithConfigType(configType),
-				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space())),
+				).AsProviderAddress(
+					corenetwork.WithSpaceName(subnet.Space()),
+					corenetwork.WithProviderSubnetID(corenetwork.Id(strconv.Itoa(subnet.ID()))),
+					corenetwork.WithProviderID(corenetwork.Id(strconv.Itoa(link.ID()))),
+				),
 			}
-			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
-			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
-				nicInfo.GatewayAddress = corenetwork.NewMachineAddress(
-					subnet.Gateway(),
-				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space()))
+				nicInfo.GatewayAddress = corenetwork.NewMachineAddress(subnet.Gateway()).AsProviderAddress()
 			}
 			if len(subnet.DNSServers()) > 0 {
 				nicInfo.DNSServers = subnet.DNSServers()

@@ -531,7 +531,7 @@ func mapInterfaceList(
 				ipConf.IPAddress,
 				network.WithConfigType(network.ConfigStatic),
 				network.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
-			).AsProviderAddress()
+			).AsProviderAddress(network.WithProviderSubnetID(network.Id(ipConf.SubnetID)))
 
 			ni.Addresses = append(ni.Addresses, providerAddr)
 
@@ -551,7 +551,7 @@ func mapInterfaceList(
 
 			// If this is the first address, populate additional NIC details.
 			if i == 0 {
-				ni.ProviderSubnetId = network.Id(ipConf.SubnetID)
+				// ProviderSubnetID is now set per-address; nothing to set on the NIC here.
 			}
 		}
 

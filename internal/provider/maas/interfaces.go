@@ -223,9 +223,12 @@ func maasNetworkInterfaces(
 				// NOTE(achilleasa): the original code used a last-write-wins
 				// policy. Do we need to append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewMachineAddress(link.IPAddress(), corenetwork.WithConfigType(configType)).AsProviderAddress(),
+					corenetwork.NewMachineAddress(link.IPAddress(),
+						corenetwork.WithConfigType(configType),
+					).AsProviderAddress(
+						corenetwork.WithProviderID(corenetwork.Id(fmt.Sprintf("%v", link.ID()))),
+					),
 				}
-				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}
 
 			sub := link.Subnet()
@@ -235,7 +238,6 @@ func maasNetworkInterfaces(
 				continue
 			}
 
-			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID()))
 			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
 
 			// Provider addresses are created with a space name massaged
@@ -244,9 +246,14 @@ func maasNetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewMachineAddress(
-				link.IPAddress(), corenetwork.WithCIDR(sub.CIDR()), corenetwork.WithConfigType(configType),
-			).AsProviderAddress(corenetwork.WithSpaceName(space))
+			nicInfo.Addresses[0] = corenetwork.NewMachineAddress(link.IPAddress(),
+				corenetwork.WithCIDR(sub.CIDR()),
+				corenetwork.WithConfigType(configType),
+			).AsProviderAddress(
+				corenetwork.WithProviderSubnetID(corenetwork.Id(fmt.Sprintf("%v", sub.ID()))),
+				corenetwork.WithSpaceName(space),
+				corenetwork.WithProviderID(corenetwork.Id(fmt.Sprintf("%v", link.ID()))),
+			)
 
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
@@ -258,11 +265,8 @@ func maasNetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewMachineAddress(sub.Gateway()).AsProviderAddress(corenetwork.WithSpaceName(space))
+			gwAddr := corenetwork.NewMachineAddress(sub.Gateway()).AsProviderAddress()
 			nicInfo.DNSServers = sub.DNSServers()
-			if ok {
-				gwAddr.ProviderSpaceID = spaceId
-			}
 			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN().MTU()

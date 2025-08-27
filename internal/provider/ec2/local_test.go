@@ -2062,20 +2062,19 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *tc.C, expIfaceID, expDev
 	subnetId := network.Id("subnet-" + index)
 
 	expectedInterface := network.InterfaceInfo{
-		DeviceIndex:      expDevIndex,
-		MACAddress:       iface.MACAddress,
-		ProviderId:       network.Id(fmt.Sprintf("eni-%d", expIfaceID)),
-		ProviderSubnetId: subnetId,
-		VLANTag:          0,
-		Disabled:         false,
-		NoAutoStart:      false,
-		InterfaceType:    network.EthernetDevice,
+		DeviceIndex:   expDevIndex,
+		MACAddress:    iface.MACAddress,
+		VLANTag:       0,
+		Disabled:      false,
+		NoAutoStart:   false,
+		InterfaceType: network.EthernetDevice,
+		ProviderId:    network.Id(fmt.Sprintf("eni-%d", expIfaceID)),
 		Addresses: network.ProviderAddresses{network.NewMachineAddress(
 			addr,
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(cidr),
 			network.WithConfigType(network.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(network.WithProviderSubnetID(subnetId))},
 		// Each machine is also assigned a shadow IP with the pattern:
 		// 73.37.0.X where X=(provider iface ID + 1)
 		ShadowAddresses: network.ProviderAddresses{network.NewMachineAddress(
@@ -2096,10 +2095,12 @@ func (t *localServerSuite) TestSubnetsWithSubnetId(c *tc.C) {
 	interfaces := interfaceList[0]
 	c.Assert(interfaces, tc.HasLen, 1)
 
-	subnets, err := env.Subnets(c.Context(), []network.Id{interfaces[0].ProviderSubnetId})
+	subID := interfaces[0].Addresses[0].ProviderSubnetID
+
+	subnets, err := env.Subnets(c.Context(), []network.Id{subID})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(subnets, tc.HasLen, 1)
-	c.Assert(subnets[0].ProviderId, tc.Equals, interfaces[0].ProviderSubnetId)
+	c.Assert(subnets[0].ProviderId, tc.Equals, subID)
 	validateSubnets(c, subnets, "vpc-0")
 }
 
