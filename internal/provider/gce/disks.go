@@ -16,37 +16,28 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
-	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 )
 
 const (
-	storageProviderType = storage.ProviderType("gce")
+	gceStorageProviderType = storage.ProviderType("gce")
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{
-		storageProviderType,
-		storageprovider.TmpfsProviderType,
-		storageprovider.RootfsProviderType,
-		storageprovider.LoopProviderType,
-	}, nil
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		gceStorageProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	switch t {
-	case storageProviderType:
+	case gceStorageProviderType:
 		return &storageProvider{env}, nil
-	case storageprovider.TmpfsProviderType:
-		return storageprovider.NewTmpfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.RootfsProviderType:
-		return storageprovider.NewRootfsProvider(storageprovider.LogAndExec), nil
-	case storageprovider.LoopProviderType:
-		return storageprovider.NewLoopProvider(storageprovider.LogAndExec), nil
 	default:
-		return nil, errors.NotFoundf("storage provider %q", t)
+		return common.GetCommonIAASStorageProvider(t)
 	}
 }
 
@@ -87,7 +78,7 @@ func (e *storageProvider) Releasable() bool {
 // Implements [storage.Provider] interface.
 func (g *storageProvider) DefaultPools() []*storage.Config {
 	defaultPool, _ := storage.NewConfig(
-		storageProviderType.String(), storageProviderType, storage.Attrs{},
+		gceStorageProviderType.String(), gceStorageProviderType, storage.Attrs{},
 	)
 
 	return []*storage.Config{defaultPool}
