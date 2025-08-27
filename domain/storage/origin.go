@@ -15,5 +15,5 @@ const (
 
 	// StoragePoolOriginProviderDefault indicates that the storage pool is a
 	// default offered by the storage provider.
-	StoragePoolOriginProviderDefault = 3
+	StoragePoolOriginProviderDefault = 2
 )
