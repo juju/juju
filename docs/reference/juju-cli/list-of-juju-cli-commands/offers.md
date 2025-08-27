@@ -14,12 +14,12 @@ Lists shared endpoints.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--active-only` | false | only return results where the offer is in use |
-| `--allowed-consumer` |  | return results where the user is allowed to consume the offer |
-| `--application` |  | return results matching the application |
-| `--connected-user` |  | return results where the user has a connection to the offer |
+| `--active-only` | false | Only return results where the offer is in use |
+| `--allowed-consumer` |  | Return results where the user is allowed to consume the offer |
+| `--application` |  | Return results matching the application |
+| `--connected-user` |  | Return results where the user has a connection to the offer |
 | `--format` | tabular | Specify output format (json&#x7c;summary&#x7c;tabular&#x7c;yaml) |
-| `--interface` |  | return results matching the interface name |
+| `--interface` |  | Return results matching the interface name |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
 
@@ -39,7 +39,7 @@ Lists shared endpoints.
 
 List information about applications' endpoints that have been shared and who is connected.
 
-The default tabular output shows each user connected (relating to) the offer, and the 
+The default tabular output shows each user connected (relating to) the offer, and the
 relation id of the relation.
 
 The summary output shows one row per offer, with a count of active/total relations.

@@ -145,7 +145,7 @@ The currently available charm hook commands include:
 const helpHookCmdsExamples = `
 For help on a specific hook command, supply the name of that hook command, for example:
 
-        juju help-hook-commands unit-get
+    juju help-hook-commands unit-get
 `
 
 func listHelpHookCmds() string {

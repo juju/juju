@@ -14,68 +14,51 @@ Displays or sets configuration settings for a controller.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-c`, `--controller` |  | Controller to operate in |
 | `--color` | false | Use ANSI color codes in output |
-| `--file` |  | path to yaml-formatted configuration file |
+| `--file` |  | Path to yaml-formatted configuration file |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--ignore-read-only-fields` | false | Ignore read only fields that might cause errors to be emitted while processing yaml documents |
+| `--ignore-read-only-fields` | false | Ignore read-only fields that might cause errors to be emitted while processing yaml documents |
 | `--no-color` | false | Disable ANSI color codes in tabular output |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples
 
-Print all config values for the current controller:
 
-    juju controller-config
+To view the value of a single config key for the current controller:
 
-Print the value of "api-port" for the current controller:
+    juju controller-config <key>
 
-    juju controller-config api-port
+To view the value of all config keys for the current controller in the json format:
 
-Print all config values for the controller "mycontroller":
+    juju controller-config --format json
 
-    juju controller-config -c mycontroller
+To view the values of all config keys for a different controller:
 
-Set the "auditing-enabled" and "audit-log-max-backups" keys:
+    juju controller-config -c <controller>
 
-    juju controller-config auditing-enabled=true audit-log-max-backups=5
+To set two keys in the current controller to a different value:
 
-Set the current controller's config from a yaml file:
+    juju controller-config <key>=<value> <key>=<value>
 
-    juju controller-config --file path/to/file.yaml
+To save a controller's current config to a yaml file:
+
+    juju controller-config --format=yaml > <configuration-filename>.yaml
+
+To set the current controller's config from a yaml file ignoring read-only fields,
+then override the value for one key:
+
+    juju controller-config --file path/to/file.yaml --ignore-read-only-fields <key>=<value>
+
+To view all the configs from one file in yaml, then apply the same config values
+to another controller from stdin using `|` and `-` (in `--file=-`):
+
+    juju controller-config -c <controller> --format=yaml \
+      | juju controller-config -c <controller> --file=- --ignore-read-only-fields
 
 
 ## Details
 
-To view all configuration values for the current controller, run
-    juju controller-config
-You can target a specific controller using the -c flag:
-    juju controller-config -c <controller>
-By default, the config will be printed in a tabular format. You can instead
-print it in json or yaml format using the --format flag:
-    juju controller-config --format json
-    juju controller-config --format yaml
 
-To view the value of a single config key, run
-    juju controller-config key
-To set config values, run
-    juju controller-config key1=val1 key2=val2 ...
-
-Config values can be imported from a yaml file using the --file flag:
-    juju controller-config --file=path/to/cfg.yaml
-This allows you to e.g. save a controller's config to a file:
-    juju controller-config --format=yaml > cfg.yaml
-and then import the config later. Note that the output of controller-config
-may include read-only values, which will cause an error when importing later.
-To prevent the error, use the --ignore-read-only-fields flag:
-    juju controller-config --file=cfg.yaml --ignore-read-only-fields
-
-You can also read from stdin using "-", which allows you to pipe config values
-from one controller to another:
-    juju controller-config -c c1 --format=yaml \
-      | juju controller-config -c c2 --file=- --ignore-read-only-fields
-You can simultaneously read config from a yaml file and set config keys
-as above. The command-line args will override any values specified in the file.
-
-The following keys are available:
+Controller configuration keys:
 
     agent-logfile-max-backups:
       type: int

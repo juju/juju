@@ -22,5 +22,5 @@ Exports the current model configuration as a reusable bundle.
 
 Exports the current model configuration as a reusable bundle.
 
-If --filename is not used, the configuration is printed to stdout.
- --filename specifies an output file.
+If `--filename` is not used, the configuration is printed to `stdout`.
+` --filename` specifies an output file.

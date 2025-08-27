@@ -14,7 +14,7 @@ import (
 )
 
 const versionDoc = `
-Print only the Juju CLI client version.`
+Print only the ` + "`juju `" + `CLI client version.`
 
 const versionExamplesDoc = `
     juju version

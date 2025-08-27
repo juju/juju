@@ -22,6 +22,6 @@ Resumes a suspended relation to an application offer.
 
 ## Details
 
-A relation between an application in another model and an offer in this model will be resumed. 
-The relation-joined and relation-changed hooks will be run for the relation, and the relation
-status will be set to joined. The relation is specified using its id.
+A relation between an application in another model and an offer in this model will be resumed.
+The `relation-joined` and `relation-changed` hooks will be run for the relation, and the relation
+status will be set to joined. The relation is specified using its ID.

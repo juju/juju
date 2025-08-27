@@ -51,7 +51,7 @@ func (c *disableCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "disable-command",
 		Args:     "<command set> [message...]",
-		Purpose:  "Disable commands for the model.",
+		Purpose:  "Disables commands for the model.",
 		Doc:      disableCommandDoc,
 		Examples: disableCommandExamples,
 		SeeAlso: []string{
@@ -84,7 +84,7 @@ execution of operations that could alter model.
 This is done by disabling certain sets of commands from successful execution.
 Disabled commands must be manually enabled to proceed.
 
-Some commands offer a --force option that can be used to bypass the disabling.
+Some commands offer a ` + "`--force`" + ` option that can be used to bypass the disabling.
 ` + commandSets
 
 const disableCommandExamples = `

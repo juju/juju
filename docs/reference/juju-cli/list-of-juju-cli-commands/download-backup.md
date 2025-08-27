@@ -22,7 +22,7 @@ Download a backup archive file.
 
 ## Details
 
-download-backup retrieves a backup archive file.
+Retrieves a backup archive file.
 
-If --filename is not used, the archive is downloaded to a temporary
+If `--filename` is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.

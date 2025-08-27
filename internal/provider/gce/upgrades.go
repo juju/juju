@@ -37,18 +37,18 @@ func (diskLabelsUpgradeStep) Description() string {
 // Run is part of the environs.UpgradeStep interface.
 func (step diskLabelsUpgradeStep) Run(ctx context.Context) error {
 	env := step.env
-	disks, err := env.gce.Disks()
+	disks, err := env.gce.Disks(ctx)
 	if err != nil {
 		return env.HandleCredentialError(ctx, err)
 	}
 	for _, disk := range disks {
-		if !isValidVolume(disk.Name) {
+		if !isValidVolume(disk.GetName()) {
 			continue
 		}
 		if disk.Labels[tags.JujuModel] != "" || disk.Labels[tags.JujuController] != "" {
 			continue
 		}
-		if disk.Description != "" && disk.Description != env.uuid {
+		if disk.GetDescription() != "" && disk.GetDescription() != env.uuid {
 			continue
 		}
 		if disk.Labels == nil {
@@ -56,8 +56,8 @@ func (step diskLabelsUpgradeStep) Run(ctx context.Context) error {
 		}
 		disk.Labels[tags.JujuModel] = env.uuid
 		disk.Labels[tags.JujuController] = step.controllerUUID
-		if err := env.gce.SetDiskLabels(disk.Zone, disk.Name, disk.LabelFingerprint, disk.Labels); err != nil {
-			return errors.Annotatef(env.HandleCredentialError(ctx, err), "cannot set labels on volume %q", disk.Name)
+		if err := env.gce.SetDiskLabels(ctx, disk.GetZone(), disk.GetName(), disk.GetLabelFingerprint(), disk.GetLabels()); err != nil {
+			return errors.Annotatef(env.HandleCredentialError(ctx, err), "cannot set labels on volume %q", disk.GetName())
 		}
 	}
 	return nil

@@ -4,14 +4,18 @@
 package gce_test
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4"
+	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/gce"
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -26,10 +30,10 @@ func TestStorageProviderSuite(t *testing.T) {
 
 func (s *storageProviderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-
+	env := s.SetupEnv(c, nil)
 	var err error
-	s.provider, err = s.Env.StorageProvider("gce")
-	c.Assert(err, tc.ErrorIsNil)
+	s.provider, err = env.StorageProvider("gce")
+	c.Assert(err, tc.IsNil)
 }
 
 func (s *storageProviderSuite) TestValidateConfig(c *tc.C) {
@@ -65,9 +69,7 @@ func (s *storageProviderSuite) TestVolumeSource(c *tc.C) {
 
 type volumeSourceSuite struct {
 	gce.BaseSuite
-	source           storage.VolumeSource
 	params           []storage.VolumeParams
-	instId           instance.Id
 	attachmentParams *storage.VolumeAttachmentParams
 }
 
@@ -78,160 +80,216 @@ func TestVolumeSourceSuite(t *testing.T) {
 func (s *volumeSourceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	provider, err := s.Env.StorageProvider("gce")
-	c.Assert(err, tc.ErrorIsNil)
-	s.source, err = provider.VolumeSource(&storage.Config{})
-	c.Check(err, tc.ErrorIsNil)
-
-	inst := gce.NewInstance(s.BaseInstance, s.Env)
-	vTag := names.NewVolumeTag("0")
-	mTag := names.NewMachineTag("0")
-	s.instId = inst.Id()
 	s.attachmentParams = &storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "gce",
-			Machine:    mTag,
-			InstanceId: s.instId,
+			Machine:    names.NewMachineTag("0"),
+			InstanceId: "inst-0",
 		},
-		VolumeId: s.BaseDisk.Name,
+		VolumeId: "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 		Volume:   names.NewVolumeTag("0"),
 	}
 	s.params = []storage.VolumeParams{{
-		Tag:        vTag,
+		Tag:        names.NewVolumeTag("0"),
 		Size:       1024,
 		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
 }
 
-func (s *volumeSourceSuite) TestCreateVolumesNoInstance(c *tc.C) {
-	res, err := s.source.CreateVolumes(c.Context(), s.params)
+func (s *volumeSourceSuite) setUpSource(c *tc.C) storage.VolumeSource {
+	env := s.SetupEnv(c, s.MockService)
+	provider, err := env.StorageProvider("gce")
+	c.Assert(err, tc.ErrorIsNil)
+	source, err := provider.VolumeSource(&storage.Config{})
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, tc.HasLen, 1)
-	expectedErr := "cannot obtain \"spam\" from instance cache: cannot attach to non-running instance spam"
-	c.Assert(res[0].Error, tc.ErrorMatches, expectedErr)
-
+	return source
 }
 
-func (s *volumeSourceSuite) TestCreateVolumesNoDiskCreated(c *tc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
-	res, err := s.source.CreateVolumes(c.Context(), s.params)
+func (s *volumeSourceSuite) TestCreateVolumesNoInstance(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return(nil, nil)
+
+	source := s.setUpSource(c)
+	res, err := source.CreateVolumes(c.Context(), s.params)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 1)
-	c.Assert(res[0].Error, tc.ErrorMatches, "unexpected number of disks created: 0")
-
+	expectedErr := "cannot obtain \"inst-0\" from instance cache: cannot attach to non-running instance inst-0"
+	c.Assert(res[0].Error, tc.ErrorMatches, expectedErr)
 }
 
 func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("path/to/zone"),
+	}}, nil)
+
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.CreateVolumes(c.Context(), s.params)
+	expected := &computepb.Disk{
+		Name:   ptr("zone"),
+		SizeGb: ptr(int64(1024)),
+		Type:   ptr("pd-standard"),
+		Labels: map[string]string{},
+	}
+	s.MockService.EXPECT().CreateDisks(gomock.Any(), "zone", gomock.Any()).
+		DoAndReturn(func(ctx context.Context, zone string, disks []*computepb.Disk) error {
+			c.Assert(disks, tc.HasLen, 1)
+			if !strings.HasPrefix(disks[0].GetName(), "zone--") {
+				c.Fail()
+			}
+			expected.Name = disks[0].Name
+			c.Assert(disks[0], tc.DeepEquals, expected)
+			return gce.InvalidCredentialError
+		})
+
+	s.MockService.EXPECT().RemoveDisk(gomock.Any(), "zone", gomock.Any()).
+		DoAndReturn(func(ctx context.Context, zone, volName string) error {
+			if !strings.HasPrefix(volName, zone+"--") {
+				c.Fail()
+			}
+			return nil
+		})
+
+	source := s.setUpSource(c)
+	_, err := source.CreateVolumes(c.Context(), s.params)
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestCreateVolumes(c *tc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
-	s.FakeConn.GoogleDisk = s.BaseDisk
-	s.FakeConn.AttachedDisk = &google.AttachedDisk{
-		VolumeName: s.BaseDisk.Name,
-		DeviceName: "home-zone-1234567",
-		Mode:       "READ_WRITE",
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("path/to/zone"),
+	}}, nil)
+
+	expected := &computepb.Disk{
+		Name:   ptr("zone"),
+		SizeGb: ptr(int64(1024)),
+		Type:   ptr("pd-standard"),
+		Labels: map[string]string{},
 	}
-	res, err := s.source.CreateVolumes(c.Context(), s.params)
+	s.MockService.EXPECT().CreateDisks(gomock.Any(), "zone", gomock.Any()).
+		DoAndReturn(func(ctx context.Context, zone string, disks []*computepb.Disk) error {
+			c.Assert(disks, tc.HasLen, 1)
+			if !strings.HasPrefix(disks[0].GetName(), "zone--") {
+				c.Fail()
+			}
+			expected.Name = disks[0].Name
+			c.Assert(disks[0], tc.DeepEquals, expected)
+			return nil
+		})
+	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").Return([]*computepb.AttachedDisk{{
+		Source: ptr("not-already-attached"),
+	}}, nil)
+	var attachedVol string
+	s.MockService.EXPECT().AttachDisk(gomock.Any(), "zone", gomock.Any(), "inst-0", google.ModeRW).
+		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error) {
+			if !strings.HasPrefix(volName, zone+"--") {
+				c.Fail()
+			}
+			attachedVol = volName
+			return &computepb.AttachedDisk{
+				DeviceName: ptr("zone-1234567"),
+			}, nil
+		})
+
+	source := s.setUpSource(c)
+	res, err := source.CreateVolumes(c.Context(), s.params)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 1)
 	// Volume was created
 	c.Assert(res[0].Error, tc.ErrorIsNil)
-	c.Assert(res[0].Volume.VolumeId, tc.Equals, s.BaseDisk.Name)
+	c.Assert(res[0].Volume.VolumeId, tc.Equals, attachedVol)
 	c.Assert(res[0].Volume.HardwareId, tc.Equals, "")
 
 	// Volume was also attached as indicated by Attachment in params.
 	c.Assert(res[0].VolumeAttachment.DeviceName, tc.Equals, "")
-	c.Assert(res[0].VolumeAttachment.DeviceLink, tc.Equals, "/dev/disk/by-id/google-home-zone-1234567")
+	c.Assert(res[0].VolumeAttachment.DeviceLink, tc.Equals, "/dev/disk/by-id/google-zone-1234567")
 	c.Assert(res[0].VolumeAttachment.Machine.String(), tc.Equals, "machine-0")
 	c.Assert(res[0].VolumeAttachment.ReadOnly, tc.IsFalse)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), tc.Equals, "volume-0")
-
-	// Internals where properly called
-	// Disk Creation
-	createCalled, call := s.FakeConn.WasCalled("CreateDisks")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(createCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].Disks[0].Name, tc.HasPrefix, "home-zone--")
-
-	// Instance existence Checking
-	instanceDisksCalled, call := s.FakeConn.WasCalled("InstanceDisks")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(instanceDisksCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].InstanceId, tc.Equals, string(s.instId))
-
-	// Disk Was attached
-	attachCalled, call := s.FakeConn.WasCalled("AttachDisk")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(attachCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].VolumeName, tc.HasPrefix, "home-zone--")
-	c.Assert(call[0].InstanceId, tc.Equals, string(s.instId))
 }
 
 func (s *volumeSourceSuite) TestDestroyVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.DestroyVolumes(c.Context(), []string{"a--volume-name"})
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().RemoveDisk(gomock.Any(), "zone", "zone--volume-name").Return(gce.InvalidCredentialError)
+
+	source := s.setUpSource(c)
+	_, err := source.DestroyVolumes(c.Context(), []string{"zone--volume-name"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestDestroyVolumes(c *tc.C) {
-	errs, err := s.source.DestroyVolumes(c.Context(), []string{"a--volume-name"})
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().RemoveDisk(gomock.Any(), "zone", "zone--volume-name")
+
+	source := s.setUpSource(c)
+	errs, err := source.DestroyVolumes(c.Context(), []string{"zone--volume-name"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorIsNil)
-
-	destroyCalled, call := s.FakeConn.WasCalled("RemoveDisk")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(destroyCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "a")
-	c.Assert(call[0].ID, tc.Equals, "a--volume-name")
 }
 
 func (s *volumeSourceSuite) TestReleaseVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(nil, gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.ReleaseVolumes(c.Context(), []string{s.BaseDisk.Name})
+
+	source := s.setUpSource(c)
+	_, err := source.ReleaseVolumes(c.Context(), []string{"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestReleaseVolumes(c *tc.C) {
-	s.FakeConn.GoogleDisk = s.BaseDisk
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	errs, err := s.source.ReleaseVolumes(c.Context(), []string{s.BaseDisk.Name})
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").Return(&computepb.Disk{
+		Status:           ptr("READY"),
+		Users:            []string(nil),
+		LabelFingerprint: ptr("fingerprint"),
+		Labels:           map[string]string{"foo": "bar"},
+	}, nil)
+	s.MockService.EXPECT().SetDiskLabels(
+		gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", "fingerprint",
+		map[string]string{"foo": "bar"})
+
+	source := s.setUpSource(c)
+	errs, err := source.ReleaseVolumes(c.Context(), []string{"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorIsNil)
-
-	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Check(called, tc.IsTrue)
-	c.Assert(calls, tc.HasLen, 1)
-	c.Assert(calls[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(calls[0].ID, tc.Equals, s.BaseDisk.Name)
-	c.Assert(calls[0].Labels, tc.DeepEquals, map[string]string{
-		"yodel": "eh",
-		// Note, no controller/model labels
-	})
 }
 
 func (s *volumeSourceSuite) TestImportVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(nil, gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.(storage.VolumeImporter).ImportVolume(
+
+	source := s.setUpSource(c)
+	_, err := source.(storage.VolumeImporter).ImportVolume(
 		c.Context(),
-		s.BaseDisk.Name, map[string]string{
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
 		},
@@ -241,181 +299,247 @@ func (s *volumeSourceSuite) TestImportVolumesInvalidCredentialError(c *tc.C) {
 }
 
 func (s *volumeSourceSuite) TestImportVolume(c *tc.C) {
-	s.FakeConn.GoogleDisk = s.BaseDisk
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Assert(s.source, tc.Implements, new(storage.VolumeImporter))
-	volumeInfo, err := s.source.(storage.VolumeImporter).ImportVolume(
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(&computepb.Disk{
+			Name:             ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+			Status:           ptr("READY"),
+			SizeGb:           ptr(int64(1)),
+			Users:            []string(nil),
+			LabelFingerprint: ptr("fingerprint"),
+			Labels:           map[string]string{"foo": "bar"},
+		}, nil)
+	s.MockService.EXPECT().SetDiskLabels(
+		gomock.Any(),
+		"zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		"fingerprint",
+		map[string]string{
+			"foo":                  "bar",
+			"juju-controller-uuid": "bar",
+			"juju-model-uuid":      "foo",
+		})
+
+	source := s.setUpSource(c)
+	c.Assert(source, tc.Implements, new(storage.VolumeImporter))
+	volumeInfo, err := source.(storage.VolumeImporter).ImportVolume(
 		c.Context(),
-		s.BaseDisk.Name, map[string]string{
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
 		},
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(volumeInfo, tc.DeepEquals, storage.VolumeInfo{
-		VolumeId:   s.BaseDisk.Name,
+		VolumeId:   "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 		Size:       1024,
 		Persistent: true,
-	})
-
-	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Check(called, tc.IsTrue)
-	c.Assert(calls, tc.HasLen, 1)
-	c.Assert(calls[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(calls[0].ID, tc.Equals, s.BaseDisk.Name)
-	c.Assert(calls[0].Labels, tc.DeepEquals, map[string]string{
-		"juju-model-uuid":      "foo",
-		"juju-controller-uuid": "bar",
-		"yodel":                "eh", // other existing tags left alone
 	})
 }
 
 func (s *volumeSourceSuite) TestImportVolumeNotReady(c *tc.C) {
-	s.FakeConn.GoogleDisk = s.BaseDisk
-	s.FakeConn.GoogleDisk.Status = "floop"
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	_, err := s.source.(storage.VolumeImporter).ImportVolume(
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(&computepb.Disk{
+			Status:           ptr("FAILED"),
+			Users:            []string(nil),
+			LabelFingerprint: ptr("fingerprint"),
+			Labels:           map[string]string{"foo": "bar"},
+		}, nil)
+
+	source := s.setUpSource(c)
+	_, err := source.(storage.VolumeImporter).ImportVolume(
 		c.Context(),
-		s.BaseDisk.Name, map[string]string{},
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{},
 	)
-	c.Check(err, tc.ErrorMatches, `cannot import volume "`+s.BaseDisk.Name+`" with status "floop"`)
-
-	called, _ := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Check(called, tc.IsFalse)
+	c.Check(err, tc.ErrorMatches, `cannot import volume "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4" with status "FAILED"`)
 }
 
 func (s *volumeSourceSuite) TestListVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return(nil, gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.ListVolumes(c.Context())
+
+	source := s.setUpSource(c)
+	_, err := source.ListVolumes(c.Context())
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestListVolumes(c *tc.C) {
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
-	vols, err := s.source.ListVolumes(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-	c.Assert(vols, tc.HasLen, 1)
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	disksCalled, call := s.FakeConn.WasCalled("Disks")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(disksCalled, tc.IsTrue)
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
+		Labels: map[string]string{
+			"juju-model-uuid": s.ModelUUID,
+		},
+	}}, nil)
+
+	source := s.setUpSource(c)
+	vols, err := source.ListVolumes(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(vols, tc.DeepEquals, []string{"zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"})
 }
 
 func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *tc.C) {
-	otherDisk := &google.Disk{
-		Id:          1234568,
-		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: "a-different-model-uuid",
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
 		Labels: map[string]string{
-			"juju-model-uuid": "foo",
+			"juju-model-uuid": s.ModelUUID,
 		},
-	}
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	vols, err := s.source.ListVolumes(c.Context())
+	}, {
+		Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+		Status: ptr("READY"),
+		Labels: map[string]string{
+			"juju-model-uuid": utils.MustNewUUID().String(),
+		},
+	}}, nil)
+
+	source := s.setUpSource(c)
+	vols, err := source.ListVolumes(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Assert(vols, tc.HasLen, 1)
+	c.Assert(vols, tc.DeepEquals, []string{"zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"})
 }
 
-func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *tc.C) {
-	otherDisk := &google.Disk{
-		Id:          1234568,
-		Name:        "juju-566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: "",
-	}
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	vols, err := s.source.ListVolumes(c.Context())
+func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormattedDifferently(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
+		Labels: map[string]string{
+			"juju-model-uuid": s.ModelUUID,
+		},
+	}, {
+		Name:   ptr("c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+		Status: ptr("READY"),
+		Labels: map[string]string{
+			"juju-model-uuid": s.ModelUUID,
+		},
+	}}, nil)
+
+	source := s.setUpSource(c)
+	vols, err := source.ListVolumes(c.Context())
 	c.Check(err, tc.ErrorIsNil)
-	c.Assert(vols, tc.HasLen, 1)
+	c.Assert(vols, tc.DeepEquals, []string{"zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"})
 }
 
 func (s *volumeSourceSuite) TestDescribeVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(nil, gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
-	_, err := s.source.DescribeVolumes(c.Context(), []string{volName})
+
+	source := s.setUpSource(c)
+	volName := "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
+	_, err := source.DescribeVolumes(c.Context(), []string{volName})
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestDescribeVolumes(c *tc.C) {
-	s.FakeConn.GoogleDisk = s.BaseDisk
-	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
-	res, err := s.source.DescribeVolumes(c.Context(), []string{volName})
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(&computepb.Disk{
+			Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
+			SizeGb: ptr(int64(1)),
+		}, nil)
+
+	source := s.setUpSource(c)
+	volName := "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
+	res, err := source.DescribeVolumes(c.Context(), []string{volName})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
+	c.Assert(res[0].Error, tc.ErrorIsNil)
 	c.Assert(res[0].VolumeInfo.Size, tc.Equals, uint64(1024))
 	c.Assert(res[0].VolumeInfo.VolumeId, tc.Equals, volName)
-
-	diskCalled, call := s.FakeConn.WasCalled("Disk")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(diskCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].ID, tc.Equals, volName)
 }
 
 func (s *volumeSourceSuite) TestAttachVolumes(c *tc.C) {
-	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").
+		Return([]*computepb.AttachedDisk{{
+			Source: ptr("not-already-attached"),
+		}}, nil)
+	s.MockService.EXPECT().AttachDisk(gomock.Any(), "zone", gomock.Any(), "inst-0", google.ModeRW).
+		DoAndReturn(func(ctx context.Context, zone, volName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error) {
+			if !strings.HasPrefix(volName, zone+"--") {
+				c.Fail()
+			}
+			return &computepb.AttachedDisk{
+				DeviceName: ptr("zone-1234567"),
+			}, nil
+		})
+
+	source := s.setUpSource(c)
 	attachments := []storage.VolumeAttachmentParams{*s.attachmentParams}
-	s.FakeConn.AttachedDisk = &google.AttachedDisk{
-		VolumeName: s.BaseDisk.Name,
-		DeviceName: "home-zone-1234567",
-		Mode:       "READ_WRITE",
-	}
-	res, err := s.source.AttachVolumes(c.Context(), attachments)
+	res, err := source.AttachVolumes(c.Context(), attachments)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(res, tc.HasLen, 1)
+	c.Assert(res[0].Error, tc.ErrorIsNil)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), tc.Equals, "volume-0")
 	c.Assert(res[0].VolumeAttachment.Machine.String(), tc.Equals, "machine-0")
 	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceName, tc.Equals, "")
-	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceLink, tc.Equals, "/dev/disk/by-id/google-home-zone-1234567")
-
-	// Disk Was attached
-	attachCalled, call := s.FakeConn.WasCalled("AttachDisk")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(attachCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].VolumeName, tc.Equals, volName)
-	c.Assert(call[0].InstanceId, tc.Equals, string(s.instId))
-
+	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceLink, tc.Equals, "/dev/disk/by-id/google-zone-1234567")
 }
 
 func (s *volumeSourceSuite) TestAttachVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().InstanceDisks(gomock.Any(), "zone", "inst-0").
+		Return(nil, gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.AttachVolumes(c.Context(), []storage.VolumeAttachmentParams{*s.attachmentParams})
+
+	source := s.setUpSource(c)
+	_, err := source.AttachVolumes(c.Context(), []storage.VolumeAttachmentParams{*s.attachmentParams})
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *volumeSourceSuite) TestDetachVolumes(c *tc.C) {
-	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().DetachDisk(gomock.Any(), "zone", "inst-0", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4")
+
+	source := s.setUpSource(c)
 	attachments := []storage.VolumeAttachmentParams{*s.attachmentParams}
-	errs, err := s.source.DetachVolumes(c.Context(), attachments)
+	errs, err := source.DetachVolumes(c.Context(), attachments)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorIsNil)
-
-	// Disk Was detached
-	attachCalled, call := s.FakeConn.WasCalled("DetachDisk")
-	c.Check(call, tc.HasLen, 1)
-	c.Assert(attachCalled, tc.IsTrue)
-	c.Assert(call[0].ZoneName, tc.Equals, "home-zone")
-	c.Assert(call[0].InstanceId, tc.Equals, string(s.instId))
-	c.Assert(call[0].VolumeName, tc.Equals, volName)
 }
 
 func (s *volumeSourceSuite) TestDetachVolumesInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().DetachDisk(gomock.Any(), "zone", "inst-0", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
+		Return(gce.InvalidCredentialError)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	_, err := s.source.DetachVolumes(c.Context(), []storage.VolumeAttachmentParams{*s.attachmentParams})
+
+	source := s.setUpSource(c)
+	_, err := source.DetachVolumes(c.Context(), []storage.VolumeAttachmentParams{*s.attachmentParams})
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }

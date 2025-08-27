@@ -6,44 +6,27 @@ package gce
 import (
 	"context"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/provider/gce/google"
 )
 
 var (
-	Provider                 environs.EnvironProvider = providerInstance
-	NewInstance                                       = newInstance
-	GetMetadata                                       = getMetadata
-	GetDisks                                          = getDisks
-	UbuntuImageBasePath                               = ubuntuImageBasePath
-	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
-	UbuntuProImageBasePath                            = ubuntuProImageBasePath
+	Provider             environs.EnvironProvider = providerInstance
+	GetMetadata                                   = getMetadata
+	GetDisks                                      = getDisks
+	Bootstrap                                     = &bootstrap
+	FirewallerSuffixFunc                          = &randomSuffixNamer
 )
-
-func ExposeInstBase(inst instances.Instance) *google.Instance {
-	return inst.(*environInstance).base
-}
-
-func ExposeInstEnv(inst *environInstance) *environ {
-	return inst.env
-}
-
-func ExposeEnvConfig(env *environ) *environConfig {
-	return env.ecfg
-}
-
-func ExposeEnvConnection(env *environ) gceConnection {
-	return env.gce
-}
 
 func GlobalFirewallName(env *environ) string {
 	return env.globalFirewallName()
 }
 
-func ParsePlacement(env *environ, ctx context.Context, placement string) (*instPlacement, error) {
+func ParsePlacement(env *environ, ctx context.Context, placement string) (*computepb.Zone, error) {
 	return env.parsePlacement(ctx, placement)
 }
 
@@ -64,14 +47,6 @@ func BuildInstanceSpec(env *environ, ctx context.Context, args environs.StartIns
 	return env.buildInstanceSpec(ctx, args)
 }
 
-func NewRawInstance(env *environ, ctx context.Context, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	return env.newRawInstance(ctx, args, spec)
-}
-
 func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	return env.getHardwareCharacteristics(spec, inst)
-}
-
-func GetInstances(env *environ, ctx context.Context) ([]instances.Instance, error) {
-	return env.instances(ctx)
 }

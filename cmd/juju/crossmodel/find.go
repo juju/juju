@@ -30,7 +30,7 @@ const findCommandExamples = `
     juju find-offers --interface mysql
     juju find-offers --url staging/mymodel.db2
     juju find-offers --offer db2
-   
+
 `
 
 type findCommand struct {
@@ -91,9 +91,9 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.RemoteEndpointsCommandBase.SetFlags(f)
-	f.StringVar(&c.url, "url", "", "return results matching the offer URL")
-	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
-	f.StringVar(&c.offerName, "offer", "", "return results matching the offer name")
+	f.StringVar(&c.url, "url", "", "Return results matching the offer URL")
+	f.StringVar(&c.interfaceName, "interface", "", "Return results matching the interface name")
+	f.StringVar(&c.offerName, "offer", "", "Return results matching the offer name")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

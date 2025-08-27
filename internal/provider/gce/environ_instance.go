@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 // instStatus is the list of statuses to accept when filtering
@@ -71,12 +72,12 @@ var getInstances = func(env *environ, ctx context.Context, statusFilters ...stri
 	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx context.Context, statusFilters ...string) ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx context.Context, statusFilters ...string) ([]*computepb.Instance, error) {
 	prefix := env.namespace.Prefix()
 	if len(statusFilters) == 0 {
 		statusFilters = instStatuses
 	}
-	instances, err := env.gce.Instances(prefix, statusFilters...)
+	instances, err := env.gce.Instances(ctx, prefix, statusFilters...)
 	if err != nil {
 		return instances, env.HandleCredentialError(ctx, err)
 	}
@@ -96,14 +97,32 @@ func (env *environ) instances(ctx context.Context, statusFilters ...string) ([]i
 	// whether or not we got an error.
 	var results []instances.Instance
 	for _, base := range gceInstances {
-		// If we don't make a copy then the same pointer is used for the
-		// base of all resulting instances.
-		copied := base
-		inst := newInstance(&copied, env)
+		inst := newInstance(base, env)
 		results = append(results, inst)
 	}
 
 	return results, err
+}
+
+// unpackMetadata decomposes the provided data from the format used
+// in the GCE API.
+func unpackMetadata(data *computepb.Metadata) map[string]string {
+	if data == nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, item := range data.Items {
+		if item == nil {
+			continue
+		}
+		value := ""
+		if item.Value != nil {
+			value = *item.Value
+		}
+		result[item.GetKey()] = value
+	}
+	return result
 }
 
 // ControllerInstances returns the IDs of the instances corresponding
@@ -116,13 +135,13 @@ func (env *environ) ControllerInstances(ctx context.Context, controllerUUID stri
 
 	var results []instance.Id
 	for _, inst := range instances {
-		metadata := inst.Metadata()
+		metadata := unpackMetadata(inst.GetMetadata())
 		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
 			continue
 		}
 		isController, ok := metadata[tags.JujuIsController]
 		if ok && isController == "true" {
-			results = append(results, instance.Id(inst.ID))
+			results = append(results, instance.Id(inst.GetName()))
 		}
 	}
 	if len(results) == 0 {
@@ -133,31 +152,26 @@ func (env *environ) ControllerInstances(ctx context.Context, controllerUUID stri
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
-	instances, err := env.AllInstances(ctx)
+	insts, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}
 
 	var stringIds []string
-	for _, id := range instances {
+	for _, id := range insts {
 		stringIds = append(stringIds, string(id.Id()))
 	}
-	err = env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...)
+	err = env.gce.UpdateMetadata(ctx, tags.JujuController, controllerUUID, stringIds...)
 	if err != nil {
 		return env.HandleCredentialError(ctx, err)
 	}
 	return nil
 }
 
-// TODO(ericsnow) Turn into an interface.
-type instPlacement struct {
-	Zone *google.AvailabilityZone
-}
-
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.Context, placement string) (*instPlacement, error) {
+func (env *environ) parsePlacement(ctx context.Context, placement string) (*computepb.Zone, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -173,7 +187,7 @@ func (env *environ) parsePlacement(ctx context.Context, placement string) (*inst
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &instPlacement{Zone: zone}, nil
+		return zone, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

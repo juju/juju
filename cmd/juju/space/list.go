@@ -34,9 +34,11 @@ type ListCommand struct {
 }
 
 const listCommandDoc = `
-Displays all defined spaces. By default both spaces and their subnets are displayed.
-Supplying the --short option will list just the space names.
-The --output argument allows the command's output to be redirected to a file. 
+Displays all defined spaces.
+
+By default both spaces and their subnets are displayed. Supplying the ` + "`--short`" + ` option will list just the space names.
+
+The ` + "`--output`" + ` argument allows the command's output to be redirected to a file.
 `
 
 const listCommandExamples = `
@@ -73,7 +75,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.printTabular,
 	})
-	f.BoolVar(&c.Short, "short", false, "only display spaces.")
+	f.BoolVar(&c.Short, "short", false, "Only display spaces.")
 }
 
 // Init is defined on the cmd.Command interface. It checks the

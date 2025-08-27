@@ -4,19 +4,20 @@
 package google_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/tc"
 
 	jujuhttp "github.com/juju/juju/internal/http"
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
+	"github.com/juju/juju/internal/testing"
 )
 
 type connConfigSuite struct {
-	google.BaseSuite
+	testing.BaseSuite
 }
 
-func TestConnConfigSuite(t *testing.T) {
+func TestConnConfigSuite(t *stdtesting.T) {
 	tc.Run(t, &connConfigSuite{})
 }
 

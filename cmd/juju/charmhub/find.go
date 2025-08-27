@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	findSummary = "Queries the CharmHub store for available charms or bundles."
+	findSummary = "Queries the Charmhub store for available charms or bundles."
 	findDoc     = `
-The find command queries the CharmHub store for available charms or bundles.
+Queries the Charmhub store for available charms or bundles.
 `
 	findExamples = `
     juju find wordpress
@@ -78,22 +78,22 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.formatter,
 	})
 
-	f.StringVar(&c.category, "category", "", `filter by a category name`)
-	f.StringVar(&c.channel, "channel", "", `filter by channel"`)
-	f.StringVar(&c.charmType, "type", "", `search by a given type <charm|bundle>`)
-	f.StringVar(&c.publisher, "publisher", "", `search by a given publisher`)
+	f.StringVar(&c.category, "category", "", `Filter by a category name`)
+	f.StringVar(&c.channel, "channel", "", `Filter by channel`)
+	f.StringVar(&c.charmType, "type", "", `Search by a given type <charm|bundle>`)
+	f.StringVar(&c.publisher, "publisher", "", `Search by a given publisher`)
 
-	f.StringVar(&c.columns, "columns", "nbvps", `display the columns associated with a find search.
+	f.StringVar(&c.columns, "columns", "nbvps", `Display the columns associated with a find search.
 
     The following columns are supported:
-        - n: Name
-        - b: Bundle
-        - v: Version
-        - p: Publisher
-        - s: Summary
-		- a: Architecture
-		- o: OS
-        - S: Supports
+        `+"`n`"+`: Name;
+        `+"`b`"+`: Bundle;
+        `+"`v`"+`: Version;
+        `+"`p`"+`: Publisher;
+        `+"`s`"+`: Summary;
+		`+"`a`"+`: Architecture;
+		`+"`o`"+`: OS;
+        `+"`S`"+`: Supports.
 `)
 	// TODO (stickupkid): add the following:
 	// --narrow

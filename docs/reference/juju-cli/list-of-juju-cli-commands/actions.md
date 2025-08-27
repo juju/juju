@@ -29,4 +29,4 @@ List actions defined for an application.
 ## Details
 
 List the actions available to run on the target application, with a short
-description.  To show the full schema for the actions, use --schema.
+description.

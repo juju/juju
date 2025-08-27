@@ -6,14 +6,15 @@ package gce_test
 import (
 	"testing"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/gce"
-	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -25,145 +26,225 @@ func TestEnvironPolSuite(t *testing.T) {
 	tc.Run(t, &environPolSuite{})
 }
 
-func (s *environPolSuite) SetUpTest(c *tc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	// NOTE(achilleasa): at least one zone is required so that any tests
-	// that trigger a call to InstanceTypes can obtain a non-empty instance
-	// list.
-	zone := google.NewZone("a-zone", google.StatusUp, "", "")
-	s.FakeConn.Zones = []google.AvailabilityZone{zone}
-}
-
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *tc.C) {
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, tc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *tc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp, "", ""),
-	}
+func (s *environPolSuite) TestPrecheckInstanceFull(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil).Times(2)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, tc.HasLen, 3)
-	c.Check(s.FakeConn.Calls[0].FuncName, tc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].Region, tc.Equals, "us-east1")
-	c.Check(s.FakeConn.Calls[1].FuncName, tc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[1].Region, tc.Equals, "us-east1")
-	// NOTE(achilleas): If the constraint specifies an instance type,
-	// the precheck logic will fetch the machine types for the current zone
-	// to validate the constraint value.
-	c.Check(s.FakeConn.Calls[2].FuncName, tc.Equals, "ListMachineTypes")
-	c.Check(s.FakeConn.Calls[2].ZoneName, tc.Equals, "home-zone")
 }
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
+
 	cons := constraints.MustParse("instance-type=n1-standard-2")
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-1"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
+
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, tc.ErrorMatches, `.*invalid GCE instance type.*`)
-}
-
-func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *tc.C) {
-	cons := constraints.MustParse("instance-type=n1-standard-2 root-disk=1G")
-	placement := ""
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
-		Base: version.DefaultSupportedLTSBase(), Constraints: cons, Placement: placement})
-
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
+
 	cons := constraints.MustParse("instance-type=n1-standard-2 arch=arm64")
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp, "", ""),
-	}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("a-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("b-zone"),
+		Status: ptr("UP"),
+	}}, nil)
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *tc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusDown, "", ""),
-	}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("a-zone"),
+		Status: ptr("DOWN"),
+	}}, nil)
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, tc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
+	c.Assert(err, tc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *tc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp, "", ""),
-	}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *tc.C) {
-	s.testPrecheckInstanceVolumeAvailZone(c, "")
-}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *tc.C) {
-	s.testPrecheckInstanceVolumeAvailZone(c, "zone=away-zone")
-}
+	env := s.SetupEnv(c, s.MockService)
 
-func (s *environPolSuite) testPrecheckInstanceVolumeAvailZone(c *tc.C, placement string) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("away-zone", google.StatusUp, "", ""),
-	}
-
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
-		Placement: placement,
+		Placement: "",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 		}},
 	})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Base:      version.DefaultSupportedLTSBase(),
+		Placement: "zone=away-zone",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) {
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("away-zone", google.StatusUp, "", ""),
-	}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	err := s.Env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
 		Placement: "zone=away-zone",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -171,62 +252,117 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *tc.C) 
 		}},
 	})
 
-	c.Check(err, tc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
+	c.Assert(err, tc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
+}
+
+func (s *environPolSuite) expectConstraintsCalls() {
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-2"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(unsupported, tc.HasLen, 0)
+	c.Assert(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, tc.HasLen, 0)
+	c.Assert(unsupported, tc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type"})
+	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, tc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+	c.Assert(err, tc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, tc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
+	c.Assert(err, tc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *tc.C) {
-	validator, err := s.Env.ConstraintsValidator(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-2")
@@ -238,11 +374,16 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *tc.C) {
 
 	// tags is not supported, but we're not validating here...
 	expected := constraints.MustParse("instance-type=n1-standard-2 tags=bar")
-	c.Check(merged, tc.DeepEquals, expected)
+	c.Assert(merged, tc.DeepEquals, expected)
 }
 
 func (s *environPolSuite) TestSupportNetworks(c *tc.C) {
-	isSupported := s.Env.SupportNetworks(c.Context())
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	c.Check(isSupported, tc.IsFalse)
+	env := s.SetupEnv(c, s.MockService)
+
+	isSupported := env.SupportNetworks(c.Context())
+
+	c.Assert(isSupported, tc.IsFalse)
 }

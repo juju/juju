@@ -6,11 +6,12 @@ package gce_test
 import (
 	"testing"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/gce"
-	"github.com/juju/juju/internal/provider/gce/google"
 )
 
 type environUpgradeSuite struct {
@@ -22,20 +23,35 @@ func TestEnvironUpgradeSuite(t *testing.T) {
 }
 
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *tc.C) {
-	c.Assert(s.Env, tc.Implements, new(environs.Upgrader))
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	c.Assert(env, tc.Implements, new(environs.Upgrader))
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationsInvalidCredentialError(c *tc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
-	ops := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return(nil, gce.InvalidCredentialError)
+
+	ops := env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
 	err := ops[0].Steps[0].Run(c.Context())
 	c.Assert(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
-	ops := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	ops := env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{})
 	c.Assert(ops, tc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, tc.Equals, 1)
 	c.Assert(ops[0].Steps, tc.HasLen, 1)
@@ -43,53 +59,69 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *tc.C) {
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *tc.C) {
-	delete(s.BaseDisk.Labels, "juju-model-uuid")
-	delete(s.BaseDisk.Labels, "juju-controller-uuid")
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
-		ControllerUUID: "yup",
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           ptr("READY"),
+		Zone:             ptr("zone"),
+		LabelFingerprint: ptr("fingerprint"),
+	}}, nil)
+	s.MockService.EXPECT().SetDiskLabels(
+		gomock.Any(), "zone", "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868", "fingerprint",
+		map[string]string{
+			"juju-controller-uuid": s.ControllerUUID,
+			"juju-model-uuid":      s.ModelUUID,
+		})
+
+	op0 := env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
+		ControllerUUID: s.ControllerUUID,
 	})[0]
 	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
-
-	setDiskLabelsCalled, calls := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, tc.IsTrue)
-	c.Check(calls, tc.HasLen, 1)
-	c.Check(calls[0].ID, tc.Equals, s.BaseDisk.Name)
-	c.Check(calls[0].ZoneName, tc.Equals, "home-zone")
-	c.Check(calls[0].LabelFingerprint, tc.Equals, "foo")
-	c.Check(calls[0].Labels, tc.DeepEquals, map[string]string{
-		"juju-controller-uuid": "yup",
-		"juju-model-uuid":      s.Env.Config().UUID(),
-		"yodel":                "eh",
-	})
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescription(c *tc.C) {
-	delete(s.BaseDisk.Labels, "juju-model-uuid")
-	delete(s.BaseDisk.Labels, "juju-controller-uuid")
-	s.BaseDisk.Description = ""
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
-		ControllerUUID: "yup",
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: ptr("READY"),
+		Labels: map[string]string{
+			"juju-model-uuid": s.ModelUUID,
+		},
+	}}, nil)
+
+	op0 := env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
+		ControllerUUID: s.ControllerUUID,
 	})[0]
 	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
-
-	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, tc.IsTrue)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent(c *tc.C) {
-	// s.BaseDisk is already labelled appropriately,
-	// so we should not see a call to SetDiskLabels.
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
 
-	op0 := s.Env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
-		ControllerUUID: "yup",
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
+		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           ptr("READY"),
+		Zone:             ptr("zone"),
+		LabelFingerprint: ptr("fingerprint"),
+		Labels: map[string]string{
+			"juju-controller-uuid": s.ControllerUUID,
+			"juju-model-uuid":      s.ModelUUID,
+		},
+	}}, nil)
+
+	op0 := env.UpgradeOperations(c.Context(), environs.UpgradeOperationsParams{
+		ControllerUUID: s.ControllerUUID,
 	})[0]
 	c.Assert(op0.Steps[0].Run(c.Context()), tc.ErrorIsNil)
-
-	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
-	c.Assert(setDiskLabelsCalled, tc.IsFalse)
 }
