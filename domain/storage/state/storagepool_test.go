@@ -14,7 +14,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -52,7 +51,7 @@ WHERE     sp.name = ?`, name).Scan(&origin)
 func (s *storagePoolStateSuite) createStoragePoolWithOrigin(
 	c *tc.C,
 	sp domainstorage.StoragePool,
-	origin storage.StoragePoolOrigin,
+	origin domainstorage.StoragePoolOrigin,
 ) {
 	if sp.UUID == "" {
 		spUUID, err := domainstorage.NewStoragePoolUUID()
@@ -354,7 +353,7 @@ func (s *storagePoolStateSuite) ensureProviderDefaultStoragePools(c *tc.C) []dom
 		for k, v := range pcfg.Attrs() {
 			sp.Attrs[k] = fmt.Sprintf("%s", v)
 		}
-		s.createStoragePoolWithOrigin(c, sp, storage.StoragePoolOriginProviderDefault)
+		s.createStoragePoolWithOrigin(c, sp, domainstorage.StoragePoolOriginProviderDefault)
 
 		pools = append(pools, sp)
 	}
