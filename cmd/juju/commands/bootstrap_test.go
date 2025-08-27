@@ -853,7 +853,7 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *tc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--storage-pool", "name=test",
-		"--storage-pool", "type=loop",
+		"--storage-pool", "type=modelscoped",
 		"--storage-pool", "foo=bar",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -861,7 +861,7 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *tc.C) {
 	c.Assert(bootstrapFuncs.args.StoragePools, tc.DeepEquals, map[string]storage.Attrs{
 		"test": {
 			"name": "test",
-			"type": "loop",
+			"type": "modelscoped",
 			"foo":  "bar",
 		},
 	})
@@ -1893,20 +1893,20 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *tc.C) {
 You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
-                                 mary         
-aws-china                                     
-aws-gov                                       
-azure                                         
-azure-china                                   
-google                                        
-oracle                                        
+                                 mary
+aws-china
+aws-gov
+azure
+azure-china
+google
+oracle
 ?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
-dummy-cloud-dummy-region-config               
-dummy-cloud-with-config                       
-dummy-cloud-with-region-config                
-dummy-cloud-without-regions                   
-many-credentials-no-auth-types                
+dummy-cloud-dummy-region-config
+dummy-cloud-with-config
+dummy-cloud-with-region-config
+dummy-cloud-without-regions
+many-credentials-no-auth-types
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 'juju autoload-credentials' and 'juju add-credential'. The first credential
@@ -1951,19 +1951,19 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *tc.C) {
 You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
-                                 mary         
-aws-china                                     
-aws-gov                                       
-azure                                         
-azure-china                                   
-google                                        
-oracle                                        
+                                 mary
+aws-china
+aws-gov
+azure
+azure-china
+google
+oracle
 ?(localhost\s+)?(microk8s\s+)?
-dummy-cloud-dummy-region-config               
-dummy-cloud-with-config                       
-dummy-cloud-with-region-config                
-dummy-cloud-without-regions                   
-many-credentials-no-auth-types                
+dummy-cloud-dummy-region-config
+dummy-cloud-with-config
+dummy-cloud-with-region-config
+dummy-cloud-without-regions
+many-credentials-no-auth-types
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 'juju autoload-credentials' and 'juju add-credential'. The first credential
