@@ -55,9 +55,7 @@ type StaticProviderRegistry struct {
 //
 // Implements [Provider.StorageProviderTypes].
 func (r StaticProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
-	rval := slices.Collect(maps.Keys(r.Providers))
-	slices.Sort(rval)
-	return rval, nil
+	return slices.Sorted(maps.Keys(r.Providers)), nil
 }
 
 // StorageProvider implements ProviderRegistry.
