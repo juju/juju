@@ -37,64 +37,64 @@ func NewConfigMap(client core.ConfigMapInterface, name string, in *corev1.Config
 }
 
 // Clone returns a copy of the resource.
-func (crd *ConfigMap) Clone() Resource {
-	clone := *crd
+func (cm *ConfigMap) Clone() Resource {
+	clone := *cm
 	return &clone
 }
 
 // ID returns a comparable ID for the Resource
-func (crd *ConfigMap) ID() ID {
-	return ID{"ConfigMap", crd.Name, crd.Namespace}
+func (cm *ConfigMap) ID() ID {
+	return ID{"ConfigMap", cm.Name, cm.Namespace}
 }
 
 // Apply patches the resource change.
-func (crd *ConfigMap) Apply(ctx context.Context) (err error) {
-	existing, err := crd.client.Get(ctx, crd.Name, metav1.GetOptions{})
+func (cm *ConfigMap) Apply(ctx context.Context) (err error) {
+	existing, err := cm.client.Get(ctx, cm.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Create if not found
-		created, err := crd.client.Create(ctx, &crd.ConfigMap, metav1.CreateOptions{
+		created, err := cm.client.Create(ctx, &cm.ConfigMap, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
 		if err != nil {
 			return errors.Trace(err)
 		}
-		crd.ConfigMap = *created
+		cm.ConfigMap = *created
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Update if exists (set ResourceVersion to prevent conflict)
-	crd.ResourceVersion = existing.ResourceVersion
-	updated, err := crd.client.Update(ctx, &crd.ConfigMap, metav1.UpdateOptions{
+	cm.ResourceVersion = existing.ResourceVersion
+	updated, err := cm.client.Update(ctx, &cm.ConfigMap, metav1.UpdateOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsConflict(err) {
-		return errors.Annotatef(errConflict, "ConfigMap %q", crd.Name)
+		return errors.Annotatef(errConflict, "ConfigMap %q", cm.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	crd.ConfigMap = *updated
+	cm.ConfigMap = *updated
 	return nil
 }
 
 // Get refreshes the resource.
-func (crd *ConfigMap) Get(ctx context.Context) error {
-	res, err := crd.client.Get(context.TODO(), crd.Name, metav1.GetOptions{})
+func (cm *ConfigMap) Get(ctx context.Context) error {
+	res, err := cm.client.Get(context.TODO(), cm.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("config map: %q", crd.Name)
+		return errors.NotFoundf("config map: %q", cm.Name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	crd.ConfigMap = *res
+	cm.ConfigMap = *res
 	return nil
 }
 
 // Delete removes the resource.
-func (crd *ConfigMap) Delete(ctx context.Context) error {
-	err := crd.client.Delete(ctx, crd.Name, metav1.DeleteOptions{
+func (cm *ConfigMap) Delete(ctx context.Context) error {
+	err := cm.client.Delete(ctx, cm.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -106,9 +106,9 @@ func (crd *ConfigMap) Delete(ctx context.Context) error {
 }
 
 // ComputeStatus returns a juju status for the resource.
-func (crd *ConfigMap) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
-	if crd.DeletionTimestamp != nil {
-		return "", status.Terminated, crd.DeletionTimestamp.Time, nil
+func (cm *ConfigMap) ComputeStatus(ctx context.Context, now time.Time) (string, status.Status, time.Time, error) {
+	if cm.DeletionTimestamp != nil {
+		return "", status.Terminated, cm.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
 }
