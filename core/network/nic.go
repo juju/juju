@@ -85,10 +85,6 @@ type InterfaceInfo struct {
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
-	// ProviderSubnetId is the provider-specific id for the associated
-	// subnet.
-	ProviderSubnetId Id
-
 	// ProviderSpaceId is the provider-specific id for the associated space,
 	// if known and supported.
 	ProviderSpaceId Id
@@ -96,9 +92,6 @@ type InterfaceInfo struct {
 	// ProviderVLANId is the provider-specific id of the VLAN for this
 	// interface.
 	ProviderVLANId Id
-
-	// ProviderAddressId is the provider-specific id of the assigned address.
-	ProviderAddressId Id
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
