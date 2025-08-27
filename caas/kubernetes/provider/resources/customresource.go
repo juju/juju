@@ -55,16 +55,19 @@ func (cr *CustomResource) Apply(ctx context.Context) (err error) {
 		return errors.NotValidf("both apiVersion and kind must be set on CustomResource %q", cr.Unstructured.GetName())
 	}
 
-	// attempt to create first, then patch if it already exists
-	if _, err := cr.client.Create(ctx, &cr.Unstructured, metav1.CreateOptions{}); err == nil {
+	// attempt to create first, then update if it already exists
+	created, err := cr.client.Create(ctx, &cr.Unstructured, metav1.CreateOptions{FieldManager: JujuFieldManager})
+	if err == nil {
+		cr.Unstructured = *created
 		return nil
-	} else if !k8serrors.IsAlreadyExists(err) {
+	}
+	if !k8serrors.IsAlreadyExists(err) {
 		return errors.Annotatef(err, "creating CustomResource %q", cr.GetName())
 	}
 
 	existing, err := cr.client.Get(ctx, cr.GetName(), metav1.GetOptions{})
 	if err != nil {
-		return errors.Annotatef(err, "retrieving existing CustomResource %q for patch", cr.GetName())
+		return errors.Annotatef(err, "retrieving existing CustomResource %q to get latest resource version", cr.GetName())
 	}
 
 	cr.SetResourceVersion(existing.GetResourceVersion())
@@ -72,7 +75,7 @@ func (cr *CustomResource) Apply(ctx context.Context) (err error) {
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsConflict(err) {
-		return errors.Annotatef(errConflict, "custom resource %q", cr.GetName())
+		return errors.Annotatef(errConflict, "CustomResource %q", cr.GetName())
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -86,7 +89,7 @@ func (cr *CustomResource) Apply(ctx context.Context) (err error) {
 func (cr *CustomResource) Get(ctx context.Context) error {
 	res, err := cr.client.Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("custom resource: %q", cr.GetName())
+		return errors.NotFoundf("CustomResource: %q", cr.GetName())
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,9 +104,10 @@ func (cr *CustomResource) Delete(ctx context.Context) error {
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Annotatef(err, "deleting custom resource %q", cr.GetName())
-
+	return nil
 }
 
 // ComputeStatus returns a juju status for the resource.

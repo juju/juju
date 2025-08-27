@@ -68,7 +68,7 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 		err = retry.Call(retry.CallArgs{
 			Func: func() error {
 				err := op.resource.Apply(ctx)
-				if k8serrors.IsConflict(err) {
+				if errors.Is(err, errConflict) {
 					_ = op.resource.Get(ctx) // refresh resource version
 					return err
 				}
@@ -79,7 +79,7 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 				return errors.Annotatef(err, "applying resource %q", op.resource.ID().Name)
 			},
 			IsFatalError: func(err error) bool {
-				return !k8serrors.IsConflict(err)
+				return !k8serrors.IsConflict(err) && !errors.Is(err, errConflict)
 			},
 			Clock:       jujuclock.WallClock,
 			Attempts:    5,
@@ -107,9 +107,6 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 					_ = op.resource.Get(ctx) // refresh resource version
 					return err
 				}
-				if k8serrors.IsNotFound(err) {
-					return err
-				}
 				return errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
 			},
 			IsFatalError: func(err error) bool {
@@ -127,7 +124,7 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 		}
 	}
 
-	// ignore not found error, we just don't do anything.
+	// ignore any uncaught not found error, we just don't do anything.
 	// apply would return have returned nil error if new resource is created.
 	if k8serrors.IsNotFound(err) {
 		return nil

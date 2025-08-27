@@ -11,6 +11,9 @@ import (
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	admissionclient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -49,26 +52,26 @@ func (m *MutatingWebhookConfiguration) ID() ID {
 
 // Apply patches the resource change.
 func (m *MutatingWebhookConfiguration) Apply(ctx context.Context) (err error) {
-	existing, err := m.client.Get(ctx, m.Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Create if not found
-		created, err := m.client.Create(ctx, &m.MutatingWebhookConfiguration, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		m.MutatingWebhookConfiguration = *created
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update if exists (set ResourceVersion to prevent conflict)
-	m.ResourceVersion = existing.ResourceVersion
-	updated, err := m.client.Update(ctx, &m.MutatingWebhookConfiguration, metav1.UpdateOptions{
+	// attempt to create first, then patch if it already exists
+	created, err := m.client.Create(ctx, &m.MutatingWebhookConfiguration, metav1.CreateOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if err == nil {
+		m.MutatingWebhookConfiguration = *created
+		return nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "creating MutatingWebhookConfiguration %q", m.GetName())
+	}
+
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &m.MutatingWebhookConfiguration)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	res, err := m.client.Patch(ctx, m.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+		FieldManager: JujuFieldManager,
+	})
+
 	if k8serrors.IsConflict(err) {
 		return errors.Annotatef(errConflict, "MutatingWebhookConfiguration %q", m.Name)
 	}
@@ -76,7 +79,7 @@ func (m *MutatingWebhookConfiguration) Apply(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	m.MutatingWebhookConfiguration = *updated
+	m.MutatingWebhookConfiguration = *res
 	return nil
 }
 
@@ -84,7 +87,7 @@ func (m *MutatingWebhookConfiguration) Apply(ctx context.Context) (err error) {
 func (m *MutatingWebhookConfiguration) Get(ctx context.Context) error {
 	res, err := m.client.Get(context.TODO(), m.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("mutating webhook configuration: %q", m.Name)
+		return errors.NotFoundf("MutatingWebhookConfiguration: %q", m.Name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}

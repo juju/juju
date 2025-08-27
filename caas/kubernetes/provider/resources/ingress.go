@@ -11,6 +11,9 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	netv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -49,24 +52,22 @@ func (ig *Ingress) ID() ID {
 
 // Apply patches the resource change.
 func (ig *Ingress) Apply(ctx context.Context) (err error) {
-	existing, err := ig.client.Get(ctx, ig.Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Create if not found
-		created, err := ig.client.Create(ctx, &ig.Ingress, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+	// attempt to create first, then patch if it already exists
+	created, err := ig.client.Create(ctx, &ig.Ingress, metav1.CreateOptions{FieldManager: JujuFieldManager})
+	if err == nil {
 		ig.Ingress = *created
 		return nil
-	} else if err != nil {
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "creating Ingress %q", ig.GetName())
+	}
+
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ig.Ingress)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Update if exists (set ResourceVersion to prevent conflict)
-	ig.ResourceVersion = existing.ResourceVersion
-	updated, err := ig.client.Update(ctx, &ig.Ingress, metav1.UpdateOptions{
+	res, err := ig.client.Patch(ctx, ig.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsConflict(err) {
@@ -76,7 +77,7 @@ func (ig *Ingress) Apply(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	ig.Ingress = *updated
+	ig.Ingress = *res
 	return nil
 }
 
@@ -84,7 +85,7 @@ func (ig *Ingress) Apply(ctx context.Context) (err error) {
 func (ig *Ingress) Get(ctx context.Context) error {
 	res, err := ig.client.Get(context.TODO(), ig.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("ingress: %q", ig.Name)
+		return errors.NotFoundf("Ingress: %q", ig.Name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}

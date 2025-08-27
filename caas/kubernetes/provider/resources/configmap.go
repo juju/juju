@@ -11,6 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -49,26 +52,26 @@ func (cm *ConfigMap) ID() ID {
 
 // Apply patches the resource change.
 func (cm *ConfigMap) Apply(ctx context.Context) (err error) {
-	existing, err := cm.client.Get(ctx, cm.Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Create if not found
-		created, err := cm.client.Create(ctx, &cm.ConfigMap, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		cm.ConfigMap = *created
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update if exists (set ResourceVersion to prevent conflict)
-	cm.ResourceVersion = existing.ResourceVersion
-	updated, err := cm.client.Update(ctx, &cm.ConfigMap, metav1.UpdateOptions{
+	// attempt to create first, then patch if it already exists
+	created, err := cm.client.Create(ctx, &cm.ConfigMap, metav1.CreateOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if err == nil {
+		cm.ConfigMap = *created
+		return nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "creating ConfigMap %q", cm.GetName())
+	}
+
+	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &cm.ConfigMap)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	res, err := cm.client.Patch(ctx, cm.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+		FieldManager: JujuFieldManager,
+	})
+
 	if k8serrors.IsConflict(err) {
 		return errors.Annotatef(errConflict, "ConfigMap %q", cm.Name)
 	}
@@ -76,7 +79,7 @@ func (cm *ConfigMap) Apply(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	cm.ConfigMap = *updated
+	cm.ConfigMap = *res
 	return nil
 }
 
@@ -84,7 +87,7 @@ func (cm *ConfigMap) Apply(ctx context.Context) (err error) {
 func (cm *ConfigMap) Get(ctx context.Context) error {
 	res, err := cm.client.Get(context.TODO(), cm.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("config map: %q", cm.Name)
+		return errors.NotFoundf("ConfigMap: %q", cm.Name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
