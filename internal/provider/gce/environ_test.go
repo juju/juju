@@ -107,7 +107,7 @@ func (s *environSuite) TestBootstrapOpensAPIPortsWithAutocert(c *gc.C) {
 	config := testing.FakeControllerConfig()
 	config["api-port"] = 443
 	config["autocert-dns-name"] = "example.com"
-	s.assertBootstrap(c, config, []int{443, 80})
+	s.assertBootstrap(c, config, []int{80, 443})
 }
 
 func (s *environSuite) assertBootstrap(c *gc.C, config controller.Config, expectedPorts []int) {
