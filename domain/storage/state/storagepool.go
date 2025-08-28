@@ -235,7 +235,7 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 
 	checkExistanceStmt, err := st.Prepare(`
 SELECT &storagePoolIdentifiers.*
-FROM   storage_pool 
+FROM   storage_pool
 WHERE  uuid = $storagePoolIdentifiers.uuid`, storagePoolIdentifiers{})
 	if err != nil {
 		return errors.Capture(err)
@@ -273,44 +273,7 @@ WHERE  uuid = $storagePoolIdentifiers.uuid`, storagePoolIdentifiers{})
 	return errors.Capture(err)
 }
 
-// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
-func (st State) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT   (sp.*) AS (&storagePool.*),
-         (sp_attr.*) AS (&poolAttribute.*)
-FROM     storage_pool sp
-         LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
-         LEFT JOIN storage_pool_attribute sp_attr ON sp_attr.storage_pool_uuid = sp.uuid
-WHERE    spo.origin <> 'built-in'
-ORDER BY sp.uuid`,
-		storagePool{}, poolAttribute{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var (
-		dbRows    storagePools
-		keyValues []poolAttribute
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt).GetAll(&dbRows, &keyValues)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return dbRows.toStoragePools(keyValues)
-}
-
-// ListStoragePools returns the storage pools including default and built-in storage pools.
+// ListStoragePools returns all storage pools in the model.
 func (st State) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

@@ -37,7 +37,10 @@ func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
 	w.Kill()
 }
 
-func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *tc.C) {
+// TestStorageProviderTypes tests that the provider types on offer by the
+// environ registry are correctly reported by the tracked worker and passed
+// through.
+func (s *trackedWorkerSuite) TestStorageProviderTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.registry.EXPECT().StorageProviderTypes().Return([]storage.ProviderType{"ebs"}, nil)
@@ -48,9 +51,12 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithCommon(c *tc.C) {
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(types, tc.DeepEquals, []storage.ProviderType{"ebs", "loop", "rootfs", "tmpfs"})
+	c.Check(types, tc.DeepEquals, []storage.ProviderType{"ebs"})
 }
 
+// TestStorageProviderTypesWithEmptyProviderTypes tests that the when the
+// environ provides no supported provider types the tracked worker also outputs
+// no provider types.
 func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -62,7 +68,7 @@ func (s *trackedWorkerSuite) TestStorageProviderTypesWithEmptyProviderTypes(c *t
 
 	types, err := w.(*trackedWorker).StorageProviderTypes()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(types, tc.DeepEquals, []storage.ProviderType{"loop", "rootfs", "tmpfs"})
+	c.Check(types, tc.DeepEquals, []storage.ProviderType{})
 }
 
 func (s *trackedWorkerSuite) TestStorageProvider(c *tc.C) {

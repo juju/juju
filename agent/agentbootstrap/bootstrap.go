@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -78,8 +77,7 @@ type AgentBootstrap struct {
 
 	// StorageProviderRegistry is used to determine and store the
 	// details of the default storage pools.
-	storageProviderRegistry storage.ProviderRegistry
-	logger                  logger.Logger
+	logger logger.Logger
 }
 
 // AgentBootstrapArgs are the arguments to NewAgentBootstrap that are required
@@ -90,7 +88,6 @@ type AgentBootstrapArgs struct {
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
 	StateInitializationParams instancecfg.StateInitializationParams
-	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
 	Logger                    logger.Logger
 }
@@ -105,9 +102,7 @@ func (a *AgentBootstrapArgs) validate() error {
 	if a.AgentConfig == nil {
 		return errors.NotValidf("agent config")
 	}
-	if a.StorageProviderRegistry == nil {
-		return errors.NotValidf("storage provider registry")
-	}
+
 	if a.BootstrapDqlite == nil {
 		return errors.NotValidf("bootstrap dqlite")
 	}
@@ -139,7 +134,6 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		bootstrapDqlite:           args.BootstrapDqlite,
 		logger:                    args.Logger,
 		stateInitializationParams: args.StateInitializationParams,
-		storageProviderRegistry:   args.StorageProviderRegistry,
 	}, nil
 }
 

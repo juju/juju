@@ -55,11 +55,11 @@ type WorkerConfig struct {
 	CloudService               CloudService
 	UserService                UserService
 	StorageService             StorageService
-	ProviderRegistry           storage.ProviderRegistry
 	AgentPasswordService       AgentPasswordService
 	ApplicationService         ApplicationService
 	ControllerModel            coremodel.Model
 	ModelConfigService         ModelConfigService
+	ModelInfoService           ModelInfoService
 	MachineService             MachineService
 	KeyManagerService          KeyManagerService
 	FlagService                FlagService
@@ -405,7 +405,12 @@ func (w *bootstrapWorker) seedInitialAuthorizedKeys(
 }
 
 func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {
-	storagePools, err := initialStoragePools(w.cfg.ProviderRegistry, poolParams)
+	err := w.cfg.ModelInfoService.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return fmt.Errorf("seeding default storage pools into model: %w", err)
+	}
+
+	storagePools, err := initialStoragePools(poolParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -583,15 +588,8 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 }
 
 // initialStoragePools extract any storage pools included with the bootstrap params.
-func initialStoragePools(registry storage.ProviderRegistry, poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
+func initialStoragePools(poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
 	var result []*storage.Config
-	defaultStoragePools, err := domainstorage.DefaultStoragePools(registry)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Add the default storage pools.
-	result = append(result, defaultStoragePools...)
 
 	for name, attrs := range poolParams {
 		pType, _ := attrs[domainstorage.StorageProviderType].(string)

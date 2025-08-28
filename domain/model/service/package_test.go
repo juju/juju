@@ -15,7 +15,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/model/service ControllerState,EnvironVersionProvider,ModelDeleter,ModelState,State,ModelResourcesProvider,CloudInfoProvider,WatcherFactory,RegionProvider
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/model/service CloudInfoProvider,ControllerState,EnvironVersionProvider,ModelDeleter,ModelState,ModelResourcesProvider,RegionProvider,State,StorageProviderRegistryGetter,WatcherFactory
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_storage_mock_test.go -mock_names Provider=MockStorageProvider github.com/juju/juju/internal/storage ProviderRegistry,Provider
 
 type statusHistoryGetter struct {
 	loggerContextGetter logger.LoggerContextGetter

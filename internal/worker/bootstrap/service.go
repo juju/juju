@@ -125,6 +125,13 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 }
 
+// ModelInfoService provides access to the underlying model being bootstrapped.
+type ModelInfoService interface {
+	// SeedDefaultStoragePools ensures that all of the default storage pools
+	// available to the model have been seeded for use.
+	SeedDefaultStoragePools(context.Context) error
+}
+
 // MachineService provides access to the machine domain. Used here to set
 // the machine cloud instance data.
 type MachineService interface {
@@ -144,8 +151,8 @@ type MachineService interface {
 	GetInstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
 }
 
-// ModelService provides a means for interacting with the underlying models of
-// this controller
+// ModelService provides a means for interacting with the models of this
+// controller
 type ModelService interface {
 	// ControllerModel returns the representation of the model that is used for
 	// running the Juju controller.

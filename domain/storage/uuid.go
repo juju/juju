@@ -11,12 +11,14 @@ import (
 )
 
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
-type StorageInstanceUUID uuid
+type StorageInstanceUUID baseUUID
 
 // StoragePoolUUID uniquely identifies a storage pool in the model.
-type StoragePoolUUID uuid
+type StoragePoolUUID baseUUID
 
-type uuid string
+// baseUUID is a type that is used to build strongly typed entity uuids within
+// this domain.
+type baseUUID string
 
 // NewStorageInstanceUUID creates a new, valid storage instance identifier.
 func NewStorageInstanceUUID() (StorageInstanceUUID, error) {
@@ -31,44 +33,44 @@ func NewStoragePoolUUID() (StoragePoolUUID, error) {
 }
 
 // newUUID creates a new UUID using the internal uui package.
-func newUUID() (uuid, error) {
+func newUUID() (baseUUID, error) {
 	id, err := internaluuid.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return uuid(id.String()), nil
+	return baseUUID(id.String()), nil
 }
 
 // String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u StorageInstanceUUID) String() string {
-	return uuid(u).String()
+	return baseUUID(u).String()
 }
 
 // String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u StoragePoolUUID) String() string {
-	return uuid(u).String()
+	return baseUUID(u).String()
 }
 
 // String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
-func (u uuid) String() string {
+func (u baseUUID) String() string {
 	return string(u)
 }
 
 // Validate returns an error if the [StorageInstanceUUID] is not valid.
 func (u StorageInstanceUUID) Validate() error {
-	return uuid(u).validate()
+	return baseUUID(u).validate()
 }
 
 // Validate returns an error if the [StoragePoolUUID] is not valid.
 func (u StoragePoolUUID) Validate() error {
-	return uuid(u).validate()
+	return baseUUID(u).validate()
 }
 
 // validate checks that [uuid] is a valid uuid returning an error if it is not.
-func (u uuid) validate() error {
+func (u baseUUID) validate() error {
 	if u == "" {
 		return errors.New("empty uuid")
 	}

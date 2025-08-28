@@ -4,17 +4,16 @@
 package manual
 
 import (
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (*manualEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return nil, nil
+	return common.CommonIAASStorageProviderTypes(), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (*manualEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	return nil, errors.NotFoundf("storage provider %q", t)
+	return common.GetCommonIAASStorageProvider(t)
 }

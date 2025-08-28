@@ -20,11 +20,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
 const (
-	lxdStorageProviderType = "lxd"
+	lxdStorageProviderType storage.ProviderType = "lxd"
 
 	// attrLXDStorageDriver is the attribute name for the
 	// storage pool's LXD storage driver. This and "lxd-pool"
@@ -47,7 +48,7 @@ func (env *environ) storageSupported() bool {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	var types []storage.ProviderType
+	types := common.CommonIAASStorageProviderTypes()
 	if env.storageSupported() {
 		types = append(types, lxdStorageProviderType)
 	}
@@ -56,10 +57,12 @@ func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if env.storageSupported() && t == lxdStorageProviderType {
+	switch t {
+	case lxdStorageProviderType:
 		return &lxdStorageProvider{env}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // lxdStorageProvider is a storage provider for LXD volumes, exposed to Juju as
@@ -163,19 +166,26 @@ func (*lxdStorageProvider) Releasable() bool {
 	return true
 }
 
-// DefaultPools is part of the Provider interface.
+// DefaultPools returns the default pools available through the lxd storage
+// provider. By default a pool by the same name as the provider is offered in
+// addition to a fast ssd backed storage pool.
+//
+// Implements [storage.Provider] interface.
 func (e *lxdStorageProvider) DefaultPools() []*storage.Config {
-	zfsPool, _ := storage.NewConfig("lxd-zfs", lxdStorageProviderType, map[string]interface{}{
+	defaultPool, _ := storage.NewConfig(
+		lxdStorageProviderType.String(), lxdStorageProviderType, storage.Attrs{},
+	)
+	zfsPool, _ := storage.NewConfig("lxd-zfs", lxdStorageProviderType, storage.Attrs{
 		attrLXDStorageDriver: "zfs",
 		attrLXDStoragePool:   "juju-zfs",
 		"zfs.pool_name":      "juju-lxd",
 	})
-	btrfsPool, _ := storage.NewConfig("lxd-btrfs", lxdStorageProviderType, map[string]interface{}{
+	btrfsPool, _ := storage.NewConfig("lxd-btrfs", lxdStorageProviderType, storage.Attrs{
 		attrLXDStorageDriver: "btrfs",
 		attrLXDStoragePool:   "juju-btrfs",
 	})
 
-	var pools []*storage.Config
+	pools := []*storage.Config{defaultPool}
 	if e.ValidateConfig(zfsPool) == nil {
 		pools = append(pools, zfsPool)
 	}

@@ -399,7 +399,9 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 		providertracker.ProviderRunner[modelservice.ModelResourcesProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelservice.RegionProvider](s.providerFactory, s.modelUUID.String()),
+		s.storageRegistry,
 		modelservice.DefaultAgentBinaryFinder(),
+		s.logger.Child("modelinfo"),
 	)
 }
 

@@ -36,15 +36,20 @@ const (
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (*maasEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{maasStorageProviderType}, nil
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		maasStorageProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (*maasEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == maasStorageProviderType {
+	switch t {
+	case maasStorageProviderType:
 		return maasStorageProvider{}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // maasStorageProvider allows volumes to be specified when a node is acquired.
@@ -125,9 +130,16 @@ func (maasStorageProvider) Releasable() bool {
 	return false
 }
 
-// DefaultPools is defined on the Provider interface.
+// DefaultPools returns the default pools available through the maas provider.
+// By default a pool by the same name as the provider is offered.
+//
+// Implements [storage.Provider] interface.
 func (maasStorageProvider) DefaultPools() []*storage.Config {
-	return nil
+	defaultPool, _ := storage.NewConfig(
+		maasStorageProviderType.String(), maasStorageProviderType, storage.Attrs{},
+	)
+
+	return []*storage.Config{defaultPool}
 }
 
 // VolumeSource is defined on the Provider interface.

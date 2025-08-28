@@ -5,12 +5,14 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -22,11 +24,95 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelagent"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 )
+
+// AgentBinaryFinder represents a helper for establishing if agent binaries for
+// a specific Juju version are available.
+type AgentBinaryFinder interface {
+	// HasBinariesForVersion will interrogate agent binaries available in the
+	// system and return true or false if agent binaries exist for the provided
+	// version.
+	HasBinariesForVersion(semversion.Number) (bool, error)
+}
+
+// CloudInfoProvider instances provide a means to get
+// the API version of the underlying cloud.
+type CloudInfoProvider interface {
+	// APIVersion returns the version info for provider's cloud.
+	APIVersion() (string, error)
+}
+
+// ControllerState is the controller state required by this service. This is the
+// controller database, not the model state.
+type ControllerState interface {
+	// GetModelSeedInformation returns information related to a model for the
+	// purposes of seeding this information into other parts of a Juju controller.
+	// This method is similar to [State.GetModel] but it allows for the returning of
+	// information on models that are not activated yet.
+	//
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: When the model is not found for the given uuid
+	// regardless of the activated status.
+	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
+
+	// GetModelState returns the model state for the given model.
+	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
+	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
+
+	// GetModelSummary provides summary based information for the model
+	// identified by the uuid. The information returned is intended to augment
+	// the information that lives in the model state.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	GetModelSummary(context.Context, coremodel.UUID) (model.ModelSummary, error)
+
+	// GetUserModelSummary returns a summary of the model information that is
+	// only available in the controller database from the perspective of the
+	// user. This assumes that the user has access to the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound] when the model is not found for the given model
+	// uuid.
+	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
+	// is not found for the given user uuid.
+	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
+	// user does not have access to the model.
+	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
+
+	// HasValidCredential returns true if the model has a valid credential.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model no longer exists.
+	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
+}
+
+// ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
+// used by the model service when creating a new model.
+type ModelResourcesProvider interface {
+	// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+	ValidateProviderForNewModel(ctx context.Context) error
+	// CreateModelResources is part of the [environs.ModelResources] interface.
+	CreateModelResources(context.Context, environs.CreateParams) error
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator(ctx context.Context) (coreconstraints.Validator, error)
+}
+
+// ModelService defines a service for interacting with the underlying model
+// state, as opposed to the controller state.
+type ModelService struct {
+	agentBinaryFinder     AgentBinaryFinder
+	controllerSt          ControllerState
+	clock                 clock.Clock
+	environProviderGetter EnvironVersionProviderFunc
+	modelSt               ModelState
+	modelUUID             coremodel.UUID
+}
 
 // ModelState is the model state required by this service. This is the model
 // database state, not the controller state.
@@ -75,6 +161,13 @@ type ModelState interface {
 	// the model's state layer.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
+	// EnsureDefaultStoragePools is responsible for making sure that the set of
+	// default storage pools provided exist in the model. If a pool already
+	// exists in the model for the same uuid then no operation is performed.
+	EnsureDefaultStoragePools(
+		context.Context, []model.CreateModelDefaultStoragePoolArg,
+	) error
+
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
 	// The following error types can be expected:
@@ -91,77 +184,6 @@ type ModelState interface {
 	IsControllerModel(context.Context) (bool, error)
 }
 
-// ControllerState is the controller state required by this service. This is the
-// controller database, not the model state.
-type ControllerState interface {
-	// GetModelSeedInformation returns information related to a model for the
-	// purposes of seeding this information into other parts of a Juju controller.
-	// This method is similar to [State.GetModel] but it allows for the returning of
-	// information on models that are not activated yet.
-	//
-	// The following error types can be expected:
-	// - [modelerrors.NotFound]: When the model is not found for the given uuid
-	// regardless of the activated status.
-	GetModelSeedInformation(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
-
-	// GetModelState returns the model state for the given model.
-	// It returns [modelerrors.NotFound] if the model does not exist for the given UUID.
-	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
-
-	// GetModelSummary provides summary based information for the model
-	// identified by the uuid. The information returned is intended to augment
-	// the information that lives in the model state.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model is not found for the given model
-	// uuid.
-	GetModelSummary(context.Context, coremodel.UUID) (model.ModelSummary, error)
-
-	// GetUserModelSummary returns a summary of the model information that is
-	// only available in the controller database from the perspective of the
-	// user. This assumes that the user has access to the model.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound] when the model is not found for the given model
-	// uuid.
-	// - [github.com/juju/juju/domain/access/errors.UserNotFound] when the user
-	// is not found for the given user uuid.
-	// - [github.com/juju/juju/domain/access/errors.AccessNotFound] when the
-	// user does not have access to the model.
-	GetUserModelSummary(context.Context, coreuser.UUID, coremodel.UUID) (model.UserModelSummary, error)
-
-	// HasValidCredential returns true if the model has a valid credential.
-	// The following errors may be returned:
-	// - [modelerrors.NotFound] when the model no longer exists.
-	HasValidCredential(context.Context, coremodel.UUID) (bool, error)
-}
-
-// AgentBinaryFinder represents a helper for establishing if agent binaries for
-// a specific Juju version are available.
-type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate agent binaries available in the
-	// system and return true or false if agent binaries exist for the provided
-	// version.
-	HasBinariesForVersion(semversion.Number) (bool, error)
-}
-
-// ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
-// used by the model service when creating a new model.
-type ModelResourcesProvider interface {
-	// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
-	ValidateProviderForNewModel(ctx context.Context) error
-	// CreateModelResources is part of the [environs.ModelResources] interface.
-	CreateModelResources(context.Context, environs.CreateParams) error
-	// ConstraintsValidator returns a Validator instance which
-	// is used to validate and merge constraints.
-	ConstraintsValidator(ctx context.Context) (coreconstraints.Validator, error)
-}
-
-// CloudInfoProvider instances provide a means to get
-// the API version of the underlying cloud.
-type CloudInfoProvider interface {
-	// APIVersion returns the version info for provider's cloud.
-	APIVersion() (string, error)
-}
-
 // RegionProvider instances provide a means to get the CloudSpec for this
 // model from a provider which supports it.
 type RegionProvider interface {
@@ -170,15 +192,11 @@ type RegionProvider interface {
 	Region() (simplestreams.CloudSpec, error)
 }
 
-// ModelService defines a service for interacting with the underlying model
-// state, as opposed to the controller state.
-type ModelService struct {
-	clock                 clock.Clock
-	modelUUID             coremodel.UUID
-	controllerSt          ControllerState
-	modelSt               ModelState
-	environProviderGetter EnvironVersionProviderFunc
-	agentBinaryFinder     AgentBinaryFinder
+// StorageProviderRegistryGetter represents a getter for returning the storage
+// provider registry of the current model.
+type StorageProviderRegistryGetter interface {
+	// GetStorageRegistry returns the provider registry for the current model.
+	GetStorageRegistry(context.Context) (internalstorage.ProviderRegistry, error)
 }
 
 // NewModelService creates a new instance of ModelService.
@@ -195,8 +213,7 @@ func NewModelService(
 		modelSt:               modelSt,
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
-
-		agentBinaryFinder: agentBinaryFinder,
+		agentBinaryFinder:     agentBinaryFinder,
 	}
 }
 
@@ -473,6 +490,87 @@ func (s *ModelService) CreateModelWithAgentVersionStream(
 	return s.modelSt.Create(ctx, args)
 }
 
+// SeedDefaultStoragePools ensures that all of the default storage pools
+// available to the model have been seeded for use. If the default storage pools
+// already exist the function will return an error to the caller.
+func (s *ProviderModelService) SeedDefaultStoragePools(
+	ctx context.Context,
+) error {
+	modelStorageRegistry, err := s.storageProviderRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting storage provider registry for model: %w", err,
+		)
+	}
+
+	providerTypes, err := modelStorageRegistry.StorageProviderTypes()
+	if err != nil {
+		return errors.Errorf(
+			"getting storage provider types for model storage registry: %w", err,
+		)
+	}
+
+	poolArgs := []model.CreateModelDefaultStoragePoolArg{}
+	for _, providerType := range providerTypes {
+		registry, err := modelStorageRegistry.StorageProvider(providerType)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage provider %q from registry: %w",
+				providerType, err,
+			)
+		}
+
+		providerDefaultPools := registry.DefaultPools()
+		for _, providerDefaultPool := range providerDefaultPools {
+			uuid, err := storage.GetProviderDefaultStoragePoolUUID(
+				providerDefaultPool.Name(),
+				providerDefaultPool.Provider().String(),
+			)
+
+			// This happens when the default pool is not supported yet by the
+			// storage domain. This shouldn't stop the model from being created.
+			// Instead we log the problem.
+			if errors.Is(err, coreerrors.NotFound) {
+				s.logger.Warningf(
+					ctx,
+					"storage provider %q default pool %q is not recognised, skipped adding to model.",
+					providerDefaultPool.Provider().String(),
+					providerDefaultPool.Name(),
+				)
+			} else if err != nil {
+				return fmt.Errorf(
+					"getting storage pool uuid for default provider %q pool %q",
+					providerDefaultPool.Provider().String(),
+					providerDefaultPool.Name(),
+				)
+			}
+
+			poolArgs = append(poolArgs, model.CreateModelDefaultStoragePoolArg{
+				Attributes: transformStoragePoolAttributes(providerDefaultPool.Attrs()),
+				Name:       providerDefaultPool.Name(),
+				Origin:     storage.StoragePoolOriginProviderDefault,
+				Type:       providerDefaultPool.Provider().String(),
+				UUID:       uuid.String(),
+			})
+		}
+	}
+
+	return s.modelSt.EnsureDefaultStoragePools(ctx, poolArgs)
+}
+
+// transformStoragePoolAttributes exists to transform internal storage pool
+// attribute representations from map[string]any to map[string]string.
+//
+// Within Juju there has never existed a definitive coerce function for this
+// data. This is not ideal but it is what we have today.
+func transformStoragePoolAttributes(attr map[string]any) map[string]string {
+	rval := make(map[string]string, len(attr))
+	for k, v := range attr {
+		rval[k] = fmt.Sprint(v)
+	}
+	return rval
+}
+
 // DeleteModel is responsible for removing a model from the system.
 //
 // The following error types can be expected to be returned:
@@ -565,9 +663,11 @@ func (s *ModelService) HasValidCredential(ctx context.Context) (bool, error) {
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
 	ModelService
-	providerGetter      providertracker.ProviderGetter[ModelResourcesProvider]
-	cloudInfoGetter     providertracker.ProviderGetter[CloudInfoProvider]
-	environRegionGetter providertracker.ProviderGetter[RegionProvider]
+	providerGetter                providertracker.ProviderGetter[ModelResourcesProvider]
+	cloudInfoGetter               providertracker.ProviderGetter[CloudInfoProvider]
+	environRegionGetter           providertracker.ProviderGetter[RegionProvider]
+	logger                        logger.Logger
+	storageProviderRegistryGetter StorageProviderRegistryGetter
 }
 
 // NewProviderModelService returns a new Service for interacting with a models state.
@@ -579,7 +679,9 @@ func NewProviderModelService(
 	providerGetter providertracker.ProviderGetter[ModelResourcesProvider],
 	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
 	environRegionGetter providertracker.ProviderGetter[RegionProvider],
+	storageProviderRegistryGetter StorageProviderRegistryGetter,
 	agentBinaryFinder AgentBinaryFinder,
+	logger logger.Logger,
 ) *ProviderModelService {
 	return &ProviderModelService{
 		ModelService: ModelService{
@@ -590,9 +692,11 @@ func NewProviderModelService(
 			environProviderGetter: environProviderGetter,
 			agentBinaryFinder:     agentBinaryFinder,
 		},
-		providerGetter:      providerGetter,
-		cloudInfoGetter:     cloudInfoGetter,
-		environRegionGetter: environRegionGetter,
+		providerGetter:                providerGetter,
+		cloudInfoGetter:               cloudInfoGetter,
+		environRegionGetter:           environRegionGetter,
+		storageProviderRegistryGetter: storageProviderRegistryGetter,
+		logger:                        logger,
 	}
 }
 
@@ -663,6 +767,13 @@ func (s *ProviderModelService) CreateModel(
 		return errors.Capture(err)
 	}
 
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
+	}
+
 	return s.createModelProviderResources(ctx)
 }
 
@@ -683,6 +794,13 @@ func (s *ProviderModelService) CreateModelWithAgentVersion(
 
 	if err := s.ModelService.CreateModelWithAgentVersion(ctx, agentVersion); err != nil {
 		return errors.Capture(err)
+	}
+
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
 	}
 
 	return s.createModelProviderResources(ctx)
@@ -710,6 +828,13 @@ func (s *ProviderModelService) CreateModelWithAgentVersionStream(
 		ctx, agentVersion, agentStream,
 	); err != nil {
 		return errors.Capture(err)
+	}
+
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
 	}
 
 	return s.createModelProviderResources(ctx)

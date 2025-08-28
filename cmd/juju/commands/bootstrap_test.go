@@ -853,7 +853,7 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *tc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--storage-pool", "name=test",
-		"--storage-pool", "type=loop",
+		"--storage-pool", "type=modelscoped",
 		"--storage-pool", "foo=bar",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -861,7 +861,7 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *tc.C) {
 	c.Assert(bootstrapFuncs.args.StoragePools, tc.DeepEquals, map[string]storage.Attrs{
 		"test": {
 			"name": "test",
-			"type": "loop",
+			"type": "modelscoped",
 			"foo":  "bar",
 		},
 	})

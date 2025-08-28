@@ -38,9 +38,6 @@ type StoragePoolState interface {
 	// ListStoragePools returns the storage pools including default storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
 
-	// ListStoragePoolsWithoutBuiltins returns the storage pools excluding the built-in storage pools.
-	ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error)
-
 	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
 	// names and or providers, including the default storage pools.
 	// If no storage pools match the criteria, an empty slice is returned without an error.
@@ -226,18 +223,7 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	return nil
 }
 
-// ListStoragePoolsWithoutBuiltins returns all storage pools excluding the built-in storage pools.
-func (s *StoragePoolService) ListStoragePoolsWithoutBuiltins(ctx context.Context) ([]domainstorage.StoragePool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	pools, err := s.st.ListStoragePoolsWithoutBuiltins(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return pools, nil
-}
-
-// ListStoragePools returns the all storage pools including the default storage pools.
+// ListStoragePools returns all of the storage pools available in the model.
 func (s *StoragePoolService) ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

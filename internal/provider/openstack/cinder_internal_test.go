@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -38,15 +39,27 @@ func (s *cinderInternalSuite) TestStorageProviderTypes(c *tc.C) {
 			},
 		}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(types, tc.HasLen, 1)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(types, tc.SameContents, []storage.ProviderType{
+		"cinder",
+		"loop",
+		"tmpfs",
+		"rootfs",
+	})
 }
 
+// TestStorageProviderTypesNotSupported tests that when the environ does not
+// support Cinder storage it does not come out as one of the storage provider
+// types available.
 func (s *cinderInternalSuite) TestStorageProviderTypesNotSupported(c *tc.C) {
 	env := &Environ{clientUnlocked: &testAuthClient{}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(types, tc.HasLen, 0)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(types, tc.SameContents, []storage.ProviderType{
+		"loop",
+		"tmpfs",
+		"rootfs",
+	})
 }
 
 type testAuthClient struct {

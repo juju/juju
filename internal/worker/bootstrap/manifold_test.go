@@ -54,10 +54,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.StorageRegistryName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -105,7 +101,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		DomainServicesName:  "domain-services",
 		ProviderFactoryName: "provider-factory",
 		HTTPClientName:      "http-client",
-		StorageRegistryName: "storage-registry",
 		Logger:              s.logger,
 		Clock:               clock.WallClock,
 		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
@@ -135,12 +130,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":            s.agent,
-		"object-store":     s.objectStoreGetter,
-		"bootstrap-gate":   s.bootstrapUnlocker,
-		"http-client":      s.httpClientGetter,
-		"domain-services":  s.domainServices,
-		"storage-registry": s.storageRegistryGetter,
+		"agent":           s.agent,
+		"object-store":    s.objectStoreGetter,
+		"bootstrap-gate":  s.bootstrapUnlocker,
+		"http-client":     s.httpClientGetter,
+		"domain-services": s.domainServices,
 	}
 	return dependencytesting.StubGetter(resources)
 }
@@ -152,7 +146,6 @@ var expectedInputs = []string{
 	"domain-services",
 	"http-client",
 	"provider-factory",
-	"storage-registry",
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {

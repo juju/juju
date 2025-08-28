@@ -162,15 +162,20 @@ var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in 
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{EBS_ProviderType}, nil
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		EBS_ProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == EBS_ProviderType {
+	switch t {
+	case EBS_ProviderType:
 		return &ebsProvider{e}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // ebsProvider creates volume sources which use AWS EBS volumes.
@@ -304,12 +309,20 @@ func (*ebsProvider) Releasable() bool {
 	return true
 }
 
-// DefaultPools is defined on the Provider interface.
+// DefaultPools returns the default pools available through the ec2 provider.
+// By default a pool by the same name as the provider is offered in addition to
+// a fast ssd backed storage pool.
+//
+// Implements [storage.Provider] interface.
 func (e *ebsProvider) DefaultPools() []*storage.Config {
-	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
+	defaultPool, _ := storage.NewConfig(
+		EBS_ProviderType.String(), EBS_ProviderType, storage.Attrs{},
+	)
+	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, storage.Attrs{
 		EBS_VolumeType: volumeAliasSSD,
 	})
-	return []*storage.Config{ssdPool}
+
+	return []*storage.Config{defaultPool, ssdPool}
 }
 
 // VolumeSource is defined on the Provider interface.

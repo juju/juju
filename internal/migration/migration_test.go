@@ -29,7 +29,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 )
@@ -127,7 +126,7 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	importer := migration.NewModelImporter(
 		scope, nil, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
+			return nil
 		}),
 		nil,
 		loggertesting.WrapCheckLog(c),

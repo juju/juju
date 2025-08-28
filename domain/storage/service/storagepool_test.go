@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -49,7 +48,8 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 				},
 			},
 		},
-	}, provider.CommonStorageProviders()}
+	},
+	}
 
 	return ctrl
 }
@@ -181,23 +181,6 @@ func (s *storagePoolServiceSuite) TestReplaceStoragePoolValidates(c *tc.C) {
 	err = s.service(c).ReplaceStoragePool(c.Context(), "ebs-fast", "ebs", PoolAttrs{"bar": "bar val"})
 	c.Assert(err, tc.ErrorIs, validationError)
 	c.Assert(err, tc.ErrorMatches, `.* missing attribute foo`)
-}
-
-func (s *storagePoolServiceSuite) TestListStoragePoolsWithoutBuiltins(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
-		Attrs: map[string]string{
-			"foo": "foo val",
-		},
-	}
-	s.state.EXPECT().ListStoragePoolsWithoutBuiltins(gomock.Any()).Return([]domainstorage.StoragePool{sp}, nil)
-
-	got, err := s.service(c).ListStoragePoolsWithoutBuiltins(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.SameContents, []domainstorage.StoragePool{sp})
 }
 
 func (s *storagePoolServiceSuite) TestListStoragePools(c *tc.C) {

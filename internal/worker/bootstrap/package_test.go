@@ -24,7 +24,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap AgentBinaryStore,ControllerConfigService,FlagService,ObjectStoreGetter,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService,AgentPasswordService,ControllerNodeService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap AgentBinaryStore,ControllerConfigService,FlagService,ObjectStoreGetter,HTTPClient,CloudService,StorageService,ApplicationService,ModelConfigService,NetworkService,UserService,BakeryConfigService,KeyManagerService,MachineService,AgentPasswordService,ControllerNodeService,ModelInfoService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination http_client_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServices
 
@@ -38,7 +38,6 @@ type baseSuite struct {
 	controllerAgentBinaryStore *MockAgentBinaryStore
 	objectStore                *MockObjectStore
 	objectStoreGetter          *MockObjectStoreGetter
-	storageRegistryGetter      *MockStorageRegistryGetter
 	bootstrapUnlocker          *MockUnlocker
 	domainServices             *MockDomainServices
 	controllerConfigService    *MockControllerConfigService
@@ -49,6 +48,7 @@ type baseSuite struct {
 	applicationService         *MockApplicationService
 	controllerNodeService      *MockControllerNodeService
 	modelConfigService         *MockModelConfigService
+	modelInfoService           *MockModelInfoService
 	machineService             *MockMachineService
 	userService                *MockUserService
 	networkService             *MockNetworkService
@@ -71,7 +71,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerAgentBinaryStore = NewMockAgentBinaryStore(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
-	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
 	s.bootstrapUnlocker = NewMockUnlocker(ctrl)
 	s.domainServices = NewMockDomainServices(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -81,6 +80,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.keyManagerService = NewMockKeyManagerService(ctrl)
 	s.userService = NewMockUserService(ctrl)
@@ -99,7 +99,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerAgentBinaryStore = nil
 		s.objectStore = nil
 		s.objectStoreGetter = nil
-		s.storageRegistryGetter = nil
 		s.bootstrapUnlocker = nil
 		s.domainServices = nil
 		s.controllerConfigService = nil
@@ -109,6 +108,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.applicationService = nil
 		s.controllerNodeService = nil
 		s.modelConfigService = nil
+		s.modelInfoService = nil
 		s.machineService = nil
 		s.keyManagerService = nil
 		s.userService = nil

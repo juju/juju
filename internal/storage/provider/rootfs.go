@@ -18,17 +18,25 @@ const (
 	RootfsProviderType = storage.ProviderType("rootfs")
 )
 
-// rootfsProviders create storage sources which provide access to filesystems.
-type rootfsProvider struct {
+// RootfsProvider is a storage provider for provisioning filesystems in a hosts
+// root filesystem.
+type RootfsProvider struct {
 	// run is a function type used for running commands on the local machine.
-	run runCommandFunc
+	run RunCommandFunc
 }
 
 var (
-	_ storage.Provider = (*rootfsProvider)(nil)
+	_ storage.Provider = (*RootfsProvider)(nil)
 )
 
-func (p *rootfsProvider) ValidateForK8s(attributes map[string]any) error {
+// NewRootfsProvider creates a new rootfs storage provider.
+func NewRootfsProvider(run RunCommandFunc) *RootfsProvider {
+	return &RootfsProvider{
+		run: run,
+	}
+}
+
+func (p *RootfsProvider) ValidateForK8s(attributes map[string]any) error {
 	if attributes == nil {
 		return nil
 	}
@@ -37,7 +45,7 @@ func (p *rootfsProvider) ValidateForK8s(attributes map[string]any) error {
 }
 
 // ValidateConfig is defined on the Provider interface.
-func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
+func (p *RootfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Rootfs provider has no configuration.
 	return nil
 }
@@ -45,7 +53,7 @@ func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
 // validateFullConfig validates a fully-constructed storage config,
 // combining the user-specified config and any internally specified
 // config.
-func (p *rootfsProvider) validateFullConfig(cfg *storage.Config) error {
+func (p *RootfsProvider) validateFullConfig(cfg *storage.Config) error {
 	if err := p.ValidateConfig(cfg); err != nil {
 		return err
 	}
@@ -57,12 +65,12 @@ func (p *rootfsProvider) validateFullConfig(cfg *storage.Config) error {
 }
 
 // VolumeSource is defined on the Provider interface.
-func (p *rootfsProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (p *RootfsProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (p *rootfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *RootfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
 	if err := p.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
@@ -76,33 +84,43 @@ func (p *rootfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage
 }
 
 // Supports is defined on the Provider interface.
-func (*rootfsProvider) Supports(k storage.StorageKind) bool {
+func (*RootfsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindFilesystem
 }
 
 // Scope is defined on the Provider interface.
-func (*rootfsProvider) Scope() storage.Scope {
+func (*RootfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
 // Dynamic is defined on the Provider interface.
-func (*rootfsProvider) Dynamic() bool {
+func (*RootfsProvider) Dynamic() bool {
 	return true
 }
 
 // Releasable is defined on the Provider interface.
-func (*rootfsProvider) Releasable() bool {
+func (*RootfsProvider) Releasable() bool {
 	return false
 }
 
-// DefaultPools is defined on the Provider interface.
-func (*rootfsProvider) DefaultPools() []*storage.Config {
-	return nil
+// DefaultPools provides the default storage pools available through this
+// provider.
+//
+// This pool offers one default pool named after it self.
+//
+// Implements [storage.Provider] interface.
+func (*RootfsProvider) DefaultPools() []*storage.Config {
+	pool, _ := storage.NewConfig(
+		RootfsProviderType.String(),
+		RootfsProviderType,
+		storage.Attrs{},
+	)
+	return []*storage.Config{pool}
 }
 
 type rootfsFilesystemSource struct {
 	dirFuncs   dirFuncs
-	run        runCommandFunc
+	run        RunCommandFunc
 	storageDir string
 }
 
@@ -155,7 +173,7 @@ func (s *rootfsFilesystemSource) ValidateFilesystemParams(params storage.Filesys
 func (s *rootfsFilesystemSource) CreateFilesystems(ctx context.Context, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
-		filesystem, err := s.createFilesystem(arg)
+		filesystem, err := s.createFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -165,7 +183,9 @@ func (s *rootfsFilesystemSource) CreateFilesystems(ctx context.Context, args []s
 	return results, nil
 }
 
-func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (*storage.Filesystem, error) {
+func (s *rootfsFilesystemSource) createFilesystem(
+	ctx context.Context, params storage.FilesystemParams,
+) (*storage.Filesystem, error) {
 	if err := s.ValidateFilesystemParams(params); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,7 +196,7 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
+	sizeInMiB, err := s.dirFuncs.calculateSize(ctx, s.storageDir)
 	if err != nil {
 		os.Remove(path)
 		return nil, errors.Trace(err)
@@ -211,7 +231,7 @@ func (s *rootfsFilesystemSource) ReleaseFilesystems(ctx context.Context, filesys
 func (s *rootfsFilesystemSource) AttachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
-		attachment, err := s.attachFilesystem(arg)
+		attachment, err := s.attachFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -221,14 +241,17 @@ func (s *rootfsFilesystemSource) AttachFilesystems(ctx context.Context, args []s
 	return results, nil
 }
 
-func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
+func (s *rootfsFilesystemSource) attachFilesystem(
+	ctx context.Context,
+	arg storage.FilesystemAttachmentParams,
+) (*storage.FilesystemAttachment, error) {
 	mountPoint := arg.Path
 	if mountPoint == "" {
 		return nil, errNoMountPoint
 	}
 	// The filesystem is created at <storage-dir>/<storage-id>.
 	// If it is different to the attachment path, bind mount.
-	if err := s.mount(arg.Filesystem, mountPoint); err != nil {
+	if err := s.mount(ctx, arg.Filesystem, mountPoint); err != nil {
 		return nil, err
 	}
 	return &storage.FilesystemAttachment{
@@ -240,18 +263,20 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 	}, nil
 }
 
-func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) error {
+func (s *rootfsFilesystemSource) mount(
+	ctx context.Context, tag names.FilesystemTag, target string,
+) error {
 	fsPath := filepath.Join(s.storageDir, tag.Id())
 	if target == fsPath {
 		return nil
 	}
-	logger.Debugf(context.TODO(), "mounting filesystem %q at %q", fsPath, target)
+	logger.Debugf(ctx, "mounting filesystem %q at %q", fsPath, target)
 
 	if err := ensureDir(s.dirFuncs, target); err != nil {
 		return errors.Trace(err)
 	}
 
-	mounted, err := s.tryBindMount(fsPath, target)
+	mounted, err := s.tryBindMount(ctx, fsPath, target)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -286,8 +311,10 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 	return nil
 }
 
-func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, error) {
-	targetSource, err := s.dirFuncs.mountPointSource(target)
+func (s *rootfsFilesystemSource) tryBindMount(
+	ctx context.Context, source, target string,
+) (bool, error) {
+	targetSource, err := s.dirFuncs.mountPointSource(ctx, target)
 	if err != nil {
 		return false, errors.Annotate(err, "getting target mount-point source")
 	}
@@ -295,8 +322,8 @@ func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, erro
 		// Already bind mounted.
 		return true, nil
 	}
-	if err := s.dirFuncs.bindMount(source, target); err != nil {
-		logger.Debugf(context.TODO(), "cannot bind-mount: %v", err)
+	if err := s.dirFuncs.bindMount(ctx, source, target); err != nil {
+		logger.Debugf(ctx, "cannot bind-mount: %v", err)
 	} else {
 		return true, nil
 	}
@@ -325,7 +352,7 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 func (s *rootfsFilesystemSource) DetachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
-		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+		if err := maybeUnmount(ctx, s.run, s.dirFuncs, arg.Path); err != nil {
 			results[i] = err
 		}
 	}

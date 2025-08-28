@@ -429,45 +429,6 @@ func (c *MockStateListStoragePoolsByProvidersCall) DoAndReturn(f func(context.Co
 	return c
 }
 
-// ListStoragePoolsWithoutBuiltins mocks base method.
-func (m *MockState) ListStoragePoolsWithoutBuiltins(arg0 context.Context) ([]storage0.StoragePool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListStoragePoolsWithoutBuiltins", arg0)
-	ret0, _ := ret[0].([]storage0.StoragePool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListStoragePoolsWithoutBuiltins indicates an expected call of ListStoragePoolsWithoutBuiltins.
-func (mr *MockStateMockRecorder) ListStoragePoolsWithoutBuiltins(arg0 any) *MockStateListStoragePoolsWithoutBuiltinsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStoragePoolsWithoutBuiltins", reflect.TypeOf((*MockState)(nil).ListStoragePoolsWithoutBuiltins), arg0)
-	return &MockStateListStoragePoolsWithoutBuiltinsCall{Call: call}
-}
-
-// MockStateListStoragePoolsWithoutBuiltinsCall wrap *gomock.Call
-type MockStateListStoragePoolsWithoutBuiltinsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateListStoragePoolsWithoutBuiltinsCall) Return(arg0 []storage0.StoragePool, arg1 error) *MockStateListStoragePoolsWithoutBuiltinsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateListStoragePoolsWithoutBuiltinsCall) Do(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutBuiltinsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListStoragePoolsWithoutBuiltinsCall) DoAndReturn(f func(context.Context) ([]storage0.StoragePool, error)) *MockStateListStoragePoolsWithoutBuiltinsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ReplaceStoragePool mocks base method.
 func (m *MockState) ReplaceStoragePool(arg0 context.Context, arg1 storage0.StoragePool) error {
 	m.ctrl.T.Helper()

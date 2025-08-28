@@ -13,6 +13,12 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// dbEntityUUID represents a generic uuid column from a given table in the
+// model's database.
+type dbEntityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // dbUUID represents a UUID.
 type dbUUID struct {
 	UUID string `db:"uuid"`
@@ -336,4 +342,21 @@ type dbModelLife struct {
 	UUID      coremodel.UUID `db:"uuid"`
 	Life      life.Life      `db:"life_id"`
 	Activated bool           `db:"activated"`
+}
+
+// dbInsertStoragePool represents the information required for inserting a new
+// storage pool into the model.
+type dbInsertStoragePool struct {
+	UUID     string `db:"uuid"`
+	Name     string `db:"name"`
+	Type     string `db:"type"`
+	OriginID int    `db:"origin_id"`
+}
+
+// dbInsertStoragePoolAttribute represents a single attribute for a storage pool
+// that is to be inserted.
+type dbInsertStoragePoolAttribute struct {
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	Key             string `db:"key"`
+	Value           string `db:"value"`
 }

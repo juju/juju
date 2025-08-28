@@ -22,20 +22,25 @@ import (
 )
 
 const (
-	storageProviderType = storage.ProviderType("gce")
+	gceStorageProviderType = storage.ProviderType("gce")
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{storageProviderType}, nil
+	return append(
+		common.CommonIAASStorageProviderTypes(),
+		gceStorageProviderType,
+	), nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
 func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == storageProviderType {
+	switch t {
+	case gceStorageProviderType:
 		return &storageProvider{env}, nil
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 type storageProvider struct {
@@ -69,9 +74,16 @@ func (e *storageProvider) Releasable() bool {
 	return true
 }
 
+// DefaultPools returns the default pools available through the gce provider.
+// By default a pool by the same name as the provider is offered.
+//
+// Implements [storage.Provider] interface.
 func (g *storageProvider) DefaultPools() []*storage.Config {
-	// TODO(perrito666) Add explicit pools.
-	return nil
+	defaultPool, _ := storage.NewConfig(
+		gceStorageProviderType.String(), gceStorageProviderType, storage.Attrs{},
+	)
+
+	return []*storage.Config{defaultPool}
 }
 
 func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {

@@ -71,7 +71,8 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	var types []storage.ProviderType
+	types := common.CommonIAASStorageProviderTypes()
+
 	if _, err := e.cinderProvider(); err == nil {
 		types = append(types, CinderProviderType)
 	} else if !errors.Is(err, errors.NotSupported) {
@@ -82,10 +83,12 @@ func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 
 // StorageProvider implements storage.ProviderRegistry.
 func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t != CinderProviderType {
-		return nil, errors.NotFoundf("storage provider %q", t)
+	switch t {
+	case CinderProviderType:
+		return e.cinderProvider()
+	default:
+		return common.GetCommonIAASStorageProvider(t)
 	}
-	return e.cinderProvider()
 }
 
 func (e *Environ) cinderProvider() (*cinderProvider, error) {
@@ -213,9 +216,15 @@ func (*cinderProvider) Releasable() bool {
 	return true
 }
 
-// DefaultPools implements storage.Provider.
+// DefaultPools returns the default pools available through the cinder provider.
+// By default a pool by the same name as the provider is offered.
+//
+// Implements [storage.Provider] interface.
 func (p *cinderProvider) DefaultPools() []*storage.Config {
-	return nil
+	defaultPool, _ := storage.NewConfig(
+		CinderProviderType.String(), CinderProviderType, storage.Attrs{},
+	)
+	return []*storage.Config{defaultPool}
 }
 
 type cinderVolumeSource struct {
