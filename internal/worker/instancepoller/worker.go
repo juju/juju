@@ -5,6 +5,7 @@ package instancepoller
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs"
@@ -51,9 +53,6 @@ type Environ interface {
 // MachineService defines the interface for interacting with the machine
 // service.
 type MachineService interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
-
 	// WatchModelMachineLifeAndStartTimes returns a string watcher that emits
 	// machine names for changes to machine life or agent start times.
 	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
@@ -64,8 +63,8 @@ type MachineService interface {
 	// GetMachineLife returns the GetMachineLife status of the specified machine.
 	GetMachineLife(context.Context, machine.Name) (corelife.Value, error)
 
-	// GetInstanceIDByMachineName returns the cloud specific instance id for this machine.
-	GetInstanceIDByMachineName(context.Context, machine.Name) (instance.Id, error)
+	// GetPollingInfos returns the polling information for the specified machines.
+	GetPollingInfos(ctx context.Context, machineNames []machine.Name) (domainmachine.PollingInfos, error)
 }
 
 // StatusService defines the interface for interacting with the status
@@ -132,11 +131,30 @@ const (
 )
 
 type pollGroupEntry struct {
+	machineUUID machine.UUID
 	machineName machine.Name
 	instanceID  instance.Id
+	hadDevices  bool
 
 	shortPollInterval time.Duration
 	shortPollAt       time.Time
+}
+
+// isPollingInfoRequired determines if polling information is required based on
+// the instance ID and device history.
+// We need to get polling information for all machine in poll group requiring to be polled,
+// if we do not have:
+// - an instance ID
+// - have seen at least an existing device
+func (e *pollGroupEntry) isPollingInfoRequired() bool {
+	return e.instanceID == "" || !e.hadDevices || e.machineUUID == ""
+}
+
+// updatePollingInfo updates the machine UUID, instance ID, and device existence status based on provided polling info.
+func (e *pollGroupEntry) updatePollingInfo(info domainmachine.PollingInfo) {
+	e.machineUUID = info.MachineUUID
+	e.instanceID = info.InstanceID
+	e.hadDevices = info.ExistingDeviceCount > 0
 }
 
 func (e *pollGroupEntry) resetShortPollInterval(clk clock.Clock) {
@@ -156,8 +174,7 @@ type updaterWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
 
-	pollGroup              [2]map[machine.Name]*pollGroupEntry
-	instanceIDToGroupEntry map[instance.Id]*pollGroupEntry
+	pollGroup [2]map[machine.Name]*pollGroupEntry
 
 	// Hook function which tests can use to be notified when the worker
 	// has processed a full loop iteration.
@@ -177,7 +194,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 			make(map[machine.Name]*pollGroupEntry),
 			make(map[machine.Name]*pollGroupEntry),
 		},
-		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "instance-poller",
@@ -263,7 +279,6 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
 			u.config.Logger.Debugf(ctx, "removing dead machine %q (instance ID %q)", entry.machineName, entry.instanceID)
 			delete(u.pollGroup[groupType], machineName)
-			delete(u.instanceIDToGroupEntry, entry.instanceID)
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -345,50 +360,91 @@ func (u *updaterWorker) lookupPolledMachine(machineName machine.Name) (*pollGrou
 }
 
 func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGroupType) error {
-	// Build a list of instance IDs to pass as a query to the provider.
-	var instList []instance.Id
+	// Build lists of instances to poll, splitted between instances with or
+	// without existing devices
+	var instanceWithDevices, instanceNoDevices []instance.Id
+	entryByInstanceID := make(map[instance.Id]*pollGroupEntry)
 	now := u.config.Clock.Now()
-	for _, entry := range u.pollGroup[groupType] {
+
+	pollGroupEntries := u.pollGroup[groupType]
+
+	if len(pollGroupEntries) == 0 {
+		return nil
+	}
+
+	// Filter short poll entries that are not yet ready to be polled
+	checkInfoMachines := make([]machine.Name, 0, len(pollGroupEntries))
+	for _, entry := range pollGroupEntries {
 		if groupType == shortPollGroup && now.Before(entry.shortPollAt) {
 			continue // we shouldn't poll this entry yet
 		}
 
-		if err := u.resolveInstanceID(ctx, entry); err != nil {
-			if errors.Is(err, machineerrors.NotProvisioned) {
-				// machine not provisioned yet; bump its poll
-				// interval and re-try later (or as soon as we
-				// get a change for the machine)
-				entry.bumpShortPollInterval(u.config.Clock)
-				continue
-			}
-			return errors.Trace(err)
+		if entry.isPollingInfoRequired() {
+			checkInfoMachines = append(checkInfoMachines, entry.machineName)
+		} else {
+			instanceWithDevices = append(instanceWithDevices, entry.instanceID)
+			// Ensure the entry can be resolved by instance ID even when
+			// no fresh polling info is required for this machine.
+			entryByInstanceID[entry.instanceID] = entry
 		}
-
-		instList = append(instList, entry.instanceID)
 	}
 
-	if len(instList) == 0 {
+	var pollingInfos domainmachine.PollingInfos
+	if len(checkInfoMachines) > 0 {
+		var err error
+		slices.Sort(checkInfoMachines)
+		pollingInfos, err = u.config.MachineService.GetPollingInfos(ctx, checkInfoMachines)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, pollingInfo := range pollingInfos {
+		entry, ok := pollGroupEntries[pollingInfo.MachineName]
+		if !ok {
+			// This should never happen, but if it does, we should log it to understand why
+			u.config.Logger.Warningf(ctx, "machine %q not found in poll group", pollingInfo.MachineName)
+			continue
+		}
+		if pollingInfo.InstanceID == "" {
+			// machine not provisioned yet; bump its poll
+			// interval and re-try later (or as soon as we
+			// get a change for the machine)
+			entry.bumpShortPollInterval(u.config.Clock)
+			continue
+		}
+		entry.updatePollingInfo(pollingInfo)
+		entryByInstanceID[pollingInfo.InstanceID] = entry
+		if pollingInfo.ExistingDeviceCount > 0 {
+			instanceWithDevices = append(instanceWithDevices, entry.instanceID)
+		} else {
+			instanceNoDevices = append(instanceNoDevices, entry.instanceID)
+		}
+	}
+	allInstances := append(instanceWithDevices, instanceNoDevices...)
+
+	if len(allInstances) == 0 {
 		return nil
 	}
 
-	infoList, err := u.config.Environ.Instances(ctx, instList)
+	infoList, err := u.config.Environ.Instances(ctx, allInstances)
 	if err != nil {
-		switch errors.Cause(err) {
-		case environs.ErrPartialInstances:
-			// Proceed and process the ones we've found.
-		case environs.ErrNoInstances:
+		switch err := errors.Cause(err); {
+		case errors.Is(err, environs.ErrPartialInstances):
+			// Ignore and process the ones we've found.
+		case errors.Is(err, environs.ErrNoInstances):
 			// If there were no instances recognised by the provider, we do not
-			// retrieve the network configuration, and will therefore have
+			// retrieve the network configuration and will therefore have
 			// nothing to update.
 			// This can happen when machines do have instance IDs, but the
 			// instances themselves are shut down, such as we have seen for
 			// dying models.
-			// If we're in the short poll group bump all the poll intervals for
+			// If we're in the short poll group, bump all the poll intervals for
 			// entries with an instance ID. Any without an instance ID will
 			// already have had their intervals bumped above.
 			if groupType == shortPollGroup {
-				for _, id := range instList {
-					u.instanceIDToGroupEntry[id].bumpShortPollInterval(u.config.Clock)
+				for _, id := range allInstances {
+					entryByInstanceID[id].bumpShortPollInterval(u.config.Clock)
 				}
 			}
 
@@ -398,7 +454,7 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
-	netList, err := u.config.Environ.NetworkInterfaces(ctx, instList)
+	netList, err := u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
 	if err != nil && !isPartialOrNoInstancesError(err) {
 		// NOTE(achilleasa): 2022-01-24: all existing providers (with the
 		// exception of "manual" which we don't care about in this context)
@@ -415,11 +471,11 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 
 	for idx, info := range infoList {
 		var nics network.InterfaceInfos
-		if netList != nil {
+		if netList != nil && idx < len(instanceWithDevices) {
 			nics = netList[idx]
 		}
 
-		if err := u.processOneInstance(ctx, instList[idx], info, nics, groupType); err != nil {
+		if err := u.processOneInstance(ctx, entryByInstanceID[allInstances[idx]], info, nics, groupType); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -429,17 +485,16 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 
 func (u *updaterWorker) processOneInstance(
 	ctx context.Context,
-	id instance.Id, info instances.Instance,
+	entry *pollGroupEntry, info instances.Instance,
 	nics network.InterfaceInfos, groupType pollGroupType,
 ) error {
-	entry := u.instanceIDToGroupEntry[id]
 
 	// If we received ErrPartialInstances, and this ID is one of those not found,
 	// and we're in the short poll group, back off the poll interval.
 	// This will ensure that instances that have gone away do not cause excessive
 	// provider call volumes.
 	if info == nil {
-		u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", id)
+		u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", entry.instanceID)
 
 		if groupType == shortPollGroup {
 			entry.bumpShortPollInterval(u.config.Clock)
@@ -458,21 +513,6 @@ func (u *updaterWorker) processOneInstance(
 	}
 
 	u.maybeSwitchPollGroup(ctx, groupType, entry, providerStatus, machineStatus.Status, len(nics))
-	return nil
-}
-
-func (u *updaterWorker) resolveInstanceID(ctx context.Context, entry *pollGroupEntry) error {
-	if entry.instanceID != "" {
-		return nil // already resolved
-	}
-
-	instID, err := u.config.MachineService.GetInstanceIDByMachineName(ctx, entry.machineName)
-	if err != nil {
-		return errors.Annotatef(err, "retrieving instance ID for machine %q", entry.machineName)
-	}
-
-	entry.instanceID = instID
-	u.instanceIDToGroupEntry[instID] = entry
 	return nil
 }
 
@@ -532,11 +572,13 @@ func (u *updaterWorker) processProviderInfo(
 		return status.Unknown, err
 	}
 
-	// Check whether the provider addresses for this machine need to be
-	// updated.
-	err = u.syncProviderAddresses(ctx, entry, providerInterfaces)
-	if err != nil {
-		return status.Unknown, err
+	if len(providerInterfaces) > 0 {
+		// Check whether the provider addresses for this machine need to be
+		// updated.
+		err = u.syncProviderAddresses(ctx, entry, providerInterfaces)
+		if err != nil {
+			return status.Unknown, err
+		}
 	}
 
 	return providerStatus.Status, nil
@@ -550,13 +592,8 @@ func (u *updaterWorker) syncProviderAddresses(
 	ctx context.Context,
 	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
 ) error {
-	uuid, err := u.config.MachineService.GetMachineUUID(ctx, entry.machineName)
-	if err != nil {
-		return errors.Annotatef(err, "retrieving machine UUID for machine %q", entry.machineName)
-	}
-
 	devices := transform.Slice(providerIfaceList, newNetInterface)
-	err = u.config.NetworkService.SetProviderNetConfig(ctx, uuid, devices)
+	err := u.config.NetworkService.SetProviderNetConfig(ctx, entry.machineUUID, devices)
 	if err != nil {
 		return errors.Trace(err)
 	}
