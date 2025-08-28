@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"

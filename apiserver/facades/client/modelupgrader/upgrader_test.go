@@ -31,7 +31,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

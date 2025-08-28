@@ -19,7 +19,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"

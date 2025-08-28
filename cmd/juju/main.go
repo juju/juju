@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/internal/debug/coveruploader"
-	_ "github.com/juju/juju/provider/all" // Import the providers.
+	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 )
 
 func init() {

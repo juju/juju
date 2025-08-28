@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
 	jujustorage "github.com/juju/juju/storage"
 )
 

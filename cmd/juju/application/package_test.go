@@ -6,7 +6,7 @@ package application_test
 import (
 	stdtesting "testing"
 
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 

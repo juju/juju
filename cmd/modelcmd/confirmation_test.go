@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/modelcmd/mocks"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/internal/provider/dummy"
 )
 
 type DestroyConfirmationCommandBaseSuite struct{}

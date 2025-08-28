@@ -24,7 +24,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	providercommon "github.com/juju/juju/provider/common"
+	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
