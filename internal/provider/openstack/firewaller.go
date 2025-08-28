@@ -554,8 +554,8 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firew
 // OpenModelPorts implements Firewaller interface
 func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	err := c.openPortsInGroup(ctx, c.jujuGroupName(c.environ.controllerUUID), rules)
-	if errors.IsNotFound(err) && !c.environ.usingSecurityGroups {
-		logger.Warningf("attempted to open %v but network port security is disabled. Already open", rules)
+	if errors.Is(err, errors.NotFound) && !c.environ.usingSecurityGroups {
+		logger.Infof("attempted to open %v but network port security is disabled. Already open", rules)
 		return nil
 	}
 	if err != nil {
@@ -689,7 +689,11 @@ func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallConte
 func (c *neutronFirewaller) openPortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
 	group, err := c.getSecurityGroupByName(ctx, name)
 	if err != nil {
-		return errors.Trace(err)
+		if strings.Contains(err.Error(), "failed to find") {
+			return errors.NotFoundf(err.Error())
+		} else {
+			return errors.Trace(err)
+		}
 	}
 	neutronClient := c.environ.neutron()
 	ruleInfo := rulesToRuleInfo(group.Id, rules)
