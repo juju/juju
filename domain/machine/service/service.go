@@ -223,6 +223,9 @@ type State interface {
 	// GetLXDProfilesForMachine returns a slice of structs containing data to
 	// put LXD Profiles in LXC.
 	GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error)
+
+	// GetPollingInfos returns the polling information for the given machines.
+	GetPollingInfos(ctx context.Context, machineNames []string) (domainmachine.PollingInfos, error)
 }
 
 // StatusHistory records status information into a generalized way.

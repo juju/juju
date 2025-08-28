@@ -6,9 +6,12 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,6 +28,28 @@ func (s *Service) GetInstanceID(ctx context.Context, machineUUID machine.UUID) (
 		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
 	}
 	return instance.Id(instanceId), nil
+}
+
+// GetPollingInfos returns the polling information for the specified machines.
+func (s *Service) GetPollingInfos(ctx context.Context, machineNames []machine.Name) (domainmachine.PollingInfos,
+	error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// If there are no machines, no need to reach the state.
+	if len(machineNames) == 0 {
+		return nil, nil
+	}
+
+	validationError := errors.Join(transform.Slice(machineNames, machine.Name.Validate)...)
+	if validationError != nil {
+		return nil, validationError
+	}
+
+	infos, err := s.st.GetPollingInfos(ctx, transform.Slice(machineNames, func(m machine.Name) string {
+		return m.String()
+	}))
+	return infos, errors.Capture(err)
 }
 
 // GetInstanceIDByMachineName returns the cloud specific instance id for this machine.

@@ -8,7 +8,10 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -114,6 +117,61 @@ func (s *serviceSuite) TestDeleteMachineCloudInstanceFails(c *tc.C) {
 
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).DeleteMachineCloudInstance(c.Context(), "42")
 	c.Assert(err, tc.ErrorMatches, "deleting machine cloud instance for machine \"42\": boom")
+}
+
+func (s *serviceSuite) TestGetPollingInfosSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	n1 := machine.Name("0")
+	n2 := machine.Name("1")
+	expected := domainmachine.PollingInfos{{
+		MachineUUID:         "uuid-0",
+		MachineName:         n1,
+		InstanceID:          "i-0",
+		ExistingDeviceCount: 1,
+	}, {
+		MachineUUID:         "uuid-1",
+		MachineName:         n2,
+		InstanceID:          "",
+		ExistingDeviceCount: 0,
+	}}
+
+	s.state.EXPECT().GetPollingInfos(gomock.Any(), []string{"0", "1"}).Return(expected, nil)
+
+	infos, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetPollingInfos(c.Context(), []machine.Name{n1, n2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestGetPollingInfosValidationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// invalid machine name should cause validation error and short-circuit before state call
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetPollingInfos(c.Context(), []machine.Name{"invalid"})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestGetPollingInfosStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	n := machine.Name("0")
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetPollingInfos(gomock.Any(), []string{"0"}).Return(nil, rErr)
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetPollingInfos(c.Context(), []machine.Name{n})
+	c.Assert(err, tc.ErrorIs, rErr)
+}
+
+func (s *serviceSuite) TestGetPollingInfosEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetPollingInfos(c.Context(), []machine.Name{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
 }
 
 func uintptr(u uint64) *uint64 {
