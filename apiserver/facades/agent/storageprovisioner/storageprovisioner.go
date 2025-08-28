@@ -1738,9 +1738,68 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 }
 
 func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Context, args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.VolumeAttachmentPlans)),
+	}
+	one := func(vp params.VolumeAttachmentPlan) error {
+		machineTag, err := names.ParseMachineTag(vp.MachineTag)
+		if err != nil {
+			return errors.Errorf(
+				"parsing volume tag %q: %w", vp.VolumeTag, err,
+			)
+		}
+		volumeTag, err := names.ParseVolumeTag(vp.VolumeTag)
+		if err != nil {
+			return errors.Errorf(
+				"parsing volume tag %q: %w", vp.VolumeTag, err,
+			)
+		}
+		if !canAccess(machineTag, volumeTag) {
+			return apiservererrors.ErrPerm
+		}
+		if vp.BlockDevice != nil {
+			return errors.New("block device field must not be set")
+		}
+		machineUUID, err := s.machineService.GetMachineUUID(
+			ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		var planDeviceType storageprovisioning.PlanDeviceType
+		switch vp.PlanInfo.DeviceType {
+		case storage.DeviceTypeISCSI:
+			planDeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		case storage.DeviceTypeLocal:
+			planDeviceType = storageprovisioning.PlanDeviceTypeLocal
+		default:
+			return errors.Errorf(
+				"plan device type %q not valid", vp.PlanInfo.DeviceType,
+			).Add(coreerrors.NotValid)
+		}
+		err = s.storageProvisioningService.CreateVolumeAttachmentPlan(
+			ctx, volumeTag.Id(), machineUUID,
+			planDeviceType, vp.PlanInfo.DeviceAttributes)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return errors.Errorf(
+				"volume attachment for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}
+	for i, vp := range args.VolumeAttachmentPlans {
+		err := one(vp)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

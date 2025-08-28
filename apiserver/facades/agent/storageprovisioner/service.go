@@ -343,6 +343,16 @@ type StorageProvisioningService interface {
 		info storageprovisioning.VolumeAttachmentProvisionedInfo,
 	) error
 
+	// CreateVolumeAttachmentPlan creates a volume attachment plan for the
+	// provided volume id and machine uuid.
+	CreateVolumeAttachmentPlan(
+		ctx context.Context,
+		volumeID string,
+		machineUUID machine.UUID,
+		deviceType storageprovisioning.PlanDeviceType,
+		attrs map[string]string,
+	) error
+
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
 	SetVolumeAttachmentPlanProvisionedInfo(

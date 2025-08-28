@@ -3080,6 +3080,48 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfoErrors(c *tc.C) {
 	// ment plans are missing (when plan info specified)
 }
 
+func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineTag := names.NewMachineTag("5")
+	machineUUID := machinetesting.GenUUID(c)
+	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+		machine.Name(machineTag.Id())).Return(machineUUID, nil)
+
+	attrs := map[string]string{
+		"a": "x",
+		"b": "y",
+		"c": "z",
+	}
+	svc := s.mockStorageProvisioningService
+	svc.EXPECT().CreateVolumeAttachmentPlan(gomock.Any(), tag.Id(), machineUUID,
+		storageprovisioning.PlanDeviceTypeISCSI, attrs).Return(nil)
+
+	result, err := s.api.CreateVolumeAttachmentPlans(c.Context(), params.VolumeAttachmentPlans{
+		VolumeAttachmentPlans: []params.VolumeAttachmentPlan{
+			{
+				VolumeTag:  tag.String(),
+				MachineTag: machineTag.String(),
+				PlanInfo: params.VolumeAttachmentPlanInfo{
+					DeviceType:       storage.DeviceTypeISCSI,
+					DeviceAttributes: attrs,
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+}
+
+func (s *provisionerSuite) TestCreateVolumeAttachmentPlanErrors(c *tc.C) {
+	// TODO(storage): test to ensure create volume attachment plan errors when
+	// there is no machine or the volume attachment does not exist for which the
+	// plan is being created for.
+}
+
 func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
