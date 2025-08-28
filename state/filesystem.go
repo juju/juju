@@ -1002,6 +1002,21 @@ func validateAddExistingFilesystem(
 				backingVolume.Size, info.Size,
 			)
 		}
+		// Verify volumeid has not been registered.
+		vol, err := sb.volume(
+			bson.D{{"info.volumeid", backingVolume.VolumeId}},
+			"",
+		)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			return errors.Errorf(
+				"volume with provider-id %q exists, id: %q",
+				backingVolume.VolumeId,
+				vol.VolumeTag().Id(),
+			)
+		}
 	}
 	_, provider, _, err := poolStorageProvider(sb, info.Pool)
 	if err != nil {

@@ -285,10 +285,10 @@ func (s *volumeSourceSuite) TestImportVolumesInvalidCredentialError(c *gc.C) {
 	source := s.setUpSource(c)
 	_, err := source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", "", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
-		},
+		}, false,
 	)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
@@ -321,10 +321,10 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 	c.Assert(source, gc.Implements, new(storage.VolumeImporter))
 	volumeInfo, err := source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", "", map[string]string{
 			"juju-model-uuid":      "foo",
 			"juju-controller-uuid": "bar",
-		},
+		}, false,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
@@ -349,7 +349,7 @@ func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
 	source := s.setUpSource(c)
 	_, err := source.(storage.VolumeImporter).ImportVolume(
 		s.CallCtx,
-		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", map[string]string{},
+		"zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4", "", map[string]string{}, false,
 	)
 	c.Check(err, gc.ErrorMatches, `cannot import volume "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4" with status "FAILED"`)
 }

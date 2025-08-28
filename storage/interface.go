@@ -216,7 +216,9 @@ type VolumeImporter interface {
 	ImportVolume(
 		ctx context.ProviderCallContext,
 		volumeId string,
+		storageName string,
 		resourceTags map[string]string,
+		force bool,
 	) (VolumeInfo, error)
 }
 

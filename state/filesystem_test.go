@@ -744,6 +744,76 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *FilesystemCAASModelSuite) TestAddExistingFilesystemVolumeBackedDuplicateVolumeId(c *gc.C) {
+	// First, create a storage instance with a filesystem and set its VolumeId
+	_, _, storageTag1 := s.setupSingleStorage(c, "filesystem", "kubernetes")
+
+	volume := s.storageInstanceVolume(c, storageTag1)
+	err := s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{
+		Pool:     "kubernetes",
+		Size:     123,
+		VolumeId: "existing-volume-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try to add a filesystem with a backing volume that has the same VolumeId
+	fsInfo := state.FilesystemInfo{
+		Pool: "kubernetes",
+		Size: 123,
+	}
+	volInfo2 := state.VolumeInfo{
+		Pool:     "kubernetes",
+		Size:     123,
+		VolumeId: "existing-volume-123", // Same VolumeId as the first volume
+	}
+	_, err = s.storageBackend.AddExistingFilesystem(fsInfo, &volInfo2, "fsdata")
+	c.Assert(err, gc.ErrorMatches, `cannot add existing filesystem: volume with provider-id "existing-volume-123" exists, id: "0"`)
+}
+
+func (s *FilesystemCAASModelSuite) TestAddExistingFilesystemVolumeBackedUniqueVolumeId(c *gc.C) {
+	// First, create a storage instance with a filesystem and set its VolumeId
+	_, _, storageTag1 := s.setupSingleStorage(c, "filesystem", "kubernetes")
+
+	volume := s.storageInstanceVolume(c, storageTag1)
+	err := s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{
+		Pool:     "kubernetes",
+		Size:     123,
+		VolumeId: "existing-volume-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try to add a filesystem with a backing volume that has a different VolumeId
+	fsInfo := state.FilesystemInfo{
+		Pool: "kubernetes",
+		Size: 123,
+	}
+	volInfo2 := state.VolumeInfo{
+		Pool:     "kubernetes",
+		Size:     123,
+		VolumeId: "different-volume-456", // Different VolumeId
+	}
+	storageTag2, err := s.storageBackend.AddExistingFilesystem(fsInfo, &volInfo2, "fsdata")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag2, gc.Equals, names.NewStorageTag("fsdata/1"))
+
+	// Verify both the filesystem and its backing volume were created
+	filesystem, err := s.storageBackend.StorageInstanceFilesystem(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	fsInfoOut, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fsInfoOut.FilesystemId, gc.Equals, "filesystem-1")
+	c.Assert(fsInfoOut.Pool, gc.Equals, "kubernetes")
+	c.Assert(fsInfoOut.Size, gc.Equals, uint64(123))
+
+	backingVolume, err := s.storageBackend.StorageInstanceVolume(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	volInfoOut, err := backingVolume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volInfoOut.VolumeId, gc.Equals, "different-volume-456")
+	c.Assert(volInfoOut.Pool, gc.Equals, "kubernetes")
+	c.Assert(volInfoOut.Size, gc.Equals, uint64(123))
+}
+
 func (s *FilesystemStateSuite) TestParseFilesystemAttachmentId(c *gc.C) {
 	assertValid := func(id string, m names.Tag, v names.FilesystemTag) {
 		machineTag, filesystemTag, err := state.ParseFilesystemAttachmentId(id)
@@ -1593,6 +1663,80 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedEmptyVolumeI
 	}
 	_, err := s.storageBackend.AddExistingFilesystem(fsInfo, &volInfo, "pgdata")
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty backing volume ID not valid")
+}
+
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystemVolumeBackedDuplicateVolumeId(c *gc.C) {
+	// First, create a storage instance with a block device and set its VolumeId
+	_, u, storageTag1 := s.setupSingleStorage(c, "block", "modelscoped-block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume := s.storageInstanceVolume(c, storageTag1)
+	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "existing-volume-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try to add a filesystem with a backing volume that has the same VolumeId
+	fsInfo := state.FilesystemInfo{
+		Pool: "modelscoped-block",
+		Size: 123,
+	}
+	volInfo2 := state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "existing-volume-123", // Same VolumeId as the first volume
+	}
+	_, err = s.storageBackend.AddExistingFilesystem(fsInfo, &volInfo2, "fsdata")
+	c.Assert(err, gc.ErrorMatches, `cannot add existing filesystem: volume with provider-id "existing-volume-123" exists, id: "0"`)
+}
+
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystemVolumeBackedUniqueVolumeId(c *gc.C) {
+	// First, create a storage instance with a block device and set its VolumeId
+	_, u, storageTag1 := s.setupSingleStorage(c, "block", "modelscoped-block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume := s.storageInstanceVolume(c, storageTag1)
+	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "existing-volume-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try to add a filesystem with a backing volume that has a different VolumeId
+	fsInfo := state.FilesystemInfo{
+		Pool: "modelscoped-block",
+		Size: 123,
+	}
+	volInfo2 := state.VolumeInfo{
+		Pool:     "modelscoped-block",
+		Size:     123,
+		VolumeId: "different-volume-456", // Different VolumeId
+	}
+	storageTag2, err := s.storageBackend.AddExistingFilesystem(fsInfo, &volInfo2, "fsdata")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageTag2, gc.Equals, names.NewStorageTag("fsdata/1"))
+
+	// Verify both the filesystem and its backing volume were created
+	filesystem, err := s.storageBackend.StorageInstanceFilesystem(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	fsInfoOut, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fsInfoOut.FilesystemId, gc.Equals, "filesystem-0")
+	c.Assert(fsInfoOut.Pool, gc.Equals, "modelscoped-block")
+	c.Assert(fsInfoOut.Size, gc.Equals, uint64(123))
+
+	backingVolume, err := s.storageBackend.StorageInstanceVolume(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	volInfoOut, err := backingVolume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volInfoOut.VolumeId, gc.Equals, "different-volume-456")
+	c.Assert(volInfoOut.Pool, gc.Equals, "modelscoped-block")
+	c.Assert(volInfoOut.Size, gc.Equals, uint64(123))
 }
 
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
