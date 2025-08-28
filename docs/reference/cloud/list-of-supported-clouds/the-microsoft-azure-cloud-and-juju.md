@@ -168,7 +168,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 > - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
 1. Create a managed identity. See more: Appendix: How to create a managed identity.
-1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the“managed-identity-path” must be of the form `<resourcegroup>/<identityname>`).
+1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the `managed-identity-path` must be of the form `<resourcegroup>/<identityname>`).
 1. Bootstrap as usual.
 
 ```{tip}

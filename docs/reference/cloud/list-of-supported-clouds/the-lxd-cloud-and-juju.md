@@ -169,8 +169,6 @@ config:
 (storage-provider-lxd)=
 ### `lxd`
 
-Caveats: The regular package archives for Ubuntu 14.04 LTS (Trusty) and Ubuntu 16.04 LTS (Xenial) do not include a version of LXD that has the `lxd` storage provider feature. You will need at least version 2.16.
-
 Configuration options:
 
 - `driver`: This is the LXD storage driver (e.g. `zfs`, `btrfs`, `lvm`, `ceph`).
@@ -191,11 +189,11 @@ rootfs     rootfs
 tmpfs      tmpfs
 ```
 
-As can be inferred from the above output, for each Juju storage pool based on the 'lxd' storage provider there is a LXD storage pool that gets created. It is these LXD pools that will house the actual volumes.
+As can be inferred from the above output, for each Juju storage pool based on the `lxd` storage provider, there is a LXD storage pool that gets created. It is these LXD pools that will house the actual volumes.
 
 The LXD pool corresponding to the Juju 'lxd' pool doesn't get created until the latter is used for the first time (typically via the `juju deploy` command). It is called simply 'juju'.
 
-The command `lxc storage list` is used to list LXD storage pools. A full "contingent" of LXD non-custom storage pools would like like this:
+The command `lxc storage list` is used to list LXD storage pools. A full "contingent" of LXD non-custom storage pools would look like this:
 
 ```text
 +------------+-------------+--------+------------------------------------+---------+

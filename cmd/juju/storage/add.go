@@ -65,7 +65,7 @@ storage constraints are also valid:
 
 ` + "`<pool>` " + `is the storage pool to provision storage instances from. Must
 be a name from ` + "`juju storage-pools`" + `.  The default pool is available via
-executing ` + "`juju model-config storage-default-block-source`" + `.
+executing ` + "`juju model-config storage-default-block-source`" + ` or ` + "`storage-default-filesystem-source`" + `.
 
 ` + "`<count>` " + `is the number of storage instances to provision from ` + "`<storage-pool>` " + `of
 ` + "`<size>`" + `. Must be a positive integer. The default count is ` + "`1`" + `. May be restricted

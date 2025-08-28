@@ -38,7 +38,7 @@ Attributes:
 
 #### `jsonfile`
 Attributes:
-- `file`: path to the .json file containing a service account key for your project
+- `file`: path to the `.json` file containing a service account key for your project
 Path (required)
 
 
@@ -103,4 +103,6 @@ Base path to look for machine disk images.
 (storage-provider-gce)=
 ### `gce`
 
-The GCE provider does not currently have any specific configuration options.
+Configuration options:
+
+- `type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).
