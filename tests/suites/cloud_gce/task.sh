@@ -21,5 +21,7 @@ test_cloud_gce() {
 
 	test_pro_images
 
+	test_deploy_gpu_instance
+
 	destroy_controller "test-cloud-gce"
 }
