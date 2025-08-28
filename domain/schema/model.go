@@ -48,6 +48,7 @@ const (
 	customNamespaceRelationRemovalLifecycle
 	customNamespaceModelLifeRemovalLifecycle
 	customNamespaceStorageAttachmentRelatedEntities
+	customNamespaceStorageAttachmentLifecycle
 )
 
 const (
@@ -226,6 +227,7 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByFieldForTable("unit", "uuid", customNamespaceUnitRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("relation", "uuid", customNamespaceRelationRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("storage_attachment", "unit_uuid", customNamespaceStorageAttachmentLifecycle),
 	)
 
 	patches = append(patches, func() schema.Patch {
