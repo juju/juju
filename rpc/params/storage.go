@@ -242,7 +242,7 @@ type VolumeAttachmentPlan struct {
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
 	// view of the block device represented by the plan.
-	BlockDevice BlockDevice `json:"block-device,omitempty"`
+	BlockDevice *BlockDevice `json:"block-device,omitempty"`
 }
 
 type VolumeAttachmentPlans struct {

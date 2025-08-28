@@ -322,7 +322,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -703,7 +703,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -729,7 +729,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: params.BlockDevice{
+					BlockDevice: &params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},
@@ -769,7 +769,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -795,7 +795,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: params.BlockDevice{
+					BlockDevice: &params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},

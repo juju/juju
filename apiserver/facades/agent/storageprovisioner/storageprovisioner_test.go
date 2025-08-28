@@ -3113,7 +3113,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 			{
 				VolumeTag:  tag.String(),
 				MachineTag: machineTag.String(),
-				BlockDevice: params.BlockDevice{
+				BlockDevice: &params.BlockDevice{
 					DeviceName:     "a",
 					DeviceLinks:    []string{"b"},
 					Label:          "c",

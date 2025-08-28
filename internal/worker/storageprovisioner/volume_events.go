@@ -144,8 +144,8 @@ func processAliveVolumePlans(
 	return err
 }
 
-func blockDeviceToParams(in blockdevice.BlockDevice) params.BlockDevice {
-	return params.BlockDevice{
+func blockDeviceToParams(in blockdevice.BlockDevice) *params.BlockDevice {
+	return &params.BlockDevice{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,
 		Label:          in.Label,
