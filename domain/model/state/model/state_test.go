@@ -924,8 +924,7 @@ func (s *modelSuite) TestEnsureDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 		nameVal, typeVal string
 		originIDVal      int
 	)
-	err = s.DB().QueryRowContext(
-		c.Context(),
+	err = s.DB().QueryRow(
 		"SELECT name, origin_id, type FROM storage_pool WHERE uuid = ?",
 		createArgs[0].UUID,
 	).Scan(&nameVal, &originIDVal, &typeVal)

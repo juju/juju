@@ -510,7 +510,7 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 		)
 	}
 
-	poolArgs := make([]model.CreateModelDefaultStoragePoolArg, 0, len(providerTypes))
+	poolArgs := []model.CreateModelDefaultStoragePoolArg{}
 	for _, providerType := range providerTypes {
 		registry, err := modelStorageRegistry.StorageProvider(providerType)
 		if err != nil {
