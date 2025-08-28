@@ -945,6 +945,45 @@ func (c *MockStateGetNamesForUUIDsCall) DoAndReturn(f func(context.Context, []st
 	return c
 }
 
+// GetPollingInfos mocks base method.
+func (m *MockState) GetPollingInfos(ctx context.Context, machineNames []string) (machine0.PollingInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPollingInfos", ctx, machineNames)
+	ret0, _ := ret[0].(machine0.PollingInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPollingInfos indicates an expected call of GetPollingInfos.
+func (mr *MockStateMockRecorder) GetPollingInfos(ctx, machineNames any) *MockStateGetPollingInfosCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPollingInfos", reflect.TypeOf((*MockState)(nil).GetPollingInfos), ctx, machineNames)
+	return &MockStateGetPollingInfosCall{Call: call}
+}
+
+// MockStateGetPollingInfosCall wrap *gomock.Call
+type MockStateGetPollingInfosCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetPollingInfosCall) Return(arg0 machine0.PollingInfos, arg1 error) *MockStateGetPollingInfosCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetPollingInfosCall) Do(f func(context.Context, []string) (machine0.PollingInfos, error)) *MockStateGetPollingInfosCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetPollingInfosCall) DoAndReturn(f func(context.Context, []string) (machine0.PollingInfos, error)) *MockStateGetPollingInfosCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSSHHostKeys mocks base method.
 func (m *MockState) GetSSHHostKeys(ctx context.Context, mUUID string) ([]string, error) {
 	m.ctrl.T.Helper()
