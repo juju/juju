@@ -35,6 +35,34 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	})
 }
 
+func (s *baseSuite) readOffers(c *tc.C) []nameAndUUID {
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer`)
+	c.Assert(err, tc.IsNil)
+	defer func() { _ = rows.Close() }()
+	foundOffers := []nameAndUUID{}
+	for rows.Next() {
+		var found nameAndUUID
+		err = rows.Scan(&found.UUID, &found.Name)
+		c.Assert(err, tc.IsNil)
+		foundOffers = append(foundOffers, found)
+	}
+	return foundOffers
+}
+
+func (s *baseSuite) readOfferEndpoints(c *tc.C) []offerEndpoint {
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer_endpoint`)
+	c.Assert(err, tc.IsNil)
+	defer func() { _ = rows.Close() }()
+	foundOfferEndpoints := []offerEndpoint{}
+	for rows.Next() {
+		var found offerEndpoint
+		err = rows.Scan(&found.OfferUUID, &found.EndpointUUID)
+		c.Assert(err, tc.IsNil)
+		foundOfferEndpoints = append(foundOfferEndpoints, found)
+	}
+	return foundOfferEndpoints
+}
+
 // query executes a given SQL query with optional arguments within a
 // transactional context using the test database.
 func (s *baseSuite) query(c *tc.C, query string, args ...any) {
