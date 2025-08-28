@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -554,6 +555,108 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
 
 	err := st.DeleteApplication(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorMatches, `.*still has 1 unit.*`)
+}
+
+func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+
+	// Arrange: Two apps that share a resource object
+	appSvc := s.setupApplicationService(c, factory)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	resourceUUID := s.getAppResourceUUID(c, appUUID)
+
+	// Arrange: Manually create a resource object store entry
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	_, err := s.DB().Exec("INSERT INTO object_store_metadata (uuid, sha_384, sha_256, size) VALUES (?, ?, ?, ?)",
+		objectStoreUUID.String(), "sha384", "sha256", 42)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO object_store_metadata_path (metadata_uuid, path) VALUES (?, ?)",
+		objectStoreUUID.String(), "/path/to/resource")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384) VALUES (?, ?, ?, ?)",
+		resourceUUID, objectStoreUUID.String(), 42, "sha_384")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the application
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The application is deleted
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Assert: The resource object store entry is deleted
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM object_store_metadata WHERE uuid = ?", objectStoreUUID.String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
+
+	// Arrange: Two apps that share a resource object store entry
+	appSvc := s.setupApplicationService(c, factory)
+
+	appUUID1 := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID1, life.Dead)
+	appUUID2 := s.createIAASApplication(c, appSvc, "other-app")
+	s.advanceApplicationLife(c, appUUID2, life.Dead)
+
+	app1ResourceUUID := s.getAppResourceUUID(c, appUUID1)
+	app2ResourceUUID := s.getAppResourceUUID(c, appUUID2)
+
+	// Arrange: Manually create a resource object store entry
+	// NOTE: We only add one, since resources can share the same object store entry
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	_, err := s.DB().Exec("INSERT INTO object_store_metadata (uuid, sha_384, sha_256, size) VALUES (?, ?, ?, ?)",
+		objectStoreUUID.String(), "sha384", "sha256", 42)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO object_store_metadata_path (metadata_uuid, path) VALUES (?, ?)",
+		objectStoreUUID.String(), "/path/to/resource")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO object_store_metadata_path (metadata_uuid, path) VALUES (?, ?)",
+		objectStoreUUID.String(), "/path/to/resource2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384) VALUES (?, ?, ?, ?)",
+		app1ResourceUUID, objectStoreUUID.String(), 42, "sha_384")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384) VALUES (?, ?, ?, ?)",
+		app2ResourceUUID, objectStoreUUID.String(), 42, "sha_384")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete an application
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The application is deleted
+	exists, err := st.ApplicationExists(c.Context(), appUUID1.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
+func (s *applicationSuite) getAppResourceUUID(c *tc.C, appUUID coreapplication.ID) string {
+	row := s.DB().QueryRow(`
+SELECT uuid
+FROM application_resource ar
+JOIN resource r ON ar.resource_uuid = r.uuid
+WHERE ar.application_uuid = ?`, appUUID.String())
+	var resourceUUID string
+	err := row.Scan(&resourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return resourceUUID
 }
 
 func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected []unit.UUID) {

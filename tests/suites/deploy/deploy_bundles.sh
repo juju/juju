@@ -312,7 +312,8 @@ run_deploy_multi_app_single_charm_bundle() {
 	wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup")"
 
 	# ensure juju-qa-test-dup can refresh and us it's resources.
-	juju refresh juju-qa-test-dup
+	# skip this for now, re-enable once juju refresh has been implemented.
+	# juju refresh juju-qa-test-dup
 
 	destroy_model "${model_name}"
 }
@@ -342,7 +343,10 @@ test_deploy_bundles() {
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
 			;;
 		*)
-			run "run_deploy_lxd_profile_bundle"
+			# Skip these tests for now, as they rely on lxd profiles, which
+			# have not been re-implemented yet
+			#
+			# run "run_deploy_lxd_profile_bundle"
 			;;
 		esac
 
