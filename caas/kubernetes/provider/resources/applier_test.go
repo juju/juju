@@ -71,7 +71,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 		// rollback.
 		r1.EXPECT().Clone().Return(r1),
 		r1.EXPECT().Get(gomock.Any()).Return(nil),
-		// delete the new resource was just created.
+		// Delete the new resource was just created.
 		r1.EXPECT().Delete(gomock.Any()).Return(nil),
 	)
 	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `something was wrong`)

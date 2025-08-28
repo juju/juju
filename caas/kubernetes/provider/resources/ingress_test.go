@@ -70,16 +70,16 @@ func (s *ingressSuite) TestGet(c *gc.C) {
 	}
 	ig := template
 
-	// create ig with annotations
+	// Create ig with annotations
 	ig.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.ingressClient.Create(context.TODO(), &ig, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create new object that has no annotations
+	// Create new object that has no annotations
 	res := resources.NewIngress(s.ingressClient, "ig1", &template)
 	c.Assert(len(res.GetAnnotations()), gc.Equals, 0)
 
-	// get actual resource that has annotations using k8s api
+	// Get actual resource that has annotations using k8s api
 	err = res.Get(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.GetName(), gc.Equals, `ig1`)
@@ -93,19 +93,19 @@ func (s *ingressSuite) TestDelete(c *gc.C) {
 		},
 	}
 
-	// create ig1
+	// Create ig1
 	_, err := s.ingressClient.Create(context.TODO(), ig, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// get ig1 to ensure it exists
+	// Get ig1 to ensure it exists
 	result, err := s.ingressClient.Get(context.TODO(), "ig1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `ig1`)
 
-	// create new object for deletion
+	// Create new object for deletion
 	res := resources.NewIngress(s.ingressClient, "ig1", ig)
 
-	// delete ig1
+	// Delete ig1
 	err = res.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,7 +132,7 @@ func (s *ingressSuite) TestListCRDs(c *gc.C) {
 	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
 	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
 
-	// create ig1
+	// Create ig1
 	ig1Name := "ig1"
 	ig1 := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +143,7 @@ func (s *ingressSuite) TestListCRDs(c *gc.C) {
 	_, err = s.ingressClient.Create(context.TODO(), ig1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create ig2
+	// Create ig2
 	ig2Name := "ig2"
 	ig2 := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +154,7 @@ func (s *ingressSuite) TestListCRDs(c *gc.C) {
 	_, err = s.ingressClient.Create(context.TODO(), ig2, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// list resources
+	// List resources
 	crds, err := resources.ListIngresses(context.Background(), s.ingressClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})

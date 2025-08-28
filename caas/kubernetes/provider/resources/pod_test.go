@@ -337,7 +337,7 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 		},
 		{
 			// We want to  test here the pod container creating message for init
-			// containers. This addresses lp-1914088
+			// Containers. This addresses lp-1914088
 			Name: "pod container status creating init",
 			Pod: corev1.Pod{
 				Status: corev1.PodStatus{
@@ -370,7 +370,7 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 		},
 		{
 			// We want to  test here the pod container creating message on pod
-			// containers. This addresses lp-1914088
+			// Containers. This addresses lp-1914088
 			Name: "pod container status creating",
 			Pod: corev1.Pod{
 				Status: corev1.PodStatus{

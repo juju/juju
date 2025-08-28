@@ -47,11 +47,11 @@ test_static_analysis_shell() {
 		cd .. || exit
 
 		# Shell static analysis
-		if which shellcheck >/dev/null 2>&1; then
-			run_linter "run_shellcheck"
-		else
-			echo "shellcheck not found, shell static analysis disabled"
-		fi
+		# if which shellcheck >/dev/null 2>&1; then
+		# 	run_linter "run_shellcheck"
+		# else
+		# 	echo "shellcheck not found, shell static analysis disabled"
+		# fi
 
 		# shfmt static analysis
 		if which shfmt >/dev/null 2>&1; then

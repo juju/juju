@@ -1036,30 +1036,42 @@ func (a *app) Delete() error {
 	// Create selector labels.
 	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
 	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
-	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
+	resourceLabels := utils.LabelsMerge(appLabel, modelLabel)
 
 	// List mutating webhook configurations to be deleted.
 	mws, err := resources.ListMutatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().MutatingWebhookConfigurations(), metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
+		LabelSelector: resourceLabels.String(),
 	})
 	if err != nil {
 		return errors.Annotatef(err, "failed to list mutating webhook configurations for deletion")
 	}
 
+	for _, mw := range mws {
+		cleanup = append(cleanup, mw)
+	}
+
 	// List validating webhook configurations to be deleted.
 	vws, err := resources.ListValidatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().ValidatingWebhookConfigurations(), metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
+		LabelSelector: resourceLabels.String(),
 	})
 	if err != nil {
 		return errors.Annotatef(err, "failed to list validating webhook configurations for deletion")
 	}
 
+	for _, vw := range vws {
+		cleanup = append(cleanup, vw)
+	}
+
 	// List ingress to be deleted.
 	igs, err := resources.ListIngresses(ctx, a.client.NetworkingV1().Ingresses(a.namespace), metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
+		LabelSelector: resourceLabels.String(),
 	})
 	if err != nil {
 		return errors.Annotatef(err, "failed to list ingresses for deletion")
+	}
+
+	for _, ig := range igs {
+		cleanup = append(cleanup, ig)
 	}
 
 	// List secrets to be deleted.
@@ -1070,6 +1082,13 @@ func (a *app) Delete() error {
 		return errors.Annotatef(err, "failed to list secrets for deletion")
 	}
 
+	for _, s := range secrets {
+		secret := s
+		if a.matchImagePullSecret(secret.Name) {
+			cleanup = append(cleanup, &secret)
+		}
+	}
+
 	// List configmaps to be deleted.
 	cms, err := resources.ListConfigMaps(ctx, a.client.CoreV1().ConfigMaps(a.namespace), metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
@@ -1078,9 +1097,13 @@ func (a *app) Delete() error {
 		return errors.Annotatef(err, "failed to list configmaps for deletion")
 	}
 
+	for _, cm := range cms {
+		cleanup = append(cleanup, cm)
+	}
+
 	// List CRDs to be deleted.
 	crds, err := resources.ListCRDs(ctx, a.extendedClient, metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
+		LabelSelector: resourceLabels.String(),
 	})
 	if err != nil {
 		return errors.Annotatef(err, "failed to list CRDs for deletion")
@@ -1098,30 +1121,8 @@ func (a *app) Delete() error {
 		crs = append(crs, res...)
 	}
 
-	for _, mw := range mws {
-		cleanup = append(cleanup, mw)
-	}
-	for _, vw := range vws {
-		cleanup = append(cleanup, vw)
-	}
-
-	for _, ig := range igs {
-		cleanup = append(cleanup, ig)
-	}
-
 	for _, cr := range crs {
 		cleanup = append(cleanup, cr)
-	}
-
-	for _, s := range secrets {
-		secret := s
-		if a.matchImagePullSecret(secret.Name) {
-			cleanup = append(cleanup, &secret)
-		}
-	}
-
-	for _, cm := range cms {
-		cleanup = append(cleanup, cm)
 	}
 
 	for _, crd := range crds {

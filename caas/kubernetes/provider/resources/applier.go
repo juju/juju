@@ -63,11 +63,8 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			Func: func() error {
 				err := op.resource.Apply(ctx)
 				if errors.Is(err, errConflict) {
-					_ = op.resource.Get(ctx) // refresh resource version
-					return err
-				}
-				// this might happen if it were deleted by another apiserver.
-				if k8serrors.IsNotFound(err) {
+					// Refresh resource version.
+					_ = op.resource.Get(ctx)
 					return err
 				}
 				return errors.Annotatef(err, "applying resource %q", op.resource.ID().Name)
@@ -81,24 +78,25 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 		})
 
-		// we do not want to rollback if the resource is not found, not applied or
+		// We do not want to rollback if the resource is not found, not applied or
 		// it has been deleted by another apiserver during the retry call process.
 		if err == nil {
 			if found {
-				// apply the previously existing resource.
+				// Apply the previously existing resource.
 				rollback.Apply(existingRes)
 			} else {
-				// delete the new resource just created.
+				// Delete the new resource just created.
 				rollback.Delete(op.resource)
 			}
 		}
 	case opDelete:
-		// delete with retry
+		// Delete with retry.
 		err = retry.Call(retry.CallArgs{
 			Func: func() error {
 				err := op.resource.Delete(ctx)
 				if k8serrors.IsConflict(err) {
-					_ = op.resource.Get(ctx) // refresh resource version
+					// Refresh resource version.
+					_ = op.resource.Get(ctx)
 					return err
 				}
 				return errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
@@ -112,14 +110,14 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 		})
 
-		// do not rollback if the resource is not found or update still has conflicts after retries.
+		// Do not rollback if the resource is not found or update still has conflicts after retries.
 		if err == nil {
 			rollback.Apply(existingRes)
 		}
 	}
 
-	// ignore any uncaught not found error, we just don't do anything.
-	// apply would return have returned nil error if new resource is created.
+	// Ignore any uncaught not found error, we just don't do anything.
+	// Apply would return have returned nil error if new resource is created.
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}

@@ -162,7 +162,7 @@ func (s *customresourceSuite) TestListCRsForCRD(c *gc.C) {
 	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
 	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
 
-	// create CRD
+	// Create CRD
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: "crd1"},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -199,7 +199,7 @@ func (s *customresourceSuite) TestListCRsForCRD(c *gc.C) {
 	crd1, err := s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "crd1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create namespaced cr with crd
+	// Create namespaced cr with crd
 	ns := "ns1"
 	cr1Name := "cr1"
 	cr1 := makeCR(cr1Name, ns, labelSet)
@@ -211,11 +211,11 @@ func (s *customresourceSuite) TestListCRsForCRD(c *gc.C) {
 	}
 	crNamespacedClient := s.getNamespacedDynamicClient(gvr, ns)
 
-	// create namespaced cr1 with crd
+	// Create namespaced cr1 with crd
 	_, err = crNamespacedClient.Create(context.TODO(), &cr1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create namespaced cr2 with crd
+	// Create namespaced cr2 with crd
 	cr2Name := "cr2"
 	cr2 := makeCR(cr2Name, ns, labelSet)
 	_, err = crNamespacedClient.Create(context.TODO(), &cr2, metav1.CreateOptions{})

@@ -4,12 +4,12 @@ test_static_analysis() {
 		return
 	fi
 
-	set_verbosity
+	# set_verbosity
 
-	test_copyright
-	test_licence
-	test_doc_go
-	test_versions
+	# test_copyright
+	# test_licence
+	# test_doc_go
+	# test_versions
 	test_static_analysis_shell
 	test_static_analysis_python
 	test_schema

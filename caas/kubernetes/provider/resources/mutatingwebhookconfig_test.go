@@ -70,16 +70,16 @@ func (s *mutatingWebhookConfigSuite) TestGet(c *gc.C) {
 	}
 	mw := template
 
-	// create mw with annotations
+	// Create mw with annotations
 	mw.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.mutatingWebhookClient.Create(context.TODO(), &mw, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create new object that has no annotations
+	// Create new object that has no annotations
 	res := resources.NewMutatingWebhookConfig(s.mutatingWebhookClient, "mw1", &template)
 	c.Assert(len(res.GetAnnotations()), gc.Equals, 0)
 
-	// get actual resource that has annotations using k8s api
+	// Get actual resource that has annotations using k8s api
 	err = res.Get(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.GetName(), gc.Equals, `mw1`)
@@ -93,19 +93,19 @@ func (s *mutatingWebhookConfigSuite) TestDelete(c *gc.C) {
 		},
 	}
 
-	// create mw1
+	// Create mw1
 	_, err := s.mutatingWebhookClient.Create(context.TODO(), mw, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// get mw1 to ensure it exists
+	// Get mw1 to ensure it exists
 	result, err := s.mutatingWebhookClient.Get(context.TODO(), "mw1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `mw1`)
 
-	// create new object for deletion
+	// Create new object for deletion
 	res := resources.NewMutatingWebhookConfig(s.mutatingWebhookClient, "mw1", mw)
 
-	// delete mw1
+	// Delete mw1
 	err = res.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,7 +132,7 @@ func (s *mutatingWebhookConfigSuite) TestListCRDs(c *gc.C) {
 	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
 	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
 
-	// create mw1
+	// Create mw1
 	mw1Name := "mw1"
 	mw1 := &admissionv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +143,7 @@ func (s *mutatingWebhookConfigSuite) TestListCRDs(c *gc.C) {
 	_, err = s.mutatingWebhookClient.Create(context.TODO(), mw1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create mw2
+	// Create mw2
 	mw2Name := "mw2"
 	mw2 := &admissionv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +154,7 @@ func (s *mutatingWebhookConfigSuite) TestListCRDs(c *gc.C) {
 	_, err = s.mutatingWebhookClient.Create(context.TODO(), mw2, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// list resources
+	// List resources
 	crds, err := resources.ListMutatingWebhookConfigs(context.Background(), s.mutatingWebhookClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
