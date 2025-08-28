@@ -90,25 +90,10 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			}
 		}
 	case opDelete:
-		// Delete with retry.
-		err = retry.Call(retry.CallArgs{
-			Func: func() error {
-				err := op.resource.Delete(ctx)
-				if k8serrors.IsConflict(err) {
-					// Refresh resource version.
-					_ = op.resource.Get(ctx)
-					return err
-				}
-				return errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
-			},
-			IsFatalError: func(err error) bool {
-				return !k8serrors.IsConflict(err)
-			},
-			Clock:       jujuclock.WallClock,
-			Attempts:    5,
-			Delay:       time.Second,
-			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
-		})
+		err = op.resource.Delete(ctx)
+		if err != nil {
+			err = errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
+		}
 
 		// Do not rollback if the resource is not found or update still has conflicts after retries.
 		if err == nil {
