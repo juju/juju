@@ -863,7 +863,7 @@ func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
 			Name:   "test-default-pool-1",
 			Origin: storage.StoragePoolOriginProviderDefault,
 			Type:   "my-provider",
-			UUID:   storagetesting.GenStoragePoolUUID(c),
+			UUID:   storagetesting.GenStoragePoolUUID(c).String(),
 		},
 	}
 
@@ -878,7 +878,7 @@ func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
 	err = s.DB().QueryRowContext(
 		c.Context(),
 		"SELECT name, origin_id, type FROM storage_pool WHERE uuid = ?",
-		createArgs[0].UUID.String(),
+		createArgs[0].UUID,
 	).Scan(&nameVal, &originIDVal, &typeVal)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -889,7 +889,7 @@ func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
 	rows, err := s.DB().QueryContext(
 		c.Context(),
 		"SELECT key, value FROM storage_pool_attribute WHERE storage_pool_uuid = ?",
-		createArgs[0].UUID.String(),
+		createArgs[0].UUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
@@ -912,7 +912,7 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 			Name:       "test-default-pool-1",
 			Origin:     storage.StoragePoolOriginProviderDefault,
 			Type:       "my-provider",
-			UUID:       storagetesting.GenStoragePoolUUID(c),
+			UUID:       storagetesting.GenStoragePoolUUID(c).String(),
 		},
 	}
 
@@ -927,7 +927,7 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 	err = s.DB().QueryRowContext(
 		c.Context(),
 		"SELECT name, origin_id, type FROM storage_pool WHERE uuid = ?",
-		createArgs[0].UUID.String(),
+		createArgs[0].UUID,
 	).Scan(&nameVal, &originIDVal, &typeVal)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -938,7 +938,7 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 	rows, err := s.DB().QueryContext(
 		c.Context(),
 		"SELECT key, value FROM storage_pool_attribute WHERE storage_pool_uuid = ?",
-		createArgs[0].UUID.String(),
+		createArgs[0].UUID,
 	)
 	defer rows.Close()
 	c.Check(err, tc.ErrorIsNil)

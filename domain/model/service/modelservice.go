@@ -535,7 +535,7 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 				Name:       providerDefaultPool.Name(),
 				Origin:     storage.StoragePoolOriginProviderDefault,
 				Type:       providerDefaultPool.Provider().String(),
-				UUID:       uuid,
+				UUID:       uuid.String(),
 			})
 		}
 	}

@@ -148,7 +148,7 @@ func (s *ModelState) CreateDefaultStoragePools(
 	insertAttributeArgs := make([]dbInsertStoragePoolAttribute, 0, len(args))
 	for _, arg := range args {
 		insertArgs = append(insertArgs, dbInsertStoragePool{
-			UUID:     arg.UUID.String(),
+			UUID:     arg.UUID,
 			Name:     arg.Name,
 			Type:     arg.Type,
 			OriginID: int(arg.Origin),
@@ -158,7 +158,7 @@ func (s *ModelState) CreateDefaultStoragePools(
 			insertAttributeArgs = append(
 				insertAttributeArgs,
 				dbInsertStoragePoolAttribute{
-					StoragePoolUUID: arg.UUID.String(),
+					StoragePoolUUID: arg.UUID,
 					Key:             k,
 					Value:           v,
 				})

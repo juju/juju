@@ -239,5 +239,5 @@ type CreateModelDefaultStoragePoolArg struct {
 	Name       string
 	Origin     storage.StoragePoolOrigin
 	Type       string
-	UUID       storage.StoragePoolUUID
+	UUID       string
 }
