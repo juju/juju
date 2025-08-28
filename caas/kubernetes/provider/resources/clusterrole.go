@@ -87,12 +87,7 @@ func (r *ClusterRole) Delete(ctx context.Context) error {
 	err := r.client.Delete(ctx, r.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // Ensure ensures this cluster role exists in it's desired form inside the

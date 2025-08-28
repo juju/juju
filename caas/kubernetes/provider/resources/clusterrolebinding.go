@@ -91,12 +91,7 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context) error {
 		GracePeriodSeconds: pointer.Int64Ptr(0),
 		Preconditions:      utils.NewUIDPreconditions(rb.UID),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // shouldDelete checks if there are any changes in the immutable field to decide

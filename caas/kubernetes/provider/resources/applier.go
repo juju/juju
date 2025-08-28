@@ -78,8 +78,10 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
 		})
 
-		// We do not want to rollback if the resource is not found, not applied or
-		// it has been deleted by another apiserver during the retry call process.
+		// Do not rollback if the resource is not found, not applied or
+		// it has been deleted by another apiserver
+		// (leading to not found err after even if may have been initially found)
+		// during the retry call process.
 		if err == nil {
 			if found {
 				// Apply the previously existing resource.
@@ -95,14 +97,14 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 			err = errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
 		}
 
-		// Do not rollback if the resource is not found or update still has conflicts after retries.
+		// Do not rollback if the resource is not found.
 		if err == nil {
 			rollback.Apply(existingRes)
 		}
 	}
 
-	// Ignore any uncaught not found error, we just don't do anything.
-	// Apply would return have returned nil error if new resource is created.
+	// Ignore any uncaught not found error especially from opDelete.
+	// Apply would return nil error for either updating existing or creating new resource successfully.
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
