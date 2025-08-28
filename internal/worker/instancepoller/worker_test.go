@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/environs"
@@ -221,6 +222,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	machineName := machine.Name("0")
 	entry := &pollGroupEntry{
+		machineUUID: machineUUID,
 		machineName: machineName,
 		instanceID:  "b4dc0ffee",
 	}
@@ -243,7 +245,6 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 		Message: "Running wild",
 	}).Return(nil)
 
-	mocked.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
 	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, testDevices).Return(nil)
 
 	providerStatus, err := updWorker.processProviderInfo(c.Context(), entry, instInfo, testNetIfs)
@@ -442,23 +443,97 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *tc.C) {
 	// Add two machines, one that is not yet provisioned and one that is
 	// has a "created" machine status and a "running" instance status.
 	machineName0 := machine.Name("0")
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName0).Return(instance.Id(""), machineerrors.NotProvisioned)
-	updWorker.appendToShortPollGroup(machineName0)
-
-	machineUUID1 := machinetesting.GenUUID(c)
 	machineName1 := machine.Name("1")
+	machineUUID1 := machinetesting.GenUUID(c)
+	// Call to GetPollingInfos returns
+	// - machine 0 is not provisioned, so we don't really care (instanceID empty)
+	// - machine 1 is provisioned, so we expect instanceID to be set.
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName0,
+		machineName1}).Return(domainmachine.
+		PollingInfos{
+		{MachineName: machineName0},
+		{
+			MachineUUID:         machineUUID1,
+			MachineName:         machineName1,
+			InstanceID:          "b4dc0ffee",
+			ExistingDeviceCount: 1},
+	}, nil)
+
 	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName1).Return(life.Alive, nil)
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName1).Return(instance.Id("b4dc0ffee"), nil)
 	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName1).Return(status.StatusInfo{Status: status.Running}, nil)
 	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName1).Return(status.StatusInfo{Status: status.Started}, nil)
-	mocked.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName1).Return(machineUUID1, nil)
 	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID1, testDevices).Return(nil)
+
+	updWorker.appendToShortPollGroup(machineName0)
 	updWorker.appendToShortPollGroup(machineName1)
 
 	machine1Info := mocks.NewMockInstance(ctrl)
 	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
 	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return(
+		[]network.InterfaceInfos{testNetIfs},
+		nil,
+	)
+
+	// Trigger a poll of the short poll group and wait for the worker loop
+	// to complete.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.clock.Advance(ShortPoll)
+	})
+}
+
+func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Add two machines, both are provisioned and have a "running" instance, but
+	// one of doesn't have any device attached.
+	machineName0 := machine.Name("0")
+	machineName1 := machine.Name("1")
+	machineUUID0 := machinetesting.GenUUID(c)
+	machineUUID1 := machinetesting.GenUUID(c)
+	// Call to GetPollingInfos returns
+	// - machine 0 is not provisioned, so we don't really care (instanceID empty)
+	// - machine 1 is provisioned, so we expect instanceID to be set.
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName0,
+		machineName1}).Return(domainmachine.
+		PollingInfos{
+		{
+			MachineUUID:         machineUUID0,
+			MachineName:         machineName0,
+			InstanceID:          "no-devices",
+			ExistingDeviceCount: 0},
+		{
+			MachineUUID:         machineUUID1,
+			MachineName:         machineName1,
+			InstanceID:          "with-devices",
+			ExistingDeviceCount: 1},
+	}, nil)
+
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(),
+		gomock.AnyOf(machineName0, machineName1)).Return(life.Alive, nil).Times(2)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(),
+		gomock.AnyOf(machineName0, machineName1)).Return(status.StatusInfo{Status: status.Running}, nil).Times(2)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(),
+		gomock.AnyOf(machineName0, machineName1)).Return(status.StatusInfo{Status: status.Started}, nil).Times(2)
+	// With set config only on the machine with devices
+	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID1, testDevices).Return(nil)
+
+	updWorker.appendToShortPollGroup(machineName0)
+	updWorker.appendToShortPollGroup(machineName1)
+
+	machine0Info := mocks.NewMockInstance(ctrl)
+	machine1Info := mocks.NewMockInstance(ctrl)
+	machine0Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
+	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
+	// Note: the instance id with devices will always comes first in the list.
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"with-devices", "no-devices"}).
+		Return([]instances.Instance{machine0Info, machine1Info}, nil)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"with-devices"}).Return(
 		[]network.InterfaceInfos{testNetIfs},
 		nil,
 	)
@@ -489,7 +564,9 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *tc.C) {
 	// Allow instance ID to be resolved but have the provider's Instances
 	// call fail with a partial instance list.
 	instID := instance.Id("d3adc0de")
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName).Return(instID, nil)
+
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.
+		PollingInfos{{MachineName: machineName, InstanceID: instID, ExistingDeviceCount: 1}}, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		[]instances.Instance{}, environs.ErrPartialInstances,
 	)
@@ -512,14 +589,15 @@ func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *t
 	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
-	mahcineName := machine.Name("0")
+	machineName := machine.Name("0")
 
-	updWorker.appendToShortPollGroup(mahcineName)
+	updWorker.appendToShortPollGroup(machineName)
 
 	// Allow instance ID to be resolved but have the provider's Instances
 	// call fail with a partial instance list.
 	instID := instance.Id("d3adc0de")
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), mahcineName).Return(instID, nil)
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.
+		PollingInfos{{MachineName: machineName, InstanceID: instID, ExistingDeviceCount: 1}}, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		[]instances.Instance{nil}, environs.ErrPartialInstances,
 	)
@@ -533,7 +611,7 @@ func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *t
 	})
 
 	// Check that we have backed off the poll interval.
-	entry, _ := updWorker.lookupPolledMachine(mahcineName)
+	entry, _ := updWorker.lookupPolledMachine(machineName)
 	c.Assert(entry.shortPollInterval, tc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 }
 
@@ -557,7 +635,8 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *tc.C) {
 	// call fail with ErrNoInstances. This is probably rare but can happen
 	// and shouldn't cause the worker to exit with an error!
 	instID := instance.Id("d3adc0de")
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName).Return(instID, nil)
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.
+		PollingInfos{{MachineName: machineName, InstanceID: instID, ExistingDeviceCount: 1}}, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
 	)
@@ -586,7 +665,8 @@ func (s *workerSuite) TestShortPollNoMachineInGroupKnownByProviderIntervalBackof
 	// call fail with ErrNoInstances. This is probably rare but can happen
 	// and shouldn't cause the worker to exit with an error!
 	instID := instance.Id("d3adc0de")
-	mocked.machineService.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machineName).Return(instID, nil)
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.
+		PollingInfos{{MachineName: machineName, InstanceID: instID, ExistingDeviceCount: 1}}, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
 	)
