@@ -264,5 +264,5 @@ func (s *upgradesSuite) TestRunErrorHasProfile(c *gc.C) {
 	err := profileStep.Run(s.ctx)
 
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("init profile %q: connection issue", env.profileName()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("initializing profile %q: connection issue", env.profileName()))
 }

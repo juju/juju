@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -94,16 +93,16 @@ func (c createProfilesStep) Description() string {
 func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 	server := c.env.server()
 
-	logger.Debugf("running create profile step for model %q", c.env.uuid)
+	logger.Debugf("running rename profile step for model %q", c.env.uuid)
 
 	// Create a model profile if it doesn't exist.
 	if err := c.env.initProfile(); err != nil {
-		return errors.Annotatef(err, "init profile %q", c.env.profileName())
+		return errors.Annotatef(err, "initializing profile %q", c.env.profileName())
 	}
 
 	instances, err := c.env.AllInstances(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "get all instances")
+		return errors.Annotatef(err, "getting all instances")
 	}
 
 	var profilesToAttach []profileAndInstance
@@ -113,12 +112,10 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 	// Create charm profiles for each instance.
 	for _, inst := range instances {
 		instanceID := string(inst.Id())
-		log.Println("instanceID is", instanceID)
 		profiles, err := server.GetContainerProfiles(instanceID)
 		if err != nil {
-			return errors.Annotatef(err, "get container profiles for instance %q", instanceID)
+			return errors.Annotatef(err, "getting container profiles for instance %q", instanceID)
 		}
-		log.Println("profiles are", profiles)
 
 		var newProfiles []string
 		for _, profileName := range profiles {
@@ -129,13 +126,13 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 
 			profile, _, err := server.GetProfile(profileName)
 			if err != nil {
-				return errors.Annotatef(err, "get profile %q", profileName)
+				return errors.Annotatef(err, "getting profile %q", profileName)
 			}
 
 			appAndRevName := profileName[len(prefixTrailingHyphen):]
 			newProfileName := fmt.Sprintf("%s-%s", c.env.profileName(), appAndRevName)
 			if exists, err := server.HasProfile(newProfileName); err != nil {
-				return err
+				return errors.Annotatef(err, "checking existence of profile %q", newProfileName)
 			} else if !exists {
 				if err = server.CreateProfile(lxdapi.ProfilesPost{
 					ProfilePut: lxdapi.ProfilePut{
@@ -145,7 +142,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 					},
 					Name: newProfileName,
 				}); err != nil {
-					return errors.Annotatef(err, "create a new profile %q", newProfileName)
+					return errors.Annotatef(err, "creating a new profile %q", newProfileName)
 				}
 				logger.Debugf("created new charm profile %q for model %q", newProfileName, c.env.uuid)
 			}
@@ -172,7 +169,7 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 	for _, attach := range profilesToAttach {
 		currentProfiles, err := server.GetContainerProfiles(attach.instance)
 		if err != nil {
-			return errors.Annotatef(err, "get profiles for instance %q", attach.instance)
+			return errors.Annotatef(err, "getting profiles for instance %q", attach.instance)
 		}
 
 		currentProfilesSet := set.NewStrings(currentProfiles...)
@@ -184,7 +181,14 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 		if toAttachSet.IsEmpty() {
 			continue
 		}
-		toAttachSet.Add("default")
+		// Keep existing profiles that are not prefixed with juju-<model>
+		for _, currentProfile := range currentProfiles {
+			if strings.Contains(currentProfile, prefix) {
+				continue
+			}
+			toAttachSet.Add(currentProfile)
+		}
+
 		// So that it's deterministic. It makes it easier to assert the sorted values in unit tests.
 		toAttach := toAttachSet.SortedValues()
 		// It's safe for the API to re-attach profiles that are already attached.
@@ -211,11 +215,20 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 		// then it will fail, and we are okay with this (it'll be kept).
 		err := server.DeleteProfile(oldProfile)
 		if err != nil {
-			logger.Errorf("failed to delete old profile %q due to %q, not a fatal error", oldProfile, err.Error())
+			if strings.Contains(err.Error(), profileNotFound) {
+				continue
+			}
+
+			if strings.Contains(err.Error(), profileCannotBeDeleted) {
+				logger.Warningf("deleting old profile %q failed because it is most likely used by another instance", oldProfile)
+				continue
+			}
+
+			logger.Errorf("deleting old profile %q due to %q did not succeed, not a fatal error", oldProfile, err.Error())
 		}
 	}
 
-	logger.Debugf("finishing create profile step for model %q", c.env.uuid)
+	logger.Debugf("finishing rename profile step for model %q", c.env.uuid)
 
 	return nil
 }

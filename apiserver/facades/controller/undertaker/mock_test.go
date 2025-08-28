@@ -149,10 +149,6 @@ func (m *mockModel) Tag() names.Tag {
 	return names.NewModelTag(m.uuid)
 }
 
-func (m *mockModel) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.uuid)
-}
-
 func (m *mockModel) Name() string {
 	return m.name
 }

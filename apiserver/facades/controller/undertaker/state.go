@@ -79,7 +79,4 @@ type Model interface {
 
 	// Watch returns a watcher watching the model.
 	Watch() state.NotifyWatcher
-
-	// ModelTag returns the tag of this model.
-	ModelTag() names.ModelTag
 }

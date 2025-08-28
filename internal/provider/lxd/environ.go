@@ -34,7 +34,10 @@ var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
 const (
 	bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
-	profileNotFound  = "Profile not found"
+	// profileNotFound is needed because LXD doesn't have typed errors.
+	profileNotFound = "Profile not found"
+	// profileCannotBeDeleted is needed because LXD doesn't have typed errors.
+	profileCannotBeDeleted = "profile cannot be deleted"
 )
 
 type baseProvider interface {
@@ -236,8 +239,12 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
+	if err := env.DestroyProfiles(); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Annotate(err, "destroying LXD profiles for model")
+	}
 
-	return env.DestroyProfiles()
+	return nil
 }
 
 // DestroyController implements the Environ interface.
@@ -283,9 +290,8 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 }
 
 // DestroyProfiles deletes the LXD profiles associated with this model.
-// It includes the:
-//  - model profile `juju-<modelname>-<id>`, and
-//  - charm profiles `juju-<modelname>-<id>-<appname>-<rev>`
+// It includes the: model profile `juju-<modelname>-<id>`and
+// charm profiles `juju-<modelname>-<id>-<appname>-<rev>`.
 func (env *environ) DestroyProfiles() error {
 	server := env.server()
 	profiles, err := server.GetProfileNames()
@@ -300,10 +306,11 @@ func (env *environ) DestroyProfiles() error {
 
 		err := server.DeleteProfile(profile)
 		if err != nil {
-			if !strings.Contains(err.Error(), profileNotFound) {
-				logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+			if strings.Contains(err.Error(), profileNotFound) {
+				continue
 			}
-			continue
+
+			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
 		}
 
 		logger.Infof("deleted profile %q", profile)
@@ -527,7 +534,6 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 
 	logger.Debugf("profiles to delete  %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
-		logger.Debugf("deleting profile %q", name)
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use
 			logger.Debugf("failed to delete profile %q: %s", name, err)

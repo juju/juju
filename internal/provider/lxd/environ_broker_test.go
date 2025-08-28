@@ -700,7 +700,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(nil)
+	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
