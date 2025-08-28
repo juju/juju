@@ -21,13 +21,13 @@ type dirFuncs interface {
 	mkDirAll(path string, perm os.FileMode) error
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
-	calculateSize(path string) (sizeInMib uint64, _ error)
+	calculateSize(ctx context.Context, path string) (sizeInMib uint64, _ error)
 
 	// bindMount remounts the directory "source" at "target",
 	// so that the source tree is available in both locations.
 	// If "target" already refers to "source" in this manner,
 	// then the bindMount operation is a no-op.
-	bindMount(source, target string) error
+	bindMount(ctx context.Context, source, target string) error
 
 	// mountPoint returns the mount-point that contains the
 	// specified path.
@@ -35,7 +35,7 @@ type dirFuncs interface {
 
 	// mountPointSource returns the source of the mount-point
 	// that contains the specified path.
-	mountPointSource(path string) (string, error)
+	mountPointSource(ctx context.Context, path string) (string, error)
 }
 
 // osDirFuncs is an implementation of dirFuncs that operates on the real
@@ -65,8 +65,10 @@ func (*osDirFuncs) fileCount(path string) (int, error) {
 	return len(files), nil
 }
 
-func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
-	output, err := df(o.run, path, "size")
+func (o *osDirFuncs) calculateSize(
+	ctx context.Context, path string,
+) (sizeInMib uint64, _ error) {
+	output, err := df(ctx, o.run, path, "size")
 	if err != nil {
 		return 0, errors.Annotate(err, "getting size")
 	}
@@ -77,8 +79,8 @@ func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
 	return numBlocks / 1024, nil
 }
 
-func (o *osDirFuncs) bindMount(source, target string) error {
-	_, err := o.run("mount", "--bind", source, target)
+func (o *osDirFuncs) bindMount(ctx context.Context, source, target string) error {
+	_, err := o.run(ctx, "mount", "--bind", source, target)
 	return err
 }
 
@@ -115,9 +117,11 @@ func (o *osDirFuncs) mountPoint(path string) (string, error) {
 	return mi[0].Source, nil
 }
 
-func (o *osDirFuncs) mountPointSource(target string) (result string, _ error) {
+func (o *osDirFuncs) mountPointSource(
+	ctx context.Context, target string,
+) (result string, _ error) {
 	defer func() {
-		logger.Debugf(context.TODO(), "mount point source for %q is %q", target, result)
+		logger.Debugf(ctx, "mount point source for %q is %q", target, result)
 	}()
 
 	infoReader, closer, err := o.infoReader()
@@ -169,8 +173,8 @@ func (o *osDirFuncs) mountPointSource(target string) (result string, _ error) {
 	return source, nil
 }
 
-func df(run RunCommandFunc, path, field string) (string, error) {
-	output, err := run("df", "--output="+field, path)
+func df(ctx context.Context, run RunCommandFunc, path, field string) (string, error) {
+	output, err := run(ctx, "df", "--output="+field, path)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

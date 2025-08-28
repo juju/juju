@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"context"
+
 	"github.com/juju/tc"
 )
 
@@ -34,7 +36,7 @@ func (m *mockRunCommand) assertDrained() {
 	m.c.Assert(m.commands, tc.HasLen, 0)
 }
 
-func (m *mockRunCommand) run(cmd string, args ...string) (stdout string, err error) {
+func (m *mockRunCommand) run(_ context.Context, cmd string, args ...string) (stdout string, err error) {
 	m.c.Assert(m.commands, tc.Not(tc.HasLen), 0)
 	expect := m.commands[0]
 	m.commands = m.commands[1:]

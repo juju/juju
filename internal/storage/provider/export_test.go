@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"os"
 	"strings"
 	"time"
@@ -20,7 +21,7 @@ var Getpagesize = &getpagesize
 func LoopVolumeSource(
 	etcDir string,
 	storageDir string,
-	run func(string, ...string) (string, error),
+	run func(context.Context, string, ...string) (string, error),
 ) (storage.VolumeSource, *MockDirFuncs) {
 	dirFuncs := &MockDirFuncs{
 		osDirFuncs{run: run},
@@ -32,7 +33,7 @@ func LoopVolumeSource(
 
 func NewMockManagedFilesystemSource(
 	etcDir string,
-	run func(string, ...string) (string, error),
+	run func(context.Context, string, ...string) (string, error),
 	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	fakeMountInfo ...string,
@@ -108,7 +109,7 @@ func (m *MockDirFuncs) fileCount(name string) (int, error) {
 	return 0, nil
 }
 
-func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error), fakeMountInfo ...string) (storage.FilesystemSource, *MockDirFuncs) {
+func RootfsFilesystemSource(etcDir, storageDir string, run func(context.Context, string, ...string) (string, error), fakeMountInfo ...string) (storage.FilesystemSource, *MockDirFuncs) {
 	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	d := &MockDirFuncs{
 		osDirFuncs{run: run, mountInfoRdr: rdr},
@@ -118,7 +119,7 @@ func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...strin
 	return &rootfsFilesystemSource{d, run, storageDir}, d
 }
 
-func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error), fakeMountInfo ...string) storage.FilesystemSource {
+func TmpfsFilesystemSource(etcDir, storageDir string, run func(context.Context, string, ...string) (string, error), fakeMountInfo ...string) storage.FilesystemSource {
 	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	return &tmpfsFilesystemSource{
 		&MockDirFuncs{

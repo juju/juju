@@ -78,7 +78,7 @@ func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (b
 func (s *managedFilesystemSource) CreateFilesystems(ctx context.Context, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
-		filesystem, err := s.createFilesystem(arg)
+		filesystem, err := s.createFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -88,22 +88,25 @@ func (s *managedFilesystemSource) CreateFilesystems(ctx context.Context, args []
 	return results, nil
 }
 
-func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams) (*storage.Filesystem, error) {
+func (s *managedFilesystemSource) createFilesystem(
+	ctx context.Context,
+	arg storage.FilesystemParams,
+) (*storage.Filesystem, error) {
 	blockDevice, err := s.backingVolumeBlockDevice(arg.Volume)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	devicePath := devicePath(blockDevice)
 	if isDiskDevice(devicePath) {
-		if err := destroyPartitions(s.run, devicePath); err != nil {
+		if err := destroyPartitions(ctx, s.run, devicePath); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := createPartition(s.run, devicePath); err != nil {
+		if err := createPartition(ctx, s.run, devicePath); err != nil {
 			return nil, errors.Trace(err)
 		}
 		devicePath = partitionDevicePath(devicePath)
 	}
-	if err := createFilesystem(s.run, devicePath); err != nil {
+	if err := createFilesystem(ctx, s.run, devicePath); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &storage.Filesystem{
@@ -133,7 +136,7 @@ func (s *managedFilesystemSource) ReleaseFilesystems(ctx context.Context, filesy
 func (s *managedFilesystemSource) AttachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
-		attachment, err := s.attachFilesystem(arg)
+		attachment, err := s.attachFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -143,7 +146,9 @@ func (s *managedFilesystemSource) AttachFilesystems(ctx context.Context, args []
 	return results, nil
 }
 
-func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
+func (s *managedFilesystemSource) attachFilesystem(
+	ctx context.Context, arg storage.FilesystemAttachmentParams,
+) (*storage.FilesystemAttachment, error) {
 	filesystem, ok := s.filesystems[arg.Filesystem]
 	if !ok {
 		return nil, errors.Errorf("filesystem %v is not yet provisioned", arg.Filesystem.Id())
@@ -156,7 +161,15 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 	if isDiskDevice(devicePath) {
 		devicePath = partitionDevicePath(devicePath)
 	}
-	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, blockDevice.UUID, arg.Path, arg.ReadOnly); err != nil {
+	if err := mountFilesystem(
+		ctx,
+		s.run,
+		s.dirFuncs,
+		devicePath,
+		blockDevice.UUID,
+		arg.Path,
+		arg.ReadOnly,
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &storage.FilesystemAttachment{
@@ -173,16 +186,16 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 func (s *managedFilesystemSource) DetachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
-		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+		if err := maybeUnmount(ctx, s.run, s.dirFuncs, arg.Path); err != nil {
 			results[i] = err
 		}
 	}
 	return results, nil
 }
 
-func destroyPartitions(run RunCommandFunc, devicePath string) error {
-	logger.Debugf(context.TODO(), "destroying partitions on %q", devicePath)
-	if _, err := run("sgdisk", "--zap-all", devicePath); err != nil {
+func destroyPartitions(ctx context.Context, run RunCommandFunc, devicePath string) error {
+	logger.Debugf(ctx, "destroying partitions on %q", devicePath)
+	if _, err := run(ctx, "sgdisk", "--zap-all", devicePath); err != nil {
 		return errors.Annotate(err, "sgdisk failed")
 	}
 	return nil
@@ -190,46 +203,58 @@ func destroyPartitions(run RunCommandFunc, devicePath string) error {
 
 // createPartition creates a single partition (1) on the disk with the
 // specified device path.
-func createPartition(run RunCommandFunc, devicePath string) error {
-	logger.Debugf(context.TODO(), "creating partition on %q", devicePath)
-	if _, err := run("sgdisk", "-n", "1:0:-1", devicePath); err != nil {
+func createPartition(ctx context.Context, run RunCommandFunc, devicePath string) error {
+	logger.Debugf(ctx, "creating partition on %q", devicePath)
+	if _, err := run(ctx, "sgdisk", "-n", "1:0:-1", devicePath); err != nil {
 		return errors.Annotate(err, "sgdisk failed")
 	}
 	return nil
 }
 
-func createFilesystem(run RunCommandFunc, devicePath string) error {
-	logger.Debugf(context.TODO(), "attempting to create filesystem on %q", devicePath)
+func createFilesystem(
+	ctx context.Context,
+	run RunCommandFunc,
+	devicePath string,
+) error {
+	logger.Debugf(ctx, "attempting to create filesystem on %q", devicePath)
 	mkfscmd := "mkfs." + defaultFilesystemType
-	_, err := run(mkfscmd, devicePath)
+	_, err := run(ctx, mkfscmd, devicePath)
 	if err != nil {
 		return errors.Annotatef(err, "%s failed", mkfscmd)
 	}
-	logger.Infof(context.TODO(), "created filesystem on %q", devicePath)
+	logger.Infof(ctx, "created filesystem on %q", devicePath)
 	return nil
 }
 
-func mountFilesystem(run RunCommandFunc, dirFuncs dirFuncs, devicePath, uuid, mountPoint string, readOnly bool) error {
-	logger.Debugf(context.TODO(), "attempting to mount filesystem on %q at %q", devicePath, mountPoint)
+func mountFilesystem(
+	ctx context.Context,
+	run RunCommandFunc,
+	dirFuncs dirFuncs,
+	devicePath,
+	uuid,
+	mountPoint string,
+	readOnly bool,
+) error {
+	logger.Debugf(ctx, "attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
 	}
-	mounted, mountSource, err := isMounted(dirFuncs, mountPoint)
+	mounted, mountSource, err := isMounted(ctx, dirFuncs, mountPoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if mounted {
-		logger.Debugf(context.TODO(), "filesystem on %q already mounted at %q", mountSource, mountPoint)
+		logger.Debugf(ctx, "filesystem on %q already mounted at %q", mountSource, mountPoint)
 	} else {
 		var args []string
 		if readOnly {
 			args = append(args, "-o", "ro")
 		}
 		args = append(args, devicePath, mountPoint)
-		if _, err := run("mount", args...); err != nil {
+		if _, err := run(ctx, "mount", args...); err != nil {
 			return errors.Annotate(err, "mount failed")
 		}
-		logger.Debugf(context.TODO(), "mounted filesystem on %q at %q", devicePath, mountPoint)
+		logger.Debugf(ctx, "mounted filesystem on %q at %q", devicePath, mountPoint)
 	}
 	// Look for the mtab entry resulting from the mount and copy it to fstab.
 	// This ensures the mount is available available after a reboot.
@@ -365,22 +390,27 @@ func ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, entry string) error 
 	return os.Rename(newFsTab.Name(), filepath.Join(etcDir, "fstab"))
 }
 
-func maybeUnmount(run RunCommandFunc, dirFuncs dirFuncs, mountPoint string) error {
-	mounted, _, err := isMounted(dirFuncs, mountPoint)
+func maybeUnmount(
+	ctx context.Context,
+	run RunCommandFunc,
+	dirFuncs dirFuncs,
+	mountPoint string,
+) error {
+	mounted, _, err := isMounted(ctx, dirFuncs, mountPoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !mounted {
 		return nil
 	}
-	logger.Debugf(context.TODO(), "attempting to unmount filesystem at %q", mountPoint)
+	logger.Debugf(ctx, "attempting to unmount filesystem at %q", mountPoint)
 	if err := removeFstabEntry(dirFuncs.etcDir(), mountPoint); err != nil {
 		return errors.Annotate(err, "updating /etc/fstab failed")
 	}
-	if _, err := run("umount", mountPoint); err != nil {
+	if _, err := run(ctx, "umount", mountPoint); err != nil {
 		return errors.Annotate(err, "umount failed")
 	}
-	logger.Infof(context.TODO(), "unmounted filesystem at %q", mountPoint)
+	logger.Infof(ctx, "unmounted filesystem at %q", mountPoint)
 	return nil
 }
 
@@ -428,13 +458,15 @@ func removeFstabEntry(etcDir string, mountPoint string) error {
 	return os.Rename(newFsTab.Name(), fstab)
 }
 
-func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
+func isMounted(
+	ctx context.Context, dirFuncs dirFuncs, mountPoint string,
+) (bool, string, error) {
 	mountPointParent := filepath.Dir(mountPoint)
-	parentSource, err := dirFuncs.mountPointSource(mountPointParent)
+	parentSource, err := dirFuncs.mountPointSource(ctx, mountPointParent)
 	if err != nil {
 		return false, "", errors.Trace(err)
 	}
-	source, err := dirFuncs.mountPointSource(mountPoint)
+	source, err := dirFuncs.mountPointSource(ctx, mountPoint)
 	if err != nil {
 		return false, "", errors.Trace(err)
 	}

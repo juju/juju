@@ -173,7 +173,7 @@ func (s *rootfsFilesystemSource) ValidateFilesystemParams(params storage.Filesys
 func (s *rootfsFilesystemSource) CreateFilesystems(ctx context.Context, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
-		filesystem, err := s.createFilesystem(arg)
+		filesystem, err := s.createFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -183,7 +183,9 @@ func (s *rootfsFilesystemSource) CreateFilesystems(ctx context.Context, args []s
 	return results, nil
 }
 
-func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (*storage.Filesystem, error) {
+func (s *rootfsFilesystemSource) createFilesystem(
+	ctx context.Context, params storage.FilesystemParams,
+) (*storage.Filesystem, error) {
 	if err := s.ValidateFilesystemParams(params); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -194,7 +196,7 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
+	sizeInMiB, err := s.dirFuncs.calculateSize(ctx, s.storageDir)
 	if err != nil {
 		os.Remove(path)
 		return nil, errors.Trace(err)
@@ -229,7 +231,7 @@ func (s *rootfsFilesystemSource) ReleaseFilesystems(ctx context.Context, filesys
 func (s *rootfsFilesystemSource) AttachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
-		attachment, err := s.attachFilesystem(arg)
+		attachment, err := s.attachFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -239,14 +241,17 @@ func (s *rootfsFilesystemSource) AttachFilesystems(ctx context.Context, args []s
 	return results, nil
 }
 
-func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
+func (s *rootfsFilesystemSource) attachFilesystem(
+	ctx context.Context,
+	arg storage.FilesystemAttachmentParams,
+) (*storage.FilesystemAttachment, error) {
 	mountPoint := arg.Path
 	if mountPoint == "" {
 		return nil, errNoMountPoint
 	}
 	// The filesystem is created at <storage-dir>/<storage-id>.
 	// If it is different to the attachment path, bind mount.
-	if err := s.mount(arg.Filesystem, mountPoint); err != nil {
+	if err := s.mount(ctx, arg.Filesystem, mountPoint); err != nil {
 		return nil, err
 	}
 	return &storage.FilesystemAttachment{
@@ -258,18 +263,20 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 	}, nil
 }
 
-func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) error {
+func (s *rootfsFilesystemSource) mount(
+	ctx context.Context, tag names.FilesystemTag, target string,
+) error {
 	fsPath := filepath.Join(s.storageDir, tag.Id())
 	if target == fsPath {
 		return nil
 	}
-	logger.Debugf(context.TODO(), "mounting filesystem %q at %q", fsPath, target)
+	logger.Debugf(ctx, "mounting filesystem %q at %q", fsPath, target)
 
 	if err := ensureDir(s.dirFuncs, target); err != nil {
 		return errors.Trace(err)
 	}
 
-	mounted, err := s.tryBindMount(fsPath, target)
+	mounted, err := s.tryBindMount(ctx, fsPath, target)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -304,8 +311,10 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 	return nil
 }
 
-func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, error) {
-	targetSource, err := s.dirFuncs.mountPointSource(target)
+func (s *rootfsFilesystemSource) tryBindMount(
+	ctx context.Context, source, target string,
+) (bool, error) {
+	targetSource, err := s.dirFuncs.mountPointSource(ctx, target)
 	if err != nil {
 		return false, errors.Annotate(err, "getting target mount-point source")
 	}
@@ -313,8 +322,8 @@ func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, erro
 		// Already bind mounted.
 		return true, nil
 	}
-	if err := s.dirFuncs.bindMount(source, target); err != nil {
-		logger.Debugf(context.TODO(), "cannot bind-mount: %v", err)
+	if err := s.dirFuncs.bindMount(ctx, source, target); err != nil {
+		logger.Debugf(ctx, "cannot bind-mount: %v", err)
 	} else {
 		return true, nil
 	}
@@ -343,7 +352,7 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 func (s *rootfsFilesystemSource) DetachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
-		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+		if err := maybeUnmount(ctx, s.run, s.dirFuncs, arg.Path); err != nil {
 			results[i] = err
 		}
 	}

@@ -131,7 +131,7 @@ var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 func (lvs *loopVolumeSource) CreateVolumes(ctx context.Context, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
-		volume, err := lvs.createVolume(arg)
+		volume, err := lvs.createVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Annotate(err, "creating volume")
 		}
@@ -140,13 +140,15 @@ func (lvs *loopVolumeSource) CreateVolumes(ctx context.Context, args []storage.V
 	return results, nil
 }
 
-func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
+func (lvs *loopVolumeSource) createVolume(
+	ctx context.Context, params storage.VolumeParams,
+) (storage.Volume, error) {
 	volumeId := params.Tag.String()
 	loopFilePath := lvs.volumeFilePath(params.Tag)
 	if err := ensureDir(lvs.dirFuncs, filepath.Dir(loopFilePath)); err != nil {
 		return storage.Volume{}, errors.Trace(err)
 	}
-	if err := createBlockFile(lvs.run, loopFilePath, params.Size); err != nil {
+	if err := createBlockFile(ctx, lvs.run, loopFilePath, params.Size); err != nil {
 		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
 	return storage.Volume{
@@ -215,7 +217,7 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 func (lvs *loopVolumeSource) AttachVolumes(ctx context.Context, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
-		attachment, err := lvs.attachVolume(arg)
+		attachment, err := lvs.attachVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Annotatef(err, "attaching volume %v", arg.Volume.Id())
 			continue
@@ -225,9 +227,12 @@ func (lvs *loopVolumeSource) AttachVolumes(ctx context.Context, args []storage.V
 	return results, nil
 }
 
-func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
+func (lvs *loopVolumeSource) attachVolume(
+	ctx context.Context,
+	arg storage.VolumeAttachmentParams,
+) (*storage.VolumeAttachment, error) {
 	loopFilePath := lvs.volumeFilePath(arg.Volume)
-	deviceName, err := attachLoopDevice(lvs.run, loopFilePath, arg.ReadOnly)
+	deviceName, err := attachLoopDevice(ctx, lvs.run, loopFilePath, arg.ReadOnly)
 	if err != nil {
 		os.Remove(loopFilePath)
 		return nil, errors.Annotate(err, "attaching loop device")
@@ -246,24 +251,24 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 func (lvs *loopVolumeSource) DetachVolumes(ctx context.Context, args []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
-		if err := lvs.detachVolume(arg.Volume); err != nil {
+		if err := lvs.detachVolume(ctx, arg.Volume); err != nil {
 			results[i] = errors.Annotatef(err, "detaching volume %s", arg.Volume.Id())
 		}
 	}
 	return results, nil
 }
 
-func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
+func (lvs *loopVolumeSource) detachVolume(ctx context.Context, tag names.VolumeTag) error {
 	loopFilePath := lvs.volumeFilePath(tag)
-	deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
+	deviceNames, err := associatedLoopDevices(ctx, lvs.run, loopFilePath)
 	if err != nil {
 		return errors.Annotate(err, "locating loop device")
 	}
 	if len(deviceNames) > 1 {
-		logger.Errorf(context.TODO(), "expected 1 loop device, got %d", len(deviceNames))
+		logger.Errorf(ctx, "expected 1 loop device, got %d", len(deviceNames))
 	}
 	for _, deviceName := range deviceNames {
-		if err := detachLoopDevice(lvs.run, deviceName); err != nil {
+		if err := detachLoopDevice(ctx, lvs.run, deviceName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -272,9 +277,11 @@ func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
 
 // createBlockFile creates a file at the specified path, with the
 // given size in mebibytes.
-func createBlockFile(run RunCommandFunc, filePath string, sizeInMiB uint64) error {
+func createBlockFile(
+	ctx context.Context, run RunCommandFunc, filePath string, sizeInMiB uint64,
+) error {
 	// fallocate will reserve the space without actually writing to it.
-	_, err := run("fallocate", "-l", fmt.Sprintf("%dMiB", sizeInMiB), filePath)
+	_, err := run(ctx, "fallocate", "-l", fmt.Sprintf("%dMiB", sizeInMiB), filePath)
 	if err != nil {
 		return errors.Annotatef(err, "allocating loop backing file %q", filePath)
 	}
@@ -284,14 +291,16 @@ func createBlockFile(run RunCommandFunc, filePath string, sizeInMiB uint64) erro
 // attachLoopDevice attaches a loop device to the file with the
 // specified path, and returns the loop device's name (e.g. "loop0").
 // losetup will create additional loop devices as necessary.
-func attachLoopDevice(run RunCommandFunc, filePath string, readOnly bool) (loopDeviceName string, _ error) {
-	devices, err := associatedLoopDevices(run, filePath)
+func attachLoopDevice(
+	ctx context.Context, run RunCommandFunc, filePath string, readOnly bool,
+) (loopDeviceName string, _ error) {
+	devices, err := associatedLoopDevices(ctx, run, filePath)
 	if err != nil {
 		return "", err
 	}
 	if len(devices) > 0 {
 		// Already attached.
-		logger.Debugf(context.TODO(), "%s already attached to %s", filePath, devices)
+		logger.Debugf(ctx, "%s already attached to %s", filePath, devices)
 		return devices[0], nil
 	}
 	// -f automatically finds the first available loop-device.
@@ -302,7 +311,7 @@ func attachLoopDevice(run RunCommandFunc, filePath string, readOnly bool) (loopD
 		args = append(args, "-r")
 	}
 	args = append(args, filePath)
-	stdout, err := run("losetup", args...)
+	stdout, err := run(ctx, "losetup", args...)
 	if err != nil {
 		return "", errors.Annotatef(err, "attaching loop device to %q", filePath)
 	}
@@ -312,8 +321,10 @@ func attachLoopDevice(run RunCommandFunc, filePath string, readOnly bool) (loopD
 }
 
 // detachLoopDevice detaches the loop device with the specified name.
-func detachLoopDevice(run RunCommandFunc, deviceName string) error {
-	_, err := run("losetup", "-d", path.Join("/dev", deviceName))
+func detachLoopDevice(
+	ctx context.Context, run RunCommandFunc, deviceName string,
+) error {
+	_, err := run(ctx, "losetup", "-d", path.Join("/dev", deviceName))
 	if err != nil {
 		return errors.Annotatef(err, "detaching loop device %q", deviceName)
 	}
@@ -322,8 +333,8 @@ func detachLoopDevice(run RunCommandFunc, deviceName string) error {
 
 // associatedLoopDevices returns the device names of the loop devices
 // associated with the specified file path.
-func associatedLoopDevices(run RunCommandFunc, filePath string) ([]string, error) {
-	stdout, err := run("losetup", "-j", filePath)
+func associatedLoopDevices(ctx context.Context, run RunCommandFunc, filePath string) ([]string, error) {
+	stdout, err := run(ctx, "losetup", "-j", filePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

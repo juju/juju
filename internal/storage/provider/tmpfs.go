@@ -198,7 +198,7 @@ func (s *tmpfsFilesystemSource) ReleaseFilesystems(ctx context.Context, filesyst
 func (s *tmpfsFilesystemSource) AttachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
-		attachment, err := s.attachFilesystem(arg)
+		attachment, err := s.attachFilesystem(ctx, arg)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -208,7 +208,10 @@ func (s *tmpfsFilesystemSource) AttachFilesystems(ctx context.Context, args []st
 	return results, nil
 }
 
-func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
+func (s *tmpfsFilesystemSource) attachFilesystem(
+	ctx context.Context,
+	arg storage.FilesystemAttachmentParams,
+) (*storage.FilesystemAttachment, error) {
 	path := arg.Path
 	if path == "" {
 		return nil, errNoMountPoint
@@ -222,7 +225,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 	}
 
 	// Check if the mount already exists.
-	source, err := s.dirFuncs.mountPointSource(path)
+	source, err := s.dirFuncs.mountPointSource(ctx, path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,6 +238,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 			options += ",ro"
 		}
 		if _, err := s.run(
+			ctx,
 			"mount", "-t", "tmpfs", arg.Filesystem.String(), path, "-o", options,
 		); err != nil {
 			os.Remove(path)
@@ -256,7 +260,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 func (s *tmpfsFilesystemSource) DetachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	results := make([]error, len(args))
 	for i, arg := range args {
-		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
+		if err := maybeUnmount(ctx, s.run, s.dirFuncs, arg.Path); err != nil {
 			results[i] = err
 		}
 	}
