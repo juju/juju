@@ -119,10 +119,20 @@ func (e *azureStorageProvider) Releasable() bool {
 
 // DefaultPools is part of the Provider interface.
 func (e *azureStorageProvider) DefaultPools() []*storage.Config {
-	premiumPool, _ := storage.NewConfig("azure-premium", azureStorageProviderType, map[string]interface{}{
-		accountTypeAttr: accountTypePremiumLRS,
-	})
-	return []*storage.Config{premiumPool}
+	defaultPool, _ := storage.NewConfig(
+		azureStorageProviderType,
+		azureStorageProviderType,
+		storage.Attrs{},
+	)
+
+	premiumPool, _ := storage.NewConfig(
+		"azure-premium",
+		azureStorageProviderType,
+		storage.Attrs{
+			accountTypeAttr: accountTypePremiumLRS,
+		})
+
+	return []*storage.Config{defaultPool, premiumPool}
 }
 
 // VolumeSource is part of the Provider interface.
