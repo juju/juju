@@ -2,9 +2,9 @@
 # The Equinix Metal cloud and Juju
 
 
-This document describes details specific to using your existing Equinix Metal cloud with Juju. 
+This document describes details specific to using your existing Equinix Metal cloud with Juju.
 
-> See more: [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) 
+> See more: [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -24,11 +24,10 @@ Name in Juju: `equinix`
 
 ### Authentication types
 
-
 #### `access-key`
 Attributes:
-- project-id: Packet project ID (required)
-- api-token: Packet API token (required)
+- `project-id`: Packet project ID (required)
+- `api-token`: Packet API token (required)
 
 <!--
 ## Notes on `juju bootstrap`

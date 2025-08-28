@@ -4,9 +4,9 @@
 
 <!--To see the older HTG-style doc, see version 35. Note that it may be out-of-date. -->
 
-This document describes details specific to using your existing Amazon EC2 cloud with Juju. 
+This document describes details specific to using your existing Amazon EC2 cloud with Juju.
 
-> See more: [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) 
+> See more: [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -25,15 +25,14 @@ Name in Juju: `aws`
 
 ### Authentication types
 
-
-#### instance-role
+#### `instance-role`
 Attributes:
-- instance-profile-name: The AWS Instance Profile name (required)
+- `instance-profile-name`: The AWS Instance Profile name (required)
 
-#### access-key
+#### `access-key`
 Attributes:
-- access-key: The EC2 access key (required)
-- secret-key: The EC2 secret key (required)
+- `access-key`: The EC2 access key (required)
+- `secret-key`: The EC2 secret key (required)
 
 
 ## Notes on `juju bootstrap`
@@ -96,4 +95,34 @@ Example: vpc-a1b2c3d4
 | {ref}`placement-directive-subnet`                | &#10003;                                                                                                                                                                                                               |
 | {ref}`placement-directive-system-id`             | &#10005;                                                                                                                                                                                                               |
 | {ref}`placement-directive-zone`                  | &#10003;  <br> If the query looks like a CIDR, then this will match subnets with the same CIDR. If it follows the syntax of a "subnet-XXXX", this will match the Subnet ID. Everything else is just matched as a Name. |
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+(storage-provider-ebs)=
+### `ebs`
+
+> See first: [AWS | EBS volume types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+
+Prerequisites: Attaching an `ebs` volume to an EC2 instance requires that they both reside within the same availability zone; if this is not the case, Juju will return an error.
+
+Configuration options:
+
+- `volume-type`: Specifies the EBS volume type to create. You can use either the EBS volume type names, or synonyms defined by Juju (in parentheses). Note: Juju's default pool (also called `ebs`) uses `gp2/ssd` as its own default.
+    - `standard` (`magnetic`)
+    - `gp2` (`ssd`)
+    - `gp3`
+    - `io1` (`provisioned-iops`)
+    - `io2`
+    - `st1` (`optimized-hdd`)
+    - `sc1` (`cold-storage`)
+
+- `iops`: The number of IOPS for `io1`, `io2` and `gp3` volume types. There are restrictions on minimum and maximum IOPS, as a ratio of the size of volumes. See [Provisioned IOPS (SSD) Volumes](https://docs.aws.amazon.com/ebs/latest/userguide/provisioned-iops.html) for more information.
+
+- `encrypted`: Boolean (true|false); indicates whether created volumes are encrypted.
+
+- `kms-key-id`: The KMS Key ARN used to encrypt the disk. Requires `encrypted: true` to function.
+
+- `throughput`: The number of megabyte/s throughput a GP3 volume is provisioned for. Values are passed in the form `1000M` or `1G` etc.
 

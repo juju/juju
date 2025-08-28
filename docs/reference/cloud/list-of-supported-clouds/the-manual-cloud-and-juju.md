@@ -39,7 +39,7 @@ Enter the SSH connection information for the machine where a Juju controller wil
 
 ### Authentication types
 
-No preset auth-types. Just make sure you can SSH into the controller machine.
+No preset authentication types. Just make sure you can SSH into the controller machine.
 
 
 ## Notes on `juju bootstrap`

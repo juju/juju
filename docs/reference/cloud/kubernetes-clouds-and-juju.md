@@ -107,3 +107,21 @@ Sadly, the mem and cpu-power constraints do not properly do what's needed for re
 ## Placement directives
 
 Placement directives aren't supported on Kubernetes clouds.
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+Kubernetes-based models have access to the `kubernetes` storage provider.
+
+(storage-provider-kubernetes)=
+### `kubernetes`
+> See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
+
+Configuration options:
+
+- `storage-class`: The storage class for the Kubernetes cluster to use. It can be any storage class that you have defined, for example:`juju-unit-storage`, `juju-charm-storage`, `microk8s-hostpath`, etc.
+
+- `storage-provisioner`: The Kubernetes storage provisioner. For example: `kubernetes.io/no-provisioner`, `kubernetes.io/aws-ebs`, `kubernetes.io/gce-pd`, etc.
+
+- `parameters.type`:  Extra parameters. For example: `gp2`, `pd-standard`. etc.
