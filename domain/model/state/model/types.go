@@ -13,6 +13,12 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// dbEntityUUID represents a generic uuid column from a given table in the
+// model's database.
+type dbEntityUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // dbUUID represents a UUID.
 type dbUUID struct {
 	UUID string `db:"uuid"`

@@ -117,13 +117,21 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// CreateDefaultStoragePools is responsible for inserting a model's set of
-// default storage pools into the model. It is the responsibility of the caller
-// to make sure that no conflicts exist and the operation is performed once.
-func (s *ModelState) CreateDefaultStoragePools(
+// EnsureDefaultStoragePools is responsible for making sure that the set of
+// default storage pools provided exist in the model. If a storage pool already
+// exists in the model no change is performed to the pool.
+func (s *ModelState) EnsureDefaultStoragePools(
 	ctx context.Context, args []model.CreateModelDefaultStoragePoolArg,
 ) error {
 	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	checkPoolExistsStmt, err := s.Prepare(
+		"SELECT &dbEntityUUID.* FROM storage_pool WHERE uuid = $dbEntityUUID.uuid",
+		dbEntityUUID{},
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -145,7 +153,7 @@ func (s *ModelState) CreateDefaultStoragePools(
 	}
 
 	insertArgs := make([]dbInsertStoragePool, 0, len(args))
-	insertAttributeArgs := make([]dbInsertStoragePoolAttribute, 0, len(args))
+	insertAttributeArgs := make(map[string][]dbInsertStoragePoolAttribute, len(args))
 	for _, arg := range args {
 		insertArgs = append(insertArgs, dbInsertStoragePool{
 			UUID:     arg.UUID,
@@ -155,8 +163,8 @@ func (s *ModelState) CreateDefaultStoragePools(
 		})
 
 		for k, v := range arg.Attributes {
-			insertAttributeArgs = append(
-				insertAttributeArgs,
+			insertAttributeArgs[arg.UUID] = append(
+				insertAttributeArgs[arg.UUID],
 				dbInsertStoragePoolAttribute{
 					StoragePoolUUID: arg.UUID,
 					Key:             k,
@@ -166,21 +174,38 @@ func (s *ModelState) CreateDefaultStoragePools(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, insertPoolStmt, insertArgs).Run()
-		if err != nil {
-			return err
-		}
+		var entityUUID dbEntityUUID
+		for _, insertArg := range insertArgs {
+			entityUUID.UUID = insertArg.UUID
 
-		// Attempting to insert zero attributes will result in an error.
-		if len(insertAttributeArgs) == 0 {
-			return nil
-		}
+			err = tx.Query(ctx, checkPoolExistsStmt, entityUUID).Get(&entityUUID)
+			if err == nil {
+				// The default storage pool already exists. We can safely move
+				// along.
+				continue
+			} else if !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf(
+					"checking if default storage pool %q already exists: %w",
+					insertArg.UUID, err,
+				)
+			}
 
-		err = tx.Query(ctx, insertAttrStmt, insertAttributeArgs).Run()
-		if err != nil {
-			return errors.Errorf(
-				"inserting default storage pool attributes: %w", err,
-			)
+			err = tx.Query(ctx, insertPoolStmt, insertArg).Run()
+			if err != nil {
+				return err
+			}
+
+			if _, has := insertAttributeArgs[insertArg.UUID]; !has {
+				continue
+			}
+
+			err = tx.Query(ctx, insertAttrStmt, insertAttributeArgs[insertArg.UUID]).Run()
+			if err != nil {
+				return errors.Errorf(
+					"inserting default storage pool %q attributes: %w",
+					insertArg.UUID, err,
+				)
+			}
 		}
 
 		return nil

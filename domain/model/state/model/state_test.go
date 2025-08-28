@@ -852,9 +852,9 @@ func (s *modelSuite) TestGetModelInfoSummary(c *tc.C) {
 	})
 }
 
-// TestCreateDefaultStoragePools is testing the happy path of creating a
+// TestEnsureDefaultStoragePools is testing the happy path of ensuring
 // default storage pool for the model.
-func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
+func (s *modelSuite) TestEnsureDefaultStoragePools(c *tc.C) {
 	createArgs := []model.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: map[string]string{
@@ -868,7 +868,7 @@ func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
 	}
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.CreateDefaultStoragePools(c.Context(), createArgs)
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
 	c.Check(err, tc.ErrorIsNil)
 
 	var (
@@ -905,7 +905,7 @@ func (s *modelSuite) TestCreateDefaultStoragePools(c *tc.C) {
 	c.Check(dbVals, tc.DeepEquals, createArgs[0].Attributes)
 }
 
-func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
+func (s *modelSuite) TestEnsureDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 	createArgs := []model.CreateModelDefaultStoragePoolArg{
 		{
 			Attributes: nil,
@@ -917,7 +917,7 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 	}
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.CreateDefaultStoragePools(c.Context(), createArgs)
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
 	c.Check(err, tc.ErrorIsNil)
 
 	var (
@@ -943,4 +943,51 @@ func (s *modelSuite) TestCreateDefaultStoragePoolsWithNoAttributes(c *tc.C) {
 	defer rows.Close()
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rows.Next(), tc.IsFalse)
+}
+
+// TestEnsureDefaultStoragePoolsWithExisting is asserting that if we ensure a
+// set of default storage pools to the model and one of the storage pools
+// already exists no error is produced and the other storage pools are
+// persisted.
+func (s *modelSuite) TestEnsureDefaultStoragePoolsWithExisting(c *tc.C) {
+	createArgs := []model.CreateModelDefaultStoragePoolArg{
+		{
+			Attributes: nil,
+			Name:       "test-default-pool-1",
+			Origin:     storage.StoragePoolOriginProviderDefault,
+			Type:       "my-provider",
+			UUID:       storagetesting.GenStoragePoolUUID(c).String(),
+		},
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	createArgs = append(createArgs, model.CreateModelDefaultStoragePoolArg{
+		Attributes: nil,
+		Name:       "test-default-pool-2",
+		Origin:     storage.StoragePoolOriginProviderDefault,
+		Type:       "my-provider",
+		UUID:       storagetesting.GenStoragePoolUUID(c).String(),
+	})
+	err = st.EnsureDefaultStoragePools(c.Context(), createArgs)
+	c.Check(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().QueryContext(
+		c.Context(),
+		"SELECT uuid FROM storage_pool",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var uuids []string
+	for rows.Next() {
+		var uuid string
+		err = rows.Scan(&uuid)
+		uuids = append(uuids, uuid)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	c.Check(uuids, tc.SameContents, []string{createArgs[0].UUID, createArgs[1].UUID})
 }
