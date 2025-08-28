@@ -438,6 +438,21 @@ func (s *Service) GetVolumeByID(
 	return storageprovisioning.Volume{}, errors.New("not implemented")
 }
 
+// GetBlockDeviceForVolumeAttachment returns information about the block
+// device set for the specified volume attachment.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the volume attachment uuid is not valid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+// when no volume attachment exists for the provided uuid.
+// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentWithoutBlockDevice]
+// when the volume attachment does not yet have a block device.
+func (s *Service) GetBlockDeviceForVolumeAttachment(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (blockdevice.BlockDevice, error) {
+	return blockdevice.BlockDevice{}, nil
+}
+
 // WatchModelProvisionedVolumes returns a watcher that emits volume IDs,
 // whenever a model provisioned volume's life changes.
 func (s *Service) WatchModelProvisionedVolumes(

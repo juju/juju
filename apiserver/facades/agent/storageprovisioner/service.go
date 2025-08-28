@@ -354,6 +354,12 @@ type StorageProvisioningService interface {
 		ctx context.Context, volumeID string,
 	) (storageprovisioning.Volume, error)
 
+	// GetBlockDeviceForVolumeAttachment returns information about the block
+	// device set for the specified volume attachment.
+	GetBlockDeviceForVolumeAttachment(
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	) (blockdevice.BlockDevice, error)
+
 	// WatchMachineProvisionedFilesystems returns a watcher that emits filesystem IDs,
 	// whenever the given machine's provisioned filsystem's life changes.
 	//

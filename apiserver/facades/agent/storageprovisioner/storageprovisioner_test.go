@@ -364,6 +364,223 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineMachineNotFound(c *tc.
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
+func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(blockdevice.BlockDevice{
+			DeviceName: "blk",
+			DeviceLinks: []string{
+				"/dev/blocky",
+				"/dev/sda",
+			},
+			Label:          "lbl",
+			UUID:           "the devices uuid",
+			HardwareId:     "hwid",
+			WWN:            "wwn",
+			BusAddress:     "blk:addr:foo",
+			SizeMiB:        123,
+			FilesystemType: "ext4",
+			InUse:          true,
+			MountPoint:     "/mnt/blocky",
+			SerialId:       "bl0cky",
+		}, nil)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BlockDeviceResults{
+		Results: []params.BlockDeviceResult{
+			{
+				Result: params.BlockDevice{
+					DeviceName: "blk",
+					DeviceLinks: []string{
+						"/dev/blocky",
+						"/dev/sda",
+					},
+					Label:          "lbl",
+					UUID:           "the devices uuid",
+					HardwareId:     "hwid",
+					WWN:            "wwn",
+					BusAddress:     "blk:addr:foo",
+					Size:           123,
+					FilesystemType: "ext4",
+					InUse:          true,
+					MountPoint:     "/mnt/blocky",
+					SerialId:       "bl0cky",
+				},
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisioned(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(blockdevice.BlockDevice{}, nil)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisionedWithoutBlockDevice(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(blockdevice.BlockDevice{}, storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesAttachmentNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
+		Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(
+		gomock.Any(), vaUUID,
+	).Return(
+		blockdevice.BlockDevice{},
+		storageprovisioningerrors.VolumeAttachmentNotFound,
+	)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(
+			gomock.Any(), tag.Id(), machineUUID,
+		).Return("", storageprovisioningerrors.VolumeNotFound)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevicesMachineNotFound(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+
+	s.mockMachineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return("", machineerrors.MachineNotFound)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
 func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()

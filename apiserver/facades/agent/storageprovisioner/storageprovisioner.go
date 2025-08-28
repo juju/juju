@@ -1085,9 +1085,124 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 // VolumeBlockDevices returns details of the block devices corresponding to the
 // volume attachments with the specified IDs.
 func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args params.MachineStorageIds) (params.BlockDeviceResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.BlockDeviceResults{},
+			apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	one := func(id params.MachineStorageId) (params.BlockDevice, error) {
+		tag, err := names.ParseVolumeTag(id.AttachmentTag)
+		if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume tag %q invalid", id.AttachmentTag,
+			).Add(coreerrors.NotValid)
+		}
+		machineTag, err := names.ParseMachineTag(id.MachineTag)
+		if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"machine tag %q invalid", id.MachineTag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.BlockDevice{}, apiservererrors.ErrPerm
+		}
+
+		machineUUID, err := s.machineService.GetMachineUUID(
+			ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"getting machine %q: %v", machineTag.Id(), err,
+			)
+		}
+
+		va, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
+			ctx, tag.Id(), machineUUID)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume attachment %q on machine %q not found",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume %q not found", tag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if errors.Is(err, machineerrors.MachineNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"getting volume attachment %q on machine %q: %v",
+				tag.Id(), machineTag.Id(), err,
+			)
+		}
+
+		bd, err := s.storageProvisioningService.GetBlockDeviceForVolumeAttachment(
+			ctx, va)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice) {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume attachment %q on machine %q is not provisioned",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume attachment %q on machine %q not found",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"getting volume attachment %q on machine %q: %v",
+				tag.Id(), machineTag.Id(), err,
+			)
+		}
+
+		if len(bd.DeviceLinks) == 0 {
+			// TODO: We think that a block device with no device links is
+			// not provisioned. The property is set when the storage provisioner
+			// calls SetVolumeAttachmentInfo. This is a temporary workaround for
+			// checking the provision state of an attachment.Ideally, we should
+			// have a consistent way to check provisioning status for all
+			// storage entities.
+			return params.BlockDevice{}, errors.Errorf(
+				"volume attachment %q on machine %q is not provisioned",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		}
+
+		result := params.BlockDevice{
+			DeviceName:     bd.DeviceName,
+			DeviceLinks:    bd.DeviceLinks,
+			Label:          bd.Label,
+			UUID:           bd.UUID,
+			HardwareId:     bd.HardwareId,
+			WWN:            bd.WWN,
+			BusAddress:     bd.BusAddress,
+			Size:           bd.SizeMiB,
+			FilesystemType: bd.FilesystemType,
+			InUse:          bd.InUse,
+			MountPoint:     bd.MountPoint,
+			SerialId:       bd.SerialId,
+		}
+		return result, nil
+	}
+
 	results := params.BlockDeviceResults{
 		Results: make([]params.BlockDeviceResult, len(args.Ids)),
+	}
+	for i, arg := range args.Ids {
+		var result params.BlockDeviceResult
+		bd, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = bd
+		}
+		results.Results[i] = result
 	}
 	return results, nil
 }
