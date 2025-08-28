@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -982,7 +983,9 @@ func (s *providerModelServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *providerModelServiceSuite) providerService(modelUUID coremodel.UUID) *ProviderModelService {
+func (s *providerModelServiceSuite) providerService(
+	c *tc.C, modelUUID coremodel.UUID,
+) *ProviderModelService {
 	return NewProviderModelService(
 		modelUUID,
 		s.mockControllerState,
@@ -993,6 +996,7 @@ func (s *providerModelServiceSuite) providerService(modelUUID coremodel.UUID) *P
 		func(context.Context) (RegionProvider, error) { return s.mockRegionProvider, nil },
 		s.mockStorageProviderRegistryGetter,
 		DefaultAgentBinaryFinder(),
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -1106,12 +1110,12 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 		AgentVersion:       jujuversion.Current,
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(nil)
-	s.mockModelState.EXPECT().CreateDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
+	s.mockModelState.EXPECT().EnsureDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
 	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
 	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
-	svc := s.providerService(modelUUID)
+	svc := s.providerService(c, modelUUID)
 	err := svc.CreateModel(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -1146,7 +1150,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 		LatestAgentVersion: jujuversion.Current,
 	}).Return(modelerrors.AlreadyExists)
 
-	svc := s.providerService(modelUUID)
+	svc := s.providerService(c, modelUUID)
 	err := svc.CreateModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
@@ -1159,7 +1163,7 @@ func (s *providerModelServiceSuite) TestCloudAPIVersion(c *tc.C) {
 
 	s.mockCloudInfoProvider.EXPECT().APIVersion().Return("666", nil)
 
-	svc := s.providerService(modelUUID)
+	svc := s.providerService(c, modelUUID)
 	vers, err := svc.CloudAPIVersion(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(vers, tc.Equals, "666")
@@ -1180,7 +1184,7 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 	validator := coreconstraints.NewValidator()
 	s.mockProvider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
 
-	svc := s.providerService(modelUUID)
+	svc := s.providerService(c, modelUUID)
 	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.Value{
 		Arch:      ptr("arm64"),
 		Container: ptr(instance.NONE),
@@ -1206,7 +1210,7 @@ func (s *providerModelServiceSuite) TestGetModelRegion(c *tc.C) {
 
 	s.mockRegionProvider.EXPECT().Region().Return(simplestreams.CloudSpec{Region: "region"}, nil)
 
-	svc := s.providerService(modeltesting.GenModelUUID(c))
+	svc := s.providerService(c, modeltesting.GenModelUUID(c))
 	spec, err := svc.GetRegionCloudSpec(c.Context())
 
 	c.Assert(err, tc.ErrorIsNil)
@@ -1217,7 +1221,7 @@ func (s *providerModelServiceSuite) TestGetModelRegionNotSupported(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	svc := s.providerService(modeltesting.GenModelUUID(c))
+	svc := s.providerService(c, modeltesting.GenModelUUID(c))
 	svc.environRegionGetter = func(context.Context) (RegionProvider, error) { return nil, coreerrors.NotSupported }
 
 	spec, err := svc.GetRegionCloudSpec(c.Context())
@@ -1231,12 +1235,12 @@ func (s *providerModelServiceSuite) TestSeedDefaultStoragePools(c *tc.C) {
 	defer ctrl.Finish()
 
 	defaultPool1, _ := internalstorage.NewConfig(
-		"my-def-pool-A", "test1", internalstorage.Attrs{
+		"tmpfs", "tmpfs", internalstorage.Attrs{
 			"attr1": "val1",
 		},
 	)
 	defaultPool2, _ := internalstorage.NewConfig(
-		"my-def-pool-B", "test2", internalstorage.Attrs{
+		"rootfs", "rootfs", internalstorage.Attrs{
 			"attr1": "val1",
 		},
 	)
@@ -1244,50 +1248,51 @@ func (s *providerModelServiceSuite) TestSeedDefaultStoragePools(c *tc.C) {
 	sp2 := NewMockStorageProvider(ctrl)
 	s.mockStorageProviderRegistry.EXPECT().StorageProviderTypes().Return(
 		[]internalstorage.ProviderType{
-			"test1",
-			"test2",
+			"tmpfs",
+			"rootfs",
 		},
 		nil,
 	)
 	s.mockStorageProviderRegistry.EXPECT().StorageProvider(
-		internalstorage.ProviderType("test1"),
+		internalstorage.ProviderType("tmpfs"),
 	).Return(sp1, nil)
 	s.mockStorageProviderRegistry.EXPECT().StorageProvider(
-		internalstorage.ProviderType("test2"),
+		internalstorage.ProviderType("rootfs"),
 	).Return(sp2, nil)
 
 	sp1.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool1})
 	sp2.EXPECT().DefaultPools().Return([]*internalstorage.Config{defaultPool2})
 
-	s.mockModelState.EXPECT().CreateDefaultStoragePools(
+	s.mockModelState.EXPECT().EnsureDefaultStoragePools(
 		gomock.Any(),
 		gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context, args []model.CreateModelDefaultStoragePoolArg) error {
 
-		argChecker := tc.NewMultiChecker().AddExpr("_[_].UUID", tc.Ignore)
-		c.Check(args, argChecker, []model.CreateModelDefaultStoragePoolArg{
+		c.Check(args, tc.DeepEquals, []model.CreateModelDefaultStoragePoolArg{
 			{
 				Attributes: map[string]string{
 					"attr1": "val1",
 				},
-				Name:   "my-def-pool-A",
+				Name:   "tmpfs",
 				Origin: storage.StoragePoolOriginProviderDefault,
-				Type:   "test1",
+				Type:   "tmpfs",
+				UUID:   "6a16b09c-8ca9-5952-a50a-9082ae7c32c1",
 			},
 			{
 				Attributes: map[string]string{
 					"attr1": "val1",
 				},
-				Name:   "my-def-pool-B",
+				Name:   "rootfs",
 				Origin: storage.StoragePoolOriginProviderDefault,
-				Type:   "test2",
+				Type:   "rootfs",
+				UUID:   "4d9a00e0-bf5f-5823-8ffa-db1a2ffb940c",
 			},
 		})
 		return nil
 	})
 
-	svc := s.providerService(modeltesting.GenModelUUID(c))
+	svc := s.providerService(c, modeltesting.GenModelUUID(c))
 	err := svc.SeedDefaultStoragePools(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }

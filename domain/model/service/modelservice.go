@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -160,11 +161,10 @@ type ModelState interface {
 	// the model's state layer.
 	GetModelType(context.Context) (coremodel.ModelType, error)
 
-	// CreateDefaultStoragePools is responsible for inserting a model's set of
-	// default storage pools into the model. It is the responsibility of the
-	// caller to make sure that no conflicts exist and the operation is
-	// performed once.
-	CreateDefaultStoragePools(
+	// EnsureDefaultStoragePools is responsible for making sure that the set of
+	// default storage pools provided exist in the model. If a pool already
+	// exists in the model for the same uuid then no operation is performed.
+	EnsureDefaultStoragePools(
 		context.Context, []model.CreateModelDefaultStoragePoolArg,
 	) error
 
@@ -522,11 +522,26 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 
 		providerDefaultPools := registry.DefaultPools()
 		for _, providerDefaultPool := range providerDefaultPools {
-			uuid, err := storage.NewStoragePoolUUID()
-			if err != nil {
-				return errors.Errorf(
-					"generating new default storage pool %q uuid: %w",
-					providerDefaultPool.Name(), err,
+			uuid, err := storage.GetProviderDefaultStoragePoolUUID(
+				providerDefaultPool.Name(),
+				providerDefaultPool.Provider().String(),
+			)
+
+			// This happens when the default pool is not supported yet by the
+			// storage domain. This shouldn't stop the model from being created.
+			// Instead we log the problem.
+			if errors.Is(err, coreerrors.NotFound) {
+				s.logger.Warningf(
+					ctx,
+					"storage provider %q default pool %q is not recognised, skipped adding to model.",
+					providerDefaultPool.Provider().String(),
+					providerDefaultPool.Name(),
+				)
+			} else if err != nil {
+				return fmt.Errorf(
+					"getting storage pool uuid for default provider %q pool %q",
+					providerDefaultPool.Provider().String(),
+					providerDefaultPool.Name(),
 				)
 			}
 
@@ -540,7 +555,7 @@ func (s *ProviderModelService) SeedDefaultStoragePools(
 		}
 	}
 
-	return s.modelSt.CreateDefaultStoragePools(ctx, poolArgs)
+	return s.modelSt.EnsureDefaultStoragePools(ctx, poolArgs)
 }
 
 // transformStoragePoolAttributes exists to transform internal storage pool
@@ -651,6 +666,7 @@ type ProviderModelService struct {
 	providerGetter                providertracker.ProviderGetter[ModelResourcesProvider]
 	cloudInfoGetter               providertracker.ProviderGetter[CloudInfoProvider]
 	environRegionGetter           providertracker.ProviderGetter[RegionProvider]
+	logger                        logger.Logger
 	storageProviderRegistryGetter StorageProviderRegistryGetter
 }
 
@@ -665,6 +681,7 @@ func NewProviderModelService(
 	environRegionGetter providertracker.ProviderGetter[RegionProvider],
 	storageProviderRegistryGetter StorageProviderRegistryGetter,
 	agentBinaryFinder AgentBinaryFinder,
+	logger logger.Logger,
 ) *ProviderModelService {
 	return &ProviderModelService{
 		ModelService: ModelService{
@@ -679,6 +696,7 @@ func NewProviderModelService(
 		cloudInfoGetter:               cloudInfoGetter,
 		environRegionGetter:           environRegionGetter,
 		storageProviderRegistryGetter: storageProviderRegistryGetter,
+		logger:                        logger,
 	}
 }
 
