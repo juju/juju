@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -84,45 +83,29 @@ func (s *lxdProfileStateSuite) TestGetLXDProfilesForMachineError(c *tc.C) {}
 
 func (s *lxdProfileStateSuite) addApplication(c *tc.C, appName, charmUUID string) string {
 	appUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES ("%s", "%s", %d, "%s", "%s")`,
-		appUUID, appName, life.Alive, charmUUID, network.AlphaSpaceId))
-	c.Assert(err, tc.IsNil)
+	s.runQuery(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?,?,?,?,?)`,
+		appUUID, appName, life.Alive, charmUUID, network.AlphaSpaceId)
 	return appUUID
 }
 
 func (s *lxdProfileStateSuite) addCharmWithProfile(c *tc.C, charmName string, revision int, profile []byte) string {
 	charmUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO charm (uuid, reference_name, revision, lxd_profile) VALUES ("%s", "%s", %d, "%s")`,
-		charmUUID, charmName, revision, profile))
-	c.Assert(err, tc.IsNil)
+	s.runQuery(c, `INSERT INTO charm (uuid, reference_name, revision, lxd_profile) VALUES (?,?,?,?)`,
+		charmUUID, charmName, revision, profile)
 	return charmUUID
 }
 
 func (s *lxdProfileStateSuite) addCharm(c *tc.C, charmName string, revision int) string {
 	charmUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO charm (uuid, reference_name, revision) VALUES ("%s", "%s", %d)`,
-		charmUUID, charmName, revision))
-	c.Assert(err, tc.IsNil)
+	s.runQuery(c, `INSERT INTO charm (uuid, reference_name, revision) VALUES (?,?,?)`,
+		charmUUID, charmName, revision)
 	return charmUUID
 }
 
 func (s *lxdProfileStateSuite) addUnit(c *tc.C, appUUID, charmUUID, netNodeUUID string) {
 	unitUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid) VALUES ("%s", "%s", %d, "%s", "%s", "%s")`,
-		unitUUID, unitUUID, life.Alive, netNodeUUID, appUUID, charmUUID))
-	c.Assert(err, tc.IsNil)
-}
-
-func (s *lxdProfileStateSuite) addNetNode(c *tc.C) string {
-	netNodeUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO net_node (uuid) VALUES ("%s")`, netNodeUUID))
-	c.Assert(err, tc.IsNil)
-	return netNodeUUID
-}
-
-func (s *lxdProfileStateSuite) addMachine(c *tc.C, machineName, netNodeUUID string) {
-	machineUUID := uuid.MustNewUUID().String()
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES ("%s", "%s", %d, "%s")`,
-		machineUUID, machineName, life.Alive, netNodeUUID))
-	c.Assert(err, tc.IsNil)
+	s.runQuery(c, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid) 
+VALUES (?,?,?,?,?,?)`,
+		unitUUID, unitUUID, life.Alive, netNodeUUID, appUUID, charmUUID)
 }
