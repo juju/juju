@@ -24,18 +24,18 @@ const (
 The charm can be specified by name or by path.
 
 Channels displayed are supported by any base.
-To see channels supported for only a specific base, use the --base flag.
---base can be specified using the OS name and the version of the OS, 
-separated by @.
-For example: --base ubuntu@22.04
+To see channels supported for only a specific base, use the ` + "`--base`" + ` flag.
+` + "`--base`" + ` can be specified using the OS name and the version of the OS,
+separated by ` + "`@`" + `.
+For example: ` + "`--base ubuntu@22.04`" + `.
 
-Use --revision to display information about a specific revision of the charm,
-which cannot be used together with --arch, --base or --channel.
-For example: --revision 42
+Use ` + "`--revision`" + ` to display information about a specific revision of the charm,
+which cannot be used together with ` + "`--arch`" + `, ` + "`--base`" + ` or ` + "`--channel`" + `.
+For example: ` + "`--revision 42`" + `.
 
-Use --track to display information about a specific track of the charm,
-which cannot be used together with --arch, --base or --channel.
-For example: --track 14
+Use ` + "`--track `" + ` to display information about a specific track of the charm,
+which cannot be used together with ` + "`--arch`" + `, ` + "`--base`" + ` or ` + "`--channel`" + `.
+For example: ` + "`--track 14`" + `.
 `
 	infoExamples = `
     juju info postgresql

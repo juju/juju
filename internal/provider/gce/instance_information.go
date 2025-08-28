@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 var (
@@ -66,31 +67,31 @@ func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	zones, err := env.gce.AvailabilityZones(reg.Region)
+	zones, err := env.gce.AvailabilityZones(ctx, reg.Region)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
 	}
 	resultUnique := map[string]instances.InstanceType{}
 
 	for _, z := range zones {
-		if !z.Available() {
+		if z.GetStatus() != google.StatusUp {
 			continue
 		}
-		machines, err := env.gce.ListMachineTypes(z.Name())
+		machines, err := env.gce.ListMachineTypes(ctx, z.GetName())
 		if err != nil {
 			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, m := range machines {
 			i := instances.InstanceType{
-				Id:       strconv.FormatUint(m.Id, 10),
-				Name:     m.Name,
-				CpuCores: uint64(m.GuestCpus),
-				Mem:      uint64(m.MemoryMb),
+				Id:       strconv.FormatUint(m.GetId(), 10),
+				Name:     m.GetName(),
+				CpuCores: uint64(m.GetGuestCpus()),
+				Mem:      uint64(m.GetMemoryMb()),
 				// TODO: support arm64 once the API can report arch.
 				Arch:     arch.AMD64,
 				VirtType: &virtType,
 			}
-			resultUnique[m.Name] = i
+			resultUnique[m.GetName()] = i
 		}
 	}
 

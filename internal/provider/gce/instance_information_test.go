@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/provider/gce/google"
 )
 
 type instanceInformationSuite struct {
@@ -22,34 +23,38 @@ func TestInstanceInformationSuite(t *testing.T) {
 	tc.Run(t, &instanceInformationSuite{})
 }
 func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
-	zone := google.NewZone("a-zone", google.StatusUp, "", "")
-	s.FakeConn.Zones = []google.AvailabilityZone{zone}
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").
+		Return([]*computepb.Zone{{Name: ptr("us-east1")}}, nil).Times(3)
 
 	now := time.Now()
 	clk := testclock.NewClock(now)
-	ctx := c.Context()
-	allInstTypes, err := s.Env.getAllInstanceTypes(ctx, clk)
+	allInstTypes, err := env.getAllInstanceTypes(c.Context(), clk)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Cache miss
-	cacheExpAt := s.Env.instCacheExpireAt
+	cacheExpAt := env.instCacheExpireAt
 	c.Assert(cacheExpAt.After(now), tc.IsTrue, tc.Commentf("expected a cache expiration time to be set"))
 
 	// Cache hit
-	cachedInstTypes, err := s.Env.getAllInstanceTypes(ctx, clk)
+	cachedInstTypes, err := env.getAllInstanceTypes(c.Context(), clk)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allInstTypes, tc.DeepEquals, cachedInstTypes, tc.Commentf("expected to get cached instance list"))
-	c.Assert(s.Env.instCacheExpireAt, tc.Equals, cacheExpAt, tc.Commentf("expected cache expiration timestamp not to be modified"))
+	c.Assert(env.instCacheExpireAt, tc.Equals, cacheExpAt, tc.Commentf("expected cache expiration timestamp not to be modified"))
 
 	// Forced cache-miss after expiry.
 	// NOTE(achilleasa): this will trigger a "advancing a clock with nothing waiting"
 	// warning but that's a false positive; we just want to advance the clock
 	// to test the cache expiry logic.
 	clk.Advance(11 * time.Minute)
-	_, err = s.Env.getAllInstanceTypes(ctx, clk)
+	_, err = env.getAllInstanceTypes(c.Context(), clk)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.Env.instCacheExpireAt.After(cacheExpAt), tc.IsTrue, tc.Commentf("expected cache expiration to be updated"))
-	c.Assert(s.Env.instCacheExpireAt.After(clk.Now()), tc.IsTrue, tc.Commentf("expected cache expiration to be in the future"))
+	c.Assert(env.instCacheExpireAt.After(cacheExpAt), tc.IsTrue, tc.Commentf("expected cache expiration to be updated"))
+	c.Assert(env.instCacheExpireAt.After(clk.Now()), tc.IsTrue, tc.Commentf("expected cache expiration to be in the future"))
 }
 
 func (s *instanceInformationSuite) TestEnsureDefaultConstraints(c *tc.C) {

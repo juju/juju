@@ -7,6 +7,10 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
+var (
+	logger = internallogger.GetLogger("juju.provider.gce.gceapi")
+)
+
 // The various status values used by GCE.
 const (
 	StatusDone         = "DONE"
@@ -19,8 +23,4 @@ const (
 	StatusStopping     = "STOPPING"
 	StatusTerminated   = "TERMINATED"
 	StatusUp           = "UP"
-)
-
-var (
-	logger = internallogger.GetLogger("juju.provider.gce.gceapi")
 )

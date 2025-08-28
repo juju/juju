@@ -32,20 +32,25 @@ func NewAddCommand() cmd.Command {
 
 const (
 	addCommandDoc = `
-Add storage to a pre-existing unit within a model. Storage is allocated from 
-a storage pool, using parameters provided within a "storage directive". (Use 
-'juju deploy --storage=<storage-name>=<storage-directive>' to provision storage during the 
+Add storage to a pre-existing unit within a model. Storage is allocated from
+a storage pool, using parameters provided within a "storage directive". (Use
+` + "`juju deploy --storage=<storage-name>=<storage-directive>` " + `to provision storage during the
 deployment process).
 
 	juju add-storage <unit> <storage-name>=<storage-directive>
 
-<unit> is the ID of a unit that is already in the model. 
+` + "`<unit>` " + `is the ID of a unit that is already in the model.
 
-<storage-name> is defined in the charm's metadata.yaml file.   
+` + "`<storage-directive>` " + `describes to the charm how to refer to the storage,
+and where to provision it from. ` + "`<storage-directive>` " + `takes the following form:
 
-<storage-directive> is a description of how Juju should provision storage 
-instances for the unit. They are made up of up to three parts: <storage-pool>,
-<count>, and <size>. They can be provided in any order, but we recommend the
+    <storage-name>[=<storage-constraint>]
+
+` + "`<storage-name>` " + `is defined in the charm's ` + "`metadata.yaml` " + `file.
+
+` + "`<storage-directive>` " + `is a description of how Juju should provision storage
+instances for the unit. They are made up of up to three parts: ` + "`<storage-pool>`" + `,
+` + "`<count>`" + `, and ` + "`<size>`" + `. They can be provided in any order, but we recommend the
 following:
 
     <storage-pool>,<count>,<size>
@@ -53,21 +58,21 @@ following:
 Each parameter is optional, so long as at least one is present. So the following
 storage directives are also valid:
 
-   <storage-pool>,<size>
-   <count>,<size>
-   <size>
+    <storage-pool>,<size>
+    <count>,<size>
+    <size>
 
-<storage-pool> is the storage pool to provision storage instances from. Must 
-be a name from 'juju storage-pools'.  The default pool is available via 
-executing 'juju model-config storage-default-block-source'.
+` + "`<storage-pool>` " + `is the storage pool to provision storage instances from. Must
+be a name from ` + "`juju storage-pools`" + `.  The default pool is available via
+executing ` + "`juju model-config storage-default-block-source`" + `.
 
-<count> is the number of storage instances to provision from <storage-pool> of
-<size>. Must be a positive integer. The default count is "1". May be restricted
+` + "`<count>` " + `is the number of storage instances to provision from ` + "`<storage-pool>` " + `of
+` + "`<size>`" + `. Must be a positive integer. The default count is "1". May be restricted
 by the charm, which can specify a maximum number of storage instances per unit.
 
-<size> is the number of bytes to provision per storage instance. Must be a 
+` + "`<size>` " + `is the number of bytes to provision per storage instance. Must be a
 positive number, followed by a size suffix.  Valid suffixes include M, G, T,
-and P.  Defaults to "1024M", or the which can specify a minimum size required 
+and P.  Defaults to "1024M", or the which can specify a minimum size required
 by the charm.
 `
 

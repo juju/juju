@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 	"github.com/juju/juju/internal/testing"
 )
 

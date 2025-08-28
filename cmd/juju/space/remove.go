@@ -34,9 +34,11 @@ type RemoveCommand struct {
 const removeCommandDoc = `
 Removes an existing Juju network space with the given name. Any subnets
 associated with the space will be transferred to the default space.
-The command will fail if existing constraints, bindings or controller settings are bound to the given space.
+The command will fail if existing constraints, bindings or controller settings
+are bound to the given space.
 
-If the --force option is specified, the space will be deleted even if there are existing bindings, constraints or settings.
+If the ` + "`--force`" + ` option is specified, the space will be deleted even
+if there are existing bindings, constraints or settings.
 
 `
 
@@ -51,7 +53,7 @@ Remove a space by name with force, without need for confirmation:
 `
 
 var removeSpaceMsgNoBounds = `
-WARNING! This command will remove the space. 
+WARNING! This command will remove the space.
 Safe removal possible. No constraints, bindings or controller config found with dependency on the given space.
 `[1:]
 

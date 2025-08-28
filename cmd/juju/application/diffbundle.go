@@ -70,13 +70,13 @@ Bundle can be a local bundle file or the name of a bundle in
 Charmhub. The bundle can also be combined with overlays (in the
 same way as the deploy command) before comparing with the model.
 
-The map-machines option works similarly as for the deploy command, but
+The ` + "`map-machines`" + ` option works similarly as for the ` + "`deploy`" + ` command, but
 existing is always assumed, so it doesn't need to be specified.
 
-Config values for comparison are always source from the "current" model.
+Config values for comparison are always sourced from the current model.
 
 Specifying a base will retrieve the bundle for the relevant store for
-the give base.
+the given base.
 `
 
 const bundleDiffExamples = `
@@ -144,7 +144,7 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "diff-bundle",
 		Args:     "<bundle file or name>",
-		Purpose:  "Compare a bundle with a model and report any differences.",
+		Purpose:  "Compares a bundle with a model and reports any differences.",
 		Doc:      bundleDiffDoc,
 		Examples: bundleDiffExamples,
 		SeeAlso: []string{
@@ -158,7 +158,7 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.base, "base", "", "specify a base")
+	f.StringVar(&c.base, "base", "", "Specify a base")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")

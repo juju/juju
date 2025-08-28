@@ -6,19 +6,20 @@ package google_test
 import (
 	"bytes"
 	"encoding/json"
-	"testing"
+	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
+	"github.com/juju/juju/internal/testing"
 )
 
 type credentialsSuite struct {
-	google.BaseSuite
+	testing.BaseSuite
 }
 
-func TestCredentialsSuite(t *testing.T) {
+func TestAuthSuite(t *stdtesting.T) {
 	tc.Run(t, &credentialsSuite{})
 }
 
@@ -57,7 +58,7 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *tc.C) {
 	}
 	_, err := google.NewCredentials(values)
 
-	c.Check(err, tc.ErrorIs, errors.NotSupported)
+	c.Check(err, tc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *credentialsSuite) TestNewCredentialsValidates(c *tc.C) {

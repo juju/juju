@@ -23,4 +23,4 @@ Print all version information:
 
 ## Details
 
-Print only the Juju CLI client version.
+Print only the `juju `CLI client version.

@@ -19,14 +19,14 @@ Imports a filesystem into the model.
 ## Examples
 
 Import an existing filesystem backed by an EBS volume,
-and assign it the "pgdata" storage name. Juju will
-associate a storage instance ID like "pgdata/0" with
+and assign it the `pgdata` storage name. Juju will
+associate a storage instance ID like `pgdata/0` with
 the volume and filesystem contained within.
 
     juju import-filesystem ebs vol-123456 pgdata
 
-Import an existing unbound PersistentVolume in a Kubernetes model,
-and assign it the "pgdata" storage name:
+Import an existing unbound `PersistentVolume` in a Kubernetes model,
+and assign it the `pgdata` storage name:
 
     juju import-filesystem kubernetes pv-data-001 pgdata
 
@@ -49,8 +49,8 @@ To import a filesystem, you must specify three things:
 Once a filesystem is imported, Juju will create an associated storage
 instance using the given storage name.
 
-For Kubernetes models, when importing a PersistentVolume, the following
+For Kubernetes models, when importing a `PersistentVolume`, the following
 conditions must be met:
 
- - the PersistentVolume's reclaim policy must be set to "Retain".
- - the PersistentVolume must not be bound to any PersistentVolumeClaim.
+ - the `PersistentVolume`'s reclaim policy must be set to `Retain`.
+ - the `PersistentVolume` must not be bound to any `PersistentVolumeClaim`.

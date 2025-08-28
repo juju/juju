@@ -17,8 +17,8 @@ Add a new network space.
 ## Examples
 
 
-Add space "beta" with subnet 172.31.0.0/20:
-    
+Add space `beta` with subnet `172.31.0.0/20`:
+
     juju add-space beta 172.31.0.0/20
 
 

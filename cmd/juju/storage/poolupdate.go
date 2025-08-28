@@ -29,7 +29,7 @@ Update configuration attributes for a single existing storage pool.
 `
 
 const poolUpdateCommandExamples = `
-Update the storage-pool named iops with new configuration details:
+Update the storage-pool named ` + "`iops`" + ` with new configuration details:
 
       juju update-storage-pool workload-storage volume-type=provisioned-iops iops=40
 

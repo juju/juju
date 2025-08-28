@@ -31,6 +31,6 @@ Lists regions for a given cloud.
 
 List regions for a given cloud.
 
-Use --controller option to list regions from the cloud from a controller.
+Use `--controller` option to list regions from the cloud from a controller.
 
-Use --client option to list regions known locally on this client.
+Use `--client` option to list regions known locally on this client.

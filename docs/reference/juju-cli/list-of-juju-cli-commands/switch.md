@@ -32,17 +32,17 @@ Selects or identifies the current controller and model.
 
 
 ## Details
+
 When used without an argument, the command shows the current controller
 and its active model.
 
-When a single argument without a colon is provided juju first looks for a
-controller by that name and switches to it, and if it's not found it tries
-to switch to a model within current controller. 
+When a single argument without a colon is provided, Juju first looks for a
+controller by that name and switches to it and, if it's not found, it tries
+to switch to a model within the current controller.
 
-Colon allows to disambiguate model over controller:
-- mycontroller: switches to default model in mycontroller, 
-- :mymodel switches to mymodel in current controller 
-- mycontroller:mymodel switches to mymodel on mycontroller.
+`mycontroller:` switches to the default model in `mycontroller`,
+`:mymodel` switches to mymodel in the current controller and
+`mycontroller:mymodel` switches to `mymodel` on `mycontroller`
 
 The special arguments - (hyphen) instead of a model or a controller allows to return 
 to previous model or controller. It can be used as main argument or as flag argument.

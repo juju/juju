@@ -5,31 +5,43 @@ package gce
 
 import (
 	"context"
+	"path"
 
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 	"github.com/juju/juju/internal/storage"
 )
 
+type gceAvailabilityZone struct {
+	*computepb.Zone
+}
+
+func (z *gceAvailabilityZone) Name() string {
+	return z.Zone.GetName()
+}
+
+func (z *gceAvailabilityZone) Available() bool {
+	return z.Zone.GetStatus() == google.StatusUp
+}
+
 // AvailabilityZones returns all availability zones in the environment.
 func (env *environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
-	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
+	zones, err := env.gce.AvailabilityZones(ctx, env.cloud.Region)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
 	}
 
 	var result network.AvailabilityZones
 	for _, zone := range zones {
-		if zone.Deprecated() {
+		if zone.GetDeprecated() != nil {
 			continue
 		}
-		// We make a copy since the loop var keeps the same pointer.
-		zoneCopy := zone
-		result = append(result, &zoneCopy)
+		result = append(result, &gceAvailabilityZone{Zone: zone})
 	}
 	return result, nil
 }
@@ -49,7 +61,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.Context, ids []ins
 	results := make(map[instance.Id]string, len(ids))
 	for _, inst := range instances {
 		if eInst, ok := inst.(*environInstance); ok && eInst != nil {
-			results[inst.Id()] = eInst.base.ZoneName
+			results[inst.Id()] = path.Base(eInst.base.GetZone())
 		}
 	}
 
@@ -65,26 +77,26 @@ func (env *environ) DeriveAvailabilityZones(ctx context.Context, args environs.S
 	return nil, errors.Trace(err)
 }
 
-func (env *environ) availZone(ctx context.Context, name string) (*google.AvailabilityZone, error) {
-	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
+func (env *environ) availZone(ctx context.Context, name string) (*computepb.Zone, error) {
+	zones, err := env.gce.AvailabilityZones(ctx, env.cloud.Region)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
 	}
 	for _, z := range zones {
-		if z.Name() == name {
-			return &z, nil
+		if z.GetName() == name {
+			return z, nil
 		}
 	}
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
-func (env *environ) availZoneUp(ctx context.Context, name string) (*google.AvailabilityZone, error) {
+func (env *environ) availZoneUp(ctx context.Context, name string) (*computepb.Zone, error) {
 	zone, err := env.availZone(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !zone.Available() {
-		return nil, errors.Errorf("availability zone %q is %s", zone.Name(), zone.Status())
+	if zone.GetStatus() != google.StatusUp {
+		return nil, errors.Errorf("availability zone %q is %s", zone.GetName(), zone.GetStatus())
 	}
 	return zone, nil
 }
@@ -116,17 +128,17 @@ func (env *environ) instancePlacementZone(ctx context.Context, placement string,
 		return volumeAttachmentsZone, nil
 	}
 	// placement will always be a zone name or empty.
-	instPlacement, err := env.parsePlacement(ctx, placement)
+	zone, err := env.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if volumeAttachmentsZone != "" && instPlacement.Zone.Name() != volumeAttachmentsZone {
+	if volumeAttachmentsZone != "" && zone.GetName() != volumeAttachmentsZone {
 		return "", errors.Errorf(
 			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
 			placement, volumeAttachmentsZone,
 		)
 	}
-	return instPlacement.Zone.Name(), nil
+	return zone.GetName(), nil
 }
 
 func (e *environ) deriveAvailabilityZones(
@@ -141,15 +153,14 @@ func (e *environ) deriveAvailabilityZones(
 	if placement == "" {
 		return volumeAttachmentsZone, nil
 	}
-	instPlacement, err := e.parsePlacement(ctx, placement)
+	zone, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", err
 	}
-	instanceZone := instPlacement.Zone.Name()
-	if err := validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone); err != nil {
+	if err := validateAvailabilityZoneConsistency(zone.GetName(), volumeAttachmentsZone); err != nil {
 		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
 	}
-	return instanceZone, nil
+	return zone.GetName(), nil
 }
 
 func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {

@@ -7,11 +7,14 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/gce"
+	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {
@@ -19,6 +22,7 @@ type providerSuite struct {
 
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
+	config   *config.Config
 }
 
 func TestProviderSuite(t *testing.T) {
@@ -33,6 +37,12 @@ func (s *providerSuite) SetUpTest(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	s.spec = gce.MakeTestCloudSpec()
+
+	uuid := utils.MustNewUUID().String()
+	s.config = internaltesting.CustomModelConfig(c, internaltesting.Attrs{
+		"uuid": uuid,
+		"type": "gce",
+	})
 }
 
 func (s *providerSuite) TestRegistered(c *tc.C) {
@@ -42,7 +52,7 @@ func (s *providerSuite) TestRegistered(c *tc.C) {
 func (s *providerSuite) TestOpen(c *tc.C) {
 	env, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
-		Config: s.Config,
+		Config: s.config,
 	}, environs.NoopCredentialInvalidator())
 	c.Check(err, tc.ErrorIsNil)
 
@@ -69,7 +79,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  spec,
-		Config: s.Config,
+		Config: s.config,
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, tc.ErrorMatches, expect)
 }
@@ -80,9 +90,9 @@ func (s *providerSuite) TestValidateCloud(c *tc.C) {
 }
 
 func (s *providerSuite) TestValidate(c *tc.C) {
-	validCfg, err := s.provider.Validate(c.Context(), s.Config, nil)
+	validCfg, err := s.provider.Validate(c.Context(), s.config, nil)
 	c.Check(err, tc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()
-	c.Assert(s.Config.AllAttrs(), tc.DeepEquals, validAttrs)
+	c.Assert(s.config.AllAttrs(), tc.DeepEquals, validAttrs)
 }
