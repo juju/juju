@@ -120,7 +120,7 @@ type MachineService interface {
 
 	// GetMachineContainers returns the names of the machines which have as parent
 	// the specified machine.
-	GetMachineContainers(context.Context, coremachine.Name) ([]coremachine.Name, error)
+	GetMachineContainers(context.Context, coremachine.UUID) ([]coremachine.Name, error)
 
 	// GetMachineBase returns the base for the given machine.
 	GetMachineBase(context.Context, coremachine.Name) (base.Base, error)

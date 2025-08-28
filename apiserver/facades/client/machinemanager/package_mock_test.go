@@ -552,7 +552,7 @@ func (c *MockMachineServiceGetMachineBaseCall) DoAndReturn(f func(context.Contex
 }
 
 // GetMachineContainers mocks base method.
-func (m *MockMachineService) GetMachineContainers(arg0 context.Context, arg1 machine.Name) ([]machine.Name, error) {
+func (m *MockMachineService) GetMachineContainers(arg0 context.Context, arg1 machine.UUID) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineContainers", arg0, arg1)
 	ret0, _ := ret[0].([]machine.Name)
@@ -579,13 +579,13 @@ func (c *MockMachineServiceGetMachineContainersCall) Return(arg0 []machine.Name,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceGetMachineContainersCall) Do(f func(context.Context, machine.Name) ([]machine.Name, error)) *MockMachineServiceGetMachineContainersCall {
+func (c *MockMachineServiceGetMachineContainersCall) Do(f func(context.Context, machine.UUID) ([]machine.Name, error)) *MockMachineServiceGetMachineContainersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceGetMachineContainersCall) DoAndReturn(f func(context.Context, machine.Name) ([]machine.Name, error)) *MockMachineServiceGetMachineContainersCall {
+func (c *MockMachineServiceGetMachineContainersCall) DoAndReturn(f func(context.Context, machine.UUID) ([]machine.Name, error)) *MockMachineServiceGetMachineContainersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

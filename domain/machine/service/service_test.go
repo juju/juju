@@ -645,12 +645,12 @@ func (s *serviceSuite) TestGetSupportedContainersTypesError(c *tc.C) {
 func (s *serviceSuite) TestGetMachineContainers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineName.String()).Return([]string{"0/lxd/1", "0/lxd/2"}, nil)
+	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineUUID.String()).Return([]string{"0/lxd/1", "0/lxd/2"}, nil)
 
 	containers, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineContainers(c.Context(), machineName)
+		GetMachineContainers(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(containers, tc.DeepEquals, []machine.Name{"0/lxd/1", "0/lxd/2"})
 }
@@ -666,12 +666,12 @@ func (s *serviceSuite) TestGetMachineContainersInvalidMachineName(c *tc.C) {
 func (s *serviceSuite) TestGetMachineContainersError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
 
-	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineName.String()).Return(nil, errors.Errorf("boom"))
+	s.state.EXPECT().GetMachineContainers(gomock.Any(), machineUUID.String()).Return(nil, errors.Errorf("boom"))
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineContainers(c.Context(), machineName)
+		GetMachineContainers(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
