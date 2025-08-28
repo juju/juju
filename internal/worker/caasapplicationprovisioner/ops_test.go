@@ -387,40 +387,184 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestReconcileDeadUnitScale(c *gc.C) {
+// TestReconcileDeadUnitScaleNotScaling tests that nothing happens when not scaling
+func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	units := []params.CAASUnit{{
-		Tag: names.NewUnitTag("test/0"),
-	}, {
-		Tag: names.NewUnitTag("test/1"),
-	}}
+	units := []params.CAASUnit{{Tag: names.NewUnitTag("test/0")}}
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
+		Scaling:     false, // Not scaling
 		ScaleTarget: 1,
 	}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
+		// Should return early - no further calls
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleNilProvisioningState tests that nothing happens with nil provisioning state
+func (s *OpsSuite) TestReconcileDeadUnitScaleNilProvisioningState(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	units := []params.CAASUnit{{Tag: names.NewUnitTag("test/0")}}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
+		// Should return early - no further calls
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleUp tests scale up scenario - app.Scale should NOT be called
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	// Scale UP: 2 current units -> 5 target units
+	units := []params.CAASUnit{
+		{Tag: names.NewUnitTag("test/0")},
+		{Tag: names.NewUnitTag("test/1")},
+	}
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 5, // Scale up to 5 units
+	}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
+		facade.EXPECT().Life("test/0").Return(life.Alive, nil), // Below target
+		facade.EXPECT().Life("test/1").Return(life.Dead, nil),  // Below target, but dead
+		// No app.Scale should be called - all units are below target
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleDownNotAllDead tests scale down when not all excess units are dead - app.Scale should NOT be called
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	// Scale DOWN: 4 current units -> 2 target units, but not all excess units are dead
+	units := []params.CAASUnit{
+		{Tag: names.NewUnitTag("test/0")},
+		{Tag: names.NewUnitTag("test/1")},
+		{Tag: names.NewUnitTag("test/2")}, // >= target
+		{Tag: names.NewUnitTag("test/3")}, // >= target
+	}
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 2, // Scale down to 2 units
+	}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
+		facade.EXPECT().Life("test/0").Return(life.Alive, nil), // Below target
+		facade.EXPECT().Life("test/1").Return(life.Dead, nil),  // Below target, but dead
+		facade.EXPECT().Life("test/2").Return(life.Dead, nil),  // >= target and dead
+		facade.EXPECT().Life("test/3").Return(life.Alive, nil), // >= target but alive - prevents scaling
+		// No app.Scale should be called - not all excess units (2,3) are dead
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleDownAllExcessDead tests scale down when all excess units are dead - app.Scale SHOULD be called
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
+	units := []params.CAASUnit{
+		{Tag: names.NewUnitTag("test/0")},
+		{Tag: names.NewUnitTag("test/1")},
+		{Tag: names.NewUnitTag("test/2")}, // >= target
+		{Tag: names.NewUnitTag("test/3")}, // >= target
+	}
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 2, // Scale down to 2 units
+	}
 	appState := caas.ApplicationState{
-		Replicas: []string{
-			"a",
-		},
+		Replicas: []string{"a", "b"}, // Already at target scale
 	}
 	newPs := params.CAASApplicationProvisioningState{
 		Scaling:     false,
 		ScaleTarget: 0,
 	}
+
 	gomock.InOrder(
 		facade.EXPECT().Units("test").Return(units, nil),
 		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
-		facade.EXPECT().Life("test/0").Return(life.Alive, nil),
-		facade.EXPECT().Life("test/1").Return(life.Dead, nil),
-		app.EXPECT().Scale(1).Return(nil),
+		facade.EXPECT().Life("test/0").Return(life.Alive, nil), // Below target
+		facade.EXPECT().Life("test/1").Return(life.Dead, nil),  // Below target, but dead
+		facade.EXPECT().Life("test/2").Return(life.Dead, nil),  // >= target and dead
+		facade.EXPECT().Life("test/3").Return(life.Dead, nil),  // >= target and dead
+		// All excess units (2,3) are dead - scaling should proceed
+		app.EXPECT().Scale(2).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
-		facade.EXPECT().RemoveUnit("test/1").Return(nil),
+		facade.EXPECT().RemoveUnit("test/2").Return(nil),
+		facade.EXPECT().RemoveUnit("test/3").Return(nil),
 		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleDownNoExcessUnits tests when no units need to be removed
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	// Already at target scale
+	units := []params.CAASUnit{
+		{Tag: names.NewUnitTag("test/0")},
+		{Tag: names.NewUnitTag("test/1")},
+	}
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 2, // Already at target
+	}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
+		facade.EXPECT().Life("test/0").Return(life.Alive, nil), // Below target
+		facade.EXPECT().Life("test/1").Return(life.Dead, nil),  // Below target, but dead
+		// No units >= target, so no scaling needed
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
