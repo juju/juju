@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
@@ -22,9 +21,6 @@ import (
 // as expected by hooks.NewCommand.
 type dummyHookContext struct{ jujuc.Context }
 
-func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
-	return nil
-}
 func (dummyHookContext) UnitName() string {
 	return ""
 }
