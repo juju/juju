@@ -177,3 +177,23 @@ SELECT
 FROM cloud AS c
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
 LEFT JOIN controllers ON c.uuid = controllers.cloud_uuid;
+
+-- v_cloud_auth is a view similar to v_cloud but includes a row for
+-- each cloud and auth type pair.
+CREATE VIEW v_cloud_auth
+AS
+SELECT
+    c.uuid,
+    c.name,
+    c.cloud_type_id,
+    c.cloud_type,
+    c.endpoint,
+    c.identity_endpoint,
+    c.storage_endpoint,
+    c.skip_tls_verify,
+    c.is_controller_cloud,
+    at.id AS auth_type_id,
+    at.type AS auth_type
+FROM v_cloud AS c
+LEFT JOIN cloud_auth_type AS cat ON c.uuid = cat.cloud_uuid
+JOIN auth_type AS at ON cat.auth_type_id = at.id;
