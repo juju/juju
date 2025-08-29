@@ -350,3 +350,11 @@ func (env *environ) ModelIngressRules(ctx context.ProviderCallContext) (firewall
 	rules, err := env.IngressRules(ctx, env.globalFirewallName())
 	return rules, google.HandleCredentialError(errors.Trace(err), ctx)
 }
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+// ingress rules containing IPV6 CIDRs.
+//
+// This is part of the environs.FirewallFeatureQuerier interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	return true, nil
+}
