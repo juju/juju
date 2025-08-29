@@ -69,7 +69,6 @@ type ModelManagerBackend interface {
 	Export(leaders map[string]string) (description.Model, error)
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
-	SetModelMeterStatus(string, string) error
 	AllSpaces() ([]*state.Space, error)
 	AddSpace(string, network.Id, []string, bool) (*state.Space, error)
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
@@ -85,14 +84,6 @@ type ModelManagerBackend interface {
 	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretBackends() ([]*secrets.SecretBackend, error)
 	GetSecretBackendByID(string) (*secrets.SecretBackend, error)
-
-	// Methods required by the metricsender package.
-	MetricsManager() (*state.MetricsManager, error)
-	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
-	SetMetricBatchesSent(batchUUIDs []string) error
-	CountOfUnsentMetrics() (int, error)
-	CountOfSentMetrics() (int, error)
-	CleanupOldMetrics() error
 }
 
 // Model defines methods provided by a state.Model instance.
