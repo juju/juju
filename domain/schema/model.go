@@ -47,6 +47,8 @@ const (
 	customNamespaceApplicationRemovalLifecycle
 	customNamespaceRelationRemovalLifecycle
 	customNamespaceModelLifeRemovalLifecycle
+	customNamespaceStorageAttachmentRelatedEntities
+	customNamespaceStorageAttachmentLifecycle
 )
 
 const (
@@ -213,6 +215,13 @@ func ModelDDL() *schema.Schema {
 		triggerGuardForLife("unit"),
 		triggerGuardForLife("machine"),
 		triggerGuardForLife("machine_cloud_instance"),
+		triggerGuardForLife("storage_instance"),
+		triggerGuardForLife("storage_attachment"),
+		triggerGuardForLife("storage_volume"),
+		triggerGuardForLife("storage_volume_attachment"),
+		triggerGuardForLife("storage_filesystem"),
+		triggerGuardForLife("storage_filesystem_attachment"),
+		triggerGuardForLife("storage_volume_attachment_plan"),
 
 		// Add a custom namespace that only watches for insert and delete
 		// operations for entities.
@@ -225,6 +234,7 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByFieldForTable("unit", "uuid", customNamespaceUnitRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("relation", "uuid", customNamespaceRelationRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
+		triggerEntityLifecycleByFieldForTable("storage_attachment", "unit_uuid", customNamespaceStorageAttachmentLifecycle),
 	)
 
 	patches = append(patches, func() schema.Patch {

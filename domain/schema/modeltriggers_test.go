@@ -4,10 +4,15 @@
 package schema
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -16,6 +21,8 @@ import (
 // storage provisioning triggers that exist in the model schema.
 type modelStorageSuite struct {
 	schemaBaseSuite
+
+	seq int64
 }
 
 // TestModelStorageSuite registers the tests for the [modelStorageSuite].
@@ -30,13 +37,14 @@ func (s *modelStorageSuite) SetUpTest(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 }
 
-// assertChangeEvent asserts that a single change event exists for the provided
-// namespace and changed value. If successful the matching change event will be
-// deleted from the database so subsequent calls can be made to this func within
-// a single test.
-func (s *modelStorageSuite) assertChangeEvent(
-	c *tc.C, namespace string, changed string,
-) {
+func (s *modelStorageSuite) nextSeq() int64 {
+	// Currently tests are run sequentially, but just in case.
+	return atomic.AddInt64(&s.seq, 1)
+}
+
+func (s *modelStorageSuite) getNamespaceID(
+	c *tc.C, namespace string,
+) int {
 	row := s.DB().QueryRowContext(
 		c.Context(),
 		"SELECT id FROM change_log_namespace WHERE namespace = ?",
@@ -45,27 +53,50 @@ func (s *modelStorageSuite) assertChangeEvent(
 	var nsID int
 	err := row.Scan(&nsID)
 	c.Assert(err, tc.ErrorIsNil)
+	return nsID
+}
 
-	row = s.DB().QueryRowContext(
-		c.Context(),
-		`
-SELECT COUNT(*)
-FROM   change_log
-WHERE  namespace_id = ?
-AND    changed = ?
-`,
-		nsID, changed)
-
-	var count int
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(count, tc.Equals, 1)
-
-	_, err = s.DB().ExecContext(
-		c.Context(),
+func (s *modelStorageSuite) clearChangeEvents(
+	c *tc.C, nsID int, changed string,
+) {
+	_, err := s.DB().Exec(
 		"DELETE FROM change_log WHERE namespace_id = ? AND changed = ?",
 		nsID, changed,
 	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// assertChangeEvent asserts that a single change event exists for the provided
+// namespace and changed value. If successful the matching change event will be
+// deleted from the database so subsequent calls can be made to this func within
+// a single test.
+func (s *modelStorageSuite) assertChangeEvent(
+	c *tc.C, namespace string, changed string,
+) {
+	nsID := s.getNamespaceID(c, namespace)
+
+	row := s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   change_log
+WHERE  namespace_id = ?
+AND    changed = ?`, nsID, changed)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 1)
+
+	s.clearChangeEvents(c, nsID, changed)
+}
+
+func (s *modelStorageSuite) changeStorageAttachmentLife(
+	c *tc.C, uuid string, life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_attachment
+SET    life_id = ?
+WHERE  uuid = ?
+`,
+		int(life), uuid)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -310,6 +341,26 @@ VALUES (?, ?, ?, 0, 1)
 	return attachmentUUID.String()
 }
 
+func (s *modelStorageSuite) changeVolumeAttachmentBlockDevice(
+	c *tc.C, attachmentUUID string, blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume_attachment
+SET    block_device_uuid = ?
+WHERE  uuid = ?`, blockDeviceUUID, attachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) changeBlockDeviceMountPoint(
+	c *tc.C, blockDeviceUUID string, mountPoint string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE block_device
+SET    mount_point = ?
+WHERE  uuid = ?`, mountPoint, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // newMachineVolumeAttachmentPlan creates a new volume attachment plan that has
 // machine provision scope. The attachment is associated with the provided
 // volume uuid and net node uuid.
@@ -399,6 +450,224 @@ func (s *modelStorageSuite) newNetNode(c *tc.C) string {
 	c.Assert(err, tc.ErrorIsNil)
 
 	return nodeUUID.String()
+}
+
+func (s *modelStorageSuite) newApplication(c *tc.C, name string) (string, string) {
+	appUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	charmUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES (?, 0, ?, 1, 0)`, charmUUID.String(), "foo")
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'myapp')`, charmUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID.String(), name, network.AlphaSpaceId)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return appUUID.String(), charmUUID.String()
+}
+
+func (s *modelStorageSuite) newUnitWithNetNode(
+	c *tc.C, name, appUUID, charmUUID string,
+) (string, string) {
+	unitUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	nodeUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = s.DB().Exec(`
+INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`
+INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?, 0)`,
+			unitUUID.String(), name, appUUID, charmUUID, nodeUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return unitUUID.String(), nodeUUID.String()
+}
+
+func (s *modelStorageSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) string {
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID.String()
+}
+
+func (s *modelStorageSuite) newStorageInstanceVolume(
+	c *tc.C, instanceUUID string, volumeUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, instanceUUID, volumeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) newStorageInstanceWithCharmUUID(
+	c *tc.C, charmUUID, poolUUID string,
+) (string, string) {
+	storageInstanceUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	seq := s.nextSeq()
+	storageName := fmt.Sprintf("mystorage-%d", seq)
+	storageID := fmt.Sprintf("mystorage/%d", seq)
+
+	_, err = s.DB().Exec(`
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, 0, 100, ?)`,
+		storageInstanceUUID.String(),
+		charmUUID,
+		storageName,
+		storageID,
+		poolUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return storageInstanceUUID.String(), storageID
+}
+
+func (s *modelStorageSuite) newStorageAttachment(
+	c *tc.C,
+	storageInstanceUUID string,
+	unitUUID string,
+) string {
+	saUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, 0)`,
+		saUUID.String(), storageInstanceUUID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return saUUID.String()
+}
+
+func (s *modelStorageSuite) deleteStorageAttachment(
+	c *tc.C,
+	storageAttachmentUUID string,
+) {
+	_, err := s.DB().Exec(`
+DELETE FROM storage_attachment
+WHERE  uuid = ?`,
+		storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) newStorageInstanceFilesystem(
+	c *tc.C,
+	storageInstanceUUID string,
+	storageFilesystemUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`,
+		storageInstanceUUID, storageFilesystemUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) newBlockDevice(
+	c *tc.C,
+	machineUUID string,
+) string {
+	blockDeviceUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO block_device (uuid, name, machine_uuid)
+VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return blockDeviceUUID.String()
+}
+
+func (s *modelStorageSuite) newBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO block_device_link_device (block_device_uuid, name)
+VALUES (?, ?)`, blockDeviceUUID, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) renameBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+	newName string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE block_device_link_device
+SET name = ?
+WHERE block_device_uuid = ?`, newName, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) deleteBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+DELETE FROM block_device_link_device
+WHERE block_device_uuid = ?`, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelStorageSuite) newMachine(
+	c *tc.C,
+	nodeUUID string,
+) string {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	name := "mfoo-" + machineUUID.String()
+
+	_, err = s.DB().Exec(`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
+		machineUUID.String(), name, nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID.String()
 }
 
 // TestStorageProvisionScopeIDMachine tests that the assumed value of 1
@@ -1034,5 +1303,275 @@ func (s *modelStorageSuite) TestDeleteMachineVolumeAttachmentPlanTrigger(c *tc.C
 	s.deleteVolumeAttachmentPlan(c, vAttUUID)
 	s.assertChangeEvent(
 		c, "storage_volume_attachment_plan_life_machine_provisioning", netnode,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentLifecycleUpdate(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.changeStorageAttachmentLife(c, saUUID, domainlife.Dying)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentLifecycleDelete(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.deleteStorageAttachment(c, saUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageInstanceFilesystemInsert(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+
+	fsUUID, _ := s.newMachineFilesystem(c)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageInstanceVolumeInsert(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+
+	volumeUUID, _ := s.newMachineVolume(c)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageVolumeAttachmentInsert(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	_ = s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageVolumeAttachmentUpdate(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.changeVolumeAttachmentLife(c, vaUUID, domainlife.Dying)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageVolumeAttachmentDelete(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.deleteVolumeAttachment(c, vaUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageFilesystemAttachmentInsert(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	_ = s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageFilesystemAttachmentUpdate(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentStorageFilesystemAttachmentDelete(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.deleteFilesystemAttachment(c, fsaUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceUpdate(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+	machineUUID := s.newMachine(c, netNodeUUID)
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
+	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.changeBlockDeviceMountPoint(c, blockDeviceUUID, "/mnt/foo")
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceInsert(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+	machineUUID := s.newMachine(c, netNodeUUID)
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
+	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceUpdate(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+	machineUUID := s.newMachine(c, netNodeUUID)
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
+	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.renameBlockDeviceLinkDevice(c, blockDeviceUUID, "foo")
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
+	)
+}
+
+func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceDelete(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
+	vaUUID := s.newMachineVolumeAttachment(c, volumeUUID, netNodeUUID)
+	machineUUID := s.newMachine(c, netNodeUUID)
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
+	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+
+	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
+	s.clearChangeEvents(c, nsID, saUUID)
+
+	s.deleteBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.assertChangeEvent(
+		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
 	)
 }
