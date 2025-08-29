@@ -133,4 +133,6 @@ postgresql-k8s/0*  active    idle   10.1.157.74         Primary
 ````
 
 
-> See more: `command-juju-status`
+```{ibnote}
+See more: `command-juju-status`
+```

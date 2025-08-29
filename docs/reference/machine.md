@@ -1,7 +1,9 @@
 (machine)=
 # Machine
 
-> See also: {ref}`manage-machines`
+```{ibnote}
+See also: {ref}`manage-machines`
+```
 
 In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly (e.g., through {ref}`command-juju-deploy`, {ref}`command-juju-add-unit`, etc.) or explicitly (e.g., through {ref}`command-juju-add-machine`) from a machine {ref}`cloud <cloud>`.
 

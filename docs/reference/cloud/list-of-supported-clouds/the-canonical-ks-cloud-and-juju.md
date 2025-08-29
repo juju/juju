@@ -3,11 +3,15 @@
 
 This document describes details specific to using a Canonical Kubernetes cloud with Juju.
 
-> See more: [Canonical Kubernetes documentation](https://documentation.ubuntu.com/canonical-kubernetes/)
+```{ibnote}
+See more: [Canonical Kubernetes documentation](https://documentation.ubuntu.com/canonical-kubernetes/)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) Kubernetes cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
 
@@ -29,10 +33,14 @@ Before you bootstrap:
 
 - For most purposes, you should also resize `/run`, e.g., `sudo mount -o remount,size=10G /run`.
 
-> See more: https://github.com/canonical/k8s-snap/issues/1612
+```{ibnote}
+See more: https://github.com/canonical/k8s-snap/issues/1612
+```
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.

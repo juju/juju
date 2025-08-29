@@ -1,9 +1,11 @@
 (charm-resource)=
 # Resource (charm)
->
-> See also: {ref}`manage-charm-resources`
 
-In Juju, a **charm resource** is additional content that a {ref}`charm <charm>` can make use of, or may require, to run. 
+```{ibnote}
+See also: {ref}`manage-charm-resources`
+```
+
+In Juju, a **charm resource** is additional content that a {ref}`charm <charm>` can make use of, or may require, to run.
 
 Resources are used where a charm author needs to include large blobs (perhaps a database, media file, or otherwise) that may not need to be updated with the same cadence as the charm or workload itself. By keeping resources separate, they can control the lifecycle of these elements more carefully, and in some situations avoid the need for repeatedly downloading large files from Charmhub during routine upgrades/maintenance.
 
@@ -11,7 +13,7 @@ Resources are used where a charm author needs to include large blobs (perhaps a 
 A resource can have one of two basic types -- `file` and `oci-image`. These can be specified as follows:
 
 1. If the resource is type 'file', you can specify it by providing
-    
+
     a. the resource revision number or
 
     b.  a path to a local file.

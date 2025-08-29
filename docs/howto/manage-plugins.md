@@ -1,14 +1,14 @@
 (manage-plugins)=
 # How to manage plugins
 
-> See also:  {ref}`plugin`
+```{ibnote}
+See also:  {ref}`plugin`
+```
 
-Juju can be easily extended by using plugins. There are many third-party plugins available to simplify certain tasks. However, you can easily create your own custom plugins for your specific needs. This tutorial will show you how to do this. 
+Juju can be easily extended by using plugins. There are many third-party plugins available to simplify certain tasks. However, you can easily create your own custom plugins for your specific needs. This tutorial will show you how to do this.
 
 ```{important}
-
 Another way to integrate Juju into your own tooling is to use the [Python](https://github.com/juju/python-libjuju) and [JavaScript](https://github.com/juju/js-libjuju) client libraries.
-
 ```
 
 ## Create a plugin
@@ -84,15 +84,15 @@ There is no set format for distributing your plugin. However, for plugins that a
 
 **Before publishing**
 
-You've coded up your plugin idea. That's great. Now you need to pause and check that you're not going to get yourself or anyone else into trouble by installing it! 
+You've coded up your plugin idea. That's great. Now you need to pause and check that you're not going to get yourself or anyone else into trouble by installing it!
 
-- Create an account on the [Juju Discourse](https://discourse.charmhub.io/). It's the primary medium for the community to interact. 
+- Create an account on the [Juju Discourse](https://discourse.charmhub.io/). It's the primary medium for the community to interact.
 - Ensure that you are legally entitled to release the code. If you've developed the plugin at work, your employer may be the copyright holder.
 - Do a final check and attempt to install Juju and the plugin on a fresh machine. Your installation instructions should "just work".
- 
+
 **Alpha/beta quality releases**
 
-At this stage, you want to receive feedback and add polish. 
+At this stage, you want to receive feedback and add polish.
 
 - Post a note on Discourse inviting people to be beta testers.
 - Where relevant, upload the plugin to a relevant package manager.
@@ -110,7 +110,7 @@ Your plugin is mature and should now be fully functional. To announce that it is
 
 Your plugin is doing well and your users are happy. Great work. Growing your userbase will mean that more lives can be simplified.
 
-- Add a Reference doc and a How-to guide doc on [Juju Discourse](https://discourse.charmhub.io/), to be published in the  [Juju OLM Docs](https://juju.is/docs/olm). Short is great. 
+- Add a Reference doc and a How-to guide doc on [Juju Discourse](https://discourse.charmhub.io/), to be published in the  [Juju OLM Docs](https://juju.is/docs/olm). Short is great.
 
 - For wider reach, add your tutorial on tutorials.ubuntu.com. The process is really simple. All you need is a text file and a pull request on GitHub.
 -->
@@ -135,11 +135,11 @@ Things to cover
 
 Things to be aware of
 
-- Users are not aware that they're calling a plugin 
+- Users are not aware that they're calling a plugin
 
 Tools
 
 - Python: libjuju
-- Javascript: libjuju 
+- Javascript: libjuju
 
 -->

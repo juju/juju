@@ -1,7 +1,9 @@
 (relation)=
 # Relation (integration)
 
-> See also: {ref}`manage-relations`
+```{ibnote}
+See also: {ref}`manage-relations`
+```
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
@@ -47,8 +49,9 @@ A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relat
 
 (cross-model-relation)=
 ##### Cross-model relation
-> See also: {ref}`manage-relations`
-
+```{ibnote}
+See also: {ref}`manage-relations`
+```
 
 A **cross-model** relation (aka 'CMR') is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on different models (+/- different controllers, +/- different clouds).
 

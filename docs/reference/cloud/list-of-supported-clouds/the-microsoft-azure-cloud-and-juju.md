@@ -1,23 +1,23 @@
 (cloud-azure)=
 # The Microsoft Azure cloud and Juju
 
-
 This document describes details specific to using your existing Microsoft Azure cloud with Juju.
 
-> See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
+```{ibnote}
+See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
-
 
 ## Requirements
 
 **If you're in a locked-down environment:** <br> Permissions: <p>- `Microsoft.Compute/skus (read)` <p> - `Microsoft.Resources/subscriptions/resourceGroups (read, write, delete)` <p> - `Microsoft.Resources/deployments/ (write/read/delete/cancel/validate)` <p> - `Microsoft.Network/networkSecurityGroups (write, read, delete, other - join)` <p> - `Microsoft.Network/virtualNetworks/ (write, read, delete)` <p> - `Microsoft.Compute/virtualMachineScaleSets/ (write, read, delete, other - start action, other - deallocate action, other - restart action, other powerOff action)` <p> - `Microsoft.Network/virtualNetworks/subnets/ (read, write, delete, other - join)` <p> - `Microsoft.Compute/availabilitySets (write, read, delete)` <p> - `Microsoft.Network/publicIPAddresses (write, read, delete, other - join - optional for public services)` <p> - `Microsoft.Network/networkInterfaces (write, read, delete, other - join)` <p> - `Microsoft.Compute/virtualMachines (write, read, delete, other - start, power off, restart, deallocate)` <p> - `Microsoft.Compute/disks (write, read, delete)`
-
 
 ## Notes on `juju add-cloud`
 
@@ -27,10 +27,9 @@ Name in Juju: `azure`.
 
 
 ## Notes on `juju add-credential`
+
 ```{note}
-
 Credentials for the `azure` cloud have been reported to occasionally stop working over time. If this happens, try `juju update-credential` (passing as an argument the same credential) or `juju add-credential` (passing as an argument a new credential) + `juju default-credential`.
-
 ```
 
 ```{note}
@@ -48,7 +47,9 @@ See Appendix: Example authentication workflows.
 
 This is the recommended way to authenticate with Azure as this way you are never touching your cloud credentials directly.
 
-> See more: {ref}`azure-appendix-workflow-1`
+```{ibnote}
+See more: {ref}`azure-appendix-workflow-1`
+```
 
 #### `interactive` = "service-principal-secret-via-browser"
 
@@ -62,22 +63,25 @@ Caution: If you decide to fill in the optional fields as well: Make sure to set 
 
 Tip: Starting with Juju 3.6, you can also combine this authentication type with a managed identity by bootstrapping with the `instance-role` constraint.
 
-> See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
-
+```{ibnote}
+See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
+```
 
 #### `service-principal-secret` (dispreferred)
 
 Starting with Juju 3.6, you can also combine this with a managed identity by bootstrapping with the `instance-role` constraint.
 
-> See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
-
+```{ibnote}
+See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
+```
 
 ## Notes on `juju bootstrap`
 
 If during `juju add-credential` you chose `interactive` (= "service-principal-secret-via-browser") or `service-principal-secret`: You can still combine this with a managed identity by running `juju bootstrap` with `--constraints instance-role=...`.
 
-> See more: {ref}`azure-appendix-workflow-1`, Supported constraints
-
+```{ibnote}
+See more: {ref}`azure-appendix-workflow-1`, Supported constraints
+```
 
 ## Cloud-specific model configuration keys
 
@@ -144,7 +148,9 @@ If set, use the specified virtual network for all model machines instead of crea
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 (storage-provider-azure)=
 ### `azure`
@@ -172,9 +178,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 1. Bootstrap as usual.
 
 ```{tip}
-
 **Did you know?** With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
-
 ```
 
 (azure-appendix-workflow-2)=
@@ -265,5 +269,3 @@ A resource scoped managed identity is similar except:
 - the role assignment scope becomes
 
 `--scope "/subscriptions/${subscription}/resourcegroups/${group}"`
-
-

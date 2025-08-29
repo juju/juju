@@ -1,7 +1,9 @@
 (action)=
 # Action
 
-> See also: {ref}`manage-actions`
+```{ibnote}
+See also: {ref}`manage-actions`
+```
 
 Actions are defined by a  {ref}`charm <charm>` to allow a {ref}`user <user>` with the right {ref}`access level <user-access-levels>` to interact with an {ref}`application <application>` in ways specific to the application.
 This may include anything from creating a snapshot of a database, adding a user to a system, dumping debug information, etc.
@@ -10,7 +12,9 @@ An action is triggered via the {ref}`juju-cli` and applied to one or more {ref}`
 It is run with parameters supplied by the user and records the success/fail status and any results for subsequent perusal.
 
 
-> See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
+```{ibnote}
+See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
+```
 
 The default behaviour is that the {ref}`juju-cli` blocks and waits for the action to complete. This synchronous behaviour allows actions to be easily included in command-line pipelines.
 As an action is executing, any progress messages as reported by the action are logged to the terminal. When the action completes, the result is printed.

@@ -110,13 +110,18 @@ Placement directives aren't supported on Kubernetes clouds.
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 Kubernetes-based models have access to the `kubernetes` storage provider.
 
 (storage-provider-kubernetes)=
 ### `kubernetes`
-> See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
+
+```{ibnote}
+See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
+```
 
 Configuration options:
 
