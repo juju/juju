@@ -1,7 +1,9 @@
 (manage-models)=
 # How to manage models
 
-> See also: {ref}`model`
+```{ibnote}
+See also: {ref}`model`
+```
 
 (add-a-model)=
 ## Add a model
@@ -19,7 +21,9 @@ juju add-model mymodel
 
 You can also pass various options to choose a different controller or credential, specify a configuration, designate a different model `owner`, *not* switch to the newly create model, add it to a particular cloud (for multi-cloud controllers), etc.
 
-> See more: {ref}`command-juju-add-model`
+```{ibnote}
+See more: {ref}`command-juju-add-model`
+```
 
 ## View all the models available on a controller
 
@@ -46,7 +50,9 @@ test        localhost/localhost  lxd   available         0      -  admin   2 min
 
 By passing various options you can filter by controller, get a time stamp, output to a specific format, etc.
 
-> See more: {ref}`command-juju-models`
+```{ibnote}
+See more: {ref}`command-juju-models`
+```
 
 (switch-to-a-different-model)=
 ## Switch to a different model
@@ -71,7 +77,6 @@ localhost-localhost:admin/test
 You can also identify the current model by running `juju models` -- your current model is the model with an asterisk!
 ```
 
-
 **Switch to a different model.** To change from the current model to a different model, use the `switch` command followed by the target model name in a `<controller>:<user>/<model` format:
 
 ```text
@@ -89,15 +94,15 @@ The command also allows you to specify the target controller in an abbreviated f
 |`juju switch foo:` | Selects the last used model in controller 'foo'.
 -->
 
-> See more: {ref}`command-juju-switch`
+```{ibnote}
+See more: {ref}`command-juju-switch`
+```
 
 ```{caution}
 For important operations we recommend you specify the model in the unambiguous form shown above.
 ```
 
-
 ## View the status of a model
-
 
 To see the status of a model and everything inside of it, run the `status` command:
 
@@ -119,7 +124,9 @@ Model "admin/test" is empty.
 
 By passing various options you can also specify a model, see the output in color formatting or with additional sections for relations or storage, watch the status for a given duration, etc.
 
-> See more: {ref}`command-juju-status`
+```{ibnote}
+See more: {ref}`command-juju-status`
+```
 
 
 ## View details about a model
@@ -171,15 +178,18 @@ test:
 
 By passing options you can also specify a format, an output file, etc.
 
-> See more: {ref}`command-juju-show-model`
+```{ibnote}
+See more: {ref}`command-juju-show-model`
+```
 
 (configure-a-model)=
 ## Configure a model
 
-> See also: {ref}`model-configuration`, {ref}`list-of-model-configuration-keys`
->
-> See related: {ref}`configure-a-controller`
+```{ibnote}
+See also: {ref}`model-configuration`, {ref}`list-of-model-configuration-keys`
 
+See related: {ref}`configure-a-controller`
+```
 
 The procedure for how to configure a model differs slightly depending on whether you are interested in the configuration of a specific model or rather of all the models on a controller.
 
@@ -207,21 +217,19 @@ juju model-config default-space=myspace
 ```
 
 ```{caution}
-
 Juju does not currently check that the provided key is a valid setting, so make sure you spell it correctly.
-
 ```
 
 In all cases, the configuration can be passed in the form of a space-separated list of key-value pairs or in the form of a YAML configuration file, and you can also use it to overwrite (e.g., with a null value) or to reset existing values, among other things.
 
 
 ```{important}
-
 If you're trying to pass multiple configurations using the `--config` flag, make sure to repeat the flag for every configuration.
-
 ```
 
-> See more:  {ref}`command-juju-bootstrap` > `--config`, {ref}`command-juju-add-model` > `config`, {ref}`command-juju-model-config`
+```{ibnote}
+See more:  {ref}`command-juju-bootstrap` > `--config`, {ref}`command-juju-add-model` > `config`, {ref}`command-juju-model-config`
+```
 
 **Get values.** You can get the configuration of a model at any time by running the `model-config` command without any argument, as below:
 
@@ -231,7 +239,9 @@ juju model-config
 
 By using various flags of this command you can also target a specific model or key, choose a different output format, etc.
 
-> See more: {ref}`command-juju-model-config`
+```{ibnote}
+See more: {ref}`command-juju-model-config`
+```
 
 ### Configure all the models on a controller
 
@@ -251,7 +261,9 @@ juju bootstrap microk8s uk8s \
 
 By passing various flags you can also target a specific cloud or cloud region, pass the configuration(s) in the form of a yaml file, reset keys, etc.
 
-> See more: {ref}`command-juju-bootstrap` > `model-defaults`
+```{ibnote}
+See more: {ref}`command-juju-bootstrap` > `model-defaults`
+```
 
 - To set model configuration defaults *after* controller creation, use the `model-defaults` command followed by the desired configuration. This willl affect any models created from that point onwards.
 
@@ -260,13 +272,12 @@ juju model-defaults ftp-proxy=10.0.0.1:8000
 ```
 
 ```{important}
-
 These defaults can be overridden, on a per-model basis, during the invocation of the `add-model` command (option `--config`) as well as by resetting specific options to their original defaults through the use of the `model-config` command (option `--reset`).
-
 ```
 
-> See more: {ref}`command-juju-model-defaults`
-
+```{ibnote}
+See more: {ref}`command-juju-model-defaults`
+```
 
 **Get values.** At any point, you can get the default configuration values for all the models on a controller by running the `model-defaults` command, as below:
 
@@ -276,11 +287,16 @@ juju model-defaults
 
 Just as before, by using various flags you can filter by a specific cloud or cloud region, or see the value for a specific key, etc.
 
-> See more: {ref}`command-juju-model-defaults`
+```{ibnote}
+See more: {ref}`command-juju-model-defaults`
+```
 
 (manage-constraints-for-a-model)=
 ## Manage constraints for a model
-> See also: {ref}`constraint`
+
+```{ibnote}
+See also: {ref}`constraint`
+```
 
 **Set values.** You can set constraints for the `controller` model during controller creation or to regular models at any other point.
 
@@ -294,11 +310,11 @@ Just as before, by using various flags you can filter by a specific cloud or clo
 juju bootstrap --constraints mem=4G aws
 ```
 
-> See more: {ref}`command-juju-bootstrap`
-
+```{ibnote}
+See more: {ref}`command-juju-bootstrap`
+```
 
 - To set constraints for a regular model, run the `set-model-constraints` command followed by the desired key-value pair, as in the example below. This will affect all new resources provisioned for the model.
-
 
 ```text
 juju set-model-constraints mem=4G
@@ -308,7 +324,9 @@ juju set-model-constraints mem=4G
 To reset a constraint key to its default value, run the command with the value part empty (e.g., `juju set-model-constraints mem= `).
 ```
 
-> See more: {ref}`command-juju-set-model-constraints`
+```{ibnote}
+See more: {ref}`command-juju-set-model-constraints`
+```
 
 **Get values.** To get constraint values for the current model, run the `model-constraints` command, as below:
 
@@ -318,8 +336,9 @@ juju model-constraints
 
 By using various flags, you can specify a model (e.g., `-m controller`, to view constraints for the controller model), an output file, etc.
 
-> See more: {ref}`command-juju-model-constraints`
-
+```{ibnote}
+See more: {ref}`command-juju-model-constraints`
+```
 
 ## Restrict commands on a model
 
@@ -343,7 +362,9 @@ To enable the command run
 ```
 -->
 
-> See more: {ref}`command-juju-disable-command`
+```{ibnote}
+See more: {ref}`command-juju-disable-command`
+```
 
 **View a list of the disabled commands.** To see which command groups have been disabled for a model, run the `disabled-commands` command:
 
@@ -351,8 +372,9 @@ To enable the command run
  juju disabled-commands
 ```
 
-> See more: {ref}`command-juju-disabled-commands`
-
+```{ibnote}
+See more: {ref}`command-juju-disabled-commands`
+```
 
 **Enable commands.** To lift command restrictions, run `enable-command` followed by the command group that you want to enable. For example, the code below re-allows people to destroy the model and its controller.
 
@@ -360,7 +382,9 @@ To enable the command run
 juju enable-command destroy-model
 ```
 
-> See more: {ref}`command-juju-enable-command`
+```{ibnote}
+See more: {ref}`command-juju-enable-command`
+```
 
 (export-model-to-bundle)=
 ## Compare and export the contents of a model to a bundle
@@ -370,7 +394,6 @@ juju enable-command destroy-model
 ```text
 juju diff-bundle <bundle>
 ```
-
 
 ````{dropdown} Expand to see an example
 
@@ -549,11 +572,11 @@ juju diff-bundle wiki-simple
 
 ````
 
-> See more: {ref}`command-juju-diff-bundle`
-
+```{ibnote}
+See more: {ref}`command-juju-diff-bundle`
+```
 
 **Export.** To export the contents of the current model to a bundle file (a file of the form `<bundle name>.yaml`), run the `export-bundle` command with the `--filename` flag followed by the file path. For example:
-
 
 ```text
 juju export-bundle --filename mybundle.yaml
@@ -563,7 +586,6 @@ The command also has flags that allow you to select a different model, include c
 
 
 ````{dropdown} Example
-
 
 Suppose you have a model that looks like this:
 
@@ -597,14 +619,18 @@ applications:
     constraints: arch=amd64
 ```
 
-
 ````
 
-> See more: {ref}`command-juju-export-bundle`
+```{ibnote}
+See more: {ref}`command-juju-export-bundle`
+```
 
 (upgrade-a-model)=
 ## Upgrade a model
-> See more: {ref}`upgrading-things`
+
+```{ibnote}
+See more: {ref}`upgrading-things`
+```
 
 A model upgrade affects the version of Juju (Juju machine and unit agents) on all the Juju machines in the model.
 
@@ -624,32 +650,28 @@ juju upgrade-model
 By using various flags, you can specify an agent stream, agent version, etc., or you can even perform a dry run, to simulate what would happen if you upgraded.
 
 ```{important}
-
 This procedure can also be used to upgrade a controller model.
-
 ```
 
-> See more: {ref}`command-juju-upgrade-model`
+```{ibnote}
+See more: {ref}`command-juju-upgrade-model`
+```
 
 - To upgrade a model's minor or major version, use model migration. First, bootstrap a controller of your target version, migrate your model to that controller, and then do `upgrade-model` on the new controller.
 
 ```{important}
-
 This procedure cannot be used to upgrade a controller model.
-
 ```
 
-> See more: {ref}`migrate-a-model`
-
-
+```{ibnote}
+See more: {ref}`migrate-a-model`
+```
 
 When you're done, verify that the model has been succesful by running the `status` command. If the output looks wrong, you will have to do some investigation.
 
 `````{note}
 
-
 ````{dropdown} Error: some agents have not upgraded to the current model version <version>
-
 
 When the running agent software that is more than 1 patch point behind the targeted upgrade version the upgrade process will abort.
 
@@ -723,7 +745,9 @@ juju controller-config agent-ratelimit-max=100
 juju controller-config migration-agent-wait-time=30m
 ```
 
-> See more: {ref}`controller-config-agent-ratelimit-rate`, {ref}`controller-config-agent-ratelimit-max`, {ref}`controller-config-migration-agent-wait-time`
+```{ibnote}
+See more: {ref}`controller-config-agent-ratelimit-rate`, {ref}`controller-config-agent-ratelimit-max`, {ref}`controller-config-migration-agent-wait-time`
+```
 
 <!--(Migration time depends on the complexity of the model, the resources it uses, and the capabilities of the backing cloud.)-->
 
@@ -873,10 +897,15 @@ This error occurs when the machines known by Juju differ from the ones the under
 
 ````
 
-> See more: {ref}`command-juju-migrate`
+```{ibnote}
+See more: {ref}`command-juju-migrate`
+```
 
 ## Destroy a model
-> See also: {ref}`removing-things`
+
+```{ibnote}
+See also: {ref}`removing-things`
+```
 
 To remove a model, along with any associated machines and applications, use the `destroy-model` command followed by the name of the model:
 
@@ -886,5 +915,7 @@ juju destroy-model <model>
 
 The command has a variety of flags that you can use to skip the confirmation, to rush through the destruction without waiting for each step to complete, to release or destroy any persistant storage on the model, etc., or even to force destroy the model, ignoring any errors (not recommended as it might leave behind unresolved issues).
 
-> See more: {ref}`command-juju-destroy-model`
+```{ibnote}
+See more: {ref}`command-juju-destroy-model`
+```
 
