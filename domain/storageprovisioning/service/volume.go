@@ -87,6 +87,13 @@ type VolumeState interface {
 		domainnetwork.NetNodeUUID,
 	) (storageprovisioning.VolumeAttachmentUUID, error)
 
+	// GetVolumeAttachment returns the volume attachment for the supplied volume
+	// attachment uuid.
+	GetVolumeAttachment(
+		context.Context,
+		storageprovisioning.VolumeAttachmentUUID,
+	) (storageprovisioning.VolumeAttachment, error)
+
 	// GetVolumeLife returns the current life value for a volume uuid.
 	//
 	// The following errors may be returned:
@@ -269,9 +276,23 @@ func (s *Service) GetVolumeAttachmentLife(
 // - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
 // when no volume attachment exists for the provided uuid.
 func (s *Service) GetVolumeAttachment(
-	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (storageprovisioning.VolumeAttachment, error) {
-	return storageprovisioning.VolumeAttachment{}, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return storageprovisioning.VolumeAttachment{}, errors.Errorf(
+			"validating volume attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	va, err := s.st.GetVolumeAttachment(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+	return va, nil
 }
 
 // GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment

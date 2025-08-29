@@ -396,6 +396,34 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNotValid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	va := storageprovisioning.VolumeAttachment{
+		VolumeID:              "123",
+		ReadOnly:              true,
+		BlockDeviceName:       "abc",
+		BlockDeviceLink:       "xyz",
+		BlockDeviceBusAddress: "addr",
+	}
+	s.state.EXPECT().GetVolumeAttachment(c.Context(), vaUUID).Return(va, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachment(c.Context(), vaUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.DeepEquals, va)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeAttachment(c.Context(), "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

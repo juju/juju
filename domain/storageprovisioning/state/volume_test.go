@@ -208,6 +208,59 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNoResults(c *tc.C) {
 	c.Check(lives, tc.HasLen, 0)
 }
 
+// TestGetVolumeAttachment tests that a volume attachment is returned without
+// block device information when it is not available.
+func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	volUUID, vsID := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID: vsID,
+	})
+}
+
+// TestGetVolumeAttachmentWithBlockDevice tests that a volume attachment with a
+// block device returns relevant block device information.
+func (s *volumeSuite) TestGetVolumeAttachmentWithBlockDevice(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	volUUID, vsID := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+	bdUUID := s.newBlockDevice(c, machineUUID, "blocky", "blockyhwid",
+		"blocky:addr", []string{
+			"/dev/a",
+			"/dev/b",
+		})
+	s.changeVolumeAttachmentInfo(c, vaUUID, bdUUID, true)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID:              vsID,
+		ReadOnly:              true,
+		BlockDeviceName:       "blocky",
+		BlockDeviceLink:       "/dev/a",
+		BlockDeviceBusAddress: "blocky:addr",
+	})
+}
+
+// TestGetVolumeAttachmentNotFound tests that get volume attachment returns a
+// volume attachment not found error.
+func (s *volumeSuite) TestGetVolumeAttachmentNotFound(c *tc.C) {
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
 // TestGetVolumeAttachmentPlanLifeFornetNode tests that the correct life is
 // reported for each volume attachment plan associated with the given net node.
 // We expect in this test that it is the volume id for the attachment plan

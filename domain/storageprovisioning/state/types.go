@@ -177,6 +177,16 @@ type volumeAttachmentUUID entityUUID
 // slice of strings.
 type volumeAttachmentUUIDs []string
 
+// volumeAttachment represents a volume attachment.
+type volumeAttachment struct {
+	VolumeID              string    `db:"volume_id"`
+	Life                  life.Life `db:"life_id"`
+	ReadOnly              bool      `db:"read_only"`
+	BlockDeviceName       string    `db:"block_device_name"`
+	BlockDeviceLink       string    `db:"block_device_link"`
+	BlockDeviceBusAddress string    `db:"block_device_bus_address"`
+}
+
 // volumeID represents the volume id value for a storage volume instance.
 type volumeID struct {
 	ID string `db:"volume_id"`

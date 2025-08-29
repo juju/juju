@@ -52,26 +52,57 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 }
 
 // checkVolumeExists checks if a volume for the provided uuid exists.
-// Returning when this case is satisfied.
+// Returning true when this case is satisfied.
 func (st *State) checkVolumeExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid domainstorageprovisioning.VolumeUUID,
 ) (bool, error) {
-	volumeUUIDInput := volumeUUID{UUID: uuid.String()}
+	io := volumeUUID{UUID: uuid.String()}
 
 	checkQuery, err := st.Prepare(`
 SELECT &volumeUUID.*
 FROM   storage_volume
 WHERE  uuid = $volumeUUID.uuid
 `,
-		volumeUUIDInput,
+		io,
 	)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkQuery, volumeUUIDInput).Get(&volumeUUIDInput)
+	err = tx.Query(ctx, checkQuery, io).Get(&io)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
+// checkVolumeAttachmentExists checks if a volume attachment for the provided
+// uuid exists.
+// Returning true when this case is satisfied.
+func (st *State) checkVolumeAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+) (bool, error) {
+	io := volumeAttachmentUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &volumeAttachmentUUID.*
+FROM   storage_volume_attachment
+WHERE  uuid = $volumeAttachmentUUID.uuid
+`,
+		io,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, io).Get(&io)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, nil
 	} else if err != nil {
@@ -399,6 +430,71 @@ AND    net_node_uuid = $netNodeUUID.uuid
 	}
 
 	return domainstorageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
+}
+
+// GetVolumeAttachment returns the volume attachment for the supplied volume
+// attachment uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+func (st *State) GetVolumeAttachment(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+) (domainstorageprovisioning.VolumeAttachment, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+
+	var (
+		uuidInput = volumeAttachmentUUID{UUID: uuid.String()}
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &volumeAttachment.* FROM (
+    SELECT DISTINCT sv.volume_id,
+                    sva.life_id,
+                    sva.read_only,
+                    bd.name AS block_device_name,
+                    bd.bus_address AS block_device_bus_address,
+                    first_value(bdld.name) OVER bdld_first AS block_device_link
+    FROM            storage_volume_attachment sva
+    JOIN            storage_volume sv ON sv.uuid=sva.storage_volume_uuid
+    LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
+    LEFT JOIN       block_device_link_device bdld ON bd.uuid=bdld.block_device_uuid
+    WHERE           sva.uuid = $volumeAttachmentUUID.uuid
+    WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+)
+`,
+		uuidInput, volumeAttachment{},
+	)
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+
+	var va volumeAttachment
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuidInput).Get(&va)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment does not exist",
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+
+	retVal := domainstorageprovisioning.VolumeAttachment{
+		VolumeID:              va.VolumeID,
+		ReadOnly:              va.ReadOnly,
+		BlockDeviceName:       va.BlockDeviceName,
+		BlockDeviceLink:       va.BlockDeviceLink,
+		BlockDeviceBusAddress: va.BlockDeviceBusAddress,
+	}
+	return retVal, nil
 }
 
 // GetVolumeLife returns the current life value for a
