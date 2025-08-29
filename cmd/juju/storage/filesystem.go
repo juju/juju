@@ -105,7 +105,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	var info FilesystemInfo
 	info.ProviderFilesystemId = details.Info.ProviderId
 	info.Pool = details.Info.Pool
-	info.Size = details.Info.Size
+	info.Size = details.Info.SizeMiB
 	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,

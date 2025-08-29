@@ -514,7 +514,7 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 			Info: params.FilesystemInfo{
 				ProviderId: f.ProviderId,
 				Pool:       "", // pool
-				Size:       f.Size,
+				SizeMiB:    f.Size,
 			},
 		}
 		if f.Volume != (names.VolumeTag{}) {

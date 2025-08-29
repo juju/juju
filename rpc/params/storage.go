@@ -407,8 +407,8 @@ type FilesystemInfo struct {
 	// than 2.2 do not populate this field, so it may
 	// be omitted.
 	Pool string `json:"pool"`
-	// Size is the size of the filesystem in MiB.
-	Size uint64 `json:"size"`
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64 `json:"size"`
 }
 
 // Filesystems describes a set of storage filesystems in the model.

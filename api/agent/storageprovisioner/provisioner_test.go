@@ -242,7 +242,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 					FilesystemTag: "filesystem-100",
 					Info: params.FilesystemInfo{
 						ProviderId: "filesystem-id",
-						Size:       1024,
+						SizeMiB:    1024,
 					},
 				},
 			}},
@@ -261,7 +261,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 			FilesystemTag: "filesystem-100",
 			Info: params.FilesystemInfo{
 				ProviderId: "filesystem-id",
-				Size:       1024,
+				SizeMiB:    1024,
 			},
 		},
 	}})
@@ -861,7 +861,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 				FilesystemTag: "filesystem-100",
 				Info: params.FilesystemInfo{
 					ProviderId: "123",
-					Size:       1024,
+					SizeMiB:    1024,
 				},
 			}},
 		})
@@ -879,7 +879,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 		FilesystemTag: "filesystem-100",
 		Info: params.FilesystemInfo{
 			ProviderId: "123",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 	errorResults, err := st.SetFilesystemInfo(c.Context(), filesystems)

@@ -263,7 +263,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			VolumeTag:     "volume-0-1",
 			Info: params.FilesystemInfo{
 				ProviderId: "provider-supplied-filesystem-0-0",
-				Size:       512,
+				SizeMiB:    512,
 			},
 			Life:   "alive",
 			Status: createTestStatus(corestatus.Attached, "", t),
@@ -297,7 +297,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			FilesystemTag: "filesystem-1",
 			Info: params.FilesystemInfo{
 				ProviderId: "provider-supplied-filesystem-1",
-				Size:       2048,
+				SizeMiB:    2048,
 			},
 			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -309,7 +309,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 		{
 			FilesystemTag: "filesystem-3",
 			Info: params.FilesystemInfo{
-				Size: 42,
+				SizeMiB: 42,
 			},
 			Status: createTestStatus(corestatus.Pending, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -322,7 +322,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			FilesystemTag: "filesystem-2",
 			Info: params.FilesystemInfo{
 				ProviderId: "provider-supplied-filesystem-2",
-				Size:       3,
+				SizeMiB:    3,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -340,7 +340,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			Info: params.FilesystemInfo{
 				ProviderId: "provider-supplied-filesystem-4",
 				Pool:       "radiance",
-				Size:       1024,
+				SizeMiB:    1024,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
@@ -383,7 +383,7 @@ func filesystemDetails(t time.Time) []params.FilesystemDetails {
 			FilesystemTag: "filesystem-5",
 			Info: params.FilesystemInfo{
 				ProviderId: "provider-supplied-filesystem-5",
-				Size:       3,
+				SizeMiB:    3,
 			},
 			Status: createTestStatus(corestatus.Attached, "", t),
 			Storage: &params.StorageDetails{

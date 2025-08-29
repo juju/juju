@@ -617,7 +617,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 					VolumeTag:     names.NewVolumeTag("456").String(),
 					Info: params.FilesystemInfo{
 						ProviderId: "fs-1234",
-						Size:       1000,
+						SizeMiB:    1000,
 					},
 				},
 			},
@@ -2819,7 +2819,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 				FilesystemTag: tag.String(),
 				Info: params.FilesystemInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:    100,
 				},
 			},
 		},
@@ -2853,7 +2853,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoWithBackingVolume(c *tc.C) {
 				VolumeTag:     volTag.String(),
 				Info: params.FilesystemInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:    100,
 				},
 			},
 		},
@@ -2884,7 +2884,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoNotFound(c *tc.C) {
 				FilesystemTag: tag.String(),
 				Info: params.FilesystemInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:    100,
 				},
 			},
 		},
@@ -2910,7 +2910,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoNoPool(c *tc.C) {
 				FilesystemTag: tag.String(),
 				Info: params.FilesystemInfo{
 					ProviderId: "fs-123",
-					Size:       100,
+					SizeMiB:    100,
 					Pool:       "not allowed",
 				},
 			},

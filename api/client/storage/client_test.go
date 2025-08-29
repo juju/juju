@@ -356,7 +356,7 @@ func (s *storageMockSuite) TestListFilesystems(c *tc.C) {
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
 			ProviderId: "fs-id",
-			Size:       4096,
+			SizeMiB:    4096,
 		},
 		Status: params.EntityStatus{
 			Status: "attached",

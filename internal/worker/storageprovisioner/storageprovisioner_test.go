@@ -777,13 +777,13 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *tc.C) {
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
 			ProviderId: "id-1",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}, {
 		FilesystemTag: "filesystem-2",
 		Info: params.FilesystemInfo{
 			ProviderId: "id-2",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 
@@ -1109,7 +1109,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 		FilesystemTag: "filesystem-0-0",
 		Info: params.FilesystemInfo{
 			ProviderId: "xvdf1",
-			Size:       123,
+			SizeMiB:    123,
 		},
 	}})
 
@@ -1132,7 +1132,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 		FilesystemTag: "filesystem-0-1",
 		Info: params.FilesystemInfo{
 			ProviderId: "xvdf2",
-			Size:       246,
+			SizeMiB:    246,
 		},
 	}})
 }
@@ -1159,7 +1159,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 		VolumeTag:     "volume-0-0",
 		Info: params.FilesystemInfo{
 			ProviderId: "whatever",
-			Size:       123,
+			SizeMiB:    123,
 		},
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"

@@ -472,7 +472,7 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 		volumeTag,
 		storage.FilesystemInfo{
 			in.Info.ProviderId,
-			in.Info.Size,
+			in.Info.SizeMiB,
 		},
 	}, nil
 }

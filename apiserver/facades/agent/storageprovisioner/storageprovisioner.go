@@ -926,7 +926,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 			FilesystemTag: tag.String(),
 			Info: params.FilesystemInfo{
 				ProviderId: fs.ProviderID,
-				Size:       fs.SizeMiB,
+				SizeMiB:    fs.SizeMiB,
 			},
 		}
 		if fs.BackingVolume == nil {
@@ -1804,7 +1804,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 		}
 		info := storageprovisioning.FilesystemProvisionedInfo{
 			ProviderID: fs.Info.ProviderId,
-			SizeMiB:    fs.Info.Size,
+			SizeMiB:    fs.Info.SizeMiB,
 		}
 		err = s.storageProvisioningService.SetFilesystemProvisionedInfo(
 			ctx, filesystemTag.Id(), info)

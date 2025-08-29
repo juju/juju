@@ -1294,7 +1294,7 @@ func processStorage(
 			Life:          v.Life,
 			Info: params.FilesystemInfo{
 				ProviderId: v.ProviderID,
-				Size:       v.SizeMiB,
+				SizeMiB:    v.SizeMiB,
 			},
 			Status: params.EntityStatus{
 				Status: v.Status.Status,
