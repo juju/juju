@@ -1,7 +1,9 @@
 (manage-charms)=
 # How to manage charms or bundles
 
-> See also: {ref}`charm`
+```{ibnote}
+See also: {ref}`charm`
+```
 
 This document shows various ways in which you may interact with a charm or a bundle.
 
@@ -23,7 +25,6 @@ For certain types of applications (Django, FastAPI, Flask, and Go), Charmcraft a
 
 ## Query Charmhub for available charms / bundles
 
-
 To query Charmhub for the charms / bundles that deliver a given application, run the `find` command followed by a suitable keyword. For example, to find out the charms and/or bundles that deliver WordPress:
 
 ```text
@@ -31,36 +32,33 @@ juju find wordpress
 ```
 
 
-> See more: {ref}`command-juju-find`
-
+```{ibnote}
+See more: {ref}`command-juju-find`
+```
 
 ## View details about a Charmhub charm / bundle
-
 
 To view details about a particular Charmhub charm / bundle, run the `info` command followed by the name of the charm / bundle. For example:
 
 ```text
 juju info postgresql
 ```
+
 > See more: {ref}`command-juju-info`
 
+
 ```{caution}
-
 For comprehensive information about the charm, including charm documentation, it is always best to see the charm's page on Charmhub.
-
 ```
 
 ## Find out the resources available for a charm
 
-> See more: {ref}`manage-charm-resources`
-
+See {ref}`manage-charm-resources`.
 
 ## Download a Charmhub charm
 
 ```{important}
-
 This is relevant for air-gapped deployments.
-
 ```
 
 To download a Charmhub charm, run the `download` command followed by the name of the charm. For example:
@@ -69,12 +67,13 @@ To download a Charmhub charm, run the `download` command followed by the name of
 juju download postgresql
 ```
 
-> See more: {ref}`command-juju-download`
+```{ibnote}
+See more: {ref}`command-juju-download`
+```
 
 
 (deploy-a-charm)=
 ## Deploy a charm / bundle
-
 
 To deploy a charm / bundle from [Charmhub](https://charmhub.io/) / your local filesystem, use the `deploy` command followed by the name of the charm / bundle / the path to the local `<charm>.charm` / `<bundle>.yaml` file:
 
@@ -109,7 +108,6 @@ juju deploy kubeflow
 
 ````{dropdown} Example: Deploy a local charm
 
-
 ```text
 juju deploy ./mini_ubuntu-20.04-amd64.charm
 ```
@@ -118,7 +116,6 @@ juju deploy ./mini_ubuntu-20.04-amd64.charm
 
 
 ````{dropdown} Example: Deploy a local charm with a resource
-
 
 If your charm's `metadata.yaml` specifies a {ref}`resource <charm-resource>`, you must also explicitly pass the resource. For example:
 
@@ -230,7 +227,9 @@ When deploying, if Juju fails to provision a subset of machines for some reason 
 
 ````{dropdown} Examples: Use a placement directive to deploy to specific targets
 
-> See also: {ref}`placement-directive`
+```{ibnote}
+See also: {ref}`placement-directive`
+```
 
 ```text
 # Deploy to a new lxd-type container on new machine:
@@ -263,7 +262,9 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 ````
 
-> See more: {ref}`command-juju-deploy`
+```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
 
 (debug-a-charm)=
 ## Debug a charm
@@ -272,15 +273,21 @@ To debug a charm:
 
 - Carefully review `juju status` (if there are relations: `juju status --relations`). If a charm is in `blocked` state, there might be a message about steps to unblock.
 
-> See more: {ref}`command-juju-status`
+```{ibnote}
+See more: {ref}`command-juju-status`
+```
 
 - Examine the Juju agent and the charm logs.
 
-> See more: {ref}`manage-logs`
+```{ibnote}
+See more: {ref}`manage-logs`
+```
 
 - Take a closer look at the application and its units.
 
-> See more: {ref}`view-details-about-an-application`, {ref}`view-details-about-a-unit`
+```{ibnote}
+See more: {ref}`view-details-about-an-application`, {ref}`view-details-about-a-unit`
+```
 
 - For a Kubernetes charm with a workload, {ref}`command-juju-ssh` into the workload container and view the Pebble plan.
 
@@ -331,7 +338,10 @@ This is a bit of a mouthful, but if you're a [jhack](https://github.com/canonica
 jhack pebble --container=concourse-worker concourse-worker/0 plan
 ```
 ````
-> See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
+
+```{ibnote}
+See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
+```
 
 
 - If the charm is involved in a relation, take a look at the relation data.
@@ -348,7 +358,9 @@ private-address: 2.3.45.
 somekey: somedata
 ```
 
-> See more: {ref}`hook-command-relation-ids`, {ref}`hook-command-relation-list`, {ref}`hook-command-relation-get`
+```{ibnote}
+See more: {ref}`hook-command-relation-ids`, {ref}`hook-command-relation-list`, {ref}`hook-command-relation-get`
+```
 
 - Debug a single failing hook:
 
@@ -360,7 +372,9 @@ juju debug-hooks mysql/0 X-relation-changed  # for a specific hook
 The command launches a tmux session that will intercept matching hooks and/or
 actions, which you can then execute manually by running `./dispatch`.
 
-> See more: {ref}`command-juju-debug-hooks`
+```{ibnote}
+See more: {ref}`command-juju-debug-hooks`
+```
 
 `````{dropdown} Tips
 A debugging session lands you in `/var/lib/juju`, and as soon as a hook fires, the tmux session automatically takes you to `/var/lib/juju/agents/unit-mysql-0/charm`.
@@ -442,7 +456,9 @@ hello debugger-world
 juju debug-code --at=hook <unit>
 ```
 
-> See more: {ref}`command-juju-debug-code`
+```{ibnote}
+See more: {ref}`command-juju-debug-code`
+```
 
 - Debug a flow: Use [`jhack`](https://snapcraft.io/jhack) (esp. [`jhack sync`](https://github.com/canonical/jhack#sync)), {manpage}`rsync(1)`, {ref}`command-juju-ssh`.
 
@@ -485,11 +501,9 @@ Updating a charm to the latest revision always involves the `refresh` command, b
 ### Update a Charmhub charm
 
 ```{important}
-
 Because of the way charm channels work, 'updating' doesn't have to mean 'upgrading' -- you can switch to any charm revision, no matter if it's newer or older. The instructions below reflect this.
 
 However, as newer versions typically contain improvements, Juju will notify you if a new version exists: Juju polls Charmhub once a day to check for updates and, if an update is found, the poll will cause `juju status` to indicate that a newer charm version is available.
-
 ```
 
 
@@ -498,8 +512,6 @@ However, as newer versions typically contain improvements, Juju will notify you 
 1. **If you don't know which channel you want to update to / would like to find out all the available channels:** Run `info` followed by the charm name.
 
 1. Run `refresh` followed by the charm name and the desired new `channel`.
-
-
 
 ````{dropdown} Expand to view an example featuring the machine charm for PostgreSQL
 
@@ -574,8 +586,9 @@ Machine  State    Address         Inst id        Base          AZ  Message
 
 ````
 
-> See more: {ref}`command-juju-status`, {ref}`command-juju-info`, {ref}`command-juju-refresh`
-
+```{ibnote}
+See more: {ref}`command-juju-status`, {ref}`command-juju-info`, {ref}`command-juju-refresh`
+```
 
 ### Update a local charm
 
@@ -588,11 +601,14 @@ juju refresh juju-test --path ./path/to/juju-test
 
 The command offers many other options, for example, the possibility to replace a charm completely with another charm by using the `--switch` option followed by a different path (a process known as 'crossgrading'). (Note: `--path` and `--switch` are mutually exclusive. Use `--switch` if you want to replace your existing charm with  a completely new charm.)
 
-> See more: {ref}`command-juju-refresh`
-
+```{ibnote}
+See more: {ref}`command-juju-refresh`
+```
 
 ## Remove a charm / bundle
 
 As a charm / bundle is just the *means* by which (an) application(s) are deployed, there is no way to remove the *charm* / *bundle*. What you *can* do, however, is remove the *application* / *model*.
 
-> See more: {ref}`manage-applications`, {ref}`manage-models`
+```{ibnote}
+See more: {ref}`manage-applications`, {ref}`manage-models`
+```
