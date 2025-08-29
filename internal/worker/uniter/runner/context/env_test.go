@@ -118,8 +118,6 @@ func (s *EnvSuite) getContext(newProxyOnly bool, state context.State, unit conte
 		ModelUUID:           "model-uuid-deadbeef",
 		ModelName:           "some-model-name",
 		UnitName:            "this-unit/123",
-		MeterCode:           "PURPLE",
-		MeterInfo:           "proceed with care",
 		SLALevel:            "essential",
 		AvailZone:           "some-zone",
 		APIAddresses:        []string{"he.re:12345", "the.re:23456"},

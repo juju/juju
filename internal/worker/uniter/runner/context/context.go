@@ -110,12 +110,6 @@ type Clock interface {
 
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
-// meterStatus describes the unit's meter status.
-type meterStatus struct {
-	code string
-	info string
-}
-
 // HookProcess is an interface representing a process running a hook.
 type HookProcess interface {
 	Pid() int
@@ -267,9 +261,6 @@ type HookContext struct {
 	// jujuProxySettings are the current juju proxy settings
 	// that the uniter knows about.
 	jujuProxySettings proxy.Settings
-
-	// meterStatus is the status of the unit's metering.
-	meterStatus *meterStatus
 
 	// a helper for recording requests to open/close port ranges for this unit.
 	portRangeChanges *portRangeChangeRecorder
@@ -1419,18 +1410,6 @@ func (ctx *HookContext) RelationIds() ([]int, error) {
 	return ids, nil
 }
 
-// AddMetric adds metrics to the hook context.
-// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
-func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
-	return errors.New("metrics not allowed in this context")
-}
-
-// AddMetricLabels adds metrics with labels to the hook context.
-// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
-func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
-	return errors.New("metrics not allowed in this context")
-}
-
 // ActionData returns the context's internal action data. It's meant to be
 // transitory; it exists to allow uniter and runner code to keep working as
 // it did; it should be considered deprecated, and not used by new clients.
@@ -1486,13 +1465,6 @@ func (ctx *HookContext) HookVars(
 		vars = append(vars,
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
 		)
-	}
-	if ctx.meterStatus != nil {
-		vars = append(vars,
-			"JUJU_METER_STATUS="+ctx.meterStatus.code,
-			"JUJU_METER_INFO="+ctx.meterStatus.info,
-		)
-
 	}
 	if r, err := ctx.HookRelation(); err == nil {
 		vars = append(vars,
