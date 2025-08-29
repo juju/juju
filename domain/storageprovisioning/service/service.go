@@ -113,15 +113,17 @@ type State interface {
 		ctx context.Context, unitUUID string,
 	) (map[string]domainlife.Life, error)
 
-	// GetStorageInstanceAttachmentUUID returns the UUID of either the storage filesystem
-	// attachment or the storage volume attachment for a given storage ID and network node UUID.
+	// GetStorageAttachmentUUID returns the UUID of the storage attachment for
+	// a given storage ID and network node UUID.
 	//
 	// The following errors may be returned:
 	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 	// instance does not exist for the provided storage ID.
-	// - [networkerrors.NetNodeNotFound] if the network node does not exist.
-	GetStorageInstanceAttachmentUUID(
-		ctx context.Context, storageID, netNodeUUID string,
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+	// storage attachment does not exist.
+	GetStorageAttachmentUUID(
+		ctx context.Context, storageID, unitUUID string,
 	) (string, error)
 
 	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
@@ -129,6 +131,10 @@ type State interface {
 	InitialWatchStatementForUnitStorageAttachments(
 		ctx context.Context, unitUUID string,
 	) (string, eventsource.Query[map[string]domainlife.Life])
+
+	// NamespaceForStorageAttachment returns the change stream namespace
+	// for watching storage attachment changes.
+	NamespaceForStorageAttachment() string
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -372,65 +378,17 @@ func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID c
 	)
 }
 
-// WatchStorageAttachmentForMachine returns a notification watcher
-// for the storage attachment of a machine.
-//
-// The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-// is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no machine exists
-// for the provided machine UUID.
-// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
-// instance does not exist for the provided storage ID.
-// - [networkerrors.NetNodeNotFound] if the network node does not exist.
-func (s *Service) WatchStorageAttachmentForMachine(
-	ctx context.Context,
-	storageID string,
-	machineUUID coremachine.UUID,
-) (watcher.NotifyWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := machineUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	storageInstanceAttachmentUUID, err := s.st.GetStorageInstanceAttachmentUUID(ctx, storageID, netNodeUUID.String())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.watcherFactory.NewNotifyWatcher(ctx,
-		fmt.Sprintf("storage attachment watcher for machine %q storage ID %q", machineUUID, storageID),
-		eventsource.PredicateFilter(
-			s.st.NamespaceForFilesystemAttachments(),
-			changestream.All,
-			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
-		),
-		eventsource.PredicateFilter(
-			s.st.NamespaceForVolumeAttachments(),
-			changestream.All,
-			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
-		),
-	)
-}
-
 // WatchStorageAttachmentForUnit returns a notification watcher for the
 // storage attachment of a unit.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
 // is not valid.
-// - [github.com/juju/juju/domain/unit/errors.UnitNotFound] when no unit exists
-// for the provided unit UUID.
 // - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 // instance does not exist for the provided storage ID.
-// - [networkerrors.NetNodeNotFound] if the network node does not exist.
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+// storage attachment does not exist.
 func (s *Service) WatchStorageAttachmentForUnit(
 	ctx context.Context,
 	storageID string,
@@ -443,12 +401,7 @@ func (s *Service) WatchStorageAttachmentForUnit(
 		return nil, errors.Capture(err)
 	}
 
-	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	storageInstanceAttachmentUUID, err := s.st.GetStorageInstanceAttachmentUUID(ctx, storageID, netNodeUUID.String())
+	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUID(ctx, storageID, unitUUID.String())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -456,14 +409,9 @@ func (s *Service) WatchStorageAttachmentForUnit(
 	return s.watcherFactory.NewNotifyWatcher(ctx,
 		fmt.Sprintf("storage attachment watcher for unit %q storage ID %q", unitUUID, storageID),
 		eventsource.PredicateFilter(
-			s.st.NamespaceForFilesystemAttachments(),
+			s.st.NamespaceForStorageAttachment(),
 			changestream.All,
-			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
-		),
-		eventsource.PredicateFilter(
-			s.st.NamespaceForVolumeAttachments(),
-			changestream.All,
-			eventsource.EqualsPredicate(storageInstanceAttachmentUUID),
+			eventsource.EqualsPredicate(storageAttachmentUUID),
 		),
 	)
 }
