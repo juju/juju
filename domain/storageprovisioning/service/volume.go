@@ -183,10 +183,6 @@ type VolumeState interface {
 	// getting the set of volume attachment plans in the model that are
 	// provisioned by the supplied machine in the model.
 	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
-
-	// NamespaceForVolumeAttachments returns the change stream namespace
-	// for watching volume attachment changes.
-	NamespaceForVolumeAttachments() string
 }
 
 // GetVolumeAttachmentIDs returns the

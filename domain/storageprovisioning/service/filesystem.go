@@ -180,10 +180,6 @@ type FilesystemState interface {
 	// getting the current set of model provisioned filesystem attachments.
 	InitialWatchStatementModelProvisionedFilesystemAttachments() (string, eventsource.NamespaceQuery)
 
-	// NamespaceForFilesystemAttachments returns the change stream namespace
-	// for watching filesystem attachment changes.
-	NamespaceForFilesystemAttachments() string
-
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
 	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
