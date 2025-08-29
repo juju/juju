@@ -245,7 +245,8 @@ run_deploy_trusted_bundle() {
 
 	ensure "test-trusted-bundles-deploy" "${file}"
 
-	cd ./tests/suites/deploy/charms/trust-checker && zip -r ../trust-checker.charm . && cd - || exit
+	trust_checker=$(pack_charm ./tests/suites/deploy/charms/trust-checker)
+	mv ${trust_checker} ./tests/suites/deploy/charms/trust-checker.charm
 
 	bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
@@ -326,6 +327,9 @@ test_deploy_bundles() {
 
 	(
 		set_verbosity
+
+		echo "==> Checking for dependencies"
+		check_dependencies charmcraft
 
 		cd .. || exit
 
