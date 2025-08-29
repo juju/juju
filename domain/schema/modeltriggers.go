@@ -313,7 +313,7 @@ VALUES (%[1]d,
 		'custom_storage_attachment_entities_storage_attachment_uuid',
 		'Changes for storage provisioning process');
 
--- life change on the storage_attachment.
+-- storage_attachment for life update.
 CREATE TRIGGER trg_log_custom_storage_attachment_lifecycle_update
 AFTER UPDATE ON storage_attachment FOR EACH ROW
 WHEN
@@ -323,6 +323,7 @@ BEGIN
     VALUES (2, %[1]d, NEW.uuid, DATETIME('now'));
 END;
 
+-- storage_attachment for delete.
 CREATE TRIGGER trg_log_custom_storage_attachment_lifecycle_delete
 AFTER DELETE ON storage_attachment FOR EACH ROW
 BEGIN

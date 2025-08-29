@@ -361,15 +361,6 @@ WHERE  uuid = ?`, mountPoint, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelStorageSuite) deleteBlockDevice(
-	c *tc.C, blockDeviceUUID string,
-) {
-	_, err := s.DB().Exec(`
-DELETE FROM block_device
-WHERE  uuid = ?`, blockDeviceUUID)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // newMachineVolumeAttachmentPlan creates a new volume attachment plan that has
 // machine provision scope. The attachment is associated with the provided
 // volume uuid and net node uuid.
