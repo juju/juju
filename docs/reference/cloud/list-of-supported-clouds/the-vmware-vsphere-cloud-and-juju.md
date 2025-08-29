@@ -2,9 +2,9 @@
 # The VMware vSphere cloud and Juju
 
 
-This document describes details specific to using your existing VMware vSphere cloud with Juju. 
+This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
-> See more: [VMware vSphere](https://docs.vmware.com/) 
+> See more: [VMware vSphere](https://docs.vmware.com/)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -25,17 +25,14 @@ Name in Juju: User-defined.
 
 ## Notes on `juju add-credential`
 
-
 ### Authentication types
 
-
-
 #### `userpass`
-Attributes:
-- user: The username to authenticate with. (required)
-- password: The password to authenticate with. (required)
-- vmfolder: The folder to add VMs from the model. (optional)
 
+Attributes:
+- `user`: The username to authenticate with. (required)
+- `password`: The password to authenticate with. (required)
+- `vmfolder`: The folder to add VMs from the model. (optional)
 
 ## Notes on `juju bootstrap`
 
@@ -136,15 +133,11 @@ An external network that VMs will be connected to. The resulting IP address for 
 | {ref}`placement-directive-system-id`             | &#10005;                                                                                                                                                                                                                                                                                                                                                                   |
 | {ref}`placement-directive-zone`                  | &#10003;  <br> Valid values: `<cluster\|host>`. <p> :warning:  If your topology has a cluster without a host, Juju will see this as an availability zone and may fail silently. To solve this, either make sure the host is within the cluster, or use a placement directive: `juju bootstrap vsphere/<datacenter> <controllername> --to zone=<cluster\|host>`.   |
 
-
-
-
-
 ## Other notes
 
 ### Using templates
 
-To speed up bootstrap and deploy, you can use VM templates, already created in your vSphere.  Templates can be created by hand on your vSphere, or created from an existing VM.  
+To speed up bootstrap and deploy, you can use VM templates, already created in your vSphere.  Templates can be created by hand on your vSphere, or created from an existing VM.
 
 Examples assume that the templates are in directory $DATA_STORE/templates.
 

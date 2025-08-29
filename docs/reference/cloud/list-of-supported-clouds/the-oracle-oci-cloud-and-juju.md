@@ -26,12 +26,12 @@ Name in Juju: `oracle`
 
 #### `httpsig`
 Attributes:
-- user: Username OCID (required)
-- tenancy: Tenancy OCID (required)
-- key: PEM encoded private key (required)
-- pass-phrase: Passphrase used to unlock the key (required)
-- fingerprint: Private key fingerprint (required)
-- region: DEPRECATED: Region to log into (required)
+- `user`: Username OCID (required)
+- `tenancy`: Tenancy OCID (required)
+- `key`: PEM encoded private key (required)
+- `pass-phrase`: Passphrase used to unlock the key (required)
+- `fingerprint`: Private key fingerprint (required)
+- `region`: DEPRECATED: Region to log into (required)
 
 ## Notes on `juju bootstrap`
 
@@ -91,3 +91,16 @@ The OCID of the compartment in which juju has access to create resources.
 | - {ref}`placement-directive-subnet`                | &#10005; |
 | - {ref}`placement-directive-system-id`             | &#10005; |
 | - {ref}`placement-directive-zone`                  | TBA      |
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+### `oracle`
+
+Configuration options:
+
+- `volume-type`: The volume type. Possible values are:
+    - `default`, associated with Juju pool `oracle`, or
+    - `latency`, associated with Juju pool `oracle-latency`. <br>
+    Use `latency` for low-latency, high IOPS requirements, and `default` otherwise.

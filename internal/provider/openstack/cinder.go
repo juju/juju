@@ -599,7 +599,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (s *cinderVolumeSource) ImportVolume(ctx context.Context, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
+func (s *cinderVolumeSource) ImportVolume(ctx context.Context, volumeId string, storageName string, resourceTags map[string]string, force bool) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdaptor.GetVolume(volumeId)
 	if err != nil {
 		err = s.credentialInvalidator.HandleCredentialError(ctx, err)

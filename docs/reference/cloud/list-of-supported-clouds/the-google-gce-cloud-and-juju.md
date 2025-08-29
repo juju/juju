@@ -2,9 +2,9 @@
 # The Google GCE cloud and Juju
 
 
-This document describes details specific to using your existing Google GCE cloud with Juju. 
+This document describes details specific to using your existing Google GCE cloud with Juju.
 
-> See more: [Google GCE](https://cloud.google.com/compute) 
+> See more: [Google GCE](https://cloud.google.com/compute)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -31,14 +31,14 @@ Name in Juju: `google`
 
 #### `oauth2`
 Attributes:
-- client-id: client ID (required)
-- client-email: client e-mail address (required)
-- private-key: client secret (required)
-- project-id: project ID (required)
+- `client-id`: client ID (required)
+- `client-email`: client e-mail address (required)
+- `private-key`: client secret (required)
+- `project-id`: project ID (required)
 
 #### `jsonfile`
 Attributes:
-- file: path to the .json file containing a service account key for your project
+- `file`: path to the `.json` file containing a service account key for your project
 Path (required)
 
 
@@ -96,3 +96,13 @@ Base path to look for machine disk images.
 | {ref}`placement-directive-system-id`             | &#10005; |
 | {ref}`placement-directive-zone`                  | &#10003; |
 
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+(storage-provider-gce)=
+### `gce`
+
+Configuration options:
+
+- `type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).

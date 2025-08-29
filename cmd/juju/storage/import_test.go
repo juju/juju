@@ -70,7 +70,7 @@ imported storage baz/0
 	s.importer.CheckCalls(c, []testhelpers.StubCall{
 		{"ImportStorage", []interface{}{
 			jujustorage.StorageKindFilesystem,
-			"foo", "bar", "baz",
+			"foo", "bar", "baz", false,
 		}},
 		{"Close", nil},
 	})
@@ -108,7 +108,26 @@ imported storage baz/0
 	s.importer.CheckCalls(c, []testhelpers.StubCall{
 		{"ImportStorage", []interface{}{
 			jujustorage.StorageKindFilesystem,
-			"foo", "bar", "baz",
+			"foo", "bar", "baz", false,
+		}},
+		{"Close", nil},
+	})
+}
+
+func (s *ImportFilesystemSuite) TestImportWithForce(c *tc.C) {
+	ctx, err := s.run(c, "--force", "foo", "bar", "baz")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, `
+importing "bar" from storage pool "foo" as storage "baz"
+imported storage baz/0
+`[1:])
+
+	s.importer.CheckCalls(c, []testhelpers.StubCall{
+		{"ImportStorage", []interface{}{
+			jujustorage.StorageKindFilesystem,
+			"foo", "bar", "baz", true,
 		}},
 		{"Close", nil},
 	})
@@ -136,7 +155,8 @@ func (m *mockStorageImporter) ImportStorage(
 	ctx context.Context,
 	k jujustorage.StorageKind,
 	pool, providerId, storageName string,
+	force bool,
 ) (names.StorageTag, error) {
-	m.MethodCall(m, "ImportStorage", k, pool, providerId, storageName)
+	m.MethodCall(m, "ImportStorage", k, pool, providerId, storageName, force)
 	return names.NewStorageTag(storageName + "/0"), m.NextErr()
 }

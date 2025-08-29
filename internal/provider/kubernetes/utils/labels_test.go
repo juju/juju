@@ -522,3 +522,54 @@ func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *tc.C) {
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
 }
+
+func (l *LabelSuite) TestMatchStorageMetaLabelVersion(c *tc.C) {
+	tests := []struct {
+		LabelVersion constants.LabelVersion
+		StorageName  string
+		Labels       labels.Set
+		ErrorString  string
+	}{
+		{
+			LabelVersion: constants.LegacyLabelVersion,
+			StorageName:  "test-storage",
+			Labels:       map[string]string{"juju-storage": "test-storage"},
+		},
+		{
+			LabelVersion: constants.LabelVersion2,
+			StorageName:  "test-storage",
+			Labels:       map[string]string{"storage.juju.is/name": "test-storage", "app.kubernetes.io/managed-by": "juju"},
+		},
+		{
+			LabelVersion: -1,
+			StorageName:  "test-storage",
+			Labels:       map[string]string{"storage.juju.is/name": "test-storage"},
+			ErrorString:  "unexpected storage labels",
+		},
+		{
+			LabelVersion: -1,
+			StorageName:  "test-storage",
+			Labels:       map[string]string{"some-other": "label"},
+			ErrorString:  "unexpected storage labels",
+		},
+		{
+			LabelVersion: -1,
+			StorageName:  "wrong-storage",
+			Labels:       map[string]string{"storage.juju.is/name": "test-storage", "app.kubernetes.io/managed-by": "juju"},
+			ErrorString:  "unexpected storage labels",
+		},
+	}
+
+	for t, test := range tests {
+		meta := meta.ObjectMeta{
+			Labels: test.Labels,
+		}
+		labelVersion, err := utils.MatchStorageMetaLabelVersion(meta, test.StorageName)
+		if test.ErrorString != "" {
+			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
+		} else {
+			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+		}
+		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
+	}
+}

@@ -30,3 +30,9 @@ Before you bootstrap:
 - For most purposes, you should also resize `/run`, e.g., `sudo mount -o remount,size=10G /run`.
 
 > See more: https://github.com/canonical/k8s-snap/issues/1612
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.

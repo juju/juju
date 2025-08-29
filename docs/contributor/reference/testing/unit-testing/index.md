@@ -28,7 +28,7 @@ consists of:
 - Test files of the form `<code filename>_test.go`, which are collections of {ref}`unit test suites <unit-test-suite>`.
 
 <!--
-github.com/juju/juju/provider/magic:
+github.com/juju/juju/internal/provider/magic:
 
 - magic1.go
 

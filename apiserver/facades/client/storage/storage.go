@@ -84,7 +84,12 @@ type ApplicationService interface {
 
 type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
 
-// StorageAPI implements the latest version (v6) of the Storage API.
+// StorageAPIv6 provides the Storage API facade for version 6.
+type StorageAPIv6 struct {
+	*StorageAPI
+}
+
+// StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
 	blockDeviceGetter     blockDeviceGetter
 	storageService        StorageService
@@ -286,9 +291,26 @@ func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentId
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParamsV2) (params.ImportStorageResults, error) {
 	results := make([]params.ImportStorageResult, len(args.Storage))
 	return params.ImportStorageResults{Results: results}, nil
+}
+
+// Import imports existing storage into the model.
+// A "CHANGE" block can block this operation.
+func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+	v2Args := params.BulkImportStorageParamsV2{Storage: make([]params.ImportStorageParamsV2, len(args.Storage))}
+	for idx, param := range args.Storage {
+		v2Args.Storage[idx] = params.ImportStorageParamsV2{
+			Kind:        param.Kind,
+			Pool:        param.Pool,
+			ProviderId:  param.ProviderId,
+			StorageName: param.StorageName,
+			// Always false since force is not supported in v6.
+			Force: false,
+		}
+	}
+	return a.StorageAPI.Import(ctx, v2Args)
 }
 
 // RemovePool deletes the named pool

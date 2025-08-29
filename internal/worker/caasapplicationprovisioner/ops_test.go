@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
@@ -300,7 +301,68 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appId, app, facade, applicationService, statusService, s.logger)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleUp tests scale up scenario - app.Scale should NOT be called
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+
+	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/1": life.Dead,
+	}
+	ps := applicationservice.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 5, // Scale up to 5 units
+	}
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+	)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appId, app, facade, applicationService, statusService, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileDeadUnitScaleScaleDownNotAllDead tests scale down when not all excess units are dead - app.Scale should NOT be called
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+
+	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/1": life.Dead,
+		"test/2": life.Dead,  // >= target
+		"test/3": life.Alive, // >= target
+	}
+	ps := applicationservice.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 2, // Scale down to 2 units
+	}
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appId, app, facade, applicationService, statusService, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {

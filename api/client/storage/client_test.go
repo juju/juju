@@ -655,11 +655,12 @@ func (s *storageMockSuite) TestAttachArityMismatch(c *tc.C) {
 func (s *storageMockSuite) TestImport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	expectedArgs := params.BulkImportStorageParams{Storage: []params.ImportStorageParams{{
+	expectedArgs := params.BulkImportStorageParamsV2{Storage: []params.ImportStorageParamsV2{{
 		Kind:        params.StorageKindBlock,
 		Pool:        "foo",
 		ProviderId:  "bar",
 		StorageName: "baz",
+		Force:       false,
 	}}}
 	result := new(params.ImportStorageResults)
 	results := params.ImportStorageResults{
@@ -673,7 +674,12 @@ func (s *storageMockSuite) TestImport(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
-	storageTag, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz")
+
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	storageTag, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz", false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageTag, tc.Equals, names.NewStorageTag("qux/0"))
 }
@@ -688,10 +694,15 @@ func (s *storageMockSuite) TestImportError(c *tc.C) {
 		},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParamsV2{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
-	_, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz")
+
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	_, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz", false)
 	c.Check(err, tc.ErrorMatches, "qux")
 }
 
@@ -704,11 +715,94 @@ func (s *storageMockSuite) TestImportArityMismatch(c *tc.C) {
 		Results: []params.ImportStorageResult{{}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParamsV2{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
-	_, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz")
+
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	_, err := storageClient.Import(c.Context(), jujustorage.StorageKindBlock, "foo", "bar", "baz", false)
 	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
+}
+
+func (s *storageMockSuite) TestImportWithForce(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	expectedArgs := params.BulkImportStorageParamsV2{[]params.ImportStorageParamsV2{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "kubernetes",
+		ProviderId:  "pv-data-001",
+		StorageName: "pgdata",
+		Force:       true,
+	}}}
+	result := new(params.ImportStorageResults)
+	results := params.ImportStorageResults{
+		Results: []params.ImportStorageResult{{
+			Result: &params.ImportStorageDetails{
+				StorageTag: "storage-pgdata-0",
+			},
+		},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", expectedArgs, result).SetArg(3, results).Return(nil)
+
+	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
+
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	storageTag, err := storageClient.Import(c.Context(), jujustorage.StorageKindFilesystem, "kubernetes", "pv-data-001", "pgdata", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageTag, tc.Equals, names.NewStorageTag("pgdata/0"))
+}
+
+func (s *storageMockSuite) TestImportWithForceAPIVersionNotSupported(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(6).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	storageTag, err := storageClient.Import(c.Context(), jujustorage.StorageKindFilesystem, "kubernetes", "pv-data-001", "pgdata", true)
+	c.Assert(err, tc.ErrorMatches, "force import filesystem on this version of Juju not supported")
+	c.Assert(storageTag, tc.Equals, names.StorageTag{})
+}
+
+func (s *storageMockSuite) TestImportAPIv6(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	expectedArgs := params.BulkImportStorageParams{[]params.ImportStorageParams{{
+		Kind:        params.StorageKindFilesystem,
+		Pool:        "kubernetes",
+		ProviderId:  "pv-data-001",
+		StorageName: "pgdata",
+	}}}
+	result := new(params.ImportStorageResults)
+	results := params.ImportStorageResults{
+		Results: []params.ImportStorageResult{{
+			Result: &params.ImportStorageDetails{
+				StorageTag: "storage-pgdata-0",
+			},
+		},
+		}}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", expectedArgs, result).SetArg(3, results).Return(nil)
+
+	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
+
+	mockClientFacade := basemocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(6).AnyTimes()
+	storageClient.ClientFacade = mockClientFacade
+
+	storageTag, err := storageClient.Import(c.Context(), jujustorage.StorageKindFilesystem, "kubernetes", "pv-data-001", "pgdata", false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageTag, tc.Equals, names.NewStorageTag("pgdata/0"))
 }
 
 func (s *storageMockSuite) TestRemovePool(c *tc.C) {
