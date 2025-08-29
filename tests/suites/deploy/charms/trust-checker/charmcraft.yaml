@@ -1,0 +1,12 @@
+type: "charm"
+base: ubuntu@22.04
+platforms:
+  amd64:
+  arm64:
+parts:
+  include:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
+      - dispatch
