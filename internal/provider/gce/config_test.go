@@ -101,7 +101,7 @@ func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: testConfig,
 		})
@@ -156,6 +156,14 @@ var changeConfigTests = []configTestSpec{{
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
 	expect: testing.Attrs{"unknown": "ignoti"},
+}, {
+	info:   "cannot change vpc-id",
+	insert: testing.Attrs{"vpc-id": "another-vpc"},
+	err:    "vpc-id: cannot change from some-vpc to another-vpc",
+}, {
+	info:   "cannot change vpc-id-force",
+	insert: testing.Attrs{"vpc-id-force": "true"},
+	err:    "vpc-id-force: cannot change from false to true",
 }}
 
 // TODO(wwitzel3) refactor this to the provider_test file.
@@ -179,7 +187,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: s.config,
 		})

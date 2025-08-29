@@ -52,6 +52,8 @@ type ComputeService interface {
 
 	// Firewalls returns the firewalls with the given prefix.
 	Firewalls(ctx stdcontext.Context, prefix string) ([]*computepb.Firewall, error)
+	// NetworkFirewalls returns the firewalls associated with the specified network.
+	NetworkFirewalls(ctx stdcontext.Context, networkURL string) ([]*computepb.Firewall, error)
 	// AddFirewall creates a new firewall.
 	AddFirewall(ctx stdcontext.Context, firewall *computepb.Firewall) error
 	// UpdateFirewall updates the firewall with the given name.
@@ -63,10 +65,14 @@ type ComputeService interface {
 	AvailabilityZones(ctx stdcontext.Context, region string) ([]*computepb.Zone, error)
 	// Subnetworks returns the subnetworks that machines can be
 	// assigned to in the given region.
-	Subnetworks(ctx stdcontext.Context, region string) ([]*computepb.Subnetwork, error)
+	Subnetworks(ctx stdcontext.Context, region string, urls ...string) ([]*computepb.Subnetwork, error)
+	// NetworkSubnetworks returns the subnets in the specified network.
+	NetworkSubnetworks(ctx stdcontext.Context, region string, networkURL string) ([]*computepb.Subnetwork, error)
 	// Networks returns the available networks that exist across
 	// regions.
 	Networks(ctx stdcontext.Context) ([]*computepb.Network, error)
+	// Network returns the network with the given id.
+	Network(ctx stdcontext.Context, id string) (*computepb.Network, error)
 
 	// CreateDisks will attempt to create the disks described by <disks> spec and
 	// return a slice of Disk representing the created disks or error if one of them failed.
@@ -103,6 +109,11 @@ type environ struct {
 	uuid  string
 	cloud environscloudspec.CloudSpec
 	gce   ComputeService
+
+	// vpcURL is the URL of the vpc network, if any, to use.
+	vpcURL *string
+	// autoSubnets is true if the vpc creates subnets automatically.
+	autoSubnets bool
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
@@ -147,6 +158,9 @@ func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ
 	}
 	if err = e.SetCloudSpec(stdcontext.TODO(), cloud); err != nil {
 		return nil, err
+	}
+	if err := e.SetConfig(cfg); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return e, nil
 }
@@ -229,11 +243,40 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// getVpcInfo returns the VPC URL (if set) and whether it auto creates subnets.
+func (env *environ) getVpcInfo(ctx stdcontext.Context) (*string, bool, error) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+
+	// vpc is immutable. See if it has already been fetched.
+	if env.vpcURL != nil {
+		return env.vpcURL, env.autoSubnets, nil
+	}
+
+	vpcID, ok := env.ecfg.vpcID()
+	if !ok {
+		return nil, false, nil
+	}
+	vpc, err := env.gce.Network(ctx, vpcID)
+	if err != nil {
+		return nil, false, errors.Annotatef(err, "getting vpc %q", vpcID)
+	}
+	env.vpcURL = ptr(vpc.GetSelfLink())
+	env.autoSubnets = autoCreateSubnets(vpc)
+	return env.vpcURL, env.autoSubnets, nil
+}
+
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	return env.ecfg.config
+}
+
+func (env *environ) vpcID() (string, bool) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	return env.ecfg.vpcID()
 }
 
 // PrepareForBootstrap implements environs.Environ.
@@ -243,6 +286,15 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 			return errors.Trace(err)
 		}
 	}
+	vpcID, ok := env.ecfg.vpcID()
+	if !ok {
+		return nil
+	}
+	callCtx := context.NewCloudCallContext(ctx.Context())
+	if err := validateBootstrapVPC(ctx, env.gce, env.cloud.Region, vpcID, env.ecfg.forceVPCID()); err != nil {
+		return google.HandleCredentialError(errors.Trace(err), callCtx)
+	}
+
 	return nil
 }
 
@@ -251,6 +303,14 @@ func (env *environ) Create(ctx context.ProviderCallContext, p environs.CreatePar
 	if err := env.gce.VerifyCredentials(ctx); err != nil {
 		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
+	vpcID, ok := env.vpcID()
+	if !ok {
+		return nil
+	}
+	if err := validateModelVPC(ctx, env.gce, env.cloud.Region, env.name, vpcID); err != nil {
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
 	return nil
 }
 

@@ -324,7 +324,7 @@ func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.V
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
-	iTypes, err = instances.MatchingInstanceTypes(iTypes, "", c)
+	iTypes, err = instances.MatchingInstanceTypes(iTypes, e.cloud.Region, c)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
