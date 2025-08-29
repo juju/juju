@@ -139,3 +139,10 @@ func IsNotFound(err error) bool {
 	}
 	return errors.Is(err, errors.NotFound)
 }
+
+func convertError(err error, label, id string) error {
+	if IsNotFound(err) {
+		return errors.NotFoundf("%s %q", label, id)
+	}
+	return err
+}

@@ -101,7 +101,8 @@ func (s *environBrokerSuite) startInstanceArg(c *gc.C, prefix string, hasGpuSupp
 			},
 		}},
 		NetworkInterfaces: []*computepb.NetworkInterface{{
-			Network: ptr("global/networks/default"),
+			Network:    ptr("/path/to/vpc"),
+			Subnetwork: ptr("/path/to/subnet1"),
 			AccessConfigs: []*computepb.AccessConfig{{
 				Name: ptr("ExternalNAT"),
 				Type: ptr("ONE_TO_ONE_NAT"),
@@ -147,6 +148,12 @@ func (s *environBrokerSuite) testStartInstance(c *gc.C, hasGpuSupported bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	accelerators := []*computepb.Accelerators{}
@@ -215,6 +222,12 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	s.MockService.EXPECT().

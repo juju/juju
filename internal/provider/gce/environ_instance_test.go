@@ -245,7 +245,7 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 	}}, nil)
 
 	_, err := env.InstanceTypes(s.CallCtx, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints.*")
+	c.Assert(err, gc.ErrorMatches, "no instance types in us-east1 matching constraints.*")
 
 	// If a non-empty list of zones is available , we will make an API call
 	// to fetch the available machine types.
