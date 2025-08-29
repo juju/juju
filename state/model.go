@@ -856,35 +856,6 @@ func (m *Model) SetSLA(level, owner string, credentials []byte) error {
 	return m.Refresh()
 }
 
-// SetMeterStatus sets the current meter status for this model.
-func (m *Model) SetMeterStatus(status, info string) error {
-	if _, err := isValidMeterStatusCode(status); err != nil {
-		return errors.Trace(err)
-	}
-	ops := []txn.Op{{
-		C:  modelsC,
-		Id: m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
-			Code: status,
-			Info: info,
-		}}}}},
-	}}
-	err := m.st.db().RunTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return m.Refresh()
-}
-
-// MeterStatus returns the current meter status for this model.
-func (m *Model) MeterStatus() MeterStatus {
-	ms := m.doc.MeterStatus
-	return MeterStatus{
-		Code: MeterStatusFromString(ms.Code),
-		Info: ms.Info,
-	}
-}
-
 // EnvironVersion is the version of the model's environ -- the related
 // cloud provider resources. The environ version is used by the controller
 // to identify environ/provider upgrade steps to run for a model's environ

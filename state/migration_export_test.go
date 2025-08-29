@@ -265,19 +265,6 @@ func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
 	c.Assert(sla.Credentials(), gc.DeepEquals, "creds")
 }
 
-func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
-	err := s.State.SetModelMeterStatus("RED", "red info message")
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	sla := model.MeterStatus()
-
-	c.Assert(sla.Code(), gc.Equals, "RED")
-	c.Assert(sla.Info(), gc.Equals, "red info message")
-}
-
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G tags=foo,bar spaces=dmz"))
 }
@@ -1238,10 +1225,8 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	err := unit.SetMeterStatus("GREEN", "some info")
-	c.Assert(err, jc.ErrorIsNil)
 	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
-		err = unit.SetWorkloadVersion(version)
+		err := unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	us := state.NewUnitState()
@@ -1249,9 +1234,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	us.SetRelationState(map[int]string{42: "magic"})
 	us.SetUniterState("uniter state")
 	us.SetStorageState("storage state")
-	us.SetMeterStatusState("meter status state")
-	err = unit.SetState(us, state.UnitStateSizeLimits{})
-	c.Assert(err, jc.ErrorIsNil)
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)

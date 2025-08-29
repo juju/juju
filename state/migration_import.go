@@ -242,12 +242,6 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		return nil, nil, errors.Trace(err)
 	}
 
-	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
-		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
-
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -1246,11 +1240,7 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  &workloadStatusDoc,
 		workloadVersionDoc: &workloadVersionDoc,
-		meterStatusDoc: &meterStatusDoc{
-			Code: u.MeterStatusCode(),
-			Info: u.MeterStatusInfo(),
-		},
-		containerDoc: cloudContainer,
+		containerDoc:       cloudContainer,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -1331,9 +1321,6 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 	}
 	if storageState := u.StorageState(); storageState != "" {
 		us.SetStorageState(storageState)
-	}
-	if meterStatusState := u.MeterStatusState(); meterStatusState != "" {
-		us.SetMeterStatusState(meterStatusState)
 	}
 
 	// No state to persist.
