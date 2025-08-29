@@ -46,7 +46,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
-	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, "", ensureDefaultConstraints(c))
+	matches, err := instances.MatchingInstanceTypes(allInstanceTypes, env.cloud.Region, ensureDefaultConstraints(c))
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
@@ -63,11 +63,7 @@ func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock c
 		return env.cachedInstanceTypes, nil
 	}
 
-	reg, err := env.Region()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	zones, err := env.gce.AvailabilityZones(ctx, reg.Region)
+	zones, err := env.gce.AvailabilityZones(ctx, env.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}

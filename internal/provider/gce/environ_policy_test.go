@@ -29,6 +29,9 @@ func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
+
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -44,6 +47,8 @@ func (s *environPolSuite) TestPrecheckInstanceFull(c *gc.C) {
 		Name:   ptr("home-zone"),
 		Status: ptr("UP"),
 	}}, nil).Times(2)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
 	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
 		Id:           ptr(uint64(0)),
 		Name:         ptr("n1-standard-2"),
@@ -68,6 +73,8 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 		Name:   ptr("home-zone"),
 		Status: ptr("UP"),
 	}}, nil)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
 	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
 		Id:           ptr(uint64(0)),
 		Name:         ptr("n1-standard-2"),
@@ -116,6 +123,8 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 		Name:   ptr("home-zone"),
 		Status: ptr("UP"),
 	}}, nil)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
 	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
 		Id:           ptr(uint64(0)),
 		Name:         ptr("n1-standard-2"),
@@ -143,6 +152,8 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 		Name:   ptr("b-zone"),
 		Status: ptr("UP"),
 	}}, nil)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
 
 	placement := "zone=a-zone"
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
@@ -193,6 +204,9 @@ func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C
 
 	env := s.SetupEnv(c, s.MockService)
 
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
+
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
 		Placement: "",
@@ -216,6 +230,8 @@ func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c
 		Name:   ptr("home-zone"),
 		Status: ptr("UP"),
 	}}, nil)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{}}, nil)
 
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
@@ -250,6 +266,28 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 	})
 
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
+}
+
+func (s *environPolSuite) TestPrecheckInstanceNoSubnets(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("a-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("b-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
+
+	placement := "zone=a-zone"
+	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
+		Base: version.DefaultSupportedLTSBase(), Placement: placement})
+
+	c.Assert(err, gc.ErrorMatches, "VPC does not auto create subnets and has no subnets")
 }
 
 func (s *environPolSuite) expectConstraintsCalls() {

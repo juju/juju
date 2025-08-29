@@ -29,15 +29,11 @@ var _ = gc.Suite(&environFirewallSuite{})
 func (s *environFirewallSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(gce.FirewallerSuffixFunc, func(sourceCIDRs []string, prefix string, existingNames set.Strings) (string, error) {
-		if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 && sourceCIDRs[0] == "0.0.0.0/0" {
+		if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 &&
+			(sourceCIDRs[0] == "0.0.0.0/0" || sourceCIDRs[0] == "::/0") {
 			return prefix, nil
 		}
 		return prefix + "-" + strconv.Itoa(len(strings.Join(sourceCIDRs, ":"))), nil
-		//src := strings.Join(s.sorted(), ",")
-		//hash := sha256.New()
-		//_, _ = hash.Write([]byte(src))
-		//hashStr := fmt.Sprintf("%x", hash.Sum(nil))
-		//return prefix + "-" + sourcecidrs(fw.SourceCIDRs).key(), nil
 	})
 }
 func (s *environFirewallSuite) TestGlobalFirewallName(c *gc.C) {
@@ -272,6 +268,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-26"),
 		TargetTags:   []string{fwPrefix},
+		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
@@ -281,6 +278,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-11"),
 		TargetTags:   []string{fwPrefix},
+		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("udp"),
@@ -290,6 +288,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
+		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
@@ -418,6 +417,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-11"),
 		TargetTags:   []string{fwPrefix},
+		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
