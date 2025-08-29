@@ -39,7 +39,6 @@ var allowedEmbeddedCommands = []string{
 	"import-filesystem",
 	"integrate",
 	"machines",
-	"metrics",
 	"model-config",
 	"model-default",
 	"model-defaults",
