@@ -15,8 +15,8 @@ juju-<model>-<resource-type>-<resource-ID>
 
 Tagging also follows a scheme: Instances will be tagged with the names of units initially assigned to the machine. Volumes will be tagged with the storage-instance name, and the owner (unit or service) of said storage.
 
-For example, names in Amazon AWS appear like this: ![named instances in Amazon](https://assets.ubuntu.com/v1/0261cc58-config-tagging-named.png) 
-...and tags like this: 
+For example, names in Amazon AWS appear like this: ![named instances in Amazon](https://assets.ubuntu.com/v1/0261cc58-config-tagging-named.png)
+...and tags like this:
 ![tagged instances in Amazon](https://assets.ubuntu.com/v1/f480625d-config-tagging-tagged.png)
 
 ## How to define your own tags
@@ -38,7 +38,9 @@ juju model-config resource-tags="origin=v2 owner=Canonical"
 
 You can change the tags back by running the above command again with different values. Changes will not be made to existing machines, but the new tags will apply to any future machines created.
 
-> See more: {ref}`list-of-model-configuration-keys` > `resource-tags`
+```{ibnote}
+See more: {ref}`list-of-model-configuration-keys` > `resource-tags`
+```
 
 These tags may be used, for example, to set up chargeback accounting.
 

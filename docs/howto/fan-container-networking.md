@@ -54,7 +54,9 @@ container-networking-method   model    fan
 fan-config                    model    10.0.0.0/16=252.0.0.0/8
 ```
 
-> See more: {ref}`configure-a-model`
+```{ibnote}
+See more: {ref}`configure-a-model`
+```
 
 
 ## Cloud provider requirements
@@ -105,7 +107,7 @@ Output:
 1?: {ref}`LOCALHOST]                                         pmtu 1410
  1:  252.0.78.212                                          1.027ms reached
  1:  252.0.78.212                                          0.610ms reached
-     Resume: pmtu 1410 hops 1 back 1 
+     Resume: pmtu 1410 hops 1 back 1
 Connection to 35.196.138.253 closed.
 ```
 
