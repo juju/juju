@@ -362,8 +362,18 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			continue
 		}
 		machineName := coremachine.Name(machineTag.Id())
+		machineUUID, err := mm.machineService.GetMachineUUID(ctx, machineName)
+		if err != nil {
+			fail(internalerrors.Errorf("getting machine UUID: %w", err))
+			continue
+		}
 
-		info, err := mm.calculateDestroyResult(ctx, machineName)
+		containers, err := mm.machineService.GetMachineContainers(ctx, machineUUID)
+		if err != nil {
+			fail(internalerrors.Errorf("getting machine containers: %w", err))
+			continue
+		}
+		info, err := mm.calculateDestroyResult(ctx, machineName, containers)
 		if err != nil {
 			fail(err)
 			continue
@@ -386,11 +396,6 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			}
 		}
 
-		machineUUID, err := mm.machineService.GetMachineUUID(ctx, machineName)
-		if err != nil {
-			fail(internalerrors.Errorf("getting machine UUID: %w", err))
-			continue
-		}
 		if _, err := mm.removalService.RemoveMachine(ctx, machineUUID, force, maxWait); err != nil {
 			fail(internalerrors.Errorf("removing machine: %w", err))
 			continue
@@ -402,12 +407,8 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
-	info := params.DestroyMachineInfo{
-		MachineId: machineName.String(),
-	}
-
-	containers, err := mm.machineService.GetMachineContainers(ctx, machineName)
+func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machineName coremachine.Name, containers []coremachine.Name) (params.DestroyMachineInfo, error) {
+	info, err := mm.destroyResultForMachine(ctx, machineName)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
@@ -415,12 +416,20 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 	if len(containers) > 0 {
 		info.DestroyedContainers = make([]params.DestroyMachineResult, len(containers))
 		for i, container := range containers {
-			containerInfo, err := mm.calculateDestroyResult(ctx, container)
+			containerInfo, err := mm.destroyResultForMachine(ctx, container)
 			if err != nil {
 				return info, errors.Trace(err)
 			}
 			info.DestroyedContainers[i].Info = &containerInfo
 		}
+	}
+
+	return info, nil
+}
+
+func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
+	info := params.DestroyMachineInfo{
+		MachineId: machineName.String(),
 	}
 
 	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)

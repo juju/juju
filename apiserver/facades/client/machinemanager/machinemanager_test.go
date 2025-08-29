@@ -226,31 +226,28 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *DestroyMachineManagerSuite) expectDestroyMachine(
+func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 	c *tc.C, ctrl *gomock.Controller, machineName coremachine.Name, unitNames []coreunit.Name,
-	containers []coremachine.Name, attemptDestroy, keep, force bool,
+	containers []coremachine.Name,
 ) {
-	machineUUID := machinetesting.GenUUID(c)
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil).MaxTimes(1)
-
-	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineName).Return(containers, nil)
-
 	if unitNames == nil {
 		unitNames = []coreunit.Name{"foo/0", "foo/1", "foo/2"}
 	}
-
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil)
-
-	if attemptDestroy {
-		s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID, force, gomock.Any()).Return("", nil)
+	for _, container := range containers {
+		s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), container).Return(unitNames, nil)
 	}
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil).Times(1)
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectDestroyMachine(c, ctrl, "0", nil, nil, false, false, false)
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0", nil, nil)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
@@ -276,8 +273,12 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *t
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectDestroyMachine(c, ctrl, "0", nil, []coremachine.Name{"0/lxd/0"}, false, false, false)
-	s.expectDestroyMachine(c, ctrl, "0/lxd/0", nil, nil, false, false, false)
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return([]coremachine.Name{"0/lxd/0"}, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0", nil, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0/lxd/0", nil, nil)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
@@ -312,7 +313,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C)
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectDestroyMachine(c, ctrl, "0", nil, nil, true, true, true)
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).Times(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0", nil, nil)
+
+	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID, true, gomock.Any()).Return("", nil).Times(1)
+
 	s.machineService.EXPECT().SetKeepInstance(gomock.Any(), coremachine.Name("0"), true)
 
 	noWait := 0 * time.Second
@@ -341,7 +349,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectDestroyMachine(c, ctrl, "0", nil, nil, true, true, true)
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).Times(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0", nil, nil)
+
+	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID, true, gomock.Any()).Return("", nil).Times(1)
+
 	s.machineService.EXPECT().SetKeepInstance(gomock.Any(), coremachine.Name("0"), true)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -369,8 +384,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectDestroyMachine(c, ctrl, "0", nil, []coremachine.Name{"0/lxd/0"}, true, false, true)
-	s.expectDestroyMachine(c, ctrl, "0/lxd/0", nil, nil, false, false, true)
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return([]coremachine.Name{"0/lxd/0"}, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0", nil, nil)
+	s.expectCalculateDestroyResult(c, ctrl, "0/lxd/0", nil, nil)
+
+	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID, true, gomock.Any()).Return("", nil).Times(1)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
 		Force:       true,

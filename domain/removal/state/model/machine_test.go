@@ -827,3 +827,45 @@ func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, true)
 }
+
+func (s *machineSuite) TestDeleteContainer(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(containerRes.ChildMachineName, tc.NotNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, containerUUID, life.Dead)
+	s.advanceInstanceLife(c, containerUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), containerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The container should be gone.
+	exists, err := st.MachineExists(c.Context(), containerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}

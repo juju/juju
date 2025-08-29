@@ -1033,6 +1033,7 @@ WHERE parent_uuid = $entityUUID.uuid`
 		if err != nil {
 			return errors.Capture(err)
 		}
+
 		err = tx.Query(ctx, queryStmt, ident).GetAll(&results)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)

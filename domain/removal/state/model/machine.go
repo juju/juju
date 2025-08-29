@@ -452,14 +452,6 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Capture(err)
 	}
 
-	deleteMachineParentStmt := `
-DELETE FROM machine_parent WHERE parent_uuid = $entityUUID.uuid;
-`
-	deleteMachineParent, err := st.Prepare(deleteMachineParentStmt, machineUUIDParam)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		mLife, err := st.getMachineLife(ctx, tx, machineUUIDParam.UUID)
 		if err != nil {
@@ -501,11 +493,7 @@ DELETE FROM machine_parent WHERE parent_uuid = $entityUUID.uuid;
 			return errors.Errorf("deleting block devices: %w", err)
 		}
 
-		// Remove the machine parent relationship.
-		if err := tx.Query(ctx, deleteMachineParent, machineUUIDParam).Run(); err != nil {
-			return errors.Errorf("deleting machine parent relationship: %w", err)
-		}
-
+		// Remove the machine entry
 		if err := tx.Query(ctx, deleteMachineStmt, machineUUIDParam).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
 		}
@@ -586,6 +574,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 		"DELETE FROM machine_agent_presence WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {

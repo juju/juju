@@ -506,17 +506,17 @@ func (s *Service) GetSupportedContainersTypes(ctx context.Context, mUUID machine
 
 // GetMachineContainers returns the names of the machines which have as parent
 // the specified machine.
-func (s *Service) GetMachineContainers(ctx context.Context, machineName machine.Name) ([]machine.Name, error) {
+func (s *Service) GetMachineContainers(ctx context.Context, mUUID machine.UUID) ([]machine.Name, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := machineName.Validate(); err != nil {
-		return nil, errors.Errorf("validating machine name %q: %w", machineName, err)
+	if err := mUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine UUID %q: %w", mUUID, err)
 	}
 
-	containers, err := s.st.GetMachineContainers(ctx, machineName.String())
+	containers, err := s.st.GetMachineContainers(ctx, mUUID.String())
 	if err != nil {
-		return nil, errors.Errorf("getting machine containers for machine %q: %w", machineName, err)
+		return nil, errors.Errorf("getting machine containers for machine %q: %w", mUUID, err)
 	}
 
 	return transform.Slice(containers, func(v string) machine.Name {
