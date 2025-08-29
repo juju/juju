@@ -653,13 +653,6 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		Data:   aStatus.Data,
 	}
 
-	if info.SLA != "unsupported" {
-		ms := m.MeterStatus()
-		if isColorStatus(ms.Code) {
-			info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
-		}
-	}
-
 	return info, nil
 }
 
@@ -1444,12 +1437,6 @@ func (context *statusContext) processApplication(application *state.Application)
 	processedStatus.Status.Data = applicationStatus.Data
 	processedStatus.Status.Since = applicationStatus.Since
 
-	metrics := applicationCharm.Metrics()
-	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
-	if planRequired || len(application.MetricCredentials()) > 0 {
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
-	}
-
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
 		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
@@ -1602,28 +1589,6 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 		offers[name] = offerStatus
 	}
 	return offers
-}
-
-func isColorStatus(code state.MeterStatusCode) bool {
-	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
-}
-
-func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]params.MeterStatus {
-	unitsMap := make(map[string]params.MeterStatus)
-	for _, unit := range units {
-		meterStatus, err := unit.GetMeterStatus()
-		if err != nil {
-			continue
-		}
-		if isColorStatus(meterStatus.Code) {
-			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(meterStatus.Code.String()),
-				Message: meterStatus.Info}
-		}
-	}
-	if len(unitsMap) > 0 {
-		return unitsMap
-	}
-	return nil
 }
 
 func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string,
