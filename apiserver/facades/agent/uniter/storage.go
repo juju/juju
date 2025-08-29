@@ -305,74 +305,30 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 			return nil, internalerrors.Errorf("parsing storage tag %q: %w", id.StorageTag, err)
 		}
 
-		handleWatchError := func(err error) error {
-			switch {
-			case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
-				return internalerrors.Errorf(
-					"filesystem attachment not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
-				).Add(errors.NotFound)
-			case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
-				return internalerrors.Errorf(
-					"filesystem not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
-				).Add(errors.NotFound)
-			case errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound):
-				return internalerrors.Errorf(
-					"volume attachment not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
-				).Add(errors.NotFound)
-			case errors.Is(err, storageprovisioningerrors.VolumeNotFound):
-				return internalerrors.Errorf(
-					"volume not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
-				).Add(errors.NotFound)
-			case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
-				return internalerrors.Errorf(
-					"storage instance not found for %q %q: %w", storageTag.Id(), unitTag.String(), err,
-				).Add(errors.NotFound)
-			default:
-				return err
-			}
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
 		}
-
-		machineUUID, err := s.applicationService.GetUnitMachineUUID(ctx, coreunit.Name(unitTag.Id()))
+		w, err := s.storageProvisioningService.WatchStorageAttachmentForUnit(ctx, storageTag.Id(), unitUUID)
 		switch {
+		case errors.Is(err, coreerrors.NotValid):
+			return nil, internalerrors.Errorf(
+				"unit UUID %q is not valid: %w", unitUUID, err,
+			).Add(errors.NotValid)
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			return nil, internalerrors.Errorf(
 				"unit %q not found: %w", unitTag.Id(), err,
 			).Add(errors.NotFound)
-		case errors.Is(err, applicationerrors.UnitMachineNotAssigned):
-			unitUUID, err := s.getUnitUUID(ctx, unitTag)
-			if err != nil {
-				return nil, internalerrors.Capture(err)
-			}
-			w, err := s.storageProvisioningService.WatchStorageAttachmentForUnit(ctx, storageTag.Id(), unitUUID)
-			switch {
-			case errors.Is(err, coreerrors.NotValid):
-				return nil, internalerrors.Errorf(
-					"unit UUID %q is not valid: %w", unitUUID, err,
-				).Add(errors.NotValid)
-			case errors.Is(err, applicationerrors.UnitNotFound):
-				return nil, internalerrors.Errorf(
-					"unit %q not found: %w", unitTag.Id(), err,
-				).Add(errors.NotFound)
-			case err != nil:
-				return nil, handleWatchError(err)
-			}
-			return w, nil
-		case err != nil:
-			return nil, internalerrors.Capture(err)
-		}
-
-		w, err := s.storageProvisioningService.WatchStorageAttachmentForMachine(ctx, storageTag.Id(), machineUUID)
-		switch {
-		case errors.Is(err, coreerrors.NotValid):
+		case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
 			return nil, internalerrors.Errorf(
-				"machine UUID %q is not valid: %w", machineUUID, err,
-			).Add(errors.NotValid)
-		case errors.Is(err, applicationerrors.MachineNotFound):
+				"storage instance not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
 			return nil, internalerrors.Errorf(
-				"machine %q not found: %w", machineUUID, err,
+				"storage attachment not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
 			).Add(errors.NotFound)
 		case err != nil:
-			return nil, handleWatchError(err)
+			return nil, internalerrors.Capture(err)
 		}
 		return w, nil
 	}
