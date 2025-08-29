@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -96,7 +98,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "(Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines).")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "(Machine models only) Specify an existing storage volume to attach to the deployed unit.")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Specify an existing storage volume to attach to the deployed unit.")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -187,7 +189,7 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 		return err
 	}
 	if modelType == model.CAAS {
-		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
+		if c.PlacementSpec != "" || (len(c.AttachStorage) != 0 && !featureflag.Enabled(feature.K8SAttachStorage)) {
 			return errors.New("k8s models only support --num-units")
 		}
 	}
@@ -238,6 +240,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
 			ApplicationName: c.ApplicationName,
 			ScaleChange:     c.NumUnits,
+			AttachStorage:   c.AttachStorage,
 		})
 		if err == nil {
 			return nil
