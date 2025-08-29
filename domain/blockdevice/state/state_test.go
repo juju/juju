@@ -64,9 +64,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 4, ?, ?)
 
 	for _, link := range bd.DeviceLinks {
 		_, err = db.ExecContext(c.Context(), `
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (?, ?)
-`, blockDeviceUUID, link)
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)
+`, blockDeviceUUID, machineUUID, link)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 }

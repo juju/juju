@@ -184,9 +184,10 @@ func (st *State) updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineU
 	}
 
 	insertLinkQuery := `
-INSERT INTO block_device_link_device (block_device_uuid, name)
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
 VALUES (
     $DeviceLink.block_device_uuid,
+    $DeviceLink.machine_uuid,
     $DeviceLink.name
 )
 `
@@ -225,8 +226,9 @@ VALUES (
 
 		for _, link := range bd.DeviceLinks {
 			dbDeviceLink := DeviceLink{
-				ParentUUID: id.String(),
-				Name:       link,
+				ParentUUID:  id.String(),
+				MachineUUID: machineUUID,
+				Name:        link,
 			}
 			if err := tx.Query(ctx, insertLinkStmt, dbDeviceLink).Run(); err != nil {
 				return errors.Errorf("inserting block device links: %w", err)
@@ -332,11 +334,8 @@ func RemoveMachineBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID s
 	linkDeleteQuery := `
 DELETE 
 FROM  block_device_link_device
-WHERE block_device_uuid IN (
-    SELECT DISTINCT uuid
-    FROM            block_device bd
-    WHERE           bd.machine_uuid = $M.machine_uuid
-)`
+WHERE machine_uuid = $M.machine_uuid
+`
 
 	deleteStmt, err := sqlair.Prepare(linkDeleteQuery, sqlair.M{})
 	if err != nil {

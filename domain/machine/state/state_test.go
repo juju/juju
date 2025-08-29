@@ -96,9 +96,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE name
 
 	for _, link := range bd.DeviceLinks {
 		_, err = db.ExecContext(c.Context(), `
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (?, ?)
-`, blockDeviceUUID, link)
+INSERT INTO block_device_link_device (block_device_uuid, name, machine_uuid)
+VALUES (?, ?, (SELECT uuid FROM machine WHERE name=?))
+`, blockDeviceUUID, link, machineName)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	c.Assert(err, tc.ErrorIsNil)

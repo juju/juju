@@ -33,8 +33,9 @@ type FilesystemType struct {
 }
 
 type DeviceLink struct {
-	ParentUUID string `db:"block_device_uuid"`
-	Name       string `db:"name"`
+	ParentUUID  string `db:"block_device_uuid"`
+	MachineUUID string `db:"machine_uuid"`
+	Name        string `db:"name"`
 }
 
 type BlockDeviceMachine struct {
