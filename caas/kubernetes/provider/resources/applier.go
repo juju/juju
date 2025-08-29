@@ -59,18 +59,25 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 
 	switch op.opType {
 	case opApply:
+		conflictOccurred := false
 		err = retry.Call(retry.CallArgs{
 			Func: func() error {
 				err := op.resource.Apply(ctx)
 				if errors.Is(err, errConflict) {
+					// Avoid rollback if there is a conflict
+					// since the end result is unpredictable
+					conflictOccurred = true
+
 					// Refresh resource version.
+					// Ignore err here because we will create resource upon
+					// the next retry if the resource is not found
 					_ = op.resource.Get(ctx)
 					return err
 				}
 				return errors.Annotatef(err, "applying resource %q", op.resource.ID().Name)
 			},
 			IsFatalError: func(err error) bool {
-				return !k8serrors.IsConflict(err) && !errors.Is(err, errConflict)
+				return !errors.Is(err, errConflict)
 			},
 			Clock:       jujuclock.WallClock,
 			Attempts:    5,
@@ -83,7 +90,11 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 		// (leading to not found err after even if may have been initially found)
 		// during the retry call process.
 		if err == nil {
-			if found {
+			// The rollback logic below reflects our current implementation; however, if a rollback
+			// occurs, we cannot guarantee it behaves as intended, even in the existing code.
+			// There is still an unresolved issue of potential data race here,
+			// but we preserve the existing rollback behavior.
+			if found && !conflictOccurred {
 				// Apply the previously existing resource.
 				rollback.Apply(existingRes)
 			} else {
@@ -98,6 +109,8 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 		}
 
 		// Do not rollback if the resource is not found.
+		// There is still an unresolved issue of potential data race here,
+		// but we preserve the existing rollback behavior.
 		if err == nil {
 			rollback.Apply(existingRes)
 		}
