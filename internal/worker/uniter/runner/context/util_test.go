@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -220,48 +219,6 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 
 	c.Assert(err, jc.ErrorIsNil)
 	return context
-}
-
-func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *runnercontext.HookContext {
-	if relid != -1 {
-		_, found := s.apiRelunits[relid]
-		c.Assert(found, jc.IsTrue)
-	}
-	facade, err := uniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-
-	relctxs := map[int]*runnercontext.ContextRelation{}
-	for relId, relUnit := range s.apiRelunits {
-		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache, false)
-	}
-
-	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                s.meteredAPIUnit,
-		State:               facade,
-		ID:                  "TestCtx",
-		UUID:                uuid,
-		ModelName:           "test-model-name",
-		RelationID:          relid,
-		RemoteUnitName:      remote,
-		Relations:           relctxs,
-		APIAddrs:            apiAddrs,
-		LegacyProxySettings: noProxies,
-		JujuProxySettings:   noProxies,
-		CanAddMetrics:       canAddMetrics,
-		CharmMetrics:        metrics,
-		ActionData:          nil,
-		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
-		Paths:               paths,
-		Clock:               s.clock,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return context
-}
-
-func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
-	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }
 
 func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
