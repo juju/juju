@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -23,7 +22,6 @@ type destroyModelSuite struct {
 	jtesting.IsolationSuite
 
 	modelManager *mockModelManager
-	metricSender *testMetricSender
 }
 
 var _ = gc.Suite(&destroyModelSuite{})
@@ -38,16 +36,6 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 			{tag: otherModelTag, currentStatus: status.StatusInfo{Status: status.Available}},
 		},
 	}
-	s.metricSender = &testMetricSender{}
-	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
-}
-
-func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
-	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{
-		{"SendMetrics", []interface{}{s.modelManager}},
-	})
 }
 
 func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
@@ -210,12 +198,6 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 			MaxWait:             common.MaxWait(nil),
 		}}},
 	})
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{
-		// One call per hosted model, and one for the controller model.
-		{"SendMetrics", []interface{}{s.modelManager}},
-		{"SendMetrics", []interface{}{s.modelManager}},
-		{"SendMetrics", []interface{}{s.modelManager}},
-	})
 }
 
 func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
@@ -255,15 +237,6 @@ func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithForce(c *gc
 	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
 	true_ := true
 	s.testDestroyModel(c, nil, &true_, nil, nil)
-}
-
-type testMetricSender struct {
-	jtesting.Stub
-}
-
-func (t *testMetricSender) SendMetrics(st metricsender.ModelBackend) error {
-	t.MethodCall(t, "SendMetrics", st)
-	return t.NextErr()
 }
 
 type mockModelManager struct {
