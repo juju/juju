@@ -1,21 +1,28 @@
 (upgrade-your-deployment)=
 # Upgrade your Juju deployment
 
-> See also: {ref}`juju-roadmap-and-releases`
+```{ibnote}
+See also: {ref}`juju-roadmap-and-releases`
 
+```
 This document shows how to upgrade your deployment -- the general logic and order, whether you upgrade in whole or in part, whether you are on Kubernetes or machines.
 
 This typically involves upgrading Juju itself -- the client, the controller (i.e., all the agents in the controller model), and the models (i.e., all the agents in the non-controller models). Additionally, for all the applications on your models, you may want to upgrade their charm.
 
 None of these upgrades are systematically related.
 
-> See more: {ref}`upgrading-things`, {ref}`juju-cross-version-compatibility`, {ref}`juju-roadmap-and-releases`, individual charm releases
+```{ibnote}
+See more: {ref}`upgrading-things`, {ref}`juju-cross-version-compatibility`, {ref}`juju-roadmap-and-releases`, individual charm releases
+```
 
 However, in principle, you should always try to keep all the various pieces up to date, the main caveats being that the Juju components are more tightly coupled to one another than to charms and that, due to the way controller upgrades work, keeping your client, controller, and models aligned is quite different if you're upgrading your Juju patch version vs. minor or major version.
 
 (upgrade-your-juju-components-patch-version)=
 ## Upgrade your Juju components' patch version
-> e.g., 3.4.4 -> 3.4.5
+
+```{ibnote}
+e.g., 3.4.4 -> 3.4.5
+```
 
 1. Upgrade the client's patch version to stable. For example:
 
@@ -23,7 +30,9 @@ However, in principle, you should always try to keep all the various pieces up t
 snap refresh juju --channel 3.3/stable
 ```
 
-> See more: {ref}`upgrade-juju`
+```{ibnote}
+See more: {ref}`upgrade-juju`
+```
 
 2. Upgrade the controller's patch version to the stable version. For example:
 
@@ -32,7 +41,9 @@ juju switch mycontroller
 juju upgrade-controller
 ```
 
-> See more: {ref}`upgrade-a-controllers-patch-version`
+```{ibnote}
+See more: {ref}`upgrade-a-controllers-patch-version`
+```
 
 
 3. For each model on the controller: Upgrade the model's patch version to the stable version. Optionally, for each application on the model: Upgrade the application's charm. For example:
@@ -42,11 +53,16 @@ juju upgrade-model -m mymodel
 juju refresh mycharm
 ```
 
-> See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
+```{ibnote}
+See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
+```
 
 (upgrade-your-juju-components-minor-or-major-version)=
 ## Upgrade your Juju components' minor or major version
-> e.g., 3.5 -> 3.6 or  2.9 -> 3.0
+
+```{ibnote}
+e.g., 3.5 -> 3.6 or  2.9 -> 3.0
+```
 
 ```{caution}
 For best results, perform a patch upgrade first.
@@ -58,7 +74,10 @@ For best results, perform a patch upgrade first.
 ```text
 snap refresh juju --channel=<target controller version>
 ```
-> See more: {ref}`upgrade-juju`
+
+```{ibnote}
+See more: {ref}`upgrade-juju`
+```
 
 
 2. It is not possible to upgrade a controller's minor or major version in place. Use the upgraded client to bootstrap a new controller of the target version, then clone your old controller's users, permissions, configurations, etc., into the new controller (for machine controllers, using our backup and restore tooling). For example:
@@ -96,7 +115,9 @@ juju ssh 0
 
 ```
 
-> See more: {ref}`upgrade-a-controllers-minor-or-major-version`
+```{ibnote}
+See more: {ref}`upgrade-a-controllers-minor-or-major-version`
+```
 
 3. Migrate your old controller's models to the new controller and upgrade them to match the version of the new controller. Optionally, for each application on the model: Upgrade the application's charm. For example:
 
@@ -117,7 +138,9 @@ juju upgrade-model --agent-version=<new controller's agent version>
 juju refresh mycharm
 ```
 
-> See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
+```{ibnote}
+See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
+```
 
 4. Help your users connect to the new controller by resetting their password and sending them the registration link for the new control that they can use to connect to the new controller. For example:
 
@@ -131,4 +154,6 @@ juju change-user-password <user> --reset
 
 ```
 
-> See more: {ref}`manage-a-users-login-details`
+```{ibnote}
+See more: {ref}`manage-a-users-login-details`
+```

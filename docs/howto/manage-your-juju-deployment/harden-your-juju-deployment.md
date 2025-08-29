@@ -1,7 +1,9 @@
 (harden-your-deployment)=
 # Harden your Juju deployment
 
-> See also: {ref}`juju-security`
+```{ibnote}
+See also: {ref}`juju-security`
+```
 
 Juju ships with sensible security defaults. However, security doesn't stop there.
 
@@ -9,11 +11,15 @@ Juju ships with sensible security defaults. However, security doesn't stop there
 
 Use a private cloud.
 
-> See more: {ref}`list-of-supported-clouds`
+```{ibnote}
+See more: {ref}`list-of-supported-clouds`
+```
 
 If you want to go one step further, take your cloud (and the entire deployment) offline.
 
-> See more: {ref}`take-your-deployment-offline`
+```{ibnote}
+See more: {ref}`take-your-deployment-offline`
+```
 
 ## Harden the client and the agent binaries
 
@@ -21,13 +27,17 @@ The `juju` CLI client can be installed from a strictly confined snap. The strict
 
 The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so snap advantages no longer apply. Also, the Juju controller agent needs root access. Juju unit agents typically need root access too, except if the charm next to which they are deployed is rootless. Rootless charms are currently supported only for Kubernetes charms. (For more on rootless charms see {ref}`harden-the-applications`). To protect the agents, you must protect the cloud resource (machine or container) they're deployed on.
 
-> See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
+```{ibnote}
+See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
+```
 
 ## Harden the controller(s)
 
 In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure). One way to harden your controller is to take advantage of this workflow.
 
-> See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
+```{ibnote}
+See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
+```
 
 Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with only the following three ports opened -- as well as hardened (through security groups) -- by default:
 
@@ -37,7 +47,9 @@ Like all the cloud resources provisioned through Juju, the cloud resources (mach
 
 When a controller deploys a charm, all the traffic between the controller and the resulting application unit agent(s) is [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)-encrypted (each agent starts out with a CA certificate from the controller and, when they connect to the controller, they get another certificate that is then signed by the preshared CA certificate). In addition to that, every unit agent authenticates itself with the controller using a password.
 
-> See more: [Wikipedia | TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)
+```{ibnote}
+See more: [Wikipedia | TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)
+```
 
 
 
@@ -55,7 +67,9 @@ When you bootstrap a controller into a cloud, you automatically become a user wi
 
 Also, when you create other users (whether human or for an application), take advantage of Juju's granular access levels to grant access to clouds, controllers, models, or application offers only as needed. Disable or remove any users that are no longer needed.
 
-> See more: {ref}`user`, {ref}`user-access-levels`, {ref}`manage-users`
+```{ibnote}
+See more: {ref}`user`, {ref}`user-access-levels`, {ref}`manage-users`
+```
 
 ## Harden the model(s)
 
@@ -63,7 +77,9 @@ Within a single controller, living on a particular cloud, you can have multiple 
 
 You can also restrict user access to a model and also restrict the commands that any user can perform on a given model.
 
-> See more: {ref}`manage-models`
+```{ibnote}
+See more: {ref}`manage-models`
+```
 
 (harden-the-applications)=
 ## Harden the applications
@@ -84,14 +100,20 @@ When you deploy (an) application(s) from a charm or a bundle, choose the charm /
 
 Keep an application's charm up to date.
 
-> See more: {ref}`manage-charms`,  {ref}`manage-applications`
+```{ibnote}
+See more: {ref}`manage-charms`,  {ref}`manage-applications`
+```
 
 ## Audit and observe
 
 Juju generates agent logs that can help administrators perform auditing for troubleshooting, security maintenance, or compliance.
 
-> See more: {ref}`log`
+```{ibnote}
+See more: {ref}`log`
+```
 
 You can also easily collect metrics about or generally monitor and observe your deployment by deploying and integrating with the Canonical Observability Stack.
 
-> See more: {ref}`collect-metrics-about-a-controller` (the same recipe -- integration with the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) bundle -- can be used to observe applications other than the controller)
+```{ibnote}
+See more: {ref}`collect-metrics-about-a-controller` (the same recipe -- integration with the [Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack) bundle -- can be used to observe applications other than the controller)
+```
