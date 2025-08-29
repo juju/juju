@@ -130,3 +130,38 @@ test_pebble_checks() {
 	# Clean up model
 	destroy_model "${model_name}"
 }
+
+
+test_credential_get_k8s() {
+	if [ -n "$(skip 'test_credential_get_k8s')" ]; then
+		echo "==> SKIP: Asked to skip credential get k8s"
+		return
+	fi
+	echo
+
+	# Ensure that a valid Juju controller exists
+	model_name="controller-model-sidecar"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	# Deploy test application and trust it to hit the K8s API.
+	juju deploy juju-qa-credential-get-k8s
+	juju trust juju-qa-credential-get-k8s --scope=cluster
+
+	# Wait till the charm is active.
+	wait_for "active" '.applications["juju-qa-credential-get-k8s"].units["juju-qa-credential-get-k8s/0"]["workload-status"].current'
+
+	# Check that K8s API response from default in-cluster-config configuration
+	# is the same as the K8s API response when using the credential-get creds.
+	out_default="$(juju run juju-qa-credential-get-k8s/0 hit-k8s-api-default)"
+	out_credget="$(juju run juju-qa-credential-get-k8s/0 hit-k8s-api-credential-get)"
+	if [ "$out_default" != "$out_credget" ]; then
+	    echo "Default in-cluster result differs from credential-get result:"
+	    echo -e "Default output:\n$out_default"
+	    echo -e "Credential-get output:\n$out_credget"
+	    exit 1
+	fi
+
+	# Clean up model
+	destroy_model "${model_name}"
+}
