@@ -1,7 +1,9 @@
 (manage-juju)=
 # How to manage the `juju` CLI client
 
-> See also: {ref}`juju-cli`
+```{ibnote}
+See also: {ref}`juju-cli`
+```
 
 (install-juju)=
 ## Install `juju`
@@ -125,7 +127,9 @@ $ sudo snap install juju --channel=3.4/stable
 
 To install multiple versions of `juju` via snap, enable `snap`'s experimental parallel-install feature, reboot, then install a different version with a different name.
 
-> See more: [Snap | Channels](https://snapcraft.io/docs/channels)
+```{ibnote}
+See more: [Snap | Channels](https://snapcraft.io/docs/channels)
+```
 
 ````{dropdown} Example
 
@@ -152,7 +156,9 @@ juju_33 status
 ```
 ````
 
-> See more: [Snap | Parallel installs](https://snapcraft.io/docs/parallel-installs)
+```{ibnote}
+See more: [Snap | Parallel installs](https://snapcraft.io/docs/parallel-installs)
+```
 
 **Install from binary.**
 
@@ -240,7 +246,9 @@ Visit the project's [downloads](https://launchpad.net/juju/+download) page and s
 
 Use the `juju` CLI client reference and the Juju how-to guides to build up your deployment.
 
-> See more: {ref}`command-juju-help`, {ref}`List of juju CLI commands <list-of-juju-cli-commands>`, {ref}`how-to-guides`
+```{ibnote}
+See more: {ref}`command-juju-help`, {ref}`List of juju CLI commands <list-of-juju-cli-commands>`, {ref}`how-to-guides`
+```
 
 
 ## Back up Juju
@@ -286,7 +294,9 @@ tar -xzf juju-yymmdd-hhmmss.tar.gz
 (upgrade-juju)=
 ## Upgrade `juju`
 
-> See also: {ref}`upgrading-things`
+```{ibnote}
+See also: {ref}`upgrading-things`
+```
 
 ``````{tabs}
 
@@ -306,7 +316,9 @@ If there has been a new release but the `juju` snap hasn't been refreshed, you c
 sudo snap refresh juju --channel 3/stable
 ```
 
-> See more: [Snap | Managing updates](https://snapcraft.io/docs/managing-updates), [Snap | Channels](https://snapcraft.io/docs/channels)
+```{ibnote}
+See more: [Snap | Managing updates](https://snapcraft.io/docs/managing-updates), [Snap | Channels](https://snapcraft.io/docs/channels)
+```
 
 `````
 
