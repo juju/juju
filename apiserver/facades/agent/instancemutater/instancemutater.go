@@ -19,11 +19,11 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.instancemutater")
 
-// InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
-type InstanceMutaterV2 interface {
+// InstanceMutaterV4 defines the methods on the instance mutater API facade, version 4.
+type InstanceMutaterV4 interface {
 	Life(args params.Entities) (params.LifeResults, error)
 
-	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
+	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResultV4, error)
 	ContainerType(arg params.Entity) (params.ContainerTypeResult, error)
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
 	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
@@ -31,7 +31,9 @@ type InstanceMutaterV2 interface {
 	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
 }
 
-type InstanceMutaterAPI struct {
+// InstanceMutaterAPIV4 implements the InstanceMutaterV4 interface and is the concrete
+// implementation of the api end point.
+type InstanceMutaterAPIV4 struct {
 	*common.LifeGetter
 
 	st          InstanceMutaterState
@@ -39,6 +41,12 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
+}
+
+// InstanceMutaterAPIV3 implements the old InstanceMutater interface in which the response from CharmProfilingInfo
+// doesn't include a ModelUUID field.
+type InstanceMutaterAPIV3 struct {
+	*InstanceMutaterAPIV4
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
@@ -50,19 +58,35 @@ type instanceMutatorWatcher struct {
 	st InstanceMutaterState
 }
 
-// NewInstanceMutaterAPI creates a new API server endpoint for managing
+// NewInstanceMutaterAPIV3 creates a new API server endpoint for managing
 // charm profiles on juju lxd machines and containers.
-func NewInstanceMutaterAPI(st InstanceMutaterState,
+func NewInstanceMutaterAPIV3(st InstanceMutaterState,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-) (*InstanceMutaterAPI, error) {
+) (*InstanceMutaterAPIV3, error) {
+	api, err := NewInstanceMutaterAPIV4(st, watcher, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &InstanceMutaterAPIV3{
+		api,
+	}, nil
+}
+
+// NewInstanceMutaterAPIV4 creates a new API server endpoint for including
+// a ModelUUID field in CharmProfilingInfo response struct.
+func NewInstanceMutaterAPIV4(st InstanceMutaterState,
+	watcher InstanceMutatorWatcher,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*InstanceMutaterAPIV4, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
-	return &InstanceMutaterAPI{
+	return &InstanceMutaterAPIV4{
 		LifeGetter:  common.NewLifeGetter(st, getAuthFunc),
 		st:          st,
 		watcher:     watcher,
@@ -72,16 +96,15 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	}, nil
 }
 
-// CharmProfilingInfo returns info to update lxd profiles on the machine. If
-// the machine is not provisioned, no profile change info will be returned,
-// nor will an error.
-func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
-	result := params.CharmProfilingInfoResult{
+// CharmProfilingInfo returns the same data as InstanceMutaterAPIV3 implementation
+// with the addition of a ModelUUID field.
+func (api *InstanceMutaterAPIV4) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResultV4, error) {
+	result := params.CharmProfilingInfoResultV4{
 		ProfileChanges: make([]params.ProfileInfoResult, 0),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		return params.CharmProfilingInfoResult{}, errors.Trace(err)
+		return params.CharmProfilingInfoResultV4{}, errors.Trace(err)
 	}
 	tag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
@@ -102,14 +125,32 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	// result
 	result.InstanceId = lxdProfileInfo.InstanceId
 	result.ModelName = lxdProfileInfo.ModelName
+	result.ModelUUID = lxdProfileInfo.ModelUUID
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
 	result.ProfileChanges = lxdProfileInfo.ProfileUnits
 
 	return result, nil
 }
 
+// CharmProfilingInfo returns info to update lxd profiles on the machine. If
+// the machine is not provisioned, no profile change info will be returned,
+// nor will an error.
+func (api *InstanceMutaterAPIV3) CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error) {
+	charmProfilingInfoV4, err := api.InstanceMutaterAPIV4.CharmProfilingInfo(arg)
+	if err != nil {
+		return params.CharmProfilingInfoResult{}, err
+	}
+	return params.CharmProfilingInfoResult{
+		InstanceId:      charmProfilingInfoV4.InstanceId,
+		ModelName:       charmProfilingInfoV4.ModelName,
+		ProfileChanges:  charmProfilingInfoV4.ProfileChanges,
+		CurrentProfiles: charmProfilingInfoV4.CurrentProfiles,
+		Error:           charmProfilingInfoV4.Error,
+	}, nil
+}
+
 // ContainerType returns the container type of a machine.
-func (api *InstanceMutaterAPI) ContainerType(arg params.Entity) (params.ContainerTypeResult, error) {
+func (api *InstanceMutaterAPIV4) ContainerType(arg params.Entity) (params.ContainerTypeResult, error) {
 	result := params.ContainerTypeResult{}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -136,7 +177,7 @@ func (api *InstanceMutaterAPI) ContainerType(arg params.Entity) (params.Containe
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
-func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *InstanceMutaterAPIV4) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -153,7 +194,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (par
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
-func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+func (api *InstanceMutaterAPIV4) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -169,7 +210,7 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 // WatchMachines starts a watcher to track machines.
 // WatchMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
-func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error) {
+func (api *InstanceMutaterAPIV4) WatchMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -188,7 +229,7 @@ func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error
 // WatchModelMachines starts a watcher to track machines, but not containers.
 // WatchModelMachines does not consume the initial event of the watch response, as
 // that returns the initial set of machines that are currently available.
-func (api *InstanceMutaterAPI) WatchModelMachines() (params.StringsWatchResult, error) {
+func (api *InstanceMutaterAPIV4) WatchModelMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -206,7 +247,7 @@ func (api *InstanceMutaterAPI) WatchModelMachines() (params.StringsWatchResult, 
 
 // WatchContainers starts a watcher to track Containers on a given
 // machine.
-func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.StringsWatchResult, error) {
+func (api *InstanceMutaterAPIV4) WatchContainers(arg params.Entity) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -232,7 +273,7 @@ func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.String
 
 // WatchLXDProfileVerificationNeeded starts a watcher to track Applications with
 // LXD Profiles.
-func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *InstanceMutaterAPIV4) WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -256,7 +297,7 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(args params.Ent
 	return result, nil
 }
 
-func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
+func (api *InstanceMutaterAPIV4) watchOneEntityApplication(canAccess common.AuthFunc, tag names.MachineTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	machine, err := api.getMachine(canAccess, tag)
 	if err != nil {
@@ -300,7 +341,7 @@ func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine M
 	})
 }
 
-func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
+func (api *InstanceMutaterAPIV4) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -312,11 +353,12 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 type lxdProfileInfo struct {
 	InstanceId      instance.Id
 	ModelName       string
+	ModelUUID       string
 	MachineProfiles []string
 	ProfileUnits    []params.ProfileInfoResult
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo, error) {
+func (api *InstanceMutaterAPIV4) machineLXDProfileInfo(m Machine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
@@ -372,15 +414,17 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
+	modelUUID := api.st.ModelUUID()
 	return lxdProfileInfo{
 		InstanceId:      instId,
 		ModelName:       modelName,
+		ModelUUID:       modelUUID,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,
 	}, nil
 }
 
-func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+func (api *InstanceMutaterAPIV4) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -392,7 +436,7 @@ func (api *InstanceMutaterAPI) setOneMachineCharmProfiles(machineTag string, pro
 	return machine.SetCharmProfiles(profiles)
 }
 
-func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+func (api *InstanceMutaterAPIV4) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	logger.Tracef("SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {

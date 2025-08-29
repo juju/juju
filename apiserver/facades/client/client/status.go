@@ -975,9 +975,9 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		if err != nil {
 			continue
 		}
-		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
+		charmProfileName := lxdprofile.Name(model.Name(), model.ModelTag().ShortId(), app.Name(), ch.Revision())
 		if profile := ch.LXDProfile(); profile != nil {
-			lxdProfiles[chName] = &charm.LXDProfile{
+			lxdProfiles[charmProfileName] = &charm.LXDProfile{
 				Description: profile.Description,
 				Config:      profile.Config,
 				Devices:     profile.Devices,
@@ -1369,7 +1369,8 @@ func (context *statusContext) processApplication(application *state.Application)
 	if lxdprofile.NotEmpty(lxdStateCharmProfiler{
 		Charm: applicationCharm,
 	}) {
-		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
+		charmProfileName = lxdprofile.Name(context.model.Name(), context.model.ModelTag().ShortId(),
+			application.Name(), applicationCharm.Revision())
 	}
 
 	mappedExposedEndpoints, err := context.mapExposedEndpointsFromState(application.ExposedEndpoints())

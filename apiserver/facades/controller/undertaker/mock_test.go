@@ -32,12 +32,14 @@ type mockState struct {
 
 var _ undertaker.State = (*mockState)(nil)
 
-func newMockState(modelOwner names.UserTag, modelName string, isSystem bool) *mockState {
+func newMockState(modelOwner names.UserTag, modelName string, isSystem bool, modelCfg config.Config) *mockState {
+
 	model := mockModel{
-		owner: modelOwner,
-		name:  modelName,
-		uuid:  "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
-		life:  state.Alive,
+		owner:       modelOwner,
+		name:        modelName,
+		uuid:        "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
+		life:        state.Alive,
+		modelConfig: modelCfg,
 	}
 
 	st := &mockState{

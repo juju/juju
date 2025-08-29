@@ -264,7 +264,7 @@ var (
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 		"lxd-profiles": M{
-			"juju-controller-lxd-profile-1": M{
+			"juju-controller-deadbe-lxd-profile-1": M{
 				"config": M{
 					"environment.http_proxy": "",
 					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
@@ -3786,7 +3786,7 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
-		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
+		setCharmProfiles{"1", []string{"juju-controller-deadbe-lxd-profile-1"}},
 		addCharmHubCharm{"lxd-profile"},
 		addApplication{name: "lxd-profile", charm: "lxd-profile"},
 		setApplicationExposed{"lxd-profile", true},
@@ -3810,7 +3810,7 @@ var statusTests = []testCase{
 						"exposed":       true,
 						"charm-name":    "lxd-profile",
 						"charm-rev":     1,
-						"charm-profile": "juju-controller-lxd-profile-1",
+						"charm-profile": "juju-controller-deadbe-lxd-profile-1",
 						"base":          M{"name": "ubuntu", "channel": "12.10"},
 						"application-status": M{
 							"current": "active",
