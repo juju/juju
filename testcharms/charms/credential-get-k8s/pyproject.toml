@@ -1,0 +1,61 @@
+[project]
+name = "juju-qa-credential-get-k8s"
+version = "0.0.1"
+requires-python = ">=3.10"
+
+# Dependencies of the charm code
+dependencies = [
+    "ops>=3,<4",
+    "kubernetes==33.1.0",
+]
+
+[dependency-groups]
+# Dependencies of linting and static type checks
+lint = [
+    "ruff",
+    "codespell",
+    "pyright",
+]
+# Dependencies of unit tests
+unit = [
+    "ops[testing]",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+log_cli_level = "INFO"
+
+# Linting tools configuration
+[tool.ruff]
+line-length = 99
+lint.select = ["E", "W", "F", "C", "N", "D", "I001"]
+lint.ignore = [
+    "D105",
+    "D107",
+    "D203",
+    "D204",
+    "D213",
+    "D215",
+    "D400",
+    "D404",
+    "D406",
+    "D407",
+    "D408",
+    "D409",
+    "D413",
+]
+extend-exclude = ["__pycache__", "*.egg_info"]
+lint.per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.codespell]
+skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache"
+
+[tool.pyright]
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+]
