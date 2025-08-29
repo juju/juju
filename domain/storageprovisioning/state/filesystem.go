@@ -1177,9 +1177,3 @@ WHERE  uuid = $filesystemAttachmentProvisionedInfo.uuid
 	}
 	return nil
 }
-
-// NamespaceForFilesystemAttachments returns the change stream namespace
-// for watching filesystem attachment changes.
-func (st *State) NamespaceForFilesystemAttachments() string {
-	return "storage_filesystem_attachment"
-}
