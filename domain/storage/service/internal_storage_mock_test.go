@@ -843,18 +843,18 @@ func (m *MockVolumeImporter) EXPECT() *MockVolumeImporterMockRecorder {
 }
 
 // ImportVolume mocks base method.
-func (m *MockVolumeImporter) ImportVolume(arg0 context.Context, arg1 string, arg2 map[string]string) (storage.VolumeInfo, error) {
+func (m *MockVolumeImporter) ImportVolume(arg0 context.Context, arg1, arg2 string, arg3 map[string]string, arg4 bool) (storage.VolumeInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportVolume", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ImportVolume", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(storage.VolumeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ImportVolume indicates an expected call of ImportVolume.
-func (mr *MockVolumeImporterMockRecorder) ImportVolume(arg0, arg1, arg2 any) *MockVolumeImporterImportVolumeCall {
+func (mr *MockVolumeImporterMockRecorder) ImportVolume(arg0, arg1, arg2, arg3, arg4 any) *MockVolumeImporterImportVolumeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportVolume", reflect.TypeOf((*MockVolumeImporter)(nil).ImportVolume), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportVolume", reflect.TypeOf((*MockVolumeImporter)(nil).ImportVolume), arg0, arg1, arg2, arg3, arg4)
 	return &MockVolumeImporterImportVolumeCall{Call: call}
 }
 
@@ -870,13 +870,13 @@ func (c *MockVolumeImporterImportVolumeCall) Return(arg0 storage.VolumeInfo, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeImporterImportVolumeCall) Do(f func(context.Context, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
+func (c *MockVolumeImporterImportVolumeCall) Do(f func(context.Context, string, string, map[string]string, bool) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeImporterImportVolumeCall) DoAndReturn(f func(context.Context, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
+func (c *MockVolumeImporterImportVolumeCall) DoAndReturn(f func(context.Context, string, string, map[string]string, bool) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

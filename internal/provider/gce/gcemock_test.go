@@ -253,6 +253,21 @@ func (mr *MockComputeServiceMockRecorder) ListMachineTypes(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMachineTypes", reflect.TypeOf((*MockComputeService)(nil).ListMachineTypes), arg0, arg1)
 }
 
+// MachineType mocks base method.
+func (m *MockComputeService) MachineType(arg0 context.Context, arg1, arg2 string) (*computepb.MachineType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineType", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*computepb.MachineType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineType indicates an expected call of MachineType.
+func (mr *MockComputeServiceMockRecorder) MachineType(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineType", reflect.TypeOf((*MockComputeService)(nil).MachineType), arg0, arg1, arg2)
+}
+
 // Networks mocks base method.
 func (m *MockComputeService) Networks(arg0 context.Context) ([]*computepb.Network, error) {
 	m.ctrl.T.Helper()

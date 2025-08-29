@@ -25,3 +25,8 @@ For a localhost MicroK8s cloud, if you would like to be able to skip `juju add-k
 - `dns`
 - `hostpath-storage`
 
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.

@@ -14,6 +14,7 @@ Imports a filesystem into the model.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `--force` | false | import a volume even if otherwise prohibited (cloud specific) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -29,6 +30,10 @@ Import an existing unbound `PersistentVolume` in a Kubernetes model,
 and assign it the `pgdata` storage name:
 
     juju import-filesystem kubernetes pv-data-001 pgdata
+
+Import a PersistentVolume that is bound to a PVC not used by Juju:
+
+    juju import-filesystem kubernetes pv-data-001 pgdata --force
 
 
 ## Details
@@ -54,3 +59,7 @@ conditions must be met:
 
  - the `PersistentVolume`'s reclaim policy must be set to `Retain`.
  - the `PersistentVolume` must not be bound to any `PersistentVolumeClaim`.
+
+If the PersistentVolume is bound to a PersistentVolumeClaim that is not used
+by another Juju application, you can use the --force option to make the PV
+available for import.

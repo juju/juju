@@ -28,10 +28,9 @@ Name in Juju: User-defined.
 
 ### Authentication types
 
-
 #### `oauth1`
 Attributes:
-- maas-oauth: OAuth/API-key credentials for MAAS (required)
+- `maas-oauth`: OAuth/API-key credentials for MAAS (required)
 
 ```{note}
 
@@ -68,7 +67,6 @@ Attributes:
 | - {ref}`constraint-virt-type`          | &#10005;                                                                                         |
 | - {ref}`constraint-zones`              | &#10003;                                                                                         |
 
-
 ## Supported placement directives
 
 | {ref}`PLACEMENT DIRECTIVE <placement-directive>` |                                                                     |
@@ -77,4 +75,16 @@ Attributes:
 | - {ref}`placement-directive-subnet`              | &#10005;                                                            |
 | - {ref}`placement-directive-system-id`           | &#10003;                                                            |
 | - {ref}`placement-directive-zone`                | &#10003; <br> If there's no '=' delimiter, assume it's a node name. |
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+### `maas`
+
+Caveats: As Juju cannot dissociate a MAAS disk from its respective MAAS node, the `maas` storage provider is static-only. This means it can only be requested at deploy time and will be removed when the machine it is associated with is removed from the model. This also means that, if you try to deploy a unit to an existing MAAS machine while attempting to allocate storage, Juju will return an error.
+
+Configuration options:
+
+- `tags`: A comma-separated list of tags to match on the disks in MAAS. For example, you might tag some disks as `fast`; you can then create a storage pool in Juju that will draw from the disks with those tags.
 

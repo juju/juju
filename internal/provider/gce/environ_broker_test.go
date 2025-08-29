@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/tc"
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/gce"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -75,10 +77,17 @@ func (s *environBrokerSuite) expectImageMetadata() {
 	}}
 }
 
-func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string) *computepb.Instance {
+func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string, hasGpuSupported bool) *computepb.Instance {
 	instName := fmt.Sprintf("%s0", prefix)
 	userData, err := providerinit.ComposeUserData(s.StartInstArgs.InstanceConfig, nil, gce.GCERenderer{})
 	c.Assert(err, tc.ErrorIsNil)
+
+	var scheduling *computepb.Scheduling
+	if hasGpuSupported {
+		scheduling = &computepb.Scheduling{
+			OnHostMaintenance: ptr(google.HostMaintenanceTerminate),
+		}
+	}
 
 	return &computepb.Instance{
 		Name:        &instName,
@@ -120,10 +129,19 @@ func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string) *computepb
 		ServiceAccounts: []*computepb.ServiceAccount{{
 			Email: ptr("fred@google.com"),
 		}},
+		Scheduling: scheduling,
 	}
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *tc.C) {
+	s.testStartInstance(c, false)
+}
+
+func (s *environBrokerSuite) TestStartGpuInstance(c *tc.C) {
+	s.testStartInstance(c, true)
+}
+
+func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -134,9 +152,26 @@ func (s *environBrokerSuite) TestStartInstance(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
-	instArg := s.startInstanceArg(c, s.Prefix(env))
+	accelerators := []*computepb.Accelerators{}
+	if hasGpuSupported {
+		accelerators = []*computepb.Accelerators{
+			{
+				GuestAcceleratorType:  ptr("nvidia-l4"),
+				GuestAcceleratorCount: ptr(int32(1)),
+			},
+		}
+	}
+
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
+		Return(&computepb.MachineType{
+			Name:         ptr(s.spec.InstanceType.Name),
+			Accelerators: accelerators,
+		}, nil)
+
+	instArg := s.startInstanceArg(c, s.Prefix(env), hasGpuSupported)
 	// Can't copy instArg as it contains a mutex.
-	instResult := s.startInstanceArg(c, s.Prefix(env))
+	instResult := s.startInstanceArg(c, s.Prefix(env), hasGpuSupported)
 	instResult.Zone = ptr("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
 		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
@@ -185,9 +220,16 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
-	instArg := s.startInstanceArg(c, s.Prefix(env))
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
+		Return(&computepb.MachineType{
+			Name:         ptr(s.spec.InstanceType.Name),
+			Accelerators: nil,
+		}, nil)
+
+	instArg := s.startInstanceArg(c, s.Prefix(env), false)
 	// Can't copy instArg as it contains a mutex.
-	instResult := s.startInstanceArg(c, s.Prefix(env))
+	instResult := s.startInstanceArg(c, s.Prefix(env), false)
 	instResult.Zone = ptr("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
 		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
@@ -372,4 +414,48 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *tc.C) {
 	err := env.StopInstances(c.Context(), "inst-0")
 	c.Check(err, tc.NotNil)
 	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
+}
+
+func (s *environBrokerSuite) TestHasAccelerator(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	zone := "us-central1"
+
+	// Empty Instance type
+	hasGPU, err := gce.HasAccelerator(env, c.Context(), zone, "")
+	c.Assert(err, tc.IsNil)
+	c.Assert(hasGPU, tc.IsFalse)
+
+	// Instance has no GPU
+	instanceTypeNoGPU := "e2-standard-8"
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), zone, instanceTypeNoGPU).
+		Return(&computepb.MachineType{
+			Name:         &instanceTypeNoGPU,
+			Accelerators: nil, // no accelerators
+		}, nil)
+
+	hasGPU, err = gce.HasAccelerator(env, c.Context(), zone, instanceTypeNoGPU)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasGPU, jc.IsFalse)
+
+	// Instance type has GPU
+	instanceTypeGPU := "g2-standard-8"
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), zone, instanceTypeGPU).
+		Return(&computepb.MachineType{
+			Name: &instanceTypeGPU,
+			Accelerators: []*computepb.Accelerators{
+				{
+					GuestAcceleratorType:  ptr("nvidia-l4"),
+					GuestAcceleratorCount: ptr(int32(1)),
+				},
+			},
+		}, nil)
+
+	hasGPU, err = gce.HasAccelerator(env, c.Context(), zone, instanceTypeGPU)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasGPU, jc.IsTrue)
 }

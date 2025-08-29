@@ -11,9 +11,12 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -219,7 +222,7 @@ func (s *storageSuite) TestImportVolume(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = vs.(storage.VolumeImporter).
-		ImportVolume(c.Context(), volId, make(map[string]string))
+		ImportVolume(c.Context(), volId, "", make(map[string]string), false)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -241,7 +244,7 @@ func (s *storageSuite) TestImportVolumeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = vs.(storage.VolumeImporter).
-		ImportVolume(c.Context(), volId, make(map[string]string))
+		ImportVolume(c.Context(), volId, "", make(map[string]string), false)
 	c.Check(err, tc.ErrorMatches, "persistent volume \"fakeVolId\" not found")
 }
 
@@ -263,7 +266,7 @@ func (s *storageSuite) TestImportVolumeInvalidReclaimPolicy(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = vs.(storage.VolumeImporter).
-		ImportVolume(c.Context(), volId, make(map[string]string))
+		ImportVolume(c.Context(), volId, "", make(map[string]string), false)
 
 	c.Check(err, tc.ErrorMatches, "importing volume \"fakeVolId\" with reclaim policy \"Delete\" not supported \\(must be \"Retain\"\\)")
 }
@@ -289,6 +292,256 @@ func (s *storageSuite) TestImportVolumeAlreadyBound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = vs.(storage.VolumeImporter).
-		ImportVolume(c.Context(), volId, make(map[string]string))
+		ImportVolume(c.Context(), volId, "", make(map[string]string), false)
 	c.Check(err, tc.ErrorMatches, "importing volume \"fakeVolId\" already bound to a claim not supported")
+}
+
+func (s *storageSuite) TestImportVolumeWithForce(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+	pvcName := "my-pvc"
+
+	// Mock PV that is bound to a PVC and has Delete reclaim policy
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: volId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimDelete,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	// Mock PVC that will be retrieved and validated before deletion
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), volId, v1.GetOptions{}).
+			Return(pv, nil),
+		// First patch: Set reclaim policy to Retain
+		s.mockPersistentVolumes.EXPECT().
+			Patch(gomock.Any(), volId, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: resources.JujuFieldManager}).
+			Return(nil, nil),
+		// Get PV again to verify reclaim policy was set
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), volId, v1.GetOptions{}).
+			Return(&core.PersistentVolume{
+				ObjectMeta: v1.ObjectMeta{Name: volId},
+				Spec: core.PersistentVolumeSpec{
+					PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+					ClaimRef: &core.ObjectReference{
+						Name:      pvcName,
+						Namespace: s.namespace,
+					},
+				},
+			}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Get(gomock.Any(), pvcName, v1.GetOptions{}).
+			Return(pvc, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Delete(gomock.Any(), pvcName, v1.DeleteOptions{}).
+			Return(nil),
+		// Second patch: Clear claimRef
+		s.mockPersistentVolumes.EXPECT().
+			Patch(gomock.Any(), volId, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: resources.JujuFieldManager}).
+			Return(nil, nil),
+	)
+
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(c.Context(), volId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestImportVolumeWithForceDeletePVCNotFound(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+	pvcName := "my-pvc"
+
+	// Mock PV that is bound to a PVC (but PVC doesn't exist)
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{
+			Name: volId,
+		},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), volId, v1.GetOptions{}).
+			Return(pv, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Get(gomock.Any(), pvcName, v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPersistentVolumes.EXPECT().
+			Patch(gomock.Any(), volId, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: resources.JujuFieldManager}).
+			Return(nil, nil),
+	)
+
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(c.Context(), volId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestImportVolumeWithForceDeletePVCError(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+	pvcName := "my-pvc"
+
+	// Mock PV that is bound to a PVC
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: volId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	// Mock PVC that will be retrieved and validated before deletion
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), volId, v1.GetOptions{}).
+			Return(pv, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Get(gomock.Any(), pvcName, v1.GetOptions{}).
+			Return(pvc, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Delete(gomock.Any(), pvcName, v1.DeleteOptions{}).
+			Return(errors.New("failed to delete PVC my-pvc")),
+	)
+
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(c.Context(), volId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorMatches, "failed to delete PVC test/my-pvc: failed to delete PVC my-pvc")
+}
+
+func (s *storageSuite) TestImportVolumeWithForceUpdatePVError(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+	pvcName := "my-pvc"
+
+	// Mock PV that is bound to a PVC
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: volId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: s.namespace,
+			},
+		},
+	}
+
+	// Mock PVC that will be retrieved and validated before deletion
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), volId, v1.GetOptions{}).
+			Return(pv, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Get(gomock.Any(), pvcName, v1.GetOptions{}).
+			Return(pvc, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Delete(gomock.Any(), pvcName, v1.DeleteOptions{}).
+			Return(nil),
+		s.mockPersistentVolumes.EXPECT().
+			Patch(gomock.Any(), volId, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: resources.JujuFieldManager}).
+			Return(nil, errors.New("failed to patch PV my-pv")),
+	)
+
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(c.Context(), volId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorMatches, "failed to patch PersistentVolume fakeVolId: failed to patch PV my-pv")
+}
+
+func (s *storageSuite) TestImportVolumeWithForceNoModificationsNeeded(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	volId := "fakeVolId"
+
+	// Mock PV that already has correct reclaim policy and no claimRef
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: volId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef:                      nil,
+		},
+	}
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), volId, v1.GetOptions{}).
+		Return(pv, nil)
+
+	prov := s.k8sProvider(c, ctrl)
+	vs, err := prov.VolumeSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = vs.(storage.VolumeImporter).
+		ImportVolume(c.Context(), volId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorIsNil)
 }

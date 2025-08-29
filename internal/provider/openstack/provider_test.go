@@ -35,7 +35,7 @@ func TestLocalTests(t *testing.T) {
 	tc.Run(t, &localTests{})
 }
 
-// ported from lp:juju/juju/providers/openstack/tests/test_machine.py
+// ported from lp:juju/juju/internal/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
 	summary    string
 	floatingIP string

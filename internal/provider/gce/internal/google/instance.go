@@ -211,6 +211,15 @@ func (c *Connection) ListMachineTypes(ctx context.Context, zone string) ([]*comp
 	return fetchResults[computepb.MachineType](iter.Next, "machine types")
 }
 
+// MachineType retrieves the machine type definition for the specified instance type.
+func (c *Connection) MachineType(ctx context.Context, zone, instanceType string) (*computepb.MachineType, error) {
+	return c.machineTypes.Get(ctx, &computepb.GetMachineTypeRequest{
+		Project:     c.projectID,
+		Zone:        zone,
+		MachineType: instanceType,
+	})
+}
+
 func (c *Connection) updateInstanceMetadata(ctx context.Context, instance *computepb.Instance, key, value string) error {
 	metadata := instance.GetMetadata()
 	existingItem := findMetadataItem(metadata.GetItems(), key)

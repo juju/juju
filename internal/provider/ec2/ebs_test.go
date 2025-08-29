@@ -1053,9 +1053,9 @@ func (s *ebsSuite) TestImportVolume(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	volID := aws.ToString(resp.VolumeId)
-	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(c.Context(), volID, map[string]string{
+	volInfo, err := vs.(storage.VolumeImporter).ImportVolume(c.Context(), volID, "", map[string]string{
 		"foo": "bar",
-	})
+	}, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(volInfo, tc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   volID,
@@ -1085,9 +1085,9 @@ func (s *ebsSuite) TestImportVolumeCredentialError(c *tc.C) {
 
 	s.srv.ec2srv.SetAPIError("CreateTags", &smithy.GenericAPIError{Code: "Blocked"})
 
-	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), aws.ToString(resp.VolumeId), map[string]string{
+	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), aws.ToString(resp.VolumeId), "", map[string]string{
 		"foo": "bar",
-	})
+	}, false)
 	c.Assert(err, tc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
@@ -1100,7 +1100,7 @@ func (s *ebsSuite) TestImportVolumeInUse(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	volId := params[0].VolumeId
-	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), volId, map[string]string{})
+	_, err = vs.(storage.VolumeImporter).ImportVolume(c.Context(), volId, "", map[string]string{}, false)
 	c.Assert(err, tc.ErrorMatches, `cannot import volume with status "in-use"`)
 }
 

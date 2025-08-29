@@ -629,7 +629,7 @@ func reconcileDeadUnitScale(
 
 	// We haven't met the threshold to initiate scale down in the CAAS provider
 	// yet.
-	if unitsToRemove != len(deadUnits) {
+	if unitsToRemove != len(deadUnits) || len(deadUnits) == 0 {
 		return nil
 	}
 

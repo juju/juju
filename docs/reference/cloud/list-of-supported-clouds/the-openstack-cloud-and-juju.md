@@ -2,9 +2,9 @@
 # The OpenStack cloud and Juju
 
 
-This document describes details specific to using your existing OpenStack cloud with Juju. 
+This document describes details specific to using your existing OpenStack cloud with Juju.
 
-> See more: [OpenStack](https://www.openstack.org/) 
+> See more: [OpenStack](https://www.openstack.org/)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -40,14 +40,14 @@ Name in Juju: User-defined.
 
 Attributes:
 
-- username: The username to authenticate with. (required)
-- password: The password for the specified username. (required)
-- tenant-name: The OpenStack tenant name. (optional)
-- tenant-id: The Openstack tenant ID (optional)
-- version: The Openstack identity version (optional)
-- domain-name: The OpenStack domain name. (optional)
-- project-domain-name: The OpenStack project domain name. (optional)
-- user-domain-name: The OpenStack user domain name. (optional)
+- `username`: The username to authenticate with. (required)
+- `password`: The password for the specified username. (required)
+- `tenant-name`: The OpenStack tenant name. (optional)
+- `tenant-id`: The Openstack tenant ID (optional)
+- `version`: The Openstack identity version (optional)
+- `domain-name`: The OpenStack domain name. (optional)
+- `project-domain-name`: The OpenStack project domain name. (optional)
+- `user-domain-name`: The OpenStack user domain name. (optional)
 
 
 ## Notes on `juju bootstrap`
@@ -138,3 +138,14 @@ The network label or UUID to bring machines up on when multiple networks exist.
 | - {ref}`placement-directive-system-id`           | &#10005; |
 | - {ref}`placement-directive-zone`                | &#10003; |
 
+
+## Cloud-specific storage providers
+
+> See first: {ref}`storage-provider`
+
+(storage-provider-cinder)=
+### `cinder`
+
+Configuration options:
+
+- `volume-type`: The volume type. Value is the name of any volume type registered with Cinder.

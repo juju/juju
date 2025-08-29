@@ -15,6 +15,7 @@ test_storage_k8s() {
 		export KUBE_CONFIG="${TEST_DIR}"/kube.conf
 
 		test_import_filesystem
+		test_force_import_filesystem
 		;;
 	*)
 		echo "==> TEST SKIPPED: storage k8s tests, not a k8s provider"

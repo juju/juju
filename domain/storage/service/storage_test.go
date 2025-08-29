@@ -248,10 +248,10 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *tc.C) {
 		ModelUUID:      modelUUID,
 		ControllerUUID: controllerUUID,
 	}, nil)
-	s.volumeImporter.EXPECT().ImportVolume(gomock.Any(), "provider-id", map[string]string{
+	s.volumeImporter.EXPECT().ImportVolume(gomock.Any(), "provider-id", "", map[string]string{
 		"juju-model-uuid":      modelUUID,
 		"juju-controller-uuid": controllerUUID,
-	}).Return(storage.VolumeInfo{
+	}, false).Return(storage.VolumeInfo{
 		VolumeId:   "provider-id",
 		HardwareId: "hw",
 		WWN:        "wwn",
