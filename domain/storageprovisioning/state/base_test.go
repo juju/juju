@@ -35,8 +35,6 @@ type baseSuite struct {
 	schematesting.ModelSuite
 }
 
-type preparer struct{}
-
 // changeMachineLife is a utility function for updating the life value of a
 // machine.
 func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domainlife.Life) {
@@ -252,13 +250,14 @@ func (s *baseSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) {
+) string {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
 `, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
+	return saUUID.String()
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
@@ -438,6 +437,59 @@ VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *baseSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
+func (s *baseSuite) newModelFilesystemAttachmentWithMount(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+	mountPoint string,
+	readOnly bool,
+) storageprovisioning.FilesystemAttachmentUUID {
+	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           mount_point,
+                                           read_only,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, ?, ?, 0)
+`,
+		attachmentUUID.String(),
+		fsUUID,
+		netNodeUUID.String(),
+		mountPoint,
+		readOnly,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID
+}
+
+type preparer struct{}
 
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, typeSamples...)

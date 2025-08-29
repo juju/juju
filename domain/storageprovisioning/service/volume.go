@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/changestream"
+	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -364,7 +364,7 @@ func (s *Service) WatchModelProvisionedVolumes(
 		ctx,
 		initialQuery,
 		"model provisioned volume watcher",
-		eventsource.NamespaceFilter(ns, changestream.All))
+		eventsource.NamespaceFilter(ns, corechangestream.All))
 }
 
 // WatchMachineProvisionedVolumes returns a watcher that emits volume IDs,
@@ -396,7 +396,7 @@ func (s *Service) WatchMachineProvisionedVolumes(
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumes(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -425,7 +425,7 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 		ctx,
 		initialQuery,
 		"model provisioned volume attachment watcher",
-		eventsource.NamespaceFilter(ns, changestream.All),
+		eventsource.NamespaceFilter(ns, corechangestream.All),
 	)
 }
 
@@ -459,7 +459,7 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	ns, initialLifeQuery := s.st.InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
@@ -504,7 +504,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 	ns, initialLifeQuery := s.st.InitialWatchStatementVolumeAttachmentPlans(netNodeUUID)
 	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
 	filter := eventsource.PredicateFilter(
-		ns, changestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
+		ns, corechangestream.All, eventsource.EqualsPredicate(netNodeUUID.String()),
 	)
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(

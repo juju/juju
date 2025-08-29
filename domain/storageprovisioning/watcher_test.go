@@ -9,17 +9,28 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/storageprovisioning/service"
 	"github.com/juju/juju/domain/storageprovisioning/state"
+	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -36,24 +47,29 @@ func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 
+func (s *watcherSuite) setupService(c *tc.C) *service.Service {
+	logger := loggertesting.WrapCheckLog(c)
+	factory := domain.NewWatcherFactory(
+		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storageprovisioning"),
+		logger,
+	)
+	return service.NewService(state.NewState(s.TxnRunnerFactory()), factory, logger)
+}
+
 // TestWatchMachineProvisionedFilesystems asserts the watcher behaviour for
 // machine provisioned filesystems through both the service and state layers.
 func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchMachineProvisionedFilesystems(c.Context(), coremachine.UUID(machineUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 	var (
-		fsOneUUID, fsOneID, fsTwoUUID, fsTwoID string
-		fsaTwoUUID                             string
+		fsOneUUID, fsTwoUUID storageprovisioning.FilesystemUUID
+		fsOneID, fsTwoID     string
+		fsaTwoUUID           string
 	)
 
 	// Assert that without any attachments machine provisioned filesystems do
@@ -69,8 +85,8 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	// Assert that adding the first attachment for the filesystem causes the
 	// watcher to fire.
 	harness.AddTest(c, func(c *tc.C) {
-		s.newMachineFilesystemAttachmentForMachine(c, fsOneUUID, machineUUID)
-		fsaTwoUUID = s.newMachineFilesystemAttachmentForMachine(c, fsTwoUUID, machineUUID)
+		s.newMachineFilesystemAttachmentForMachine(c, fsOneUUID.String(), machineUUID)
+		fsaTwoUUID = s.newMachineFilesystemAttachmentForMachine(c, fsTwoUUID.String(), machineUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(fsOneID, fsTwoID),
@@ -79,7 +95,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	// Assert that a life change to a filesystem is reported by the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemLife(c, fsOneUUID, domainlife.Dying)
+		s.changeFilesystemLife(c, fsOneUUID.String(), domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(fsOneID),
@@ -89,7 +105,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 	// Assert that changing something about a filesystem which isn't the life
 	// does not produce a change in the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemProviderID(c, fsTwoUUID)
+		s.changeFilesystemProviderID(c, fsTwoUUID.String())
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -111,14 +127,9 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 // behaviour for filesystem attachments that are machine provisioned through
 // both the service and state layers.
 func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchMachineProvisionedFilesystemAttachments(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -179,14 +190,9 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystemAttachments(c *tc.C)
 // for filesystem attachments that are model provisioned through both the
 // service and state layers.
 func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchModelProvisionedFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -244,12 +250,8 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystemAttachments(c *tc.C) {
 // filesystems that are model provisioned through both the service and state
 // layers.
 func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchModelProvisionedFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -304,14 +306,9 @@ func (s *watcherSuite) TestWatchModelProvisionedFilesystems(c *tc.C) {
 // volumes that are machine provisioned through both the service and state
 // layers.
 func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchMachineProvisionedVolumes(c.Context(), coremachine.UUID(machineUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -376,14 +373,9 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 // behaviour for volume attachments provisioned by machines through both the
 // service and state layers.
 func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchMachineProvisionedVolumeAttachments(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -444,14 +436,9 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 // for volume attachments that are model provisioned through both the service
 // and state layers.
 func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchModelProvisionedVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -508,12 +495,8 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 // TestWatchModelProvisionedVolumes asserts the watcher behaviour for
 // volumes that are model provisioned through both the service and state layers.
 func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchModelProvisionedVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -567,14 +550,9 @@ func (s *watcherSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 // TestWatchVolumeAttachmentPlans asserts the watcher behaviour for volume
 // attachment plans through both the service and state layers.
 func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchVolumeAttachmentPlans(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -629,14 +607,9 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 // TestWatchMachineCloudInstance asserts the watcher behaviour for machine
 // cloud instance changes through the service and state layers.
 func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
-	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "storage"),
-		loggertesting.WrapCheckLog(c),
-	)
+	svc := s.setupService(c)
 
 	machineUUID := s.newMachine(c)
-
-	svc := service.NewService(state.NewState(s.TxnRunnerFactory()), factory)
 	watcher, err := svc.WatchMachineCloudInstance(
 		c.Context(), coremachine.UUID(machineUUID),
 	)
@@ -665,6 +638,233 @@ func (s *watcherSuite) TestWatchMachineCloudInstance(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
+	svc := s.setupService(c)
+
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+
+	watcher, err := svc.WatchStorageAttachmentsForUnit(
+		c.Context(), unitUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	storageInstanceUUID1, storageID1 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID2, storageID2 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID3, storageID3 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	harness.AddTest(c, func(c *tc.C) {
+		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
+		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)
+		s.newStorageAttachment(c, storageInstanceUUID3, unitUUID, domainlife.Alive)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				storageID1,
+				storageID2,
+				storageID3,
+			),
+		)
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dying)
+		s.changeStorageAttachmentLife(c, storageInstanceUUID2.String(), domainlife.Dying)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				storageID1,
+				storageID2,
+			),
+		)
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dead)
+		s.changeStorageAttachmentLife(c, storageInstanceUUID3.String(), domainlife.Dying)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				storageID1,
+				storageID3,
+			),
+		)
+	})
+
+	harness.Run(c, []string(nil))
+}
+
+func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
+	svc := s.setupService(c)
+
+	machineUUID := s.newMachine(c)
+	_, charmUUID := s.newApplication(c, "foo")
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	fsaUUID := s.newMachineFilesystemAttachmentForMachine(c, fsUUID.String(), machineUUID)
+
+	watcher, err := svc.WatchStorageAttachmentForMachine(
+		c.Context(), storageID, coremachine.UUID(machineUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Change the life of the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Change the mount point of the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentMountPoint(c, fsaUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Delete the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteFilesystemAttachment(c, fsaUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchStorageAttachmentForMachineVolume(c *tc.C) {
+	svc := s.setupService(c)
+
+	machineUUID := s.newMachine(c)
+	_, charmUUID := s.newApplication(c, "foo")
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
+	volumeAttachmentUUID := s.newMachineVolumeAttachmentForMachine(c, volumeUUID, machineUUID)
+
+	watcher, err := svc.WatchStorageAttachmentForMachine(
+		c.Context(), storageID, coremachine.UUID(machineUUID),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Change the life of the volume attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeVolumeAttachmentLife(c, volumeAttachmentUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Delete the volume attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteVolumeAttachment(c, volumeAttachmentUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
+	svc := s.setupService(c)
+
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+
+	fsUUID, _ := s.newMachineFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+	fsaUUID := s.newModelFilesystemAttachmentForNetNode(c, fsUUID.String(), netNodeUUID.String())
+
+	watcher, err := svc.WatchStorageAttachmentForUnit(
+		c.Context(), storageID, unitUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Change the life of the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Change the mount point of the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentMountPoint(c, fsaUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Delete the filesystem attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteFilesystemAttachment(c, fsaUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchStorageAttachmentForUnitVolume(c *tc.C) {
+	svc := s.setupService(c)
+
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+
+	volumeUUID, _ := s.newMachineVolume(c)
+	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
+	volumeAttachmentUUID := s.newModelVolumeAttachmentForNetNode(c, volumeUUID, netNodeUUID.String())
+
+	watcher, err := svc.WatchStorageAttachmentForUnit(
+		c.Context(), storageID, unitUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Change the life of the volume attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeVolumeAttachmentLife(c, volumeAttachmentUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Delete the volume attachment.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteVolumeAttachment(c, volumeAttachmentUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) changeStorageAttachmentLife(
+	c *tc.C, storageInstanceUUID string, life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_attachment
+SET    life_id = ?
+WHERE  storage_instance_uuid = ?
+`, int(life), storageInstanceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // changeFilesystemAttachmentLife is a utility function for updating the life
 // value of a filesystem attachment.
 func (s *watcherSuite) changeFilesystemAttachmentLife(
@@ -682,6 +882,17 @@ WHERE  uuid = ?
 		)
 		return err
 	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) changeVolumeAttachmentLife(
+	c *tc.C, uuid string, life domainlife.Life,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume_attachment
+SET    life_id = ?
+WHERE  uuid = ?`, int(life), uuid,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -711,18 +922,14 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeFilesystemAttachmentMountPoint(
 	c *tc.C, uuid string,
 ) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(
-			ctx,
-			`
+
+	_, err := s.DB().Exec(`
 UPDATE storage_filesystem_attachment
 SET    mount_point = 'foobar'
 WHERE  uuid = ?
 `,
-			uuid,
-		)
-		return err
-	})
+		uuid,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -978,27 +1185,24 @@ WHERE  uuid = ?
 // supplied net node. The newly created machines uuid is returned along with the
 // name.
 func (s *watcherSuite) newMachine(c *tc.C) string {
-	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
-	c.Check(err, tc.ErrorIsNil)
 	machineUUID := machinetesting.GenUUID(c)
 	name := "mfoo-" + machineUUID.String()
 
+	nodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO net_node VALUES (?)",
-			netNodeUUID.String(),
-		)
+		_, err := tx.Exec(`
+INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
 		if err != nil {
 			return err
 		}
 
-		_, err = tx.ExecContext(
-			ctx,
-			"INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)",
+		_, err = tx.Exec(`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
 			machineUUID.String(),
 			name,
-			netNodeUUID.String(),
+			nodeUUID.String(),
 		)
 		return err
 	})
@@ -1025,13 +1229,12 @@ func (s *watcherSuite) newMachineCloudInstance(
 
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope. Returned is the uuid and filesystem id of the entity.
-func (s *watcherSuite) newMachineFilesystem(c *tc.C) (string, string) {
-	fsUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+func (s *watcherSuite) newMachineFilesystem(c *tc.C) (storageprovisioning.FilesystemUUID, string) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx, `
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
@@ -1044,7 +1247,7 @@ VALUES (?, ?, 0, 1)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return fsUUID.String(), fsID
+	return fsUUID, fsID
 }
 
 // newMachineFilesystemAttachmentForMachine creates a new filesystem attachment
@@ -1160,11 +1363,39 @@ VALUES (?, ?, ?, 0, 0)
 	return attachmentUUID.String()
 }
 
+func (s *watcherSuite) newModelFilesystemAttachmentForNetNode(
+	c *tc.C, fsUUID string, netNodeUUID string,
+) string {
+	attachmentUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, 0)
+`,
+			attachmentUUID.String(),
+			fsUUID,
+			netNodeUUID,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID.String()
+}
+
 // newMachineVolumeAttachmentForMachine creates a new volume attachment
 // that has machine provision scope. The attachment is associated with the
 // provided filesystem uuid and machine uuid.
 func (s *watcherSuite) newMachineVolumeAttachmentForMachine(
-	c *tc.C, fsUUID string, machineUUID string,
+	c *tc.C, volUUID string, machineUUID string,
 ) string {
 	attachmentUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1194,7 +1425,7 @@ INSERT INTO storage_volume_attachment (uuid,
                                        provision_scope_id)
 VALUES (?, ?, ?, 0, 1)
 `,
-			attachmentUUID.String(), fsUUID, netNodeUUID,
+			attachmentUUID.String(), volUUID, netNodeUUID,
 		)
 		return err
 	})
@@ -1305,34 +1536,208 @@ func (s *watcherSuite) newModelVolumeAttachmentForMachine(
 
 	var netNodeUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(
-			ctx,
-			`
+		err := tx.QueryRow(`
 SELECT net_node_uuid
 FROM machine
-WHERE uuid = ?
-			`,
-			machineUUID,
-		).Scan(&netNodeUUID)
+WHERE uuid = ?`, machineUUID).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = tx.ExecContext(
-			ctx,
-			`
-INSERT INTO storage_volume_attachment (uuid,
-                                       storage_volume_uuid,
-                                       net_node_uuid,
-                                       life_id,
-                                       provision_scope_id)
-VALUES (?, ?, ?, 0, 0)
-`,
-			attachmentUUID.String(), vsUUID, netNodeUUID,
-		)
+		_, err = tx.Exec(`
+INSERT INTO storage_volume_attachment (
+    uuid,
+    storage_volume_uuid,
+    net_node_uuid,
+    life_id,
+    provision_scope_id)
+VALUES (?, ?, ?, 0, 0)`, attachmentUUID.String(), vsUUID, netNodeUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
+}
+
+func (s *watcherSuite) newModelVolumeAttachmentForNetNode(
+	c *tc.C, vsUUID string, netNodeUUID string,
+) string {
+	attachmentUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_volume_attachment (
+    uuid,
+    storage_volume_uuid,
+    net_node_uuid,
+    life_id,
+    provision_scope_id)
+VALUES (?, ?, ?, 0, 0)`, attachmentUUID.String(), vsUUID, netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return attachmentUUID.String()
+}
+
+func (s *watcherSuite) newApplication(c *tc.C, name string) (string, string) {
+	appUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES (?, 0, ?, 1, 0)`, charmUUID.String(), "foo")
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'myapp')`, charmUUID.String())
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return appUUID.String(), charmUUID.String()
+}
+
+func (s *watcherSuite) newUnitWithNetNode(
+	c *tc.C, name, appUUID, charmUUID string,
+) (coreunit.UUID, coreunit.Name, domainnetwork.NetNodeUUID) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	nodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = s.DB().Exec(`
+INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`
+INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?, ?, 0)`,
+			unitUUID.String(), name, appUUID, charmUUID, nodeUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return unitUUID, coreunit.Name(name), nodeUUID
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, typeSamples...)
+}
+
+func (s *watcherSuite) nextStorageSequenceNumber(
+	c *tc.C,
+) uint64 {
+	var id uint64
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		id, err = sequencestate.NextValue(
+			ctx, preparer{}, tx, domainsequence.StaticNamespace("storage"),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return id
+}
+
+func (s *watcherSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) string {
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range attrs {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
+VALUES (?, ?, ?)`, spUUID.String(), k, v)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return spUUID.String()
+}
+
+func (s *watcherSuite) newStorageInstanceWithCharmUUID(
+	c *tc.C, charmUUID, poolUUID string,
+) (domainstorage.StorageInstanceUUID, string) {
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	seq := s.nextStorageSequenceNumber(c)
+	storageName := fmt.Sprintf("mystorage-%d", seq)
+	storageID := fmt.Sprintf("mystorage/%d", seq)
+
+	_, err := s.DB().Exec(`
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+VALUES (?, ?, ?, ?, 0, 100, ?)`,
+		storageInstanceUUID.String(),
+		charmUUID,
+		storageName,
+		storageID,
+		poolUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return storageInstanceUUID, storageID
+}
+
+func (s *watcherSuite) newStorageAttachment(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+	unitUUID coreunit.UUID,
+	life domainlife.Life,
+) {
+	saUUID := domaintesting.GenStorageAttachmentUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)`,
+		saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) newStorageInstanceFilesystem(
+	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+) {
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) newStorageInstanceVolume(
+	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
+	volumeUUID storageprovisioning.VolumeUUID,
+) {
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx, `
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 }

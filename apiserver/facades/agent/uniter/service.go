@@ -598,10 +598,35 @@ type StorageProvisioningService interface {
 	// The following errors may be returned:
 	// - [coreerrors.NotValid] when the provided unit UUID is not valid.
 	// - [applicationerrors.UnitNotFound] when no unit exists for the supplied unit UUID.
-	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-	// instance exists for the provided ID.
-	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage attachment does not exist for the unit.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound]
+	// when no storage instance exists for the provided ID.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageAttachmentNotFound]
+	// when the storage attachment does not exist for the unit.
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
+
+	// WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
+	// for the provided unit when the unit's storage attachments are changed.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error)
+
+	// WatchStorageAttachmentForUnit returns a notification watcher for the
+	// storage attachment of a unit.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+	// is not valid.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound] if the storage
+	// instance does not exist for the provided storage ID.
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageAttachmentNotFound] if the
+	// storage attachment does not exist.
+	WatchStorageAttachmentForUnit(
+		ctx context.Context,
+		storageID string,
+		unitUUID coreunit.UUID,
+	) (watcher.NotifyWatcher, error)
 }

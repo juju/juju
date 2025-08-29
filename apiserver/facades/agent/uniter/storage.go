@@ -234,17 +234,51 @@ func (s *StorageAPI) StorageAttachmentLife(ctx context.Context, args params.Stor
 // each of which can be used to watch for lifecycle changes to the corresponding
 // unit's storage attachments.
 func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+
+	one := func(tag string) (watcher.StringsWatcher, error) {
+		unitTag, err := names.ParseUnitTag(tag)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit tag %q: %w", tag, err)
+		}
+		if !canAccess(unitTag) {
+			return nil, apiservererrors.ErrPerm
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+
+		w, err := s.storageProvisioningService.WatchStorageAttachmentsForUnit(ctx, unitUUID)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return nil, internalerrors.Errorf(
+				"unit %q not found: %w", unitTag.Id(), err,
+			).Add(errors.NotFound)
+		} else if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		return w, nil
+	}
+
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	for i := range args.Entities {
-		var err error
-		results.Results[i].StringsWatcherId, results.Results[i].Changes, err = internal.EnsureRegisterWatcher(
-			ctx,
-			s.watcherRegistry,
-			watcher.TODO[[]string](),
-		)
-		results.Results[i].Error = apiservererrors.ServerError(err)
+	for i, entity := range args.Entities {
+		w, err := one(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if results.Results[i].StringsWatcherId, results.Results[i].Changes, err = internal.EnsureRegisterWatcher(
+			ctx, s.watcherRegistry, w,
+		); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }
@@ -253,17 +287,67 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 // attachments, each of which can be used to watch changes to storage
 // attachment info.
 func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+
+	one := func(id params.StorageAttachmentId) (watcher.NotifyWatcher, error) {
+		unitTag, err := names.ParseUnitTag(id.UnitTag)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing unit tag %q: %w", id.UnitTag, err)
+		}
+		if !canAccess(unitTag) {
+			return nil, apiservererrors.ErrPerm
+		}
+		storageTag, err := names.ParseStorageTag(id.StorageTag)
+		if err != nil {
+			return nil, internalerrors.Errorf("parsing storage tag %q: %w", id.StorageTag, err)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		w, err := s.storageProvisioningService.WatchStorageAttachmentForUnit(ctx, storageTag.Id(), unitUUID)
+		switch {
+		case errors.Is(err, coreerrors.NotValid):
+			return nil, internalerrors.Errorf(
+				"unit UUID %q is not valid: %w", unitUUID, err,
+			).Add(errors.NotValid)
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			return nil, internalerrors.Errorf(
+				"unit %q not found: %w", unitTag.Id(), err,
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
+			return nil, internalerrors.Errorf(
+				"storage instance not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
+			).Add(errors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
+			return nil, internalerrors.Errorf(
+				"storage attachment not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
+			).Add(errors.NotFound)
+		case err != nil:
+			return nil, internalerrors.Capture(err)
+		}
+		return w, nil
+	}
+
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Ids)),
 	}
-	for i := range args.Ids {
-		var err error
-		results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
-			ctx,
-			s.watcherRegistry,
-			watcher.TODO[struct{}](),
-		)
-		results.Results[i].Error = apiservererrors.ServerError(err)
+	for i, id := range args.Ids {
+		w, err := one(id)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
+			ctx, s.watcherRegistry, w,
+		); err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }

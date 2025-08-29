@@ -16,6 +16,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -416,6 +417,232 @@ func (s *storageSuite) TestStorageAttachmentLifeWithAttachmentNotFound(c *tc.C) 
 			{
 				StorageTag: "storage-foo-1",
 				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	changed := make(chan []string, 1)
+	changed <- []string{"foo/1", "bar/1"}
+	sourceWatcher := watchertest.NewMockStringsWatcher(changed)
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentsForUnit(gomock.Any(), unitUUID).Return(sourceWatcher, nil)
+	s.mockWatcherRegistry.EXPECT().Register(gomock.Any(), sourceWatcher).Return("66", nil)
+
+	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "66")
+	c.Assert(result.Changes, tc.DeepEquals, []string{"foo/1", "bar/1"})
+}
+
+func (s *storageSuite) TestWatchUnitStorageAttachmentsWithUnitNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return("", applicationerrors.UnitNotFound)
+
+	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestWatchUnitStorageAttachmentsWithUnitNotFound2(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentsForUnit(gomock.Any(), unitUUID).Return(nil, applicationerrors.UnitNotFound)
+
+	results, err := api.WatchUnitStorageAttachments(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	changed := make(chan struct{}, 1)
+	changed <- struct{}{}
+	sourceWatcher := watchertest.NewMockNotifyWatcher(changed)
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
+		"foo/1", unitUUID,
+	).Return(sourceWatcher, nil)
+	s.mockWatcherRegistry.EXPECT().Register(gomock.Any(), sourceWatcher).Return("66", nil)
+
+	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				UnitTag:    unitTag.String(),
+				StorageTag: "storage-foo-1",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "66")
+}
+
+func (s *storageSuite) TestWatchStorageAttachmentsForUnitWithInvalidUnitName(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
+		"foo/1", unitUUID,
+	).Return(nil, coreerrors.NotValid)
+
+	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				UnitTag:    unitTag.String(),
+				StorageTag: "storage-foo-1",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotValid)
+}
+
+func (s *storageSuite) TestWatchStorageAttachmentsForUnitWithUnitNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
+		"foo/1", unitUUID,
+	).Return(nil, coreerrors.NotFound)
+
+	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				UnitTag:    unitTag.String(),
+				StorageTag: "storage-foo-1",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestWatchStorageAttachmentsForUnitWithStorageInstanceNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
+		"foo/1", unitUUID,
+	).Return(nil, storageprovisioningerrors.StorageInstanceNotFound)
+
+	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				UnitTag:    unitTag.String(),
+				StorageTag: "storage-foo-1",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestWatchStorageAttachmentsForUnitWithStorageAttachmentNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.IsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().WatchStorageAttachmentForUnit(gomock.Any(),
+		"foo/1", unitUUID,
+	).Return(nil, storageprovisioningerrors.StorageAttachmentNotFound)
+
+	results, err := api.WatchStorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				UnitTag:    unitTag.String(),
+				StorageTag: "storage-foo-1",
 			},
 		},
 	})
