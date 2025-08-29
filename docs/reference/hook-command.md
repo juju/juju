@@ -1,7 +1,9 @@
 (hook-command)=
 # Hook command
 
-> See also: {ref}`Hook <hook>`
+```{ibnote}
+See also: {ref}`Hook <hook>`
+```
 
 ```{toctree}
 :hidden:

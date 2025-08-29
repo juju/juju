@@ -1,7 +1,9 @@
 (manage-ssh-keys)=
 # How to manage SSH keys
 
-> See also: {ref}`ssh-key`
+```{ibnote}
+See also: {ref}`ssh-key`
+```
 
 (add-an-ssh-key)=
 ## Add an SSH key
@@ -32,8 +34,9 @@ juju add-ssh-key "$(cat ~/mykey.pub)"
 This will add the SSH key to the default user account named 'ubuntu'.
 -->
 
-> See more: {ref}`command-juju-add-ssh-key`
-
+```{ibnote}
+See more: {ref}`command-juju-add-ssh-key`
+```
 
 ## Import an SSH key
 
@@ -48,7 +51,9 @@ juju import-ssh-key gh:phamilton
 This will add the SSH key to the default user account named 'ubuntu'.
 -->
 
-> See more: {ref}`command-juju-import-ssh-key`
+```{ibnote}
+See more: {ref}`command-juju-import-ssh-key`
+```
 
 ## View the available SSH keys
 
@@ -64,8 +69,9 @@ If you want to get more details, or get this information for a different model, 
 juju ssh-keys -m jujutest --full
 -->
 
-> See more: {ref}`command-juju-ssh-keys`
-
+```{ibnote}
+See more: {ref}`command-juju-ssh-keys`
+```
 
 ## Remove an SSH key
 
@@ -75,5 +81,7 @@ To remove an SSH key, use the `remove-ssh-key` command followed by the key / a s
 juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4 bob@ubuntu
 ```
 
-> See more: {ref}`command-juju-remove-ssh-key`
+```{ibnote}
+See more: {ref}`command-juju-remove-ssh-key`
+```
 

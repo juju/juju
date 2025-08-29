@@ -1,18 +1,19 @@
 (cloud-openstack)=
 # The OpenStack cloud and Juju
 
-
 This document describes details specific to using your existing OpenStack cloud with Juju.
 
-> See more: [OpenStack](https://www.openstack.org/)
+```{ibnote}
+See more: [OpenStack](https://www.openstack.org/)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
-
 
 ## Supported cloud versions
 
@@ -53,7 +54,6 @@ Attributes:
 ## Notes on `juju bootstrap`
 
 You will need to create an OpenStack machine metadata. If the metadata is available locally, you can pass it to Juju via `juju bootstrap ... --metadata-source <path to metadata simplestreams`. <br> > See more: {ref}`manage-metadata`. <p> **If your cloud has multiple private networks:** You will need to specify the one that you want the instances to boot from via `juju bootstrap ... --model-default network=<network uuid or name>`. <p> **If your cloud's topology requires that its instances are accessed via floating IP addresses:** Pass the `allocate-public-ip=true` (see constraints below) as a bootstrap constraint.
-
 
 ## Cloud-specific model configuration keys
 
@@ -141,7 +141,9 @@ The network label or UUID to bring machines up on when multiple networks exist.
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 (storage-provider-cinder)=
 ### `cinder`

@@ -4,9 +4,7 @@
 Telemetry is the automatic recording and transmission of data from remote sources. In Juju, it specifically refers to the gathering of routine business metrics with the purpose of helping developers improve Juju. This happens automatically once a day, on a per model basis.  For more details, see below.
 
 ```{note}
-
 No user information is gathered.
-
 ```
 
 ## What data is collected?
@@ -41,7 +39,7 @@ The data will help us gain a better understanding of how Juju is used in the fie
 
 For example, we can better design improvements, create new bundles for charms commonly used together, etc.
 
-Eventually, some data, such as the names of the charms an application is related to, will also be available to charm authors for use in improving their charms. 
+Eventually, some data, such as the names of the charms an application is related to, will also be available to charm authors for use in improving their charms.
 
 ## How do I disable data collection?
 

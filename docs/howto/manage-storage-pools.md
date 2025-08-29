@@ -1,7 +1,9 @@
 (manage-storage-pools)=
 # How to manage storage pools
 
-> See also: {ref}`storage-pool`
+```{ibnote}
+See also: {ref}`storage-pool`
+```
 
 This document shows how to work with storage pools.
 
@@ -9,7 +11,9 @@ This document shows how to work with storage pools.
 
 First, check if your provider supports any storage configuration attributes. For example, in the case of AWS, the `ebs` storage provider supports several configuration attributes, and among these are `volume-type`, which configures the volume type (i.e. magnetic, ssd, or provisioned-iops), and `iops`, which indicates the IOPS per GiB.
 
-> See more: {ref}`storage-provider` > `ebs`, [Wikipedia | IOPS](https://en.wikipedia.org/wiki/IOPS)
+```{ibnote}
+See more: {ref}`storage-provider` > `ebs`, [Wikipedia | IOPS](https://en.wikipedia.org/wiki/IOPS)
+```
 
 Second, use the `create-storage-pool` command, passing as parameters the desired name of the pool and the name of the provider and then all the key-value pairs that you want to specify. For example, the code below creates a storage pool with the name `iops` which is a version of `ebs` with 30 IOPS.
 
@@ -17,8 +21,9 @@ Second, use the `create-storage-pool` command, passing as parameters the desired
 juju create-storage-pool iops ebs volume-type=provisioned-iops iops=30
 ```
 
-> See more: {ref}`command-juju-create-storage-pool`
-
+```{ibnote}
+See more: {ref}`command-juju-create-storage-pool`
+```
 
 ## View the available storage pools
 
@@ -49,7 +54,9 @@ tmpfs    tmpfs
 
 ````
 
-> See more: {ref}`command-juju-storage-pools`
+```{ibnote}
+See more: {ref}`command-juju-storage-pools`
+```
 
 ## View the default storage pool
 
@@ -59,8 +66,9 @@ To find out the default storage pool for your block-type / filesystem-type, run 
 juju model-config storage-default-block-source
 ```
 
-> See more: {ref}`command-juju-model-config`, {ref}`storage-default-block-source`, {ref}`storage-default-filesystem-source`
-
+```{ibnote}
+See more: {ref}`command-juju-model-config`, {ref}`storage-default-block-source`, {ref}`storage-default-filesystem-source`
+```
 
 ## Update a storage pool
 
@@ -71,7 +79,6 @@ juju update-storage-pool test-pool
 ```
 
 ````{dropdown} Example
-
 
 ```text
 # Update the storage-pool named iops with new configuration details:
@@ -85,10 +92,11 @@ juju update-storage-pool lxd-storage type=lxd-zfs
 
 ---
 
-> See more: {ref}`command-juju-update-storage-pool`
+```{ibnote}
+See more: {ref}`command-juju-update-storage-pool`
+```
 
 ## Remove a storage pool
-
 
 To remove an existing storage pool, use the `remove-storage-pool` command:
 
@@ -96,6 +104,7 @@ To remove an existing storage pool, use the `remove-storage-pool` command:
 juju remove-storage-pool test-pool
 ```
 
-
-> See more: {ref}`command-juju-remove-storage-pool`
+```{ibnote}
+See more: {ref}`command-juju-remove-storage-pool`
+```
 

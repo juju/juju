@@ -1,7 +1,9 @@
 (bundle)=
 # Bundle
 
-> See also: {ref}`manage-charms`
+```{ibnote}
+See also: {ref}`manage-charms`
+```
 
 In Juju, a **bundle** is a collection of {ref}`charms <charm>` which have been carefully combined and configured in order to automate a multi-charm solution.
 

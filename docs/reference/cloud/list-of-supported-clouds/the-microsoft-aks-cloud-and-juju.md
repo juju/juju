@@ -4,14 +4,17 @@
 
 This document describes details specific to using your existing Microsoft AKS cloud with Juju.
 
-> See more: [Microsoft AKS](https://azure.microsoft.com/en-us/products/kubernetes-service)
+```{ibnote}
+See more: [Microsoft AKS](https://azure.microsoft.com/en-us/products/kubernetes-service)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) Kubernetes cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Notes on `add-k8s`
 

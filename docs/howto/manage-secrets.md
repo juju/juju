@@ -1,9 +1,11 @@
 (manage-secrets)=
 # How to manage secrets
 
-> See also: {ref}`secret`
+```{ibnote}
+See also: {ref}`secret`
+```
 
-Charms can use relations to share secrets, such as API keys, a database’s address, credentials and so on. This document demonstrates how to interact with them as a Juju user. 
+Charms can use relations to share secrets, such as API keys, a database’s address, credentials and so on. This document demonstrates how to interact with them as a Juju user.
 
 ```{caution}
 The write operations are only available (a) starting with Juju 3.3 and (b) to model admin users looking to manage user-owned secrets. See more: {ref}`secret`.
@@ -20,8 +22,9 @@ secret:copp9vfmp25c77di8nm0
 
 The command also allows you to specify the type of key, whether you want to supply its value from a file, whether you want to give it a label, etc.
 
-> See more: {ref}`command-juju-add-secret`
-
+```{ibnote}
+See more: {ref}`command-juju-add-secret`
+```
 
 ## View all the available secrets
 
@@ -33,7 +36,9 @@ juju secrets
 
 You can also add options to specify an output format, a model other than the current model, an owner, etc.
 
-> See more: {ref}`command-juju-secrets`
+```{ibnote}
+See more: {ref}`command-juju-secrets`
+```
 
 ## View details about a secret
 
@@ -45,8 +50,9 @@ juju show-secret 9m4e2mr0ui3e8a215n4g
 
 You can also add options to specify the format, the revision, whether to reveal the value of a secret, etc.
 
-> See more: {ref}`command-juju-show-secret`
-
+```{ibnote}
+See more: {ref}`command-juju-show-secret`
+```
 
 ## Grant access to a secret
 
@@ -62,13 +68,12 @@ Note that this only gives the application *permission* to use the secret, so you
 juju config <application> <option>=<secret URI>
 ```
 
-> See more: {ref}`command-juju-grant-secret`
-
-
+```{ibnote}
+See more: {ref}`command-juju-grant-secret`
+```
 
 ## Update a secret
 > *This feature is opt-in because Juju automatically removing secret content might result in data loss.*
-
 
 To update a (user) secret, run the `update-secret` command followed by the secret ID and the updated (space-separated list of) key-value pair(s). For example:
 
@@ -76,8 +81,9 @@ To update a (user) secret, run the `update-secret` command followed by the secre
 juju update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
 ```
 
-> See more: {ref}`command-juju-update-secret`
-
+```{ibnote}
+See more: {ref}`command-juju-update-secret`
+```
 
 ## Remove a secret
 
@@ -89,5 +95,7 @@ juju remove-secret  secret:9m4e2mr0ui3e8a215n4g
 
 The command also allows you to specify a model or to provide a specific revision to remove instead of the default all.
 
-> See more: {ref}`command-juju-remove-secret`
+```{ibnote}
+See more: {ref}`command-juju-remove-secret`
+```
 

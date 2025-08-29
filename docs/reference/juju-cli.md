@@ -1,7 +1,9 @@
 (juju-cli)=
 # `juju` CLI
 
-> See also: {ref}`manage-juju`
+```{ibnote}
+See also: {ref}`manage-juju`
+```
 
 
 ```{toctree}
@@ -22,9 +24,6 @@ juju-cli/juju-environment-variables
 <!-- Commented out because it uses "cloud" as the collection of resources provided by what we would call a cloud.
 ![machine](https://assets.ubuntu.com/v1/865acefc-juju-client-2.png)
 -->
-
-
-
 
 ## Directory
 

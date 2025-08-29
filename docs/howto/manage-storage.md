@@ -3,7 +3,9 @@
 
 <!-- This doc has been crafted from https://discourse.charmhub.io/t/how-to-define-and-use-storage/1079 and https://discourse.charmhub.io/t/how-to-remove-storage/5890 -->
 
-> See also: {ref}`storage`
+```{ibnote}
+See also: {ref}`storage`
+```
 
 This document shows how to manage storage. This will enable you to allocate resources at a granular level and can be useful in optimizing the deployment of an application. The level of sophistication is limited by your cloud (whether it supports dynamic storage or storage configuration attributes),
  and by the charm in charge of that application (whether it supports storage persistence, additional cache, etc.).
@@ -29,8 +31,9 @@ Juju will ensure the storage is allowed to attach to the unit's machine.
 The above only works if the volume is in the same availability zone as the instance. This is a requirement that comes from the `ebs` storage provider. See {ref}`dynamic-storage`.
 ```
 
-> See more: {ref}`command-juju-add-storage`, {ref}`storage-constraint`
-
+```{ibnote}
+See more: {ref}`command-juju-add-storage`, {ref}`storage-constraint`
+```
 
 You can also create and attach storage during deployment by running the `deploy` command with a `--storage` option followed by your desired storage constraint. For example, suppose you have an AWS model, you want to deploy the `postgresql` charm on it, and you've already identified a suitable storage constraint of the form `pgdata=iops,100G` (suppose iops is a version of `ebs` with 30 IOPS). You can use all of these in one go as below. This will create a 3000 IOPS storage volume (100GiB x 30IOPS/GiB (x 1)) and attach it to the newly deployed PostgreSQL as its database storage.
 
@@ -42,7 +45,9 @@ juju deploy postgresql --storage pgdata=iops,100G
 Charms might specify a maximum number of storage instances. For example, in the case of the `postgresql` charm, a maximum of one is allowed for 'pgdata'. If an attempt is made to exceed it, Juju will return an error.
 ```
 
-> See more: {ref}`command-juju-deploy`
+```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
 
 And you can also create and attach storage while upgrading a charm.
 
@@ -50,29 +55,33 @@ And you can also create and attach storage while upgrading a charm.
 Specifying new constraints may be necessary when upgrading to a revision of a charmed operator that introduces new, required, storage options.
 ```
 
-
 The logic is entirely parallel to the case where this was done while deploying a charm---you do this by running the `refresh` command with the `--storage` option followed by a suitable  storage constraint, e.g., `pgdata=10G`, as shown below. This will change any existing constraints or define new ones (for example, in the case where the storage option did not exist in the version of the charm before the upgrade). If you don't specify any constraints, the defaults will kick in.
 
 ```text
 juju refresh postgresql --storage pgdata=10G
 ```
 
-> See more: {ref}`command-juju-refresh`
+```{ibnote}
+See more: {ref}`command-juju-refresh`
+```
 
 (view-the-available-storage)=
 ## View the available storage
 
 TBA
 
-> See more: {ref}`command-juju-storage`
-
+```{ibnote}
+See more: {ref}`command-juju-storage`
+```
 
 (view-storage-details)=
 ## View storage details
 
 TBA
 
-> See more: {ref}`command-juju-show-storage`
+```{ibnote}
+See more: {ref}`command-juju-show-storage`
+```
 
 (detach-storage)=
 ## Detach storage
@@ -91,7 +100,9 @@ Charms might define a minimum number of storage instances. For example, the `pos
 Detaching storage from a unit does not destroy the storage.
 ```
 
-> See more: {ref}`command-juju-detach-storage`, {ref}`dynamic-storage`
+```{ibnote}
+See more: {ref}`command-juju-detach-storage`, {ref}`dynamic-storage`
+```
 
 (attach-storage)=
 ## Attach storage
@@ -104,7 +115,9 @@ To deploy PostgreSQL with (detached) existing storage 'pgdata/0':
 juju deploy postgresql --attach-storage pgdata/0
 ```
 
-> See more: {ref}`command-juju-deploy`
+```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
 
 To add a new Ceph OSD unit with (detached) existing storage 'osd-devices/2':
 
@@ -117,8 +130,9 @@ The `--attach-storage` and `-n` flags cannot be used together.
 
 ```
 
-> See more: {ref}`command-juju-add-unit`
-
+```{ibnote}
+See more: {ref}`command-juju-add-unit`
+```
 
 To attach existing storage 'osd-devices/7' to existing unit 'ceph-osd/1':
 
@@ -126,7 +140,9 @@ To attach existing storage 'osd-devices/7' to existing unit 'ceph-osd/1':
 juju attach-storage ceph-osd/1 osd-devices/7
 ```
 
-> See more: {ref}`command-juju-attach-storage`
+```{ibnote}
+See more: {ref}`command-juju-attach-storage`
+```
 
 (reuse-storage)=
 ## Reuse storage
@@ -146,12 +162,16 @@ The determination of the provider ID  is dependent upon the cloud type. Above, i
 It is not possible to add new storage to a model without also attaching it to a unit. However, with the `juju import-filesystem` command, you can add storage to a model that has been previously released from a removed model.
 -->
 
-> See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`
+```{ibnote}
+See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`
+```
 
 (remove-storage)=
 ## Remove storage
-> See also: {ref}`removing-things`
 
+```{ibnote}
+See also: {ref}`removing-things`
+```
 
 The underlying cloud's storage resource is normally destroyed by first detaching it and then using `juju remove-storage`. For example, assuming the 'osd-devices/3' storage instance has already been detached, the code below will remove it from the model. It will also be automatically destroyed on the cloud provider.
 
@@ -181,7 +201,9 @@ If an attempt is made to either attach or remove storage that is currently in us
 juju remove-storage --force pgdata/1
 ```
 
-> See more: {ref}`command-juju-remove-storage`
+```{ibnote}
+See more: {ref}`command-juju-remove-storage`
+```
 
 Finally, a model cannot be destroyed while storage volumes remain without passing a special option (`--release-storage` to detach all volumes and `--destroy-storage` to remove all volumes). You can handle this by either destroying the storage or releasing it (so you can later attach it to something else), as shown below:
 
@@ -193,7 +215,9 @@ juju destroy-model default --destroy-storage
 juju destroy-model default --release-storage
 ```
 
-> See more: {ref}`command-juju-destroy-model`
+```{ibnote}
+See more: {ref}`command-juju-destroy-model`
+```
 
 Naturally, this applies to the removal of a controller as well.
 
@@ -207,5 +231,7 @@ juju destroy-controller lxd-controller --destroy-all-models --destroy-storage
 juju destroy-controller lxd-controller --destroy-all-models --release-storage
 ```
 
-> See more: {ref}`command-juju-destroy-controller`
+```{ibnote}
+See more: {ref}`command-juju-destroy-controller`
+```
 

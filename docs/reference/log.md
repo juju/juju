@@ -1,7 +1,9 @@
 (log)=
 # Log
 
-> See also: {ref}`manage-logs`
+```{ibnote}
+See also: {ref}`manage-logs`
+```
 
 A **log** is a computer-generated record about entities, activities, usage patterns, etc., within a system. In Juju, logs are produced by {ref}`jujud` and keep track of machine and unit agents, models, controllers, etc.
 
@@ -19,11 +21,9 @@ In machine deployments, Juju agent logs are organised into a number of files. Th
 
 Agent log files (e.g., `/var/log/juju/unit-controller-0.log` ) contain the logs for the machine and unit {ref}`agents <agent>`.
 
-
 ### Model log files
 
 Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the [workers](https://juju.is/docs/dev/worker) on a {ref}`model <model>`.
-
 
 ### The audit log file
 
@@ -53,7 +53,6 @@ In a controller high availability scenario, `logsink.log` is not guaranteed to c
 (the-machine-lock-log-file)=
 ### The machine-lock log file
 
-
 The machine-lock log file (`machine-lock.log`) contains logs for the machine lock. The file is only written written after the lock has been released and its purpose is to give more visibility to who has been holding the machine lock.
 
 The machine lock is a file lock that synchronises hook execution on Juju machines. (A machine will only ever run one {ref}`hook <hook>` at a time.) The lock is used to serialize a number of activities of the agents on the machines started by Juju, as follows:
@@ -61,9 +60,6 @@ The machine lock is a file lock that synchronises hook execution on Juju machine
 - The {ref}`machine agent <machine-agent>` will acquire the lock when it needs to install software to create containers, and also in some other instances.
 
 - The {ref}`unit agents <unit-agent>` acquire the machine lock whenever they are going to execute hooks or run actions. Sometimes, when there are multiple units on a given machine, it is not always clear as to why something isn’t happening as soon as you’d normally expect. This log file is to help give you insight into the actions of the agents.
-
-
-
 
 <!--ALREADY COVERED IN https://discourse.charmhub.io/t/list-of-model-configuration-keys/7068#heading--logging-config
 
@@ -99,7 +95,7 @@ The currently supported labels are:
 | `#cmr-auth` | Authentication for cross model relations |
 | `#secrets` | Juju secrets |
 
-> See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
+See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
 
 -->
 

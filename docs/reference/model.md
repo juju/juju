@@ -1,9 +1,8 @@
 (model)=
 # Model
-> See also:
-> - {ref}`manage-models`
-> - {ref}`application-modelling`
-
+```{ibnote}
+See also: {ref}`manage-models`
+```
 
 In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
 
@@ -49,4 +48,6 @@ Inside the cluster, adding a Juju model creates a Kubernetes namespace with the 
 
 A model configuration is a rule or a set of rules that define the behavior of a model -- including the `controller` model.
 
-> See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
+```{ibnote}
+See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
+```

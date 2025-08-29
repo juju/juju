@@ -1,7 +1,9 @@
 (manage-offers)=
 # How to manage offers
 
-> See also: {ref}`offer`
+```{ibnote}
+See also: {ref}`offer`
+```
 
 This document shows how to manage offers.
 
@@ -60,7 +62,7 @@ juju offer mysql:database hosted-mysql
 
 To view the available application endpoints use `juju show-application` and  check the list below `endpoint-bindings`. Example:
 ```text
-juju show-application mysql 
+juju show-application mysql
 mysql:
   charm: mysql
   ...
@@ -87,8 +89,9 @@ If the above mysql offer were made in the `default` model by user `admin`, the U
 
 `admin/default.hosted-mysql`
 
-> See more: {ref}`command-juju-offer`
-
+```{ibnote}
+See more: {ref}`command-juju-offer`
+```
 
 ## View an offer’s details
 > Who: User with {ref}`offer read access <user-access-offer-read>`.
@@ -106,9 +109,9 @@ juju show-offer hosted-mysql
 Store        URL                         Access  Description                                    Endpoint      Interface         Role
 foo          admin/default.hosted-mysql  admin   MySQL is a widely used, open-source            certificates  tls-certificates  requirer
                                                  relational database management system          database      mysql_client      provider
-                                                 (RDBMS). MySQL InnoDB cluster provides a                                       
-                                                 complete high availability solution for MySQL                                  
-                                                 via Group Replic...  
+                                                 (RDBMS). MySQL InnoDB cluster provides a
+                                                 complete high availability solution for MySQL
+                                                 via Group Replic...
 ```
 
 For more details, including which users can access the offer, use the `yaml` format.
@@ -142,8 +145,9 @@ serverstack:admin/default.hosted-mysql:
 
 A non-admin user with read/consume access can also view an offer's details, but they won't see the information for users with access.
 
-> See more: {ref}`command-juju-show-offer`
-
+```{ibnote}
+See more: {ref}`command-juju-show-offer`
+```
 
 ## Control access to an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
@@ -184,8 +188,9 @@ To revoke all of bob's access:
 juju revoke bob read admin/default.hosted-mysql
 ```
 
-> See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
-
+```{ibnote}
+See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
+```
 
 ## Find an offer to use
 > Who: User with {ref}`offer read access <user-access-offer-read>`.
@@ -258,18 +263,19 @@ To find offers with "sql" in the name:
 $ juju find-offers --offer sql foo:
 ```
 
-> See more: {ref}`command-juju-find-offers`
+```{ibnote}
+See more: {ref}`command-juju-find-offers`
+```
 
 (integrate-with-an-offer)=
 ## Integrate with an offer
 > Who: User with {ref}`offer consume access <user-access-offer-consume>`.
 
-
 ```{important}
 Before Juju `3.0`, `juju integrate` was `juju relate`.
 ```
 
-If a user has consume access to an offer, they can deploy an application in their model and establish an integration with the offer by way of its URL. 
+If a user has consume access to an offer, they can deploy an application in their model and establish an integration with the offer by way of its URL.
 
 ```text
 juju integrate <application>[:<application endpoint>] <offer-url>[:<offer endpoint>]
@@ -297,7 +303,10 @@ To remove a consumed offer:
 ```text
 juju remove-saas <offer alias>
 ```
-> See more: {ref}`command-juju-integrate`, {ref}`command-juju-consume`, {ref}`command-juju-remove-saas`
+
+```{ibnote}
+See more: {ref}`command-juju-integrate`, {ref}`command-juju-consume`, {ref}`command-juju-remove-saas`
+```
 
 
 ## Allow traffic from an integrated offer
@@ -368,8 +377,9 @@ Beyond a certain number of firewall rules, which have been dynamically created t
 
 ```
 
-> See more: {ref}`command-juju-set-firewall-rule`, {ref}`command-juju-firewall-rules`
-
+```{ibnote}
+See more: {ref}`command-juju-set-firewall-rule`, {ref}`command-juju-firewall-rules`
+```
 
 ## Inspect integrations with an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
@@ -382,7 +392,7 @@ juju offers [--format (tabular|summary|yaml|json)] [<offer name>]
 
 If `offer name` is not provided, all offers are included in the result.
 
-The default `tabular` output shows each user connected (relating to) the offer, the 
+The default `tabular` output shows each user connected (relating to) the offer, the
 relation id of the relation, and ingress subnets in use with that connection. The `summary` output shows one row per offer, with a count of active/total relations. Use the `yaml` output to see extra detail such as the UUID of the consuming model.
 
 The output can be filtered by:
@@ -433,8 +443,9 @@ juju offers --format summary --allowed-consumer mary
 
 The above command is best run with `--format` summary as the intent is to see, for a given user, what offers they might relate to, regardless of whether there are existing integrations (which is what the tabular view shows).
 
-> See more: {ref}`command-juju-offers`
-
+```{ibnote}
+See more: {ref}`command-juju-offers`
+```
 
 ## Suspend, resume, or remove an integration with an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
@@ -495,8 +506,9 @@ juju suspend-relation 3 4 5 --message "reason for suspension"
 juju resume-relation 2
 ```
 
-> See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`
-
+```{ibnote}
+See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relation`, {ref}`command-juju-remove-relation`
+```
 
 ## Remove an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
@@ -511,5 +523,6 @@ Note that, if the offer resides in the current model, then the shorter offer nam
 
 Similarly, if an application is being offered, it cannot be deleted until all its offers are removed.
 
-
-> See more: {ref}`command-juju-remove-offer`
+```{ibnote}
+See more: {ref}`command-juju-remove-offer`
+```

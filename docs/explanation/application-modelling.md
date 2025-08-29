@@ -1,7 +1,9 @@
 (application-modelling)=
 # Application modelling
 
-> See also: {ref}`Application <application>`, {ref}`Model <model>`
+```{ibnote}
+See also: {ref}`Application <application>`, {ref}`Model <model>`
+```
 
 Juju provides simplicity, stability and security. Models reduce the cognitive gap between the whiteboard picture of your service and how it is implemented. An application model is a definition of which applications are providing a service and how they inter-relate.
 

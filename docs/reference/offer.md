@@ -1,7 +1,9 @@
 (offer)=
 # Offer
 
-> See also: {ref}`manage-offers`
+```{ibnote}
+See also: {ref}`manage-offers`
+```
 
 In Juju, an **offer** represents an {ref}`application <application>` that has been made available for {ref}`cross-model relations <cross-model-relation>`.
 

@@ -160,7 +160,7 @@ The documentation in this section will, where relevant, describe behaviour speci
 Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
 The Juju environment variables are set in addition to those supplied by the execution environment itself.
 
-```{tip}
+````{tip}
 For the curious, or to debug charm behaviour, the environment variables for a specific event
 can be obtained by running
 
@@ -180,8 +180,10 @@ meaning we're inside the charm hook execution context.
 
 At this point,  typing `printenv` will print out the environment variables.
 
-> See more: {ref}`debug-a-charm`
+```{ibnote}
+See more: {ref}`debug-a-charm`
 ```
+````
 
 The following environment variables are set for every hook:
 

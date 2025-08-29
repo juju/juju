@@ -1,7 +1,9 @@
 (ssh-key)=
 # SSH key
 
-> See also: {ref}`manage-ssh-keys`
+```{ibnote}
+See also: {ref}`manage-ssh-keys`
+```
 
 <!--TODO: SEE IF WE NEED TO INCORPORATE THIS SOMEWHERE TOO:
 ### Model creators and SSH keys

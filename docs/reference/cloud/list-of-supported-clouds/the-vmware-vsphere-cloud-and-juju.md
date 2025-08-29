@@ -4,14 +4,17 @@
 
 This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
-> See more: [VMware vSphere](https://docs.vmware.com/)
+```{ibnote}
+See more: [VMware vSphere](https://docs.vmware.com/)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Requirements
 

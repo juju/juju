@@ -13,8 +13,9 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 (model-config-cloud-specific-key)=
 ## `<cloud-specific key>`
 
-> See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
-
+```{ibnote}
+See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
+```
 
 (model-config-agent-metadata-url)=
 ## `agent-metadata-url`
@@ -24,7 +25,6 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 **Type:** string
 
 **Default value:** ""
-
 
 ## `agent-stream`
 
@@ -40,7 +40,9 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 
 `agent-version` is the desired Juju agent version to use.
 
-> See more: {ref}`agent`
+```{ibnote}
+See more: {ref}`agent`
+```
 
 **Type:** string
 
@@ -633,7 +635,9 @@ The currently supported labels are:
 | `#cmr-auth` | Authentication for cross model relations |
 | `#secrets` | Juju secrets |
 
-> See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
+```{ibnote}
+See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
+```
 
 and where `<verbosity level>` can be, in decreasing order of severity:
 
@@ -649,7 +653,9 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
 
 
-> See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```{ibnote}
+See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```
 
 **Examples:**
 

@@ -12,7 +12,6 @@ This document describes details specific to using your existing LXD cloud with J
 
 ````{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
 
-
 Your Ubuntu likely comes with LXD preinstalled. Configure it as below. Juju will then recognize it as the `localhost` cloud.
 
 ```text
@@ -21,8 +20,10 @@ lxc network set lxdbr0 ipv6.address none
 ```
 
 ````
-> See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/)
 
+```{ibnote}
+See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/)
+```
 
 ```{dropdown} Expand to view some reasons to use a LXD cloud
 
@@ -49,7 +50,6 @@ Name in Juju: `localhost`
 ## Notes on `juju add-credential`
 
 **local LXD cloud:** If you are a Juju admin user: Already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise: Add manually as you would a remote. <p> **clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly. <p> **remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.  <br> > See more: [LXD \| How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/)
-
 
 ### Authentication types
 
@@ -164,7 +164,9 @@ config:
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 (storage-provider-lxd)=
 ### `lxd`
@@ -243,7 +245,6 @@ juju bootstrap myremote
 The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the hosts ethernet device.
 ```
 
-
 ### Non-admin user credentials
 
 See {ref}`manage-credentials` for more details on how Juju credentials are used to share a bootstrapped controller.
@@ -255,7 +256,6 @@ To share a LXD server with other users on the same machine or remotely, the best
 LXD clustering provides the ability for applications to be deployed in a high-availability manner. In a clustered LXD cloud, Juju will deploy units across its nodes. See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering/).
 
 ### Use LXD profiles from a charm
-
 
 LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container. See more: [Charmcraft | `lxd-profile.yaml](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/).
 

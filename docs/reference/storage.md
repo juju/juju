@@ -1,7 +1,9 @@
 (storage)=
 # Storage
 
-> See also: {ref}`manage-storage`
+```{ibnote}
+See also: {ref}`manage-storage`
+```
 
 In Juju, **storage** refers to a data volume that is provided by a {ref}`cloud <cloud>`.
 
@@ -38,7 +40,10 @@ In the absence of any explicit storage directive, the storage will be put on the
 
 (storage-pool)=
 ## Storage pool
-> See also: {ref}`manage-storage-pools`
+
+```{ibnote}
+See also: {ref}`manage-storage-pools`
+```
 
 <!-- A storage pool is the aggregate storage capacity available for the provider to partition and assign to individual units. -->
 
@@ -68,7 +73,9 @@ See {ref}`list-of-supported-clouds` > `<cloud name>` > Storage providers.
 
 
 #### `loop`
-> See also: [Wikipedia | Loop device](https://en.wikipedia.org/wiki/Loop_device)
+```{ibnote}
+See also: [Wikipedia | Loop device](https://en.wikipedia.org/wiki/Loop_device)
+```
 
 Block-type. Creates a file on the unit's root filesystem, associates a loop device with it. The loop device is provided to the charm.
 
@@ -77,12 +84,16 @@ Loop devices require extra configuration to be used within LXD. See more: {ref}`
 ```
 
 #### `rootfs`
-> See also: [The Linux Kernel Archives | ramfs, rootfs and initramfs](https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt)
+```{ibnote}
+See also: [The Linux Kernel Archives | ramfs, rootfs and initramfs](https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt)
+```
 
 Filesystem-type. Creates a sub-directory on the unit's root filesystem for the unit/charmed operator to use.
 
 #### `tmpfs`
-> See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
+```{ibnote}
+See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
+```
 
 Filesystem-type. Creates a temporary file storage facility that appears as a mounted file system but is stored in volatile memory.
 

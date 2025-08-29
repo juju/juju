@@ -6,7 +6,10 @@ SOURCE: https://discourse.charmhub.io/t/juju-actions-opt-in-to-new-behaviour-fro
 TODO: Add more example outputs. (The doc above has many but they're from 2020, so they might not be the latest. And I don't quite get the first bit about the custom-defined action -- how does it get attached to the charm?
 -->
 
-> See also: {ref}`action`
+
+```{ibnote}
+See also: {ref}`action`
+```
 
 This document demonstrates how to manage actions.
 
@@ -64,7 +67,9 @@ The full schema is under the `properties` key of the root action. Actions rely o
 
 ```
 
-> See more: {ref}`command-juju-actions`
+```{ibnote}
+See more: {ref}`command-juju-actions`
+```
 
 ## Show details about an action
 
@@ -76,8 +81,9 @@ juju show-action postgresql backup
 
 <!--add sample output-->
 
-> See more: {ref}`command-juju-show-action`
-
+```{ibnote}
+See more: {ref}`command-juju-show-action`
+```
 
 ## Run an action
 
@@ -88,7 +94,7 @@ juju show-action postgresql backup
 ```
 
 
-To run an action on a unit, use the `run` command followed by the name of the unit and the name of the action you want to run. 
+To run an action on a unit, use the `run` command followed by the name of the unit and the name of the action you want to run.
 
 ```text
 juju run mysql/3 backup
@@ -99,11 +105,15 @@ By using various options, you can choose to run the action in the background, sp
 Running an action returns the overall operation ID as well as the individual task ID(s) for each unit.
 
 
-> See more: {ref}`command-juju-run` (before `juju v.3.0`, `run-action`)
+```{ibnote}
+See more: {ref}`command-juju-run` (before Juju 3, `run-action`)
+```
 
 (manage-action-tasks)=
 ## Manage action tasks
-> See also: {ref}`task`
+```{ibnote}
+See also: {ref}`task`
+```
 
 ### Show details about a task
 
@@ -113,7 +123,9 @@ To drill down to the result of running an action on a specific unit (the stdout,
 juju show-task 1
 ```
 
-> See more: {ref}`command-juju-show-task`
+```{ibnote}
+See more: {ref}`command-juju-show-task`
+```
 
 ### Cancel a task
 
@@ -124,12 +136,16 @@ Suppose you've run an action but would now like to cancel the resulting pending 
 juju cancel-task 1
 ```
 
-> See more: {ref}`command-juju-cancel-task`
+```{ibnote}
+See more: {ref}`command-juju-cancel-task`
+```
 
 (manage-action-operations)=
 ## Manage action operations
-> See also: {ref}`operation`
 
+```{ibnote}
+See also: {ref}`operation`
+```
 ### View the pending, running, or completed operations
 
 
@@ -141,7 +157,9 @@ juju operations
 
 This will show the operations corresponding to the actions for all the application units. You can filter this by passing various options (e.g., `--actions backup`, `--units mysql/0`, `--machines 0,1`, `--status pending,completed`, etc.).
 
-> See more: {ref}`command-juju-operations`
+```{ibnote}
+See more: {ref}`command-juju-operations`
+```
 
 ### Show details about an operation
 
@@ -153,7 +171,9 @@ juju show-operation 1
 
 As usual, by adding various options, you can specify an output format, choose to watch indefinitely or specify a timeout time, etc.
 
-> See more: {ref}`command-juju-show-operation`
+```{ibnote}
+See more: {ref}`command-juju-show-operation`
+```
 
 ## Debug an action
 
@@ -164,4 +184,6 @@ To debug an action (or more), use the `debug-hooks` command followed by the name
 juju debug-hooks git/0 add-repo
 ```
 
-> See more: {ref}`command-juju-debug-code`, {ref}`command-juju-debug-hooks`
+```{ibnote}
+See more: {ref}`command-juju-debug-code`, {ref}`command-juju-debug-hooks`
+```

@@ -5,12 +5,11 @@
 To retrieve info about the keys, grep the `provider` directory in the code for `placement` (case insensitive); find all the providers that match; and go to each of those providers' `parsePlacement` method and look at the code. For example, here's the ec2 one: https://github.com/juju/juju/blob/137a772ed339b73b856e9adc0a5624976c2890b2/provider/ec2/environ.go#L389 (note the switch statement with two cases, `zone` and `subnet`). Then follow a couple of the functions through to get further details (e.g., about the ec2 subset query).
 --->
 
-<!-- > See also: {ref}`Binding <binding>`, {ref}`Constraint <constraint>`-->
+<!--  See also: {ref}`Binding <binding>`, {ref}`Constraint <constraint>`-->
 
-In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`,  {ref}`command-juju-enable-ha`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone. 
+In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`,  {ref}`command-juju-enable-ha`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone.
 
 Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`
-
 
 The rest of this document gives details about the locations.
 
@@ -27,7 +26,7 @@ When the location is a key-value pair, its availability and meaning may vary fro
 (placement-directive-machine)=
 ### `<machine>`
 
-Depending on whether this is an existing machine or a new machine, this will be: 
+Depending on whether this is an existing machine or a new machine, this will be:
 
 - The existing machine ID.
 
@@ -35,18 +34,18 @@ Depending on whether this is an existing machine or a new machine, this will be:
 
 - A new machine, specifying a type or relative location.
 
-**Examples:** `lxd` (new container on a new machine), `lxd:5` (new container on machine 5) 
+**Examples:** `lxd` (new container on a new machine), `lxd:5` (new container on machine 5)
 
-> See more: {ref}`machine-designations`
+```{ibnote}
+See more: {ref}`machine-designations`
+```
 
 (placement-directive-subnet)=
 ### `subnet=<subnet>`
 
 <!--**Value:** The name of the subnet.-->
 
-
 Available for Azure and AWS EC2.
-
 
 (placement-directive-system-id)=
 ### `system-id=<system ID>`
@@ -118,7 +117,7 @@ vsphere:
 -->
 
 <!--
-flag with the syntax `--to` that can be passed to certain commands to specify a location---the argument of the flag. 
+flag with the syntax `--to` that can be passed to certain commands to specify a location---the argument of the flag.
 
  specifies which unit to deploy an application to. Commonly used to deploy multiple applications in the same unit.
 

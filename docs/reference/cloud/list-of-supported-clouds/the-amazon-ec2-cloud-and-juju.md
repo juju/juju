@@ -98,12 +98,16 @@ Example: vpc-a1b2c3d4
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 (storage-provider-ebs)=
 ### `ebs`
 
-> See first: [AWS | EBS volume types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+```{ibnote}
+See first: [AWS | EBS volume types](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+```
 
 Prerequisites: Attaching an `ebs` volume to an EC2 instance requires that they both reside within the same availability zone; if this is not the case, Juju will return an error.
 
