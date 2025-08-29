@@ -134,10 +134,6 @@ func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStat
 		newStDoc.SecretState = secretState
 		quotaChecker.Check(secretState)
 	}
-	if meterStatusState, found := op.newState.MeterStatusState(); found {
-		newStDoc.MeterStatusState = meterStatusState
-		quotaChecker.Check(meterStatusState)
-	}
 	if err := quotaChecker.Outcome(); err != nil {
 		return unitStateDoc{}, errors.Annotatef(err, "persisting uniter state")
 	}
@@ -219,15 +215,6 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 		} else if secretState != currentDoc.SecretState {
 			setFields = append(setFields, bson.DocElem{"secret-state", secretState})
 			quotaChecker.Check(secretState)
-		}
-	}
-
-	if meterStatusState, found := op.newState.MeterStatusState(); found {
-		if meterStatusState == "" {
-			unsetFields = append(unsetFields, bson.DocElem{Name: "meter-status-state"})
-		} else if meterStatusState != currentDoc.MeterStatusState {
-			setFields = append(setFields, bson.DocElem{"meter-status-state", meterStatusState})
-			quotaChecker.Check(meterStatusState)
 		}
 	}
 

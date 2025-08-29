@@ -2954,13 +2954,6 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")
 
-	err = unitZero.SetMeterStatus(state.MeterGreen.String(), "all good")
-	c.Assert(err, jc.ErrorIsNil)
-	ms, err := unitZero.GetMeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms.Code, gc.Equals, state.MeterGreen)
-	c.Assert(ms.Info, gc.Equals, "all good")
-
 	// But they do have status.
 	us, err := unitZero.Status()
 	c.Assert(err, jc.ErrorIsNil)

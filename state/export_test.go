@@ -63,7 +63,6 @@ const (
 var (
 	BinarystorageNew              = &binarystorageNew
 	MachineIdLessThan             = machineIdLessThan
-	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	RegionSettingsGlobalKey       = regionSettingsGlobalKey

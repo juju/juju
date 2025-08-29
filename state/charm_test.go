@@ -64,6 +64,17 @@ func (s *CharmSuite) checkRemoved(c *gc.C) {
 	c.Check(count, gc.Equals, 0)
 }
 
+func removeUnit(c *gc.C, unit *state.Unit) {
+	ensureUnitDead(c, unit)
+	err := unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func ensureUnitDead(c *gc.C, unit *state.Unit) {
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *CharmSuite) TestAliveCharm(c *gc.C) {
 	s.testCharm(c)
 }
@@ -895,27 +906,6 @@ func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ch := s.AddActionsCharm(c, name, actionsYaml, 123)
 		c.Assert(ch.Actions(), gc.DeepEquals, actions)
-	})
-}
-
-var metricsYaml = `
-metrics:
-  blips:
-    description: A custom metric.
-    type: gauge
-`
-
-func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
-	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(metricsYaml)))
-	c.Assert(err, jc.ErrorIsNil)
-
-	forEachStandardCharm(c, func(name string) {
-		chd := testcharms.Repo.CharmDir(name)
-		meta := chd.Meta()
-		config := chd.Config()
-
-		ch := s.AddMetricsCharm(c, name, metricsYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
 	})
 }
 

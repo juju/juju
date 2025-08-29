@@ -42,7 +42,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// application / unit
 		applicationsC,
 		unitsC,
-		meterStatusC, // red / green status for metrics of units
 		payloadsC,
 		resourcesC,
 
@@ -124,8 +123,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		controllerUsersC,
 		// userenvnameC is just to provide a unique key constraint.
 		usermodelnameC,
-		// Metrics aren't migrated.
-		metricsC,
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,
@@ -191,10 +188,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Charms are added into the migrated model during the binary transfer
 		// phase after the initial model migration.
 		charmsC,
-
-		// Metrics manager maintains controller specific state relating to
-		// the store and forward of charm metrics. Nothing to migrate here.
-		metricsManagerC,
 
 		// The global clock is not migrated; each controller has its own
 		// independent global clock.
@@ -463,19 +456,6 @@ func (s *MigrationSuite) TestMachinePortRangesDocFields(c *gc.C) {
 		"TxnRevno",
 	)
 	s.AssertExportedFields(c, machinePortRangesDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestMeterStatusDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// DocID itself isn't migrated
-		"DocID",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-		"Code",
-		"Info",
-	)
-	s.AssertExportedFields(c, meterStatusDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
