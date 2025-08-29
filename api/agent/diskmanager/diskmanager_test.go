@@ -46,7 +46,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 				Machine: "machine-123",
 				BlockDevices: []params.BlockDevice{{
 					DeviceName: "sda",
-					SizeMiB:       123,
+					SizeMiB:    123,
 				}, {
 					DeviceName: "sdb",
 					UUID:       "asdadasdasdas",

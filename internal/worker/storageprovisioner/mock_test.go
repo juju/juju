@@ -209,7 +209,7 @@ func (v *mockVolumeAccessor) VolumeParams(_ context.Context, volumes []names.Vol
 	for _, tag := range volumes {
 		volumeParams := params.VolumeParams{
 			VolumeTag: tag.String(),
-			Size:      1024,
+			SizeMiB:   1024,
 			Provider:  "dummy",
 			Attributes: map[string]interface{}{
 				"persistent": tag.String() == "volume-1",

@@ -445,7 +445,7 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 			Results: []params.VolumeParamsResult{{
 				Result: params.VolumeParams{
 					VolumeTag: "volume-100",
-					Size:      1024,
+					SizeMiB:   1024,
 					Provider:  "loop",
 				},
 			}},
@@ -461,7 +461,7 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 	c.Check(callCount, tc.Equals, 1)
 	c.Assert(volumeParams, tc.DeepEquals, []params.VolumeParamsResult{{
 		Result: params.VolumeParams{
-			VolumeTag: "volume-100", Size: 1024, Provider: "loop",
+			VolumeTag: "volume-100", SizeMiB: 1024, Provider: "loop",
 		},
 	}})
 }

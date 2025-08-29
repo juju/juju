@@ -690,7 +690,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 	}
 	return storage.VolumeParams{
 		Tag:          volumeTag,
-		Size:         in.Size,
+		Size:         in.SizeMiB,
 		Provider:     providerType,
 		Attributes:   in.Attributes,
 		ResourceTags: in.Tags,

@@ -1095,7 +1095,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 		AttachmentTag: "volume-0-0",
 	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:       123,
+		SizeMiB:    123,
 	}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
 
@@ -1121,7 +1121,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 		AttachmentTag: "volume-0-1",
 	}] = params.BlockDevice{
 		DeviceName: "xvdf2",
-		SizeMiB:       246,
+		SizeMiB:    246,
 	}
 	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	filesystemInfo = waitChannel(
@@ -1169,7 +1169,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 		AttachmentTag: "volume-0-0",
 	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:       123,
+		SizeMiB:    123,
 	}
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag:    "machine-0",
@@ -1195,7 +1195,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 		AttachmentTag: "volume-0-0",
 	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:       123,
+		SizeMiB:    123,
 		UUID:       "deadbeaf",
 	}
 	s.managedFilesystemSource.attachedFilesystems = make(chan interface{}, 1)
