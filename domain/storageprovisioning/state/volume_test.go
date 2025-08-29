@@ -856,6 +856,32 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	})
 }
 
+func (s *volumeSuite) TestGetVolume(c *tc.C) {
+	volUUID, volID := s.newModelVolume(c)
+	s.changeVolumeInfo(c, volUUID, "vol-123", 1234, "hwid", "wwn", true)
+	st := NewState(s.TxnRunnerFactory())
+
+	vol, err := st.GetVolume(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.Volume{
+		VolumeID:   volID,
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := domaintesting.GenVolumeUUID(c)
+
+	_, err := st.GetVolume(c.Context(), uuid)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
 func (s *volumeSuite) changeVolumeLife(

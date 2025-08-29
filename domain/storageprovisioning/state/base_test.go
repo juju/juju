@@ -474,6 +474,21 @@ func (s *baseSuite) changeVolumeAttachmentInfo(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *baseSuite) changeVolumeInfo(
+	c *tc.C,
+	uuid storageprovisioning.VolumeUUID,
+	providerID string,
+	sizeMiB uint64,
+	hardwareID string,
+	wwn string,
+	persistent bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume SET provider_id=?, size_mib=?, hardware_id=?, wwn=?, persistent=? WHERE uuid=?`,
+		providerID, sizeMiB, hardwareID, wwn, persistent, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, typeSamples...)
 }

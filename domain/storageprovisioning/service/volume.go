@@ -26,6 +26,11 @@ import (
 )
 
 type VolumeState interface {
+	// GetVolume returns the volume information for the specified volume uuid.
+	GetVolume(
+		context.Context, storageprovisioning.VolumeUUID,
+	) (storageprovisioning.Volume, error)
+
 	// GetVolumeAttachmentIDs returns the
 	// [storageprovisioning.VolumeAttachmentID] information for each
 	// volume attachment uuid supplied. If a uuid does not exist or isn't
@@ -456,7 +461,20 @@ func (s *Service) GetVolumeUUIDForID(
 func (s *Service) GetVolumeByID(
 	ctx context.Context, volumeID string,
 ) (storageprovisioning.Volume, error) {
-	return storageprovisioning.Volume{}, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuid, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
+	if err != nil {
+		return storageprovisioning.Volume{}, errors.Capture(err)
+	}
+
+	volume, err := s.st.GetVolume(ctx, uuid)
+	if err != nil {
+		return storageprovisioning.Volume{}, errors.Capture(err)
+	}
+
+	return volume, nil
 }
 
 // GetBlockDeviceForVolumeAttachment returns information about the block

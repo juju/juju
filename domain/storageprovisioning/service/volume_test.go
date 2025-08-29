@@ -620,3 +620,48 @@ func (s *volumeSuite) TestGetVolumeLifeWithVolumeNotFound(c *tc.C) {
 		GetVolumeLife(c.Context(), volumeUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
+
+func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volUUID := domaintesting.GenVolumeUUID(c)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(volUUID, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeUUIDForID(c.Context(), "123")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, volUUID)
+}
+
+func (s *volumeSuite) TestGetVolume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	vol := storageprovisioning.Volume{
+		VolumeID:   "123",
+		ProviderID: "abc",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	}
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(volUUID, nil)
+	s.state.EXPECT().GetVolume(c.Context(), volUUID).Return(vol, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory).
+		GetVolumeByID(c.Context(), "123")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rval, tc.DeepEquals, vol)
+}
+
+func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(
+		"", storageprovisioningerrors.VolumeNotFound)
+
+	_, err := NewService(s.state, s.watcherFactory).
+		GetVolumeByID(c.Context(), "123")
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}

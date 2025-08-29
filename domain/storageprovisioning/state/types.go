@@ -213,6 +213,15 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
+type volume struct {
+	VolumeID   string `db:"volume_id"`
+	ProviderID string `db:"provider_id"`
+	HardwareID string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	SizeMiB    uint64 `db:"size_mib"`
+	Persistent bool   `db:"persistent"`
+}
+
 type filesystem struct {
 	FilesystemID string           `db:"filesystem_id"`
 	ProviderID   string           `db:"provider_id"`

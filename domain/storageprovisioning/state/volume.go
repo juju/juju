@@ -81,37 +81,6 @@ WHERE  uuid = $volumeUUID.uuid
 	return true, nil
 }
 
-// checkVolumeAttachmentExists checks if a volume attachment for the provided
-// uuid exists.
-// Returning true when this case is satisfied.
-func (st *State) checkVolumeAttachmentExists(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (bool, error) {
-	io := volumeAttachmentUUID{UUID: uuid.String()}
-
-	checkQuery, err := st.Prepare(`
-SELECT &volumeAttachmentUUID.*
-FROM   storage_volume_attachment
-WHERE  uuid = $volumeAttachmentUUID.uuid
-`,
-		io,
-	)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, checkQuery, io).Get(&io)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	return true, nil
-}
-
 // GetVolumeAttachmentIDs returns the [storageprovisioning.VolumeAttachmentID]
 // information for each volume attachment uuid supplied. If a uuid does not
 // exist or isn't attached to either a machine or a unit then it will not exist
@@ -641,6 +610,57 @@ WHERE  volume_id = $volumeID.volume_id
 	}
 
 	return domainstorageprovisioning.VolumeUUID(dbVal.UUID), nil
+}
+
+// GetVolume returns the volume information for the specified volume uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+// for the provided volume uuid.
+func (st *State) GetVolume(
+	ctx context.Context, uuid domainstorageprovisioning.VolumeUUID,
+) (domainstorageprovisioning.Volume, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+	}
+
+	uuidInput := volumeUUID{UUID: uuid.String()}
+	stmt, err := st.Prepare(`
+SELECT &volume.*
+FROM   storage_volume
+WHERE  uuid = $volumeUUID.uuid
+`,
+		uuidInput, volume{},
+	)
+	if err != nil {
+		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+	}
+
+	var vol volume
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuidInput).Get(&vol)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+	}
+
+	retVal := domainstorageprovisioning.Volume{
+		VolumeID:   vol.VolumeID,
+		ProviderID: vol.ProviderID,
+		SizeMiB:    vol.SizeMiB,
+		HardwareID: vol.HardwareID,
+		WWN:        vol.WWN,
+		Persistent: vol.Persistent,
+	}
+	return retVal, nil
 }
 
 // GetVolumeParams returns the volume params for the supplied uuid.
