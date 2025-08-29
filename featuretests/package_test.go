@@ -19,7 +19,6 @@ func init() {
 	gc.Suite(&undertakerSuite{})
 	gc.Suite(&debugLogDbSuite1{})
 	gc.Suite(&debugLogDbSuite2{})
-	gc.Suite(&meterStatusIntegrationSuite{})
 	gc.Suite(&toolsDownloadSuite{})
 	gc.Suite(&toolsWithMacaroonsSuite{})
 	gc.Suite(&CredentialManagerSuite{})
