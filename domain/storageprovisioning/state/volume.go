@@ -18,6 +18,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -661,6 +662,63 @@ WHERE  uuid = $volumeUUID.uuid
 		Persistent: vol.Persistent,
 	}
 	return retVal, nil
+}
+
+// SetVolumeProvisionedInfo sets the provisioned information for the given
+// volume.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
+// for the provided volume uuid.
+func (st *State) SetVolumeProvisionedInfo(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeUUID,
+	info storageprovisioning.VolumeProvisionedInfo,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := volumeProvisionedInfo{
+		UUID:       uuid.String(),
+		ProviderID: info.ProviderID,
+		HardwareID: info.HardwareID,
+		WWN:        info.WWN,
+		SizeMiB:    info.SizeMiB,
+		Persistent: info.Persistent,
+	}
+	stmt, err := st.Prepare(`
+UPDATE storage_volume
+SET    provider_id = $volumeProvisionedInfo.provider_id,
+       size_mib = $volumeProvisionedInfo.size_mib,
+       hardware_id = $volumeProvisionedInfo.hardware_id,
+       wwn = $volumeProvisionedInfo.wwn,
+       persistent = $volumeProvisionedInfo.persistent
+WHERE  uuid = $volumeProvisionedInfo.uuid
+`,
+		input,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"volume %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+		return tx.Query(ctx, stmt, input).Run()
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // GetVolumeParams returns the volume params for the supplied uuid.

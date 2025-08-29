@@ -140,6 +140,13 @@ type VolumeState interface {
 		context.Context, storageprovisioning.VolumeAttachmentUUID,
 	) (storageprovisioning.VolumeAttachmentParams, error)
 
+	// SetVolumeProvisionedInfo sets the provisioned information for the given
+	// volume.
+	SetVolumeProvisionedInfo(
+		context.Context, storageprovisioning.VolumeUUID,
+		storageprovisioning.VolumeProvisionedInfo,
+	) error
+
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
 	// machine provisioned and the initial query for getting the set of volumes
@@ -670,7 +677,20 @@ func (s *Service) SetVolumeProvisionedInfo(
 	volumeID string,
 	info storageprovisioning.VolumeProvisionedInfo,
 ) error {
-	return errors.New("SetVolumeProvisionedInfo not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuid, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.SetVolumeProvisionedInfo(ctx, uuid, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // SetVolumeAttachmentProvisionedInfo sets on the provided volume the information

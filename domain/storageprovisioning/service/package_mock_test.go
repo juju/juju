@@ -1799,6 +1799,44 @@ func (c *MockStateSetFilesystemProvisionedInfoCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// SetVolumeProvisionedInfo mocks base method.
+func (m *MockState) SetVolumeProvisionedInfo(arg0 context.Context, arg1 storageprovisioning.VolumeUUID, arg2 storageprovisioning.VolumeProvisionedInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVolumeProvisionedInfo", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetVolumeProvisionedInfo indicates an expected call of SetVolumeProvisionedInfo.
+func (mr *MockStateMockRecorder) SetVolumeProvisionedInfo(arg0, arg1, arg2 any) *MockStateSetVolumeProvisionedInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVolumeProvisionedInfo", reflect.TypeOf((*MockState)(nil).SetVolumeProvisionedInfo), arg0, arg1, arg2)
+	return &MockStateSetVolumeProvisionedInfoCall{Call: call}
+}
+
+// MockStateSetVolumeProvisionedInfoCall wrap *gomock.Call
+type MockStateSetVolumeProvisionedInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetVolumeProvisionedInfoCall) Return(arg0 error) *MockStateSetVolumeProvisionedInfoCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetVolumeProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.VolumeUUID, storageprovisioning.VolumeProvisionedInfo) error) *MockStateSetVolumeProvisionedInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetVolumeProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID, storageprovisioning.VolumeProvisionedInfo) error) *MockStateSetVolumeProvisionedInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller

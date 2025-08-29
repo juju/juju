@@ -882,6 +882,43 @@ func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
+func (s *volumeSuite) TestSetVolumeProvisionedInfo(c *tc.C) {
+	volUUID, volID := s.newMachineVolume(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	}
+	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vol, err := st.GetVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.Volume{
+		VolumeID:   volID,
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	})
+}
+
+func (s *volumeSuite) TestSetVolumeProvisionedInfoNotFound(c *tc.C) {
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeProvisionedInfo{}
+	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
 func (s *volumeSuite) changeVolumeLife(
