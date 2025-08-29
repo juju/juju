@@ -24,7 +24,6 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/storage-triggers.gen.go -package=triggers -tables=storage_filesystem_attachment,storage_volume_attachment
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -88,8 +87,6 @@ const (
 	tableRelationUnit
 	tableIpAddress
 	tableApplicationEndpoint
-	tableStorageFilesystemAttachment
-	tableStorageVolumeAttachment
 )
 
 // ModelDDL is used to create model databases.
@@ -165,8 +162,6 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
-		triggers.ChangeLogTriggersForStorageFilesystemAttachment("uuid", tableStorageFilesystemAttachment),
-		triggers.ChangeLogTriggersForStorageVolumeAttachment("uuid", tableStorageVolumeAttachment),
 	)
 
 	// Generic triggers.
