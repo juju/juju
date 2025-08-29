@@ -62,6 +62,8 @@ import (
 	modelproviderstate "github.com/juju/juju/domain/modelprovider/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
+	operationservice "github.com/juju/juju/domain/operation/service"
+	operationstate "github.com/juju/juju/domain/operation/state"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
@@ -542,6 +544,13 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Service 
 		),
 		s.logger.Child("crossmodelrelation.service"),
 	)
+}
+
+func (s *ModelServices) Operation() *operationservice.Service {
+	return operationservice.NewService(
+		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.clock,
+		s.logger.Child("operation"))
 }
 
 // Stub returns the stub service. A special service which collects temporary
