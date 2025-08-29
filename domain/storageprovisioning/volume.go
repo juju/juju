@@ -6,6 +6,7 @@ package storageprovisioning
 import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 )
 
 // VolumeAttachmentID is a struct that provides the IDs and names associated
@@ -85,6 +86,14 @@ type VolumeAttachment struct {
 	BlockDeviceName       string
 	BlockDeviceLink       string
 	BlockDeviceBusAddress string
+}
+
+// VolumeAttachmentPlan is a struct that provides the information about a volume
+// attachment plan.
+type VolumeAttachmentPlan struct {
+	Life             life.Life
+	DeviceType       PlanDeviceType
+	DeviceAttributes map[string]string
 }
 
 // VolumeAttachmentProvisionedInfo is information set by the storage provisioner

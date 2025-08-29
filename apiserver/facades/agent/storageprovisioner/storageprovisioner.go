@@ -960,9 +960,96 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 
 // VolumeAttachmentPlans returns details of volume attachment plans with the specified IDs.
 func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(ctx context.Context, args params.MachineStorageIds) (params.VolumeAttachmentPlanResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.VolumeAttachmentPlanResults{},
+			apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	one := func(id params.MachineStorageId) (params.VolumeAttachmentPlan, error) {
+		tag, err := names.ParseVolumeTag(id.AttachmentTag)
+		if err != nil {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"volume tag %q invalid", id.AttachmentTag,
+			).Add(coreerrors.NotValid)
+		}
+		machineTag, err := names.ParseMachineTag(id.MachineTag)
+		if err != nil {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"machine tag %q invalid", id.MachineTag,
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(tag) {
+			return params.VolumeAttachmentPlan{}, apiservererrors.ErrPerm
+		}
+
+		machineUUID, err := s.machineService.GetMachineUUID(
+			ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"getting machine %q: %v", machineTag.Id(), err,
+			)
+		}
+
+		vap, err := s.storageProvisioningService.GetVolumeAttachmentPlan(
+			ctx, tag.Id(), machineUUID)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"volume attachment plan %q on machine %q not found",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"getting volume attachment plan %q on machine %q: %v",
+				tag.Id(), machineTag.Id(), err,
+			)
+		}
+		life, err := vap.Life.Value()
+		if err != nil {
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"getting volume attachment plan %q on machine %q: %v",
+				tag.Id(), machineTag.Id(), err,
+			)
+		}
+		var deviceType storage.DeviceType
+		switch vap.DeviceType {
+		case storageprovisioning.PlanDeviceTypeISCSI:
+			deviceType = storage.DeviceTypeISCSI
+		case storageprovisioning.PlanDeviceTypeLocal:
+			deviceType = storage.DeviceTypeLocal
+		default:
+			return params.VolumeAttachmentPlan{}, errors.Errorf(
+				"invalid device type %q", vap.DeviceType,
+			)
+		}
+		result := params.VolumeAttachmentPlan{
+			VolumeTag:  tag.String(),
+			MachineTag: machineTag.String(),
+			Life:       life,
+			PlanInfo: params.VolumeAttachmentPlanInfo{
+				DeviceAttributes: vap.DeviceAttributes,
+				DeviceType:       deviceType,
+			},
+		}
+		return result, nil
+	}
+
 	results := params.VolumeAttachmentPlanResults{
 		Results: make([]params.VolumeAttachmentPlanResult, len(args.Ids)),
+	}
+	for i, arg := range args.Ids {
+		var result params.VolumeAttachmentPlanResult
+		vap, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = vap
+		}
+		results.Results[i] = result
 	}
 	return results, nil
 }

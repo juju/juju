@@ -647,6 +647,14 @@ func (s *Service) SetVolumeAttachmentProvisionedInfo(
 	return errors.New("SetVolumeAttachmentProvisionedInfo not implemented")
 }
 
+// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
+// volume id and machine uuid.
+func (s *Service) GetVolumeAttachmentPlan(
+	ctx context.Context, volumeID string, machineUUID coremachine.UUID,
+) (storageprovisioning.VolumeAttachmentPlan, error) {
+	return storageprovisioning.VolumeAttachmentPlan{}, errors.New("GetVolumeAttachmentPlan not implemented")
+}
+
 // CreateVolumeAttachmentPlan creates a volume attachment plan for the
 // provided volume id and machine uuid.
 func (s *Service) CreateVolumeAttachmentPlan(
