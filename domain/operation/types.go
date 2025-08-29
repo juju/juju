@@ -3,7 +3,13 @@
 
 package operation
 
-import "github.com/juju/juju/internal/uuid"
+import (
+	"time"
+
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/internal/uuid"
+)
 
 // Action represents a domain action.
 type Action struct {
@@ -20,4 +26,107 @@ type CompletedTaskResult struct {
 	Status  string
 	Results map[string]interface{}
 	Message string
+}
+
+// QueryArgs represents the parameters used for querying operations.
+type QueryArgs struct {
+	// Target defines a filter on which target(s) we want to retrieve operations.
+	// if empty, operations from all targets will be retrieved.
+	Target
+
+	// ActionNames defines which specific action names we want to retrieve.
+	// If empty, all operations will be retrieved among exec or actions operations
+	ActionNames []string
+
+	// Status defines which specific status we want to retrieve.
+	// If empty, operations with any status will be retrieved.
+	Status []string
+
+	// These attributes are used to support client side
+	// batching of results.
+	Limit  *int
+	Offset *int
+}
+
+// QueryResult represents the result of a query operation.
+type QueryResult struct {
+	Operations []OperationInfo
+	Truncated  bool
+}
+
+// OperationInfo represents the information about an operation.
+type OperationInfo struct {
+	OperationID string
+	Summary     string
+	Fail        string
+	Enqueued    time.Time
+	Started     time.Time
+	Completed   time.Time
+	Status      string
+	Machines    []MachineTaskResult
+	Units       []UnitTaskResult
+	Truncated   bool
+	Error       error
+}
+
+// RunArgs represents the parameters used for running operations.
+type RunArgs struct {
+	Target
+	TaskArgs
+}
+
+// TaskArgs represents the parameters used for running tasks.
+type TaskArgs struct {
+	ActionName     string
+	Parameters     map[string]interface{}
+	IsParallel     bool
+	ExecutionGroup string
+}
+
+// RunResult represents the result of a run operation.
+type RunResult struct {
+	OperationID string
+	Machines    []MachineTaskResult
+	Units       []UnitTaskResult
+}
+
+// MachineTaskResult represents the result of a machine task.
+type MachineTaskResult struct {
+	TaskInfo
+	ReceiverName machine.Name
+}
+
+// UnitTaskResult represents the result of a unit task.
+type UnitTaskResult struct {
+	TaskInfo
+	ReceiverName unit.Name
+	IsLeader     bool
+}
+
+// TaskInfo represents the information about a task.
+type TaskInfo struct {
+	TaskArgs
+	ID        string
+	Enqueued  time.Time
+	Started   time.Time
+	Completed time.Time
+	Status    string
+	Message   string
+	Log       []TaskLog
+	Output    map[string]interface{}
+	Error     error
+}
+
+// TaskLog represents a log message for a task.
+type TaskLog struct {
+	Timestamp time.Time
+	Message   string
+}
+
+// Target represents various targets for operations.
+type Target struct {
+	Applications []string
+	Machines     []machine.Name
+	Units        []unit.Name
+	LeaderUnit   []string
 }
