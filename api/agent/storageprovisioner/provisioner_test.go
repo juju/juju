@@ -512,7 +512,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 			Results: []params.FilesystemParamsResult{{
 				Result: params.FilesystemParams{
 					FilesystemTag: "filesystem-100",
-					Size:          1024,
+					SizeMiB:       1024,
 					Provider:      "loop",
 				},
 			}},
@@ -528,7 +528,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	c.Check(callCount, tc.Equals, 1)
 	c.Assert(filesystemParams, tc.DeepEquals, []params.FilesystemParamsResult{{
 		Result: params.FilesystemParams{
-			FilesystemTag: "filesystem-100", Size: 1024, Provider: "loop",
+			FilesystemTag: "filesystem-100", SizeMiB: 1024, Provider: "loop",
 		},
 	}})
 }

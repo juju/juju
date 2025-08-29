@@ -1539,7 +1539,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			Attributes:    make(map[string]any, len(fsParams.Attributes)),
 			FilesystemTag: tag.String(),
 			Provider:      fsParams.Provider,
-			Size:          fsParams.SizeMiB,
+			SizeMiB:       fsParams.SizeMiB,
 			Tags:          fsModelTags,
 		}
 

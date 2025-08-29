@@ -381,7 +381,7 @@ func (v *mockFilesystemAccessor) FilesystemParams(_ context.Context, filesystems
 	for i, tag := range filesystems {
 		filesystemParams := params.FilesystemParams{
 			FilesystemTag: tag.String(),
-			Size:          1024,
+			SizeMiB:       1024,
 			Provider:      "dummy",
 			Tags: map[string]string{
 				"very": "fancy",

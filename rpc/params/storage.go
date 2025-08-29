@@ -438,7 +438,7 @@ type FilesystemAttachments struct {
 type FilesystemParams struct {
 	FilesystemTag string                      `json:"filesystem-tag"`
 	VolumeTag     string                      `json:"volume-tag,omitempty"`
-	Size          uint64                      `json:"size"`
+	SizeMiB       uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
 	Tags          map[string]string           `json:"tags,omitempty"`

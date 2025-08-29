@@ -1084,7 +1084,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 			"foo": "bar",
 		},
 		FilesystemTag: tag.String(),
-		Size:          10,
+		SizeMiB:       10,
 		Provider:      "myprovider",
 		Tags: map[string]string{
 			"tag1": "value1",
