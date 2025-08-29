@@ -8,8 +8,10 @@ test_firewall() {
 
 	setup_awscli_credential
 
+	setup_gcloudcli_credential
+
 	echo "==> Checking for dependencies"
-	check_dependencies juju aws
+	check_dependencies juju aws gcloud
 
 	file="${TEST_DIR}/test-firewall.txt"
 
@@ -17,7 +19,10 @@ test_firewall() {
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
-		test_firewall_ssh
+		test_firewall_ssh_ec2
+		;;
+	"gce")
+		test_firewall_ssh_gce
 		;;
 	*)
 		echo "==> TEST SKIPPED: test_firewall_ssh test runs on aws only"

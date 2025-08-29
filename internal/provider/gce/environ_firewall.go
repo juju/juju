@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/common"
@@ -24,11 +25,26 @@ func (env *environ) globalFirewallName() string {
 	return common.EnvFullName(env.uuid)
 }
 
+// ensureSourceCIDRs fills in a default IPv4 CIDR ("0.0.0.0/0") for any rule
+// that has an empty SourceCIDRs slice. This ensures firewall rules always have
+// at least one source range.
+func ensureSourceCIDRs(rules *firewall.IngressRules) {
+	if rules == nil {
+		return
+	}
+
+	for i := range *rules {
+		if len((*rules)[i].SourceCIDRs) == 0 {
+			(*rules)[i].SourceCIDRs = set.NewStrings(firewall.AllNetworksIPV4CIDR)
+		}
+	}
+}
+
 // firewallSpec expands a port range set in to computepb.FirewallAllowed
 // and returns a computepb.Firewall for the provided name.
 func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *computepb.Firewall {
 	if len(sourceCIDRs) == 0 {
-		sourceCIDRs = []string{"0.0.0.0/0"}
+		sourceCIDRs = []string{firewall.AllNetworksIPV4CIDR}
 	}
 	firewall := computepb.Firewall{
 		// Allowed is set below.
@@ -62,18 +78,32 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 // If a rule matching a set of source ranges doesn't
 // already exist, it will be created - the name will be made unique
 // using a random suffix.
-
 func (env *environ) OpenPorts(ctx context.ProviderCallContext, target string, rules firewall.IngressRules) error {
-	err := env.openPorts(ctx, target, rules)
-	return google.HandleCredentialError(errors.Trace(err), ctx)
+	// Separate IPv4 and IPv6 rules to avoid mixed CIDRs in a single firewall, which is disallowed by GCE.
+	// Ensure default SourceCIDRs are set for any rule with empty SourceCIDRs before separating rules.
+	ensureSourceCIDRs(&rules)
+	ipv4Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	if len(ipv4Rules) > 0 {
+		if err := env.openPorts(ctx, target, ipv4Rules); err != nil {
+			return google.HandleCredentialError(errors.Trace(err), ctx)
+		}
+	}
+
+	ipv6Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv4Address)
+	if len(ipv6Rules) > 0 {
+		err := env.openPorts(ctx, target, ipv6Rules)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	return nil
 }
 
 // randomSuffixNamer tries to find a unique name for the firewall by
 // appending a random suffix.
 var randomSuffixNamer = func(sourceCIDRs []string, prefix string, existingNames set.Strings) (string, error) {
-	// For backwards compatibility, open rules for "0.0.0.0/0"
+	// For backwards compatibility, open rules for all networks IPV4 CIDR "0.0.0.0/0"
 	// do not use any suffix in the name.
-	if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 && sourceCIDRs[0] == "0.0.0.0/0" {
+	if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 && sourceCIDRs[0] == firewall.AllNetworksIPV4CIDR {
 		return prefix, nil
 	}
 	data := make([]byte, 4)
@@ -174,8 +204,23 @@ func (env *environ) openPorts(ctx stdcontext.Context, target string, rules firew
 // match the provided port ranges. The call blocks until the ports are
 // closed or the request fails.
 func (env *environ) ClosePorts(ctx context.ProviderCallContext, target string, rules firewall.IngressRules) error {
-	err := env.closePorts(ctx, target, rules)
-	return google.HandleCredentialError(errors.Trace(err), ctx)
+	// Separate IPv4 and IPv6 rules to avoid mixed CIDRs in a single firewall, which is disallowed by GCE.
+	// Ensure default SourceCIDRs are set for any rule with empty SourceCIDRs before separating rules.
+	ensureSourceCIDRs(&rules)
+	ipv4Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	if len(ipv4Rules) > 0 {
+		if err := env.closePorts(ctx, target, ipv4Rules); err != nil {
+			return google.HandleCredentialError(errors.Trace(err), ctx)
+		}
+	}
+
+	ipv6Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv4Address)
+	if len(ipv6Rules) > 0 {
+		err := env.closePorts(ctx, target, ipv6Rules)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	return nil
 }
 
 func (env *environ) closePorts(ctx stdcontext.Context, target string, rules firewall.IngressRules) error {
@@ -260,4 +305,56 @@ func (env *environ) IngressRules(ctx context.ProviderCallContext, target string)
 func (env *environ) cleanupFirewall(ctx context.ProviderCallContext) error {
 	err := env.gce.RemoveFirewall(ctx, env.globalFirewallName())
 	return google.HandleCredentialError(errors.Trace(err), ctx)
+}
+
+// OpenModelPorts opens the given port ranges on the model firewall
+func (env *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	ensureSourceCIDRs(&rules)
+	ipv4Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	if len(ipv4Rules) > 0 {
+		if err := env.openPorts(ctx, env.globalFirewallName(), ipv4Rules); err != nil {
+			return google.HandleCredentialError(errors.Trace(err), ctx)
+		}
+	}
+
+	ipv6Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv4Address)
+	if len(ipv6Rules) > 0 {
+		err := env.openPorts(ctx, env.globalFirewallName(), ipv6Rules)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	return nil
+}
+
+// CloseModelPorts Closes the given port ranges on the model firewall
+func (env *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	ensureSourceCIDRs(&rules)
+	ipv4Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	if len(ipv4Rules) > 0 {
+		if err := env.closePorts(ctx, env.globalFirewallName(), ipv4Rules); err != nil {
+			return google.HandleCredentialError(errors.Trace(err), ctx)
+		}
+	}
+
+	ipv6Rules := rules.RemoveCIDRsMatchingAddressType(network.IPv4Address)
+	if len(ipv6Rules) > 0 {
+		err := env.closePorts(ctx, env.globalFirewallName(), ipv6Rules)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	return nil
+}
+
+// ModelIngressRules returns the set of ingress rules on the model firewall
+func (env *environ) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	rules, err := env.IngressRules(ctx, env.globalFirewallName())
+	return rules, google.HandleCredentialError(errors.Trace(err), ctx)
+}
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+// ingress rules containing IPV6 CIDRs.
+//
+// This is part of the environs.FirewallFeatureQuerier interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	return true, nil
 }

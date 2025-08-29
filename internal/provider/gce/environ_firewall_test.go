@@ -40,6 +40,7 @@ func (s *environFirewallSuite) SetUpTest(c *gc.C) {
 		//return prefix + "-" + sourcecidrs(fw.SourceCIDRs).key(), nil
 	})
 }
+
 func (s *environFirewallSuite) TestGlobalFirewallName(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
@@ -77,7 +78,7 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	fwPrefix := "juju-" + s.ModelUUID
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
-		TargetTags:   []string{"juju-" + s.ModelUUID},
+		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
@@ -86,7 +87,7 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
-		TargetTags:   []string{"juju-" + s.ModelUUID},
+		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
@@ -591,4 +592,191 @@ func (s *environFirewallSuite) TestCloseNoMatches(c *gc.C) {
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`closing port(s) [100-110/tcp from 192.168.0.1/24] over non-matching rules not supported`))
+}
+
+func (s *environFirewallSuite) TestOpenModelPorts(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{}, nil)
+	s.MockService.EXPECT().AddFirewall(
+		gomock.Any(),
+		&computepb.Firewall{
+			Name:         ptr(fwPrefix + "-14"),
+			TargetTags:   []string{fwPrefix},
+			SourceRanges: []string{"192.168.1.0/24"},
+			Allowed: []*computepb.Allowed{{
+				IPProtocol: ptr("tcp"),
+				Ports:      []string{"22"},
+			}},
+		},
+	).Return(nil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), []string{"192.168.1.0/24"}...),
+	}
+	err := env.OpenModelPorts(s.CallCtx, rules)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environFirewallSuite) TestOpenModelPortsWithMixedIPv4AndIPv6Addr(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Times(2).Return([]*computepb.Firewall{}, nil)
+	s.MockService.EXPECT().AddFirewall(
+		gomock.Any(),
+		&computepb.Firewall{
+			Name:         ptr(fwPrefix),
+			TargetTags:   []string{fwPrefix},
+			SourceRanges: []string{"0.0.0.0/0"},
+			Allowed: []*computepb.Allowed{{
+				IPProtocol: ptr("tcp"),
+				Ports:      []string{"22"},
+			}},
+		},
+	).Return(nil).Times(1)
+
+	s.MockService.EXPECT().AddFirewall(
+		gomock.Any(),
+		&computepb.Firewall{
+			Name:         ptr(fwPrefix + "-4"),
+			TargetTags:   []string{fwPrefix},
+			SourceRanges: []string{"::/0"},
+			Allowed: []*computepb.Allowed{{
+				IPProtocol: ptr("tcp"),
+				Ports:      []string{"22"},
+			}},
+		},
+	).Return(nil).Times(1)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), []string{"0.0.0.0/0", "::/0"}...),
+	}
+	err := env.OpenModelPorts(s.CallCtx, rules)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environFirewallSuite) TestOpenModelPortsInvalidCredentialError(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp")),
+	}
+	err := env.OpenModelPorts(s.CallCtx, rules)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
+func (s *environFirewallSuite) TestCloseModelPorts(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
+		TargetTags:   []string{fwPrefix},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
+			Ports:      []string{"22"},
+		}},
+	}}, nil)
+	s.MockService.EXPECT().RemoveFirewall(gomock.Any(), fwPrefix).Return(nil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp")),
+	}
+	err := env.CloseModelPorts(s.CallCtx, rules)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environFirewallSuite) TestCloseModelPortsWithMixedIPv4AndIPv6Addr(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
+		TargetTags:   []string{fwPrefix},
+		SourceRanges: []string{"0.0.0.0/0"},
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
+			Ports:      []string{"22"},
+		}},
+	},
+		{
+			Name:         ptr(fwPrefix + "-4"),
+			TargetTags:   []string{fwPrefix},
+			SourceRanges: []string{"::/0"},
+			Allowed: []*computepb.Allowed{{
+				IPProtocol: ptr("tcp"),
+				Ports:      []string{"22"},
+			}},
+		},
+	}, nil).Times(1)
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
+		TargetTags:   []string{fwPrefix + "-4"},
+		SourceRanges: []string{"::/0"},
+		Allowed: []*computepb.Allowed{{
+			IPProtocol: ptr("tcp"),
+			Ports:      []string{"22"},
+		}},
+	}}, nil).Times(1)
+
+	s.MockService.EXPECT().RemoveFirewall(gomock.Any(), fwPrefix).Return(nil).Times(1)
+	s.MockService.EXPECT().RemoveFirewall(gomock.Any(), fwPrefix).Return(nil).Times(1)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), []string{"0.0.0.0/0", "::/0"}...),
+	}
+	err := env.CloseModelPorts(s.CallCtx, rules)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environFirewallSuite) TestModelIngressRules(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	fwPrefix := "juju-" + s.ModelUUID
+	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
+		Name:         ptr(fwPrefix),
+		TargetTags:   []string{fwPrefix},
+		SourceRanges: []string{"192.168.1.0/24"},
+		Allowed: []*computepb.Allowed{
+			{
+				IPProtocol: ptr("tcp"),
+				Ports:      []string{"22"},
+			},
+		},
+	}}, nil)
+
+	ports, err := env.ModelIngressRules(s.CallCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(
+		ports, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "192.168.1.0/24"),
+		},
+	)
 }
