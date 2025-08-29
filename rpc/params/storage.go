@@ -22,7 +22,7 @@ type BlockDevice struct {
 	HardwareId     string   `json:"HardwareId"`
 	WWN            string   `json:"WWN"`
 	BusAddress     string   `json:"BusAddress"`
-	Size           uint64   `json:"Size"`
+	SizeMiB        uint64   `json:"Size"`
 	FilesystemType string   `json:"FilesystemType"`
 	InUse          bool     `json:"InUse"`
 	MountPoint     string   `json:"MountPoint"`

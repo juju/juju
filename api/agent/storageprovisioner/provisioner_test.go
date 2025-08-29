@@ -362,7 +362,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 		Result: params.BlockDevice{
 			DeviceName: "xvdf1",
 			HardwareId: "kjlaksjdlasjdklasd123123",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 
