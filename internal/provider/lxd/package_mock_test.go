@@ -1014,6 +1014,45 @@ func (c *MockServerGetProfileCall) DoAndReturn(f func(string) (*api.Profile, str
 	return c
 }
 
+// GetProfileNames mocks base method.
+func (m *MockServer) GetProfileNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfileNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfileNames indicates an expected call of GetProfileNames.
+func (mr *MockServerMockRecorder) GetProfileNames() *MockServerGetProfileNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileNames", reflect.TypeOf((*MockServer)(nil).GetProfileNames))
+	return &MockServerGetProfileNamesCall{Call: call}
+}
+
+// MockServerGetProfileNamesCall wrap *gomock.Call
+type MockServerGetProfileNamesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServerGetProfileNamesCall) Return(arg0 []string, arg1 error) *MockServerGetProfileNamesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServerGetProfileNamesCall) Do(f func() ([]string, error)) *MockServerGetProfileNamesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServerGetProfileNamesCall) DoAndReturn(f func() ([]string, error)) *MockServerGetProfileNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetServer mocks base method.
 func (m *MockServer) GetServer() (*api.Server, string, error) {
 	m.ctrl.T.Helper()

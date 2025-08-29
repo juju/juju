@@ -1093,6 +1093,7 @@ type containerProfileHandler struct {
 	result             params.ContainerProfileResults
 	modelName          string
 	logger             logger.Logger
+	modelTag           names.ModelTag
 }
 
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
@@ -1136,7 +1137,7 @@ func (h *containerProfileHandler) ProcessOneContainer(
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			Name: lxdprofile.Name(h.modelName, appName, revision),
+			Name: lxdprofile.Name(h.modelName, h.modelTag.ShortId(), appName, revision),
 		})
 	}
 
@@ -1172,6 +1173,7 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args par
 		return c.result, errors.Trace(err)
 	}
 	c.modelName = modelInfo.Name
+	c.modelTag = names.NewModelTag(modelInfo.UUID.String())
 
 	if err := api.processEachContainer(ctx, args, c); err != nil {
 		return c.result, errors.Trace(err)

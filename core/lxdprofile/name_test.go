@@ -42,35 +42,35 @@ func (*LXDProfileNameSuite) TestProfileNames(c *tc.C) {
 		},
 		{
 			input: []string{
-				lxdprofile.Name("foo", "bar", 1),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
 			},
 			output: []string{
-				lxdprofile.Name("foo", "bar", 1),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
 			},
 		},
 		{
 			input: []string{
 				"default",
-				lxdprofile.Name("foo", "bar", 1),
-				lxdprofile.Name("foo", "bar", 1),
-				lxdprofile.Name("aaa", "bbb", 100),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
+				lxdprofile.Name("aaa", "shortid2", "bbb", 100),
 			},
 			output: []string{
-				lxdprofile.Name("foo", "bar", 1),
-				lxdprofile.Name("aaa", "bbb", 100),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
+				lxdprofile.Name("aaa", "shortid2", "bbb", 100),
 			},
 		},
 		{
 			input: []string{
 				"default",
-				lxdprofile.Name("foo", "bar", 1),
-				lxdprofile.Name("foo", "bar", 1),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
 				"some-other-profile",
-				lxdprofile.Name("aaa", "bbb", 100),
+				lxdprofile.Name("aaa", "shortid2", "bbb", 100),
 			},
 			output: []string{
-				lxdprofile.Name("foo", "bar", 1),
-				lxdprofile.Name("aaa", "bbb", 100),
+				lxdprofile.Name("foo", "shortid", "bar", 1),
+				lxdprofile.Name("aaa", "shortid2", "bbb", 100),
 			},
 		},
 	}
@@ -98,11 +98,11 @@ func (*LXDProfileNameSuite) TestIsValidName(c *tc.C) {
 			output: false,
 		},
 		{
-			input:  lxdprofile.Name("foo", "bar", 1),
+			input:  lxdprofile.Name("foo", "shortid", "bar", 1),
 			output: true,
 		},
 		{
-			input:  lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 100),
+			input:  lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 100),
 			output: true,
 		},
 	}
@@ -131,11 +131,11 @@ func (*LXDProfileNameSuite) TestProfileRevision(c *tc.C) {
 			err:   "not a juju profile name: \"juju-model\"",
 		},
 		{
-			input:  lxdprofile.Name("foo", "bar", 1),
+			input:  lxdprofile.Name("foo", "shortid", "bar", 1),
 			output: 1,
 		},
 		{
-			input:  lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 100),
+			input:  lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 100),
 			output: 100,
 		},
 	}
@@ -171,14 +171,14 @@ func (*LXDProfileNameSuite) TestProfileReplaceRevision(c *tc.C) {
 			err:   "not a juju profile name: \"juju-model\"",
 		},
 		{
-			input:    lxdprofile.Name("foo", "bar", 1),
+			input:    lxdprofile.Name("foo", "shortid", "bar", 1),
 			inputRev: 4,
-			output:   lxdprofile.Name("foo", "bar", 4),
+			output:   lxdprofile.Name("foo", "shortid", "bar", 4),
 		},
 		{
-			input:    lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 123),
+			input:    lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 123),
 			inputRev: 312,
-			output:   lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 312),
+			output:   lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 312),
 		},
 	}
 	for k, testCase := range testCases {
@@ -219,29 +219,29 @@ func (*LXDProfileNameSuite) TestMatchProfileNameByAppName(c *tc.C) {
 			input: []string{
 				"default",
 				"juju-model",
-				lxdprofile.Name("foo", "bar", 2),
+				lxdprofile.Name("foo", "shortid", "bar", 2),
 			},
 			inputApp: "bar",
-			output:   lxdprofile.Name("foo", "bar", 2),
+			output:   lxdprofile.Name("foo", "shortid", "bar", 2),
 		},
 		{
 			input: []string{
 				"default",
 				"juju-model",
-				lxdprofile.Name("foo", "nonebar", 2),
-				lxdprofile.Name("foo", "bar", 2),
+				lxdprofile.Name("foo", "shortid", "nonebar", 2),
+				lxdprofile.Name("foo", "shortid", "bar", 2),
 			},
 			inputApp: "bar",
-			output:   lxdprofile.Name("foo", "bar", 2),
+			output:   lxdprofile.Name("foo", "shortid", "bar", 2),
 		},
 		{
 			input: []string{
 				"default",
 				"juju-model",
-				lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 123),
+				lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 123),
 			},
 			inputApp: "b312--?123!!bb-x__xx-012-y123yy",
-			output:   lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 123),
+			output:   lxdprofile.Name("aaa-zzz", "shortid", "b312--?123!!bb-x__xx-012-y123yy", 123),
 		},
 	}
 	for k, testCase := range testCases {

@@ -18,14 +18,14 @@ import (
 const AppName = "juju"
 
 // Prefix is used to prefix all the lxd profile programmable profiles. If a
-// profile doesn't have the prefix, then it will be removed when ensuring the
+// profile doesn't have the prefix, then it will be removed when ensuring
 // the validity of the names (see FilterLXDProfileNames)
 var Prefix = fmt.Sprintf("%s-", AppName)
 
 // Name returns a serialisable name that we can use to identify profiles
-// juju-<model>-<application>-<charm-revision>
-func Name(modelName, appName string, revision int) string {
-	return fmt.Sprintf("%s%s-%s-%d", Prefix, modelName, appName, revision)
+// juju-<model>-<shortModelID>-<application>-<charm-revision>
+func Name(modelName, shortModelID string, appName string, revision int) string {
+	return fmt.Sprintf("%s%s-%s-%s-%d", Prefix, modelName, shortModelID, appName, revision)
 }
 
 // FilterLXDProfileNames ensures that the LXD profile names are unique yet preserve
@@ -104,7 +104,7 @@ func ProfileReplaceRevision(profile string, rev int) (string, error) {
 	return strings.Join(append(notRev, strconv.Itoa(rev)), "-"), nil
 }
 
-// MatchProfileNameByApp returns the first profile which matches the provided
+// MatchProfileNameByAppName MatchProfileNameByApp returns the first profile which matches the provided
 // appName.  No match returns an empty string.
 // Assumes there is not more than one profile for the same application.
 func MatchProfileNameByAppName(names []string, appName string) (string, error) {
