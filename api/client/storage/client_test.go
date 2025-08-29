@@ -432,8 +432,8 @@ func (s *storageMockSuite) TestAddToUnit(c *tc.C) {
 	defer ctrl.Finish()
 	size := uint64(42)
 	directives := params.StorageDirectives{
-		Pool: "value",
-		Size: &size,
+		Pool:    "value",
+		SizeMiB: &size,
 	}
 
 	errOut := "error"

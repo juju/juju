@@ -864,8 +864,8 @@ type StorageDirectives struct {
 	// storage instance.
 	Pool string `json:"pool,omitempty"`
 
-	// Size is the required size of the storage instance, in MiB.
-	Size *uint64 `json:"size,omitempty"`
+	// SizeMiB is the required size of the storage instance, in MiB.
+	SizeMiB *uint64 `json:"size,omitempty"`
 
 	// Count is the required number of storage instances.
 	Count *uint64 `json:"count,omitempty"`

@@ -248,7 +248,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 		StorageDirectives: map[string]params.StorageDirectives{
 			"a": {Pool: "radiant"},
 			"b": {Count: toUint64Ptr(123)},
-			"c": {Size: toUint64Ptr(123)},
+			"c": {SizeMiB: toUint64Ptr(123)},
 		},
 	}
 
@@ -259,7 +259,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	c.Assert(args.StorageDirectives, tc.DeepEquals, map[string]params.StorageDirectives{
 		"a": {Pool: "radiant"},
 		"b": {Count: toUint64Ptr(123)},
-		"c": {Size: toUint64Ptr(123)},
+		"c": {SizeMiB: toUint64Ptr(123)},
 	})
 
 	cfg := application.SetCharmConfig{

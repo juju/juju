@@ -84,7 +84,7 @@ func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *tc.C) {
 	size := uint64(1)
 	err := ctx.AddUnitStorage(
 		map[string]params.StorageDirectives{
-			"allecto": {Size: &size},
+			"allecto": {SizeMiB: &size},
 		})
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -219,9 +219,9 @@ func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
 			UnitTag:     c.unitTag.String(),
 			StorageName: one,
 			Directives: params.StorageDirectives{
-				Pool:  d.Pool,
-				Size:  &d.Size,
-				Count: &d.Count,
+				Pool:    d.Pool,
+				SizeMiB: &d.Size,
+				Count:   &d.Count,
 			},
 		})
 	}
