@@ -20,7 +20,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -673,49 +672,34 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 	return "custom_storage_attachment_unit_uuid_lifecycle", queryFunc
 }
 
-// GetStorageInstanceAttachmentUUID returns the UUID of either the storage filesystem
-// attachment or the storage volume attachment for a given storage ID and network node UUID.
+// GetStorageAttachmentUUID returns the UUID of the storage attachment for
+// a given storage ID and network node UUID.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 // instance does not exist for the provided storage ID.
-// - [networkerrors.NetNodeNotFound] if the network node does not exist.
-func (st *State) GetStorageInstanceAttachmentUUID(
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+// storage attachment does not exist.
+func (st *State) GetStorageAttachmentUUID(
 	ctx context.Context,
-	storageIDStr, netNodeUUIDStr string,
+	storageIDStr, unitUUIDStr string,
 ) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-
 	var (
 		storageIDInput = storageID{ID: storageIDStr}
-		netNodeInput   = netNodeUUID{UUID: netNodeUUIDStr}
+		unitUUIDInput  = unitUUIDRef{UUID: unitUUIDStr}
 		dbVal          entityUUID
 	)
-	/*
-		ID	PARENT	NOTUSED	DETAIL
-		11	0     	0      	SEARCH si USING INDEX idx_storage_instance_id (storage_id=?)
-		16	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
-		23	0     	0      	SEARCH sv USING COVERING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
-		30	0     	0      	SCAN sva LEFT-JOIN
-		37	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
-		44	0     	0      	SEARCH sf USING COVERING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
-		61	0     	0      	SEARCH sfa USING AUTOMATIC COVERING INDEX (storage_filesystem_uuid=?) LEFT-JOIN
-	*/
 	stmt, err := st.Prepare(`
-SELECT    COALESCE(sva.uuid, sfa.uuid) AS &entityUUID.uuid
-FROM      storage_instance si
-LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-LEFT JOIN storage_volume_attachment sva ON sv.uuid = sva.storage_volume_uuid
-LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
-LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
-LEFT JOIN storage_filesystem_attachment sfa ON sf.uuid = sfa.storage_filesystem_uuid
-WHERE     si.storage_id = $storageID.storage_id
-AND       (sva.net_node_uuid = $netNodeUUID.uuid OR sfa.net_node_uuid = $netNodeUUID.uuid)`,
-		storageIDInput, netNodeInput, dbVal,
+SELECT sa.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.unit_uuid`,
+		storageIDInput, unitUUIDInput, dbVal,
 	)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -726,25 +710,34 @@ AND       (sva.net_node_uuid = $netNodeUUID.uuid OR sfa.net_node_uuid = $netNode
 			return err
 		}
 
-		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(netNodeInput.UUID)); err != nil {
+		if exists, err := st.checkUnitExists(ctx, tx, unitUUIDInput.UUID); err != nil {
 			return err
 		} else if !exists {
 			return errors.Errorf(
-				"net node %q does not exist", netNodeInput.UUID,
-			).Add(networkerrors.NetNodeNotFound)
+				"unit %q does not exist", unitUUIDInput.UUID,
+			).Add(applicationerrors.UnitNotFound)
 		}
 
-		err := tx.Query(ctx, stmt, storageIDInput, netNodeInput).Get(&dbVal)
+		err := tx.Query(ctx, stmt, storageIDInput, unitUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"storage attachment for %q and net node %q does not exist",
-				storageIDInput.ID, netNodeInput.UUID,
-			)
+				"storage attachment for %q and unit %q does not exist",
+				storageIDInput.ID, unitUUIDInput.UUID,
+			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
 		}
 		return err
 	})
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", errors.Errorf(
+			"getting storage attachment UUID for %q and unit %q: %w",
+			storageIDInput.ID, unitUUIDInput.UUID, err,
+		)
 	}
 	return dbVal.UUID, nil
+}
+
+// NamespaceForStorageAttachment returns the change stream namespace
+// for watching storage attachment changes.
+func (st *State) NamespaceForStorageAttachment() string {
+	return "custom_storage_attachment_entities_storage_attachment_uuid"
 }

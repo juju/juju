@@ -1063,9 +1063,3 @@ func (st *State) InitialWatchStatementVolumeAttachmentPlans(
 	}
 	return "storage_volume_attachment_plan_life_machine_provisioning", query
 }
-
-// NamespaceForVolumeAttachments returns the change stream namespace
-// for watching volume attachment changes.
-func (st *State) NamespaceForVolumeAttachments() string {
-	return "storage_volume_attachment"
-}

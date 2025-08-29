@@ -250,13 +250,14 @@ func (s *baseSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) {
+) string {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
 `, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
+	return saUUID.String()
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
