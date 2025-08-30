@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 )
 
@@ -84,10 +83,6 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
-	if err != nil {
-		return nil, errors.Annotate(err, "could not create meter status API handler")
-	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
@@ -122,7 +117,6 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		UnitStateAPI:               common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
 		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
-		MeterStatus:                msAPI,
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.

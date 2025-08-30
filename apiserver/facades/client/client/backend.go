@@ -99,7 +99,6 @@ type Model interface {
 	SLAOwner() string
 	SLALevel() string
 	LatestToolsVersion() version.Number
-	MeterStatus() state.MeterStatus
 	Status() (status.StatusInfo, error)
 }
 

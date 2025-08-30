@@ -64,6 +64,17 @@ func (s *CharmSuite) checkRemoved(c *gc.C) {
 	c.Check(count, gc.Equals, 0)
 }
 
+func removeUnit(c *gc.C, unit *state.Unit) {
+	ensureUnitDead(c, unit)
+	err := unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func ensureUnitDead(c *gc.C, unit *state.Unit) {
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *CharmSuite) TestAliveCharm(c *gc.C) {
 	s.testCharm(c)
 }

@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"time"
 
 	gc "gopkg.in/check.v1"
 
@@ -61,35 +60,8 @@ type Context struct {
 	jujuc.Context
 	info *jujuctesting.ContextInfo
 
-	metrics        []jujuc.Metric
-	canAddMetrics  bool
 	rebootPriority jujuc.RebootPriority
 	shouldError    bool
-}
-
-func (c *Context) AddMetric(key, value string, created time.Time) error {
-	if !c.canAddMetrics {
-		return fmt.Errorf("metrics disabled")
-	}
-	c.metrics = append(c.metrics, jujuc.Metric{
-		Key:   key,
-		Value: value,
-		Time:  created,
-	})
-	return c.Context.AddMetric(key, value, created)
-}
-
-func (c *Context) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
-	if !c.canAddMetrics {
-		return fmt.Errorf("metrics disabled")
-	}
-	c.metrics = append(c.metrics, jujuc.Metric{
-		Key:    key,
-		Value:  value,
-		Time:   created,
-		Labels: labels,
-	})
-	return c.Context.AddMetricLabels(key, value, created, labels)
 }
 
 func (c *Context) RequestReboot(priority jujuc.RebootPriority) error {

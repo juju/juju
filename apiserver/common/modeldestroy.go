@@ -6,34 +6,11 @@ package common
 import (
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
-
-var sendMetrics = func(st metricsender.ModelBackend) error {
-	ccfg, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Annotate(err, "failed to get controller config")
-	}
-	meteringURL := ccfg.MeteringURL()
-	cfg, err := st.ModelConfig()
-	if err != nil {
-		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
-	}
-
-	err = metricsender.SendMetrics(
-		st,
-		metricsender.DefaultSenderFactory()(meteringURL),
-		clock.WallClock,
-		metricsender.DefaultMaxBatchesPerSend(),
-		cfg.TransmitVendorMetrics(),
-	)
-	return errors.Trace(err)
-}
 
 // DestroyController sets the controller model to Dying and, if requested,
 // schedules cleanups so that all of the hosted models are destroyed, or
@@ -75,10 +52,6 @@ func DestroyController(
 			check := NewBlockChecker(modelSt)
 			if err = check.DestroyAllowed(); err != nil {
 				return errors.Trace(err)
-			}
-			err = sendMetrics(modelSt)
-			if err != nil {
-				logger.Errorf("failed to send leftover metrics: %v", err)
 			}
 		}
 	}
@@ -131,11 +104,6 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 	}
 	if err := model.Destroy(args); err != nil {
 		return errors.Annotate(err, "initiating destroy model operation")
-	}
-
-	err = sendMetrics(st)
-	if err != nil {
-		logger.Errorf("failed to send leftover metrics: %v", err)
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the

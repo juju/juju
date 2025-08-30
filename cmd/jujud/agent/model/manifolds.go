@@ -56,7 +56,6 @@ import (
 	"github.com/juju/juju/internal/worker/logforwarder/sinks"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
-	"github.com/juju/juju/internal/worker/metricworker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/provisioner"
@@ -450,10 +449,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:                    clockName,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
-		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.metricworker"),
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
