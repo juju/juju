@@ -455,7 +455,6 @@ var commandNames = []string{
 	"set-default-credentials",
 	"set-default-region",
 	"set-firewall-rule",
-	"set-meter-status",
 	"set-model-constraints",
 	"show-action",
 	"show-application",
