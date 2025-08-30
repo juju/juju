@@ -371,6 +371,8 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 	us.SetUniterState(initialUniterState)
 	us.SetRelationState(initialRelationState)
 	us.SetStorageState(initialStorageState)
+	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
 
 	// Read back initial state
 	uState, err := s.unit.State()
