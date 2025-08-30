@@ -156,3 +156,22 @@ func (r *ClusterRole) Update(ctx context.Context) error {
 	r.ClusterRole = *out
 	return nil
 }
+
+// ListClusterRoles returns a list of cluster roles.
+func ListClusterRoles(ctx context.Context, client rbacv1client.ClusterRoleInterface, opts metav1.ListOptions) ([]*ClusterRole, error) {
+	var items []*ClusterRole
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewClusterRole(client, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

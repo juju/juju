@@ -98,3 +98,22 @@ func (rb *RoleBinding) ComputeStatus(_ context.Context, now time.Time) (string, 
 	}
 	return "", status.Active, now, nil
 }
+
+// ListRoleBindings returns a list of role bindings.
+func ListRoleBindings(ctx context.Context, client rbacv1client.RoleBindingInterface, namespace string, opts metav1.ListOptions) ([]*RoleBinding, error) {
+	var items []*RoleBinding
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewRoleBinding(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

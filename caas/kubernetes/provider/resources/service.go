@@ -103,3 +103,22 @@ func (s *Service) ComputeStatus(ctx context.Context, now time.Time) (string, sta
 	}
 	return "", status.Active, s.CreationTimestamp.Time, nil
 }
+
+// ListServices returns a list of services.
+func ListServices(ctx context.Context, client v1.ServiceInterface, namespace string, opts metav1.ListOptions) ([]*Service, error) {
+	var items []*Service
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewService(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

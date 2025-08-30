@@ -159,3 +159,22 @@ func (sa *ServiceAccount) Update(
 	sa.ServiceAccount = *out
 	return nil
 }
+
+// ListStatefulSets returns a list of statefulsets.
+func ListServiceAccounts(ctx context.Context, client v1.ServiceAccountInterface, namespace string, opts metav1.ListOptions) ([]*ServiceAccount, error) {
+	var items []*ServiceAccount
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewServiceAccount(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

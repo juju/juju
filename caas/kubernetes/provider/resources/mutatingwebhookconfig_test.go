@@ -117,7 +117,7 @@ func (s *mutatingWebhookConfigSuite) TestDelete(c *gc.C) {
 }
 
 func (s *mutatingWebhookConfigSuite) TestListCRDs(c *gc.C) {
-	// set up labels for model and app to list resource
+	// Set up labels for model and app to list resource
 	controllerUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 

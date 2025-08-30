@@ -124,3 +124,22 @@ func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string
 	}
 	return "", status.Waiting, now, nil
 }
+
+// ListStatefulSets returns a list of statefulsets.
+func ListStatefulSets(ctx context.Context, client v1.StatefulSetInterface, namespace string, opts metav1.ListOptions) ([]*StatefulSet, error) {
+	var items []*StatefulSet
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewStatefulSet(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

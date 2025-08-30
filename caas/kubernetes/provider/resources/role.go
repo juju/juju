@@ -98,3 +98,22 @@ func (r *Role) ComputeStatus(_ context.Context, now time.Time) (string, status.S
 	}
 	return "", status.Active, now, nil
 }
+
+// ListRoles returns a list of roles.
+func ListRoles(ctx context.Context, client rbacv1client.RoleInterface, namespace string, opts metav1.ListOptions) ([]*Role, error) {
+	var items []*Role
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewRole(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
+}

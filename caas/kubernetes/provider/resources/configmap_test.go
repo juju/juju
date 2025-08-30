@@ -70,16 +70,16 @@ func (s *configmapSuite) TestGet(c *gc.C) {
 	}
 	cm := template
 
-	// create cm with annotations
+	// Create cm with annotations.
 	cm.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.configmapClient.Create(context.TODO(), &cm, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create new cm1 configmap object that has no annotations
+	// Create new cm1 configmap object that has no annotations.
 	configMapResource := resources.NewConfigMap(s.configmapClient, "cm1", &template)
 	c.Assert(len(configMapResource.GetAnnotations()), gc.Equals, 0)
 
-	// get actual resource that has annotations using k8s api
+	// Get actual resource that has annotations using k8s api.
 	err = configMapResource.Get(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(configMapResource.GetName(), gc.Equals, `cm1`)
@@ -93,19 +93,19 @@ func (s *configmapSuite) TestDelete(c *gc.C) {
 		},
 	}
 
-	// create cm1
+	// Create cm1
 	_, err := s.configmapClient.Create(context.TODO(), cm, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// get cm1 to ensure it exists
+	// Get cm1 to ensure it exists
 	result, err := s.configmapClient.Get(context.TODO(), "cm1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `cm1`)
 
-	// create new cm1 configmap object for deletion
+	// Create new cm1 configmap object for deletion
 	configMapResource := resources.NewConfigMap(s.configmapClient, "cm1", cm)
 
-	// delete cm1
+	// Delete cm1
 	err = configMapResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -117,7 +117,7 @@ func (s *configmapSuite) TestDelete(c *gc.C) {
 }
 
 func (s *configmapSuite) TestListCRDs(c *gc.C) {
-	// set up labels for model and app to list resource
+	// Set up labels for model and app to list resource
 	controllerUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,7 +132,7 @@ func (s *configmapSuite) TestListCRDs(c *gc.C) {
 	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
 	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
 
-	// create cm1
+	// Create cm1
 	cm1Name := "cm1"
 	cm1 := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +143,7 @@ func (s *configmapSuite) TestListCRDs(c *gc.C) {
 	_, err = s.configmapClient.Create(context.TODO(), cm1, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// create cm2
+	// Create cm2
 	cm2Name := "cm2"
 	cm2 := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +154,7 @@ func (s *configmapSuite) TestListCRDs(c *gc.C) {
 	_, err = s.configmapClient.Create(context.TODO(), cm2, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// list configmaps
+	// List configmaps
 	crds, err := resources.ListConfigMaps(context.Background(), s.configmapClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
