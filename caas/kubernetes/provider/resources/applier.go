@@ -5,9 +5,13 @@ package resources
 
 import (
 	"context"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -52,28 +56,70 @@ func (op *operation) process(ctx context.Context, rollback Applier) error {
 	} else if err != nil {
 		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes.ID())
 	}
-	if found {
-		ver := op.resource.GetObjectMeta().GetResourceVersion()
-		if ver != "" && ver != existingRes.GetObjectMeta().GetResourceVersion() {
-			id := op.resource.ID()
-			return errors.Annotatef(errConflict, "%s %s", id.Type, id.Name)
-		}
-	}
+
 	switch op.opType {
 	case opApply:
-		err = op.resource.Apply(ctx)
-		if found {
-			// apply the previously existing resource.
-			rollback.Apply(existingRes)
-		} else {
-			// delete the new resource just created.
-			rollback.Delete(op.resource)
+		conflictOccurred := false
+		err = retry.Call(retry.CallArgs{
+			Func: func() error {
+				err := op.resource.Apply(ctx)
+				if errors.Is(err, errConflict) {
+					// Avoid rollback if there is a conflict
+					// since the end result is unpredictable
+					conflictOccurred = true
+
+					// Refresh resource version.
+					// Ignore err here because we will create resource upon
+					// the next retry if the resource is not found
+					_ = op.resource.Get(ctx)
+					return err
+				}
+				return errors.Annotatef(err, "applying resource %q", op.resource.ID().Name)
+			},
+			IsFatalError: func(err error) bool {
+				return !errors.Is(err, errConflict)
+			},
+			Clock:       jujuclock.WallClock,
+			Attempts:    5,
+			Delay:       time.Second,
+			BackoffFunc: retry.ExpBackoff(time.Second, 5*time.Second, 1.5, true),
+		})
+
+		// Do not rollback if the resource is not found, not applied or
+		// it has been deleted by another apiserver
+		// (leading to not found err after even if may have been initially found)
+		// during the retry call process.
+		if err == nil {
+			// The rollback logic below reflects our current implementation; however, if a rollback
+			// occurs, we cannot guarantee it behaves as intended, even in the existing code.
+			// There is still an unresolved issue of potential data race here,
+			// but we preserve the existing rollback behavior.
+			if found && !conflictOccurred {
+				// Apply the previously existing resource.
+				rollback.Apply(existingRes)
+			} else {
+				// Delete the new resource just created.
+				rollback.Delete(op.resource)
+			}
 		}
 	case opDelete:
 		err = op.resource.Delete(ctx)
-		if found {
+		if err != nil {
+			err = errors.Annotatef(err, "deleting resource %q", op.resource.ID().Name)
+		}
+
+		// Do not rollback if the resource is not found.
+		// There is still an unresolved issue of potential data race here,
+		// but we preserve the existing rollback behavior.
+		if err == nil {
 			rollback.Apply(existingRes)
 		}
+	}
+
+	// Ignore any uncaught not found error especially from opDelete.
+	// Apply would return nil error for either updating existing or creating new resource successfully.
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
 	return errors.Trace(err)
 }

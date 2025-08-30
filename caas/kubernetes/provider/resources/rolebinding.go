@@ -88,12 +88,7 @@ func (rb *RoleBinding) Delete(ctx context.Context) error {
 	err := rb.client.Delete(ctx, rb.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -102,4 +97,23 @@ func (rb *RoleBinding) ComputeStatus(_ context.Context, now time.Time) (string, 
 		return "", status.Terminated, rb.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+// ListRoleBindings returns a list of role bindings.
+func ListRoleBindings(ctx context.Context, client rbacv1client.RoleBindingInterface, namespace string, opts metav1.ListOptions) ([]*RoleBinding, error) {
+	var items []*RoleBinding
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewRoleBinding(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

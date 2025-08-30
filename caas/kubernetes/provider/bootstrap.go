@@ -1641,6 +1641,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		caas.DeploymentStateful,
 		c.broker.client(),
 		c.broker.extendedClient(),
+		c.broker.dynamicClient(),
 		c.broker.newWatcher,
 		c.broker.clock,
 		c.broker.randomPrefix,

@@ -91,12 +91,7 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context) error {
 		GracePeriodSeconds: pointer.Int64Ptr(0),
 		Preconditions:      utils.NewUIDPreconditions(rb.UID),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // shouldDelete checks if there are any changes in the immutable field to decide
@@ -178,4 +173,23 @@ func (rb *ClusterRoleBinding) Update(ctx context.Context) error {
 	}
 	rb.ClusterRoleBinding = *out
 	return nil
+}
+
+// ListClusterRoleBindings returns a list of cluster role bindings.
+func ListClusterRoleBindings(ctx context.Context, client rbacv1client.ClusterRoleBindingInterface, opts metav1.ListOptions) ([]*ClusterRoleBinding, error) {
+	var items []*ClusterRoleBinding
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewClusterRoleBinding(client, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

@@ -24,7 +24,9 @@ type Resource interface {
 	metav1.ObjectMetaAccessor
 	// Clone returns a copy of the resource.
 	Clone() Resource
-	// Apply patches the resource change.
+	// Apply patches the resource change or creates the resource if it does not already exist.
+	// The following error types can be expected to be returned:
+	// - [errConflict]: When the resource was modified concurrently or resource version is stale in an update.
 	Apply(ctx context.Context) error
 	// Get refreshes the resource.
 	Get(ctx context.Context) error

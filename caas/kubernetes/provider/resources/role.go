@@ -88,12 +88,7 @@ func (r *Role) Delete(ctx context.Context) error {
 	err := r.client.Delete(ctx, r.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -102,4 +97,23 @@ func (r *Role) ComputeStatus(_ context.Context, now time.Time) (string, status.S
 		return "", status.Terminated, r.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+// ListRoles returns a list of roles.
+func ListRoles(ctx context.Context, client rbacv1client.RoleInterface, namespace string, opts metav1.ListOptions) ([]*Role, error) {
+	var items []*Role
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewRole(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

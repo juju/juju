@@ -88,12 +88,7 @@ func (d *Deployment) Delete(ctx context.Context) error {
 	err := d.client.Delete(ctx, d.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -105,4 +100,23 @@ func (d *Deployment) ComputeStatus(ctx context.Context, now time.Time) (string, 
 		return "", status.Active, now, nil
 	}
 	return "", status.Waiting, now, nil
+}
+
+// ListDeployments returns a list of deployments.
+func ListDeployments(ctx context.Context, client v1.DeploymentInterface, namespace string, opts metav1.ListOptions) ([]*Deployment, error) {
+	var items []*Deployment
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewDeployment(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

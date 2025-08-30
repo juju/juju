@@ -88,12 +88,7 @@ func (ds *DaemonSet) Delete(ctx context.Context) error {
 	err := ds.client.Delete(ctx, ds.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -105,4 +100,23 @@ func (ds *DaemonSet) ComputeStatus(ctx context.Context, now time.Time) (string, 
 		return "", status.Active, now, nil
 	}
 	return "", status.Waiting, now, nil
+}
+
+// ListDaemonSets returns a list of daemon sets.
+func ListDaemonSets(ctx context.Context, client v1.DaemonSetInterface, namespace string, opts metav1.ListOptions) ([]*DaemonSet, error) {
+	var items []*DaemonSet
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, NewDaemonSet(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

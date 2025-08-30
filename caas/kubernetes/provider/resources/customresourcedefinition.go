@@ -24,7 +24,7 @@ type CustomResourceDefinition struct {
 	apiextensionsv1.CustomResourceDefinition
 }
 
-// CustomResourceDefinition creates a new customresourcedefinition resource.
+// NewCustomResourceDefinition creates a new customresourcedefinition resource.
 func NewCustomResourceDefinition(client v1.CustomResourceDefinitionInterface, name string, in *apiextensionsv1.CustomResourceDefinition) *CustomResourceDefinition {
 	if in == nil {
 		in = &apiextensionsv1.CustomResourceDefinition{}
@@ -50,22 +50,24 @@ func (crd *CustomResourceDefinition) ID() ID {
 
 // Apply patches the resource change.
 func (crd *CustomResourceDefinition) Apply(ctx context.Context) (err error) {
-	existing, err := crd.client.Get(ctx, crd.Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Create if not found
-		created, err := crd.client.Create(ctx, &crd.CustomResourceDefinition, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+
+	created, err := crd.client.Create(ctx, &crd.CustomResourceDefinition, metav1.CreateOptions{
+		FieldManager: JujuFieldManager,
+	})
+	if err == nil {
 		crd.CustomResourceDefinition = *created
 		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "creating CustomResourceDefinition %q", crd.GetName())
 	}
 
-	// Update if exists (set ResourceVersion to prevent conflict)
+	existing, err := crd.client.Get(ctx, crd.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "retrieving existing CustomResourceDefinition %q to get latest resource version", crd.GetName())
+	}
+
+	// update if exists (set ResourceVersion to prevent conflict)
 	crd.ResourceVersion = existing.ResourceVersion
 	updated, err := crd.client.Update(ctx, &crd.CustomResourceDefinition, metav1.UpdateOptions{
 		FieldManager: JujuFieldManager,
@@ -98,12 +100,7 @@ func (crd *CustomResourceDefinition) Delete(ctx context.Context) error {
 	err := crd.client.Delete(ctx, crd.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.

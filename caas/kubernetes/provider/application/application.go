@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -97,6 +98,7 @@ type app struct {
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	extendedClient apiextensionsclientset.Interface
+	dynamicClient  dynamic.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
@@ -124,6 +126,7 @@ func NewApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -138,6 +141,7 @@ func NewApplication(
 		deploymentType,
 		client,
 		extendedClient,
+		dynamicClient,
 		newWatcher,
 		clock,
 		randomPrefix,
@@ -155,6 +159,7 @@ func newApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -170,6 +175,7 @@ func newApplication(
 		deploymentType: deploymentType,
 		client:         client,
 		extendedClient: extendedClient,
+		dynamicClient:  dynamicClient,
 		newWatcher:     newWatcher,
 		clock:          clock,
 		randomPrefix:   randomPrefix,
@@ -1002,6 +1008,7 @@ func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) 
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
+	ctx := context.Background()
 	logger.Debugf("deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
@@ -1026,12 +1033,50 @@ func (a *app) Delete() error {
 	// Cleanup lists of resources.
 	cleanup := []resources.Resource(nil)
 
+	// Create selector labels.
+	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
+	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
+	resourceLabels := utils.LabelsMerge(appLabel, modelLabel)
+
+	// List statefulsets to be deleted.
+	statefulsets, err := resources.ListStatefulSets(ctx, a.client.AppsV1().StatefulSets(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list statefulsets for deletion")
+	}
+	for _, sts := range statefulsets {
+		cleanup = append(cleanup, sts)
+	}
+
+	// List deployments to be deleted.
+	deployments, err := resources.ListDeployments(ctx, a.client.AppsV1().Deployments(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list deployments for deletion")
+	}
+	for _, d := range deployments {
+		cleanup = append(cleanup, d)
+	}
+
+	// List services to be deleted.
+	services, err := resources.ListServices(ctx, a.client.CoreV1().Services(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list services for deletion")
+	}
+	for _, svc := range services {
+		cleanup = append(cleanup, svc)
+	}
+
 	// List secrets to be deleted.
-	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(ctx, a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to list secrets for deletion")
 	}
 	for _, s := range secrets {
 		secret := s
@@ -1040,19 +1085,139 @@ func (a *app) Delete() error {
 		}
 	}
 
-	// List crds to be deleted.
-	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
-	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
-	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
-	crds, err := resources.ListCRDs(context.Background(), a.extendedClient, metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
-	},
-	)
+	// List configmaps to be deleted.
+	cms, err := resources.ListConfigMaps(ctx, a.client.CoreV1().ConfigMaps(a.namespace), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to list configmaps for deletion")
+	}
+	for _, cm := range cms {
+		cleanup = append(cleanup, cm)
+	}
+
+	// List roles to be deleted.
+	roles, err := resources.ListRoles(ctx, a.client.RbacV1().Roles(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list roles for deletion")
+	}
+	for _, r := range roles {
+		cleanup = append(cleanup, r)
+	}
+
+	// List role bindings to be deleted.
+	roleBindings, err := resources.ListRoleBindings(ctx, a.client.RbacV1().RoleBindings(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list role bindings for deletion")
+	}
+	for _, rb := range roleBindings {
+		cleanup = append(cleanup, rb)
+	}
+
+	// List cluster role bindings to be deleted.
+	clusterRoleBindings, err := resources.ListClusterRoleBindings(ctx, a.client.RbacV1().ClusterRoleBindings(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list cluster role bindings for deletion")
+	}
+	for _, crb := range clusterRoleBindings {
+		cleanup = append(cleanup, crb)
+	}
+
+	// List cluster roles to be deleted.
+	clusterRoles, err := resources.ListClusterRoles(ctx, a.client.RbacV1().ClusterRoles(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list cluster roles for deletion")
+	}
+	for _, cr := range clusterRoles {
+		cleanup = append(cleanup, cr)
+	}
+
+	// List service accounts to be deleted.
+	serviceAccounts, err := resources.ListServiceAccounts(ctx, a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list service accounts for deletion")
+	}
+	for _, sa := range serviceAccounts {
+		cleanup = append(cleanup, sa)
+	}
+
+	// List CRDs to be deleted.
+	crds, err := resources.ListCRDs(ctx, a.extendedClient, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list CRDs for deletion")
+	}
+	// List CRs for each CRD to be deleted.
+	var crs []*resources.CustomResource
+	for _, crd := range crds {
+		res, err := resources.ListCRsForCRD(ctx, a.dynamicClient, a.namespace, &crd.CustomResourceDefinition, metav1.ListOptions{
+			LabelSelector: resourceLabels.String(),
+		})
+		if err != nil {
+			return errors.Annotatef(err, "failed to list CRs for CRD %q", crd.Name)
+		}
+		crs = append(crs, res...)
+	}
+	for _, cr := range crs {
+		cleanup = append(cleanup, cr)
 	}
 	for _, crd := range crds {
 		cleanup = append(cleanup, crd)
+	}
+
+	// List mutating webhook configurations to be deleted.
+	mws, err := resources.ListMutatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().MutatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list mutating webhook configurations for deletion")
+	}
+	for _, mw := range mws {
+		cleanup = append(cleanup, mw)
+	}
+
+	// List validating webhook configurations to be deleted.
+	vws, err := resources.ListValidatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().ValidatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list validating webhook configurations for deletion")
+	}
+	for _, vw := range vws {
+		cleanup = append(cleanup, vw)
+	}
+
+	// List ingress to be deleted.
+	igs, err := resources.ListIngresses(ctx, a.client.NetworkingV1().Ingresses(a.namespace), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list ingresses for deletion")
+	}
+	for _, ig := range igs {
+		cleanup = append(cleanup, ig)
+	}
+
+	// List daemonsets to be deleted.
+	daemonsets, err := resources.ListDaemonSets(ctx, a.client.AppsV1().DaemonSets(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list daemonsets for deletion")
+	}
+	for _, ds := range daemonsets {
+		cleanup = append(cleanup, ds)
 	}
 
 	if len(cleanup) > 0 {
