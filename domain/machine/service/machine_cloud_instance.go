@@ -6,9 +6,12 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -27,23 +30,26 @@ func (s *Service) GetInstanceID(ctx context.Context, machineUUID machine.UUID) (
 	return instance.Id(instanceId), nil
 }
 
-// GetInstanceIDByMachineName returns the cloud specific instance id for this machine.
-// The following errors may be returned:
-//   - [github.com/juju/juju/domain/machine/errors.NotProvisioned] if the machine
-//     is not provisioned.
-func (s *Service) GetInstanceIDByMachineName(ctx context.Context, machineName machine.Name) (instance.Id, error) {
+// GetPollingInfos returns the polling information for the specified machines.
+func (s *Service) GetPollingInfos(ctx context.Context, machineNames []machine.Name) (domainmachine.PollingInfos,
+	error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
-	if err != nil {
-		return "", errors.Errorf("retrieving machine UUID for machine %q: %w", machineName, err)
+	// If there are no machines, no need to reach the state.
+	if len(machineNames) == 0 {
+		return nil, nil
 	}
-	instanceId, err := s.st.GetInstanceID(ctx, machineUUID.String())
-	if err != nil {
-		return "", errors.Errorf("retrieving cloud instance id for machine %q: %w", machineUUID, err)
+
+	validationError := errors.Join(transform.Slice(machineNames, machine.Name.Validate)...)
+	if validationError != nil {
+		return nil, validationError
 	}
-	return instance.Id(instanceId), nil
+
+	infos, err := s.st.GetPollingInfos(ctx, transform.Slice(machineNames, func(m machine.Name) string {
+		return m.String()
+	}))
+	return infos, errors.Capture(err)
 }
 
 // GetInstanceIDAndName returns the cloud specific instance ID and display name for

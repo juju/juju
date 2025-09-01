@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
@@ -76,11 +74,10 @@ func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 func (s *stateSuite) TestCancelMachineReboot(c *tc.C) {
 	// Setup: Create a machine and add its ID to the reboot table.
 	mUUID := s.createMachine(c)
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, mUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, mUUID)
 
 	// Call the function under test
-	err = s.state.ClearMachineReboot(c.Context(), mUUID)
+	err := s.state.ClearMachineReboot(c.Context(), mUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify: Check if the machine needs reboot
@@ -92,11 +89,10 @@ func (s *stateSuite) TestCancelMachineReboot(c *tc.C) {
 func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 	// Setup: Create a machine and add its ID to the reboot table.
 	mUUID := s.createMachine(c)
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, mUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, mUUID)
 
 	// Call the function under test, twice (idempotency)
-	err = s.state.ClearMachineReboot(c.Context(), mUUID)
+	err := s.state.ClearMachineReboot(c.Context(), mUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.ClearMachineReboot(c.Context(), mUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,14 +106,12 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs,  add both ids in the reboot table
 	machineUUID0, _ := s.addMachine(c)
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, machineUUID0))
-	c.Assert(err, tc.ErrorIsNil)
 	machineUUID1, _ := s.addMachine(c)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, machineUUID1))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, machineUUID0)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, machineUUID1)
 
 	// Call the function under test
-	err = s.state.ClearMachineReboot(c.Context(), machineUUID0)
+	err := s.state.ClearMachineReboot(c.Context(), machineUUID0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify: Check which machine needs reboot
@@ -148,8 +142,7 @@ func (s *stateSuite) TestRebootOrphan(c *tc.C) {
 
 	// Setup: machines and parent if any and setup reboot if required in test case
 	mUUID := s.createMachine(c)
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, mUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, mUUID)
 
 	// Call the function under test
 	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), mUUID)
@@ -179,8 +172,7 @@ func (s *stateSuite) TestRebootChildNotParent(c *tc.C) {
 	// Setup: machines and parent if any and setup reboot if required in test case
 	_, childUUID := s.createContainer(c)
 
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, childUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, childUUID)
 
 	// Call the function under test
 	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), childUUID)
@@ -196,8 +188,7 @@ func (s *stateSuite) TestRebootParentNotChild(c *tc.C) {
 	// Setup: machines and parent if any and setup reboot if required in test case
 	parentUUID, childUUID := s.createContainer(c)
 
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, parentUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, parentUUID)
 
 	// Call the function under test
 	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), childUUID)
@@ -213,10 +204,8 @@ func (s *stateSuite) TestRebootParentChild(c *tc.C) {
 	// Setup: machines and parent if any and setup reboot if required in test case
 	parentUUID, childUUID := s.createContainer(c)
 
-	err := s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, parentUUID))
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.runQuery(c, fmt.Sprintf(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("%s")`, childUUID))
-	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, parentUUID)
+	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, childUUID)
 
 	// Call the function under test
 	rebootAction, err := s.state.ShouldRebootOrShutdown(c.Context(), childUUID)

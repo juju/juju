@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -39,3 +40,16 @@ type AddMachineArgs struct {
 	Platform    deployment.Platform
 	Nonce       *string
 }
+
+// PollingInfo contains information about a machine that is being polled.
+// It is used to get an eventual instanceID  from the provider and existing
+// device count detected by the machiner.
+type PollingInfo struct {
+	MachineUUID         machine.UUID
+	MachineName         machine.Name
+	InstanceID          instance.Id
+	ExistingDeviceCount int
+}
+
+// PollingInfos is a slice of PollingInfo.
+type PollingInfos []PollingInfo
