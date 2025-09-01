@@ -634,14 +634,42 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
+	s.testShouldFlushModelWhenFlushingMachine(c, false)
+}
+
+func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachineOnIPV4OnlyProvider(c *gc.C) {
+	s.testShouldFlushModelWhenFlushingMachine(c, true)
+}
+
+func (s *InstanceModeSuite) testShouldFlushModelWhenFlushingMachine(c *gc.C, ipv4OnlyProvider bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.withIpv6 = !ipv4OnlyProvider
 	s.modelIngressRules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	}
 	s.ensureMocksWithoutMachine(ctrl)
+
+	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+		var expectedRules firewall.IngressRules
+		if ipv4OnlyProvider {
+			expectedRules = firewall.IngressRules{
+				firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR),
+				firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR),
+			}
+		} else {
+			expectedRules = firewall.IngressRules{
+				firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+				firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+			}
+		}
+		c.Check(
+			rules, jc.DeepEquals, expectedRules,
+		)
+		return nil
+	})
 
 	fw := s.newFirewaller(c)
 	defer workertest.CleanKill(c, fw)
