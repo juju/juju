@@ -295,7 +295,14 @@ func BootstrapInstance(
 	}
 	modelFw, ok := env.(models.ModelFirewaller)
 	if ok {
-		if err := openControllerModelPorts(callCtx, modelFw, args.ControllerConfig, env.Config()); err != nil {
+		envIPV6CIDRSupport := false
+		if featQuerier, ok := env.(environs.FirewallFeatureQuerier); ok {
+			var err error
+			if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(callCtx); err != nil {
+				return nil, nil, nil, errors.Annotate(err, "checking IPV6 CIDRs support to cloud provider")
+			}
+		}
+		if err := openControllerModelPorts(callCtx, modelFw, args.ControllerConfig, env.Config(), envIPV6CIDRSupport); err != nil {
 			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
 		}
 	}
@@ -368,7 +375,7 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
-	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config) error {
+	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config, envIPV6CIDRSupport bool) error {
 	defaultCIDRs := []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
@@ -388,6 +395,11 @@ func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
 				ToPort:   80,
 			}, defaultCIDRs...),
 		)
+	}
+
+	// Strip IPV6 CIDRS from the collected ingress rule list if substrates do not support IPV6 CIDRs.
+	if !envIPV6CIDRSupport {
+		rules = rules.RemoveCIDRsMatchingAddressType(network.IPv6Address)
 	}
 
 	return modelFw.OpenModelPorts(callCtx, rules)
