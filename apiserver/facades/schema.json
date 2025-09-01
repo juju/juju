@@ -6031,6 +6031,14 @@
                         "life": {
                             "type": "string"
                         },
+                        "meter-statuses": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/MeterStatus"
+                                }
+                            }
+                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -6081,6 +6089,7 @@
                         "can-upgrade-to",
                         "subordinate-to",
                         "units",
+                        "meter-statuses",
                         "status",
                         "workload-version",
                         "endpoint-bindings",
@@ -6612,6 +6621,22 @@
                         "wants-vote"
                     ]
                 },
+                "MeterStatus": {
+                    "type": "object",
+                    "properties": {
+                        "color": {
+                            "type": "string"
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "color",
+                        "message"
+                    ]
+                },
                 "ModelStatusInfo": {
                     "type": "object",
                     "properties": {
@@ -6620,6 +6645,9 @@
                         },
                         "cloud-tag": {
                             "type": "string"
+                        },
+                        "meter-status": {
+                            "$ref": "#/definitions/MeterStatus"
                         },
                         "model-status": {
                             "$ref": "#/definitions/DetailedStatus"
@@ -6648,6 +6676,7 @@
                         "version",
                         "available-version",
                         "model-status",
+                        "meter-status",
                         "sla"
                     ]
                 },

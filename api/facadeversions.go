@@ -85,8 +85,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Machiner":                     {5},
 	"MeterStatus":                  {2},
 	"MetricsAdder":                 {2},
-	"MetricsDebug":                 {2},
-	"MetricsManager":               {1},
 	"MigrationFlag":                {1},
 	"MigrationMaster":              {3},
 	"MigrationMinion":              {1},
