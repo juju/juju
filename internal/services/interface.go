@@ -37,6 +37,7 @@ import (
 	modelproviderservice "github.com/juju/juju/domain/modelprovider/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	operationservice "github.com/juju/juju/domain/operation/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
@@ -142,6 +143,8 @@ type ModelDomainServices interface {
 	ModelMigration() *modelmigrationservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
+	// Operation returns the operation service.
+	Operation() *operationservice.Service
 	// Proxy returns the proxy service.
 	Proxy() *proxyservice.Service
 	// UnitState returns the service for persisting and retrieving remote unit
