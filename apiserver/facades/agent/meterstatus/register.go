@@ -20,5 +20,5 @@ func Register(registry facade.FacadeRegistry) {
 func newMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
+	return NewMeterStatusAPI(resources, authorizer)
 }

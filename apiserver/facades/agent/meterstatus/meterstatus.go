@@ -5,16 +5,13 @@ package meterstatus
 
 import (
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
+	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.meterstatus")
@@ -25,7 +22,7 @@ type MeterStatus interface {
 	WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error)
 }
 
-// MeterStatusState represents the state of an model required by the MeterStatus.
+// MeterStatusState represents the state of a model required by the MeterStatus.
 //
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
@@ -44,16 +41,11 @@ type MeterStatusState interface {
 // common.UnitStateAPI to allow meter status workers to access their
 // controller-backed internal state.
 type MeterStatusAPI struct {
-	*common.UnitStateAPI
-
-	state      MeterStatusState
-	accessUnit common.GetAuthFunc
-	resources  facade.Resources
+	resources facade.Resources
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
-	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
@@ -61,105 +53,95 @@ func NewMeterStatusAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	return &MeterStatusAPI{
-		state:      st,
-		accessUnit: accessUnit,
-		resources:  resources,
-		UnitStateAPI: common.NewUnitStateAPI(
-			unitStateShim{st},
-			resources,
-			authorizer,
-			accessUnit,
-			logger,
-		),
+		resources: resources,
 	}, nil
 }
 
 // WatchMeterStatus returns a NotifyWatcher for observing changes
 // to each unit's meter status.
+// This is a noop as of 3.6.10 because meter status functionality is removed.
 func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	canAccess, err := m.accessUnit()
-	if err != nil {
-		return params.NotifyWatchResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		var watcherId string
-		if canAccess(tag) {
-			watcherId, err = m.watchOneUnitMeterStatus(tag)
-		}
-		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
+	for i := range args.Entities {
+		// Create a simple notify watcher that only sends one initial event.
+		w := newEmptyNotifyWatcher()
+		watcherID := m.resources.Register(w)
 
-func (m *MeterStatusAPI) watchOneUnitMeterStatus(tag names.UnitTag) (string, error) {
-	unit, err := m.state.Unit(tag.Id())
-	if err != nil {
-		return "", err
+		result.Results[i] = params.NotifyWatchResult{
+			NotifyWatcherId: watcherID,
+		}
 	}
-	watch := unit.WatchMeterStatus()
-	if _, ok := <-watch.Changes(); ok {
-		return m.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
+
+	return result, nil
 }
 
 // GetMeterStatus returns meter status information for each unit.
+// This is a noop as of 3.6.10 because meter status functionality is removed.
 func (m *MeterStatusAPI) GetMeterStatus(args params.Entities) (params.MeterStatusResults, error) {
-	result := params.MeterStatusResults{
+	return params.MeterStatusResults{
 		Results: make([]params.MeterStatusResult, len(args.Entities)),
+	}, nil
+}
+
+// newEmptyNotifyWatcher returns starts and returns a new empty notify watcher,
+// with only the initial event.
+func newEmptyNotifyWatcher() *emptyNotifyWatcher {
+	changes := make(chan struct{})
+
+	w := &emptyNotifyWatcher{
+		changes: changes,
 	}
-	canAccess, err := m.accessUnit()
-	if err != nil {
-		return params.MeterStatusResults{}, apiservererrors.ErrPerm
-	}
-	for i, entity := range args.Entities {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
+	w.tomb.Go(func() error {
+		changes <- struct{}{}
+		defer close(changes)
+		return w.loop()
+	})
+
+	return w
+}
+
+// emptyNotifyWatcher implements watcher.NotifyWatcher.
+type emptyNotifyWatcher struct {
+	changes chan struct{}
+	tomb    tomb.Tomb
+}
+
+// Changes returns the event channel for the empty notify watcher.
+func (w *emptyNotifyWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+// Kill asks the watcher to stop without waiting for it do so.
+func (w *emptyNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Stop asks the watcher to stop and waits.
+func (w *emptyNotifyWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+// Wait waits for the watcher to die and returns any
+// error encountered when it was running.
+func (w *emptyNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+// Err returns any error encountered while the watcher
+// has been running.
+func (w *emptyNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *emptyNotifyWatcher) loop() error {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
 		}
-		err = apiservererrors.ErrPerm
-		var status state.MeterStatus
-		if canAccess(unitTag) {
-			var unit *state.Unit
-			unit, err = m.state.Unit(unitTag.Id())
-			if err == nil {
-				status, err = MeterStatusWrapper(unit.GetMeterStatus)
-			}
-			result.Results[i].Code = status.Code.String()
-			result.Results[i].Info = status.Info
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
-	return result, nil
-}
-
-// unitStateShim adapts the state backend for this facade to make it compatible
-// with common.UnitStateAPI.
-type unitStateShim struct {
-	st MeterStatusState
-}
-
-func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
-	return s.st.ApplyOperation(op)
-}
-
-func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
-}
-
-func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {
-	return s.st.Unit(name)
 }

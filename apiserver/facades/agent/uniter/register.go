@@ -84,7 +84,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
+	msAPI, err := meterstatus.NewMeterStatusAPI(resources, authorizer)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
