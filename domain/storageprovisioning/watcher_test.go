@@ -314,8 +314,9 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 	var (
-		vsOneUUID, vsOneID, vsTwoUUID, vsTwoID string
-		vsaTwoUUID                             string
+		vsOneUUID, vsTwoUUID storageprovisioning.VolumeUUID
+		vsOneID, vsTwoID     string
+		vsaTwoUUID           string
 	)
 
 	// Assert that without any attachments machine provisioned volumes do
@@ -331,8 +332,8 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	// Assert that adding the first attachment for the volume causes the
 	// watcher to fire.
 	harness.AddTest(c, func(c *tc.C) {
-		s.newMachineVolumeAttachmentForMachine(c, vsOneUUID, machineUUID)
-		vsaTwoUUID = s.newMachineVolumeAttachmentForMachine(c, vsTwoUUID, machineUUID)
+		s.newMachineVolumeAttachmentForMachine(c, vsOneUUID.String(), machineUUID)
+		vsaTwoUUID = s.newMachineVolumeAttachmentForMachine(c, vsTwoUUID.String(), machineUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(vsOneID, vsTwoID),
@@ -341,7 +342,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 
 	// Assert that a life change to a volume is reported by the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeVolumeLife(c, vsOneUUID, domainlife.Dying)
+		s.changeVolumeLife(c, vsOneUUID.String(), domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(vsOneID),
@@ -351,7 +352,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 	// Assert that changing something about a volume which isn't the life
 	// does not produce a change in the watcher.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeVolumeProviderID(c, vsTwoUUID)
+		s.changeVolumeProviderID(c, vsTwoUUID.String())
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -392,8 +393,8 @@ func (s *watcherSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, _ := s.newMachineVolume(c)
 		vsTwoUUID, _ := s.newMachineVolume(c)
-		vsaOneUUID := s.newMachineVolumeAttachmentForMachine(c, vsOneUUID, machineUUID)
-		vsaChangeUUID = s.newMachineVolumeAttachmentForMachine(c, vsTwoUUID, machineUUID)
+		vsaOneUUID := s.newMachineVolumeAttachmentForMachine(c, vsOneUUID.String(), machineUUID)
+		vsaChangeUUID = s.newMachineVolumeAttachmentForMachine(c, vsTwoUUID.String(), machineUUID)
 
 		changeVals = []string{vsaOneUUID, vsaChangeUUID}
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -569,8 +570,8 @@ func (s *watcherSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		vsOneUUID, vsOneID := s.newMachineVolume(c)
 		vsTwoUUID, vsTwoID := s.newMachineVolume(c)
-		s.newVolumeAttachmentPlanForMachine(c, vsOneUUID, machineUUID)
-		vapTwoUUID := s.newVolumeAttachmentPlanForMachine(c, vsTwoUUID, machineUUID)
+		s.newVolumeAttachmentPlanForMachine(c, vsOneUUID.String(), machineUUID)
+		vapTwoUUID := s.newVolumeAttachmentPlanForMachine(c, vsTwoUUID.String(), machineUUID)
 
 		// We expect that the volume attchment plan watcher outputs volume ids.
 		changeVals = []string{vsOneID, vsTwoID}
@@ -696,96 +697,15 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchStorageAttachmentForMachineFilesystem(c *tc.C) {
-	svc := s.setupService(c)
-
-	machineUUID := s.newMachine(c)
-	_, charmUUID := s.newApplication(c, "foo")
-	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-
-	fsUUID, _ := s.newMachineFilesystem(c)
-	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
-	fsaUUID := s.newMachineFilesystemAttachmentForMachine(c, fsUUID.String(), machineUUID)
-
-	watcher, err := svc.WatchStorageAttachmentForMachine(
-		c.Context(), storageID, coremachine.UUID(machineUUID),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Change the life of the filesystem attachment.
-	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	// Change the mount point of the filesystem attachment.
-	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemAttachmentMountPoint(c, fsaUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	// Delete the filesystem attachment.
-	harness.AddTest(c, func(c *tc.C) {
-		s.deleteFilesystemAttachment(c, fsaUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	harness.Run(c, struct{}{})
-}
-
-func (s *watcherSuite) TestWatchStorageAttachmentForMachineVolume(c *tc.C) {
-	svc := s.setupService(c)
-
-	machineUUID := s.newMachine(c)
-	_, charmUUID := s.newApplication(c, "foo")
-	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-
-	volumeUUID, _ := s.newMachineVolume(c)
-	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
-	volumeAttachmentUUID := s.newMachineVolumeAttachmentForMachine(c, volumeUUID, machineUUID)
-
-	watcher, err := svc.WatchStorageAttachmentForMachine(
-		c.Context(), storageID, coremachine.UUID(machineUUID),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Change the life of the volume attachment.
-	harness.AddTest(c, func(c *tc.C) {
-		s.changeVolumeAttachmentLife(c, volumeAttachmentUUID, domainlife.Dying)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	// Delete the volume attachment.
-	harness.AddTest(c, func(c *tc.C) {
-		s.deleteVolumeAttachment(c, volumeAttachmentUUID)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	harness.Run(c, struct{}{})
-}
-
-func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
+func (s *watcherSuite) TestWatchStorageAttachmentForUnitForVolume(c *tc.C) {
 	svc := s.setupService(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-
-	fsUUID, _ := s.newMachineFilesystem(c)
-	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
-	fsaUUID := s.newModelFilesystemAttachmentForNetNode(c, fsUUID.String(), netNodeUUID.String())
+	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	volumeUUID, _ := s.newMachineVolume(c)
 
 	watcher, err := svc.WatchStorageAttachmentForUnit(
 		c.Context(), storageID, unitUUID,
@@ -794,23 +714,74 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Change the life of the filesystem attachment.
+	// storage instance volume creation should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
+		s.newStorageInstanceVolume(c, storageInstanceUUID, volumeUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Change the mount point of the filesystem attachment.
+	var blockDeviceUUID string
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeFilesystemAttachmentMountPoint(c, fsaUUID)
+		machineUUID := s.newMachineWithNetNode(c, netNodeUUID.String())
+		blockDeviceUUID = s.newBlockDevice(c, machineUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	var vaUUID string
+	// storage volume attachment creation should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		vaUUID = s.newModelVolumeAttachmentForNetNode(c, volumeUUID.String(), netNodeUUID.String())
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Delete the filesystem attachment.
+	// storage volume attachment update should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		s.deleteFilesystemAttachment(c, fsaUUID)
+		s.changeVolumeAttachmentLife(c, vaUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// storage volume attachment update should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.setVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// block device update should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeBlockDeviceMountPoint(c, blockDeviceUUID, "/mnt/foo")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// block device link device creation should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// block device link device update should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.renameBlockDeviceLinkDevice(c, blockDeviceUUID, "foo")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// block device link device deletion should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteBlockDeviceLinkDevice(c, blockDeviceUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// storage volume attachment deletion should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteVolumeAttachment(c, vaUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -818,17 +789,15 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitFilesystem(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchStorageAttachmentForUnitVolume(c *tc.C) {
+func (s *watcherSuite) TestWatchStorageAttachmentForUnitForFilesystem(c *tc.C) {
 	svc := s.setupService(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-
-	volumeUUID, _ := s.newMachineVolume(c)
-	s.newStorageInstanceVolume(c, storageInstanceUUID, storageprovisioning.VolumeUUID(volumeUUID))
-	volumeAttachmentUUID := s.newModelVolumeAttachmentForNetNode(c, volumeUUID, netNodeUUID.String())
+	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	fsUUID, _ := s.newMachineFilesystem(c)
 
 	watcher, err := svc.WatchStorageAttachmentForUnit(
 		c.Context(), storageID, unitUUID,
@@ -837,16 +806,31 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitVolume(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Change the life of the volume attachment.
+	// storage instance filesystem creation should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		s.changeVolumeAttachmentLife(c, volumeAttachmentUUID, domainlife.Dying)
+		s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Delete the volume attachment.
+	var fsaUUID string
+	// storage filesystem attachment creation should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		s.deleteVolumeAttachment(c, volumeAttachmentUUID)
+		fsaUUID = s.newModelFilesystemAttachmentForNetNode(c, fsUUID.String(), netNodeUUID.String())
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// storage filesystem attachment update should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.changeFilesystemAttachmentLife(c, fsaUUID, domainlife.Dying)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// storage filesystem attachment deletion should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteFilesystemAttachment(c, fsaUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -1211,6 +1195,25 @@ INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
 	return machineUUID.String()
 }
 
+func (s *watcherSuite) newMachineWithNetNode(c *tc.C, netNodeUUID string) string {
+	machineUUID := machinetesting.GenUUID(c)
+	name := "mfoo-" + machineUUID.String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+
+		_, err := tx.Exec(`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
+			machineUUID.String(),
+			name,
+			netNodeUUID,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return machineUUID.String()
+}
+
 // newMachineCloudInstance creates a new machine cloud instance in the model for
 // the provided machine uuid.
 func (s *watcherSuite) newMachineCloudInstance(
@@ -1478,13 +1481,12 @@ VALUES (?, ?, ?, 0, 1)
 
 // newMachineVolume creates a new volume in the model with machine
 // provision scope. Returned is the uuid and volume id of the entity.
-func (s *watcherSuite) newMachineVolume(c *tc.C) (string, string) {
-	vsUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+func (s *watcherSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
+	vsUUID := domaintesting.GenVolumeUUID(c)
 
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(
 			ctx,
 			`
@@ -1498,7 +1500,7 @@ VALUES (?, ?, 0, 1)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	return vsUUID.String(), vsID
+	return vsUUID, vsID
 }
 
 // newModelVolume creates a new volume in the model with model
@@ -1711,13 +1713,14 @@ func (s *watcherSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) {
+) string {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)`,
 		saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
+	return saUUID.String()
 }
 
 func (s *watcherSuite) newStorageInstanceFilesystem(
@@ -1739,5 +1742,71 @@ func (s *watcherSuite) newStorageInstanceVolume(
 	_, err := s.DB().ExecContext(ctx, `
 INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
 VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) newBlockDevice(
+	c *tc.C,
+	machineUUID string,
+) string {
+	blockDeviceUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO block_device (uuid, name, machine_uuid)
+VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return blockDeviceUUID.String()
+}
+
+func (s *watcherSuite) setVolumeAttachmentBlockDevice(
+	c *tc.C, attachmentUUID string, blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_volume_attachment
+SET    block_device_uuid = ?
+WHERE  uuid = ?`, blockDeviceUUID, attachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) newBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO block_device_link_device (block_device_uuid, name)
+VALUES (?, ?)`, blockDeviceUUID, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) changeBlockDeviceMountPoint(
+	c *tc.C, blockDeviceUUID string, mountPoint string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE block_device
+SET    mount_point = ?
+WHERE  uuid = ?`, mountPoint, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) renameBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+	newName string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE block_device_link_device
+SET name = ?
+WHERE block_device_uuid = ?`, newName, blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *watcherSuite) deleteBlockDeviceLinkDevice(
+	c *tc.C,
+	blockDeviceUUID string,
+) {
+	_, err := s.DB().Exec(`
+DELETE FROM block_device_link_device
+WHERE block_device_uuid = ?`, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
