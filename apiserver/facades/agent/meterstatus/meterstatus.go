@@ -6,12 +6,18 @@ package meterstatus
 import (
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/loggo"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.meterstatus")
 
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
@@ -38,11 +44,14 @@ type MeterStatusState interface {
 // common.UnitStateAPI to allow meter status workers to access their
 // controller-backed internal state.
 type MeterStatusAPI struct {
+	*common.UnitStateAPI
+
 	resources facade.Resources
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
+	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
@@ -50,8 +59,16 @@ func NewMeterStatusAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	return &MeterStatusAPI{
 		resources: resources,
+		UnitStateAPI: common.NewUnitStateAPI(
+			unitStateShim{st},
+			resources,
+			authorizer,
+			accessUnit,
+			logger,
+		),
 	}, nil
 }
 
@@ -141,4 +158,22 @@ func (w *emptyNotifyWatcher) loop() error {
 			return tomb.ErrDying
 		}
 	}
+}
+
+// unitStateShim adapts the state backend for this facade to make it compatible
+// with common.UnitStateAPI.
+type unitStateShim struct {
+	st MeterStatusState
+}
+
+func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
+	return s.st.ApplyOperation(op)
+}
+
+func (s unitStateShim) ControllerConfig() (controller.Config, error) {
+	return s.st.ControllerConfig()
+}
+
+func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {
+	return s.st.Unit(name)
 }
