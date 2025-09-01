@@ -369,13 +369,14 @@ func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
 	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config) error {
+	defaultCIDRs := []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
 		firewall.NewIngressRule(network.PortRange{
 			Protocol: "tcp",
 			FromPort: controllerConfig.APIPort(),
 			ToPort:   controllerConfig.APIPort(),
-		}),
+		}, defaultCIDRs...),
 	}
 
 	if controllerConfig.AutocertDNSName() != "" {
@@ -385,7 +386,7 @@ func openControllerModelPorts(callCtx envcontext.ProviderCallContext,
 				Protocol: "tcp",
 				FromPort: 80,
 				ToPort:   80,
-			}),
+			}, defaultCIDRs...),
 		)
 	}
 
