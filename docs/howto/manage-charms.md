@@ -44,7 +44,9 @@ To view details about a particular Charmhub charm / bundle, run the `info` comma
 juju info postgresql
 ```
 
-> See more: {ref}`command-juju-info`
+```{ibnote}
+See more: {ref}`command-juju-info`
+```
 
 
 ```{caution}
