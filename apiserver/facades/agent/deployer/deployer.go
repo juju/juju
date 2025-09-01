@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -25,7 +24,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -114,15 +112,10 @@ type StatusService interface {
 
 // RemovalService defines operations for removing juju entities.
 type RemovalService interface {
-	// RemoveUnit checks if a unit with the input name exists.
-	// If it does, the unit is guaranteed after this call to be:
-	// - No longer alive.
-	// - Removed or scheduled to be removed with the input force qualification.
-	// The input wait duration is the time that we will give for the normal
-	// life-cycle advancement and removal to finish before forcefully removing the
-	// unit. This duration is ignored if the force argument is false.
-	// The UUID for the scheduled removal job is returned.
-	RemoveUnit(ctx context.Context, unitUUID coreunit.UUID, force bool, wait time.Duration) (removal.UUID, error)
+	// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
+	// that is a separate operation. This will advance the unit's life to dead
+	// and will not allow it to be transitioned back to alive.
+	MarkUnitAsDead(context.Context, coreunit.UUID) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -336,16 +329,25 @@ func (d *DeployerAPI) Remove(ctx context.Context, args params.Entities) (params.
 		}
 
 		unitUUID, err := d.applicationService.GetUnitUUID(ctx, coreunit.Name(tag.Id()))
-		if err != nil {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		_, err = d.removalService.RemoveUnit(ctx, unitUUID, false, 0)
+		// Mark the unit as dead. This is because we know that the deployer
+		// ensures that the unit is not alive before calling unit.Remove, so
+		// we can just mark it as dead here.
+		// The deployer also guards against the uniter existing and attempting
+		// to call remove on the unit, preventing the race between the deployer
+		// and the uniter calling ensure dead.
+		err = d.removalService.MarkUnitAsDead(ctx, unitUUID)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+			continue
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 	}
 	return result, nil

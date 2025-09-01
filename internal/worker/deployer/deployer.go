@@ -169,10 +169,12 @@ func (d *Deployer) changed(ctx context.Context, unitName string) error {
 			}
 		}
 	}
-	// The only units that should be deployed are those that (1) we are responsible
-	// for and (2) are Alive -- if we're responsible for a Dying unit that is not
-	// yet deployed, we should remove it immediately rather than undergo the hassle
-	// of deploying a unit agent purely so it can set itself to Dead.
+
+	// The only units that should be deployed are those that (1) we are
+	// responsible for and (2) are becoming Alive -- if we're responsible for a
+	// Dying unit that is not yet deployed, we should remove it immediately
+	// rather than undergo the hassle of deploying a unit agent purely so it can
+	// set itself to Dead.
 	if !d.deployed.Contains(unitName) {
 		if unitLife == life.Alive {
 			return d.deploy(ctx, unit)
@@ -187,7 +189,7 @@ func (d *Deployer) changed(ctx context.Context, unitName string) error {
 // panic if it observes inconsistent internal state.
 func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	unitName := unit.Name()
-	if d.deployed.Contains(unit.Name()) {
+	if d.deployed.Contains(unitName) {
 		panic("must not re-deploy a deployed unit")
 	}
 	if err := unit.SetStatus(ctx, status.Waiting, status.MessageInstallingAgent, nil); err != nil {
