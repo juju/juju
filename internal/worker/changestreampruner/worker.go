@@ -31,9 +31,6 @@ const (
 	defaultWindowDuration = time.Minute * 10
 )
 
-// WindowUpdaterFunc is a function that updates the current window.
-type WindowUpdaterFunc func(window)
-
 // DBGetter describes the ability to supply a sql.DB
 // reference for a particular database.
 type DBGetter = coredatabase.DBGetter
@@ -75,12 +72,12 @@ type Pruner struct {
 	// windows holds the last window for each namespace. This is used to
 	// determine if the change stream is keeping up with the pruner. If the
 	// watermark is outside of the window, we should log a warning message.
-	windows map[string]window
+	windows map[string]Window
 	mutex   sync.Mutex
 }
 
-// New creates a new Pruner.
-func newWorker(cfg WorkerConfig) (*Pruner, error) {
+// NewWorker creates a new Pruner.
+func NewWorker(cfg WorkerConfig) (*Pruner, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -99,7 +96,7 @@ func newWorker(cfg WorkerConfig) (*Pruner, error) {
 	w := &Pruner{
 		cfg:     cfg,
 		runner:  runner,
-		windows: make(map[string]window),
+		windows: make(map[string]Window),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -122,6 +119,11 @@ func (w *Pruner) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *Pruner) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// Report returns a map of internal state for debugging purposes.
+func (w *Pruner) Report() map[string]any {
+	return w.runner.Report()
 }
 
 func (w *Pruner) loop() error {
@@ -164,15 +166,12 @@ func (w *Pruner) prune(ctx context.Context) error {
 				return nil, errors.Trace(err)
 			}
 
-			w.mutex.Lock()
-			currentWindow := w.windows[mn.Namespace]
-			w.mutex.Unlock()
-
 			return w.cfg.NewModelPruner(
 				db,
-				mn.Namespace,
-				currentWindow,
-				w.updateWindow(mn.Namespace),
+				&namespaceWindow{
+					namespace: mn.Namespace,
+					pruner:    w,
+				},
 				w.cfg.Clock,
 				w.cfg.Logger.Child(mn.Namespace),
 			), nil
@@ -192,7 +191,7 @@ func (w *Pruner) getModelNamespaces(ctx context.Context) ([]ModelNamespace, erro
 	}
 
 	query, err := sqlair.Prepare(`
-SELECT namespace AS &ModelNamespace.namespace, model_uuid AS &ModelNamespace.uuid
+SELECT namespace AS &ModelNamespace.namespace
 FROM model_namespace;
 	`, ModelNamespace{})
 	if err != nil {
@@ -216,10 +215,26 @@ FROM model_namespace;
 	return modelNamespaces, nil
 }
 
-func (w *Pruner) updateWindow(namespace string) WindowUpdaterFunc {
-	return func(newWindow window) {
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		w.windows[namespace] = newWindow
-	}
+type namespaceWindow struct {
+	namespace string
+	pruner    *Pruner
+}
+
+// CurrentWindow returns the current window for the namespace.
+func (w *namespaceWindow) CurrentWindow() Window {
+	w.pruner.mutex.Lock()
+	defer w.pruner.mutex.Unlock()
+	return w.pruner.windows[w.namespace]
+}
+
+// UpdateWindow updates the current window for the namespace.
+func (w *namespaceWindow) UpdateWindow(newWindow Window) {
+	w.pruner.mutex.Lock()
+	defer w.pruner.mutex.Unlock()
+	w.pruner.windows[w.namespace] = newWindow
+}
+
+// Namespace returns the namespace for this window.
+func (w *namespaceWindow) Namespace() string {
+	return w.namespace
 }

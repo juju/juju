@@ -14,6 +14,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -49,12 +50,12 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) TestPrune(c *tc.C) {
+func (s *workerSuite) TestPruneController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
 	s.expectTimerImmediate()
-	s.expectControllerDBGet()
+	s.expectControllerDBGet(2)
 
 	ch := make(chan string, 1)
 
@@ -69,18 +70,83 @@ func (s *workerSuite) TestPrune(c *tc.C) {
 	}
 }
 
+func (s *workerSuite) TestPruneModels(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
+
+	s.expectClock()
+	s.expectTimerImmediate()
+	s.expectControllerDBGet(2)
+	s.expectDBGet(modelUUID.String(), s.TxnRunner())
+
+	ch := make(chan string, 2)
+
+	pruner := s.newPruner(c, ch)
+	defer workertest.CleanKill(c, pruner)
+
+	var namespaces []string
+	for range cap(ch) {
+		select {
+		case <-c.Context().Done():
+			c.Fatal("context closed before pruner could start")
+		case ns := <-ch:
+			namespaces = append(namespaces, ns)
+		}
+	}
+	c.Check(namespaces, tc.SameContents, []string{coredatabase.ControllerNS, modelUUID.String()})
+}
+
+func (s *workerSuite) TestPruneModelsAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
+
+	done := make(chan struct{})
+
+	s.expectClock()
+	s.expectTimerRepeated(2, done)
+	s.expectControllerDBGet(3)
+	s.expectDBGet(modelUUID.String(), s.TxnRunner())
+
+	ch := make(chan string, 2)
+
+	pruner := s.newPruner(c, ch)
+	defer workertest.CleanKill(c, pruner)
+
+	var namespaces []string
+	for range cap(ch) {
+		select {
+		case <-c.Context().Done():
+			c.Fatal("context closed before pruner could start")
+		case ns := <-ch:
+			namespaces = append(namespaces, ns)
+		}
+	}
+	c.Check(namespaces, tc.SameContents, []string{coredatabase.ControllerNS, modelUUID.String()})
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("context closed before timer stopped")
+	}
+}
+
 func (s *workerSuite) getConfig(c *tc.C, ch chan string) WorkerConfig {
 	return WorkerConfig{
 		DBGetter: s.dbGetter,
 		NewModelPruner: func(
 			_ coredatabase.TxnRunner,
-			namespace string,
-			_ window,
-			_ WindowUpdaterFunc,
+			nsw NamespaceWindow,
 			_ clock.Clock,
 			_ logger.Logger,
 		) worker.Worker {
-			ch <- namespace
+			select {
+			case ch <- nsw.Namespace():
+			case <-c.Context().Done():
+				c.Fatal("context closed before pruner could start")
+			}
+
 			return workertest.NewErrorWorker(nil)
 		},
 		Clock:  s.clock,
@@ -89,7 +155,7 @@ func (s *workerSuite) getConfig(c *tc.C, ch chan string) WorkerConfig {
 }
 
 func (s *workerSuite) newPruner(c *tc.C, ch chan string) *Pruner {
-	w, err := newWorker(s.getConfig(c, ch))
+	w, err := NewWorker(s.getConfig(c, ch))
 	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

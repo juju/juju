@@ -56,8 +56,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) expectControllerDBGet() {
-	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil).Times(2)
+func (s *baseSuite) expectControllerDBGet(times int) {
+	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil).Times(times)
 }
 
 func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunner) {
@@ -73,13 +73,23 @@ func (s *baseSuite) expectClock() {
 }
 
 func (s *baseSuite) expectTimerImmediate() {
+	s.expectTimerRepeated(1, nil)
+}
+
+func (s *baseSuite) expectTimerRepeated(times int, done chan struct{}) {
 	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer)
 	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
 		ch := make(chan time.Time, 1)
 		ch <- time.Now()
 		return ch
-	})
+	}).Times(times)
 	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
+		defer func() {
+			if done != nil {
+				close(done)
+			}
+		}()
+
 		ch := make(chan time.Time, 1)
 		return ch
 	})

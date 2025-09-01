@@ -62,9 +62,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		},
 		NewModelPruner: func(
 			db coredatabase.TxnRunner,
-			namespace string,
-			initialWindow window,
-			updateWindow WindowUpdaterFunc,
+			namespaceWindow NamespaceWindow,
 			clock clock.Clock,
 			logger logger.Logger,
 		) worker.Worker {

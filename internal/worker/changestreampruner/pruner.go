@@ -20,11 +20,10 @@ import (
 type modelPruner struct {
 	tomb tomb.Tomb
 
-	db        coredatabase.TxnRunner
-	namespace string
+	db coredatabase.TxnRunner
 
-	window       window
-	updateWindow WindowUpdaterFunc
+	window          Window
+	namespaceWindow NamespaceWindow
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -34,16 +33,15 @@ type modelPruner struct {
 // namespace.
 func NewModelPruner(
 	db coredatabase.TxnRunner,
-	namespace string,
-	window window,
+	namespaceWindow NamespaceWindow,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *modelPruner {
 	w := &modelPruner{
-		db:        db,
-		namespace: namespace,
+		db: db,
 
-		window: window,
+		window:          namespaceWindow.CurrentWindow(),
+		namespaceWindow: namespaceWindow,
 
 		clock:  clock,
 		logger: logger,
@@ -61,12 +59,12 @@ func (w *modelPruner) loop() error {
 		// use to prune the change log.
 		lowest, window, err := w.locateLowestWatermark(ctx, tx)
 		if err != nil {
-			return errors.Annotatef(err, "failed to locate lowest watermark for namespace %s", w.namespace)
+			return errors.Annotatef(err, "failed to locate lowest watermark")
 		}
 
 		// Update the current window, this is used to determine if the
 		// change stream is keeping up with the pruner.
-		w.updateWindow(window)
+		w.namespaceWindow.UpdateWindow(window)
 
 		// Prune the change log, using the lowest watermark.
 		pruned, err := w.deleteChangeLog(ctx, tx, lowest)
@@ -86,7 +84,7 @@ func (w *modelPruner) loop() error {
 
 var selectWitnessQuery = sqlair.MustPrepare(`SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;`, Watermark{})
 
-func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) (Watermark, window, error) {
+func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) (Watermark, Window, error) {
 	// Gather all the valid watermarks, post row pruning. These include
 	// the controller id which we know are valid based on the
 	// controller_node table. If at any point we delete rows from the
@@ -95,9 +93,9 @@ func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) 
 	var watermarks []Watermark
 	if err := tx.Query(ctx, selectWitnessQuery).GetAll(&watermarks); errors.Is(err, sqlair.ErrNoRows) {
 		// Nothing to do if there are no watermarks.
-		return Watermark{}, window{}, nil
+		return Watermark{}, Window{}, nil
 	} else if err != nil {
-		return Watermark{}, window{}, errors.Trace(err)
+		return Watermark{}, Window{}, errors.Trace(err)
 	}
 
 	// Gather all the watermarks that are within the windowed time period.
@@ -107,7 +105,7 @@ func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) 
 
 	// Find the first and last watermark in the sorted list, this is our
 	// window. It should hold the start and the end of the window.
-	watermarkView := window{
+	watermarkView := Window{
 		start: sorted[0].UpdatedAt,
 		end:   sorted[len(sorted)-1].UpdatedAt,
 	}
@@ -117,7 +115,7 @@ func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) 
 	// the watermark is different from the last window, as we don't want to
 	// spam the logs if there are no changes.
 	now := w.clock.Now()
-	timeView := window{
+	timeView := Window{
 		start: now.Add(-defaultWindowDuration),
 		end:   now,
 	}
@@ -168,7 +166,6 @@ func sortWatermarks(watermarks []Watermark) []Watermark {
 // ModelNamespace represents a model and the associated DQlite namespace that it
 // uses.
 type ModelNamespace struct {
-	UUID      string `db:"uuid"`
 	Namespace string `db:"namespace"`
 }
 
@@ -179,23 +176,24 @@ type Watermark struct {
 	UpdatedAt    time.Time `db:"updated_at"`
 }
 
-type window struct {
+// Window represents a time window with a start and end time.
+type Window struct {
 	start, end time.Time
 }
 
-// Contains returns true if the window contains the given time.
-func (w window) Contains(o window) bool {
+// Contains returns true if the Window contains the given time.
+func (w Window) Contains(o Window) bool {
 	if w.Equals(o) {
 		return true
 	}
 	return w.start.Before(o.start) && w.end.After(o.end)
 }
 
-// Equals returns true if the window is equal to the given window.
-func (w window) Equals(o window) bool {
+// Equals returns true if the Window is equal to the given Window.
+func (w Window) Equals(o Window) bool {
 	return w.start.Equal(o.start) && w.end.Equal(o.end)
 }
 
-func (w window) String() string {
+func (w Window) String() string {
 	return w.start.Format(time.RFC3339) + " -> " + w.end.Format(time.RFC3339)
 }

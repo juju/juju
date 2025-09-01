@@ -21,12 +21,21 @@ type NewWorkerFunc func(WorkerConfig) (worker.Worker, error)
 // NewModelPrunerFunc is a function that creates a ModelPruner for a given model
 type NewModelPrunerFunc func(
 	db coredatabase.TxnRunner,
-	namespace string,
-	initialWindow window,
-	updateWindow WindowUpdaterFunc,
+	namespaceWindow NamespaceWindow,
 	clock clock.Clock,
 	logger logger.Logger,
 ) worker.Worker
+
+// NamespaceWindow defines the ability to get and set the current window for a
+// particular namespace.
+type NamespaceWindow interface {
+	// Current returns the current window for the namespace.
+	CurrentWindow() Window
+	// Update updates the current window for the namespace.
+	UpdateWindow(Window)
+	// Namespace returns the namespace for this window.
+	Namespace() string
+}
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -89,8 +98,4 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return w, nil
 		},
 	}
-}
-
-func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
-	return newWorker(cfg)
 }
