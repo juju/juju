@@ -296,6 +296,10 @@ type StorageProvisioningService interface {
 	) (storageprovisioning.VolumeAttachmentUUID, error)
 
 	// GetVolumeParams returns the volume params for the supplied uuid.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// when no volume attachment exists for the supplied values.
 	GetVolumeParams(
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)

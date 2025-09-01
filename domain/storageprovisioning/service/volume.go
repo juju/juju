@@ -191,8 +191,10 @@ func (s *Service) GetVolumeAttachmentIDs(
 	return s.st.GetVolumeAttachmentIDs(ctx, uuids)
 }
 
-// GetVolumeParams returns the volume params for the supplied uuid.
+// GetVolumeParams returns the volume params for the supplied UUID.
 // The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied volume attachment UUID is not
+// valid.
 // - [storageprovisioningerrors.VolumeNotFound] when no volume
 // attachment exists for the supplied values.
 func (s *Service) GetVolumeParams(

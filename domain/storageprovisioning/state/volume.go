@@ -24,7 +24,7 @@ import (
 )
 
 // checkVolumeAttachmentExists checks if a volume attachment for the provided
-// uuid exists. True is returned when the volume attachment exists.
+// UUID exists. True is returned when the volume attachment exists.
 func (st *State) checkVolumeAttachmentExists(
 	ctx context.Context,
 	tx *sqlair.TX,
