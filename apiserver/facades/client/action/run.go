@@ -6,17 +6,16 @@ package action
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+	"github.com/juju/collections/transform"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/operation"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	coreoperation "github.com/juju/juju/core/operation"
+	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,27 +27,24 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 	}
 
 	if err := a.check.ChangeAllowed(ctx); err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
-	units, err := a.getAllUnitNames(ctx, run.Units, run.Applications)
+	target := makeOperationTarget(run.Applications, run.Machines, run.Units)
+	args, err := newOperationTaskParams(run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
-	machines := make([]names.Tag, len(run.Machines))
-	for i, machineId := range run.Machines {
-		if !names.IsValidMachine(machineId) {
-			return results, errors.Errorf("invalid machine id %q", machineId)
-		}
-		machines[i] = names.NewMachineTag(machineId)
-	}
-
-	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
+	result, err := a.operationService.Run(ctx, []operation.RunArgs{{
+		Target:   target,
+		TaskArgs: args,
+	}})
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
-	return a.EnqueueOperation(ctx, actionParams)
+
+	return toEnqueuedActions(result), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
@@ -58,103 +54,68 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 	}
 
 	if err := a.check.ChangeAllowed(ctx); err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
 	modelInfo, err := a.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, errors.Capture(err)
 	}
 
 	if modelInfo.Type != model.IAAS {
 		return results, errors.Errorf("cannot run on all machines with a %s model", modelInfo.Type)
 	}
 
-	return results, errors.NotSupportedf("actions in Dqlite")
+	args, err := newOperationTaskParams(run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
+	if err != nil {
+		return results, errors.Capture(err)
+	}
+
+	result, err := a.operationService.RunOnAllMachines(ctx, args)
+	if err != nil {
+		return results, errors.Capture(err)
+	}
+
+	return toEnqueuedActions(result), errors.Capture(err)
 }
 
-func (a *ActionAPI) createRunActionsParams(
-	actionReceiverTags []names.Tag,
+// toEnqueuedActions converts an operation.RunResult to a params.EnqueuedActions.
+func toEnqueuedActions(result operation.RunResult) params.EnqueuedActions {
+
+	machineResult := transform.Slice(result.Machines, func(f operation.MachineTaskResult) params.ActionResult {
+		result := toActionResult(names.NewMachineTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+	unitResults := transform.Slice(result.Units, func(f operation.UnitTaskResult) params.ActionResult {
+		result := toActionResult(names.NewUnitTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+
+	return params.EnqueuedActions{
+		OperationTag: names.NewOperationTag(result.OperationID).String(),
+		Actions:      append(machineResult, unitResults...),
+	}
+}
+
+func newOperationTaskParams(
 	quotedCommands string,
 	timeout time.Duration,
 	parallel *bool,
 	executionGroup *string,
-) (params.Actions, error) {
-	apiActionParams := params.Actions{Actions: []params.Action{}}
-
-	if operation.HasJujuExecAction(quotedCommands) {
-		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
+) (operation.TaskArgs, error) {
+	if coreoperation.HasJujuExecAction(quotedCommands) {
+		return operation.TaskArgs{}, jujuerrors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command",
+			quotedCommands))
 	}
 
 	actionParams := map[string]interface{}{}
 	actionParams["command"] = quotedCommands
 	actionParams["timeout"] = timeout.Nanoseconds()
 
-	for _, tag := range actionReceiverTags {
-		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:       tag.String(),
-			Name:           operation.JujuExecActionName,
-			Parameters:     actionParams,
-			Parallel:       parallel,
-			ExecutionGroup: executionGroup,
-		})
-	}
-
-	return apiActionParams, nil
-}
-
-// getAllUnitNames returns a sequence of valid Unit objects from state. If any
-// of the application names or unit names are not found, an error is returned.
-func (a *ActionAPI) getAllUnitNames(ctx context.Context, units, applications []string) (result []names.Tag, err error) {
-	var leaders map[string]string
-	getLeader := func(appName string) (string, error) {
-		if leaders == nil {
-			var err error
-			leaders, err = a.leadership.Leaders()
-			if err != nil {
-				return "", err
-			}
-		}
-		if leader, ok := leaders[appName]; ok {
-			return leader, nil
-		}
-		return "", errors.Errorf("could not determine leader for %q", appName)
-	}
-
-	// Replace units matching $app/leader with the appropriate unit for
-	// the leader.
-	unitsSet := set.NewStrings()
-	for _, unit := range units {
-		if !strings.HasSuffix(unit, "leader") {
-			unitsSet.Add(unit)
-			continue
-		}
-
-		app := strings.Split(unit, "/")[0]
-		leaderUnit, err := getLeader(app)
-		if err != nil {
-			return nil, apiservererrors.ServerError(err)
-		}
-
-		unitsSet.Add(leaderUnit)
-	}
-
-	for _, aName := range applications {
-		unitNames, err := a.applicationService.GetUnitNamesForApplication(ctx, aName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return nil, errors.NotFoundf("application %q", aName)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, unitName := range unitNames {
-			unitsSet.Add(unitName.String())
-		}
-	}
-	for _, unitName := range unitsSet.SortedValues() {
-		if !names.IsValidUnit(unitName) {
-			return nil, errors.Errorf("invalid unit name %q", unitName)
-		}
-		result = append(result, names.NewUnitTag(unitName))
-	}
-	return result, nil
+	return operation.TaskArgs{
+		ActionName:     coreoperation.JujuExecActionName,
+		Parameters:     actionParams,
+		IsParallel:     parallel == nil || *parallel, // parallel defaults to true
+		ExecutionGroup: zeroNilPtr(executionGroup),
+	}, nil
 }
