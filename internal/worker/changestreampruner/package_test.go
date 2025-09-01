@@ -22,9 +22,10 @@ import (
 type baseSuite struct {
 	databasetesting.DqliteSuite
 
-	dbGetter *MockDBGetter
-	clock    *MockClock
-	timer    *MockTimer
+	dbGetter        *MockDBGetter
+	namespaceWindow *MockNamespaceWindow
+	clock           *MockClock
+	timer           *MockTimer
 }
 
 // SetUpTest is responsible for setting up a testing database suite initialised
@@ -50,6 +51,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.dbGetter = NewMockDBGetter(ctrl)
+	s.namespaceWindow = NewMockNamespaceWindow(ctrl)
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
 

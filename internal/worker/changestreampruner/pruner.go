@@ -5,6 +5,7 @@ package changestreampruner
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -22,7 +23,6 @@ type modelPruner struct {
 
 	db coredatabase.TxnRunner
 
-	window          Window
 	namespaceWindow NamespaceWindow
 
 	clock  clock.Clock
@@ -40,7 +40,6 @@ func NewModelPruner(
 	w := &modelPruner{
 		db: db,
 
-		window:          namespaceWindow.CurrentWindow(),
 		namespaceWindow: namespaceWindow,
 
 		clock:  clock,
@@ -51,13 +50,45 @@ func NewModelPruner(
 	return w
 }
 
+// Kill stops the model pruner.
+func (w *modelPruner) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait waits for the model pruner to stop.
+func (w *modelPruner) Wait() error {
+	return w.tomb.Wait()
+}
+
+// Report returns the current status of the model pruner.
+func (w *modelPruner) Report() map[string]any {
+	return map[string]any{
+		"namespace": w.namespaceWindow.Namespace(),
+	}
+}
+
 func (w *modelPruner) loop() error {
 	ctx := w.tomb.Context(context.Background())
+	pruned, err := w.prune(ctx)
+	if errors.Is(err, context.Canceled) {
+		return tomb.ErrDying
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if pruned > 0 {
+		w.logger.Infof(ctx, "pruned %d rows from change log", pruned)
+	}
+	return nil
+}
 
-	if err := w.db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (w *modelPruner) prune(ctx context.Context) (int64, error) {
+	currentWindow := w.namespaceWindow.CurrentWindow()
+
+	var pruned int64
+	err := w.db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Locate the lowest watermark, this is the watermark that we will
 		// use to prune the change log.
-		lowest, window, err := w.locateLowestWatermark(ctx, tx)
+		lowest, window, err := w.locateLowestWatermark(ctx, tx, currentWindow)
 		if err != nil {
 			return errors.Annotatef(err, "failed to locate lowest watermark")
 		}
@@ -67,24 +98,19 @@ func (w *modelPruner) loop() error {
 		w.namespaceWindow.UpdateWindow(window)
 
 		// Prune the change log, using the lowest watermark.
-		pruned, err := w.deleteChangeLog(ctx, tx, lowest)
+		pruned, err = w.deleteChangeLog(ctx, tx, lowest)
 		if err != nil {
 			return errors.Annotatef(err, "failed to prune change log")
 		}
-		if pruned > 0 {
-			w.logger.Infof(ctx, "pruned %d rows from change log", pruned)
-		}
-		return nil
-	}); err != nil {
-		return errors.Trace(err)
-	}
 
-	return nil
+		return nil
+	})
+	return pruned, errors.Trace(err)
 }
 
-var selectWitnessQuery = sqlair.MustPrepare(`SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;`, Watermark{})
+var selectWitnessQuery = sqlair.MustPrepare(`SELECT &Watermark.* FROM change_log_witness;`, Watermark{})
 
-func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) (Watermark, Window, error) {
+func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, current Window) (Watermark, Window, error) {
 	// Gather all the valid watermarks, post row pruning. These include
 	// the controller id which we know are valid based on the
 	// controller_node table. If at any point we delete rows from the
@@ -119,7 +145,8 @@ func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX) 
 		start: now.Add(-defaultWindowDuration),
 		end:   now,
 	}
-	if !timeView.Contains(watermarkView) && !watermarkView.Equals(w.window) {
+
+	if !timeView.Contains(watermarkView) && !watermarkView.Equals(current) {
 		w.logger.Warningf(ctx, "watermarks %q are outside of window, check logs to see if the change stream is keeping up", sorted[0].ControllerID)
 	}
 
@@ -136,14 +163,6 @@ func (w *modelPruner) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest
 	}
 	pruned, err := outcome.Result().RowsAffected()
 	return pruned, errors.Trace(err)
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *Pruner) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
 }
 
 func sortWatermarks(watermarks []Watermark) []Watermark {
@@ -195,5 +214,5 @@ func (w Window) Equals(o Window) bool {
 }
 
 func (w Window) String() string {
-	return w.start.Format(time.RFC3339) + " -> " + w.end.Format(time.RFC3339)
+	return fmt.Sprintf("start: %s, end: %s", w.start.Format(time.RFC3339), w.end.Format(time.RFC3339))
 }

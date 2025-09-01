@@ -77,7 +77,7 @@ type Pruner struct {
 }
 
 // NewWorker creates a new Pruner.
-func NewWorker(cfg WorkerConfig) (*Pruner, error) {
+func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,8 +127,7 @@ func (w *Pruner) Report() map[string]any {
 }
 
 func (w *Pruner) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	timer := w.cfg.Clock.NewTimer(defaultPruneInterval)
 	defer timer.Stop()

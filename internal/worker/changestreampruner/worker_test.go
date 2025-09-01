@@ -157,5 +157,5 @@ func (s *workerSuite) getConfig(c *tc.C, ch chan string) WorkerConfig {
 func (s *workerSuite) newPruner(c *tc.C, ch chan string) *Pruner {
 	w, err := NewWorker(s.getConfig(c, ch))
 	c.Assert(err, tc.ErrorIsNil)
-	return w
+	return w.(*Pruner)
 }

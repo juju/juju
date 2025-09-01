@@ -3,10 +3,22 @@
 package changestreampruner
 
 import (
+	"context"
+	"fmt"
+	"strconv"
 	"testing"
+	time "time"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
+	gomock "go.uber.org/mock/gomock"
+
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type prunerWorkerSuite struct {
@@ -18,125 +30,92 @@ func TestPrunerWorkerSuite(t *testing.T) {
 	tc.Run(t, &prunerWorkerSuite{})
 }
 
-/*
-func (s *prunerWorkerSuite) TestPrune(c *tc.C) {
+func (s *prunerWorkerSuite) TestPrunerDies(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectControllerDBGet()
+	// No update to the window, as there is nothing to prune.
+	done := make(chan struct{})
+	s.namespaceWindow.EXPECT().CurrentWindow().DoAndReturn(func() Window {
+		return Window{start: time.Now().Add(-time.Hour), end: time.Now()}
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).DoAndReturn(func(w Window) {
+		close(done)
+	})
 
 	pruner := s.newPruner(c)
 	defer workertest.CleanKill(c, pruner)
 
-	err := pruner.prune(c.Context())
-	c.Check(err, tc.ErrorIsNil)
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for pruner to run")
+	}
 }
 
 func (s *prunerWorkerSuite) TestPruneModelList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	txnRunner, db := s.OpenDB(c)
-	defer db.Close()
+	now := time.Now().Truncate(time.Second)
 
-	s.ApplyDDLForRunner(c, txnRunner)
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now.Add(-time.Minute),
+			end:   now.Add(-time.Minute),
+		})
+	})
 
-	s.expectControllerDBGet()
-	s.expectClock()
+	// We want to test the prune method, not the loop.
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
-	pruner := s.newPruner(c)
-
-	now := time.Now()
-
-	s.insertControllerNodes(c, 1)
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
-	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.prune()
-	c.Check(err, tc.ErrorIsNil)
+	result, err := pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 
 	// This ensures that we always prune the controller namespace.
-	c.Check(result, tc.DeepEquals, map[string]int64{
-		coredatabase.ControllerNS: 3,
-		modelUUID.String():        0,
-	})
-}
-
-func (s *prunerWorkerSuite) TestPruneModelListWithChangeLogItems(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	txnRunner, db := s.OpenDB(c)
-	defer db.Close()
-
-	s.ApplyDDLForRunner(c, txnRunner)
-
-	s.expectControllerDBGet()
-	s.expectClock()
-
-	pruner := s.newPruner(c)
-
-	now := time.Now()
-
-	s.insertControllerNodes(c, 1)
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
-	s.expectDBGet(modelUUID.String(), txnRunner)
-	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
-	s.truncateChangeLog(c, s.TxnRunner())
-	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
-
-	s.insertChangeLogWitness(c, txnRunner, Watermark{ControllerID: "0", LowerBound: 1003, UpdatedAt: now.Add(-time.Second)})
-	s.truncateChangeLog(c, txnRunner)
-	s.insertChangeLogItems(c, txnRunner, 0, 6, now)
-
-	result, err := pruner.prune()
-	c.Check(err, tc.ErrorIsNil)
-
-	// This ensures that we always prune the controller namespace.
-	c.Check(result, tc.DeepEquals, map[string]int64{
-		coredatabase.ControllerNS: 3,
-		modelUUID.String():        4,
-	})
-}
-
-func (s *prunerWorkerSuite) TestPruneModel(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectDBGet("foo", s.TxnRunner())
-
-	pruner := s.newPruner(c)
-
-	result, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(result, tc.Equals, int64(0))
-}
-
-func (s *prunerWorkerSuite) TestPruneModelGetDBError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.dbGetter.EXPECT().GetDB(gomock.Any(), "foo").Return(nil, errors.New("boom"))
-
-	pruner := s.newPruner(c)
-
-	_, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorMatches, "boom")
+	c.Check(result, tc.Equals, int64(3))
 }
 
 func (s *prunerWorkerSuite) TestPruneModelChangeLogWitness(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
-
-	pruner := s.newPruner(c)
-
 	now := time.Now()
+
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now,
+			end:   now,
+		})
+	})
+
+	// We want to test the prune method, not the loop.
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
 	s.insertControllerNodes(c, 2)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now})
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err := pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	s.expectChangeLogWitnesses(c, s.TxnRunner(), []Watermark{{
@@ -149,19 +128,29 @@ func (s *prunerWorkerSuite) TestPruneModelChangeLogWitness(c *tc.C) {
 func (s *prunerWorkerSuite) TestPruneModelLogsWarning(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// We request the db
-
-	s.expectDBGetTimes("foo", s.TxnRunner(), 3)
-	s.expectClock()
+	now := time.Now().Truncate(time.Second)
+	window := &Window{
+		start: now,
+		end:   now,
+	}
+	s.namespaceWindow.EXPECT().CurrentWindow().DoAndReturn(func() Window {
+		return *window
+	}).Times(3)
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).DoAndReturn(func(w Window) {
+		window = &w
+	}).Times(3)
 
 	var entries []string
 	recorder := loggertesting.RecordLog(func(s string, a ...any) {
 		entries = append(entries, s)
 	})
 
-	pruner := s.newPrunerWithLogger(c, loggertesting.WrapCheckLog(recorder))
-
-	now := time.Now()
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(recorder),
+	}
 
 	s.insertControllerNodes(c, 2)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
@@ -169,15 +158,19 @@ func (s *prunerWorkerSuite) TestPruneModelLogsWarning(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 1, now)
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err := pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
+
+	c.Assert(entries, tc.DeepEquals, []string{
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+	})
 
 	// Should not prune anything as there are no new changes. Notice that the
 	// warning is not logged.
 
-	result, err = pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err = pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(0))
 
 	// Add some new changes and it should log the warning.
@@ -189,25 +182,38 @@ func (s *prunerWorkerSuite) TestPruneModelLogsWarning(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 1, 1, now)
 
-	result, err = pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err = pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(1))
 
 	c.Check(entries, tc.DeepEquals, []string{
-		"WARNING: namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up",
-		"WARNING: namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
 	})
 }
 
 func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItems(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
+	now := time.Now().Truncate(time.Second)
 
-	pruner := s.newPruner(c)
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now.Add(-time.Minute),
+			end:   now.Add(-time.Second),
+		})
+	})
 
-	now := time.Now()
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
 	totalCtrlNodes := 2
 	s.insertControllerNodes(c, totalCtrlNodes)
@@ -216,8 +222,8 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItems(c *tc.C) {
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err := pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 7, 1003, 1010)
@@ -226,12 +232,25 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItems(c *tc.C) {
 func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
+	now := time.Now().Truncate(time.Second)
 
-	pruner := s.newPruner(c)
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now.Add(-time.Second),
+			end:   now.Add(-time.Minute),
+		})
+	})
 
-	now := time.Now()
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
 	totalCtrlNodes := 2
 	s.insertControllerNodes(c, totalCtrlNodes)
@@ -240,8 +259,8 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
-	c.Check(err, tc.ErrorIsNil)
+	result, err := pruner.prune(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(3+totalCtrlNodes))
 
 	s.expectChangeLogItems(c, s.TxnRunner(), 7, 1003, 1010)
@@ -250,12 +269,25 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksWithOneOutsideWindow(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
+	now := time.Now().Truncate(time.Second)
 
-	pruner := s.newPruner(c)
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now.Add(-(defaultWindowDuration + time.Second)),
+			end:   now.Add(-time.Minute),
+		})
+	})
 
-	now := time.Now()
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
 	totalCtrlNodes := 3
 	s.insertControllerNodes(c, totalCtrlNodes)
@@ -265,7 +297,7 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
+	result, err := pruner.prune(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
@@ -275,12 +307,25 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksMoreWatermarks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
-	s.expectClock()
+	now := time.Now().Truncate(time.Second)
 
-	pruner := s.newPruner(c)
+	s.namespaceWindow.EXPECT().CurrentWindow().Return(Window{
+		start: now,
+		end:   now,
+	})
+	s.namespaceWindow.EXPECT().UpdateWindow(gomock.Any()).Do(func(w Window) {
+		c.Check(w, tc.DeepEquals, Window{
+			start: now.Add(-time.Second),
+			end:   now.Add(-time.Minute),
+		})
+	})
 
-	now := time.Now()
+	pruner := &modelPruner{
+		db:              s.TxnRunner(),
+		namespaceWindow: s.namespaceWindow,
+		clock:           clock.WallClock,
+		logger:          loggertesting.WrapCheckLog(c),
+	}
 
 	totalCtrlNodes := 3
 	s.insertControllerNodes(c, totalCtrlNodes)
@@ -290,7 +335,7 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 
 	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
-	result, err := pruner.pruneModel(c.Context(), "foo")
+	result, err := pruner.prune(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, int64(2+totalCtrlNodes))
 
@@ -300,44 +345,44 @@ func (s *prunerWorkerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWater
 func (s *prunerWorkerSuite) TestWindowContains(c *tc.C) {
 	now := time.Now()
 	testCases := []struct {
-		window   window
-		other    window
+		window   Window
+		other    Window
 		expected bool
 	}{{
-		window:   window{start: now, end: now},
-		other:    window{start: now, end: now},
+		window:   Window{start: now, end: now},
+		other:    Window{start: now, end: now},
 		expected: true,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
-		other:    window{start: now, end: now},
+		window:   Window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
+		other:    Window{start: now, end: now},
 		expected: true,
 	}, {
-		window:   window{start: now.Add(time.Minute), end: now.Add(-time.Minute)},
-		other:    window{start: now, end: now},
+		window:   Window{start: now.Add(time.Minute), end: now.Add(-time.Minute)},
+		other:    Window{start: now, end: now},
 		expected: false,
 	}, {
-		window:   window{start: now.Add(time.Minute), end: now.Add(time.Minute)},
-		other:    window{start: now, end: now},
+		window:   Window{start: now.Add(time.Minute), end: now.Add(time.Minute)},
+		other:    Window{start: now, end: now},
 		expected: false,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now.Add(-time.Minute)},
-		other:    window{start: now, end: now},
+		window:   Window{start: now.Add(-time.Minute), end: now.Add(-time.Minute)},
+		other:    Window{start: now, end: now},
 		expected: false,
 	}, {
-		window:   window{start: now, end: now.Add(time.Minute * 2)},
-		other:    window{start: now.Add(time.Minute), end: now.Add(time.Minute + time.Second)},
+		window:   Window{start: now, end: now.Add(time.Minute * 2)},
+		other:    Window{start: now.Add(time.Minute), end: now.Add(time.Minute + time.Second)},
 		expected: true,
 	}, {
-		window:   window{start: now, end: now.Add(time.Minute * 2)},
-		other:    window{start: now.Add(time.Nanosecond), end: now.Add((time.Minute * 2) - time.Nanosecond)},
+		window:   Window{start: now, end: now.Add(time.Minute * 2)},
+		other:    Window{start: now.Add(time.Nanosecond), end: now.Add((time.Minute * 2) - time.Nanosecond)},
 		expected: true,
 	}, {
-		window:   window{start: now, end: now.Add(time.Minute * 2)},
-		other:    window{start: now, end: now.Add((time.Minute * 2) - time.Nanosecond)},
+		window:   Window{start: now, end: now.Add(time.Minute * 2)},
+		other:    Window{start: now, end: now.Add((time.Minute * 2) - time.Nanosecond)},
 		expected: false,
 	}, {
-		window:   window{start: now, end: now.Add(time.Minute * 2)},
-		other:    window{start: now.Add(time.Nanosecond), end: now.Add(time.Minute * 2)},
+		window:   Window{start: now, end: now.Add(time.Minute * 2)},
+		other:    Window{start: now.Add(time.Nanosecond), end: now.Add(time.Minute * 2)},
 		expected: false,
 	}}
 	for i, test := range testCases {
@@ -351,16 +396,16 @@ func (s *prunerWorkerSuite) TestWindowContains(c *tc.C) {
 func (s *prunerWorkerSuite) TestWindowEquals(c *tc.C) {
 	now := time.Now()
 	testCases := []struct {
-		window   window
-		other    window
+		window   Window
+		other    Window
 		expected bool
 	}{{
-		window:   window{start: now, end: now},
-		other:    window{start: now, end: now},
+		window:   Window{start: now, end: now},
+		other:    Window{start: now, end: now},
 		expected: true,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
-		other:    window{start: now, end: now},
+		window:   Window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
+		other:    Window{start: now, end: now},
 		expected: false,
 	}}
 	for i, test := range testCases {
@@ -438,27 +483,17 @@ func (s *prunerWorkerSuite) TestLowestWatermark(c *tc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 
-		got := sortWatermarks("foo", test.watermarks)
+		got := sortWatermarks(test.watermarks)
 		c.Check(got, tc.DeepEquals, test.expected)
 	}
 }
 
-func (s *prunerWorkerSuite) newPruner(c *tc.C) *Pruner {
+func (s *prunerWorkerSuite) newPruner(c *tc.C) *modelPruner {
 	return s.newPrunerWithLogger(c, loggertesting.WrapCheckLog(c))
 }
 
-func (s *prunerWorkerSuite) newPrunerWithLogger(c *tc.C, logger logger.Logger) *Pruner {
-	return &Pruner{
-		cfg: WorkerConfig{
-			DBGetter: s.dbGetter,
-			NewModelPruner: func(db coredatabase.TxnRunner, namespace string, initialWindow window, updateWindow func(window), clock clock.Clock, logger logger.Logger) worker.Worker {
-				return workertest.NewErrorWorker(nil)
-			},
-			Clock:  s.clock,
-			Logger: logger,
-		},
-		windows: make(map[string]window),
-	}
+func (s *prunerWorkerSuite) newPrunerWithLogger(c *tc.C, logger logger.Logger) *modelPruner {
+	return NewModelPruner(s.TxnRunner(), s.namespaceWindow, s.clock, logger)
 }
 
 func (s *prunerWorkerSuite) insertControllerNodes(c *tc.C, amount int) {
@@ -588,4 +623,3 @@ type ChangeLogItem struct {
 	Changed    int       `db:"changed"`
 	CreatedAt  time.Time `db:"created_at"`
 }
-*/
