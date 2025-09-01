@@ -502,6 +502,9 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnitUnitNotFound(c *tc.C)
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
+// TestFilesystemParamsNotFound tests that when asking for the params of a
+// filesystem which does not exist in the model results in a permission error
+// to the caller.
 func (s *provisionerSuite) TestFilesystemParamsNotFound(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
@@ -524,9 +527,12 @@ func (s *provisionerSuite) TestFilesystemParamsNotFound(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
 }
 
+// TestFilesystemParamsNotFoundWithUUID tests that when asking for the params of
+// a filesystem which does not exist in the model results in a permission error
+// to the caller.
 func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
@@ -554,7 +560,7 @@ func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
 }
 
 func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
@@ -885,6 +891,9 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *tc.C) {
 	})
 }
 
+// TestVolumeParamsNotFound tests that when asking for the params of a volume
+// which does not exist in the model results in a permission error
+// to the caller.
 func (s *provisionerSuite) TestVolumeParamsNotFound(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
@@ -905,9 +914,12 @@ func (s *provisionerSuite) TestVolumeParamsNotFound(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
 }
 
+// TestVolumeParamsNotFoundWithUUID tests that when asking for the params of a
+// volume which does not exist in the model results in a permission error to the
+// caller.
 func (s *provisionerSuite) TestVolumeParamsNotFoundWithUUID(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
@@ -932,7 +944,7 @@ func (s *provisionerSuite) TestVolumeParamsNotFoundWithUUID(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
 }
 
 func (s *provisionerSuite) TestVolumeParams(c *tc.C) {

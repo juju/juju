@@ -1102,9 +1102,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 		var result params.VolumeParamsResult
 		volumeParams, err := one(arg)
 		if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-			err = errors.Errorf(
-				"volume %q not found", arg.Tag,
-			).Add(coreerrors.NotFound)
+			err = apiservererrors.ErrPerm
 		}
 
 		if err != nil {
@@ -1190,9 +1188,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 		var result params.FilesystemParamsResult
 		filesystemParams, err := one(arg)
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-			err = errors.Errorf(
-				"filesystem %q not found", arg.Tag,
-			).Add(coreerrors.NotFound)
+			err = apiservererrors.ErrPerm
 		}
 
 		if err != nil {
