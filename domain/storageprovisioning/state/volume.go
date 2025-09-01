@@ -18,7 +18,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -672,8 +671,8 @@ WHERE  uuid = $volumeUUID.uuid
 // for the provided volume uuid.
 func (st *State) SetVolumeProvisionedInfo(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeUUID,
-	info storageprovisioning.VolumeProvisionedInfo,
+	uuid domainstorageprovisioning.VolumeUUID,
+	info domainstorageprovisioning.VolumeProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
