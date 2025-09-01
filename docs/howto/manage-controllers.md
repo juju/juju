@@ -486,7 +486,7 @@ Make a change to your controller (e.g., run `juju add-model test` to add another
 
 ```{ibnote}
 See more:
-- [Charmhub | `juju-controller` > `metrics-endpoint | prometheus-scrape`](https://charmhub.io/juju-controller/tegrations#metrics-endpoint)
+- [Charmhub | `juju-controller` > `metrics-endpoint | prometheus-scrape`](https://charmhub.io/juju-controller/integrations#metrics-endpoint)
 - [Charmhub | `juju-controller` > Endpoint `metrics-endpoint`: List of metrics](https://charmhub.io/juju-controller/docs/dpoint-metrics-endpoint-metrics)
  - [Charmhub | `prometheus-k8s` > `metrics-endpoint`](https://charmhub.io/prometheus-k8s/integrations#metrics-endpoint)
 - [Charmhub | `cos-lite`](https://charmhub.io/cos-lite)

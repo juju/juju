@@ -173,10 +173,10 @@ When you initialise a rock with a 12-Factor-app-charm-geared profile, the initia
 ```{ibnote}
 See more:
 
- - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Django app write-your-first-kubernetes-charm-for-a-django-app>`
- - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a FastAPI app write-your-first-kubernetes-charm-for-a-fastapi-app>`
- - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://canonical-charmcraft.readthedocs-hosted.com/en/table/tutorial/flask/)
- - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Go app <write-your-first-kubernetes-charm-for-a-go-app>`
+ - [Charmcraft | Write your first Kubernetes charm for a Django app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-django/)
+ - [Charmcraft | Write your first Kubernetes charm for a FastAPI app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-fastapi/)
+ - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-flask/)
+ - [Charmcraft | Write your first Kubernetes charm for a Go app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-go/)
 ```
 
 (reactive-charm)=
