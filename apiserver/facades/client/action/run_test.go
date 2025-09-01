@@ -24,6 +24,7 @@ type runSuite struct {
 	blockCommandService *action.MockBlockCommandService
 	applicationService  *action.MockApplicationService
 	modelInfoService    *action.MockModelInfoService
+	operationService    *action.MockOperationService
 
 	client *action.ActionAPI
 }
@@ -83,7 +84,7 @@ func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Tag: jujutesting.AdminUser,
 	}
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, modelUUID)
+	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, s.operationService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl

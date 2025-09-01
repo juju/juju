@@ -14,7 +14,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService
+//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService,OperationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
 
@@ -24,11 +24,12 @@ type MockBaseSuite struct {
 	BlockCommandService *MockBlockCommandService
 	ApplicationService  *MockApplicationService
 	ModelInfoService    *MockModelInfoService
+	OperationService    *MockOperationService
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
-	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
+	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, s.OperationService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
@@ -40,9 +41,10 @@ func NewActionAPI(
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
 	modelInfoService ModelInfoService,
+	operationService OperationService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
-	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, modelUUID)
+	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, operationService, modelUUID)
 }
 
 type FakeLeadership struct {

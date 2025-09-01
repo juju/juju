@@ -6,18 +6,21 @@ package action
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coreaction "github.com/juju/juju/core/action"
 	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	operation "github.com/juju/juju/domain/operation"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
@@ -54,14 +57,24 @@ type ModelInfoService interface {
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 }
 
+// OperationService provides access to operations (actions and execs).
+type OperationService interface {
+	// GetActions returns the list of actions identified by their UUIDs.
+	GetActions(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error)
+	// CancelAction attempts to cancel enqueued actions, identified by their
+	// UUIDs.
+	CancelAction(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error)
+}
+
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	modelTag           names.ModelTag
 	modelInfoService   ModelInfoService
+	applicationService ApplicationService
+	operationService   OperationService
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
 	leadership         leadership.Reader
-	applicationService ApplicationService
 }
 
 // APIv7 provides the Action API facade for version 7.
@@ -75,6 +88,7 @@ func newActionAPI(
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
 	modelInfoService ModelInfoService,
+	operationService OperationService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
@@ -95,6 +109,7 @@ func newActionAPI(
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,
 		applicationService: applicationService,
+		operationService:   operationService,
 	}, nil
 }
 
@@ -118,21 +133,44 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+	// Temporary map to hold the index of each action UUID in the results slice.
+	results := make(map[coreaction.UUID]int)
+
+	// Try to parse all the tags first.
 	for i, entity := range arg.Entities {
-		currentResult := &response.Results[i]
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		_, ok := tag.(names.ActionTag)
+		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-
-		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
+		results[coreaction.UUID(actionTag.Id())] = i
 	}
+
+	// Bulk fetch the parsed action UUIDs.
+	actionUUIDs := transform.MapToSlice(results, func(k coreaction.UUID, idx int) []coreaction.UUID { return []coreaction.UUID{k} })
+	actions, err := a.operationService.GetActions(ctx, actionUUIDs)
+	if err != nil {
+		return response, apiservererrors.ServerError(err)
+	}
+
+	// Fill in the results for the retrieved actions, using the index from the
+	// temporary map.
+	for _, action := range actions {
+		respIdx := results[action.UUID]
+
+		receiverTag, err := names.ActionReceiverTag(action.Receiver)
+		if err != nil {
+			response.Results[respIdx].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		response.Results[respIdx] = MakeActionResult(receiverTag)
+	}
+
 	return response, nil
 }
 
@@ -143,23 +181,44 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+	// Temporary map to hold the index of each action UUID in the results slice.
+	results := make(map[coreaction.UUID]int)
 
+	// Try to parse all the tags first.
 	for i, entity := range arg.Entities {
-		currentResult := &response.Results[i]
-		currentResult.Action = &params.Action{Tag: entity.Tag}
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		_, ok := tag.(names.ActionTag)
+		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-
-		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
+		results[coreaction.UUID(actionTag.Id())] = i
 	}
+
+	// Bulk cancel the parsed action UUIDs.
+	actionUUIDs := transform.MapToSlice(results, func(k coreaction.UUID, idx int) []coreaction.UUID { return []coreaction.UUID{k} })
+	cancelledActions, err := a.operationService.CancelAction(ctx, actionUUIDs)
+	if err != nil {
+		return response, apiservererrors.ServerError(err)
+	}
+
+	// Fill in the results for the cancelled actions, using the index from the
+	// temporary map.
+	for _, action := range cancelledActions {
+		respIdx := results[action.UUID]
+
+		receiverTag, err := names.ActionReceiverTag(action.Receiver)
+		if err != nil {
+			response.Results[respIdx].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		response.Results[respIdx] = MakeActionResult(receiverTag)
+	}
+
 	return response, nil
 }
 
@@ -225,4 +284,16 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		results.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
 	}
 	return results, nil
+}
+
+// MakeActionResult does the actual type conversion from state.Action
+// to params.ActionResult.
+func MakeActionResult(actionReceiverTag names.Tag) params.ActionResult {
+	result := params.ActionResult{
+		Action: &params.Action{
+			Receiver: actionReceiverTag.String(),
+		},
+	}
+
+	return result
 }

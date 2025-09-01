@@ -22,7 +22,7 @@ import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/v4/exec"
 
-	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/action"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
@@ -308,7 +308,7 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(ctx stdcontext.Context, actionName string) (HookHandlerType, error) {
-	if actions.IsJujuExecAction(actionName) {
+	if action.IsJujuExecAction(actionName) {
 		return InvalidHookHandler, runner.runJujuExecAction(ctx)
 	}
 	runner.logger().Debugf(ctx, "running action %q", actionName)
