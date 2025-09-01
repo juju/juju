@@ -85,7 +85,7 @@ func NewWorker(cfg WorkerConfig) (*Pruner, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name:          "changestream-pruner",
 		IsFatal:       func(err error) bool { return false },
-		ShouldRestart: internalworker.ShouldRunnerRestart,
+		ShouldRestart: func(err error) bool { return false },
 		Clock:         cfg.Clock,
 		Logger:        internalworker.WrapLogger(cfg.Logger),
 	})
