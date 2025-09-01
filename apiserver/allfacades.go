@@ -59,7 +59,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
@@ -97,7 +96,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/facades/controller/logfwd"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
-	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
@@ -246,8 +244,7 @@ func AllFacades() *facade.Registry {
 	machine.Register(registry)
 	meterstatus.Register(registry)
 	metricsadder.Register(registry)
-	metricsdebug.Register(registry)
-	metricsmanager.Register(registry)
+
 	migrationflag.Register(registry)
 	migrationmaster.Register(registry)
 	migrationminion.Register(registry)
