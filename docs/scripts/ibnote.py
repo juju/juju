@@ -6,7 +6,6 @@ class IbNoteDirective(Directive):
     has_content = True
 
     def run(self):
-        text = "\n".join(self.content)
         node = nodes.container(classes=["ibnote"])
         self.state.nested_parse(self.content, self.content_offset, node)
         return [node]
