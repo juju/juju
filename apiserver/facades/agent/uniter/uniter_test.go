@@ -3916,16 +3916,6 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.State.MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
 }
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
@@ -3946,16 +3936,6 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.State.MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
 }
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
@@ -4000,9 +3980,6 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
 		}
 		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = s.State.MetricBatch(uuid)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
 

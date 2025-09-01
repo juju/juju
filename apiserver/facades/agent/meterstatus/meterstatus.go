@@ -4,7 +4,6 @@
 package meterstatus
 
 import (
-	"github.com/juju/loggo"
 	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.meterstatus")
 
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
