@@ -29,7 +29,8 @@ type MockBaseSuite struct {
 
 func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
-	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, s.OperationService, modelUUID)
+	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService,
+		s.ModelInfoService, s.OperationService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
@@ -44,7 +45,8 @@ func NewActionAPI(
 	operationService OperationService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
-	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, operationService, modelUUID)
+	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService,
+		modelInfoService, operationService, modelUUID)
 }
 
 type FakeLeadership struct {

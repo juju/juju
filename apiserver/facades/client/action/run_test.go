@@ -1,32 +1,21 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package action_test
+package action
 
 import (
+	"errors"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/pkg/errors"
 	gomock "go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/facades/client/action"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/internal/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type runSuite struct {
-	jujutesting.ApiServerSuite
-
-	blockCommandService *action.MockBlockCommandService
-	applicationService  *action.MockApplicationService
-	modelInfoService    *action.MockModelInfoService
-	operationService    *action.MockOperationService
-
-	client *action.ActionAPI
+	MockBaseSuite
 }
 
 func TestRunSuite(t *stdtesting.T) {
@@ -35,10 +24,12 @@ func TestRunSuite(t *stdtesting.T) {
 
 func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	// Arrange
+	client := s.NewActionAPI(c)
 
 	// block all changes
 	s.blockAllChanges(c, "TestBlockRunOnAllMachines")
-	_, err := s.client.RunOnAllMachines(
+	_, err := client.RunOnAllMachines(
 		c.Context(),
 		params.RunParams{
 			Commands: "hostname",
@@ -49,10 +40,11 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *tc.C) {
 
 func (s *runSuite) TestBlockRunMachineAndApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	client := s.NewActionAPI(c)
 
 	// block all changes
 	s.blockAllChanges(c, "TestBlockRunMachineAndApplication")
-	_, err := s.client.Run(
+	_, err := client.Run(
 		c.Context(),
 		params.RunParams{
 			Commands:     "hostname",
@@ -72,32 +64,16 @@ Running "RunOnAllMachines" requires administrator privilege.
 `)
 }
 
-func (s *runSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.blockCommandService = action.NewMockBlockCommandService(ctrl)
-	s.applicationService = action.NewMockApplicationService(ctrl)
-	s.modelInfoService = action.NewMockModelInfoService(ctrl)
-
-	var err error
-	auth := apiservertesting.FakeAuthorizer{
-		Tag: jujutesting.AdminUser,
-	}
-	modelUUID := modeltesting.GenModelUUID(c)
-	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, s.modelInfoService, s.operationService, modelUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return ctrl
-}
-
 func (s *runSuite) assertBlocked(c *tc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
+	var obtained *params.Error
+	c.Assert(errors.As(err, &obtained), tc.IsTrue)
+	c.Assert(obtained, tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
 }
 
 func (s *runSuite) blockAllChanges(c *tc.C, msg string) {
-	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
+	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
 }
