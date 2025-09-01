@@ -16,8 +16,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -319,26 +317,6 @@ func (env *environ) Create(ctx context.ProviderCallContext, p environs.CreatePar
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// Ensure the API server port is open (globally for all instances
-	// on the network, not just for the specific node of the state
-	// server). See LP bug #1436191 for details.
-	rules := firewall.IngressRules{
-		firewall.NewIngressRule(
-			network.PortRange{
-				FromPort: params.ControllerConfig.APIPort(),
-				ToPort:   params.ControllerConfig.APIPort(),
-				Protocol: "tcp",
-			},
-		),
-	}
-	if params.ControllerConfig.AutocertDNSName() != "" {
-		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("80/tcp")))
-	}
-
-	if err := env.OpenPorts(callCtx, env.globalFirewallName(), rules); err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
-	}
 	return bootstrap(ctx, env, callCtx, params)
 }
 
