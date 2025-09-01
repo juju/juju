@@ -792,7 +792,8 @@ func (s *provisionerSuite) TestWatchMachinesNotFound(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
-	
+}
+
 func (s *provisionerSuite) TestVolumeAttachmentParamsMachineNotFound(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
