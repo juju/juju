@@ -20,14 +20,14 @@ See more:
 Upgrades to the client, the controller, and the model are typically related: You upgrade the client by refreshing the `juju` snap, then you upgrade the controller and the model, which is done as follows:
 
 1. If you're upgrading between
-   - patch versions (e.g. 2.9.25 -> 2.9.26)
-   - minor versions before 3.0 (e.g. 2.7 -> 2.8)
+   - patch versions (e.g. `2.9.25` &rarr; `2.9.26`)
+   - minor versions before 3.0 (e.g. `2.7` &rarr; `2.8`)
 
    you can upgrade in place via `upgrade-controller` and `upgrade-model`.
 
 2. If you're upgrading between
-   - major versions (e.g. 2.9 -> 3.0)
-   - minor versions after 3.0 (e.g. 3.0 -> 3.1)
+   - major versions (e.g. `2.9` &rarr; `3.0`)
+   - minor versions after `3.0` (e.g. `3.0` &rarr; `3.1`)
 
    you need to bootstrap a new controller, migrate your models to it, and then run `upgrade-model`. (This is because upgrades are risky, and model migration is a relatively safer way to upgrade than upgrading in place.) It is also important to pay attention to the allowed upgrade paths -- for example, to update from `juju v2.2` to `juju v3.0`, one must first upgrade the client, controller, and model to `juju v2.9` and then perform a second upgrade to `juju v3.0`.
 
@@ -58,7 +58,7 @@ A version is denoted by:
 
 For instance: `2.0.1`
 
-When not specifying a version to upgrade to ('--version') an algorithm will be used to auto-select a version.
+When not specifying a version to upgrade to (`--version`) an algorithm will be used to auto-select a version.
 
 Rules:
 

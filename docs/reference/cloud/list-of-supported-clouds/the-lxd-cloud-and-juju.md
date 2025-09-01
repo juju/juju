@@ -49,7 +49,11 @@ Name in Juju: `localhost`
 
 ## Notes on `juju add-credential`
 
-**local LXD cloud:** If you are a Juju admin user: Already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise: Add manually as you would a remote. <p> **clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly. <p> **remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.  <br> > See more: [LXD \| How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/)
+**local LXD cloud:** If you are a Juju admin user: Already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise: Add manually as you would a remote. <p> **clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly. <p> **remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.
+
+```{ibnote}
+See more: [LXD \| How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/)
+```
 
 ### Authentication types
 
@@ -77,10 +81,10 @@ The LXD project name to use for Juju's resources.
 
 | | |
 |-|-|
-| type | string |
-| default value | "default" |
-| immutable | false |
-| mandatory | false |
+| type | `string` |
+| default value | `"default"` |
+| immutable | `false` |
+| mandatory | `false` |
 
 ## Supported constraints
 
@@ -193,7 +197,7 @@ tmpfs      tmpfs
 
 As can be inferred from the above output, for each Juju storage pool based on the `lxd` storage provider, there is a LXD storage pool that gets created. It is these LXD pools that will house the actual volumes.
 
-The LXD pool corresponding to the Juju 'lxd' pool doesn't get created until the latter is used for the first time (typically via the `juju deploy` command). It is called simply 'juju'.
+The LXD pool corresponding to the Juju `lxd` pool doesn't get created until the latter is used for the first time (typically via the `juju deploy` command). It is called simply `juju`.
 
 The command `lxc storage list` is used to list LXD storage pools. A full "contingent" of LXD non-custom storage pools would look like this:
 

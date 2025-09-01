@@ -513,15 +513,6 @@ To observe an application, on a separate Kubernetes model deploy the Canonical O
 > See more: [Charmhub | Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack)
 -->
 
-(migrate-an-application)=
-## Migrate an application
-
-To migrate an application from one controller to another, migrate the model that it has been deployed to.
-
-```{ibnote}
-See more: {ref}`migrate-a-model`
-```
-
 (upgrade-an-application)=
 ## Upgrade an application
 
@@ -555,7 +546,7 @@ All associated resources will also be removed, provided they are not hosting con
 If persistent storage is in use by the application it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
 ```{note}
-It it normal for application removal to take a while (you can inspect progress in the usual with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
+It it normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
 ```
 
 ```{ibnote}

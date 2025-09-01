@@ -499,7 +499,7 @@ See more:
 
 > Useful if your Prometheus is outside of Juju.
 >
-> The Prometheus server must be able to contact the controller's API address/port `17070. (Juju controllers are usually set up to allow this automatically.)
+> The Prometheus server must be able to contact the controller's API address/port `17070`. (Juju controllers are usually set up to allow this automatically.)
 
 To configure Prometheus to scrape the controller for metrics manually:
 
@@ -530,12 +530,10 @@ scrape_configs:
 (back-up-a-controller)=
 ## Back up a controller
 
-
-```{caution}
-The procedure documented below is currently supported only for machine (non-Kubernetes) controllers.
-```
 (create-a-controller-backup)=
 ### Create a controller backup
+
+> Only supported machine (non-Kubernetes) controllers.
 
 To create a backup of a controller configuration / metadata, use the `create-backup` followed by the `-m` flag and the name of the target controller model. For example, assuming a controller called `localhost-controller`, and the standard controller model name (`controller`), we will do:
 
@@ -547,7 +545,6 @@ juju create-backup -m localhost-controller:controller
 Alternatively, you can switch to the controller model and use this command without any arguments or use the `-m` flag followed by just `controller`. However, due to the delicate nature of data backups, the verbose but explicit method demonstrated above is highly recommended.
 
 ```
-
 
 Sample output:
 
@@ -584,11 +581,11 @@ See more: {ref}`command-juju-create-backup`
 
 ### Download a controller backup
 
-Suppose you've created a backup with the `--no-download` option, as shown below (where `controller` is the name of the controller model).
+> Only supported machine (non-Kubernetes) controllers.
+>
+> Starting with Juju `3.0`, this flag is deprecated.
 
-```{caution}
-Starting with `juju v.3.0`, this flag is deprecated.
-```
+Suppose you've created a backup with the `--no-download` option, as shown below (where `controller` is the name of the controller model).
 
 ```text
 $ juju create-backup -m controller --no-download
@@ -637,6 +634,8 @@ See more: {ref}`command-juju-download-backup`
 
 (restore-a-controller-from-a-backup)=
 ### Restore a controller from a backup
+
+> Only supported machine (non-Kubernetes) controllers.
 
 To restore a controller from a backup, you can use the [stand-alone `juju-restore` tool](https://github.com/juju/juju-restore).
 
@@ -714,7 +713,7 @@ See more: [`juju-restore`](https://github.com/juju/juju-restore)
 (upgrade-a-controller)=
 ## Upgrade a controller
 
-The procedure depends on whether you're upgrading your controller's patch version (e.g. 2.9.25 → 2.9.48) or rather its minor or major version (e.g., 3.1 -> 3.4 or  2.9 → 3.0).
+The procedure depends on whether you're upgrading your controller's patch version (e.g. `2.9.25` &rarr; `2.9.48`) or rather its minor or major version (e.g., `3.1` &rarr; `3.4` or  `2.9` &rarr; `3.0`).
 
 (upgrade-a-controllers-patch-version)=
 ### Upgrade a controller's patch version

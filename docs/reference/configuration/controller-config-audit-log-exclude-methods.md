@@ -6,15 +6,15 @@ This document describes the `audit-log-exclude-methods` controller configuration
 |---|---|---|---|---|
 |`audit-log-exclude-methods` [RT]|string|ReadOnlyMethods|[Some.Method,...]|The list of Facade.Method names that aren't interesting for audit logging purposes.|
 
-The `audit-log-exclude-methods`  is used to exclude information (API calls/methods) from the audit log.  
+The `audit-log-exclude-methods`  is used to exclude information (API calls/methods) from the audit log.
 
 The default value of key `audit-log-exclude-methods` is the special value of 'ReadOnlyMethods'. As the name suggests, this represents all read-only events.
 
 <!--Click the heading below to reveal a listing of API methods designated by the key value of 'ReadOnlyMethods'.-->
 
-```{dropdown} Expand to see the contents of `ReadOnlyMethods`
+````{dropdown} Expand to see the contents of `ReadOnlyMethods`
 
-```
+```text
 Action.Actions
 Action.ApplicationsCharmsActions
 Action.FindActionsByNames
@@ -63,7 +63,7 @@ Storage.ListFilesystems
 Subnets.ListSubnets
 ```
 
-```
+````
 
 
 The recommended approach for configuring the filter is to view the log and make a list of those calls deemed undesirable. For example, to remove the following log message:

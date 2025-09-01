@@ -121,7 +121,7 @@ See more: {ref}`command-juju-clouds`
 
 ## View details about a cloud
 
-To get more detail about a particular cloud, run the `show-cloud` command followed by the cloud name, e.g.,
+To get more detail about a particular cloud, run the `show-cloud` command followed by the cloud name. For example:
 
 ```text
 juju show-cloud azure
@@ -137,7 +137,7 @@ See more: {ref}`command-juju-show-cloud`
 
 ### View all the known regions
 
-To see which regions Juju is aware of for any given cloud, use the `regions` command. For example, for the 'aws' cloud, run:
+To see which regions Juju is aware of for any given cloud, use the `regions` command. For example, for the `aws` cloud, run:
 
 ```text
 juju regions aws

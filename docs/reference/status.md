@@ -20,7 +20,7 @@ The following figure provides an illustration of the status an application may b
 (unit-status)=
 ### Unit status
 
-The unit status is given by the status of its workload/charm and the status of its `juju` agent.
+The unit status is given by the status of its workload/charm and the status of its Juju agent.
 
 ```{note}
 A unit's status is usually expressed as `<workload status>/<agent status>`, e.g. , `active/idle` or `unknown/lost`.
@@ -57,20 +57,20 @@ Except for `error`, `terminated` and `unknown`, which are set by Juju, the workl
 
 
 <!--COMMENT: I THINK THE EXPLANATION BETWEEN BRACKETS IS NOT CLEAR HERE, SO BETTER TO LEAVE OUT.
-The agent status reports the status of the `juju` agent running in the unit as it interacts with the **juju controller** (as a consequence of scheduled lifecycle events or the operator interacting with it, in turn, via the juju CLI).
+The agent status reports the status of the Juju agent running in the unit as it interacts with the **juju controller** (as a consequence of scheduled lifecycle events or the operator interacting with it, in turn, via the juju CLI).
 -->
 
-The agent status reports the status of the `juju` agent running in the unit as it interacts with the `juju` controller:
+The agent status reports the status of the Juju agent running in the unit as it interacts with the `juju` controller:
 
 | Status | Meaning|
 |--|--|
 |`allocating` | The charm pod has not come up yet. |
-| `idle` | The `juju` agent in the charm container is not doing anything at the moment, and waiting for events. |
-| `executing` | The `juju` agent in the charm container is executing some task. |
-| `error` | The `juju` agent in the charm container has run but has encountered an uncaught charm exception. |
-| `lost` | The `juju` agent is unresponsive, or its pod/container has unexpectedly come down. |
+| `idle` | The Juju agent in the charm container is not doing anything at the moment, and waiting for events. |
+| `executing` | The Juju agent in the charm container is executing some task. |
+| `error` | The Juju agent in the charm container has run but has encountered an uncaught charm exception. |
+| `lost` | The Juju agent is unresponsive, or its pod/container has unexpectedly come down. |
 
-The agent status is determined and set by the `juju` agent, so it cannot be directly controlled by the charm or a human operator.
+The agent status is determined and set by the Juju agent, so it cannot be directly controlled by the charm or a human operator.
 
 
 ```{note}
@@ -112,7 +112,7 @@ The `Colour in GUI` is included for information at this point, until this featur
 
 ## Status in the output of `juju status`
 
-In the output of `juju status`, application status is given under `App{ref}`lication] > Status` and unit status -- consisting, as we said, of the workload / charm status and of the Juju agent status -- is given under `Unit > Workload, Agent`.
+In the output of `juju status`, application status is given under `Application > Status` and unit status -- consisting, as we said, of the workload / charm status and of the Juju agent status -- is given under `Unit > Workload, Agent`.
 
 
 ````{dropdown} Expand to view a sample 'juju status' output

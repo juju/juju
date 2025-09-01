@@ -8,7 +8,7 @@ The Manual (`manual`) cloud is a cloud you create with Juju from existing machin
 
 The purpose of the Manual cloud is to cater to the situation where you have machines (of any nature) at your disposal and you want to create a backing cloud out of them.
 
-If this collection of machines is composed solely of bare metal you might opt for a {ref}`cloud-maas`. However, recall that such machines would also require [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS infrastructure. In contrast, the Manual cloud can make use of a collection of disparate hardware as well as of machines of varying natures (bare metal or virtual), all without any extra overhead/infrastructure.
+If this collection of machines is composed solely of bare metal you might opt for a {ref}`MAAS cloud <cloud-maas>`. However, recall that such machines would also require [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS infrastructure. In contrast, the Manual cloud can make use of a collection of disparate hardware as well as of machines of varying natures (bare metal or virtual), all without any extra overhead/infrastructure.
 ```
 
 
@@ -23,7 +23,7 @@ As the differences related to (1) are already documented generically in the rest
 
 ## Requirements
 
-- At least two pre-existing machines (one for the controller and one where charms will be deployed).<br> - The machines must be running on Ubuntu.<br> - The machines must be accessible over SSH from the terminal you're running the Juju client from  using public key authentication (in whichever way you want to make that possible using generic Linux mechanisms).<p> (`sudo` rights will suffice if this provides root access. If a password is required for `sudo`, juju will ask for it on the command line.) <p> - The machines must be able to `ping` one another.
+- At least two pre-existing machines (one for the controller and one where charms will be deployed).<br> - The machines must be running on Ubuntu.<br> - The machines must be accessible over SSH from the terminal you're running the Juju client from  using public key authentication (in whichever way you want to make that possible using generic Linux mechanisms).<p> (`sudo` rights will suffice if this provides root access. If a password is required for `sudo`, `juju` will ask for it on the command line.) <p> - The machines must be able to ping one another.
 
 ## Notes on `juju add-cloud`
 
@@ -41,14 +41,32 @@ No preset authentication types. Just make sure you can SSH into the controller m
 
 ## Notes on `juju bootstrap`
 
-The machine that will be allocated to run the controller on is the one specified during the `add-cloud` step. <p>**If you encounter an error of the form "initializing ubuntu user: subprocess encountered error code 255 (ubuntu@{IP}: Permission denied (publickey).)":** <br> Edit your `~/.ssh/config` to include the following: <br> `Host <TARGET_IP_ADDRESS>` &nbsp;&nbsp;&nbsp;&nbsp; <br>&nbsp;&nbsp;&nbsp;&nbsp;`IdentityFile ~/.ssh/id_ed25519`<br> &nbsp;&nbsp;&nbsp;&nbsp; `ControlMaster no`<br> See more: https://bugs.launchpad.net/juju/+bug/2030507 .
+The machine that will be allocated to run the controller on is the one specified during the `add-cloud` step.
+
+````{dropdown} Troubleshooting
+
+**If you encounter an error of the form `initializing ubuntu user: subprocess encountered error code 255 (ubuntu@{IP}: Permission denied (publickey).)`:**
+
+Edit your `~/.ssh/config` to include the following:
+
+```text
+Host <TARGET_IP_ADDRESS>`
+  IdentityFile ~/.ssh/id_ed25519
+  ControlMaster no
+```
+
+```{ibnote}
+See more: https://bugs.launchpad.net/juju/+bug/2030507
+```
+
+````
 
 ## Notes on `juju deploy`
 
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g. a cloud instance) as they become necessary. In addition, the client can also cause charms to be deployed automatically onto those newly-created machines. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during charm deployment.
 
 
-(Note: A MAAS cloud must also have pre-existing backing machines. However, Juju, by default, can deploy charmed operators onto those machines, or add a machine to its pool of managed machines, without any extra effort.)
+(Note: A MAAS cloud must also have pre-existing backing machines. However, Juju, by default, can deploy charms onto those machines, or add a machine to its pool of managed machines, without any extra effort.)
 
 Machines must be added manually, unless they are LXD. Example: <p>  `juju add-machine ssh:bob@10.55.60.93` <br> `juju add-machine lxd -n 2`
 
@@ -65,7 +83,7 @@ N/A
 | conflicting:                           |                                                                                                                  |
 | supported?                             |                                                                                                                  |
 | - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                         |
-| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: For controller: `{ref}`host arch]`. For other machines: arch from machine hardware. |
+| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: For controller: the host architecture. For other machines: the architecture from the machine hardware. |
 | - {ref}`constraint-container`          | &#10003;                                                                                                         |
 | - {ref}`constraint-cores`              | &#10003;                                                                                                         |
 | - {ref}`constraint-cpu-power`          | &#10005;                                                                                                         |

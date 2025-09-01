@@ -32,10 +32,6 @@ Name in Juju: `azure`.
 Credentials for the `azure` cloud have been reported to occasionally stop working over time. If this happens, try `juju update-credential` (passing as an argument the same credential) or `juju add-credential` (passing as an argument a new credential) + `juju default-credential`.
 ```
 
-```{note}
-See Appendix: Example authentication workflows.
-```
-
 ### Authentication types
 
 #### `managed-identity` (preferred)
@@ -64,7 +60,9 @@ Caution: If you decide to fill in the optional fields as well: Make sure to set 
 Tip: Starting with Juju 3.6, you can also combine this authentication type with a managed identity by bootstrapping with the `instance-role` constraint.
 
 ```{ibnote}
-See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
+See more:
+- {ref}`azure-appendix-workflow-2`
+- {ref}`azure-appendix-workflow-3`
 ```
 
 #### `service-principal-secret` (dispreferred)
@@ -72,7 +70,9 @@ See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
 Starting with Juju 3.6, you can also combine this with a managed identity by bootstrapping with the `instance-role` constraint.
 
 ```{ibnote}
-See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
+See more:
+- {ref}`azure-appendix-workflow-2`
+- {ref}`azure-appendix-workflow-3`
 ```
 
 ## Notes on `juju bootstrap`
@@ -90,35 +90,35 @@ Mirrors the LoadBalancerSkuName type in the Azure SDK.
 
 | | |
 |-|-|
-| type | string |
-| default value | "Standard" |
-| immutable | false |
-| mandatory | true |
+| type | `string` |
+| default value | `"Standard"` |
+| immutable | `false` |
+| mandatory | `true` |
 
 ### `resource-group-name`
 If set, use the specified resource group for all model artefacts instead of creating one based on the model UUID.
 
 | | |
 |-|-|
-| type | string |
-| default value | schema.omit{} |
-| immutable | true |
-| mandatory | false |
+| type | `string` |
+| default value | `schema.omit{}` |
+| immutable | `true` |
+| mandatory | `false` |
 
 ### `network`
 If set, use the specified virtual network for all model machines instead of creating one.
 
 | | |
 |-|-|
-| type | string |
-| default value | schema.omit{} |
-| immutable | true |
-| mandatory | false |
+| type | `string` |
+| default value | `schema.omit{}` |
+| immutable | `true` |
+| mandatory | `false` |
 ## Supported constraints
 
 | {ref}`CONSTRAINT <constraint>`         |                                                |
 |----------------------------------------|------------------------------------------------|
-| conflicting:                           | `{ref}`instance-type]` vs `[arch, cores, mem]` |
+| conflicting:                           | `[instance-type]` vs `[arch, cores, mem]` |
 | supported?                             |                                                |
 | - {ref}`constraint-allocate-public-ip` | &#10003;                                       |
 | - {ref}`constraint-arch`               | &#10003; <br> Valid values: `amd64`            |
@@ -163,17 +163,17 @@ Configuration options:
 
 Newly-created models configured in this way use "Azure Managed Disks". See [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview) for information on what this entails (in particular, what the difference is between standard and premium disk types).
 
+(azure-appendix-example-authentication-workflows)=
 ## Appendix: Example authentication workflows
 
 (azure-appendix-workflow-1)=
 ### Worflow 1 -- Managed identity only (recommended)
 > *Requirements:*
 > - Juju 3.6+.
-> - A managed identity. See more: Appendix: How to create a managed identity.
+> - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
 > - The managed identity and the Juju resources must be created on the same subscription.
 > - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
-1. Create a managed identity. See more: Appendix: How to create a managed identity.
 1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the `managed-identity-path` must be of the form `<resourcegroup>/<identityname>`).
 1. Bootstrap as usual.
 
@@ -185,9 +185,8 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 ### Workflow 2 -- Service principal secret + managed identity
 > *Requirements:*
 > - Juju 3.6+.
-> - A managed identity. See more: Appendix: How to create a managed identity.
+> - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
 
-1. Create a managed identity.
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):
         - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.

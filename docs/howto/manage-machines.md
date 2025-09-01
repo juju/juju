@@ -31,8 +31,8 @@ Machines provisioned via `add-machine` can be used for an initial deployment (`d
 See more: {ref}`command-juju-add-machine`
 ```
 
-```{note}
-Issues during machine provisioning can occur at any stage in the following sequence: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start `jujud`.
+````{note}
+Issues during machine provisioning can occur at any stage in the following sequence: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
 
 To troubleshoot, try to gather more information until you understand what caused the issue.
 
@@ -40,7 +40,7 @@ To troubleshoot, try to gather more information until you understand what caused
 See more: {ref}`troubleshoot-your-deployment`
 ```
 
-```
+````
 
 ## Retry provisioning for a failed machine
 

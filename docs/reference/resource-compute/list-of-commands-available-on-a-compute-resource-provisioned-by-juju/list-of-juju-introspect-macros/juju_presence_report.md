@@ -9,14 +9,17 @@ which the report is generated.
 The agents for each model are listed together beneath the UUID of that model.
 
 ## Usage
+
 Must be run on a Juju controller machine.
-```code
+
+```text
 juju_presence_report
 ```
 
 ## Example output
+
 ```text
-$ juju_presence_report 
+$ juju_presence_report
 [2e15302a-bbdf-4077-8e65-116a5a0e0348]
 
 AGENT              SERVER     CONN ID  STATUS

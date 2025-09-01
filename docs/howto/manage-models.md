@@ -12,14 +12,13 @@ See also: {ref}`model`
 **If you have multiple credentials:** Be careful which one you use for the new model. Any machines added to the model subsequently will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account!
 ```
 
-
 To add a model to the current controller using the default credential and switch to this model, run the `add-model` command followed by the name of the model. For example:
 
 ```text
 juju add-model mymodel
 ```
 
-You can also pass various options to choose a different controller or credential, specify a configuration, designate a different model `owner`, *not* switch to the newly create model, add it to a particular cloud (for multi-cloud controllers), etc.
+You can also pass various options to choose a different controller or credential, specify a configuration, designate a different model `owner`, *not* switch to the newly created model, add it to a particular cloud (for multi-cloud controllers), etc.
 
 ```{ibnote}
 See more: {ref}`command-juju-add-model`
@@ -63,7 +62,7 @@ See more: {ref}`command-juju-models`
 juju switch
 ```
 
-This will show the current controller, user, and model in a `<controller>:<user>/<model` format.
+This will show the current controller, user, and model in a `<controller>:<user>/<model>` format.
 
 ````{dropdown} Expand to see a sample output
 

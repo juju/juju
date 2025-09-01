@@ -814,7 +814,7 @@ juju model-config provisioner-harvest-mode=none
 
 **Default value:** false
 
-
+(model-config-resource-tags)=
 ## `resource-tags`
 
 `resource-tags` is a space-separated list of key=value pairs used to apply as tags on supported cloud models.

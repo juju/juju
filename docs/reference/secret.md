@@ -12,7 +12,7 @@ In Juju, (starting with Juju 3.0) a **secret** is a sensitive bit of information
 (charm-secret)=
 ### Charm secret
 
-```{versionadded} 3.0.0
+```{versionadded} `3.0.0`
 ```
 
 A **charm secret** is a secret created by a charm. A charm secret is shared with another charm (the secret 'observer') over relation data. The secret is tied to the lifecycle of the relation.
@@ -133,7 +133,7 @@ The `vault` backend supports the following configuration keys:
 |`token`|The vault authentication token.|
 
 ```{ibnote}
-See more: [Vault | `vault server`](https://fig.io/manual/vault/server), [Hashicorp | Vault CLI](https://developer.hashicorp.com/vault/docs/commands). <br> (You will see more options there as we currently support only support a subset.)
+See more: [Vault | `vault server`](https://fig.io/manual/vault/server), [Hashicorp | Vault CLI](https://developer.hashicorp.com/vault/docs/commands). <br> (You will see more options there as we currently support only a subset.)
 ```
 
 A minimum configuration must include the `endpoint` and `token`. However, just that would not be insecure, as it wouldn't establish an encrypted TLS connection to Vault. For production you should configure your Vault securely, following recommendations in the upstream Vault documentation.

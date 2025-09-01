@@ -1,19 +1,14 @@
 (hook-command)=
 # Hook command
 
-```{ibnote}
-See also: {ref}`Hook <hook>`
-```
-
 ```{toctree}
 :hidden:
 hook-command/list-of-hook-commands/index
 ```
 
+In Juju, a **hook command** is a Bash script located in `/var/lib/juju/tools/unit-<app name>-<unit ID>` that a charm uses to communicate with its Juju unit agent in response to a {ref}`hook <hook>`.
 
-In Juju, a **hook tool  (or 'hook command')** is a Bash script located in `/var/lib/juju/tools/unit-<app name>-<unit ID>` that a charm uses to communicate with its Juju unit agent in response to a {ref}`hook <hook>`.
-
-In the Juju ecosystem, in [Ops](https://ops.readthedocs.io/en/latest/), hook tools are accessed through Ops constructs, specifically, those constructs designed to be used in the definition of the event handlers associated with the Ops events that translate Juju {ref}`hooks <hook>`. For example, when your charm calls `ops.Unit.is_leader`, in the background this calls `~/hooks/unit-name/leader-get`; its output is wrapped and returned as a Python `True/False` value.
+In the Juju ecosystem, in [Ops](https://ops.readthedocs.io/en/latest/), hook commands are accessed through Ops constructs, specifically, those constructs designed to be used in the definition of the event handlers associated with the Ops events that translate Juju {ref}`hooks <hook>`. For example, when your charm calls `ops.Unit.is_leader`, in the background this calls `~/hooks/unit-name/leader-get`; its output is wrapped and returned as a Python `True/False` value.
 
 In Juju, you can use hook commands for troubleshooting.
 

@@ -85,7 +85,7 @@ Attributes:
 ```{ibnote}
 See first: {ref}`storage-provider`
 ```
-
+(storage-provider-maas)=
 ### `maas`
 
 Caveats: As Juju cannot dissociate a MAAS disk from its respective MAAS node, the `maas` storage provider is static-only. This means it can only be requested at deploy time and will be removed when the machine it is associated with is removed from the model. This also means that, if you try to deploy a unit to an existing MAAS machine while attempting to allocate storage, Juju will return an error.

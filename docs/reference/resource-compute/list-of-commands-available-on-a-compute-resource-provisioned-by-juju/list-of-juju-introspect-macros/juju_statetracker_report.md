@@ -7,14 +7,17 @@ instance is created, the execution stack is added to the statetracker profile.
 The report displays the content of that profile.
 
 ## Usage
+
 Must be run on a Juju controller machine.
-```code
+
+```text
 juju_statetracker_report
 ```
 
 ## Example output
+
 ```text
-$ juju_statetracker_report 
+$ juju_statetracker_report
 juju/state/tracker profile: total 2
 1 @ 0x21bb86c 0x21bb2e5 0x21c68b0 0x3fd23b9 0x3fd0a05 0x3f13cb7 0x233e712 0x233df72 0x233dfb3 0x482681
 #       0x21bb86b       github.com/juju/juju/state.newState+0x44b                                               /home/ian/juju/go/src/juju/juju/state/open.go:189

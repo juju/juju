@@ -42,26 +42,27 @@ You can authenticate the controller with the cloud using instance profiles: Use 
 
 ## Cloud-specific model configuration keys
 
-### vpc-id-force
+### `vpc-id-force`
 Force Juju to use the AWS VPC ID specified with vpc-id, when it fails the minimum validation criteria. Not accepted without vpc-id
 
 | | |
 |-|-|
-| type | bool |
-| default value | false |
-| immutable | true |
-| mandatory | false |
+| type | `bool` |
+| default value | `false` |
+| immutable | `true` |
+| mandatory | `false` |
 
-### vpc-id
+### `vpc-id`
 Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.
 
-Example: vpc-a1b2c3d4
+Example: `vpc-a1b2c3d4`
+
 | | |
 |-|-|
-| type | string |
-| default value | "" |
-| immutable | true |
-| mandatory | false |
+| type | `string` |
+| default value | `""` |
+| immutable | `true` |
+| mandatory | `false` |
 
 
 ## Supported constraints

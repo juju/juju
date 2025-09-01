@@ -110,7 +110,7 @@ removed space "public-space"
 ```
 
 ```{important}
-Deleting a space will cause any subnets in it to move back to the `alpha` space. See [How to manage subnets <how-to-manage-subnets`.
+Deleting a space will cause any subnets in it to move back to the `alpha` space. See {ref}`manage-subnets`.
 ```
 
 ```{ibnote}

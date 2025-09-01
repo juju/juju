@@ -9,7 +9,7 @@ In Juju, **storage** refers to a data volume that is provided by a {ref}`cloud <
 
 Depending on how things are set up during deployment, the data volume can be machine-dependent (e.g., a directory on disk tied to the machine which goes away if the unit is destroyed) or machine-independent (i.e., it can outlive a machine and be reattached to another machine).
 
-Most storage can be dynamically added to, and removed from, a unit. However, by their nature, some types of storage cannot be dynamically managed (see {ref}`storage-provider-maas`). Also, certain cloud providers may impose restrictions when attaching storage (see {ref}`cloud-provider-ebs`).
+Most storage can be dynamically added to, and removed from, a unit. However, by their nature, some types of storage cannot be dynamically managed (see {ref}`storage-provider-maas`). Also, certain cloud providers may impose restrictions when attaching storage (see {ref}`storage-provider-ebs`).
 
 (storage-directive)=
 ## Storage directive

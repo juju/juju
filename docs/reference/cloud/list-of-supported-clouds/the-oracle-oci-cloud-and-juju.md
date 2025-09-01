@@ -45,20 +45,20 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 
 | | |
 |-|-|
-| type | string |
-| default value | "10.0.0.0/16" |
-| immutable | false |
-| mandatory | false |
+| type | `string` |
+| default value | `"10.0.0.0/16"` |
+| immutable | `false` |
+| mandatory | `false` |
 
 ### `compartment-id`
 The OCID of the compartment in which juju has access to create resources.
 
 | | |
 |-|-|
-| type | string |
-| default value | "" |
-| immutable | false |
-| mandatory | false |
+| type | `string` |
+| default value | `""` |
+| immutable | `false` |
+| mandatory | `false` |
 
 
 ## Supported constraints

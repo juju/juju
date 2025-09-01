@@ -21,7 +21,7 @@ However, in principle, you should always try to keep all the various pieces up t
 ## Upgrade your Juju components' patch version
 
 ```{ibnote}
-e.g., 3.4.4 -> 3.4.5
+e.g., `3.4.4` &rarr; `3.4.5`
 ```
 
 1. Upgrade the client's patch version to stable. For example:
@@ -61,11 +61,11 @@ See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
 ## Upgrade your Juju components' minor or major version
 
 ```{ibnote}
-e.g., 3.5 -> 3.6 or  2.9 -> 3.0
+e.g., `3.5` &rarr; `3.6` or  `2.9` &rarr; `3.0`
 ```
 
 ```{caution}
-For best results, perform a patch upgrade first.
+For best results, perform a {ref}`patch upgrade <upgrade-your-juju-components-patch-version>` first.
 ```
 
 1. Upgrade your client to the target minor or major. For example:

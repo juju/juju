@@ -17,7 +17,7 @@ Units are also relevant when adding storage or scaling an application. See {ref}
 To add a unit, use the `add-unit` command followed by the application name:
 
 ```{important}
-This is only true for machine deployments. For Kubernetes, see [How to control the number of units <5891md`.
+This is only true for machine deployments. For Kubernetes, see {ref}`control-the-number-of-units`.
 ```
 
 ```text
@@ -161,8 +161,7 @@ juju remove-unit mediawiki/1 mediawiki/3 mediawiki/5 mysql/2
 <!--Why is this necessary? Doesn't removing a unit automatically destroy the storage?-->
 To also destroy the storage attached to the units, add the `--destroy-storage` option.
 
-<!--As a last resort in case of what...?-->
-As a last resort, use the `--force` option (in `v.2.6.1`).
+As a last resort, use the `--force` option.
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-unit`, {ref}`removing-things`
