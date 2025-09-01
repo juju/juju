@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 )
 
@@ -43,6 +44,7 @@ type ManifoldSuite struct {
 	providerServicesGetter   services.ProviderServicesGetter
 	leaseManager             lease.Manager
 	httpClientGetter         http.HTTPClientGetter
+	apiRemoteCallerGetter    apiremoterelationcaller.APIRemoteCallerGetter
 
 	logger logger.Logger
 
@@ -67,6 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.controllerDomainServices = stubControllerDomainServices{}
 	s.providerServicesGetter = stubProviderServicesGetter{}
 	s.httpClientGetter = stubHTTPClientGetter{}
+	s.apiRemoteCallerGetter = stubAPIRemoteCallerGetter{}
 	s.stub.ResetCalls()
 
 	s.logSinkGetter = dummyLogSinkGetter{}
@@ -80,6 +83,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		DomainServicesName:           "domain-services",
 		ProviderServiceFactoriesName: "provider-services",
 		HTTPClientName:               "http-client",
+		APIRemoteCallerGetterName:    "api-remote-caller-getter",
 		NewWorker:                    s.newWorker,
 		NewModelWorker:               s.newModelWorker,
 		ModelMetrics:                 dummyModelMetrics{},
@@ -99,12 +103,13 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"authority":         s.authority,
-		"log-sink":          s.logSinkGetter,
-		"lease-manager":     s.leaseManager,
-		"domain-services":   []any{s.domainServicesGetter, s.controllerDomainServices},
-		"provider-services": s.providerServicesGetter,
-		"http-client":       s.httpClientGetter,
+		"authority":                s.authority,
+		"log-sink":                 s.logSinkGetter,
+		"lease-manager":            s.leaseManager,
+		"domain-services":          []any{s.domainServicesGetter, s.controllerDomainServices},
+		"provider-services":        s.providerServicesGetter,
+		"http-client":              s.httpClientGetter,
+		"api-remote-caller-getter": s.apiRemoteCallerGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -128,7 +133,15 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{Name: "model-worker"})
 }
 
-var expectedInputs = []string{"authority", "lease-manager", "log-sink", "domain-services", "provider-services", "http-client"}
+var expectedInputs = []string{
+	"api-remote-caller-getter",
+	"authority",
+	"domain-services",
+	"http-client",
+	"lease-manager",
+	"log-sink",
+	"provider-services",
+}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
@@ -174,16 +187,17 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config.GetControllerConfig = nil
 
 	c.Assert(config, tc.DeepEquals, modelworkermanager.Config{
-		Authority:              s.authority,
-		ModelMetrics:           dummyModelMetrics{},
-		ErrorDelay:             jworker.RestartDelay,
-		LeaseManager:           s.leaseManager,
-		Logger:                 s.logger,
-		LogSinkGetter:          dummyLogSinkGetter{},
-		ProviderServicesGetter: providerServicesGetter{},
-		ModelService:           s.controllerDomainServices.Model(),
-		DomainServicesGetter:   s.domainServicesGetter,
-		HTTPClientGetter:       s.httpClientGetter,
+		Authority:                     s.authority,
+		ModelMetrics:                  dummyModelMetrics{},
+		ErrorDelay:                    jworker.RestartDelay,
+		LeaseManager:                  s.leaseManager,
+		Logger:                        s.logger,
+		LogSinkGetter:                 dummyLogSinkGetter{},
+		ProviderServicesGetter:        providerServicesGetter{},
+		ModelService:                  s.controllerDomainServices.Model(),
+		DomainServicesGetter:          s.domainServicesGetter,
+		HTTPClientGetter:              s.httpClientGetter,
+		APIRemoteRelationClientGetter: s.apiRemoteCallerGetter,
 	})
 }
 
@@ -231,4 +245,8 @@ type stubControllerDomainServices struct {
 
 func (s stubControllerDomainServices) Model() *modelservice.WatchableService {
 	return &modelservice.WatchableService{}
+}
+
+type stubAPIRemoteCallerGetter struct {
+	apiremoterelationcaller.APIRemoteCallerGetter
 }

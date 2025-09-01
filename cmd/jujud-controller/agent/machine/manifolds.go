@@ -572,6 +572,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:           domainServicesName,
 			LeaseManagerName:             leaseManagerName,
 			HTTPClientName:               httpClientName,
+			APIRemoteCallerGetterName:    apiRemoteRelationCallerName,
 			ProviderServiceFactoriesName: providerDomainServicesName,
 			NewWorker:                    modelworkermanager.New,
 			NewModelWorker:               config.NewModelWorker,

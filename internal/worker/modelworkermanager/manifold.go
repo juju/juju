@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 )
 
 // GetProviderServicesGetterFunc returns a ProviderServicesGetter
@@ -42,6 +43,9 @@ type ManifoldConfig struct {
 	LogSinkName string
 	// HTTPClientName is the name of the http.Client dependency.
 	HTTPClientName string
+	// APIRemoteCallerGetterName is the name of the
+	// apiremotereleationcaller.APIRemoteRelationClientGetter dependency.
+	APIRemoteCallerGetterName string
 
 	// GetProviderServicesGetter is used to get the provider service
 	// factory getter from the dependency engine. This makes testing a lot
@@ -83,6 +87,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
 	}
+	if config.APIRemoteCallerGetterName == "" {
+		return errors.NotValidf("empty APIRemoteCallerGetterName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -114,6 +121,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.ProviderServiceFactoriesName,
 			config.HTTPClientName,
+			config.APIRemoteCallerGetterName,
 		},
 		Start: config.start,
 	}
@@ -150,6 +158,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var apiRemoteCallerGetter apiremoterelationcaller.APIRemoteCallerGetter
+	if err := getter.Get(config.APIRemoteCallerGetterName, &apiRemoteCallerGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var leaseManager lease.Manager
 	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
@@ -161,18 +174,19 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewWorker(Config{
-		Authority:              authority,
-		Logger:                 config.Logger,
-		ModelMetrics:           config.ModelMetrics,
-		LogSinkGetter:          logSinkGetter,
-		NewModelWorker:         config.NewModelWorker,
-		ErrorDelay:             jworker.RestartDelay,
-		DomainServicesGetter:   domainServicesGetter,
-		LeaseManager:           leaseManager,
-		ModelService:           controllerDomainServices.Model(),
-		ProviderServicesGetter: providerServicesGetter,
-		HTTPClientGetter:       httpClientGetter,
-		GetControllerConfig:    config.GetControllerConfig,
+		Authority:                     authority,
+		Logger:                        config.Logger,
+		ModelMetrics:                  config.ModelMetrics,
+		LogSinkGetter:                 logSinkGetter,
+		NewModelWorker:                config.NewModelWorker,
+		ErrorDelay:                    jworker.RestartDelay,
+		DomainServicesGetter:          domainServicesGetter,
+		LeaseManager:                  leaseManager,
+		ModelService:                  controllerDomainServices.Model(),
+		ProviderServicesGetter:        providerServicesGetter,
+		HTTPClientGetter:              httpClientGetter,
+		APIRemoteRelationClientGetter: apiRemoteCallerGetter,
+		GetControllerConfig:           config.GetControllerConfig,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

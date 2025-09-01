@@ -6,8 +6,11 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/uuid"
@@ -73,6 +76,19 @@ type ControllerDBState interface {
 	GetUserUUIDByName(ctx context.Context, name user.Name) (uuid.UUID, error)
 }
 
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
 // Service provides the API for working with cross model relations.
 type Service struct {
 	controllerState ControllerDBState
@@ -91,4 +107,33 @@ func NewService(
 		modelState:      modelState,
 		logger:          logger,
 	}
+}
+
+// WatchableService is a service that can be watched for changes.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new watchable service instance.
+func NewWatchableService(
+	controllerState ControllerDBState,
+	modelState ModelDBState,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			controllerState: controllerState,
+			modelState:      modelState,
+			logger:          logger,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchRemoteApplicationConsumers watches the changes to remote
+// application consumers and notifies the worker of any changes.
+func (w *WatchableService) WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotImplemented
 }

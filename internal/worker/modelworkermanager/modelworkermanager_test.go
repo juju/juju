@@ -405,17 +405,18 @@ func (s *suite) runDirtyTest(c *tc.C, test testFunc) {
 
 func (s *suite) runKillTest(c *tc.C, kill killFunc, test testFunc) {
 	config := modelworkermanager.Config{
-		Authority:              s.authority,
-		Logger:                 loggertesting.WrapCheckLog(c),
-		NewModelWorker:         s.startModelWorker,
-		ModelMetrics:           dummyModelMetrics{},
-		ErrorDelay:             time.Millisecond,
-		LeaseManager:           s.leaseManager,
-		LogSinkGetter:          dummyLogSinkGetter{logger: c},
-		ProviderServicesGetter: s.providerServicesGetter,
-		DomainServicesGetter:   s.domainServicesGetter,
-		ModelService:           s.modelService,
-		HTTPClientGetter:       stubHTTPClientGetter{},
+		Authority:                     s.authority,
+		Logger:                        loggertesting.WrapCheckLog(c),
+		NewModelWorker:                s.startModelWorker,
+		ModelMetrics:                  dummyModelMetrics{},
+		ErrorDelay:                    time.Millisecond,
+		LeaseManager:                  s.leaseManager,
+		LogSinkGetter:                 dummyLogSinkGetter{logger: c},
+		ProviderServicesGetter:        s.providerServicesGetter,
+		DomainServicesGetter:          s.domainServicesGetter,
+		ModelService:                  s.modelService,
+		HTTPClientGetter:              stubHTTPClientGetter{},
+		APIRemoteRelationClientGetter: stubAPIRemoteCallerGetter{},
 		GetControllerConfig: func(ctx context.Context, domainServices services.DomainServices) (controller.Config, error) {
 			return internaltesting.FakeControllerConfig(), nil
 		},

@@ -533,8 +533,8 @@ func (s *ModelServices) ModelProvider() *modelproviderservice.Service {
 
 // CrossModelRelation returns the service for persisting and retrieving
 // cross model relations for the current model and the controller model.
-func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Service {
-	return crossmodelrelationservice.NewService(
+func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.WatchableService {
+	return crossmodelrelationservice.NewWatchableService(
 		crossmodelrelationstatecontroller.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.logger.Child("crossmodelrelation.state.controller")),
@@ -542,6 +542,7 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Service 
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("crossmodelrelation.state.model"),
 		),
+		s.modelWatcherFactory("crossmodelrelation"),
 		s.logger.Child("crossmodelrelation.service"),
 	)
 }

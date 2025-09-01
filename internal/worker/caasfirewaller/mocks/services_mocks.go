@@ -489,10 +489,10 @@ func (c *MockModelDomainServicesConfigCall) DoAndReturn(f func() *service13.Watc
 }
 
 // CrossModelRelation mocks base method.
-func (m *MockModelDomainServices) CrossModelRelation() *service7.Service {
+func (m *MockModelDomainServices) CrossModelRelation() *service7.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CrossModelRelation")
-	ret0, _ := ret[0].(*service7.Service)
+	ret0, _ := ret[0].(*service7.WatchableService)
 	return ret0
 }
 
@@ -509,19 +509,19 @@ type MockModelDomainServicesCrossModelRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesCrossModelRelationCall) Return(arg0 *service7.Service) *MockModelDomainServicesCrossModelRelationCall {
+func (c *MockModelDomainServicesCrossModelRelationCall) Return(arg0 *service7.WatchableService) *MockModelDomainServicesCrossModelRelationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesCrossModelRelationCall) Do(f func() *service7.Service) *MockModelDomainServicesCrossModelRelationCall {
+func (c *MockModelDomainServicesCrossModelRelationCall) Do(f func() *service7.WatchableService) *MockModelDomainServicesCrossModelRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesCrossModelRelationCall) DoAndReturn(f func() *service7.Service) *MockModelDomainServicesCrossModelRelationCall {
+func (c *MockModelDomainServicesCrossModelRelationCall) DoAndReturn(f func() *service7.WatchableService) *MockModelDomainServicesCrossModelRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

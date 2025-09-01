@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/asynccharmdownloader"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
@@ -111,6 +112,10 @@ type ManifoldsConfig struct {
 
 	// HTTPClientGetter is used to get a http client for a given namespace.
 	HTTPClientGetter http.HTTPClientGetter
+
+	// APIRemoteRelationClientGetter is used to get a remote relation client
+	// for a given namespace.
+	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -173,6 +178,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		httpClientName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.HTTPClientGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// APIRemoteRelationClientGetter is used to get a remote relation client
+		// for a given namespace.
+		apiRemoteRelationCallerName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.APIRemoteRelationClientGetter)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -277,15 +291,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevisioner"),
 		})),
+
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
-			AgentName:                agentName,
-			APICallerName:            apiCallerName,
-			NewControllerConnection:  apicaller.NewExternalControllerConnection,
-			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
-			NewWorker:                remoterelations.NewWorker,
-			Clock:                    config.Clock,
-			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
+			DomainServicesName:            domainServicesName,
+			GetCrossModelServices:         remoterelations.GetCrossModelServices,
+			NewRemoteRelationClientGetter: remoterelations.NewRemoteRelationClientGetter,
+			NewLocalRemoteRelationFacade:  remoterelations.NewLocalRemoteRelationFacade,
+			NewWorker:                     remoterelations.NewWorker,
+			NewRemoteApplicationWorker:    remoterelations.NewRemoteApplicationWorker,
+			Clock:                         config.Clock,
+			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
 		})),
+
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			GetRemovalService:  removal.GetRemovalService,
@@ -293,6 +313,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
 		})),
+
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
 			NewWorker:                    providertracker.NewWorker,
@@ -539,6 +560,7 @@ const (
 
 	providerTrackerName = "provider-tracker"
 
+	apiRemoteRelationCallerName  = "api-remote-relation-caller"
 	applicationScalerName        = "application-scaler"
 	asyncCharmDownloader         = "async-charm-downloader"
 	charmRevisionerName          = "charm-revisioner"

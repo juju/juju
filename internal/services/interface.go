@@ -107,7 +107,7 @@ type ModelDomainServices interface {
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
 	// CrossModelRelation returns a service for managing cross model relations.
-	CrossModelRelation() *crossmodelrelationservice.Service
+	CrossModelRelation() *crossmodelrelationservice.WatchableService
 	// Machine returns the machine service.
 	Machine() *machineservice.WatchableService
 	// BlockDevice returns the block device service.

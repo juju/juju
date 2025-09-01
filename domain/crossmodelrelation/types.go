@@ -4,10 +4,13 @@
 package crossmodelrelation
 
 import (
+	"gopkg.in/macaroon.v2"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -120,4 +123,30 @@ type OfferUser struct {
 	Name        string
 	DisplayName string
 	Access      permission.Access
+}
+
+// RemoteApplicationConsumer represents a remote application
+// that is consuming an offer from this model.
+type RemoteApplicationConsumer struct {
+	// ApplicationName is the name of the remote application.
+	ApplicationName string
+
+	// Life is the lifecycle state of the remote application.
+	Life life.Life
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming.
+	OfferUUID string
+
+	// ConsumeVersion is the version of the offer that the remote application is
+	// consuming.
+	ConsumeVersion int
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
+
+	// Macaroon is the macaroon that the remote application uses to
+	// authenticate with the offerer model.
+	Macaroon *macaroon.Macaroon
 }
