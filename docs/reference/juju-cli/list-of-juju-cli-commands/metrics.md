@@ -3,6 +3,9 @@
 > See also: [collect-metrics](#collect-metrics)
 
 ## Summary
+
+This functionality has been removed as of version 3.6.10.
+
 Retrieve metrics collected by specified entities.
 
 ## Usage

@@ -3,6 +3,9 @@
 > See also: [metrics](#metrics)
 
 ## Summary
+
+This functionality has been removed as of version 3.6.10.
+
 Collect metrics on the given unit/application.
 
 ## Usage
