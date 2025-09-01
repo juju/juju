@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"fmt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,6 +27,12 @@ type environFirewallSuite struct {
 }
 
 var _ = gc.Suite(&environFirewallSuite{})
+
+func (s *environFirewallSuite) generateMachineID() string {
+	shortSHA := s.ModelUUID[len(s.ModelUUID)-6:]
+	n := rand.Intn(100)
+	return fmt.Sprintf("juju-%s-%d", shortSHA, n)
+}
 
 func (s *environFirewallSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -71,9 +79,9 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
-		Name:         ptr(fwPrefix + "-d01a82"),
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
@@ -81,8 +89,8 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 			Ports:      []string{"81"},
 		}},
 	}}, nil)
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
-		Name:         ptr(fwPrefix + "-d01a82"),
+	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix, &computepb.Firewall{
+		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
@@ -94,7 +102,7 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
-	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -104,10 +112,10 @@ func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix),
-		TargetTags:   []string{"juju-" + s.ModelUUID},
+		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
 			IPProtocol: ptr("tcp"),
@@ -119,7 +127,7 @@ func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
-	err := env.ClosePorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -130,13 +138,13 @@ func (s *environFirewallSuite) TestClosePortsInvalidCredentialError(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
 
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
-	err := env.ClosePorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -148,10 +156,10 @@ func (s *environFirewallSuite) TestIngressRulesInvalidCredentialError(c *gc.C) {
 	env := s.SetupEnv(c, s.MockService)
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
 
-	_, err := env.IngressRules(s.CallCtx, gce.GlobalFirewallName(env))
+	_, err := env.IngressRules(s.CallCtx, fwPrefix)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -162,7 +170,7 @@ func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
@@ -178,7 +186,7 @@ func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
 		},
 	}}, nil)
 
-	ports, err := env.IngressRules(s.CallCtx, gce.GlobalFirewallName(env))
+	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
@@ -197,7 +205,7 @@ func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix),
 		TargetTags:   []string{fwPrefix},
@@ -220,7 +228,7 @@ func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
 		}},
 	}}, nil)
 
-	ports, err := env.IngressRules(s.CallCtx, gce.GlobalFirewallName(env))
+	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
@@ -237,7 +245,7 @@ func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:       ptr(fwPrefix),
 		TargetTags: []string{fwPrefix},
@@ -247,7 +255,7 @@ func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
 		}},
 	}}, nil)
 
-	ports, err := env.IngressRules(s.CallCtx, gce.GlobalFirewallName(env))
+	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
@@ -264,7 +272,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, errors.NotFoundf(fwPrefix))
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-26"),
@@ -306,7 +314,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("100-120/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
 		firewall.NewIngressRule(network.MustParsePortRange("67/udp"), "10.0.0.0/24"),
 	}
-	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -316,7 +324,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -339,7 +347,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
 	}
-	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -349,7 +357,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -372,7 +380,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "10.0.0.0/24"),
 	}
-	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -382,7 +390,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -441,7 +449,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24"),
 		firewall.NewIngressRule(network.MustParsePortRange("67/udp"), "172.0.0.0/24"),
 	}
-	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
+	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -451,7 +459,7 @@ func (s *environFirewallSuite) TestClosePortsRemove(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -476,7 +484,7 @@ func (s *environFirewallSuite) TestClosePortsUpdate(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -509,7 +517,7 @@ func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -542,7 +550,7 @@ func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
@@ -576,7 +584,7 @@ func (s *environFirewallSuite) TestCloseNoMatches(c *gc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	fwPrefix := "juju-" + s.ModelUUID
+	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return([]*computepb.Firewall{{
 		Name:         ptr(fwPrefix + "-d01a82"),
 		TargetTags:   []string{fwPrefix},
