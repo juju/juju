@@ -42,7 +42,7 @@ func (d *Deployment) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (d *Deployment) ID() ID {
 	return ID{"Deployment", d.Name, d.Namespace}
 }
@@ -89,11 +89,9 @@ func (d *Deployment) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s deployment for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -105,4 +103,23 @@ func (d *Deployment) ComputeStatus(ctx context.Context, now time.Time) (string, 
 		return "", status.Active, now, nil
 	}
 	return "", status.Waiting, now, nil
+}
+
+// ListDeployments returns a list of deployments.
+func ListDeployments(ctx context.Context, client v1.DeploymentInterface, namespace string, opts metav1.ListOptions) ([]Deployment, error) {
+	var items []Deployment
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, *NewDeployment(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

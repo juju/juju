@@ -26,22 +26,22 @@ type podSuite struct {
 var _ = gc.Suite(&podSuite{})
 
 func (s *podSuite) TestApply(c *gc.C) {
-	ds := &corev1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
 			Namespace: "test",
 		},
 	}
 	// Create.
-	dsResource := resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	dsResource := resources.NewPod(s.client.CoreV1().Pods(pod.Namespace), s.client.CoreV1().Events(pod.Namespace), "test", "ds1", pod)
 	c.Assert(dsResource.Apply(context.TODO()), jc.ErrorIsNil)
 	result, err := s.client.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
 	// Update.
-	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	pod.SetAnnotations(map[string]string{"a": "b"})
+	dsResource = resources.NewPod(s.client.CoreV1().Pods(pod.Namespace), s.client.CoreV1().Events(pod.Namespace), "test", "ds1", pod)
 	c.Assert(dsResource.Apply(context.TODO()), jc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
@@ -73,22 +73,25 @@ func (s *podSuite) TestGet(c *gc.C) {
 }
 
 func (s *podSuite) TestDelete(c *gc.C) {
-	ds := &corev1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.CoreV1().Pods("test").Create(context.TODO(), ds, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Pods("test").Create(context.TODO(), pod, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.client.CoreV1().Pods("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.GetName(), gc.Equals, `ds1`)
 
-	dsResource := resources.NewPod(s.client.CoreV1().Pods(ds.Namespace), s.client.CoreV1().Events(ds.Namespace), "test", "ds1", ds)
+	dsResource := resources.NewPod(s.client.CoreV1().Pods(pod.Namespace), s.client.CoreV1().Events(pod.Namespace), "test", "ds1", pod)
 	err = dsResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = dsResource.Delete(context.TODO())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = dsResource.Get(context.TODO())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -337,7 +340,7 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 		},
 		{
 			// We want to  test here the pod container creating message for init
-			// containers. This addresses lp-1914088
+			// Containers. This addresses lp-1914088
 			Name: "pod container status creating init",
 			Pod: corev1.Pod{
 				Status: corev1.PodStatus{
@@ -370,7 +373,7 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 		},
 		{
 			// We want to  test here the pod container creating message on pod
-			// containers. This addresses lp-1914088
+			// Containers. This addresses lp-1914088
 			Name: "pod container status creating",
 			Pod: corev1.Pod{
 				Status: corev1.PodStatus{

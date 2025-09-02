@@ -43,7 +43,7 @@ func (rb *ClusterRoleBinding) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (rb *ClusterRoleBinding) ID() ID {
 	return ID{"ClusterRoleBinding", rb.Name, rb.Namespace}
 }
@@ -92,11 +92,9 @@ func (rb *ClusterRoleBinding) Delete(ctx context.Context) error {
 		Preconditions:      utils.NewUIDPreconditions(rb.UID),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s cluster role binding for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // shouldDelete checks if there are any changes in the immutable field to decide
@@ -178,4 +176,23 @@ func (rb *ClusterRoleBinding) Update(ctx context.Context) error {
 	}
 	rb.ClusterRoleBinding = *out
 	return nil
+}
+
+// ListClusterRoleBindings returns a list of cluster role bindings.
+func ListClusterRoleBindings(ctx context.Context, client rbacv1client.ClusterRoleBindingInterface, opts metav1.ListOptions) ([]ClusterRoleBinding, error) {
+	var items []ClusterRoleBinding
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, *NewClusterRoleBinding(client, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

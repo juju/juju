@@ -8,19 +8,29 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 type clusterRoleSuite struct {
 	resourceSuite
+	clusterRoleClient rbacv1client.ClusterRoleInterface
 }
 
 var _ = gc.Suite(&clusterRoleSuite{})
+
+func (s *clusterRoleSuite) SetUpTest(c *gc.C) {
+	s.resourceSuite.SetUpTest(c)
+	s.clusterRoleClient = s.client.RbacV1().ClusterRoles()
+}
 
 func (s *clusterRoleSuite) TestApply(c *gc.C) {
 	role := &rbacv1.ClusterRole{
@@ -81,6 +91,9 @@ func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 	roleResource := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "role1", &role)
 	err = roleResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = roleResource.Delete(context.TODO())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = roleResource.Get(context.TODO())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -154,4 +167,64 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *gc.C)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rrole, jc.DeepEquals, &crApi.ClusterRole)
+}
+
+func (s *clusterRoleSuite) TestListClusterRoles(c *gc.C) {
+	// Set up labels for model and app to list resource.
+	controllerUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelName := "testmodel"
+
+	appName := "app1"
+	appLabel := providerutils.SelectorLabelsForApp(appName, constants.LabelVersion2)
+
+	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
+	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
+
+	// Create cr1.
+	cr1Name := "cr1"
+	cr1 := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   cr1Name,
+			Labels: labelSet,
+		},
+	}
+	_, err = s.clusterRoleClient.Create(context.TODO(), cr1, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create cr2.
+	cr2Name := "cr2"
+	cr2 := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   cr2Name,
+			Labels: labelSet,
+		},
+	}
+	_, err = s.clusterRoleClient.Create(context.TODO(), cr2, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// List resources with correct labels.
+	cms, err := resources.ListClusterRoles(context.Background(), s.clusterRoleClient, metav1.ListOptions{
+		LabelSelector: labelSet.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(cms), gc.Equals, 2)
+	c.Assert(cms[0].GetName(), gc.Equals, cr1Name)
+	c.Assert(cms[1].GetName(), gc.Equals, cr2Name)
+
+	// List resources with no labels.
+	cms, err = resources.ListClusterRoles(context.Background(), s.clusterRoleClient, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(cms), gc.Equals, 2)
+
+	// List resources with wrong labels.
+	cms, err = resources.ListClusterRoles(context.Background(), s.clusterRoleClient, metav1.ListOptions{
+		LabelSelector: "foo=bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(cms), gc.Equals, 0)
 }

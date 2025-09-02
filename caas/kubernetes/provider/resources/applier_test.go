@@ -39,6 +39,7 @@ func (s *applierSuite) TestRun(c *gc.C) {
 		r1.EXPECT().Clone().Return(r1),
 		r1.EXPECT().Get(gomock.Any()).Return(errors.NewNotFound(nil, "")),
 		r1.EXPECT().Apply(gomock.Any()).Return(nil),
+		r1.EXPECT().ID().Return(resources.ID{"A", "r1", "namespace"}),
 
 		r2.EXPECT().Clone().Return(r2),
 		r2.EXPECT().Get(gomock.Any()).Return(errors.NewNotFound(nil, "")),
@@ -52,29 +53,46 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
-	r1Meta := &metav1.ObjectMeta{}
+	r1Meta := &metav1.ObjectMeta{Name: "r1"}
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
+
+	r2 := mocks.NewMockResource(ctrl)
+	r2Meta := &metav1.ObjectMeta{Name: "r2"}
+	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Apply(r1)
+	applier.Apply(r2)
 
 	existingR1 := mocks.NewMockResource(ctrl)
 	existingR1Meta := &metav1.ObjectMeta{}
 	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
+	existingR2 := mocks.NewMockResource(ctrl)
+	existingR2Meta := &metav1.ObjectMeta{}
+	existingR2.EXPECT().GetObjectMeta().AnyTimes().Return(existingR2Meta)
+
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(errors.NewNotFound(nil, "")),
-		r1.EXPECT().Apply(gomock.Any()).Return(errors.New("something was wrong")),
+		r1.EXPECT().Apply(gomock.Any()).Return(nil),
+		r1.EXPECT().ID().Return(resources.ID{"A", "r1", "namespace"}),
 
-		// rollback.
+		r2.EXPECT().Clone().Return(existingR2),
+		existingR2.EXPECT().Get(gomock.Any()).Return(nil),
+		r2.EXPECT().Apply(gomock.Any()).Return(errors.New("something was wrong")),
+		r2.EXPECT().ID().Return(resources.ID{"B", "r2", "namespace"}),
+
+		// Rollback only r1 because r2 apply failed.
 		r1.EXPECT().Clone().Return(r1),
 		r1.EXPECT().Get(gomock.Any()).Return(nil),
-		// delete the new resource was just created.
+
+		// Delete the new resource r1 that was just created.
 		r1.EXPECT().Delete(gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), false),
+		gc.ErrorMatches, `applying resource "r2": something was wrong`)
 }
 
 func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
@@ -101,8 +119,9 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
+		r1.EXPECT().Apply(gomock.Any()).Return(errors.New("resource version conflict")),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `A r1: resource version conflict`)
+	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `applying resource "r1": resource version conflict`)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
@@ -110,29 +129,46 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
-	r1Meta := &metav1.ObjectMeta{}
+	r1Meta := &metav1.ObjectMeta{Name: "r1"}
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
+
+	r2 := mocks.NewMockResource(ctrl)
+	r2Meta := &metav1.ObjectMeta{Name: "r2"}
+	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Apply(r1)
+	applier.Apply(r2)
 
 	existingR1 := mocks.NewMockResource(ctrl)
 	existingR1Meta := &metav1.ObjectMeta{}
 	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
+	existingR2 := mocks.NewMockResource(ctrl)
+	existingR2Meta := &metav1.ObjectMeta{}
+	existingR2.EXPECT().GetObjectMeta().AnyTimes().Return(existingR2Meta)
+
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
-		r1.EXPECT().Apply(gomock.Any()).Return(errors.New("something was wrong")),
+		r1.EXPECT().Apply(gomock.Any()).Return(nil),
+		r1.EXPECT().ID().Return(resources.ID{"A", "r1", "namespace"}),
 
-		// rollback.
+		r2.EXPECT().Clone().Return(existingR2),
+		existingR2.EXPECT().Get(gomock.Any()).Return(nil),
+		r2.EXPECT().Apply(gomock.Any()).Return(errors.New("something was wrong")),
+		r2.EXPECT().ID().Return(resources.ID{"A", "r2", "namespace"}),
+
+		// Rollback only r1 because r2 apply failed.
 		existingR1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
-		// re-apply the old resource.
+		// Re-apply the old successfully applied resource.
 		existingR1.EXPECT().Apply(gomock.Any()).Return(nil),
+		existingR1.EXPECT().ID().Return(resources.ID{"B", "existingr1", "namespace"}),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), false),
+		gc.ErrorMatches, `applying resource "r2": something was wrong`)
 }
 
 func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
@@ -140,29 +176,44 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 	defer ctrl.Finish()
 
 	r1 := mocks.NewMockResource(ctrl)
-	r1Meta := &metav1.ObjectMeta{}
+	r1Meta := &metav1.ObjectMeta{Name: "r1"}
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
+
+	r2 := mocks.NewMockResource(ctrl)
+	r2Meta := &metav1.ObjectMeta{Name: "r2"}
+	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
 	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
 	applier.Delete(r1)
+	applier.Delete(r2)
 
 	existingR1 := mocks.NewMockResource(ctrl)
 	existingR1Meta := &metav1.ObjectMeta{}
 	existingR1.EXPECT().GetObjectMeta().AnyTimes().Return(existingR1Meta)
 
+	existingR2 := mocks.NewMockResource(ctrl)
+	existingR2Meta := &metav1.ObjectMeta{}
+	existingR2.EXPECT().GetObjectMeta().AnyTimes().Return(existingR2Meta)
+
 	gomock.InOrder(
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
-		r1.EXPECT().Delete(gomock.Any()).Return(errors.New("something was wrong")),
+		r1.EXPECT().Delete(gomock.Any()).Return(nil),
 
-		// rollback.
+		r2.EXPECT().Clone().Return(existingR2),
+		existingR2.EXPECT().Get(gomock.Any()).Return(nil),
+		r2.EXPECT().Delete(gomock.Any()).Return(errors.New("something was wrong")),
+		r2.EXPECT().ID().Return(resources.ID{"B", "r2", "namespace"}),
+
+		// Rollback only r1 because r2 delete failed.
 		existingR1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
-		// re-apply the old resource.
+		// Re-apply the old resource.
 		existingR1.EXPECT().Apply(gomock.Any()).Return(nil),
+		existingR1.EXPECT().ID().Return(resources.ID{"A", "existingr1", "namespace"}),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `deleting resource "r2": something was wrong`)
 }
 
 func (s *applierSuite) TestApplySet(c *gc.C) {
