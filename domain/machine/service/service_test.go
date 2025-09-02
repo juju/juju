@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -522,6 +523,29 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *tc.C) {
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetAppliedLXDProfileNames(c.Context(), "666", []string{"profile1", "profile2"})
 	c.Assert(err, tc.ErrorIs, rErr)
+}
+
+func (s *serviceSuite) TestGetMachineArchesForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineArchesForApplication(gomock.Any(), "666").Return([]arch.Arch{arch.AMD64}, nil)
+
+	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineArchesForApplication(c.Context(), "666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []arch.Arch{arch.AMD64})
+}
+
+func (s *serviceSuite) TestGetMachineArchesForApplicationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetMachineArchesForApplication(gomock.Any(), "666").Return(nil, rErr)
+
+	result, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineArchesForApplication(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, rErr)
+	c.Assert(result, tc.IsNil)
 }
 
 func (s *serviceSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {

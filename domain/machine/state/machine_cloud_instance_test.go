@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
 	"database/sql"
@@ -38,7 +38,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *tc.C) {
 
 func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *tc.C) {
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -90,7 +90,7 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	// Add a reference AZ.
 	_, err := db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
@@ -114,7 +114,20 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var instanceData instanceData
+	var instanceData struct {
+		MachineUUID          string           `db:"machine_uuid"`
+		LifeID               int64            `db:"life_id"`
+		InstanceID           sql.Null[string] `db:"instance_id"`
+		DisplayName          sql.Null[string] `db:"display_name"`
+		Arch                 *string          `db:"arch"`
+		Mem                  *uint64          `db:"mem"`
+		RootDisk             *uint64          `db:"root_disk"`
+		RootDiskSource       *string          `db:"root_disk_source"`
+		CPUCores             *uint64          `db:"cpu_cores"`
+		CPUPower             *uint64          `db:"cpu_power"`
+		AvailabilityZoneUUID *string          `db:"availability_zone_uuid"`
+		VirtType             *string          `db:"virt_type"`
+	}
 	row := db.QueryRowContext(c.Context(), "SELECT * FROM machine_cloud_instance WHERE instance_id='1'")
 	c.Assert(row.Err(), tc.ErrorIsNil)
 	err = row.Scan(
@@ -165,7 +178,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -191,7 +204,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -218,7 +231,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 	// violate the unique index on the machine_cloud_instance table.
 	for range 10 {
 		// Create a reference machine.
-		machineUUID, _ := s.addMachine(c)
+		machineUUID, _, _ := s.addMachine(c)
 
 		err := s.state.SetMachineCloudInstance(
 			c.Context(),
@@ -234,7 +247,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 
 func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *tc.C) {
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -295,7 +308,7 @@ func (s *stateSuite) TestInstanceIdSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestInstanceIdError(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	_, err := s.state.GetInstanceID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
@@ -311,7 +324,7 @@ func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 }
 
 func (s *stateSuite) TestInstanceNameError(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	_, _, err := s.state.GetInstanceIDAndName(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
@@ -321,7 +334,7 @@ func (s *stateSuite) ensureInstance(c *tc.C) (machine.UUID, machine.Name) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, machineName := s.addMachine(c)
+	machineUUID, _, machineName := s.addMachine(c)
 	// Add a reference AZ.
 	_, err := db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)

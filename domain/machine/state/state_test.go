@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	"fmt"
 	stdtesting "testing"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
@@ -22,6 +22,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/architecture"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -48,7 +49,7 @@ func TestStateSuite(t *stdtesting.T) {
 
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
 func (s *stateSuite) TestDeleteMachine(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 
 	bd := blockdevice.BlockDevice{
 		DeviceName:     "name-666",
@@ -107,7 +108,7 @@ VALUES (?, ?)
 // TestGetMachineLifeSuccess asserts the happy path of GetMachineLife at the
 // state layer.
 func (s *stateSuite) TestGetMachineLifeSuccess(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 
 	obtainedLife, err := s.state.GetMachineLife(c.Context(), machineName)
 	expectedLife := life.Alive
@@ -123,8 +124,8 @@ func (s *stateSuite) TestGetMachineLifeNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestListAllMachines(c *tc.C) {
-	_, machineName0 := s.addMachine(c)
-	_, machineName1 := s.addMachine(c)
+	_, _, machineName0 := s.addMachine(c)
+	_, _, machineName1 := s.addMachine(c)
 
 	machines, err := s.state.AllMachineNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -146,8 +147,8 @@ func (s *stateSuite) TestListAllMachinesEmpty(c *tc.C) {
 // TestListAllMachineNamesSuccess asserts the happy path of AllMachineNames at
 // the state layer.
 func (s *stateSuite) TestListAllMachineNamesSuccess(c *tc.C) {
-	_, mn0 := s.addMachine(c)
-	_, mn1 := s.addMachine(c)
+	_, _, mn0 := s.addMachine(c)
+	_, _, mn1 := s.addMachine(c)
 
 	machines, err := s.state.AllMachineNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -185,7 +186,7 @@ func (s *stateSuite) TestIsMachineControllerApplicationNonController(c *tc.C) {
 }
 
 func (s *stateSuite) TestIsMachineControllerFailure(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 
 	isController, err := s.state.IsMachineController(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -239,7 +240,7 @@ func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {
 // TestGetMachineParentUUIDNoParent asserts that a NotFound error is returned
 // when the machine has no parent.
 func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	_, err := s.state.GetMachineParentUUID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasNoParent)
@@ -254,7 +255,7 @@ func (s *stateSuite) TestGetMachineUUIDNotFound(c *tc.C) {
 
 // TestGetMachineUUID asserts that the uuid is returned from a machine name
 func (s *stateSuite) TestGetMachineUUID(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
+	machineUUID, _, machineName := s.addMachine(c)
 
 	uuid, err := s.state.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -262,7 +263,7 @@ func (s *stateSuite) TestGetMachineUUID(c *tc.C) {
 }
 
 func (s *stateSuite) TestKeepInstance(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 
 	isController, err := s.state.ShouldKeepInstance(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -289,7 +290,7 @@ func (s *stateSuite) TestKeepInstanceNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetKeepInstance(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 	err := s.state.SetKeepInstance(c.Context(), machineName, true)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -313,7 +314,7 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID.String(), []string{"profile1", "profile2"})
@@ -344,7 +345,7 @@ func (s *stateSuite) TestSetAppliedLXDProfileNames(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -385,7 +386,7 @@ func (s *stateSuite) TestSetLXDProfilesPartial(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -435,7 +436,7 @@ func (s *stateSuite) TestSetLXDProfilesOverwriteAll(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesSameOrder(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID.String(), []string{"profile3", "profile1", "profile2"})
@@ -452,13 +453,13 @@ func (s *stateSuite) TestSetLXDProfilesNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetLXDProfilesNotProvisioned(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID.String(), []string{"profile3", "profile1", "profile2"})
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestSetLXDProfilesEmpty(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SetAppliedLXDProfileNames(c.Context(), machineUUID.String(), []string{})
@@ -469,8 +470,52 @@ func (s *stateSuite) TestSetLXDProfilesEmpty(c *tc.C) {
 	c.Check(profiles, tc.HasLen, 0)
 }
 
+func (s *stateSuite) TestGetMachineArchesForApplicationNotFound(c *tc.C) {
+	_, err := s.state.GetMachineArchesForApplication(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetMachineArchesForApplicationSingleUnit(c *tc.C) {
+	// Arrange: An application with a unit for the default arch
+	s.createApplicationWithUnitAndMachine(c, false, false)
+
+	arches, err := s.state.GetMachineArchesForApplication(c.Context(), "app-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(arches, tc.HasLen, 1)
+	c.Check(arches[0], tc.Equals, arch.AMD64)
+}
+
+func (s *stateSuite) TestGetMachineArchesForApplicationMultiUnit(c *tc.C) {
+	// Arrange: An application with two units for the default arch
+	s.createApplicationWithUnitAndMachine(c, false, false)
+	s.addUnit(c)
+
+	// Act
+	arches, err := s.state.GetMachineArchesForApplication(c.Context(), "app-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(arches, tc.HasLen, 1)
+	c.Check(arches[0], tc.Equals, arch.AMD64)
+}
+
+func (s *stateSuite) TestGetMachineArchesForApplicationMultiArch(c *tc.C) {
+	// Arrange: An application with a unit for the default arch
+	s.createApplicationWithUnitAndMachine(c, false, false)
+	// Arrange: Another unit on a machine with a
+	_, netNodeUUID, _ := s.addMachineWithArch(c, architecture.ARM64)
+	s.addUnitToNetNode(c, netNodeUUID)
+
+	arches, err := s.state.GetMachineArchesForApplication(c.Context(), "app-uuid")
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(arches, tc.HasLen, 2)
+	c.Check(arches, tc.SameContents, []arch.Arch{arch.AMD64, arch.ARM64})
+}
+
 func (s *stateSuite) TestAppliedLXDProfileNames(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -493,14 +538,14 @@ func (s *stateSuite) TestAppliedLXDProfileNames(c *tc.C) {
 }
 
 func (s *stateSuite) TestAppliedLXDProfileNamesNotProvisioned(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 	c.Check(profiles, tc.HasLen, 0)
 }
 
 func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID.String())
@@ -510,9 +555,9 @@ func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
 
 func (s *stateSuite) TestGetNamesForUUIDs(c *tc.C) {
 	// Arrange
-	machineUUID0, machineName0 := s.addMachine(c)
-	machineUUID1, machineName1 := s.addMachine(c)
-	machineUUID2, machineName2 := s.addMachine(c)
+	machineUUID0, _, machineName0 := s.addMachine(c)
+	machineUUID1, _, machineName1 := s.addMachine(c)
+	machineUUID2, _, machineName2 := s.addMachine(c)
 	expected := map[machine.UUID]machine.Name{
 		machineUUID0: machineName0,
 		machineUUID1: machineName1,
@@ -540,7 +585,7 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(machineInstances, tc.HasLen, 0)
 
-	machineUUID, machineName := s.addMachine(c)
+	machineUUID, _, machineName := s.addMachine(c)
 
 	machineInstances, err = s.state.GetAllProvisionedMachineInstanceID(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -581,7 +626,7 @@ func (s *stateSuite) TestGetAllProvisionedMachineInstanceIDContainer(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
+	machineUUID, _, machineName := s.addMachine(c)
 
 	err := s.state.SetMachineHostname(c.Context(), machineUUID.String(), "my-hostname")
 	c.Assert(err, tc.ErrorIsNil)
@@ -595,7 +640,7 @@ func (s *stateSuite) TestSetMachineHostname(c *tc.C) {
 }
 
 func (s *stateSuite) TestSetMachineHostnameEmpty(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
+	machineUUID, _, machineName := s.addMachine(c)
 
 	err := s.state.SetMachineHostname(c.Context(), machineUUID.String(), "")
 	c.Assert(err, tc.ErrorIsNil)
@@ -614,7 +659,7 @@ func (s *stateSuite) TestSetMachineHostnameNoMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetSupportedContainersTypes(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	containerTypes, err := s.state.GetSupportedContainersTypes(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -731,115 +776,11 @@ func (s *stateSuite) TestGetMachineContainersOnContainer(c *tc.C) {
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller, subordinate bool) machine.Name {
-	machineName := machine.Name("0")
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, reference_name, source_id) 
-VALUES (?, 'foo', 0)`, "charm-uuid")
-		if err != nil {
-			return errors.Capture(err)
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
-VALUES (?, 'foo', ?)`, "charm-uuid", subordinate)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?,?,?,0,?)`, "app-uuid", "charm-uuid", "foo", network.AlphaSpaceId)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO net_node (uuid)
-VALUES (?)
-`, netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
-SELECT ?, ?, ?, ?, uuid, charm_uuid
-FROM application
-WHERE uuid = ?
-`, "unit-uuid", "foo/0", "0", netNodeUUID, "app-uuid")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid)
-SELECT ?, ?, ?, net_node_uuid
-FROM unit
-WHERE uuid = ?
-`, "machine-uuid", machineName, 0, "unit-uuid")
-		if err != nil {
-			return err
-		}
-
-		if controller {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO application_controller (application_uuid)
-VALUES (?)`, "app-uuid")
-			if err != nil {
-				return errors.Capture(err)
-			}
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return machineName
-}
-
-func (s *stateSuite) addUnit(c *tc.C) machine.Name {
-	machineName := machine.Name("1")
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO net_node (uuid)
-VALUES (?)
-`, netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
-SELECT ?, ?, ?, ?, uuid, charm_uuid
-FROM application
-WHERE uuid = ?
-`, "unit-uuid-1", "foo/1", "0", netNodeUUID, "app-uuid")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid)
-SELECT ?, ?, ?, net_node_uuid
-FROM unit
-WHERE uuid = ?
-`, "machine-uuid-1", machineName, 0, "unit-uuid-1")
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return machineName
-}
-
 func (s *stateSuite) TestGetMachinePlacementDirective(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
-
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return insertMachineProviderPlacement(c.Context(), tx, s.state, machineUUID.String(), "0/lxd/42")
+	_, machineName := s.addMachineWithPlacement(c, deployment.Placement{
+		Type:      deployment.PlacementTypeProvider,
+		Directive: "0/lxd/42",
 	})
-	c.Assert(err, tc.ErrorIsNil)
 
 	placement, err := s.state.GetMachinePlacementDirective(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -957,7 +898,7 @@ func (s *stateSuite) TestConstraintSingleValue(c *tc.C) {
 }
 
 func (s *stateSuite) TestConstraintEmpty(c *tc.C) {
-	_, machineName := s.addMachine(c)
+	_, _, machineName := s.addMachine(c)
 
 	cons, err := s.state.GetMachineConstraints(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1070,7 +1011,7 @@ func (s *stateSuite) TestCountMachinesInSpace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	mUUID, _ := s.addMachine(c)
+	mUUID, _, _ := s.addMachine(c)
 	nnUUID, err := networkState.GetMachineNetNodeUUID(c.Context(), mUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	devName := "eth0"
@@ -1111,7 +1052,7 @@ func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	mUUID, _ := s.addMachine(c)
+	mUUID, _, _ := s.addMachine(c)
 	nnUUID, err := networkState.GetMachineNetNodeUUID(c.Context(), mUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	devName := "eth0"
@@ -1178,7 +1119,7 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 	// Create machines and assign them to different subnets
 	machineUUIDs := []string{}
 	for range 3 {
-		mUUID, _ := s.addMachine(c)
+		mUUID, _, _ := s.addMachine(c)
 		machineUUIDs = append(machineUUIDs, mUUID.String())
 	}
 
@@ -1213,7 +1154,7 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetSSHHostKeys(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, _, _ := s.addMachine(c)
 
 	// Set SSH host keys for the machine.
 	err := s.state.SetSSHHostKeys(c.Context(), machineUUID.String(), []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC0="})
@@ -1235,8 +1176,119 @@ func (s *stateSuite) TestGetSSHHostKeysMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
+func (s *stateSuite) createApplicationWithUnitAndMachine(c *tc.C, controller, subordinate bool) machine.Name {
+	_, netNodeUUID, machineName := s.addMachine(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, source_id) 
+VALUES (?, 'foo', 0)`, "charm-uuid")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
+VALUES (?, 'foo', ?)`, "charm-uuid", subordinate)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?,?,?,0,?)`, "app-uuid", "charm-uuid", "foo", network.AlphaSpaceId)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, "unit-uuid", "foo/0", "0", netNodeUUID, "app-uuid")
+		if err != nil {
+			return err
+		}
+
+		if controller {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO application_controller (application_uuid)
+VALUES (?)`, "app-uuid")
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineName
+}
+
+func (s *stateSuite) addUnit(c *tc.C) machine.Name {
+	_, netNodeUUID, machineName := s.addMachine(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, "unit-uuid-1", "foo/1", "0", netNodeUUID, "app-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineName
+}
+
+func (s *stateSuite) addUnitToNetNode(c *tc.C, netNodeUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, "unit-uuid-1", "foo/1", "0", netNodeUUID, "app-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) addMachineWithPlacement(c *tc.C, placement deployment.Placement) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+		Directive: placement,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID, mNames[0]
+}
+
+func (s *stateSuite) addMachineWithArch(c *tc.C, arch deployment.Architecture) (machine.UUID, string, machine.Name) {
+	netNodeUUID, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel:      "24.04",
+			OSType:       deployment.Ubuntu,
+			Architecture: arch,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID, netNodeUUID, mNames[0]
+}
+
+func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, string, machine.Name) {
+	netNodeUUID, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
@@ -1245,7 +1297,7 @@ func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	c.Assert(err, tc.ErrorIsNil)
 	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
-	return machineUUID, mNames[0]
+	return machineUUID, netNodeUUID, mNames[0]
 }
 
 func (s *stateSuite) createTestModel(c *tc.C) coremodel.UUID {

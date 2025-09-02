@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/machine/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -20,13 +21,13 @@ import (
 type baseSuite struct {
 	schematesting.ModelSuite
 
-	state *State
+	state *state.State
 }
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.state = state.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 // runQuery executes the provided SQL query string using the current state's database connection.
@@ -61,4 +62,8 @@ func (s *baseSuite) addMachine(c *tc.C, machineName, netNodeUUID string) string 
 	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
 		machineUUID, machineName, life.Alive, netNodeUUID)
 	return machineUUID
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

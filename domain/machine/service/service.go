@@ -138,6 +138,10 @@ type State interface {
 	// list of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
 
+	// GetMachineArchesForApplication returns a list of architectures which are
+	// included across the machines of the given application.
+	GetMachineArchesForApplication(ctx context.Context, appUUID string) ([]arch.Arch, error)
+
 	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
 	// machine cloud instance changes.
 	NamespaceForWatchMachineCloudInstance() string
@@ -437,13 +441,11 @@ func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.U
 
 // GetMachineArchesForApplication returns a list of architectures which are
 // included across the machines of the given application.
-//
-// TODO: Implement this method.
 func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID application.ID) ([]arch.Arch, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
+	return s.st.GetMachineArchesForApplication(ctx, appUUID.String())
 }
 
 // GetAllProvisionedMachineInstanceID returns all provisioned machine

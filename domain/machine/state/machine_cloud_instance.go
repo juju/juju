@@ -164,15 +164,15 @@ VALUES ($instanceTag.*)
 		return errors.Capture(err)
 	}
 
-	azName := availabilityZoneName{}
+	azName := nameAndUUID{}
 	if hardwareCharacteristics != nil && hardwareCharacteristics.AvailabilityZone != nil {
 		az := *hardwareCharacteristics.AvailabilityZone
-		azName = availabilityZoneName{Name: az}
+		azName = nameAndUUID{Name: az}
 	}
 	retrieveAZUUID := `
-SELECT &availabilityZoneName.uuid
+SELECT &nameAndUUID.uuid
 FROM   availability_zone
-WHERE  availability_zone.name = $availabilityZoneName.name
+WHERE  availability_zone.name = $nameAndUUID.name
 `
 	retrieveAZUUIDStmt, err := st.Prepare(retrieveAZUUID, azName)
 	if err != nil {
@@ -227,7 +227,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 		if hardwareCharacteristics != nil &&
 			hardwareCharacteristics.AvailabilityZone != nil && *hardwareCharacteristics.AvailabilityZone != "" {
 
-			var azUUID availabilityZoneName
+			var azUUID nameAndUUID
 			if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return errors.Errorf("%w %q for machine %q", networkerrors.AvailabilityZoneNotFound, *hardwareCharacteristics.AvailabilityZone, mUUID)

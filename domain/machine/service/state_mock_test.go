@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agentbinary "github.com/juju/juju/core/agentbinary"
+	arch "github.com/juju/juju/core/arch"
 	base "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
@@ -551,6 +552,45 @@ func (c *MockStateGetLXDProfilesForMachineCall) Do(f func(context.Context, strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetLXDProfilesForMachineCall) DoAndReturn(f func(context.Context, string) ([]internal.CreateLXDProfileDetails, error)) *MockStateGetLXDProfilesForMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineArchesForApplication mocks base method.
+func (m *MockState) GetMachineArchesForApplication(ctx context.Context, appUUID string) ([]arch.Arch, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineArchesForApplication", ctx, appUUID)
+	ret0, _ := ret[0].([]arch.Arch)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineArchesForApplication indicates an expected call of GetMachineArchesForApplication.
+func (mr *MockStateMockRecorder) GetMachineArchesForApplication(ctx, appUUID any) *MockStateGetMachineArchesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineArchesForApplication", reflect.TypeOf((*MockState)(nil).GetMachineArchesForApplication), ctx, appUUID)
+	return &MockStateGetMachineArchesForApplicationCall{Call: call}
+}
+
+// MockStateGetMachineArchesForApplicationCall wrap *gomock.Call
+type MockStateGetMachineArchesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineArchesForApplicationCall) Return(arg0 []arch.Arch, arg1 error) *MockStateGetMachineArchesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineArchesForApplicationCall) Do(f func(context.Context, string) ([]arch.Arch, error)) *MockStateGetMachineArchesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineArchesForApplicationCall) DoAndReturn(f func(context.Context, string) ([]arch.Arch, error)) *MockStateGetMachineArchesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

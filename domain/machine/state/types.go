@@ -80,10 +80,9 @@ func (d *instanceDataResult) toHardwareCharacteristics() *instance.HardwareChara
 	}
 }
 
-// machineLife represents the struct to be used for the life_id column within
+// entityLife represents the struct to be used for the life_id column within
 // the sqlair statements in the machine domain.
-type machineLife struct {
-	UUID   string    `db:"uuid"`
+type entityLife struct {
 	LifeID life.Life `db:"life_id"`
 }
 
@@ -115,7 +114,7 @@ type setMachineStatus struct {
 	MachineUUID string     `db:"machine_uuid"`
 }
 
-type availabilityZoneName struct {
+type nameAndUUID struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
 }
@@ -181,6 +180,10 @@ type createMachine struct {
 	UUID        string           `db:"uuid"`
 	Nonce       sql.Null[string] `db:"nonce"`
 	LifeID      int64            `db:"life_id"`
+}
+
+type archName struct {
+	Arch string `db:"architecture"`
 }
 
 type machinePlatformUUID struct {

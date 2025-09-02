@@ -16,6 +16,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coredb "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
@@ -188,15 +190,15 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.L
 	}
 
 	machineNameParam := machineName{Name: mName}
-	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $machineName.name`
-	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, machineLife{})
+	queryForLife := `SELECT &entityLife.* FROM machine WHERE name = $machineName.name`
+	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, entityLife{})
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
 
 	var lifeResult life.Life
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := machineLife{}
+		result := entityLife{}
 		err := tx.Query(ctx, lifeStmt, machineNameParam).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
@@ -291,42 +293,6 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 			"setting running agent binary version for machine %q: %w",
 			machineUUID, err,
 		)
-	}
-
-	return nil
-}
-
-// checkMachineNotDead checks if the machine with the given uuid exists and that
-// its current life status is not one of dead. This is meant as a helper func
-// to assert that a machine can be operated on inside of a transaction.
-// The following errors can be expected:
-// - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [machineerrors.MachineIsDead] if the machine is dead.
-func (st *State) checkMachineNotDead(
-	ctx context.Context,
-	tx *sqlair.TX,
-	uuid string,
-) error {
-	machineLife := machineLife{UUID: uuid}
-	stmt, err := st.Prepare(`
-SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
-`, machineLife)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, machineLife).Get(&machineLife)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("machine %q does not exist", uuid).Add(machineerrors.MachineNotFound)
-	} else if err != nil {
-		return errors.Errorf(
-			"checking if machine %q exists: %w",
-			uuid, err,
-		)
-	}
-
-	if machineLife.LifeID == life.Dead {
-		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineIsDead)
 	}
 
 	return nil
@@ -825,6 +791,50 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 	})
 }
 
+// GetMachineArchesForApplication returns a list of architectures which are
+// included across the machines of the given application.
+func (st *State) GetMachineArchesForApplication(ctx context.Context, appUUID string) ([]arch.Arch, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get database find machine arches for application %q: %w", appUUID, err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT DISTINCT &archName.*
+FROM v_machine_platform AS mp
+JOIN machine AS m ON mp.machine_uuid = m.uuid
+JOIN unit AS u ON u.net_node_uuid = m.net_node_uuid
+WHERE u.application_uuid = $entityUUID.uuid
+`, archName{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var arches []archName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationNotDead(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("checking application %q is alive: %w", appUUID, err)
+		}
+		err = tx.Query(ctx, stmt, entityUUID{UUID: appUUID}).GetAll(&arches)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("querying machine arches for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]arch.Arch, len(arches))
+	for i, arch := range arches {
+		result[i] = arch.Arch
+	}
+	return result, nil
+}
+
 // GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
 // on the given machine UUIDs.
 // [machineerrors.MachineNotFound] will be returned if the machine does not
@@ -835,7 +845,6 @@ func (st *State) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (m
 		return nil, errors.Errorf("cannot get database find names for machines %q: %w", machineUUIDs, err)
 	}
 
-	type nameAndUUID availabilityZoneName
 	type mUUIDs []string
 	uuids := mUUIDs(machineUUIDs)
 
@@ -1525,6 +1534,78 @@ func (*State) InitialMachineContainerLifeStatement() (string, string, func(strin
 // for the machines.
 func (*State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT name FROM machine"
+}
+
+// checkMachineNotDead checks if the machine with the given uuid exists and that
+// its current life status is not one of dead. This is meant as a helper func
+// to assert that a machine can be operated on inside of a transaction.
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
+func (st *State) checkMachineNotDead(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) error {
+	mUUID := entityUUID{UUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT &entityLife.* FROM machine WHERE uuid = $entityUUID.uuid;
+`, entityLife{}, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var machineLife entityLife
+	err = tx.Query(ctx, stmt, mUUID).Get(&machineLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("machine %q does not exist", uuid).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking if machine %q exists: %w",
+			uuid, err,
+		)
+	}
+
+	if machineLife.LifeID == life.Dead {
+		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineIsDead)
+	}
+
+	return nil
+}
+
+// checkApplicationNotDead checks if the application exists and is not dead. It's
+// possible to access alive and dying applications, but not dead ones.
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID string) error {
+	ident := entityUUID{UUID: appUUID}
+	query := `
+SELECT &entityLife.*
+FROM application
+WHERE uuid = $entityUUID.uuid;
+`
+	stmt, err := st.Prepare(query, ident, entityLife{})
+	if err != nil {
+		return errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
+	}
+
+	var applicationLife entityLife
+	err = tx.Query(ctx, stmt, ident).Get(&applicationLife)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
+	}
+
+	switch applicationLife.LifeID {
+	case life.Dead:
+		return applicationerrors.ApplicationIsDead
+	case life.Dying:
+		return applicationerrors.ApplicationNotAlive
+	default:
+		return nil
+	}
 }
 
 func encodeLife(v life.Life) (int64, error) {
