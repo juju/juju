@@ -715,11 +715,10 @@ func (s *Service) GetVolumeAttachmentPlan(
 }
 
 // CreateVolumeAttachmentPlan creates a volume attachment plan for the
-// provided volume id and machine uuid.
+// provided volume attachment uuid.
 func (s *Service) CreateVolumeAttachmentPlan(
 	ctx context.Context,
-	volumeID string,
-	machineUUID coremachine.UUID,
+	attachmentUUID storageprovisioning.VolumeAttachmentUUID,
 	deviceType storageprovisioning.PlanDeviceType,
 	attrs map[string]string,
 ) error {

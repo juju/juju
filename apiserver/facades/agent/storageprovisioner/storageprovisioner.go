@@ -1871,9 +1871,28 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Contex
 				"plan device type %q not valid", vp.PlanInfo.DeviceType,
 			).Add(coreerrors.NotValid)
 		}
-		err = s.storageProvisioningService.CreateVolumeAttachmentPlan(
+
+		attachmentUUID, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
 			ctx, volumeTag.Id(), machineUUID,
-			planDeviceType, vp.PlanInfo.DeviceAttributes)
+		)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return errors.Errorf(
+				"volume attachment for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+			return errors.Errorf(
+				"volume for id %q not found", volumeTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		}
+
+		err = s.storageProvisioningService.CreateVolumeAttachmentPlan(
+			ctx, attachmentUUID, planDeviceType, vp.PlanInfo.DeviceAttributes,
+		)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 			return errors.Errorf(
 				"volume attachment for machine %q and volume %q not found",

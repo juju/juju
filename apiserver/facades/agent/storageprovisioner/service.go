@@ -353,8 +353,7 @@ type StorageProvisioningService interface {
 	// provided volume id and machine uuid.
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
-		volumeID string,
-		machineUUID machine.UUID,
+		attachmentUUID storageprovisioning.VolumeAttachmentUUID,
 		deviceType storageprovisioning.PlanDeviceType,
 		attrs map[string]string,
 	) error
