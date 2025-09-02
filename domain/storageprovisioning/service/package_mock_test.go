@@ -983,6 +983,45 @@ func (c *MockStateGetVolumeAttachmentLifeForNetNodeCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetVolumeAttachmentParams mocks base method.
+func (m *MockState) GetVolumeAttachmentParams(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentParams indicates an expected call of GetVolumeAttachmentParams.
+func (mr *MockStateMockRecorder) GetVolumeAttachmentParams(arg0, arg1 any) *MockStateGetVolumeAttachmentParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentParams", reflect.TypeOf((*MockState)(nil).GetVolumeAttachmentParams), arg0, arg1)
+	return &MockStateGetVolumeAttachmentParamsCall{Call: call}
+}
+
+// MockStateGetVolumeAttachmentParamsCall wrap *gomock.Call
+type MockStateGetVolumeAttachmentParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeAttachmentParamsCall) Return(arg0 storageprovisioning.VolumeAttachmentParams, arg1 error) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeAttachmentParamsCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error)) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeAttachmentParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentUUID) (storageprovisioning.VolumeAttachmentParams, error)) *MockStateGetVolumeAttachmentParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeAttachmentPlanLifeForNetNode mocks base method.
 func (m *MockState) GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID network.NetNodeUUID) (map[string]life.Life, error) {
 	m.ctrl.T.Helper()
@@ -1135,6 +1174,45 @@ func (c *MockStateGetVolumeLifeForNetNodeCall) Do(f func(context.Context, networ
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetVolumeLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeLifeForNetNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeParams mocks base method.
+func (m *MockState) GetVolumeParams(arg0 context.Context, arg1 storageprovisioning.VolumeUUID) (storageprovisioning.VolumeParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeParams", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.VolumeParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeParams indicates an expected call of GetVolumeParams.
+func (mr *MockStateMockRecorder) GetVolumeParams(arg0, arg1 any) *MockStateGetVolumeParamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeParams", reflect.TypeOf((*MockState)(nil).GetVolumeParams), arg0, arg1)
+	return &MockStateGetVolumeParamsCall{Call: call}
+}
+
+// MockStateGetVolumeParamsCall wrap *gomock.Call
+type MockStateGetVolumeParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeParamsCall) Return(arg0 storageprovisioning.VolumeParams, arg1 error) *MockStateGetVolumeParamsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeParamsCall) Do(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeParams, error)) *MockStateGetVolumeParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeParamsCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeUUID) (storageprovisioning.VolumeParams, error)) *MockStateGetVolumeParamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

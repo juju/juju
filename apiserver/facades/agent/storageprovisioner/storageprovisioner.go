@@ -1040,9 +1040,77 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 // VolumeParams returns the parameters for creating or destroying
 // the volumes with the specified tags.
 func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.Entities) (params.VolumeParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+	if err != nil {
+		return params.VolumeParamsResults{}, err
+	}
+
 	results := params.VolumeParamsResults{
-		Results: make([]params.VolumeParamsResult, len(args.Entities)),
+		Results: make([]params.VolumeParamsResult, 0, len(args.Entities)),
+	}
+
+	var volModelTags map[string]string
+	one := func(arg params.Entity) (params.VolumeParams, error) {
+		tag, err := names.ParseVolumeTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return params.VolumeParams{}, apiservererrors.ErrPerm
+		}
+
+		if volModelTags == nil {
+			volModelTags, err = s.storageProvisioningService.
+				GetStorageResourceTagsForModel(ctx)
+			if err != nil {
+				return params.VolumeParams{}, errors.Errorf(
+					"getting volume model tags: %w", err,
+				)
+			}
+		}
+
+		uuid, err := s.storageProvisioningService.GetVolumeUUIDForID(
+			ctx, tag.Id(),
+		)
+		if err != nil {
+			return params.VolumeParams{}, err
+		}
+
+		volParams, err := s.storageProvisioningService.GetVolumeParams(
+			ctx, uuid,
+		)
+		if err != nil {
+			return params.VolumeParams{}, err
+		}
+
+		rval := params.VolumeParams{
+			Attributes: make(map[string]any, len(volParams.Attributes)),
+			VolumeTag:  tag.String(),
+			Provider:   volParams.Provider,
+			Size:       volParams.SizeMiB,
+			Tags:       volModelTags,
+			// Attachment is left nil to force the storage provisoner to resolve
+			// it separately.
+			Attachment: nil,
+		}
+
+		for k, v := range volParams.Attributes {
+			rval.Attributes[k] = v
+		}
+
+		return rval, nil
+	}
+
+	for _, arg := range args.Entities {
+		var result params.VolumeParamsResult
+		volumeParams, err := one(arg)
+		if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+			err = apiservererrors.ErrPerm
+		}
+
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeParams
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
@@ -1120,9 +1188,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 		var result params.FilesystemParamsResult
 		filesystemParams, err := one(arg)
 		if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
-			err = errors.Errorf(
-				"filesystem %q not found", arg.Tag,
-			).Add(coreerrors.NotFound)
+			err = apiservererrors.ErrPerm
 		}
 
 		if err != nil {
@@ -1151,9 +1217,69 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 	ctx context.Context,
 	args params.MachineStorageIds,
 ) (params.VolumeAttachmentParamsResults, error) {
-	// TODO: implement this method using the storageProvisioningService.
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
+	if err != nil {
+		return params.VolumeAttachmentParamsResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
 	results := params.VolumeAttachmentParamsResults{
-		Results: make([]params.VolumeAttachmentParamsResult, len(args.Ids)),
+		Results: make([]params.VolumeAttachmentParamsResult, 0, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.VolumeAttachmentParams, error) {
+		hostTag, err := names.ParseTag(arg.MachineTag)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+		if hostTag.Kind() != names.MachineTagKind {
+			return params.VolumeAttachmentParams{}, errors.Errorf(
+				"volume attachment host tag %q not valid", hostTag,
+			).Add(coreerrors.NotValid)
+		}
+		volumeTag, err := names.ParseVolumeTag(arg.AttachmentTag)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+		if !canAccess(hostTag, volumeTag) {
+			return params.VolumeAttachmentParams{}, apiservererrors.ErrPerm
+		}
+
+		attachmentUUID, err := s.getVolumeAttachmentUUID(
+			ctx, volumeTag, hostTag,
+		)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+
+		volParams, err := s.storageProvisioningService.GetVolumeAttachmentParams(
+			ctx, attachmentUUID,
+		)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			err = errors.Errorf(
+				"volume attachment for volume %q and host %q not found",
+				volumeTag, hostTag,
+			).Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return params.VolumeAttachmentParams{}, errors.Capture(err)
+		}
+
+		return params.VolumeAttachmentParams{
+			VolumeTag:  volumeTag.String(),
+			MachineTag: hostTag.String(),
+			InstanceId: volParams.MachineInstanceID,
+			Provider:   volParams.Provider,
+			ProviderId: volParams.ProviderID,
+			ReadOnly:   volParams.ReadOnly,
+		}, nil
+	}
+	for _, arg := range args.Ids {
+		var result params.VolumeAttachmentParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
