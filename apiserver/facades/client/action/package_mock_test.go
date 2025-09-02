@@ -287,10 +287,10 @@ func (m *MockOperationService) EXPECT() *MockOperationServiceMockRecorder {
 }
 
 // CancelAction mocks base method.
-func (m *MockOperationService) CancelAction(arg0 context.Context, arg1 []action.UUID) ([]operation.Action, error) {
+func (m *MockOperationService) CancelAction(arg0 context.Context, arg1 action.UUID) (operation.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CancelAction", arg0, arg1)
-	ret0, _ := ret[0].([]operation.Action)
+	ret0, _ := ret[0].(operation.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -308,58 +308,58 @@ type MockOperationServiceCancelActionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceCancelActionCall) Return(arg0 []operation.Action, arg1 error) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) Return(arg0 operation.Action, arg1 error) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceCancelActionCall) Do(f func(context.Context, []action.UUID) ([]operation.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) Do(f func(context.Context, action.UUID) (operation.Action, error)) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceCancelActionCall) DoAndReturn(f func(context.Context, []action.UUID) ([]operation.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) DoAndReturn(f func(context.Context, action.UUID) (operation.Action, error)) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// GetActions mocks base method.
-func (m *MockOperationService) GetActions(arg0 context.Context, arg1 []action.UUID) ([]operation.Action, error) {
+// GetAction mocks base method.
+func (m *MockOperationService) GetAction(arg0 context.Context, arg1 action.UUID) (operation.Action, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetActions", arg0, arg1)
-	ret0, _ := ret[0].([]operation.Action)
+	ret := m.ctrl.Call(m, "GetAction", arg0, arg1)
+	ret0, _ := ret[0].(operation.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetActions indicates an expected call of GetActions.
-func (mr *MockOperationServiceMockRecorder) GetActions(arg0, arg1 any) *MockOperationServiceGetActionsCall {
+// GetAction indicates an expected call of GetAction.
+func (mr *MockOperationServiceMockRecorder) GetAction(arg0, arg1 any) *MockOperationServiceGetActionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActions", reflect.TypeOf((*MockOperationService)(nil).GetActions), arg0, arg1)
-	return &MockOperationServiceGetActionsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAction", reflect.TypeOf((*MockOperationService)(nil).GetAction), arg0, arg1)
+	return &MockOperationServiceGetActionCall{Call: call}
 }
 
-// MockOperationServiceGetActionsCall wrap *gomock.Call
-type MockOperationServiceGetActionsCall struct {
+// MockOperationServiceGetActionCall wrap *gomock.Call
+type MockOperationServiceGetActionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceGetActionsCall) Return(arg0 []operation.Action, arg1 error) *MockOperationServiceGetActionsCall {
+func (c *MockOperationServiceGetActionCall) Return(arg0 operation.Action, arg1 error) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceGetActionsCall) Do(f func(context.Context, []action.UUID) ([]operation.Action, error)) *MockOperationServiceGetActionsCall {
+func (c *MockOperationServiceGetActionCall) Do(f func(context.Context, action.UUID) (operation.Action, error)) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceGetActionsCall) DoAndReturn(f func(context.Context, []action.UUID) ([]operation.Action, error)) *MockOperationServiceGetActionsCall {
+func (c *MockOperationServiceGetActionCall) DoAndReturn(f func(context.Context, action.UUID) (operation.Action, error)) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

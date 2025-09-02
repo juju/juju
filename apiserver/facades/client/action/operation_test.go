@@ -10,7 +10,6 @@ import (
 )
 
 type operationSuite struct {
-	baseSuite
 }
 
 func TestOperationSuite(t *testing.T) {

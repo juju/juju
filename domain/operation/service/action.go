@@ -10,13 +10,13 @@ import (
 	"github.com/juju/juju/domain/operation"
 )
 
-// GetActions returns the list of actions identified by their UUIDs.
-func (s *Service) GetActions(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error) {
-	return nil, nil
+// GetAction returns the action identified by its UUID.
+func (s *Service) GetAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error) {
+	return operation.Action{}, nil
 }
 
-// CancelAction attempts to cancel enqueued actions, identified by their
-// UUIDs.
-func (s *Service) CancelAction(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error) {
-	return nil, nil
+// CancelAction attempts to cancel an enqueued action, identified by its
+// UUID.
+func (s *Service) CancelAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error) {
+	return operation.Action{}, nil
 }

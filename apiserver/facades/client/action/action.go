@@ -6,7 +6,6 @@ package action
 import (
 	"context"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -21,6 +20,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	operation "github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
@@ -59,11 +59,12 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
-	// GetActions returns the list of actions identified by their UUIDs.
-	GetActions(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error)
-	// CancelAction attempts to cancel enqueued actions, identified by their
-	// UUIDs.
-	CancelAction(ctx context.Context, actionUUIDs []coreaction.UUID) ([]operation.Action, error)
+	// GetAction returns the action identified by its UUID.
+	GetAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error)
+
+	// CancelAction attempts to cancel an enqueued action, identified by its
+	// UUID.
+	CancelAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -133,42 +134,24 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
-	// Temporary map to hold the index of each action UUID in the results slice.
-	results := make(map[coreaction.UUID]int)
-
-	// Try to parse all the tags first.
 	for i, entity := range arg.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+		actionTag, err := names.ParseActionTag(entity.Tag)
 		if err != nil {
 			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		actionTag, ok := tag.(names.ActionTag)
-		if !ok {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+
+		action, err := a.operationService.GetAction(ctx, coreaction.UUID(actionTag.Id()))
+		if errors.Is(err, operationerrors.ActionNotFound) {
+			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
 		}
-		results[coreaction.UUID(actionTag.Id())] = i
-	}
-
-	// Bulk fetch the parsed action UUIDs.
-	actionUUIDs := transform.MapToSlice(results, func(k coreaction.UUID, idx int) []coreaction.UUID { return []coreaction.UUID{k} })
-	actions, err := a.operationService.GetActions(ctx, actionUUIDs)
-	if err != nil {
-		return response, apiservererrors.ServerError(err)
-	}
-
-	// Fill in the results for the retrieved actions, using the index from the
-	// temporary map.
-	for _, action := range actions {
-		respIdx := results[action.UUID]
-
-		receiverTag, err := names.ActionReceiverTag(action.Receiver)
 		if err != nil {
-			response.Results[respIdx].Error = apiservererrors.ServerError(err)
+			response.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		response.Results[respIdx] = MakeActionResult(receiverTag)
+
+		response.Results[i] = MakeActionResult(action)
 	}
 
 	return response, nil
@@ -181,44 +164,26 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
-	// Temporary map to hold the index of each action UUID in the results slice.
-	results := make(map[coreaction.UUID]int)
 
-	// Try to parse all the tags first.
 	for i, entity := range arg.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+		actionTag, err := names.ParseActionTag(entity.Tag)
 		if err != nil {
 			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		actionTag, ok := tag.(names.ActionTag)
-		if !ok {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+
+		cancelledAction, err := a.operationService.CancelAction(ctx, coreaction.UUID(actionTag.Id()))
+		if errors.Is(err, operationerrors.ActionNotFound) {
+			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
 		}
-		results[coreaction.UUID(actionTag.Id())] = i
-	}
-
-	// Bulk cancel the parsed action UUIDs.
-	actionUUIDs := transform.MapToSlice(results, func(k coreaction.UUID, idx int) []coreaction.UUID { return []coreaction.UUID{k} })
-	cancelledActions, err := a.operationService.CancelAction(ctx, actionUUIDs)
-	if err != nil {
-		return response, apiservererrors.ServerError(err)
-	}
-
-	// Fill in the results for the cancelled actions, using the index from the
-	// temporary map.
-	for _, action := range cancelledActions {
-		respIdx := results[action.UUID]
-
-		receiverTag, err := names.ActionReceiverTag(action.Receiver)
 		if err != nil {
-			response.Results[respIdx].Error = apiservererrors.ServerError(err)
+			response.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		response.Results[respIdx] = MakeActionResult(receiverTag)
-	}
 
+		response.Results[i] = MakeActionResult(cancelledAction)
+	}
 	return response, nil
 }
 
@@ -286,13 +251,11 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-// MakeActionResult does the actual type conversion from state.Action
-// to params.ActionResult.
-func MakeActionResult(actionReceiverTag names.Tag) params.ActionResult {
+// MakeActionResult does the actual type conversion from the operation domain
+// Action to params.ActionResult.
+func MakeActionResult(action operation.Action) params.ActionResult {
 	result := params.ActionResult{
-		Action: &params.Action{
-			Receiver: actionReceiverTag.String(),
-		},
+		Action: &params.Action{},
 	}
 
 	return result
