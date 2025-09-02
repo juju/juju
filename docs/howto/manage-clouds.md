@@ -1,13 +1,18 @@
 (manage-clouds)=
 # How to manage clouds
 
-> See also: {ref}`cloud`, {ref}`List of supported clouds <list-of-supported-clouds>`
+```{ibnote}
+See also: {ref}`cloud`, {ref}`List of supported clouds <list-of-supported-clouds>`
+```
 
 This document shows how to manage your existing cloud(s) with Juju.
 
 (add-a-cloud)=
 ## Add a cloud
-> See also: {ref}`list-of-supported-clouds` > `<cloud name>`
+
+```{ibnote}
+See also: {ref}`list-of-supported-clouds` > `<cloud name>`
+```
 
 ```{important}
 This step is typically required only for non-localhost private clouds.
@@ -41,17 +46,16 @@ This will start an interactive session where you'll be asked to choose a cloud t
 
 The command also has a manual mode where you can specify the desired cloud name and cloud definition file in-line; whether you want this definition to be known just to the Juju client or also to an existing controller (the latter creates what is known as a multi-cloud controller); etc.
 
-> See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`, {ref}`envvar-juju-data`
-
+```{ibnote}
+See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`, {ref}`envvar-juju-data`
+```
 
 (add-a-kubernetes-cloud)=
 ### Add a Kubernetes cloud
 
 ```{tip}
-
 **If you're using a localhost MicroK8s cloud installed from a strictly confined snap:** <br>
 Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
-
 ```
 
 To add a Kubernetes cloud to Juju:
@@ -76,11 +80,11 @@ Juju will check the default location for the kubeconfig file and  use the inform
 
 The command also allows you to specify a non-default kubeconfig file path (via the `KUBECONFIG` environment variable); in the case where you have multiple cluster definitions and credentials in your kubeconfig file, which cluster and credential to use; what name you want to assign to your new cloud; whether you want to make this cloud known just to the client or also to an existing controller (the latter gives rise to what is known as a multi-cloud controller); etc.
 
-> See more: {ref}`command-juju-add-k8s`
-
+```{ibnote}
+See more: {ref}`command-juju-add-k8s`
+```
 
 ## View all the known clouds
-
 
 To get a list of all the clouds that your Juju client is currently aware of, run the `clouds` command with the `--client` and `-all` flags:
 
@@ -111,14 +115,13 @@ where each line represents a cloud that Juju can interact with -- the cloud name
 
 By omitting the flags, you will see a list of the clouds available on the client for which you have also registered the credentials. Alternatively, by passing other flags you can specify an output format or file, etc.
 
-> See more: {ref}`command-juju-clouds`
-
-
+```{ibnote}
+See more: {ref}`command-juju-clouds`
+```
 
 ## View details about a cloud
 
-
-To get more detail about a particular cloud, run the `show-cloud` command followed by the cloud name, e.g.,
+To get more detail about a particular cloud, run the `show-cloud` command followed by the cloud name. For example:
 
 ```text
 juju show-cloud azure
@@ -126,16 +129,15 @@ juju show-cloud azure
 
 The command also has flags that allow you to specify whether you want this information from the client or rather a controller; whether you want the output to include the configuration options specific to the cloud; an output format or file; etc.
 
-> See more: {ref}`command-juju-show-cloud`
-
+```{ibnote}
+See more: {ref}`command-juju-show-cloud`
+```
 
 ## Manage cloud regions
 
-
 ### View all the known regions
 
-
-To see which regions Juju is aware of for any given cloud, use the `regions` command. For example, for the 'aws' cloud, run:
+To see which regions Juju is aware of for any given cloud, use the `regions` command. For example, for the `aws` cloud, run:
 
 ```text
 juju regions aws
@@ -171,7 +173,9 @@ sa-east-1
 
 The command also has flags that allow you to select a specific controller, choose an output format or file, etc.
 
-> See more: {ref}`command-juju-regions`
+```{ibnote}
+See more: {ref}`command-juju-regions`
+```
 
 
 ### Manage the default region
@@ -184,8 +188,9 @@ juju default-region aws eu-central-1
 
 If at any point you want to reset this value, drop the region argument and pass the `--reset` flag.
 
-> See more: {ref}`command-juju-default-region`
-
+```{ibnote}
+See more: {ref}`command-juju-default-region`
+```
 
 **Get the default region.** To get the current default region for a cloud, run the `default-region` command followed by the name of the cloud. For example:
 
@@ -193,12 +198,13 @@ If at any point you want to reset this value, drop the region argument and pass 
 juju default-region azure-china
 ```
 
-> See more: {ref}`command-juju-default-region`
-
+```{ibnote}
+See more: {ref}`command-juju-default-region`
+```
 
 ## Manage cloud credentials
-> See more: {ref}`manage-credentials`
 
+See {ref}`manage-credentials`.
 
 ## Update a cloud
 
@@ -215,9 +221,9 @@ juju update-public-clouds
 
 The command also allows you to specify whether you want this update to happen on the client or rather a controller.
 
-> See more: {ref}`command-juju-update-public-clouds`
-
-
+```{ibnote}
+See more: {ref}`command-juju-update-public-clouds`
+```
 
 ### Update a private cloud
 
@@ -229,7 +235,9 @@ juju update-cloud mymaas -f path/to/maas.yaml
 
 The command also allows you to indicate whether the update should happen on the client or the controller; to to update the definition on a controller to match the one on the client; etc.
 
-> See more: {ref}`command-juju-update-cloud`
+```{ibnote}
+See more: {ref}`command-juju-update-cloud`
+```
 
 <!--
 The definition of an existing cloud can be done locally or, since `v.2.5.3`, remotely (on a controller).
@@ -264,7 +272,10 @@ If you specify a controller without supplying a YAML file then the remote cloud 
 
 
 ## Remove a cloud
-> See also: {ref}`removing-things`
+
+```{ibnote}
+See also: {ref}`removing-things`
+```
 
 ```{important}
 This only applies to cloud definitions added explicitly via `add-cloud` or `add-k8s`. It removes the cloud definition from the client and/or the controller.
@@ -278,4 +289,6 @@ juju remove-cloud lxd-remote
 
 The command also allows you to specify whether this operation should be performed on the client or rather on a specific controller.
 
-> See more: {ref}`command-juju-remove-cloud`
+```{ibnote}
+See more: {ref}`command-juju-remove-cloud`
+```

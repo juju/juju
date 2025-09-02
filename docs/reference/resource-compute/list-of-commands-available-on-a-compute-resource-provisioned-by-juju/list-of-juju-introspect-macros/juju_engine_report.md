@@ -6,12 +6,14 @@ The engine report is a window into the internals of the agent. This is primarily
 In order to manage complexity in the Juju agents, there are *workers* that have very distinct and limited purpose. Workers can have dependencies on other workers. The [dependency engine](https://godoc.org/gopkg.in/juju/worker.v1/dependency) is the entity that runs the workers and deals with those dependencies. The `juju_engine_report` is the current view into the dependency engine running the agent's workers.
 
 ## Usage
-Can be run on any Juju machine, expected state is different for controller machines, ha, and machines running workloads.
-```code
+Can be run on any Juju machine. The expected state is different for controller machines, high-availability, and machines running workloads.
+
+```text
 juju_engine_report
 ```
 
 ## Example output
+
 ```text
 manifolds:
   agent:
@@ -67,7 +69,7 @@ manifolds:
 
 * Dependencies that are started which should be stopped. Can prevent a unit from upgrading or migrating if the workers do not quiesce.
 
-* A controllers engine report will contain the model cache contents as of 2.9
+* A controller's engine report will contain the model cache contents as of 2.9
 
 * The report from an individual unit contains the local-state and relation, formerly in a file on the unit:
 ```

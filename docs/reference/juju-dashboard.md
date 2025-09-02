@@ -1,14 +1,13 @@
 (juju-dashboard)=
 # `juju-dashboard` (The Juju dashboard)
 
-> See also: [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard), {ref}`manage-the-juju-dashboard`
-
-```{note}
-
-Note: A small number of dashboard features (e.g. the web CLI) are dependent on the deployment environment. These are noted as “requirements” in this document.
-
+```{ibnote}
+See also: [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard), {ref}`manage-the-juju-dashboard`
 ```
 
+```{note}
+A small number of dashboard features (e.g. the web CLI) are dependent on the deployment environment. These are noted as “requirements” in this document.
+```
 
 The Juju Dashboard aims to expose Juju environments, providing at-scale management, status and collaboration features not found in the Juju CLI. It is intended to supplement the CLI experience with  aggregate views and at a glance health checks. In particular, it provides a quick way to view details for all the entities in your Juju environment (models, controllers, etc.), and in places also provides functionality related to the ongoing maintenance of your estate.
 

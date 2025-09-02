@@ -1,7 +1,7 @@
 (juju_heap_profile)=
 # `juju_heap_profile`
 
-The heap profile provides memory allocation samples. Helpful to monitor current memory usage and find memory leaks. This is primarily useful to developers to help debug problems that may be occurring in deployed systems. 
+The heap profile provides memory allocation samples. Helpful to monitor current memory usage and find memory leaks. This is primarily useful to developers to help debug problems that may be occurring in deployed systems.
 
 
 
@@ -42,12 +42,13 @@ heap profile: 31: 694464 [33638: 106713992] @ heap/1048576
 # and many more
 ```
 
-## Interesting Output
-The output of the heap profile can be difficult to read on its own. Using the pprof go tool can help.
+## Interesting output
+
+The output of the heap profile can be difficult to read on its own. Using the `pprof` Go tool can help.
 
 To find a memory leak, compare 2 heap profiles:
 
 ```text
-go tool pprof -http localhost:8100 -base juju_heap_profile-2022-06-11.00 jujud-2.9.29/jujud juju_heap_profile-2022-06-12.16 
+go tool pprof -http localhost:8100 -base juju_heap_profile-2022-06-11.00 jujud-2.9.29/jujud juju_heap_profile-2022-06-12.16
 ```
-Find jujud binaries in the [streams](https://streams.canonical.com/juju/tools/agent/)
+Find `jujud` binaries in the [streams](https://streams.canonical.com/juju/tools/agent/).

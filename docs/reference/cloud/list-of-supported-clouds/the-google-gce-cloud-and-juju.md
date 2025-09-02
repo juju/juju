@@ -1,22 +1,23 @@
 (cloud-gce)=
 # The Google GCE cloud and Juju
 
-
 This document describes details specific to using your existing Google GCE cloud with Juju.
 
-> See more: [Google GCE](https://cloud.google.com/compute)
+```{ibnote}
+See more: [Google GCE](https://cloud.google.com/compute)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Requirements:
 
 Permissions: Service Account Key Admin, Compute Instance Admin, and Compute Security Admin. <br> See more: [Google \| Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam).
-
 
 ## Notes on `juju add-cloud`
 
@@ -25,7 +26,6 @@ Type in Juju: `gce`
 Name in Juju: `google`
 
 ## Notes on `juju add-credential`
-
 
 ### Authentication types
 
@@ -40,7 +40,6 @@ Attributes:
 Attributes:
 - `file`: path to the `.json` file containing a service account key for your project
 Path (required)
-
 
 ### If you want to use environment variables:
 
@@ -98,7 +97,9 @@ Base path to look for machine disk images.
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 (storage-provider-gce)=
 ### `gce`

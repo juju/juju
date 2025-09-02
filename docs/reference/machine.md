@@ -1,7 +1,9 @@
 (machine)=
 # Machine
 
-> See also: {ref}`manage-machines`
+```{ibnote}
+See also: {ref}`manage-machines`
+```
 
 In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly (e.g., through {ref}`command-juju-deploy`, {ref}`command-juju-add-unit`, etc.) or explicitly (e.g., through {ref}`command-juju-add-machine`) from a machine {ref}`cloud <cloud>`.
 
@@ -18,7 +20,7 @@ From the point of view of an end user, this is absolutely true, with one small c
 
 When you deploy an {ref}`application <application>` on a machine, there is usually one {ref}`unit <unit>` per machine. However, it is usually possible to optimise resources by deploying multiple units of the same or of different applications to the same machine.
 
-
+(machines-and-system-containers)=
 ## Machines and system (LXD) containers
 
 In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
