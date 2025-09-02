@@ -31,22 +31,6 @@ func TestOperationSuite(t *testing.T) {
 	tc.Run(t, &operationSuite{})
 }
 
-func (s *operationSuite) TestStub(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	c.Skip(`This suite is missing tests for the following scenarios:
-- ListOperations querying by status.
-- ListOperations querying by action names.
-- ListOperations querying by application names.
-- ListOperations querying by unit names.
-- ListOperations querying by machines.
-- ListOperations querying with multiple filters - result is union.
-- Operations based on input entity tags.
-- EnqueueOperation with some units
-- EnqueueOperation but AddAction fails
-- EnqueueOperation with a unit specified with a leader receiver
-`)
-}
-
 // TestEnqueue_PermissionDenied verifies that enqueuing an operation without proper permission returns ErrPerm.
 func (s *operationSuite) TestEnqueue_PermissionDenied(c *tc.C) {
 
