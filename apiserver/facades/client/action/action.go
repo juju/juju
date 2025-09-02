@@ -142,12 +142,13 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 		}
 
 		action, err := a.operationService.GetAction(ctx, coreaction.UUID(actionTag.Id()))
-		if errors.Is(err, operationerrors.ActionNotFound) {
-			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
-			continue
-		}
 		if err != nil {
-			response.Results[i].Error = apiservererrors.ServerError(err)
+			// NOTE(nvinuesa): The returned error in this case is not correct
+			// (should be NotFound for ActionNotFound for example), but since
+			// the old API was already black-holing all the errors into a
+			// ErrBadId, we keep it for backwards compatibility (in terms of
+			// returned errors).
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 

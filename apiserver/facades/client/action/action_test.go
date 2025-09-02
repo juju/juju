@@ -160,7 +160,8 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error.Message, tc.Equals, "boom")
+	// This error was already (wrongly) black-holed into a ErrBadId.
+	c.Assert(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
