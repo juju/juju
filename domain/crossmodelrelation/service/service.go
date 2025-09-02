@@ -17,7 +17,7 @@ import (
 )
 
 // ModelDBState describes retrieval and persistence methods for cross model
-// relations in the model database..
+// relations in the model database.
 type ModelDBState interface {
 	// CreateOffer creates an offer and links the endpoints to it.
 	CreateOffer(

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ApplicationOfferArgs contains parameters used to create or update
@@ -123,6 +124,14 @@ type OfferUser struct {
 	Name        string
 	DisplayName string
 	Access      permission.Access
+}
+
+// OfferImport contains details to import an offer during migration.
+type OfferImport struct {
+	UUID            uuid.UUID
+	Name            string
+	ApplicationName string
+	Endpoints       []string
 }
 
 // RemoteApplicationConsumer represents a remote application

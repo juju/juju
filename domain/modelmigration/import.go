@@ -17,6 +17,7 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
 	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata/modelmigration"
 	credential "github.com/juju/juju/domain/credential/modelmigration"
+	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	keymanager "github.com/juju/juju/domain/keymanager/modelmigration"
 	lease "github.com/juju/juju/domain/lease/modelmigration"
@@ -79,6 +80,7 @@ func ImportOperations(
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	crossmodelrelation.RegisterImport(coordinator, logger.Child("crossmodelrelation"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))

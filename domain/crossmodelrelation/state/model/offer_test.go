@@ -556,31 +556,3 @@ func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string)
 		},
 	}
 }
-
-func (s *modelOfferSuite) readOffers(c *tc.C) []nameAndUUID {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer`)
-	c.Assert(err, tc.IsNil)
-	defer func() { _ = rows.Close() }()
-	foundOffers := []nameAndUUID{}
-	for rows.Next() {
-		var found nameAndUUID
-		err = rows.Scan(&found.UUID, &found.Name)
-		c.Assert(err, tc.IsNil)
-		foundOffers = append(foundOffers, found)
-	}
-	return foundOffers
-}
-
-func (s *modelOfferSuite) readOfferEndpoints(c *tc.C) []offerEndpoint {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer_endpoint`)
-	c.Assert(err, tc.IsNil)
-	defer func() { _ = rows.Close() }()
-	foundOfferEndpoints := []offerEndpoint{}
-	for rows.Next() {
-		var found offerEndpoint
-		err = rows.Scan(&found.OfferUUID, &found.EndpointUUID)
-		c.Assert(err, tc.IsNil)
-		foundOfferEndpoints = append(foundOfferEndpoints, found)
-	}
-	return foundOfferEndpoints
-}
