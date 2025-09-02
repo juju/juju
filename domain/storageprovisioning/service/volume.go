@@ -307,6 +307,35 @@ func (s *Service) GetVolumeAttachment(
 	return va, nil
 }
 
+// GetVolumeAttachmentPlanUUIDForVolumeIDMachine returns the volume attachment
+// plan uuid for the supplied volume ID which is attached to the machine.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the provided machine uuid is not valid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// supplied id.
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the supplied values.
+// - [machineerrors.MachineNotFound] when no machine exists for the provided
+// machine uuid.
+func (s *Service) GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
+	ctx context.Context,
+	volumeID string,
+	machineUUID coremachine.UUID,
+) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+	if err := machineUUID.Validate(); err != nil {
+		return "", err
+	}
+
+	_, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// TODO (tlm): finish implementing the rest of this func.
+	return "", storageprovisioningerrors.VolumeAttachmentPlanNotFound
+}
+
 // GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment
 // uuid for the supplied volume ID which is attached to the machine.
 //
