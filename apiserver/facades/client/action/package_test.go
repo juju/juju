@@ -45,7 +45,7 @@ func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	s.Authorizer.EXPECT().AuthClient().Return(true)
-	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService,
 		s.ModelInfoService, s.OperationService, modelUUID)
