@@ -21,14 +21,12 @@ A certain charm knows that it requires, say, a database and, correspondingly, a 
 ```{figure} relation-taxonomy.svg
   :figclass: only-light
   :align: center
-  :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-  _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; or a local source of charms)._
+  :alt: In Juju relations can be regular, subordinate, cross-model, or peer.
 ```
 ```{figure} relation-taxonomy.dark.svg
   :figclass: only-dark
   :align: center
-  :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-  _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; or a local source of charms)._
+  :alt: In Juju relations can be regular, subordinate, cross-model, or peer.
 ```
 
 (peer-relation)=
@@ -109,14 +107,10 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 ```{figure} relation-databags.svg
   :figclass: only-light
   :align: center
-  :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-  _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; or a local source of charms)._
 ```
 ```{figure} relation-databags.dark.svg
   :figclass: only-dark
   :align: center
-  :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-  _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; or a local source of charms)._
 ```
 
 When an application becomes involved in a relation, each one of its units gets a databag in the Juju database, as follows:
