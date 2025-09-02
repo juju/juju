@@ -207,7 +207,7 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 	// or it's not running and we need to start it.
 	req := traceRequest{
 		namespace: ns,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 	select {
 	case w.tracerRequests <- req:

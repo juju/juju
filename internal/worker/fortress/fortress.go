@@ -51,7 +51,7 @@ func (f *fortress) Lockdown(ctx context.Context) error {
 
 // Visit is part of the Guest interface.
 func (f *fortress) Visit(ctx context.Context, visit Visit) error {
-	result := make(chan error)
+	result := make(chan error, 1)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown
@@ -68,7 +68,7 @@ func (f *fortress) Visit(ctx context.Context, visit Visit) error {
 
 // allowGuests communicates Guard-interface requests to the main loop.
 func (f *fortress) allowGuests(ctx context.Context, allowGuests bool) error {
-	result := make(chan error)
+	result := make(chan error, 1)
 	select {
 	case <-f.tomb.Dying():
 		return ErrShutdown

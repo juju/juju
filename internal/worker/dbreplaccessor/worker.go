@@ -66,7 +66,7 @@ type dbRequest struct {
 func makeDBGetRequest(namespace string) dbRequest {
 	return dbRequest{
 		namespace: namespace,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 }
 

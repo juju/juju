@@ -178,7 +178,7 @@ func (w *storageRegistryWorker) GetStorageRegistry(ctx context.Context, namespac
 	// or it's not running and we need to start it.
 	req := storageRegistryRequest{
 		namespace: namespace,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 	select {
 	case w.storageRegistryRequests <- req:
