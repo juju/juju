@@ -228,10 +228,6 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
-func AddTestingCharmFromRepo(c *gc.C, st *State, name string, repo *repo.CharmRepo) *Charm {
-	return addCharm(c, st, "quantal", repo.CharmDir(name))
-}
-
 func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
 	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }

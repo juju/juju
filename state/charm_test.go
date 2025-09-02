@@ -976,11 +976,3 @@ func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
 		c.Assert(ch.Manifest(), gc.DeepEquals, manifest)
 	})
 }
-
-func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := state.AddTestingCharmFromRepo(c, s.State, "metered", testcharms.CharmRepo())
-	c.Assert(added.Metrics(), gc.NotNil)
-
-	charmDir := testcharms.CharmRepo().CharmDir("metered")
-	c.Assert(charmDir.Metrics(), gc.DeepEquals, added.Metrics())
-}
