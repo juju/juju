@@ -2031,7 +2031,7 @@ func (s *mockHookContextSuite) TestHookCloudSpecMachine(c *gc.C) {
 		Credential: &params.CloudCredential{
 			AuthType: "authtype",
 		},
-	})
+	}, nil)
 
 	ctx := context.NewMockUnitHookContextWithStateAndModelType(s.mockUnit, st, model.IAAS)
 
@@ -2054,7 +2054,7 @@ func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
 			AuthType: "overridden",
 		},
 		IsControllerCloud: true,
-	})
+	}, nil)
 
 	tempDir := c.MkDir()
 	caFile := path.Join(tempDir, "ca.crt")
