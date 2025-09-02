@@ -3897,7 +3897,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
+func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoOp(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
 
@@ -3916,71 +3916,6 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
-		Batches: []params.MetricBatchParam{{
-			Tag: s.meteredUnit.Tag().String(),
-			Batch: params.MetricBatch{
-				UUID:     uuid,
-				CharmURL: s.meteredCharm.URL(),
-				Created:  time.Now(),
-				Metrics:  metrics,
-			}}}})
-
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredApplication, SetCharmURL: true})
-
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	tests := []struct {
-		about  string
-		tag    string
-		expect string
-	}{{
-		about:  "different unit",
-		tag:    unit2.Tag().String(),
-		expect: "permission denied",
-	}, {
-		about:  "user tag",
-		tag:    names.NewLocalUserTag("admin").String(),
-		expect: `"user-admin" is not a valid unit tag`,
-	}, {
-		about:  "machine tag",
-		tag:    names.NewMachineTag("0").String(),
-		expect: `"machine-0" is not a valid unit tag`,
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.about)
-		result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
-			Batches: []params.MetricBatchParam{{
-				Tag: test.tag,
-				Batch: params.MetricBatch{
-					UUID:     uuid,
-					CharmURL: "",
-					Created:  time.Now(),
-					Metrics:  metrics,
-				}}}})
-
-		if test.expect == "" {
-			c.Assert(result.OneError(), jc.ErrorIsNil)
-		} else {
-			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
-		}
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }
 
 type uniterNetworkInfoSuite struct {
