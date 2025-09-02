@@ -19,7 +19,7 @@ import (
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/action"
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
@@ -372,7 +372,7 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 		if len(task.Log) > 0 {
 			logs := make([]string, len(task.Log))
 			for i, msg := range task.Log {
-				logs[i] = formatLogMessage(action.ActionMessage{
+				logs[i] = formatLogMessage(coreoperation.ActionMessage{
 					Timestamp: msg.Timestamp,
 					Message:   msg.Message,
 				}, false, utc, false)

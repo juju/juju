@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/agent/uniter"
-	coreaction "github.com/juju/juju/core/action"
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -96,7 +96,7 @@ func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Acti
 	}
 
 	name := action.Name()
-	spec, ok := coreaction.PredefinedActionsSpec[name]
+	spec, ok := coreoperation.PredefinedActionsSpec[name]
 	if !ok && actions != nil {
 		var ok bool
 		spec, ok = actions.ActionSpecs[name]

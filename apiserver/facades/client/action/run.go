@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/action"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/operation"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -82,7 +82,7 @@ func (a *ActionAPI) createRunActionsParams(
 ) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
-	if action.HasJujuExecAction(quotedCommands) {
+	if operation.HasJujuExecAction(quotedCommands) {
 		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
 	}
 
@@ -93,7 +93,7 @@ func (a *ActionAPI) createRunActionsParams(
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:       tag.String(),
-			Name:           action.JujuExecActionName,
+			Name:           operation.JujuExecActionName,
 			Parameters:     actionParams,
 			Parallel:       parallel,
 			ExecutionGroup: executionGroup,

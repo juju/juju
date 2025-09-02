@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coreaction "github.com/juju/juju/core/action"
 	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -22,6 +21,8 @@ import (
 	operation "github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -60,18 +61,18 @@ type ModelInfoService interface {
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
 	// GetAction returns the action identified by its UUID.
-	GetAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error)
+	GetAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
 
 	// CancelAction attempts to cancel an enqueued action, identified by its
 	// UUID.
-	CancelAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error)
+	CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	modelTag           names.ModelTag
-	modelInfoService   ModelInfoService
 	applicationService ApplicationService
+	modelInfoService   ModelInfoService
 	operationService   OperationService
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
@@ -141,7 +142,12 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		action, err := a.operationService.GetAction(ctx, coreaction.UUID(actionTag.Id()))
+		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+		action, err := a.operationService.GetAction(ctx, actionUUID)
 		if err != nil {
 			// NOTE(nvinuesa): The returned error in this case is not correct
 			// (should be NotFound for ActionNotFound for example), but since
@@ -152,7 +158,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		response.Results[i] = MakeActionResult(action)
+		response.Results[i] = makeActionResult(action)
 	}
 
 	return response, nil
@@ -173,8 +179,13 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		cancelledAction, err := a.operationService.CancelAction(ctx, coreaction.UUID(actionTag.Id()))
-		if errors.Is(err, operationerrors.ActionNotFound) {
+		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+		cancelledAction, err := a.operationService.CancelAction(ctx, actionUUID)
+		if internalerrors.Is(err, operationerrors.ActionNotFound) {
 			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
 		}
@@ -183,7 +194,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		response.Results[i] = MakeActionResult(cancelledAction)
+		response.Results[i] = makeActionResult(cancelledAction)
 	}
 	return response, nil
 }
@@ -252,9 +263,7 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-// MakeActionResult does the actual type conversion from the operation domain
-// Action to params.ActionResult.
-func MakeActionResult(action operation.Action) params.ActionResult {
+func makeActionResult(action operation.Action) params.ActionResult {
 	result := params.ActionResult{
 		Action: &params.Action{},
 	}

@@ -18,7 +18,7 @@ import (
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
-	coreaction "github.com/juju/juju/core/action"
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
@@ -361,7 +361,7 @@ func (s *ShowTaskSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		go func() {
 			encodedLogs := make([]string, len(expectedLogs))
 			for n, log := range expectedLogs {
-				msg := coreaction.ActionMessage{
+				msg := coreoperation.ActionMessage{
 					Message:   log,
 					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				}

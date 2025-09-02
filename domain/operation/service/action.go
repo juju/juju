@@ -6,17 +6,18 @@ package service
 import (
 	"context"
 
-	coreaction "github.com/juju/juju/core/action"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // GetAction returns the action identified by its UUID.
-func (s *Service) GetAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error) {
-	return operation.Action{}, nil
+func (s *Service) GetAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error) {
+	return operation.Action{}, errors.NotImplemented
 }
 
 // CancelAction attempts to cancel an enqueued action, identified by its
 // UUID.
-func (s *Service) CancelAction(ctx context.Context, actionUUID coreaction.UUID) (operation.Action, error) {
-	return operation.Action{}, nil
+func (s *Service) CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error) {
+	return operation.Action{}, errors.NotImplemented
 }

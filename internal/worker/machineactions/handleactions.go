@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/exec"
 
-	coreaction "github.com/juju/juju/core/action"
+	coreoperation "github.com/juju/juju/core/operation"
 )
 
 // RunAsUser is the user that the machine juju-exec action is executed as.
@@ -24,7 +24,7 @@ var RunAsUser = "ubuntu"
 // HandleAction receives a name and a map of parameters for a given machine action.
 // It will handle that action in a specific way and return a results map suitable for ActionFinish.
 func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
-	spec, ok := coreaction.PredefinedActionsSpec[name]
+	spec, ok := coreoperation.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("unexpected action %s", name)
 	}
@@ -32,7 +32,7 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 		return nil, errors.Errorf("invalid action parameters")
 	}
 
-	if coreaction.IsJujuExecAction(name) {
+	if coreoperation.IsJujuExecAction(name) {
 		return handleJujuExecAction(params)
 	} else {
 		return nil, errors.Errorf("unexpected action %s", name)

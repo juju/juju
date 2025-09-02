@@ -15,13 +15,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coreaction "github.com/juju/juju/core/action"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	operation "github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -65,12 +65,13 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+
 	resAction := operation.Action{}
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().GetAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(resAction, nil)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
@@ -87,10 +88,10 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 func (s *actionSuite) TestActionsPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	actionUUID := modeltesting.GenModelUUID(c)
 	// Use a non-admin user tag to fail permission check.
 	nonAdminUser := names.NewUserTag("unauthorized")
 	s.setupAPI(c, nonAdminUser)
+	actionUUID := uuid.MustNewUUID()
 
 	_, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -122,11 +123,11 @@ func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().GetAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(operation.Action{}, operationerrors.ActionNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
@@ -145,11 +146,11 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().GetAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(operation.Action{}, errors.New("boom"))
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
@@ -168,17 +169,17 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID0 := modeltesting.GenModelUUID(c)
-	actionUUID1 := modeltesting.GenModelUUID(c)
+	actionUUID0 := uuid.MustNewUUID()
+	actionUUID1 := uuid.MustNewUUID()
 	resAction := operation.Action{}
 
 	s.operationService.EXPECT().GetAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID0.String()),
+		actionUUID0,
 	).Return(resAction, nil)
 	s.operationService.EXPECT().GetAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID1.String()),
+		actionUUID1,
 	).Return(operation.Action{}, operationerrors.ActionNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
@@ -212,12 +213,13 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+
 	cancelledAction := operation.Action{}
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().CancelAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(cancelledAction, nil)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
@@ -234,10 +236,10 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 func (s *actionSuite) TestCancelPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	actionUUID := modeltesting.GenModelUUID(c)
 	// Use a non-admin user tag to fail permission check.
 	nonAdminUser := names.NewUserTag("unauthorized")
 	s.setupAPI(c, nonAdminUser)
+	actionUUID := uuid.MustNewUUID()
 
 	_, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -269,11 +271,11 @@ func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().CancelAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(operation.Action{}, operationerrors.ActionNotFound)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
@@ -292,11 +294,11 @@ func (s *actionSuite) TestCancelServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := modeltesting.GenModelUUID(c)
+	actionUUID := uuid.MustNewUUID()
 
 	s.operationService.EXPECT().CancelAction(
 		gomock.Any(),
-		coreaction.UUID(actionUUID.String()),
+		actionUUID,
 	).Return(operation.Action{}, errors.New("boom"))
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
