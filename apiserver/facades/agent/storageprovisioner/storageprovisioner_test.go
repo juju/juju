@@ -1466,7 +1466,7 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 			"foo": "bar",
 		},
 		VolumeTag: tag.String(),
-		Size:      10,
+		SizeMiB:   10,
 		Provider:  "myprovider",
 		Tags: map[string]string{
 			"tag1": "value1",
