@@ -80,11 +80,15 @@ func (s *baseSuite) expectTimerImmediate() {
 
 func (s *baseSuite) expectTimerRepeated(times int, done chan struct{}) {
 	s.clock.EXPECT().NewTimer(gomock.Any()).Return(s.timer)
+
 	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
 		ch := make(chan time.Time, 1)
 		ch <- time.Now()
 		return ch
 	}).Times(times)
+	s.timer.EXPECT().Reset(gomock.Any()).Times(times)
+
+	// This call will block until the test is done.
 	s.timer.EXPECT().Chan().DoAndReturn(func() <-chan time.Time {
 		defer func() {
 			if done != nil {
@@ -95,5 +99,6 @@ func (s *baseSuite) expectTimerRepeated(times int, done chan struct{}) {
 		ch := make(chan time.Time, 1)
 		return ch
 	})
+
 	s.timer.EXPECT().Stop().Return(true).AnyTimes()
 }

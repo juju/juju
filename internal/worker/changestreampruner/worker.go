@@ -143,19 +143,20 @@ func (w *Pruner) loop() error {
 			if err := w.prune(ctx); err != nil {
 				return errors.Trace(err)
 			}
+			timer.Reset(defaultPruneInterval)
 		}
 	}
 }
 
 func (w *Pruner) prune(ctx context.Context) error {
-	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
-	if traceEnabled {
-		w.cfg.Logger.Tracef(ctx, "Starting pruning change log")
-	}
-
 	modelNamespaces, err := w.getModelNamespaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
+	if traceEnabled {
+		w.cfg.Logger.Tracef(ctx, "pruning model namespaces: %v", modelNamespaces)
 	}
 
 	for _, mn := range modelNamespaces {

@@ -632,10 +632,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
-			DBAccessor: dbAccessorName,
-			Clock:      config.Clock,
-			Logger:     internallogger.GetLogger("juju.worker.changestreampruner"),
-			NewWorker:  changestreampruner.NewWorker,
+			DBAccessor:     dbAccessorName,
+			Clock:          config.Clock,
+			Logger:         internallogger.GetLogger("juju.worker.changestreampruner"),
+			NewWorker:      changestreampruner.NewWorker,
+			NewModelPruner: changestreampruner.NewModelPruner,
 		})),
 
 		auditConfigUpdaterName: ifDatabaseUpgradeComplete(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{

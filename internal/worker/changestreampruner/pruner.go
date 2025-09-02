@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -36,7 +37,7 @@ func NewModelPruner(
 	namespaceWindow NamespaceWindow,
 	clock clock.Clock,
 	logger logger.Logger,
-) *modelPruner {
+) worker.Worker {
 	w := &modelPruner{
 		db: db,
 

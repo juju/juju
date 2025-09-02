@@ -493,7 +493,8 @@ func (s *prunerWorkerSuite) newPruner(c *tc.C) *modelPruner {
 }
 
 func (s *prunerWorkerSuite) newPrunerWithLogger(c *tc.C, logger logger.Logger) *modelPruner {
-	return NewModelPruner(s.TxnRunner(), s.namespaceWindow, s.clock, logger)
+	w := NewModelPruner(s.TxnRunner(), s.namespaceWindow, s.clock, logger)
+	return w.(*modelPruner)
 }
 
 func (s *prunerWorkerSuite) insertControllerNodes(c *tc.C, amount int) {
