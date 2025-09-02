@@ -280,12 +280,6 @@ linkcheck_retries = 3
 
 myst_enable_extensions = set(["colon_fence",])
 
-myst_custom_directives = {
-    "ibnote": {
-        "html": "<div class='ibnote'>{}</div>",
-    }
-}
-
 # Custom Sphinx extensions; see
 # https://www.sphinx-doc.org/en/master/usage/extensions/index.html
 

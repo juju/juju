@@ -28,11 +28,3 @@
   border-radius: 4px;
   overflow-x: auto;  /* allow horizontal scroll if code is wide */
 }
-
-/* Emphasis and strong inherit font size */
-.ibnote em,
-.ibnote i,
-.ibnote strong,
-.ibnote b {
-  font-size: inherit;
-}
