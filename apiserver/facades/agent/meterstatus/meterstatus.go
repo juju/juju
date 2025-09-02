@@ -4,9 +4,8 @@
 package meterstatus
 
 import (
-	"gopkg.in/tomb.v2"
-
 	"github.com/juju/loggo"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/unitcommon"
