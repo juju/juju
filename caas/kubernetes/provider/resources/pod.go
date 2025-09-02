@@ -50,7 +50,7 @@ func ListPods(ctx context.Context, client kubernetes.Interface, namespace string
 			return nil, errors.Trace(err)
 		}
 		for _, v := range res.Items {
-			items = append(items, Pod{Pod: v})
+			items = append(items, *NewPod(api, client.CoreV1().Events(namespace), namespace, v.Name, &v))
 		}
 		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
 			break
@@ -66,7 +66,7 @@ func (p *Pod) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (p *Pod) ID() ID {
 	return ID{"Pod", p.Name, p.Namespace}
 }
@@ -113,11 +113,9 @@ func (p *Pod) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s pod for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.

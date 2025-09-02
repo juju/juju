@@ -24,7 +24,7 @@ type CustomResourceDefinition struct {
 	apiextensionsv1.CustomResourceDefinition
 }
 
-// CustomResourceDefinition creates a new customresourcedefinition resource.
+// NewCustomResourceDefinition creates a new customresourcedefinition resource.
 func NewCustomResourceDefinition(client v1.CustomResourceDefinitionInterface, name string, in *apiextensionsv1.CustomResourceDefinition) *CustomResourceDefinition {
 	if in == nil {
 		in = &apiextensionsv1.CustomResourceDefinition{}
@@ -43,29 +43,31 @@ func (crd *CustomResourceDefinition) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (crd *CustomResourceDefinition) ID() ID {
 	return ID{"CustomResourceDefinition", crd.Name, crd.Namespace}
 }
 
 // Apply patches the resource change.
 func (crd *CustomResourceDefinition) Apply(ctx context.Context) (err error) {
-	existing, err := crd.client.Get(ctx, crd.Name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		// Create if not found
-		created, err := crd.client.Create(ctx, &crd.CustomResourceDefinition, metav1.CreateOptions{
-			FieldManager: JujuFieldManager,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+
+	created, err := crd.client.Create(ctx, &crd.CustomResourceDefinition, metav1.CreateOptions{
+		FieldManager: JujuFieldManager,
+	})
+	if err == nil {
 		crd.CustomResourceDefinition = *created
 		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "creating CustomResourceDefinition %q", crd.GetName())
 	}
 
-	// Update if exists (set ResourceVersion to prevent conflict)
+	existing, err := crd.client.Get(ctx, crd.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "retrieving existing CustomResourceDefinition %q to get latest resource version", crd.GetName())
+	}
+
+	// update if exists (set ResourceVersion to prevent conflict)
 	crd.ResourceVersion = existing.ResourceVersion
 	updated, err := crd.client.Update(ctx, &crd.CustomResourceDefinition, metav1.UpdateOptions{
 		FieldManager: JujuFieldManager,
@@ -83,7 +85,7 @@ func (crd *CustomResourceDefinition) Apply(ctx context.Context) (err error) {
 
 // Get refreshes the resource.
 func (crd *CustomResourceDefinition) Get(ctx context.Context) error {
-	res, err := crd.client.Get(context.TODO(), crd.Name, metav1.GetOptions{})
+	res, err := crd.client.Get(ctx, crd.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("custom resource definition: %q", crd.Name)
 	} else if err != nil {
@@ -99,11 +101,9 @@ func (crd *CustomResourceDefinition) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s custom resource definition for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -115,16 +115,16 @@ func (crd *CustomResourceDefinition) ComputeStatus(ctx context.Context, now time
 }
 
 // ListCRDs returns a list of CRDs.
-func ListCRDs(ctx context.Context, extendedClient clientset.Interface, opts metav1.ListOptions) ([]*CustomResourceDefinition, error) {
+func ListCRDs(ctx context.Context, extendedClient clientset.Interface, opts metav1.ListOptions) ([]CustomResourceDefinition, error) {
 	api := extendedClient.ApiextensionsV1().CustomResourceDefinitions()
-	var items []*CustomResourceDefinition
+	var items []CustomResourceDefinition
 	for {
 		res, err := api.List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, item := range res.Items {
-			items = append(items, NewCustomResourceDefinition(api, item.Name, &item))
+			items = append(items, *NewCustomResourceDefinition(api, item.Name, &item))
 		}
 		if res.Continue == "" {
 			break

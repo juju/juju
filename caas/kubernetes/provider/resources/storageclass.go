@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -37,16 +36,15 @@ func NewStorageClass(client v1.StorageClassInterface, name string, in *storagev1
 }
 
 // ListStorageClass returns a list of storage classes.
-func ListStorageClass(ctx context.Context, client kubernetes.Interface, opts metav1.ListOptions) ([]StorageClass, error) {
-	api := client.StorageV1().StorageClasses()
+func ListStorageClass(ctx context.Context, client v1.StorageClassInterface, opts metav1.ListOptions) ([]StorageClass, error) {
 	var items []StorageClass
 	for {
-		res, err := api.List(ctx, opts)
+		res, err := client.List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, v := range res.Items {
-			items = append(items, StorageClass{StorageClass: v})
+			items = append(items, *NewStorageClass(client, v.Name, &v))
 		}
 		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
 			break
@@ -62,7 +60,7 @@ func (sc *StorageClass) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (sc *StorageClass) ID() ID {
 	return ID{"StorageClass", sc.Name, sc.Namespace}
 }
@@ -109,11 +107,9 @@ func (sc *StorageClass) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s storage class for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
