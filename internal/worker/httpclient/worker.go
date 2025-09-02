@@ -173,7 +173,7 @@ func (w *httpClientWorker) GetHTTPClient(ctx context.Context, purpose corehttp.P
 	// or it's not running and we need to start it.
 	req := httpClientRequest{
 		purpose: purpose,
-		done:    make(chan error),
+		done:    make(chan error, 1),
 	}
 	select {
 	case w.httpClientRequests <- req:

@@ -131,7 +131,7 @@ func makeDBGetRequest(namespace string) dbRequest {
 	return dbRequest{
 		op:        getOp,
 		namespace: namespace,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 }
 
@@ -140,7 +140,7 @@ func makeDBDelRequest(namespace string) dbRequest {
 	return dbRequest{
 		op:        delOp,
 		namespace: namespace,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 }
 

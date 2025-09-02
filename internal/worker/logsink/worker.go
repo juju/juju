@@ -166,7 +166,7 @@ func (w *LogSink) getLogSink(ctx context.Context, modelUUID model.UUID) (LogSink
 	// or it's not running and we need to start it.
 	req := request{
 		modelUUID: modelUUID,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 	select {
 	case w.requests <- req:

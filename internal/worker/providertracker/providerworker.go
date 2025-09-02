@@ -196,7 +196,7 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 	// or it's not running and we need to start it.
 	req := trackerRequest{
 		namespace: namespace,
-		done:      make(chan error),
+		done:      make(chan error, 1),
 	}
 	select {
 	case w.requests <- req:
