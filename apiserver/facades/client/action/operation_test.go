@@ -24,7 +24,6 @@ import (
 
 type operationSuite struct {
 	MockBaseSuite
-	client *ActionAPI
 }
 
 func TestOperationSuite(t *testing.T) {
@@ -656,6 +655,245 @@ func (s *operationSuite) TestListOperations_EmptyOperations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res.Results), tc.Equals, 0)
 	c.Assert(res.Truncated, tc.Equals, false)
+}
+
+// toEntities converts tags to params.Entities for Operations tests.
+func toEntities(tags ...string) params.Entities {
+	ents := make([]params.Entity, len(tags))
+	for i, t := range tags {
+		ents[i] = params.Entity{Tag: t}
+	}
+	return params.Entities{Entities: ents}
+}
+
+// TestOperations_PermissionDenied verifies read permission is enforced
+// and that the service is not called when denied.
+func (s *operationSuite) TestOperations_PermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
+	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService,
+		s.BlockCommandService, s.ModelInfoService, s.OperationService,
+		modeltesting.GenModelUUID(c))
+	c.Assert(err, tc.ErrorIsNil)
+	// Ensure no call
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err = api.Operations(c.Context(), toEntities("operation-1"))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+// TestOperations_AllTagsInvalid returns per-entity parse errors and
+// does not call the service.
+func (s *operationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	// No service call expected
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+	arg := toEntities("not-a-tag", "application-foo", "unit-app-0")
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 3)
+	for i := range res.Results {
+		c.Check(res.Results[i].Error, tc.NotNil)
+	}
+}
+
+// TestOperations_MixedValidInvalid calls service with only valid IDs and
+// aligns results in input order with parse errors preserved.
+func (s *operationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).DoAndReturn(
+		func(ctx context.Context, ids []string) (operation.QueryResult, error) {
+			return operation.QueryResult{Operations: []operation.OperationInfo{{
+				OperationID: "1",
+				Summary:     "a",
+			}, {
+				OperationID: "2",
+				Summary:     "b",
+			}}}, nil
+		})
+	arg := toEntities("operation-1", "bad-tag", "operation-2")
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 3)
+	c.Check(res.Results[0].OperationTag, tc.Equals, "operation-1")
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[0].Summary, tc.Equals, "a")
+	c.Check(res.Results[1].Error, tc.NotNil)
+	c.Check(res.Results[2].OperationTag, tc.Equals, "operation-2")
+	c.Check(res.Results[2].Error, tc.IsNil)
+	c.Check(res.Results[2].Summary, tc.Equals, "b")
+}
+
+// TestOperations_EmptyInput returns empty results and does not call service.
+func (s *operationSuite) TestOperations_EmptyInput(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	res, err := api.Operations(c.Context(), params.Entities{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 0)
+}
+
+// TestOperations_ServiceError ensures service errors are propagated.
+func (s *operationSuite) TestOperations_ServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).Return(
+		operation.QueryResult{}, fmt.Errorf("boom"))
+	arg := toEntities("operation-1", "operation-2")
+
+	// Act
+	_, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+// TestOperations_MappingOutOfOrder maps out-of-order service results to the
+// correct input positions by tag.
+func (s *operationSuite) TestOperations_MappingOutOfOrder(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2", "3"}).Return(
+		operation.QueryResult{Operations: []operation.OperationInfo{{
+			OperationID: "3",
+		}, {
+			OperationID: "1",
+		}, {
+			OperationID: "2",
+		}}}, nil)
+	arg := toEntities("operation-1", "operation-2", "operation-3")
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[0].OperationTag, tc.Equals, "operation-1")
+	c.Check(res.Results[1].OperationTag, tc.Equals, "operation-2")
+	c.Check(res.Results[2].OperationTag, tc.Equals, "operation-3")
+}
+
+// TestOperations_UnexpectedTag errors when the service returns an operation
+// not requested, by tag.
+func (s *operationSuite) TestOperations_UnexpectedTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1"}).Return(
+		operation.QueryResult{Operations: []operation.OperationInfo{{
+			OperationID: "999",
+		}}}, nil)
+	arg := toEntities("operation-1")
+
+	// Act
+	_, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "unexpected result for \"operation-999\"")
+}
+
+// TestOperations_DuplicateTags validates the behavior of the operation API
+// when duplicate tags are provided in the request.
+func (s *operationSuite) TestOperations_DuplicateTags(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "1"}).Return(
+		operation.QueryResult{Operations: []operation.OperationInfo{{
+			OperationID: "1", // Only one operation to domain
+		}}}, nil)
+	arg := toEntities("operation-1", "operation-1")
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert: operation is duplicated in result
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[1].OperationTag, tc.Equals, "operation-1")
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[0].OperationTag, tc.Equals, "operation-1")
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+// TestOperations_MissingServiceReturn allows missing returns without error.
+func (s *operationSuite) TestOperations_MissingServiceReturn(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).Return(
+		operation.QueryResult{Operations: []operation.OperationInfo{{
+			OperationID: "2",
+		}}}, nil)
+	arg := toEntities("bad", "operation-1", "operation-2", "also-bad")
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.Results[0].Error, tc.NotNil) // bad tag
+	c.Check(res.Results[1].OperationTag, tc.Equals, "")
+	c.Check(res.Results[1].Error, tc.ErrorMatches, ".*not found.*") // no results
+	c.Check(res.Results[2].OperationTag, tc.Equals, "operation-2")
+	c.Check(res.Results[3].Error, tc.NotNil) // bad tag
+}
+
+// TestOperations_LargeBatch ensures stable mapping for many entries.
+func (s *operationSuite) TestOperations_LargeBatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	ids := []string{"1", "2", "3", "4", "5", "6", "7", "8"}
+	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), ids).Return(
+		operation.QueryResult{
+			Operations: []operation.OperationInfo{
+				{OperationID: "8"},
+				{OperationID: "7"},
+				{OperationID: "6"},
+				{OperationID: "5"},
+				{OperationID: "4"},
+				{OperationID: "3"},
+				{OperationID: "2"},
+				{OperationID: "1"},
+			},
+		}, nil)
+	arg := toEntities(
+		"operation-1", "operation-2", "operation-3", "operation-4",
+		"operation-5", "operation-6", "operation-7", "operation-8",
+	)
+
+	// Act
+	res, err := api.Operations(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	for i := 1; i <= 8; i++ {
+		c.Check(res.Results[i-1].OperationTag, tc.Equals, fmt.Sprintf("operation-%d", i))
+	}
 }
 
 func ptr[T any](v T) *T { return &v }
