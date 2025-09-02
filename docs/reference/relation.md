@@ -21,12 +21,14 @@ A certain charm knows that it requires, say, a database and, correspondingly, a 
 ```{figure} relation-taxonomy.svg
   :figclass: only-light
   :align: center
-  :alt: In Juju relations can be regular, subordinate, cross-model, or peer.
+  :alt: Juju relation taxonomy
+  _A relation is between two applications. When the applications are such that one is principal and one is called subordinate, the result is called a subordinate relation. When the applications are on two separate models the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
 ```
 ```{figure} relation-taxonomy.dark.svg
   :figclass: only-dark
   :align: center
-  :alt: In Juju relations can be regular, subordinate, cross-model, or peer.
+  :alt: Juju relation taxonomy
+  _A relation is between two applications. When the applications are such that one is principal and one is called subordinate, the result is called a 'subordinate relation'. When the applications are on two separate models the result is a 'cross-model relation'. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a 'peer relation'._
 ```
 
 (peer-relation)=
@@ -45,6 +47,13 @@ A **non-peer** relation is a relation from one application to another, where the
 ![relations](https://assets.ubuntu.com/v1/4f0eba09-juju-relations.png)
 <br> *Example non-peer relation: The WordPress application with actual relations to MySQL and Apache and a potential relation to HAProxy, by virtue of the `wordpress` charm having a [`requires` endpoint that supports the `mysql` interface](https://charmhub.io/wordpress/integrations#db), compatible with `mysql`'s [`provides` endpoint supporting the same interface](https://charmhub.io/mysql/integrations#mysql), and a [`provides` endpoint that supports the `http` interface](https://charmhub.io/wordpress/integrations#website), compatible with `apache2`'s or `haproxy`'s `requires` endpoint supporting the same interface, among others.*
 -->
+
+(subordinate-relation)=
+#### Subordinate relation
+
+A **subordinate** relation is a {ref}`non-peer <non-peer-relation>` relation where one application is principal and the other subordinate.
+
+A subordinate charm is by definition a charm deployed on the same machine as the principal charm it is intended to accompany. When you deploy a subordinate charm, it appears in your Juju model as an application with no unit. The subordinate relation helps the subordinate application acquire a unit. The subordinate application then scales automatically when the principal application does, by virtue of this relation.
 
 (non-subordinate-relation)=
 #### Non-subordinate relation
@@ -74,13 +83,6 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 - Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
 
-(subordinate-relation)=
-#### Subordinate relation
-
-A **subordinate** relation is a {ref}`non-peer <non-peer-relation>` relation where one application is principal and the other subordinate.
-
-A subordinate charm is by definition a charm deployed on the same machine as the principal charm it is intended to accompany. When you deploy a subordinate charm, it appears in your Juju model as an application with no unit. The subordinate relation helps the subordinate application acquire a unit. The subordinate application then scales automatically when the principal application does, by virtue of this relation.
-
 <!--
 
 CMR addresses the case where one may wish to centralise a service. This allows your models to become more targeted and can reduce the cloud resources they may require.  A common use case is to deploy [prometheus](https://charmhub.io/prometheus2) monitoring in a single, central model, and relate it to various data sources in other models hosting various workloads.
@@ -100,23 +102,25 @@ Another use case would be when you are simply using different cloud types and wi
 
 A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
 
-## Permissions around relation databags
+## Relation databag
+
+When a relation is established, in the Juju database description of that relation two sets of databags are created, one for each of the applications involved in the relation, and in each case there are further dabatags, one application-scoped and, for each unit of each application, one scoped to the unit. When a hook is executed, there is a local copy of the databags on the unit where it is executed, and the information in them is provided during hook execution via environment variables.
+
+### Permissions around relation databags
 
 <!--The primary means for applications to communicate over a relation is using relation data.-->
 
 ```{figure} relation-databags.svg
   :figclass: only-light
   :align: center
+  :alt: Juju relation databags -- permissions
 ```
 ```{figure} relation-databags.dark.svg
   :figclass: only-dark
   :align: center
+  :alt: Juju relation databags -- permissions
+  _Given a unit involved in a relation, the unit's access to a relation databag depends on whether the relation is peer or not, whether the unit is leader or not, and whether the databag belongs to the unit's application or not._
 ```
-
-When an application becomes involved in a relation, each one of its units gets a databag in the Juju database, as follows:
-
-- each unit gets a **unit databag**
-- each application gets an **application databag**
 
 While the relation is maintained,
 
@@ -129,8 +133,4 @@ While the relation is maintained,
     - leader units can also read and write to the application databag;
     - all units can read all of the application's databags. That is, whether leader or not, every unit can read its own unit databag as well as every other unit's unit databag as well as the application databag.
 
-```{important}
-
 Note that, in peer relations, all permissions related to the remote application are turned inwards and become permissions related to the local application.
-
-```
