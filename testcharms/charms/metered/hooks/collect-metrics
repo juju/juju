@@ -1,2 +1,0 @@
-#!/bin/bash
-juju-log -l INFO "collect-metrics hook called."
