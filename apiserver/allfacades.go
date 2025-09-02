@@ -147,7 +147,9 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	loggerapi.Register(registry)
 	machine.Register(registry)
 	machineactions.Register(registry)
+	// Methods exposed in meterstatus are noops, but we retain it for compatibility.
 	meterstatus.Register(registry)
+	// Methods exposed in metricsadder are noops, but we retain it for compatibility.
 	metricsadder.Register(registry)
 	migrationflag.Register(registry)
 	migrationminion.Register(registry)
@@ -242,7 +244,9 @@ func AllFacades() *facade.Registry {
 	machinemanager.Register(registry)
 	machineundertaker.Register(registry)
 	machine.Register(registry)
+	// Methods exposed in meterstatus are noops, but we retain it for compatibility.
 	meterstatus.Register(registry)
+	// Methods exposed in metricsadder are noops, but we retain it for compatibility.
 	metricsadder.Register(registry)
 
 	migrationflag.Register(registry)

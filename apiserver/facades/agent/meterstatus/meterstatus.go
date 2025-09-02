@@ -144,12 +144,6 @@ func (w *emptyNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-// Err returns any error encountered while the watcher
-// has been running.
-func (w *emptyNotifyWatcher) Err() error {
-	return w.tomb.Err()
-}
-
 func (w *emptyNotifyWatcher) loop() error {
 	for {
 		select {
