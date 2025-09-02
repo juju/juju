@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/unit"
@@ -26,10 +27,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// runSuite groups tests for ActionAPI.Run and related helpers.
+// It embeds MockBaseSuite to provide common mocks.
 type runSuite struct {
 	MockBaseSuite
 }
 
+// TestRunSuite runs the runSuite tests.
 func TestRunSuite(t *stdtesting.T) {
 	tc.Run(t, &runSuite{})
 }
@@ -300,4 +304,162 @@ func (s *runSuite) assertBlocked(c *tc.C, err error, msg string) {
 
 func (s *runSuite) blockAllChanges(c *tc.C, msg string) {
 	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
+}
+
+// runAllSuite groups tests for ActionAPI.RunOnAllMachines.
+// It embeds MockBaseSuite to provide common mocks.
+type runAllSuite struct{ MockBaseSuite }
+
+// TestRunAllSuite runs the runAllSuite tests.
+func TestRunAllSuite(t *stdtesting.T) { tc.Run(t, &runAllSuite{}) }
+
+func (s *runAllSuite) NewActionAPI(c *tc.C) *ActionAPI {
+	// Don't block
+	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("",
+		blockcommanderrors.NotFound).AnyTimes()
+	// Default to IAAS model type
+	s.ModelInfoService.EXPECT().
+		GetModelInfo(gomock.Any()).
+		Return(coremodel.ModelInfo{Type: coremodel.IAAS}, nil).
+		AnyTimes()
+	return s.MockBaseSuite.NewActionAPI(c)
+}
+
+// TestRunOnAllMachines_PermissionDenied verifies admin permission is
+// enforced and the service is not called.
+func (s *runAllSuite) TestRunOnAllMachines_PermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
+	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService,
+		s.BlockCommandService, s.ModelInfoService, s.OperationService,
+		modeltesting.GenModelUUID(c))
+	c.Assert(err, tc.ErrorIsNil)
+	// Ensure the operation service is not invoked
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err = api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+// TestRunOnAllMachines_ChangeBlockedError propagates ChangeAllowed
+// error from the block service and does not call RunOnAllMachines.
+func (s *runSuite) TestRunOnAllMachines_ChangeBlockedError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange: use parent NewActionAPI to keep standard authorizer setup
+	api := s.MockBaseSuite.NewActionAPI(c)
+	// Force a generic error from block service path used by ChangeAllowed
+	s.BlockCommandService.EXPECT().
+		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
+		Return("", errors.New("block-error"))
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "block-error")
+}
+
+// TestRunOnAllMachines_NonIAASModel returns an error when the model
+// type is not IAAS.
+func (s *runSuite) TestRunOnAllMachines_NonIAASModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
+	api := s.MockBaseSuite.NewActionAPI(c)
+	// Don't block
+	s.BlockCommandService.EXPECT().
+		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
+		Return("", blockcommanderrors.NotFound).
+		AnyTimes()
+	s.ModelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{Type: coremodel.CAAS}, nil)
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "cannot run on all machines with a caas model")
+}
+
+// TestRunOnAllMachines_ModelInfoError propagates an error when
+// fetching model info fails.
+func (s *runAllSuite) TestRunOnAllMachines_ModelInfoError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
+	api := s.MockBaseSuite.NewActionAPI(c)
+	// Don't block
+	s.BlockCommandService.EXPECT().
+		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
+		Return("", blockcommanderrors.NotFound).
+		AnyTimes()
+	s.ModelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.New("mi boom"))
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "mi boom")
+}
+
+// TestRunOnAllMachines_RejectNestedExec rejects nested juju-exec or
+// juju-run commands.
+func (s *runAllSuite) TestRunOnAllMachines_RejectNestedExec(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err1 := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "juju-exec foo", Timeout: time.Second})
+	_, err2 := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "bar; juju-run baz", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err1, tc.ErrorMatches, "cannot use \".*\" as an action command")
+	c.Assert(err2, tc.ErrorMatches, "cannot use \".*\" as an action command")
+}
+
+// TestRunOnAllMachines_ServiceError propagates a service error and
+// ensures args mapping is correct.
+func (s *runAllSuite) TestRunOnAllMachines_ServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, tp operation.TaskArgs) (operation.RunResult, error) {
+			c.Check(tp.ActionName, tc.Equals, "juju-exec")
+			c.Check(tp.IsParallel, tc.Equals, true) // default
+			c.Check(tp.ExecutionGroup, tc.Equals, "")
+			c.Check(tp.Parameters["command"], tc.Equals, "whoami")
+			c.Check(tp.Parameters["timeout"], tc.Equals, (2 * time.Second).Nanoseconds())
+			return operation.RunResult{}, errors.New("service fail")
+		})
+
+	// Act
+	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "whoami", Timeout: 2 * time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "service fail")
+}
+
+// TestRunOnAllMachines_Success verifies success mapping to
+// params.EnqueuedActions.
+func (s *runAllSuite) TestRunOnAllMachines_Success(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	// Don't block
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Return(
+		operation.RunResult{OperationID: "77"}, nil)
+
+	// Act
+	res, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "true", Timeout: time.Second})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.OperationTag, tc.Equals, "operation-77")
 }
