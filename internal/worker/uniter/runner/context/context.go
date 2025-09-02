@@ -1245,15 +1245,16 @@ func (ctx *HookContext) GetRawK8sSpec() (string, error) {
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
-	if ctx.modelType == model.CAAS {
-		return ctx.cloudSpecK8s()
+	if ctx.cloudSpec != nil {
+		return ctx.cloudSpec, nil
 	}
 	var err error
-	ctx.cloudSpec, err = ctx.state.CloudSpec()
-	if err != nil {
-		return nil, err
+	if ctx.modelType == model.CAAS {
+		ctx.cloudSpec, err = ctx.cloudSpecK8s()
+	} else {
+		ctx.cloudSpec, err = ctx.state.CloudSpec()
 	}
-	return ctx.cloudSpec, nil
+	return ctx.cloudSpec, err
 }
 
 // cloudSpecK8s loads the in-cluster configuration to connect to the Kubernetes API.
