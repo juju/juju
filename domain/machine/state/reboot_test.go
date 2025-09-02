@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
 	"github.com/juju/tc"
@@ -55,8 +55,8 @@ func (s *stateSuite) TestRequireMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestRequireMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machines.
-	machineUUID0, _ := s.addMachine(c)
-	machineUUID1, _ := s.addMachine(c)
+	machineUUID0, _, _ := s.addMachine(c)
+	machineUUID1, _, _ := s.addMachine(c)
 
 	// Call the function under test
 	err := s.state.RequireMachineReboot(c.Context(), machineUUID1)
@@ -105,8 +105,8 @@ func (s *stateSuite) TestCancelMachineRebootIdempotent(c *tc.C) {
 
 func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *tc.C) {
 	// Setup: Create several machine with a given IDs,  add both ids in the reboot table
-	machineUUID0, _ := s.addMachine(c)
-	machineUUID1, _ := s.addMachine(c)
+	machineUUID0, _, _ := s.addMachine(c)
+	machineUUID1, _, _ := s.addMachine(c)
 	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, machineUUID0)
 	s.runQuery(c, `INSERT INTO machine_requires_reboot (machine_uuid) VALUES (?)`, machineUUID1)
 
