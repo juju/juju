@@ -22,13 +22,13 @@ A certain charm knows that it requires, say, a database and, correspondingly, a 
   :figclass: only-light
   :align: center
   :alt: Juju relation taxonomy
-  _A relation is between two applications. When the applications are such that one is principal and one is called subordinate, the result is called a subordinate relation. When the applications are on two separate models the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
+  _A relation is between two applications. When the applications are such that one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
 ```
 ```{figure} relation-taxonomy.dark.svg
   :figclass: only-dark
   :align: center
   :alt: Juju relation taxonomy
-  _A relation is between two applications. When the applications are such that one is principal and one is called subordinate, the result is called a 'subordinate relation'. When the applications are on two separate models the result is a 'cross-model relation'. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a 'peer relation'._
+  _A relation is between two applications. When the applications are such that one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
 ```
 
 (peer-relation)=
@@ -60,13 +60,9 @@ A subordinate charm is by definition a charm deployed on the same machine as the
 
 A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer <non-peer-relation>` relation where the applications are both principal.
 
-##### Non-cross-model relation
-
-A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
-
-
 (cross-model-relation)=
 ##### Cross-model relation
+
 ```{ibnote}
 See also: {ref}`manage-relations`
 ```
@@ -82,6 +78,9 @@ A cross-model relation has two sides: the offering side (aka "offerer") and the 
 Note that application names are obfuscated (anonymised) to the offerer side:
 - Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
+##### Non-cross-model relation
+
+A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
 <!--
 
