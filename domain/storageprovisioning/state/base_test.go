@@ -35,8 +35,6 @@ type baseSuite struct {
 	schematesting.ModelSuite
 }
 
-type preparer struct{}
-
 // changeMachineLife is a utility function for updating the life value of a
 // machine.
 func (s *baseSuite) changeMachineLife(c *tc.C, machineUUID string, lifeID domainlife.Life) {
@@ -252,13 +250,14 @@ func (s *baseSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) {
+) string {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
 `, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
+	return saUUID.String()
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
@@ -488,6 +487,8 @@ func (s *baseSuite) changeVolumeInfo(
 		providerID, sizeMiB, hardwareID, wwn, persistent, uuid)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+type preparer struct{}
 
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, typeSamples...)

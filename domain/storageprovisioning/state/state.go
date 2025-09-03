@@ -5,13 +5,16 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"maps"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/database"
+	coredatabase "github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
@@ -29,7 +32,7 @@ type State struct {
 // NewState creates and returns a new [State] for provisioning storage in the
 // model.
 func NewState(
-	factory database.TxnRunnerFactory,
+	factory coredatabase.TxnRunnerFactory,
 ) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
@@ -369,6 +372,37 @@ WHERE  uuid = $unitUUID.uuid`, input)
 	return true, nil
 }
 
+func (st *State) checkStorageInstanceUUIDByStorageID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageInstanceID string,
+) (bool, error) {
+
+	var (
+		idInput = storageID{ID: storageInstanceID}
+		dbVal   storageInstanceUUID
+	)
+	uuidQuery, err := st.Prepare(`
+SELECT &storageInstanceUUID.*
+FROM   storage_instance
+WHERE  storage_id = $storageID.storage_id
+`,
+		idInput, dbVal,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, uuidQuery, idInput).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 func (st *State) checkStorageInstanceExists(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -456,7 +490,6 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 		}
 		return err
 	})
-
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -465,6 +498,60 @@ WHERE  unit_uuid = $unitUUIDRef.unit_uuid`, input, storageID{})
 		storageIDs[i] = id.ID
 	}
 	return storageIDs, nil
+}
+
+// GetStorageAttachmentLifeForUnit returns a mapping of storage IDs to the
+// current life value of each storage attachment for the unit.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+func (st *State) GetStorageAttachmentLifeForUnit(
+	ctx context.Context,
+	unitUUID string,
+) (map[string]domainlife.Life, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return st.getStorageAttachmentLifeForUnit(ctx, db, unitUUID)
+}
+
+func (st *State) getStorageAttachmentLifeForUnit(
+	ctx context.Context,
+	db domain.TxnRunner,
+	unitNodeUUID string,
+) (map[string]domainlife.Life, error) {
+	unitUUIDInput := unitUUID{UUID: unitNodeUUID}
+
+	stmt, err := st.Prepare(`
+SELECT (si.storage_id, sa.life_id) AS (&storageAttachmentLife.*)
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $unitUUID.uuid`, unitUUIDInput, storageAttachmentLife{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var saLives storageAttachmentLives
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := st.checkUnitExists(ctx, tx, unitNodeUUID); err != nil {
+			return errors.Capture(err)
+		} else if !exists {
+			return errors.Errorf("unit %q does not exist", unitNodeUUID).Add(
+				applicationerrors.UnitNotFound,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, unitUUIDInput).GetAll(&saLives)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return maps.Collect(saLives.Iter), nil
 }
 
 // GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by its ID.
@@ -563,4 +650,89 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 		return -1, errors.Capture(err)
 	}
 	return domainlife.Life(attachmentLife.LifeID), nil
+}
+
+// InitialWatchStatementForUnitStorageAttachments returns the initial watch
+// statement for unit storage attachments.
+func (st *State) InitialWatchStatementForUnitStorageAttachments(
+	ctx context.Context,
+	unitUUID string,
+) (string, eventsource.Query[map[string]domainlife.Life]) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) (map[string]domainlife.Life, error) {
+		return st.getStorageAttachmentLifeForUnit(ctx, runner, unitUUID)
+	}
+	return "custom_storage_attachment_unit_uuid_lifecycle", queryFunc
+}
+
+// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
+// a given storage ID and network node UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+// storage attachment does not exist.
+func (st *State) GetStorageAttachmentUUIDForUnit(
+	ctx context.Context,
+	storageInstanceID, unitUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var (
+		storageIDInput = storageID{ID: storageInstanceID}
+		unitUUIDInput  = unitUUIDRef{UUID: unitUUID}
+		dbVal          entityUUID
+	)
+	stmt, err := st.Prepare(`
+SELECT sa.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.unit_uuid`,
+		storageIDInput, unitUUIDInput, dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageIDInput.ID); err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"storage instance %q does not exist", storageIDInput.ID,
+			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+		}
+
+		if exists, err := st.checkUnitExists(ctx, tx, unitUUIDInput.UUID); err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", unitUUIDInput.UUID,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		err := tx.Query(ctx, stmt, storageIDInput, unitUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"storage attachment for %q and unit %q does not exist",
+				storageIDInput.ID, unitUUIDInput.UUID,
+			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf(
+			"getting storage attachment UUID for %q and unit %q: %w",
+			storageIDInput.ID, unitUUIDInput.UUID, err,
+		)
+	}
+	return dbVal.UUID, nil
+}
+
+// NamespaceForStorageAttachment returns the change stream namespace
+// for watching storage attachment changes.
+func (st *State) NamespaceForStorageAttachment() string {
+	return "custom_storage_attachment_entities_storage_attachment_uuid"
 }

@@ -348,6 +348,7 @@ func (s *ModelServices) StorageProvisioning() *storageprovisioningservice.Servic
 	return storageprovisioningservice.NewService(
 		storageprovisioningstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("storageprovisioning"),
+		s.logger.Child("storageprovisioning"),
 	)
 }
 

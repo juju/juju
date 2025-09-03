@@ -1007,25 +1007,6 @@ VALUES (?, ?, 0, ?, 1)
 	return fsUUID, fsID
 }
 
-// newModelFilesystem creates a new filesystem in the model with model
-// provision scope. Return is the uuid and filesystem id of the entity.
-func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
-) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
-
-	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		fsUUID.String(), fsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return fsUUID, fsID
-}
-
 // newMachineFilesystemAttachment creates a new filesystem attachment that has
 // machine provision scope. The attachment is associated with the provided
 // filesystem uuid and net node uuid.
@@ -1084,7 +1065,41 @@ func (s *filesystemSuite) newModelFilesystemAttachment(
 	)
 }
 
-func (s *filesystemSuite) newModelFilesystemAttachmentWithMount(
+func (s *filesystemSuite) setFilesystemProviderID(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	providerID string,
+) {
+	_, err := s.DB().Exec(`
+UPDATE storage_filesystem
+SET    provider_id = ?
+WHERE  uuid = ?
+`,
+		providerID, fsUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newModelFilesystem creates a new filesystem in the model with model
+// provision scope. Return is the uuid and filesystem id of the entity.
+func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := domaintesting.GenFilesystemUUID(c)
+
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
+func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
@@ -1114,19 +1129,4 @@ VALUES (?, ?, ?, 0, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID
-}
-
-func (s *filesystemSuite) setFilesystemProviderID(
-	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
-	providerID string,
-) {
-	_, err := s.DB().Exec(`
-UPDATE storage_filesystem
-SET    provider_id = ?
-WHERE  uuid = ?
-`,
-		providerID, fsUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
 }

@@ -5,10 +5,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -27,7 +29,8 @@ import (
 type Service struct {
 	watcherFactory WatcherFactory
 
-	st State
+	st     State
+	logger logger.Logger
 }
 
 // State is the accumulation of all the requirements [Service] has for
@@ -100,6 +103,38 @@ type State interface {
 	GetStorageAttachmentLife(
 		ctx context.Context, unitUUID, storageInstanceUUID string,
 	) (domainlife.Life, error)
+
+	// GetStorageAttachmentLifeForUnit returns a mapping of storage IDs to the
+	// current life value of each storage attachment for the unit.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	GetStorageAttachmentLifeForUnit(
+		ctx context.Context, unitUUID string,
+	) (map[string]domainlife.Life, error)
+
+	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
+	// a given storage ID and unit UUID.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+	// instance does not exist for the provided storage ID.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+	// storage attachment does not exist.
+	GetStorageAttachmentUUIDForUnit(
+		ctx context.Context, storageID, unitUUID string,
+	) (string, error)
+
+	// InitialWatchStatementForUnitStorageAttachments returns the initial watch
+	// statement for unit storage attachments.
+	InitialWatchStatementForUnitStorageAttachments(
+		ctx context.Context, unitUUID string,
+	) (string, eventsource.Query[map[string]domainlife.Life])
+
+	// NamespaceForStorageAttachment returns the change stream namespace
+	// for watching storage attachment changes.
+	NamespaceForStorageAttachment() string
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -143,10 +178,11 @@ type WatcherFactory interface {
 
 // NewService creates a new [Service] instance with the provided state for
 // provisioning storage instances in the model.
-func NewService(st State, wf WatcherFactory) *Service {
+func NewService(st State, wf WatcherFactory, logger logger.Logger) *Service {
 	return &Service{
 		st:             st,
 		watcherFactory: wf,
+		logger:         logger,
 	}
 }
 
@@ -308,4 +344,91 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	rval[tags.JujuModel] = info.ModelUUID
 
 	return rval, nil
+}
+
+// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
+// given storage ID and unit UUID.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+// is not valid.
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+// storage attachment does not exist.
+func (s *Service) GetStorageAttachmentUUIDForUnit(
+	ctx context.Context,
+	storageID string,
+	unitUUID coreunit.UUID,
+) (storageprovisioning.StorageAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUIDForUnit(ctx, storageID, unitUUID.String())
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return storageprovisioning.StorageAttachmentUUID(storageAttachmentUUID), nil
+}
+
+// WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
+// for the provided unit when the unit's storage attachments are changed.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
+// is not valid.
+func (s *Service) WatchStorageAttachmentsForUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	lifeGetter := func(ctx context.Context) (map[string]domainlife.Life, error) {
+		return s.st.GetStorageAttachmentLifeForUnit(ctx, unitUUID.String())
+	}
+
+	ns, initialLifeQuery := s.st.InitialWatchStatementForUnitStorageAttachments(ctx, unitUUID.String())
+	initialQuery, mapper := makeEntityLifePrerequisites(initialLifeQuery, lifeGetter)
+	filter := eventsource.PredicateFilter(
+		ns, changestream.All, eventsource.EqualsPredicate(unitUUID.String()),
+	)
+	return s.watcherFactory.NewNamespaceMapperWatcher(ctx,
+		initialQuery,
+		fmt.Sprintf("storage attachments watcher for unit %q", unitUUID),
+		mapper,
+		filter,
+	)
+}
+
+// WatchStorageAttachment returns a notification watcher for the
+// storage attachment.
+func (s *Service) WatchStorageAttachment(
+	ctx context.Context,
+	uuid storageprovisioning.StorageAttachmentUUID,
+) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(ctx,
+		fmt.Sprintf("storage attachment watcher for %q", uuid),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForStorageAttachment(),
+			changestream.All,
+			eventsource.EqualsPredicate(uuid.String()),
+		),
+	)
 }

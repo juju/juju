@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // volumeSuite provides a test suite for asserting the [Service] interface
@@ -64,7 +65,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumes(c *tc.C) {
 	}
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedVolumes(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -98,7 +99,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumes(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -109,7 +110,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumes(c *tc.C) {
 func (s *volumeSuite) TestWatchMachineProvisionedVolumesNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumes(c.Context(), coremachine.UUID(""))
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -125,7 +126,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumesNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumes(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -148,7 +149,7 @@ func (s *volumeSuite) TestWatchModelProvisionedVolumeAttachments(c *tc.C) {
 	}
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), matcher)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchModelProvisionedVolumeAttachments(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -182,7 +183,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumeAttachments(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -193,7 +194,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachments(c *tc.C) {
 func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumes(c.Context(), coremachine.UUID(""))
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -209,7 +210,7 @@ func (s *volumeSuite) TestWatchMachineProvisionedVolumeAttachmentsNotFound(c *tc
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchMachineProvisionedVolumeAttachments(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -242,7 +243,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), matcher,
 	)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchVolumeAttachmentPlans(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -252,7 +253,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 func (s *volumeSuite) TestWatchVolumeAttachmentsNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchVolumeAttachmentPlans(c.Context(), coremachine.UUID(""))
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -268,7 +269,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlansNotFound(c *tc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		WatchVolumeAttachmentPlans(c.Context(), machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -276,7 +277,7 @@ func (s *volumeSuite) TestWatchVolumeAttachmentPlansNotFound(c *tc.C) {
 // TestGetVolumeParams ensures the params are passed back without error.
 func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.watcherFactory)
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	volUUID := domaintesting.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetVolumeParams(gomock.Any(), volUUID).Return(
@@ -305,7 +306,7 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 // TestGetVolumeParams tests that a volume not found error is passed through.
 func (s *filesystemSuite) TestGetVolumeParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.watcherFactory)
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	volUUID := domaintesting.GenVolumeUUID(c)
 
 	s.state.EXPECT().GetVolumeParams(gomock.Any(), volUUID).Return(
@@ -321,7 +322,7 @@ func (s *filesystemSuite) TestGetVolumeParamsNotFound(c *tc.C) {
 // returned.
 func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.watcherFactory)
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
 
 	s.state.EXPECT().GetVolumeAttachmentParams(gomock.Any(), vaUUID).Return(
@@ -347,7 +348,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 // found error is passed through.
 func (s *volumeSuite) TestGetVolumeAttachmentParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, s.watcherFactory)
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
 
 	s.state.EXPECT().GetVolumeAttachmentParams(gomock.Any(), vaUUID).Return(
@@ -368,7 +369,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLife(c *tc.C) {
 		domainlife.Alive, nil,
 	)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentLife(c.Context(), vaUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, domainlife.Alive)
@@ -383,7 +384,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
 		-1, storageprovisioningerrors.VolumeAttachmentNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentLife(c.Context(), vaUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
@@ -391,7 +392,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNotFound(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentLifeNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentLife(c.Context(), "")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -410,7 +411,7 @@ func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
 	}
 	s.state.EXPECT().GetVolumeAttachment(c.Context(), vaUUID).Return(va, nil)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachment(c.Context(), vaUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.DeepEquals, va)
@@ -419,7 +420,7 @@ func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachment(c.Context(), "")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -439,7 +440,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 		c.Context(), volumeUUID, netNodeUUID,
 	).Return(vaUUID, nil)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDMachine(
 			c.Context(), "666", machineUUID,
 		)
@@ -450,7 +451,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "", coremachine.UUID(""))
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -464,7 +465,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithMachineNo
 		"", machineerrors.MachineNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -479,7 +480,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeNot
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return("", storageprovisioningerrors.VolumeNotFound)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
@@ -498,7 +499,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachineWithVolumeAtt
 		c.Context(), volumeUUID, netNodeUUID,
 	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
@@ -520,7 +521,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnit(c *tc.C) {
 		c.Context(), volumeUUID, netNodeUUID,
 	).Return(vaUUID, nil)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDUnit(
 			c.Context(), "666", unitUUID,
 		)
@@ -531,7 +532,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnit(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "", "")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -545,7 +546,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithUnitNotFound
 		"", applicationerrors.UnitNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -560,7 +561,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeNotFou
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return("", storageprovisioningerrors.VolumeNotFound)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
@@ -579,7 +580,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDUnitWithVolumeAttach
 		c.Context(), volumeUUID, netNodeUUID,
 	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
 
-	_, err = NewService(s.state, s.watcherFactory).
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentUUIDForVolumeIDUnit(c.Context(), "666", unitUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
@@ -593,7 +594,7 @@ func (s *volumeSuite) TestGetVolumeLife(c *tc.C) {
 		domainlife.Alive, nil,
 	)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeLife(c.Context(), volumeUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, domainlife.Alive)
@@ -602,7 +603,7 @@ func (s *volumeSuite) TestGetVolumeLife(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeLifeNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeLife(c.Context(), "")
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -616,7 +617,7 @@ func (s *volumeSuite) TestGetVolumeLifeWithVolumeNotFound(c *tc.C) {
 		-1, storageprovisioningerrors.VolumeNotFound,
 	)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeLife(c.Context(), volumeUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
@@ -627,7 +628,7 @@ func (s *volumeSuite) TestGetVolumeUUIDForID(c *tc.C) {
 	volUUID := domaintesting.GenVolumeUUID(c)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(volUUID, nil)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeUUIDForID(c.Context(), "123")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rval, tc.Equals, volUUID)
@@ -649,7 +650,7 @@ func (s *volumeSuite) TestGetVolume(c *tc.C) {
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(volUUID, nil)
 	s.state.EXPECT().GetVolume(c.Context(), volUUID).Return(vol, nil)
 
-	rval, err := NewService(s.state, s.watcherFactory).
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeByID(c.Context(), "123")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(rval, tc.DeepEquals, vol)
@@ -661,7 +662,7 @@ func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(
 		"", storageprovisioningerrors.VolumeNotFound)
 
-	_, err := NewService(s.state, s.watcherFactory).
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeByID(c.Context(), "123")
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
@@ -684,7 +685,7 @@ func (s *volumeSuite) TestSetVolumeProvisionedInfo(c *tc.C) {
 	s.state.EXPECT().SetVolumeProvisionedInfo(
 		c.Context(), volUUID, info).Return(nil)
 
-	err := NewService(s.state, s.watcherFactory).
+	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		SetVolumeProvisionedInfo(c.Context(), "123", info)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -697,7 +698,7 @@ func (s *volumeSuite) TestSetVolumeProvisionedInfoNotFound(c *tc.C) {
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "123").Return(
 		"", storageprovisioningerrors.VolumeNotFound)
 
-	err := NewService(s.state, s.watcherFactory).
+	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		SetVolumeProvisionedInfo(c.Context(), "123", info)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
