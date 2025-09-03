@@ -169,7 +169,10 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 
 	// TODO (storage): get volumes and volume attachments from the model
 
-	if result.CharmLXDProfiles, err = api.machineService.UpdateLXDProfiles(ctx, modelInfo.Name, machineName.String()); err != nil {
+	if result.CharmLXDProfiles, err =
+		api.machineService.UpdateLXDProfiles(
+			ctx, modelInfo.Name, modelInfo.UUID, machineName.String(),
+		); err != nil {
 		return result, errors.Errorf("cannot write lxd profiles: %w", err)
 	}
 

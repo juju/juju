@@ -303,6 +303,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 		result:             res,
 		modelName:          "testme",
 		logger:             loggertesting.WrapCheckLog(c),
+		modelTag:           coretesting.ModelTag,
 	}
 	err := ctx.ProcessOneContainer(c.Context(), 0, "0/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -310,7 +311,7 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *tc.C) {
 	c.Assert(res.Results[0].Error, tc.IsNil)
 	c.Assert(res.Results[0].LXDProfiles, tc.HasLen, 1)
 	profile := res.Results[0].LXDProfiles[0]
-	c.Check(profile.Name, tc.Equals, "juju-testme-application-3")
+	c.Check(profile.Name, tc.Equals, "juju-testme-deadbe-application-3")
 	c.Check(profile.Profile.Config, tc.DeepEquals,
 		map[string]string{
 			"security.nesting":    "true",

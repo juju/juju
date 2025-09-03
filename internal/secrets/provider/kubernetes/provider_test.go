@@ -197,15 +197,13 @@ func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel str
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).Return(sa, nil),
-		s.mockRoles.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{FieldManager: "juju"}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
 		s.mockRoleBindings.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(roleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), consumer, treq, v1.CreateOptions{FieldManager: "juju"}).
 			Return(&authenticationv1.TokenRequest{
 				Status: authenticationv1.TokenRequestStatus{Token: "token"},
-			}, nil),
+			}, nil).AnyTimes(),
 	)
 }
 
@@ -287,6 +285,7 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 			ExpirationSeconds: &expiresInSeconds,
 		},
 	}
+
 	args := []any{
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Return(&core.Namespace{
 			ObjectMeta: v1.ObjectMeta{Name: s.namespace},
@@ -304,7 +303,8 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 			s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
 				LabelSelector: "model.juju.is/name=controller",
 			}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*clusterRole}}, nil),
-			s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterRole, v1.UpdateOptions{}).Return(clusterRole, nil),
+			s.mockClusterRoles.EXPECT().Patch(gomock.Any(), clusterRole.Name, types.StrategicMergePatchType,
+				gomock.Any(), v1.PatchOptions{FieldManager: "juju"}).Return(clusterRole, nil).AnyTimes(),
 		)
 	} else {
 		args = append(args,
@@ -637,11 +637,11 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).
 			Return(sa, nil),
+		s.mockRoles.EXPECT().Create(gomock.Any(), gomock.Any(), v1.CreateOptions{FieldManager: "juju"}).Return(nil, errors.AlreadyExists),
 		s.mockRoles.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(role, nil),
-		s.mockRoles.EXPECT().Update(gomock.Any(), role, v1.UpdateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Patch(gomock.Any(), role.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"}).Return(role, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(roleBinding, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), roleBinding.Name, v1.GetOptions{}).Return(roleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), name, treq, v1.CreateOptions{FieldManager: "juju"}).Return(
 			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
 		),
