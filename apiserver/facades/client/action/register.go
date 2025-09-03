@@ -29,6 +29,7 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 		domainServices.Application(),
 		domainServices.BlockCommand(),
 		domainServices.ModelInfo(),
+		domainServices.Operation(),
 		ctx.ModelUUID(),
 	)
 	if err != nil {

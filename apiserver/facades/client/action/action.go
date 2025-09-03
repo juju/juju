@@ -18,7 +18,11 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	operation "github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -54,14 +58,25 @@ type ModelInfoService interface {
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
 }
 
+// OperationService provides access to operations (actions and execs).
+type OperationService interface {
+	// GetAction returns the action identified by its UUID.
+	GetAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
+
+	// CancelAction attempts to cancel an enqueued action, identified by its
+	// UUID.
+	CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
+}
+
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	modelTag           names.ModelTag
+	applicationService ApplicationService
 	modelInfoService   ModelInfoService
+	operationService   OperationService
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
 	leadership         leadership.Reader
-	applicationService ApplicationService
 }
 
 // APIv7 provides the Action API facade for version 7.
@@ -75,6 +90,7 @@ func newActionAPI(
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
 	modelInfoService ModelInfoService,
+	operationService OperationService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
@@ -95,6 +111,7 @@ func newActionAPI(
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,
 		applicationService: applicationService,
+		operationService:   operationService,
 	}, nil
 }
 
@@ -119,20 +136,31 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
-		currentResult := &response.Results[i]
-		tag, err := names.ParseTag(entity.Tag)
+		actionTag, err := names.ParseActionTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		_, ok := tag.(names.ActionTag)
-		if !ok {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 
-		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
+		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+		action, err := a.operationService.GetAction(ctx, actionUUID)
+		if err != nil {
+			// NOTE(nvinuesa): The returned error in this case is not correct
+			// (should be NotFound for ActionNotFound for example), but since
+			// the old API was already black-holing all the errors into a
+			// ErrBadId, we keep it for backwards compatibility (in terms of
+			// returned errors).
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+
+		response.Results[i] = makeActionResult(action)
 	}
+
 	return response, nil
 }
 
@@ -145,20 +173,28 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 
 	for i, entity := range arg.Entities {
-		currentResult := &response.Results[i]
-		currentResult.Action = &params.Action{Tag: entity.Tag}
-		tag, err := names.ParseTag(entity.Tag)
+		actionTag, err := names.ParseActionTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		_, ok := tag.(names.ActionTag)
-		if !ok {
-			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 
-		currentResult.Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
+		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+		cancelledAction, err := a.operationService.CancelAction(ctx, actionUUID)
+		if internalerrors.Is(err, operationerrors.ActionNotFound) {
+			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
+			continue
+		}
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		response.Results[i] = makeActionResult(cancelledAction)
 	}
 	return response, nil
 }
@@ -225,4 +261,12 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		results.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
 	}
 	return results, nil
+}
+
+func makeActionResult(action operation.Action) params.ActionResult {
+	result := params.ActionResult{
+		Action: &params.Action{},
+	}
+
+	return result
 }
