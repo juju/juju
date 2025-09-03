@@ -344,31 +344,42 @@ type StorageProvisioningService interface {
 	) error
 
 	// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
-	// volume id and machine uuid.
+	// uuid.
 	GetVolumeAttachmentPlan(
-		ctx context.Context, volumeID string, machineUUID machine.UUID,
+		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
 	) (storageprovisioning.VolumeAttachmentPlan, error)
 
+	// GetVolumeAttachmentPlanUUIDForVolumeIDMachine returns the volume attachment
+	// plan uuid for the supplied volume ID which is attached to the machine.
+	GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
+		ctx context.Context,
+		volumeID string,
+		machineUUID machine.UUID,
+	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+
 	// CreateVolumeAttachmentPlan creates a volume attachment plan for the
-	// provided volume id and machine uuid.
+	// provided volume attachment uuid. Returned is the new uuid for the volume
+	// attachment plan in the model.
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
 		attachmentUUID storageprovisioning.VolumeAttachmentUUID,
 		deviceType storageprovisioning.PlanDeviceType,
 		attrs map[string]string,
-	) error
+	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
 
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
 	SetVolumeAttachmentPlanProvisionedInfo(
-		ctx context.Context, volumeID string, machineUUID machine.UUID,
+		ctx context.Context,
+		uuid storageprovisioning.VolumeAttachmentPlanUUID,
 		info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 	) error
 
 	// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided volume
-	// the information about the provisioned volume attachment.
+	// attachment plan the information about the provisioned block device.
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
-		ctx context.Context, volumeID string, machineUUID machine.UUID,
+		ctx context.Context,
+		uuid storageprovisioning.VolumeAttachmentPlanUUID,
 		info blockdevice.BlockDevice,
 	) error
 }
