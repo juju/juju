@@ -317,23 +317,6 @@ func (s *uniterLegacySuite) TestActionsWrongUnit(c *tc.C) {
 func (s *uniterLegacySuite) TestActionsPermissionDenied(c *tc.C) {
 }
 
-func (s *uniterLegacySuite) TestFinishActionsSuccess(c *tc.C) {
-}
-
-func (s *uniterLegacySuite) TestFinishActionsFailure(c *tc.C) {
-}
-
-func (s *uniterLegacySuite) TestFinishActionsAuthAccess(c *tc.C) {
-	// Queue up actions from tests
-
-	// Invoke FinishActions
-
-	// Verify permissions errors for actions queued on different unit
-}
-
-func (s *uniterLegacySuite) TestBeginActions(c *tc.C) {
-}
-
 func (s *uniterLegacySuite) TestProviderType(c *tc.C) {
 	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

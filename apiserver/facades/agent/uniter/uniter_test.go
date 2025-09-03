@@ -37,6 +37,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -57,6 +58,7 @@ type uniterSuite struct {
 
 	applicationService *MockApplicationService
 	machineService     *MockMachineService
+	operationService   *MockOperationService
 	networkService     *MockNetworkService
 	resolveService     *MockResolveService
 	removalService     *MockRemovalService
@@ -1131,6 +1133,87 @@ func (s *uniterSuite) TestGoalStatesUnauthorized(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestBeginActions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("bar/0", nil)
+	s.operationService.EXPECT().StartTask(gomock.Any(), "42").Return(nil)
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "47").Return("bar/0", nil)
+	s.operationService.EXPECT().StartTask(gomock.Any(), "47").Return(nil)
+
+	// Act
+	results, err := s.uniter.BeginActions(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: "action-42"},
+		{Tag: "action-47"},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+}
+
+func (s *uniterSuite) TestFinishActions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("bar/0", nil)
+	taskOne := operation.CompletedTaskResult{
+		TaskID: "42",
+		Status: status.Completed.String(),
+	}
+	s.operationService.EXPECT().FinishTask(gomock.Any(), taskOne).Return(nil)
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "47").Return("bar/0", nil)
+	taskTwo := operation.CompletedTaskResult{
+		TaskID: "47",
+		Status: status.Cancelled.String(),
+	}
+	s.operationService.EXPECT().FinishTask(gomock.Any(), taskTwo).Return(nil)
+
+	// Act
+	results, err := s.uniter.FinishActions(c.Context(), params.ActionExecutionResults{Results: []params.ActionExecutionResult{
+		{ActionTag: "action-42", Status: status.Completed.String()},
+		{ActionTag: "action-47", Status: status.Cancelled.String()},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+}
+
+func (s *uniterSuite) TestAuthTaskID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("bar/0", nil)
+	canAccess, _ := s.uniter.accessUnit(c.Context())
+
+	// Act
+	id, err := s.uniter.authTaskID(c.Context(), canAccess, "action-42")
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(id, tc.Equals, "42")
+}
+
+func (s *uniterSuite) TestAuthTaskIDUnitErrPerm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return(s.badTag.Id(), nil)
+	canAccess, _ := s.uniter.accessUnit(c.Context())
+
+	// Act
+	_, err := s.uniter.authTaskID(c.Context(), canAccess, "action-42")
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID(unitName.Application()), err)
 	if err == nil {
@@ -1166,6 +1249,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.operationService = NewMockOperationService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -1179,6 +1263,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		networkService:     s.networkService,
+		operationService:   s.operationService,
 		resolveService:     s.resolveService,
 		removalService:     s.removalService,
 		accessUnit:         authFunc,
@@ -1190,6 +1275,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.applicationService = nil
 		s.machineService = nil
 		s.networkService = nil
+		s.operationService = nil
 		s.resolveService = nil
 		s.removalService = nil
 		s.watcherRegistry = nil
