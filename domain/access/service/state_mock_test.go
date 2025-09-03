@@ -625,6 +625,44 @@ func (c *MockStateGetUserUUIDByNameCall) DoAndReturn(f func(context.Context, use
 	return c
 }
 
+// ImportOfferAccess mocks base method.
+func (m *MockState) ImportOfferAccess(arg0 context.Context, arg1 []access.OfferImportAccess) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportOfferAccess", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportOfferAccess indicates an expected call of ImportOfferAccess.
+func (mr *MockStateMockRecorder) ImportOfferAccess(arg0, arg1 any) *MockStateImportOfferAccessCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportOfferAccess", reflect.TypeOf((*MockState)(nil).ImportOfferAccess), arg0, arg1)
+	return &MockStateImportOfferAccessCall{Call: call}
+}
+
+// MockStateImportOfferAccessCall wrap *gomock.Call
+type MockStateImportOfferAccessCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportOfferAccessCall) Return(arg0 error) *MockStateImportOfferAccessCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportOfferAccessCall) Do(f func(context.Context, []access.OfferImportAccess) error) *MockStateImportOfferAccessCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportOfferAccessCall) DoAndReturn(f func(context.Context, []access.OfferImportAccess) error) *MockStateImportOfferAccessCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // LastModelLogin mocks base method.
 func (m *MockState) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()

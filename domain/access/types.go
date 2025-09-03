@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // UpdatePermissionArgs are necessary arguments to run
@@ -41,4 +42,10 @@ func (args UpdatePermissionArgs) Validate() error {
 type CredentialOwnerModelAccess struct {
 	ModelName   string            `db:"model_name"`
 	OwnerAccess permission.Access `db:"access_type"`
+}
+
+// OfferImport contains details to import access to an offer.
+type OfferImportAccess struct {
+	UUID   uuid.UUID
+	Access map[string]permission.Access
 }

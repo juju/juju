@@ -230,3 +230,37 @@ func (s *serviceSuite) TestAllModelAccessForCloudCredential(c *tc.C) {
 		credential.Key{})
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *serviceSuite) TestImportOfferAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importAccess := []access.OfferImportAccess{
+		{
+			UUID: uuid.MustNewUUID(),
+			Access: map[string]corepermission.Access{
+				"george": corepermission.ConsumeAccess,
+			},
+		},
+	}
+	s.state.EXPECT().ImportOfferAccess(gomock.Any(), importAccess).Return(nil)
+
+	err := NewService(s.state).ImportOfferAccess(c.Context(), importAccess)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestImportOfferAccessFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importAccess := []access.OfferImportAccess{
+		{
+			UUID: uuid.MustNewUUID(),
+			Access: map[string]corepermission.Access{
+				"george": corepermission.ConsumeAccess,
+			},
+		},
+	}
+	s.state.EXPECT().ImportOfferAccess(gomock.Any(), importAccess).Return(errors.Errorf("boom"))
+
+	err := NewService(s.state).ImportOfferAccess(c.Context(), importAccess)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
