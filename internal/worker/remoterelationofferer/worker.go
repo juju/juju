@@ -11,16 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/macaroon.v2"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	domainlife "github.com/juju/juju/domain/life"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/rpc/params"
 )
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -45,49 +42,16 @@ type RemoteApplicationWorker interface {
 	ConsumeVersion() int
 }
 
-// RemoteModelRelationsClient instances publish local relation changes to the
-// model hosting the remote application involved in the relation, and also watches
-// for remote relation changes which are then pushed to the local model.
-type RemoteModelRelationsClient interface {
-	// RegisterRemoteRelations sets up the remote model to participate
-	// in the specified relations.
-	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
-
-	// PublishRelationChange publishes relation changes to the
-	// model hosting the remote application involved in the relation.
-	PublishRelationChange(context.Context, params.RemoteRelationChangeEvent) error
-
-	// WatchRelationChanges returns a watcher that notifies of changes
-	// to the units in the remote model for the relation with the
-	// given remote token. We need to pass the application token for
-	// the case where we're talking to a v1 API and the client needs
-	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
-	// as they come in.
-	WatchRelationChanges(_ context.Context, relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
-
-	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
-	// relations of each specified application in the remote model.
-	WatchRelationSuspendedStatus(_ context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
-
-	// WatchOfferStatus starts an OfferStatusWatcher for watching the status
-	// of the specified offer in the remote model.
-	WatchOfferStatus(_ context.Context, arg params.OfferArg) (watcher.OfferStatusWatcher, error)
-
-	// WatchConsumedSecretsChanges starts a watcher for any changes to secrets
-	// consumed by the specified application.
-	WatchConsumedSecretsChanges(ctx context.Context, applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
-}
-
 // CrossModelRelationService is an interface that defines the methods for
 // managing cross-model relations directly on the local model database.
 type CrossModelRelationService interface {
-	// WatchRemoteApplicationOfferrers watches the changes to remote
+	// WatchRemoteApplicationOfferers watches the changes to remote
 	// application consumers and notifies the worker of any changes.
-	WatchRemoteApplicationOfferrers(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchRemoteApplicationOfferers(ctx context.Context) (watcher.NotifyWatcher, error)
 
-	// GetRemoteApplicationOfferrers returns the current state of all remote
+	// GetRemoteApplicationOfferers returns the current state of all remote
 	// application consumers in the local model.
-	GetRemoteApplicationOfferrers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error)
+	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 }
 
 // Config defines the operation of a Worker.
@@ -190,7 +154,7 @@ func (w *Worker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.crossModelRelationService.WatchRemoteApplicationOfferrers(ctx)
+	watcher, err := w.crossModelRelationService.WatchRemoteApplicationOfferers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -219,7 +183,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 
 	// Fetch the current state of each of the remote applications that have
 	// changed.
-	results, err := w.crossModelRelationService.GetRemoteApplicationOfferrers(ctx)
+	results, err := w.crossModelRelationService.GetRemoteApplicationOfferers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -279,7 +243,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicationOfferrer) (bool, error) {
+func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicationOfferer) (bool, error) {
 	appName := remoteApp.ApplicationName
 
 	// If the worker for the name doesn't exist then that's ok, we just return

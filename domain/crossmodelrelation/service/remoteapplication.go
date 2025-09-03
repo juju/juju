@@ -16,8 +16,8 @@ func (s *Service) GetRemoteApplicationConsumers(context.Context) ([]crossmodelre
 	return nil, errors.NotImplemented
 }
 
-// GetRemoteApplicationOfferrers returns the current state of all remote
-// application consumers in the local model.
-func (s *Service) GetRemoteApplicationOfferrers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferrer, error) {
+// GetRemoteApplicationOfferers returns all application proxies for offers
+// consumed in this model.
+func (s *Service) GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
 	return nil, errors.NotImplemented
 }

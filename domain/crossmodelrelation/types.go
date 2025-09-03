@@ -160,8 +160,8 @@ type RemoteApplicationConsumer struct {
 	Macaroon *macaroon.Macaroon
 }
 
-// RemoteApplicationOfferrer represents a remote application
-type RemoteApplicationOfferrer struct {
+// RemoteApplicationOfferer represents a remote application
+type RemoteApplicationOfferer struct {
 	// ApplicationName is the name of the remote application.
 	ApplicationName string
 

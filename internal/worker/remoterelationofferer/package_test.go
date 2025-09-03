@@ -21,7 +21,6 @@ type baseSuite struct {
 	testhelpers.IsolationSuite
 
 	crossModelRelationService *MockCrossModelRelationService
-	remoteModelRelationClient *MockRemoteModelRelationsClient
 
 	logger logger.Logger
 }
@@ -30,7 +29,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
-	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
