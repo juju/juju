@@ -107,9 +107,14 @@ func newEmptyNotifyWatcher() *emptyNotifyWatcher {
 	w := &emptyNotifyWatcher{
 		changes: changes,
 	}
+
 	w.tomb.Go(func() error {
-		changes <- struct{}{}
 		defer close(changes)
+		select {
+		case changes <- struct{}{}:
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		}
 		return w.loop()
 	})
 
@@ -145,12 +150,8 @@ func (w *emptyNotifyWatcher) Wait() error {
 }
 
 func (w *emptyNotifyWatcher) loop() error {
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
+	<-w.tomb.Dying()
+	return tomb.ErrDying
 }
 
 // unitStateShim adapts the state backend for this facade to make it compatible
