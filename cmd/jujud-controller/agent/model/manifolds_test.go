@@ -58,7 +58,8 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-		"remote-relations",
+		"remote-relation-consumer",
+		"remote-relation-offerer",
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
@@ -101,7 +102,8 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"not-dead-flag",
 		"provider-service-factories",
 		"provider-tracker",
-		"remote-relations",
+		"remote-relation-consumer",
+		"remote-relation-offerer",
 		"removal",
 		"secrets-pruner",
 		"user-secrets-drain-worker",
@@ -340,10 +342,21 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"provider-service-factories": {},
 
-	"remote-relations": {
+	"remote-relation-consumer": {
 		"agent",
 		"api-caller",
 		"api-remote-relation-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"remote-relation-offerer": {
+		"agent",
+		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -519,10 +532,21 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"provider-service-factories": {},
 
-	"remote-relations": {
+	"remote-relation-consumer": {
 		"agent",
 		"api-caller",
 		"api-remote-relation-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"remote-relation-offerer": {
+		"agent",
+		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",

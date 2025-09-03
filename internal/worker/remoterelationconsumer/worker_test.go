@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationconsumer
 
 import (
 	"context"
@@ -290,7 +290,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
-		ModelUUID:                  s.modelUUID.String(),
+		ModelUUID:                  s.modelUUID,
 		CrossModelRelationService:  s.crossModelRelationService,
 		RelationsFacade:            s.remoteRelationsFacade,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,

@@ -137,3 +137,9 @@ func NewWatchableService(
 func (w *WatchableService) WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplemented
 }
+
+// WatchRemoteApplicationOfferers watches the changes to remote
+// application offerers and notifies the worker of any changes.
+func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotImplemented
+}

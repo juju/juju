@@ -15,3 +15,9 @@ import (
 func (s *Service) GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
 	return nil, errors.NotImplemented
 }
+
+// GetRemoteApplicationOfferers returns all application proxies for offers
+// consumed in this model.
+func (s *Service) GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+	return nil, errors.NotImplemented
+}

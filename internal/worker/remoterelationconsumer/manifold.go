@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package remoterelationconsumer
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
@@ -47,7 +46,7 @@ type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
-	AgentName                   string
+	ModelUUID                   model.UUID
 	APICallerName               string
 	APIRemoteRelationCallerName string
 	DomainServicesName          string
@@ -72,8 +71,8 @@ type ManifoldConfig struct {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
@@ -109,7 +108,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.APICallerName,
 			config.APIRemoteRelationCallerName,
 			config.DomainServicesName,
@@ -123,10 +121,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
-			var agent agent.Agent
-			if err := getter.Get(config.AgentName, &agent); err != nil {
-				return nil, errors.Trace(err)
-			}
 			var apiConn api.Connection
 			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, errors.Trace(err)
@@ -143,7 +137,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := config.NewWorker(Config{
-				ModelUUID: agent.CurrentConfig().Model().Id(),
+				ModelUUID: config.ModelUUID,
 
 				CrossModelRelationService: crossModelRelationService,
 
