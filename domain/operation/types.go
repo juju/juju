@@ -18,6 +18,28 @@ type Action struct {
 	UUID uuid.UUID
 	// Receiver is the action receiver (unit / machine).
 	Receiver string
+	// Name is the action name from the charm.
+	Name string
+	// Parameters are the action parameters.
+	Parameters map[string]any
+	// Parallel indicates if the action can run in parallel.
+	Parallel bool
+	// ExecutionGroup groups actions for execution.
+	ExecutionGroup *string
+	// Enqueued is when the action was enqueued.
+	Enqueued time.Time
+	// Started is when the action started execution.
+	Started *time.Time
+	// Completed is when the action completed execution.
+	Completed *time.Time
+	// Status is the current status of the action.
+	Status string
+	// Message is any status message.
+	Message *string
+	// Log contains the logged messages for the action.
+	Log []ActionMessage
+	// Output contains the action output results.
+	Output map[string]any
 }
 
 // CompletedTaskResult holds the task ID and output used when recording

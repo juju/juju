@@ -4,14 +4,23 @@
 package service
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/domain/operation"
 )
 
 // State describes the methods that a state implementation must provide to manage
 // operation for a model.
-type State interface{}
+type State interface {
+	// GetAction returns the action identified by its UUID.
+	GetAction(ctx context.Context, actionUUID string) (operation.Action, error)
+	// CancelAction attempts to cancel an enqueued action, identified by its
+	// UUID.
+	CancelAction(ctx context.Context, actionUUID string) (operation.Action, error)
+}
 
 // Service provides the API for managing operation
 type Service struct {
