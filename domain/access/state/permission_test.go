@@ -190,7 +190,7 @@ AND    grant_on = ?
 		accessType, objectType, permUuid, grantTo, grantOn string
 	)
 	err := row.Scan(&permUuid, &accessType, &objectType, &grantTo, &grantOn)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("looking for %q, %v", userUUID, spec))
 
 	// Verify the permission as expected.
 	c.Check(permUuid, tc.Not(tc.Equals), "")
@@ -1151,6 +1151,76 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
 	c.Assert(obtained, tc.HasLen, 1)
 	c.Check(obtained[0].ModelName, tc.DeepEquals, "model-access")
 	c.Check(obtained[0].OwnerAccess, tc.DeepEquals, corepermission.AdminAccess)
+}
+
+func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	offerUUID := uuid.MustNewUUID()
+	offerUUID2 := uuid.MustNewUUID()
+	input := []access.OfferImportAccess{
+		{
+			UUID: offerUUID,
+			Access: map[string]corepermission.Access{
+				"bob": corepermission.ConsumeAccess,
+			},
+		}, {
+			UUID: offerUUID2,
+			Access: map[string]corepermission.Access{
+				"sue": corepermission.AdminAccess,
+			},
+		},
+	}
+
+	// Act
+	err := st.ImportOfferAccess(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkPermissionRowSimplified(c, "123", "bob", offerUUID.String(), corepermission.ConsumeAccess)
+	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID.String(), corepermission.ReadAccess)
+	s.checkPermissionRowSimplified(c, "456", "sue", offerUUID2.String(), corepermission.AdminAccess)
+	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID2.String(), corepermission.ReadAccess)
+}
+
+// TestImportOfferAccessEveryOneOnce tests that if Everyone is included in the
+// import data, we do not attempt to added it again.
+func (s *permissionStateSuite) TestImportOfferAccessEveryOneOnce(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	offerUUID := uuid.MustNewUUID()
+	input := []access.OfferImportAccess{
+		{
+			UUID: offerUUID,
+			Access: map[string]corepermission.Access{
+				"bob":                                  corepermission.ConsumeAccess,
+				corepermission.EveryoneUserName.Name(): corepermission.ReadAccess,
+			},
+		},
+	}
+
+	// Act
+	err := st.ImportOfferAccess(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkPermissionRowSimplified(c, "123", "bob", offerUUID.String(), corepermission.ConsumeAccess)
+	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID.String(), corepermission.ReadAccess)
+}
+
+func (s *permissionStateSuite) checkPermissionRowSimplified(c *tc.C, userUUID, userName, offerUUID string, access corepermission.Access) {
+	s.checkPermissionRow(c, userUUID, corepermission.UserAccessSpec{
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				ObjectType: corepermission.Offer,
+				Key:        offerUUID,
+			},
+			Access: access,
+		},
+		User: usertesting.GenNewName(c, userName),
+	})
 }
 
 func (s *permissionStateSuite) setupForRead(c *tc.C, st *PermissionState) {

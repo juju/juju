@@ -239,7 +239,7 @@ func GetUserUUIDByName(ctx context.Context, tx *sqlair.TX, name user.Name) (user
 	uName := userName{Name: name.Name()}
 
 	stmt := `
-SELECT user.uuid AS &M.userUUID
+SELECT user.uuid AS &M.getUserUUIDs
 FROM user
 WHERE user.name = $userName.name
 AND user.removed = false`
@@ -257,11 +257,11 @@ AND user.removed = false`
 		return "", errors.Errorf("looking up user uuid for name %q: %w", name, err)
 	}
 
-	if result["userUUID"] == nil {
+	if result["getUserUUIDs"] == nil {
 		return "", errors.Errorf("retrieving user uuid for user name %q, no result provided", name)
 	}
 
-	return user.UUID(result["userUUID"].(string)), nil
+	return user.UUID(result["getUserUUIDs"].(string)), nil
 }
 
 // GetUserByName will retrieve the user with authentication information
