@@ -20,22 +20,23 @@
 //
 //		domain/foo/
 //		 |- types.go [1]
-//		 |- params.go [2]
+//		 |- bootstrap/
+//		   |- bootstrap.go
+//		 |- errors/
+//		   |- errors.go
+//		 |- internal/
+//		   |- types.go [2]
+//		 |- modelmigration/
+//		   |- export.go
+//		   |- import.go
 //		 |- service/
 //		   |- service.go
 //		 |- state/
 //		   |- state.gp
 //		   |- types.go [3]
-//		 |- errors/
-//		   |- errors.go
-//		 |- bootstrap/
-//		   |- bootstrap.go
-//		 |- modelmigration/
-//		   |- import.go
-//		   |- export.go
 //
-//	 [1] contains DTOs used as arguments/results for state calls
-//	 [2] optional - contains structs used as arguments/results for service API calls
+//	 [1] contains structs used as arguments/results for service API calls
+//	 [2] optional - contains DTOs used as arguments/results for state calls
 //	 [3] contains package private structs which act as in/out params for sqlair.
 //
 // At the time of writing, many domain entity related structs are defined in
@@ -105,6 +106,9 @@
 //
 // Package bootstrap provides methods called by [github.com/juju/juju/agent/agentbootstrap.Initialize] to
 // seed the controller database with data required for a fully initialised controller.
+//
+// Package internal provides non-exported types and methods used by the domain,
+// often as helper methods for both service and state layers.
 //
 // Package modelmigration provides methods called by
 // [github.com/juju/juju/domain/modelmigration.RegisterExport] and
