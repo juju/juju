@@ -666,15 +666,15 @@ func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
 		DNSSearchDomains: device.DNSSearchDomains,
 		DNSAddresses:     device.DNSServers,
 		Addrs: append(
-			transform.Slice(device.Addresses, newNetAddress(device, false)),
-			transform.Slice(device.ShadowAddresses, newNetAddress(device, true))...),
+			transform.Slice(device.Addresses, newNetAddress(device.InterfaceName, false)),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device.InterfaceName, true))...),
 	}
 }
 
-func newNetAddress(device network.InterfaceInfo, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
+func newNetAddress(interfaceName string, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
 	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
 		return domainnetwork.NetAddr{
-			InterfaceName:    device.InterfaceName,
+			InterfaceName:    interfaceName,
 			AddressValue:     providerAddr.Value,
 			AddressType:      providerAddr.Type,
 			ConfigType:       providerAddr.ConfigType,
