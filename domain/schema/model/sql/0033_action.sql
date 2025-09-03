@@ -99,7 +99,7 @@ CREATE TABLE operation_task_status (
     REFERENCES task (uuid),
     CONSTRAINT fk_task_status
     FOREIGN KEY (status_id)
-    REFERENCES task_status_value (id)
+    REFERENCES operation_task_status_value (id)
 );
 
 -- Status values for tasks.
