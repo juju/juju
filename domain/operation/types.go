@@ -12,3 +12,12 @@ type Action struct {
 	// Receiver is the action receiver (unit / machine).
 	Receiver string
 }
+
+// CompletedTaskResult holds the task ID and output used when recording
+// the result of an task.
+type CompletedTaskResult struct {
+	TaskID  string
+	Status  string
+	Results map[string]interface{}
+	Message string
+}
