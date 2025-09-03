@@ -43,15 +43,6 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmActions(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Actions, error)
-
-	// GetAllUnitNames returns a slice of all unit names in the model.
-	GetAllUnitNames(ctx context.Context) ([]unit.Name, error)
-
-	// GetUnitNamesForApplication returns a slice of the unit names for the given application
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationIsDead] if the application is dead
-	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetUnitNamesForApplication(ctx context.Context, name string) ([]unit.Name, error)
 }
 
 // ModelInfoService provides access to information about the model.
