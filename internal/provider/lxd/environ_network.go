@@ -149,8 +149,8 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 		// Sort interfaces by name to ensure consistent device indexes
 		// across calls when we iterate the container's network map.
 		guestNetworkNames := make([]string, 0, len(state.Network))
-		for network := range state.Network {
-			guestNetworkNames = append(guestNetworkNames, network)
+		for net := range state.Network {
+			guestNetworkNames = append(guestNetworkNames, net)
 		}
 		sort.Strings(guestNetworkNames)
 
@@ -177,7 +177,7 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 	}
 
 	if missing > 0 {
-		// Found at least one instance
+		// Found at least one instance.
 		if missing != len(res) {
 			return res, environs.ErrPartialInstances
 		}
@@ -195,6 +195,7 @@ func makeInterfaceInfo(container *lxdapi.Instance, guestNetworkName string, netI
 		ParentInterfaceName: hostNetworkForGuestNetwork(container, guestNetworkName),
 		InterfaceType:       detectInterfaceType(netInfo.Type),
 		Origin:              network.OriginProvider,
+		ProviderId:          network.Id(fmt.Sprintf("nic-%s", netInfo.Hwaddr)),
 	}
 
 	// We cannot tell from the API response whether the
@@ -224,17 +225,8 @@ func makeInterfaceInfo(container *lxdapi.Instance, guestNetworkName string, netI
 
 		netAddr.CIDR = cidr
 		netAddr.ConfigType = configType
+		netAddr.ProviderSubnetID = network.Id(subnetID)
 		ni.Addresses = append(ni.Addresses, netAddr)
-
-		// Only set provider IDs based on the first address.
-		// TODO (manadart 2021-03-24): We should associate the provider ID for
-		// the subnet with the address.
-		if len(ni.Addresses) > 1 {
-			continue
-		}
-
-		ni.ProviderSubnetId = network.Id(subnetID)
-		ni.ProviderId = network.Id(fmt.Sprintf("nic-%s", netInfo.Hwaddr))
 	}
 
 	return ni, nil

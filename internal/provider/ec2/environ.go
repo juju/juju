@@ -1556,15 +1556,15 @@ func (e *environ) networkInterfacesForInstance(ctx context.Context, instId insta
 func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) network.InterfaceInfo {
 	privateAddress := aws.ToString(iface.PrivateIpAddress)
 	subnetCIDR := aws.ToString(subnet.CidrBlock)
+	subnetID := network.Id(aws.ToString(iface.SubnetId))
 	// Device names and VLAN tags are not returned by EC2.
 	ni := network.InterfaceInfo{
-		DeviceIndex:      int(aws.ToInt32(iface.Attachment.DeviceIndex)),
-		MACAddress:       aws.ToString(iface.MacAddress),
-		ProviderId:       network.Id(aws.ToString(iface.NetworkInterfaceId)),
-		ProviderSubnetId: network.Id(aws.ToString(iface.SubnetId)),
-		Disabled:         false,
-		NoAutoStart:      false,
-		InterfaceType:    network.EthernetDevice,
+		DeviceIndex:   int(aws.ToInt32(iface.Attachment.DeviceIndex)),
+		MACAddress:    aws.ToString(iface.MacAddress),
+		ProviderId:    network.Id(aws.ToString(iface.NetworkInterfaceId)),
+		Disabled:      false,
+		NoAutoStart:   false,
+		InterfaceType: network.EthernetDevice,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
 		// is tagged as primary and whose value is encoded in the
@@ -1576,13 +1576,17 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		).AsProviderAddress()},
+		).AsProviderAddress(network.WithProviderSubnetID(subnetID))},
 		Origin: network.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIpAddresses {
 		if privAddr.Association != nil {
 			if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
+				// We should consider setting the provider subnet ID here,
+				// which would link it to a subnet and thereby put it in a
+				// space. If we could do that on all providers, it would be
+				// ideal.
 				ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
 					ip,
 					network.WithScope(network.ScopePublic),
@@ -1598,11 +1602,11 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 		// An EC2 interface is connected to a single subnet,
 		// so we assume other addresses are in the same subnet.
 		ni.Addresses = append(ni.Addresses, network.NewMachineAddress(
-			privateAddress,
+			aws.ToString(privAddr.PrivateIpAddress),
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithCIDR(subnetCIDR),
 			network.WithConfigType(network.ConfigDHCP),
-		).AsProviderAddress())
+		).AsProviderAddress(network.WithProviderSubnetID(subnetID)))
 	}
 
 	return ni

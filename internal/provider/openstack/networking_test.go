@@ -241,13 +241,17 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 			network.WithCIDR("192.168.0.0/24"),
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithConfigType(network.ConfigStatic),
-		).AsProviderAddress(),
+		).AsProviderAddress(
+			network.WithProviderSubnetID("sub-42"),
+		),
 		network.NewMachineAddress(
 			"10.0.0.2",
 			network.WithCIDR("10.0.0.0/24"),
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithConfigType(network.ConfigStatic),
-		).AsProviderAddress(),
+		).AsProviderAddress(
+			network.WithProviderSubnetID("sub-665"),
+		),
 	})
 	c.Assert(nic0.ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(
@@ -256,7 +260,6 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 		).AsProviderAddress(),
 	})
 	c.Assert(nic0.ProviderId, tc.Equals, network.Id("nic-0"))
-	c.Assert(nic0.ProviderSubnetId, tc.Equals, network.Id("sub-42"), tc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
 
 	nic1 := res[0][1]
 	c.Assert(nic1.InterfaceType, tc.Equals, network.EthernetDevice)
@@ -269,10 +272,11 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 			network.WithCIDR("192.168.0.0/24"),
 			network.WithScope(network.ScopeCloudLocal),
 			network.WithConfigType(network.ConfigStatic),
-		).AsProviderAddress(),
+		).AsProviderAddress(
+			network.WithProviderSubnetID("sub-42"),
+		),
 	})
 	c.Assert(nic1.ProviderId, tc.Equals, network.Id("nic-1"))
-	c.Assert(nic1.ProviderSubnetId, tc.Equals, network.Id("sub-42"), tc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
 }
 
 func (s *networkingSuite) TestNetworkInterfacesPartialMatch(c *tc.C) {

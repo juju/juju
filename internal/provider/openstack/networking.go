@@ -526,12 +526,12 @@ func mapInterfaceList(
 			MACAddress:    network.NormalizeMACAddress(port.MACAddress),
 		}
 
-		for i, ipConf := range port.FixedIPs {
+		for _, ipConf := range port.FixedIPs {
 			providerAddr := network.NewMachineAddress(
 				ipConf.IPAddress,
 				network.WithConfigType(network.ConfigStatic),
 				network.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
-			).AsProviderAddress()
+			).AsProviderAddress(network.WithProviderSubnetID(network.Id(ipConf.SubnetID)))
 
 			ni.Addresses = append(ni.Addresses, providerAddr)
 
@@ -547,11 +547,6 @@ func mapInterfaceList(
 					// We should consider another type for what are in effect
 					// NATing arrangements, that better conveys the topology.
 				).AsProviderAddress())
-			}
-
-			// If this is the first address, populate additional NIC details.
-			if i == 0 {
-				ni.ProviderSubnetId = network.Id(ipConf.SubnetID)
 			}
 		}
 

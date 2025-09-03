@@ -152,15 +152,18 @@ func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	c.Assert(info, tc.HasLen, 1)
 	c.Assert(info[0].Addresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(
-			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"),
-		).AsProviderAddress()})
+			"1.1.1.1",
+			network.WithScope(network.ScopeCloudLocal),
+			network.WithCIDR("1.0.0.0/8"),
+		).AsProviderAddress(
+			network.WithProviderSubnetID("fakeSubnetId"),
+		)})
 	c.Assert(info[0].ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress("2.2.2.2", network.WithScope(network.ScopePublic)).AsProviderAddress()})
 	c.Assert(info[0].DeviceIndex, tc.Equals, 0)
 	c.Assert(info[0].ProviderId, tc.Equals, network.Id(vnicID))
 	c.Assert(info[0].MACAddress, tc.Equals, "aa:aa:aa:aa:aa:aa")
 	c.Assert(info[0].InterfaceType, tc.Equals, network.EthernetDevice)
-	c.Assert(info[0].ProviderSubnetId, tc.Equals, network.Id("fakeSubnetId"))
 }
 
 func (s *networkingSuite) TestSubnets(c *tc.C) {

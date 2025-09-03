@@ -78,12 +78,21 @@ func (s *maasInstanceSuite) TestAddresses(c *tc.C) {
 	instance := &maasInstance{machine: machine, environ: s.makeEnviron(c, controller)}
 	addresses, err := instance.Addresses(c.Context())
 
-	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
-		"freckles", "4567", "192.168.10.1", network.WithCIDR(subnet.cidr), network.WithConfigType(network.ConfigStatic),
-	)}
+	expectedAddresses := network.ProviderAddresses{
+		network.NewMachineAddress(
+			"192.168.10.1",
+			network.WithCIDR(subnet.cidr),
+			network.WithConfigType(network.ConfigStatic),
+		).AsProviderAddress(
+			network.WithSpaceName("freckles"),
+			network.WithProviderSpaceID("4567"),
+			network.WithProviderSubnetID("99"),
+			network.WithProviderID("436"),
+		),
+	}
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addresses, tc.SameContents, expectedAddresses)
+	c.Assert(addresses, tc.DeepEquals, expectedAddresses)
 }
 
 func (s *maasInstanceSuite) TestZone(c *tc.C) {

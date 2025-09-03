@@ -1035,11 +1035,10 @@ func (e *Environ) networkInterfacesForInstance(ctx context.Context, instId insta
 					*iface.Vnic.PrivateIp,
 					network.WithScope(network.ScopeCloudLocal),
 					network.WithCIDR(*subnet.CidrBlock),
-				).AsProviderAddress(),
+				).AsProviderAddress(network.WithProviderSubnetID(network.Id(*iface.Vnic.SubnetId))),
 			},
-			InterfaceType:    network.EthernetDevice,
-			ProviderSubnetId: network.Id(*iface.Vnic.SubnetId),
-			Origin:           network.OriginProvider,
+			InterfaceType: network.EthernetDevice,
+			Origin:        network.OriginProvider,
 		}
 		if iface.Vnic.PublicIp != nil {
 			nic.ShadowAddresses = append(nic.ShadowAddresses,

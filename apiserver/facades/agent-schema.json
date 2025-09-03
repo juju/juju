@@ -4050,12 +4050,6 @@
                                 "$ref": "#/definitions/NetworkRoute"
                             }
                         },
-                        "shadow-addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
                         "virtual-port-type": {
                             "type": "string"
                         },
@@ -4070,15 +4064,15 @@
                         "mtu",
                         "provider-id",
                         "provider-network-id",
-                        "provider-subnet-id",
                         "provider-space-id",
-                        "provider-address-id",
                         "provider-vlan-id",
                         "vlan-tag",
                         "interface-name",
                         "parent-interface-name",
                         "interface-type",
-                        "disabled"
+                        "disabled",
+                        "provider-subnet-id",
+                        "provider-address-id"
                     ]
                 },
                 "NetworkRoute": {
@@ -6128,12 +6122,6 @@
                                 "$ref": "#/definitions/NetworkRoute"
                             }
                         },
-                        "shadow-addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
                         "virtual-port-type": {
                             "type": "string"
                         },
@@ -6148,15 +6136,15 @@
                         "mtu",
                         "provider-id",
                         "provider-network-id",
-                        "provider-subnet-id",
                         "provider-space-id",
-                        "provider-address-id",
                         "provider-vlan-id",
                         "vlan-tag",
                         "interface-name",
                         "parent-interface-name",
                         "interface-type",
-                        "disabled"
+                        "disabled",
+                        "provider-subnet-id",
+                        "provider-address-id"
                     ]
                 },
                 "NetworkRoute": {
