@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer"
-	"github.com/juju/juju/internal/worker/remoterelationofferrer"
+	"github.com/juju/juju/internal/worker/remoterelationofferer"
 	"github.com/juju/juju/internal/worker/removal"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
@@ -307,17 +307,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
 		})),
 
-		remoteRelationOfferrerName: ifNotMigrating(remoterelationofferrer.Manifold(remoterelationofferrer.ManifoldConfig{
+		remoteRelationOffererName: ifNotMigrating(remoterelationofferer.Manifold(remoterelationofferer.ManifoldConfig{
 			AgentName:                     agentName,
 			APICallerName:                 apiCallerName,
 			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
 			DomainServicesName:            domainServicesName,
-			GetCrossModelServices:         remoterelationofferrer.GetCrossModelServices,
-			NewRemoteRelationClientGetter: remoterelationofferrer.NewRemoteRelationClientGetter,
-			NewWorker:                     remoterelationofferrer.NewWorker,
-			NewRemoteApplicationWorker:    remoterelationofferrer.NewRemoteApplicationWorker,
+			GetCrossModelServices:         remoterelationofferer.GetCrossModelServices,
+			NewRemoteRelationClientGetter: remoterelationofferer.NewRemoteRelationClientGetter,
+			NewWorker:                     remoterelationofferer.NewWorker,
+			NewRemoteApplicationWorker:    remoterelationofferer.NewRemoteApplicationWorker,
 			Clock:                         config.Clock,
-			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelationofferrer", corelogger.CMR),
+			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelationofferer", corelogger.CMR),
 		})),
 
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
@@ -588,7 +588,7 @@ const (
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
 	remoteRelationConsumerName   = "remote-relation-consumer"
-	remoteRelationOfferrerName   = "remote-relation-offerrer"
+	remoteRelationOffererName    = "remote-relation-offerer"
 	removalName                  = "removal"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"

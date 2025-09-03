@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelationofferrer
+package remoterelationofferer
 
 import (
 	"time"
@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferrer -destination service_mock_test.go -source worker.go
-//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferrer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationofferrer RemoteRelationClientGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferer -destination service_mock_test.go -source worker.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationofferer RemoteRelationClientGetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

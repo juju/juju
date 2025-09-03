@@ -59,7 +59,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"provider-service-factories",
 		"provider-tracker",
 		"remote-relation-consumer",
-		"remote-relation-offerrer",
+		"remote-relation-offerer",
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
@@ -103,7 +103,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"provider-service-factories",
 		"provider-tracker",
 		"remote-relation-consumer",
-		"remote-relation-offerrer",
+		"remote-relation-offerer",
 		"removal",
 		"secrets-pruner",
 		"user-secrets-drain-worker",
@@ -354,7 +354,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"remote-relation-offerrer": {
+	"remote-relation-offerer": {
 		"agent",
 		"api-caller",
 		"api-remote-relation-caller",
@@ -545,7 +545,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"remote-relation-offerrer": {
+	"remote-relation-offerer": {
 		"agent",
 		"api-caller",
 		"api-remote-relation-caller",
