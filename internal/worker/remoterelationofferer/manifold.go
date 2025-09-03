@@ -11,9 +11,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller/crossmodelrelations"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
@@ -45,10 +42,8 @@ type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
-	AgentName                   string
-	APICallerName               string
-	APIRemoteRelationCallerName string
-	DomainServicesName          string
+	ModelUUID          model.UUID
+	DomainServicesName string
 
 	NewRemoteRelationClientGetter NewRemoteRelationClientGetterFunc
 
@@ -69,14 +64,8 @@ type ManifoldConfig struct {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
-	if config.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
-	}
-	if config.APIRemoteRelationCallerName == "" {
-		return errors.NotValidf("empty APIRemoteRelationCallerName")
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
@@ -106,9 +95,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
-			config.APICallerName,
-			config.APIRemoteRelationCallerName,
 			config.DomainServicesName,
 		},
 		Start: func(context context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -120,32 +106,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
-			var agent agent.Agent
-			if err := getter.Get(config.AgentName, &agent); err != nil {
-				return nil, errors.Trace(err)
-			}
-			var apiConn api.Connection
-			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var apiRemoteCallerGetter apiremoterelationcaller.APIRemoteCallerGetter
-			if err := getter.Get(config.APIRemoteRelationCallerName, &apiRemoteCallerGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			crossModelRelationService, err := config.GetCrossModelServices(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			w, err := config.NewWorker(Config{
-				ModelUUID: agent.CurrentConfig().Model().Id(),
+				ModelUUID: config.ModelUUID,
 
-				CrossModelRelationService: crossModelRelationService,
-
-				RemoteRelationClientGetter: config.NewRemoteRelationClientGetter(apiRemoteCallerGetter),
-
+				CrossModelRelationService:  crossModelRelationService,
 				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
 
 				Clock:  config.Clock,
@@ -168,26 +137,4 @@ func GetCrossModelServices(getter dependency.Getter, domainServicesName string) 
 	}
 
 	return services.CrossModelRelation(), nil
-}
-
-// NewRemoteRelationClientGetter creates a new RemoteRelationClientGetter
-// using the provided APIRemoteCallerGetter.
-func NewRemoteRelationClientGetter(getter apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
-	return remoteRelationClientGetter{
-		getter: getter,
-	}
-}
-
-type remoteRelationClientGetter struct {
-	getter apiremoterelationcaller.APIRemoteCallerGetter
-}
-
-// GetRemoteRelationClient returns a RemoteModelRelationsClient for the given model UUID.
-func (r remoteRelationClientGetter) GetRemoteRelationClient(ctx context.Context, modelUUID string) (RemoteModelRelationsClient, error) {
-	client, err := r.getter.GetConnectionForModel(ctx, model.UUID(modelUUID))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return crossmodelrelations.NewClient(client), nil
 }

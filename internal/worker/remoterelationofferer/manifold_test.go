@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
@@ -33,10 +34,8 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:                   "agent",
-		APICallerName:               "api-caller",
-		APIRemoteRelationCallerName: "api-remote-relation-caller",
-		DomainServicesName:          "domain-services",
+		ModelUUID:          modeltesting.GenModelUUID(c),
+		DomainServicesName: "domain-services",
 		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
 			return nil, nil
 		},
@@ -58,19 +57,9 @@ func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
-	s.config.AgentName = ""
-	s.checkNotValid(c, "empty AgentName not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingAPIRemoteRelationCallerName(c *tc.C) {
-	s.config.APIRemoteRelationCallerName = ""
-	s.checkNotValid(c, "empty APIRemoteRelationCallerName not valid")
+func (s *ManifoldConfigSuite) TestMissingModelUUID(c *tc.C) {
+	s.config.ModelUUID = ""
+	s.checkNotValid(c, "empty ModelUUID not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {

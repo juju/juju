@@ -15,6 +15,7 @@ import (
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	domainlife "github.com/juju/juju/domain/life"
@@ -91,7 +92,7 @@ type CrossModelRelationService interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID                  string
+	ModelUUID                  model.UUID
 	CrossModelRelationService  CrossModelRelationService
 	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc

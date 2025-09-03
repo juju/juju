@@ -294,7 +294,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		remoteRelationConsumerName: ifNotMigrating(remoterelationconsumer.Manifold(remoterelationconsumer.ManifoldConfig{
-			AgentName:                     agentName,
+			ModelUUID:                     modelUUID,
 			APICallerName:                 apiCallerName,
 			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
 			DomainServicesName:            domainServicesName,
@@ -308,16 +308,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		remoteRelationOffererName: ifNotMigrating(remoterelationofferer.Manifold(remoterelationofferer.ManifoldConfig{
-			AgentName:                     agentName,
-			APICallerName:                 apiCallerName,
-			APIRemoteRelationCallerName:   apiRemoteRelationCallerName,
-			DomainServicesName:            domainServicesName,
-			GetCrossModelServices:         remoterelationofferer.GetCrossModelServices,
-			NewRemoteRelationClientGetter: remoterelationofferer.NewRemoteRelationClientGetter,
-			NewWorker:                     remoterelationofferer.NewWorker,
-			NewRemoteApplicationWorker:    remoterelationofferer.NewRemoteApplicationWorker,
-			Clock:                         config.Clock,
-			Logger:                        config.LoggingContext.GetLogger("juju.worker.remoterelationofferer", corelogger.CMR),
+			ModelUUID:                  modelUUID,
+			DomainServicesName:         domainServicesName,
+			GetCrossModelServices:      remoterelationofferer.GetCrossModelServices,
+			NewWorker:                  remoterelationofferer.NewWorker,
+			NewRemoteApplicationWorker: remoterelationofferer.NewRemoteApplicationWorker,
+			Clock:                      config.Clock,
+			Logger:                     config.LoggingContext.GetLogger("juju.worker.remoterelationofferer", corelogger.CMR),
 		})),
 
 		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{

@@ -357,7 +357,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relation-offerer": {
 		"agent",
 		"api-caller",
-		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -548,7 +547,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relation-offerer": {
 		"agent",
 		"api-caller",
-		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",

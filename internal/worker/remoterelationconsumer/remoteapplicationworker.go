@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +29,7 @@ import (
 type RemoteApplicationConfig struct {
 	OfferUUID                  string
 	ApplicationName            string
-	LocalModelUUID             string
+	LocalModelUUID             model.UUID
 	RemoteModelUUID            string
 	ConsumeVersion             int
 	Macaroon                   *macaroon.Macaroon
@@ -51,9 +52,9 @@ type remoteApplicationWorker struct {
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID                 string
-	applicationName           string // name of the remote application proxy in the local model
-	localModelUUID            string // uuid of the model hosting the local application
-	remoteModelUUID           string // uuid of the model hosting the remote offer
+	applicationName           string     // name of the remote application proxy in the local model
+	localModelUUID            model.UUID // uuid of the model hosting the local application
+	remoteModelUUID           string     // uuid of the model hosting the remote offer
 	consumeVersion            int
 	localRelationUnitChanges  chan RelationUnitChangeEvent
 	remoteRelationUnitChanges chan RelationUnitChangeEvent
@@ -715,7 +716,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelationArg{
 		ApplicationToken:  localApplicationToken,
-		SourceModelTag:    names.NewModelTag(w.localModelUUID).String(),
+		SourceModelTag:    names.NewModelTag(w.localModelUUID.String()).String(),
 		RelationToken:     localRelationToken,
 		OfferUUID:         offerUUID,
 		RemoteEndpoint:    localEndpointInfo,

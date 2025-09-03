@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 )
 
 // RemoteApplicationConfig defines the configuration for a remote application
@@ -16,7 +17,7 @@ import (
 type RemoteApplicationConfig struct {
 	OfferUUID                  string
 	ApplicationName            string
-	LocalModelUUID             string
+	LocalModelUUID             model.UUID
 	RemoteModelUUID            string
 	ConsumeVersion             int
 	RemoteRelationClientGetter RemoteRelationClientGetter
