@@ -26,6 +26,10 @@ const (
 	// be found.
 	VolumeAttachmentPlanNotFound = errors.ConstError("volume attachment plan not found")
 
+	// VolumeAttachmentWithoutBlockDevice is used when a volume attachment does
+	// not have an associated block device yet.
+	VolumeAttachmentWithoutBlockDevice = errors.ConstError("volume attachment without block device")
+
 	// StorageInstanceNotFound is used when a storage instance cannot be found.
 	StorageInstanceNotFound = errors.ConstError("storage instance not found")
 

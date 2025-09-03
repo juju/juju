@@ -6,6 +6,7 @@ package storageprovisioning
 import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 )
 
 // VolumeAttachmentID is a struct that provides the IDs and names associated
@@ -33,6 +34,28 @@ type VolumeAttachmentID struct {
 	UnitName *coreunit.Name
 }
 
+// Volume is a struct that provides the information about a volume.
+type Volume struct {
+	// VolumeID is the ID of the volume.
+	VolumeID string
+
+	// ProviderID is the ID of the volume from the storage provider.
+	ProviderID string
+
+	// SizeMiB is the size of the volume in MiB.
+	SizeMiB uint64
+
+	// HardwareID is set by the storage provider to help matching with a block
+	// device.
+	HardwareID string
+
+	// WWN is set by the storage provider to help matching with a block device.
+	WWN string
+
+	// Persistent is true if the volume is persistent.
+	Persistent bool
+}
+
 // VolumeProvisionedInfo is information set by the storage provisioner for
 // volumes it has provisioned.
 type VolumeProvisionedInfo struct {
@@ -51,6 +74,26 @@ type VolumeProvisionedInfo struct {
 
 	// Persistent is true if the volume is persistent.
 	Persistent bool
+}
+
+// VolumeAttachment is a struct that provides the information about a volume
+// attachment.
+type VolumeAttachment struct {
+	VolumeID string
+
+	ReadOnly bool
+
+	BlockDeviceName       string
+	BlockDeviceLink       string
+	BlockDeviceBusAddress string
+}
+
+// VolumeAttachmentPlan is a struct that provides the information about a volume
+// attachment plan.
+type VolumeAttachmentPlan struct {
+	Life             life.Life
+	DeviceType       PlanDeviceType
+	DeviceAttributes map[string]string
 }
 
 // VolumeAttachmentProvisionedInfo is information set by the storage provisioner

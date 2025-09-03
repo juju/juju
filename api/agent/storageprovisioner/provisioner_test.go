@@ -242,7 +242,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 					FilesystemTag: "filesystem-100",
 					Info: params.FilesystemInfo{
 						ProviderId: "filesystem-id",
-						Size:       1024,
+						SizeMiB:    1024,
 					},
 				},
 			}},
@@ -261,7 +261,7 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 			FilesystemTag: "filesystem-100",
 			Info: params.FilesystemInfo{
 				ProviderId: "filesystem-id",
-				Size:       1024,
+				SizeMiB:    1024,
 			},
 		},
 	}})
@@ -322,7 +322,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -362,7 +362,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 		Result: params.BlockDevice{
 			DeviceName: "xvdf1",
 			HardwareId: "kjlaksjdlasjdklasd123123",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 
@@ -445,7 +445,7 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 			Results: []params.VolumeParamsResult{{
 				Result: params.VolumeParams{
 					VolumeTag: "volume-100",
-					Size:      1024,
+					SizeMiB:   1024,
 					Provider:  "loop",
 				},
 			}},
@@ -461,7 +461,7 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 	c.Check(callCount, tc.Equals, 1)
 	c.Assert(volumeParams, tc.DeepEquals, []params.VolumeParamsResult{{
 		Result: params.VolumeParams{
-			VolumeTag: "volume-100", Size: 1024, Provider: "loop",
+			VolumeTag: "volume-100", SizeMiB: 1024, Provider: "loop",
 		},
 	}})
 }
@@ -512,7 +512,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 			Results: []params.FilesystemParamsResult{{
 				Result: params.FilesystemParams{
 					FilesystemTag: "filesystem-100",
-					Size:          1024,
+					SizeMiB:       1024,
 					Provider:      "loop",
 				},
 			}},
@@ -528,7 +528,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	c.Check(callCount, tc.Equals, 1)
 	c.Assert(filesystemParams, tc.DeepEquals, []params.FilesystemParamsResult{{
 		Result: params.FilesystemParams{
-			FilesystemTag: "filesystem-100", Size: 1024, Provider: "loop",
+			FilesystemTag: "filesystem-100", SizeMiB: 1024, Provider: "loop",
 		},
 	}})
 }
@@ -703,7 +703,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -729,7 +729,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: params.BlockDevice{
+					BlockDevice: &params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},
@@ -769,7 +769,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: params.BlockDevice{
+			BlockDevice: &params.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -795,7 +795,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: params.BlockDevice{
+					BlockDevice: &params.BlockDevice{
 						DeviceName: "sda",
 					},
 				},
@@ -861,7 +861,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 				FilesystemTag: "filesystem-100",
 				Info: params.FilesystemInfo{
 					ProviderId: "123",
-					Size:       1024,
+					SizeMiB:    1024,
 				},
 			}},
 		})
@@ -879,7 +879,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 		FilesystemTag: "filesystem-100",
 		Info: params.FilesystemInfo{
 			ProviderId: "123",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 	errorResults, err := st.SetFilesystemInfo(c.Context(), filesystems)

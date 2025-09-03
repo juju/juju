@@ -214,7 +214,7 @@ func blockDeviceFromParams(in params.BlockDevice) blockdevice.BlockDevice {
 		HardwareId:     in.HardwareId,
 		WWN:            in.WWN,
 		BusAddress:     in.BusAddress,
-		SizeMiB:        in.Size,
+		SizeMiB:        in.SizeMiB,
 		FilesystemType: in.FilesystemType,
 		InUse:          in.InUse,
 		MountPoint:     in.MountPoint,

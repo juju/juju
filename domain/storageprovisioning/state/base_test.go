@@ -439,6 +439,56 @@ VALUES (?, ?, (SELECT id FROM charm_storage_kind WHERE kind = ?), ?, 0, 10, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// newBlockDevice creates a new block device for the given machine.
+func (s *baseSuite) newBlockDevice(
+	c *tc.C,
+	machineUUID string,
+	name string,
+	hardwareID string,
+	busAddress string,
+	deviceLinks []string,
+) string {
+	uuid := uuid.MustNewUUID().String()
+	_, err := s.DB().Exec(
+		`INSERT INTO block_device(uuid, machine_uuid, name, hardware_id, bus_address) VALUES(?, ?, ?, ?, ?)`,
+		uuid, machineUUID, name, hardwareID, busAddress)
+	c.Assert(err, tc.ErrorIsNil)
+	for _, deviceLink := range deviceLinks {
+		_, err := s.DB().Exec(
+			`INSERT INTO block_device_link_device(block_device_uuid, name) VALUES(?, ?)`,
+			uuid, deviceLink)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	return uuid
+}
+
+func (s *baseSuite) changeVolumeAttachmentInfo(
+	c *tc.C,
+	uuid storageprovisioning.VolumeAttachmentUUID,
+	blockDeviceUUID string,
+	readOnly bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume_attachment SET block_device_uuid=?, read_only=? WHERE uuid=?`,
+		blockDeviceUUID, readOnly, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) changeVolumeInfo(
+	c *tc.C,
+	uuid storageprovisioning.VolumeUUID,
+	providerID string,
+	sizeMiB uint64,
+	hardwareID string,
+	wwn string,
+	persistent bool,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume SET provider_id=?, size_mib=?, hardware_id=?, wwn=?, persistent=? WHERE uuid=?`,
+		providerID, sizeMiB, hardwareID, wwn, persistent, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, typeSamples...)
 }

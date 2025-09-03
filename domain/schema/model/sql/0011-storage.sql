@@ -410,6 +410,10 @@ CREATE TABLE storage_volume_attachment_plan (
     REFERENCES storage_provision_scope (id)
 );
 
+-- There should only one volume attachment plan per net node and volume tuple.
+CREATE UNIQUE INDEX idx_storage_volume_attachment_plan_net_node_uuid_volume_uuid
+ON storage_volume_attachment_plan (storage_volume_uuid, net_node_uuid);
+
 CREATE TABLE storage_volume_attachment_plan_attr (
     uuid TEXT NOT NULL PRIMARY KEY,
     attachment_plan_uuid TEXT NOT NULL,

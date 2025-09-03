@@ -356,7 +356,7 @@ func (s *storageMockSuite) TestListFilesystems(c *tc.C) {
 		FilesystemTag: "filesystem-1",
 		Info: params.FilesystemInfo{
 			ProviderId: "fs-id",
-			Size:       4096,
+			SizeMiB:    4096,
 		},
 		Status: params.EntityStatus{
 			Status: "attached",
@@ -432,8 +432,8 @@ func (s *storageMockSuite) TestAddToUnit(c *tc.C) {
 	defer ctrl.Finish()
 	size := uint64(42)
 	directives := params.StorageDirectives{
-		Pool: "value",
-		Size: &size,
+		Pool:    "value",
+		SizeMiB: &size,
 	}
 
 	errOut := "error"

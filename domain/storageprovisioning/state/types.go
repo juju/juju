@@ -177,6 +177,16 @@ type volumeAttachmentUUID entityUUID
 // slice of strings.
 type volumeAttachmentUUIDs []string
 
+// volumeAttachment represents a volume attachment.
+type volumeAttachment struct {
+	VolumeID              string    `db:"volume_id"`
+	Life                  life.Life `db:"life_id"`
+	ReadOnly              bool      `db:"read_only"`
+	BlockDeviceName       string    `db:"block_device_name"`
+	BlockDeviceLink       string    `db:"block_device_link"`
+	BlockDeviceBusAddress string    `db:"block_device_bus_address"`
+}
+
 // volumeID represents the volume id value for a storage volume instance.
 type volumeID struct {
 	ID string `db:"volume_id"`
@@ -201,6 +211,24 @@ func (l volumeLives) Iter(yield func(string, life.Life) bool) {
 			return
 		}
 	}
+}
+
+type volume struct {
+	VolumeID   string `db:"volume_id"`
+	ProviderID string `db:"provider_id"`
+	HardwareID string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	SizeMiB    uint64 `db:"size_mib"`
+	Persistent bool   `db:"persistent"`
+}
+
+type volumeProvisionedInfo struct {
+	UUID       string `db:"uuid"`
+	ProviderID string `db:"provider_id"`
+	HardwareID string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	SizeMiB    uint64 `db:"size_mib"`
+	Persistent bool   `db:"persistent"`
 }
 
 type filesystem struct {

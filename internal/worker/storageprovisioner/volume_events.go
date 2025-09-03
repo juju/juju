@@ -144,8 +144,8 @@ func processAliveVolumePlans(
 	return err
 }
 
-func blockDeviceToParams(in blockdevice.BlockDevice) params.BlockDevice {
-	return params.BlockDevice{
+func blockDeviceToParams(in blockdevice.BlockDevice) *params.BlockDevice {
+	return &params.BlockDevice{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,
 		Label:          in.Label,
@@ -153,7 +153,7 @@ func blockDeviceToParams(in blockdevice.BlockDevice) params.BlockDevice {
 		HardwareId:     in.HardwareId,
 		WWN:            in.WWN,
 		BusAddress:     in.BusAddress,
-		Size:           in.SizeMiB,
+		SizeMiB:        in.SizeMiB,
 		FilesystemType: in.FilesystemType,
 		InUse:          in.InUse,
 		MountPoint:     in.MountPoint,
@@ -690,7 +690,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 	}
 	return storage.VolumeParams{
 		Tag:          volumeTag,
-		Size:         in.Size,
+		Size:         in.SizeMiB,
 		Provider:     providerType,
 		Attributes:   in.Attributes,
 		ResourceTags: in.Tags,

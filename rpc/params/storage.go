@@ -22,7 +22,7 @@ type BlockDevice struct {
 	HardwareId     string   `json:"HardwareId"`
 	WWN            string   `json:"WWN"`
 	BusAddress     string   `json:"BusAddress"`
-	Size           uint64   `json:"Size"`
+	SizeMiB        uint64   `json:"Size"`
 	FilesystemType string   `json:"FilesystemType"`
 	InUse          bool     `json:"InUse"`
 	MountPoint     string   `json:"MountPoint"`
@@ -242,7 +242,7 @@ type VolumeAttachmentPlan struct {
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
 	// view of the block device represented by the plan.
-	BlockDevice BlockDevice `json:"block-device,omitempty"`
+	BlockDevice *BlockDevice `json:"block-device,omitempty"`
 }
 
 type VolumeAttachmentPlans struct {
@@ -273,7 +273,7 @@ type VolumeAttachments struct {
 // VolumeParams holds the parameters for creating a storage volume.
 type VolumeParams struct {
 	VolumeTag  string                  `json:"volume-tag"`
-	Size       uint64                  `json:"size"`
+	SizeMiB    uint64                  `json:"size"`
 	Provider   string                  `json:"provider"`
 	Attributes map[string]interface{}  `json:"attributes,omitempty"`
 	Tags       map[string]string       `json:"tags,omitempty"`
@@ -407,8 +407,8 @@ type FilesystemInfo struct {
 	// than 2.2 do not populate this field, so it may
 	// be omitted.
 	Pool string `json:"pool"`
-	// Size is the size of the filesystem in MiB.
-	Size uint64 `json:"size"`
+	// SizeMiB is the size of the filesystem in MiB.
+	SizeMiB uint64 `json:"size"`
 }
 
 // Filesystems describes a set of storage filesystems in the model.
@@ -438,7 +438,7 @@ type FilesystemAttachments struct {
 type FilesystemParams struct {
 	FilesystemTag string                      `json:"filesystem-tag"`
 	VolumeTag     string                      `json:"volume-tag,omitempty"`
-	Size          uint64                      `json:"size"`
+	SizeMiB       uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
 	Tags          map[string]string           `json:"tags,omitempty"`
@@ -864,8 +864,8 @@ type StorageDirectives struct {
 	// storage instance.
 	Pool string `json:"pool,omitempty"`
 
-	// Size is the required size of the storage instance, in MiB.
-	Size *uint64 `json:"size,omitempty"`
+	// SizeMiB is the required size of the storage instance, in MiB.
+	SizeMiB *uint64 `json:"size,omitempty"`
 
 	// Count is the required number of storage instances.
 	Count *uint64 `json:"count,omitempty"`

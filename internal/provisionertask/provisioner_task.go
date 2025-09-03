@@ -813,7 +813,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 		}
 		volumes[i] = storage.VolumeParams{
 			Tag:          volumeTag,
-			Size:         v.Size,
+			Size:         v.SizeMiB,
 			Provider:     storage.ProviderType(v.Provider),
 			Attributes:   v.Attributes,
 			ResourceTags: v.Tags,

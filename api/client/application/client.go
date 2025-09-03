@@ -313,9 +313,9 @@ func (c *Client) SetCharm(ctx context.Context, cfg SetCharmConfig) error {
 				countPtr = &count
 			}
 			storageDirectives[name] = params.StorageDirectives{
-				Pool:  directive.Pool,
-				Size:  sizePtr,
-				Count: countPtr,
+				Pool:    directive.Pool,
+				SizeMiB: sizePtr,
+				Count:   countPtr,
 			}
 		}
 	}

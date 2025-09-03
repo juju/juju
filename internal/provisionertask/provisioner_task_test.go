@@ -1272,7 +1272,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 				Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
 				Volumes: []params.VolumeParams{{
 					VolumeTag: "volume-0",
-					Size:      1024,
+					SizeMiB:   1024,
 					Provider:  "static",
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: "machine-0",
@@ -1280,7 +1280,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 					},
 				}, {
 					VolumeTag:  "volume-1",
-					Size:       2048,
+					SizeMiB:    2048,
 					Provider:   "persistent-pool",
 					Attributes: map[string]interface{}{"persistent": true},
 					Attachment: &params.VolumeAttachmentParams{

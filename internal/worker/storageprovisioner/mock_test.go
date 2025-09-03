@@ -209,7 +209,7 @@ func (v *mockVolumeAccessor) VolumeParams(_ context.Context, volumes []names.Vol
 	for _, tag := range volumes {
 		volumeParams := params.VolumeParams{
 			VolumeTag: tag.String(),
-			Size:      1024,
+			SizeMiB:   1024,
 			Provider:  "dummy",
 			Attributes: map[string]interface{}{
 				"persistent": tag.String() == "volume-1",
@@ -381,7 +381,7 @@ func (v *mockFilesystemAccessor) FilesystemParams(_ context.Context, filesystems
 	for i, tag := range filesystems {
 		filesystemParams := params.FilesystemParams{
 			FilesystemTag: tag.String(),
-			Size:          1024,
+			SizeMiB:       1024,
 			Provider:      "dummy",
 			Tags: map[string]string{
 				"very": "fancy",

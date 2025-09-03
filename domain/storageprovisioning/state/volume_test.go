@@ -208,6 +208,59 @@ func (s *volumeSuite) TestGetVolumeAttachmentLifeNoResults(c *tc.C) {
 	c.Check(lives, tc.HasLen, 0)
 }
 
+// TestGetVolumeAttachment tests that a volume attachment is returned without
+// block device information when it is not available.
+func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	volUUID, vsID := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID: vsID,
+	})
+}
+
+// TestGetVolumeAttachmentWithBlockDevice tests that a volume attachment with a
+// block device returns relevant block device information.
+func (s *volumeSuite) TestGetVolumeAttachmentWithBlockDevice(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	volUUID, vsID := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+	bdUUID := s.newBlockDevice(c, machineUUID, "blocky", "blockyhwid",
+		"blocky:addr", []string{
+			"/dev/a",
+			"/dev/b",
+		})
+	s.changeVolumeAttachmentInfo(c, vaUUID, bdUUID, true)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID:              vsID,
+		ReadOnly:              true,
+		BlockDeviceName:       "blocky",
+		BlockDeviceLink:       "/dev/a",
+		BlockDeviceBusAddress: "blocky:addr",
+	})
+}
+
+// TestGetVolumeAttachmentNotFound tests that get volume attachment returns a
+// volume attachment not found error.
+func (s *volumeSuite) TestGetVolumeAttachmentNotFound(c *tc.C) {
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
 // TestGetVolumeAttachmentPlanLifeFornetNode tests that the correct life is
 // reported for each volume attachment plan associated with the given net node.
 // We expect in this test that it is the volume id for the attachment plan
@@ -801,6 +854,69 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 		ProviderID:        "provider-id",
 		ReadOnly:          true,
 	})
+}
+
+func (s *volumeSuite) TestGetVolume(c *tc.C) {
+	volUUID, volID := s.newModelVolume(c)
+	s.changeVolumeInfo(c, volUUID, "vol-123", 1234, "hwid", "wwn", true)
+	st := NewState(s.TxnRunnerFactory())
+
+	vol, err := st.GetVolume(c.Context(), volUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.Volume{
+		VolumeID:   volID,
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := domaintesting.GenVolumeUUID(c)
+
+	_, err := st.GetVolume(c.Context(), uuid)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestSetVolumeProvisionedInfo(c *tc.C) {
+	volUUID, volID := s.newMachineVolume(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeProvisionedInfo{
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	}
+	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vol, err := st.GetVolume(c.Context(), volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.Volume{
+		VolumeID:   volID,
+		ProviderID: "vol-123",
+		SizeMiB:    1234,
+		HardwareID: "hwid",
+		WWN:        "wwn",
+		Persistent: true,
+	})
+}
+
+func (s *volumeSuite) TestSetVolumeProvisionedInfoNotFound(c *tc.C) {
+	volUUID := domaintesting.GenVolumeUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeProvisionedInfo{}
+	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
 // changeVolumeLife is a utility function for updating the life value of a
