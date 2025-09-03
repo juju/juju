@@ -290,9 +290,8 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
-		ModelUUID:                  s.modelUUID,
-		CrossModelRelationService:  s.crossModelRelationService,
-		RemoteRelationClientGetter: s.remoteRelationClientGetter,
+		ModelUUID:                 s.modelUUID,
+		CrossModelRelationService: s.crossModelRelationService,
 		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
 			defer func() {
 				started <- config.ApplicationName

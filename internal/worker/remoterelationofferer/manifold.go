@@ -14,19 +14,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 )
-
-// RemoteRelationClientGetter defines the interface for a remote relation facade.
-type RemoteRelationClientGetter interface {
-	// GetRemoteRelationClient returns a RemoteModelRelationsClient for the
-	// given model UUID.
-	GetRemoteRelationClient(ctx context.Context, modelUUID string) (RemoteModelRelationsClient, error)
-}
-
-// NewRemoteRelationClientGetterFunc defines the function signature for creating
-// a new RemoteRelationClient.
-type NewRemoteRelationClientGetterFunc func(apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter
 
 // NewWorkerFunc defines the function signature for creating a new Worker.
 type NewWorkerFunc func(Config) (worker.Worker, error)
@@ -44,8 +32,6 @@ type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName
 type ManifoldConfig struct {
 	ModelUUID          model.UUID
 	DomainServicesName string
-
-	NewRemoteRelationClientGetter NewRemoteRelationClientGetterFunc
 
 	GetCrossModelServices GetCrossModelServicesFunc
 
@@ -69,9 +55,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
-	}
-	if config.NewRemoteRelationClientGetter == nil {
-		return errors.NotValidf("nil NewRemoteRelationClientGetter")
 	}
 	if config.GetCrossModelServices == nil {
 		return errors.NotValidf("nil GetCrossModelServices")

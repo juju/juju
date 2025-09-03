@@ -94,7 +94,6 @@ type CrossModelRelationService interface {
 type Config struct {
 	ModelUUID                  model.UUID
 	CrossModelRelationService  CrossModelRelationService
-	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -107,9 +106,6 @@ func (config Config) Validate() error {
 	}
 	if config.CrossModelRelationService == nil {
 		return errors.NotValidf("nil CrossModelRelationService")
-	}
-	if config.RemoteRelationClientGetter == nil {
-		return errors.NotValidf("nil RemoteRelationClientGetter")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -257,12 +253,11 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appName, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
-				ApplicationName:            remoteApp.ApplicationName,
-				LocalModelUUID:             w.config.ModelUUID,
-				ConsumeVersion:             remoteApp.ConsumeVersion,
-				RemoteRelationClientGetter: w.config.RemoteRelationClientGetter,
-				Clock:                      w.config.Clock,
-				Logger:                     w.logger,
+				ApplicationName: remoteApp.ApplicationName,
+				LocalModelUUID:  w.config.ModelUUID,
+				ConsumeVersion:  remoteApp.ConsumeVersion,
+				Clock:           w.config.Clock,
+				Logger:          w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")

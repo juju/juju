@@ -16,14 +16,12 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferer -destination service_mock_test.go -source worker.go
-//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationofferer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationofferer RemoteRelationClientGetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	crossModelRelationService  *MockCrossModelRelationService
-	remoteModelRelationClient  *MockRemoteModelRelationsClient
-	remoteRelationClientGetter *MockRemoteRelationClientGetter
+	crossModelRelationService *MockCrossModelRelationService
+	remoteModelRelationClient *MockRemoteModelRelationsClient
 
 	logger logger.Logger
 }
@@ -33,7 +31,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
-	s.remoteRelationClientGetter = NewMockRemoteRelationClientGetter(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 

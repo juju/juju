@@ -15,14 +15,13 @@ import (
 // RemoteApplicationConfig defines the configuration for a remote application
 // worker.
 type RemoteApplicationConfig struct {
-	OfferUUID                  string
-	ApplicationName            string
-	LocalModelUUID             model.UUID
-	RemoteModelUUID            string
-	ConsumeVersion             int
-	RemoteRelationClientGetter RemoteRelationClientGetter
-	Clock                      clock.Clock
-	Logger                     logger.Logger
+	OfferUUID       string
+	ApplicationName string
+	LocalModelUUID  model.UUID
+	RemoteModelUUID string
+	ConsumeVersion  int
+	Clock           clock.Clock
+	Logger          logger.Logger
 }
 
 // remoteApplicationWorker listens for localChanges to relations
