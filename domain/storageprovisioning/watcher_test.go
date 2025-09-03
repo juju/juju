@@ -697,18 +697,18 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	harness.Run(c, []string(nil))
 }
 
-func (s *watcherSuite) TestWatchStorageAttachmentForUnitForVolume(c *tc.C) {
+func (s *watcherSuite) TestWatchStorageAttachmentForVolume(c *tc.C) {
 	svc := s.setupService(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
 	volumeUUID, _ := s.newMachineVolume(c)
 
-	watcher, err := svc.WatchStorageAttachmentForUnit(
-		c.Context(), storageID, unitUUID,
+	watcher, err := svc.WatchStorageAttachment(
+		c.Context(), storageAttachmentUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -789,18 +789,18 @@ func (s *watcherSuite) TestWatchStorageAttachmentForUnitForVolume(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchStorageAttachmentForUnitForFilesystem(c *tc.C) {
+func (s *watcherSuite) TestWatchStorageAttachmentForFilesystem(c *tc.C) {
 	svc := s.setupService(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, storageID := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
 	fsUUID, _ := s.newMachineFilesystem(c)
 
-	watcher, err := svc.WatchStorageAttachmentForUnit(
-		c.Context(), storageID, unitUUID,
+	watcher, err := svc.WatchStorageAttachment(
+		c.Context(), storageAttachmentUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1713,14 +1713,14 @@ func (s *watcherSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) string {
+) storageprovisioning.StorageAttachmentUUID {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)`,
 		saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
 	c.Assert(err, tc.ErrorIsNil)
-	return saUUID.String()
+	return saUUID
 }
 
 func (s *watcherSuite) newStorageInstanceFilesystem(

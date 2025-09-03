@@ -898,53 +898,6 @@ SELECT &volumeAttachmentParams.* FROM (
 	}, nil
 }
 
-// GetVolumeUUIDForStorageID returns the UUID for a volume with the supplied
-// storage ID.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage instance exists
-// for the provided storage ID.
-// - [storageprovisioningerrors.VolumeNotFound] when no volume exists
-// for the provided volume uuid.
-func (st *State) GetVolumeUUIDForStorageID(
-	ctx context.Context, storageID string,
-) (domainstorageprovisioning.VolumeUUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	dbVal := storageInstanceVolumeIdentifier{}
-	stmt, err := st.Prepare(`
-SELECT &storageInstanceVolumeIdentifier.*
-FROM   storage_instance_volume
-WHERE  storage_instance_uuid = $storageInstanceVolumeIdentifier.storage_instance_uuid`, dbVal)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		dbVal.StorageInstanceUUID, err = st.getStorageInstanceUUIDByStorageID(ctx, tx, storageID)
-		if err != nil {
-			return errors.Errorf("getting storage instance UUID for storage ID %q: %w", storageID, err)
-		}
-
-		err = tx.Query(ctx, stmt, dbVal).Get(&dbVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"volume for storage id %q does not exist", storageID,
-			).Add(storageprovisioningerrors.VolumeNotFound)
-		}
-		return err
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return domainstorageprovisioning.VolumeUUID(dbVal.VolumeUUID), nil
-}
-
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
 // watching volume life changes where the volume is machine provisioned. On top
 // of this the initial query for getting all volumes in the model that are

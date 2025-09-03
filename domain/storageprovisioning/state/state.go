@@ -372,14 +372,14 @@ WHERE  uuid = $unitUUID.uuid`, input)
 	return true, nil
 }
 
-func (st *State) getStorageInstanceUUIDByStorageID(
+func (st *State) checkStorageInstanceUUIDByStorageID(
 	ctx context.Context,
 	tx *sqlair.TX,
-	storageIDStr string,
-) (string, error) {
+	storageInstanceID string,
+) (bool, error) {
 
 	var (
-		idInput = storageID{ID: storageIDStr}
+		idInput = storageID{ID: storageInstanceID}
 		dbVal   storageInstanceUUID
 	)
 	uuidQuery, err := st.Prepare(`
@@ -390,21 +390,17 @@ WHERE  storage_id = $storageID.storage_id
 		idInput, dbVal,
 	)
 	if err != nil {
-		return "", errors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, uuidQuery, idInput).Get(&dbVal)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf(
-			"storage instance for storage id %q does not exist", storageIDStr,
-		).Add(storageprovisioningerrors.StorageInstanceNotFound)
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
 	}
 
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return dbVal.UUID, nil
+	return true, nil
 }
 
 func (st *State) checkStorageInstanceExists(
@@ -523,35 +519,34 @@ func (st *State) GetStorageAttachmentLifeForUnit(
 func (st *State) getStorageAttachmentLifeForUnit(
 	ctx context.Context,
 	db domain.TxnRunner,
-	unitUUID string,
+	unitNodeUUID string,
 ) (map[string]domainlife.Life, error) {
-	unitRef := unitUUIDRef{UUID: unitUUID}
+	unitUUIDInput := unitUUID{UUID: unitNodeUUID}
 
 	stmt, err := st.Prepare(`
-SELECT DISTINCT (si.storage_id, sa.life_id) AS (&storageAttachmentLife.*)
-FROM            storage_attachment sa
-JOIN            storage_instance si ON sa.storage_instance_uuid = si.uuid
-WHERE           sa.unit_uuid = $unitUUIDRef.unit_uuid
-`, unitRef, storageAttachmentLife{})
+SELECT (si.storage_id, sa.life_id) AS (&storageAttachmentLife.*)
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $unitUUID.uuid`, unitUUIDInput, storageAttachmentLife{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var saLives storageAttachmentLives
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if exists, err := st.checkUnitExists(ctx, tx, unitUUID); err != nil {
+		if exists, err := st.checkUnitExists(ctx, tx, unitNodeUUID); err != nil {
 			return errors.Capture(err)
 		} else if !exists {
-			return errors.Errorf("unit %q does not exist", unitUUID).Add(
+			return errors.Errorf("unit %q does not exist", unitNodeUUID).Add(
 				applicationerrors.UnitNotFound,
 			)
 		}
 
-		err = tx.Query(ctx, stmt, unitRef).GetAll(&saLives)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+		err = tx.Query(ctx, stmt, unitUUIDInput).GetAll(&saLives)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -659,9 +654,6 @@ AND    storage_instance_uuid = $storageAttachmentIdentifier.storage_instance_uui
 
 // InitialWatchStatementForUnitStorageAttachments returns the initial watch
 // statement for unit storage attachments.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist.
 func (st *State) InitialWatchStatementForUnitStorageAttachments(
 	ctx context.Context,
 	unitUUID string,
@@ -672,7 +664,7 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 	return "custom_storage_attachment_unit_uuid_lifecycle", queryFunc
 }
 
-// GetStorageAttachmentUUID returns the UUID of the storage attachment for
+// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
 // a given storage ID and network node UUID.
 //
 // The following errors may be returned:
@@ -681,17 +673,17 @@ func (st *State) InitialWatchStatementForUnitStorageAttachments(
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [storageprovisioningerrors.StorageAttachmentNotFound] if the
 // storage attachment does not exist.
-func (st *State) GetStorageAttachmentUUID(
+func (st *State) GetStorageAttachmentUUIDForUnit(
 	ctx context.Context,
-	storageIDStr, unitUUIDStr string,
+	storageInstanceID, unitUUID string,
 ) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 	var (
-		storageIDInput = storageID{ID: storageIDStr}
-		unitUUIDInput  = unitUUIDRef{UUID: unitUUIDStr}
+		storageIDInput = storageID{ID: storageInstanceID}
+		unitUUIDInput  = unitUUIDRef{UUID: unitUUID}
 		dbVal          entityUUID
 	)
 	stmt, err := st.Prepare(`
@@ -705,9 +697,12 @@ WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.uni
 		return "", errors.Capture(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if _, err := st.getStorageInstanceUUIDByStorageID(ctx, tx, storageIDInput.ID); err != nil {
-			// Check if storage instance exists for the provided storage ID.
+		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageIDInput.ID); err != nil {
 			return err
+		} else if !exists {
+			return errors.Errorf(
+				"storage instance %q does not exist", storageIDInput.ID,
+			).Add(storageprovisioningerrors.StorageInstanceNotFound)
 		}
 
 		if exists, err := st.checkUnitExists(ctx, tx, unitUUIDInput.UUID); err != nil {

@@ -113,16 +113,16 @@ type State interface {
 		ctx context.Context, unitUUID string,
 	) (map[string]domainlife.Life, error)
 
-	// GetStorageAttachmentUUID returns the UUID of the storage attachment for
-	// a given storage ID and network node UUID.
+	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for
+	// a given storage ID and unit UUID.
 	//
 	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
 	// instance does not exist for the provided storage ID.
-	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
 	// storage attachment does not exist.
-	GetStorageAttachmentUUID(
+	GetStorageAttachmentUUIDForUnit(
 		ctx context.Context, storageID, unitUUID string,
 	) (string, error)
 
@@ -346,14 +346,46 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	return rval, nil
 }
 
+// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
+// given storage ID and unit UUID.
+//
+// The following errors may be returned:
+// - [github.com/juju/juju/core/errors.NotValid] when the provided unit UUID
+// is not valid.
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+// instance does not exist for the provided storage ID.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+// storage attachment does not exist.
+func (s *Service) GetStorageAttachmentUUIDForUnit(
+	ctx context.Context,
+	storageID string,
+	unitUUID coreunit.UUID,
+) (storageprovisioning.StorageAttachmentUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUIDForUnit(ctx, storageID, unitUUID.String())
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return storageprovisioning.StorageAttachmentUUID(storageAttachmentUUID), nil
+}
+
 // WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
 // for the provided unit when the unit's storage attachments are changed.
 //
 // The following errors may be returned:
 // - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
 // is not valid.
-// - [applicationerrors.UnitNotFound] if the unit does not exist.
-func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error) {
+func (s *Service) WatchStorageAttachmentsForUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -378,40 +410,25 @@ func (s *Service) WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID c
 	)
 }
 
-// WatchStorageAttachmentForUnit returns a notification watcher for the
-// storage attachment of a unit.
-//
-// The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
-// is not valid.
-// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
-// instance does not exist for the provided storage ID.
-// - [applicationerrors.UnitNotFound] if the unit does not exist.
-// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
-// storage attachment does not exist.
-func (s *Service) WatchStorageAttachmentForUnit(
+// WatchStorageAttachment returns a notification watcher for the
+// storage attachment.
+func (s *Service) WatchStorageAttachment(
 	ctx context.Context,
-	storageID string,
-	unitUUID coreunit.UUID,
+	uuid storageprovisioning.StorageAttachmentUUID,
 ) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	storageAttachmentUUID, err := s.st.GetStorageAttachmentUUID(ctx, storageID, unitUUID.String())
-	if err != nil {
+	if err := uuid.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	return s.watcherFactory.NewNotifyWatcher(ctx,
-		fmt.Sprintf("storage attachment watcher for unit %q storage ID %q", unitUUID, storageID),
+		fmt.Sprintf("storage attachment watcher for %q", uuid),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForStorageAttachment(),
 			changestream.All,
-			eventsource.EqualsPredicate(storageAttachmentUUID),
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
 }

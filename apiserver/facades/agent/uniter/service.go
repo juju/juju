@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -606,27 +607,26 @@ type StorageProvisioningService interface {
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
 
+	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
+	// given storage ID and unit UUID.
+	//
+	// The following errors may be returned:
+	// - [applicationerrors.UnitNotFound] if the unit does not exist.
+	// - [storageprovisioningerrors.StorageInstanceNotFound] if the storage
+	// instance does not exist for the provided storage ID.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] if the
+	// storage attachment does not exist.
+	GetStorageAttachmentUUIDForUnit(
+		ctx context.Context, storageID string, unitUUID coreunit.UUID,
+	) (storageprovisioning.StorageAttachmentUUID, error)
+
 	// WatchStorageAttachmentsForUnit returns a watcher that emits the storage IDs
 	// for the provided unit when the unit's storage attachments are changed.
-	//
-	// The following errors may be returned:
-	// - [applicationerrors.UnitNotFound] if the unit does not exist.
 	WatchStorageAttachmentsForUnit(ctx context.Context, unitUUID coreunit.UUID) (watcher.StringsWatcher, error)
 
-	// WatchStorageAttachmentForUnit returns a notification watcher for the
-	// storage attachment of a unit.
-	//
-	// The following errors may be returned:
-	// - [github.com/juju/juju/core/errors.NotValid] when the provided unit uuid
-	// is not valid.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageInstanceNotFound] if the storage
-	// instance does not exist for the provided storage ID.
-	// - [applicationerrors.UnitNotFound] if the unit does not exist.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.StorageAttachmentNotFound] if the
-	// storage attachment does not exist.
-	WatchStorageAttachmentForUnit(
-		ctx context.Context,
-		storageID string,
-		unitUUID coreunit.UUID,
+	// WatchStorageAttachment returns a notification watcher for the
+	// storage attachment.
+	WatchStorageAttachment(
+		ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
 	) (watcher.NotifyWatcher, error)
 }

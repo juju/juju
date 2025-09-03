@@ -31,8 +31,8 @@ func (l attachmentLives) Iter(yield func(string, life.Life) bool) {
 }
 
 type storageAttachmentLife struct {
-	ID   string    `db:"storage_id"`
-	Life life.Life `db:"life_id"`
+	StorageInstanceID string    `db:"storage_id"`
+	Life              life.Life `db:"life_id"`
 }
 
 type storageAttachmentLives []storageAttachmentLife
@@ -41,7 +41,7 @@ type storageAttachmentLives []storageAttachmentLife
 // [storageAttachmentLives].
 func (l storageAttachmentLives) Iter(yield func(string, life.Life) bool) {
 	for _, v := range l {
-		if !yield(v.ID, v.Life) {
+		if !yield(v.StorageInstanceID, v.Life) {
 			return
 		}
 	}

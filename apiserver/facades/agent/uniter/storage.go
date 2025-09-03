@@ -254,11 +254,7 @@ func (s *StorageAPI) WatchUnitStorageAttachments(ctx context.Context, args param
 		}
 
 		w, err := s.storageProvisioningService.WatchStorageAttachmentsForUnit(ctx, unitUUID)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return nil, internalerrors.Errorf(
-				"unit %q not found: %w", unitTag.Id(), err,
-			).Add(errors.NotFound)
-		} else if err != nil {
+		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
 		return w, nil
@@ -309,26 +305,32 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		w, err := s.storageProvisioningService.WatchStorageAttachmentForUnit(ctx, storageTag.Id(), unitUUID)
+		storageAttachmentUUID, err := s.storageProvisioningService.GetStorageAttachmentUUIDForUnit(ctx, storageTag.Id(), unitUUID)
 		switch {
-		case errors.Is(err, coreerrors.NotValid):
-			return nil, internalerrors.Errorf(
-				"unit UUID %q is not valid: %w", unitUUID, err,
-			).Add(errors.NotValid)
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			return nil, internalerrors.Errorf(
-				"unit %q not found: %w", unitTag.Id(), err,
-			).Add(errors.NotFound)
+				"unit %q not found", unitTag.Id(),
+			).Add(coreerrors.NotFound)
 		case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
 			return nil, internalerrors.Errorf(
-				"storage instance not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
-			).Add(errors.NotFound)
+				"storage instance not found for %q %q", storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
 		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
 			return nil, internalerrors.Errorf(
-				"storage attachment not found for %q %q: %w", storageTag.Id(), unitTag.Id(), err,
-			).Add(errors.NotFound)
+				"storage attachment not found for %q %q", storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
 		case err != nil:
-			return nil, internalerrors.Capture(err)
+			return nil, internalerrors.Errorf(
+				"getting storage attachment uuid for %q unit %q: %w",
+				storageTag.Id(), id.UnitTag, err,
+			)
+		}
+		w, err := s.storageProvisioningService.WatchStorageAttachment(ctx, storageAttachmentUUID)
+		if err != nil {
+			return nil, internalerrors.Errorf(
+				"watching storage attachment for %q unit %q: %w",
+				storageTag.Id(), id.UnitTag, err,
+			)
 		}
 		return w, nil
 	}
@@ -342,10 +344,10 @@ func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.St
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		if results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
+		results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(
 			ctx, s.watcherRegistry, w,
-		); err != nil {
+		)
+		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
