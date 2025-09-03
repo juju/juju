@@ -31,7 +31,6 @@ type permissionStateSuite struct {
 	controllerUUID   string
 	modelUUID        coremodel.UUID
 	defaultModelUUID coremodel.UUID
-	debug            bool
 }
 
 func TestPermissionStateSuite(t *testing.T) {
@@ -1222,14 +1221,6 @@ func (s *permissionStateSuite) setupForRead(c *tc.C, st *PermissionState) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	if s.debug {
-		s.printUsers(c)
-		s.printUserAuthentication(c)
-		s.printClouds(c)
-		s.printPermissions(c)
-		s.printRead(c)
-		s.printModels(c)
-	}
 }
 
 func (s *permissionStateSuite) ensureUser(c *tc.C, userUUID, name, createdByUUID string, external bool) {
@@ -1276,119 +1267,4 @@ func (s *permissionStateSuite) ensureCloud(c *tc.C, cloudUUID, cloudName, credUU
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *permissionStateSuite) printPermissions(c *tc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, access_type_id, object_type_id, grant_to, grant_on
-FROM permission
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		userUuid, grantTo, grantOn string
-		accessTypeID, objectTypeID int
-	)
-
-	c.Logf("PERMISSIONS")
-	for rows.Next() {
-		err := rows.Scan(&userUuid, &accessTypeID, &objectTypeID, &grantTo, &grantOn)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("%q, %d, %d, %q, %q", userUuid, accessTypeID, objectTypeID, grantTo, grantOn)
-	}
-}
-
-func (s *permissionStateSuite) printUsers(c *tc.C) {
-	rows, _ := s.DB().Query(`
-SELECT u.uuid, u.name, u.created_by_uuid,  u.removed
-FROM v_user_auth u
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		rowUUID, name string
-		creatorUUID   user.UUID
-		removed       bool
-	)
-	c.Logf("USERS")
-	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name, &creatorUUID, &removed)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("LINE %q, %q, %q,  %t", rowUUID, name, creatorUUID, removed)
-	}
-}
-
-func (s *permissionStateSuite) printUserAuthentication(c *tc.C) {
-	rows, _ := s.DB().Query(`
-SELECT user_uuid, disabled
-FROM user_authentication
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		userUUID string
-		disabled bool
-	)
-	c.Logf("USERS AUTHENTICATION")
-	for rows.Next() {
-		err := rows.Scan(&userUUID, &disabled)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("LINE %q, %t", userUUID, disabled)
-	}
-}
-
-func (s *permissionStateSuite) printRead(c *tc.C) {
-	q := `
-SELECT  p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type,
-        u.uuid, u.name, creator.name
-FROM    v_user_auth u
-        JOIN user AS creator ON u.created_by_uuid = creator.uuid
-        JOIN v_permission p ON u.uuid = p.grant_to
-`
-	rows, _ := s.DB().Query(q)
-	defer func() { _ = rows.Close() }()
-	var (
-		permUUID, grantOn, grantTo, accessType, objectType string
-		userUUID, userName, createName                     string
-	)
-	c.Logf("READ")
-	for rows.Next() {
-		err := rows.Scan(&permUUID, &grantOn, &grantTo, &accessType, &objectType, &userUUID, &userName, &createName)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("LINE: uuid %q, on %q, to %q, access %q, object %q, user uuid %q, user name %q, creator name%q", permUUID, grantOn, grantTo, accessType, objectType, userUUID, userName, createName)
-	}
-}
-
-func (s *permissionStateSuite) printClouds(c *tc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, name
-FROM cloud
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		rowUUID, name string
-	)
-
-	c.Logf("CLOUDS")
-	for rows.Next() {
-		err := rows.Scan(&rowUUID, &name)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("LINE: uuid %q, name %q", rowUUID, name)
-	}
-}
-
-func (s *permissionStateSuite) printModels(c *tc.C) {
-	rows, _ := s.DB().Query(`
-SELECT uuid, name, cloud_name, cloud_credential_cloud_name, cloud_credential_name, cloud_credential_owner_name
-FROM v_model
-`)
-	defer func() { _ = rows.Close() }()
-	var (
-		muuid, mname, cname, cccname, ccname, cconame string
-	)
-
-	c.Logf("MODELS")
-	for rows.Next() {
-		err := rows.Scan(&muuid, &mname, &cname, &cccname, &ccname, &cconame)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Logf("LINE model-uuid: %q, model-name: %q, cloud-name: %q, cloud-cred-cloud-name: %q, cloud-cred-name: %q, cloud-cred-owner-name: %q",
-			muuid, mname, cname, cccname, ccname, cconame)
-	}
 }
