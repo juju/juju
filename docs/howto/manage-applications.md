@@ -16,36 +16,6 @@ To deploy an application, find and deploy a charm / bundle that delivers it.
 See more: {ref}`deploy-a-charm`
 ```
 
-````{note}
-
-- **Machines:**
-
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
-
-For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
-
-```text
-juju deploy <charm> --debug --verbose
-```
-
-If it still fails,  connect to the machine and examine the logs.
-
-```{ibnote}
-See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
-```
-
-- **Kubernetes:**
-
-Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
-
-```text
-
-kubectl exec <pod> -itc <container> -n <namespace> -- bash
-```
-
-````
-
-
 (view-details-about-an-application)=
 ## View details about an application
 
@@ -64,7 +34,10 @@ See more: {ref}`command-juju-deploy`
 
 
 ## Set the machine base for an application
-> Only for machine clouds.
+
+```{note}
+Only for machine clouds.
+```
 
 You can set the base for the machines provisioned by Juju for your application's units either during deployment or after.
 
@@ -350,9 +323,7 @@ juju expose percona-cluster --endpoints db-admin --to-cidrs 10.0.0.0/24
 
 ```
 
-```{important}
 To override an initial `expose` command, run the command again with the new desired specifications.
-```
 
 ```{ibnote}
 See more: {ref}`command-juju-expose`
@@ -404,7 +375,7 @@ See more: {ref}`command-juju-unexpose`
 ## Manage constraints for an application
 
 ```{ibnote}
-See also: {ref}`constraint`
+See also: {ref}`constraint`, {ref}`list-of-constraints`
 ```
 
 **Set values.** You can set constraints for an application during deployment or later.
@@ -441,16 +412,6 @@ juju deploy redis -n 2 --constraints zones=us-east-1a,us-east-1d
 See more: {ref}`command-juju-deploy`
 ```
 
-```{caution}
-**If you want to use the `image-id` constraint with `juju deploy`:** <br>
-You must also use the `--base` flag of the command. The base specified via `--base` will be used to determine the charm revision deployed on the resource created with the `image-id` constraint.
-```
-
-```{ibnote}
-See more: {ref}`command-juju-deploy`
-```
-
-
 <!--CLARIFY:
 --base on its own does two things: (1) it determines the OS to be used on the provisioned machines; (2) it determines the charm revision to be deployed on the provisioned machines. In conjunction with `image-id`, though, it only does (2) -- part (1) is overridden by the (unknown) OS specified in the image chosen via `image-id`.
 -->
@@ -459,10 +420,6 @@ See more: {ref}`command-juju-deploy`
 
 ``` text
 juju set-constraints mariadb cores=2
-```
-
-```{tip}
-To reset a constraint key to its default value, run the command with the value part empty (e.g., `juju deploy apache2 --constraints mem= `).
 ```
 
 ```{ibnote}
@@ -477,6 +434,15 @@ juju constraints mariadb
 
 ```{ibnote}
 See more: {ref}`command-juju-constraints`
+```
+
+**Reset values.** To reset an application's constraint key to its default value, use the usual set procedure leaving the constraint value part empty. For example:
+
+```text
+juju set-constraints apache2 mem=
+```
+```{ibnote}
+See more: {ref}`command-juju-set-constraints`
 ```
 
 ## Change space bindings for an application
@@ -531,9 +497,6 @@ See also: {ref}`removing-things`
 
 To remove an application, run the `remove-application` command followed by the name of the application. For example:
 
-```{caution}
-Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application.
-```
 
 ```text
 juju remove-application kafka
@@ -543,29 +506,19 @@ This will issue a warning with a list of all the pieces to be removed and a requ
 
 All associated resources will also be removed, provided they are not hosting containers or another application's units.
 
-If persistent storage is in use by the application it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
+If persistent storage is in use by the application, it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
-```{note}
-It it normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
-```
+If the application has relations with another application, this relation will be terminated (which may adversely affect the other application).
+
+Note: It it normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
+
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-application`
 ```
 
 
-````{note} Troubleshooting:
-
-````{dropdown} One or more units are stuck in error state
-
-If the status of one or more of the units being removed is error, Juju will not proceed until the error has been resolved or the remove applications command has been run again with the force flag.
-
-```{ibnote}
-See more: {ref}`mark-unit-errors-as-resolved`
-```
-
-```
-````
+`````{dropdown} Troubleshooting
 
 Behind the scenes, the application removal consists of multiple different stages. If something goes wrong, it can be useful to determine in which step it happened. The steps are the following:
 - The client tells the controller to remove the application.
@@ -580,5 +533,18 @@ Behind the scenes, the application removal consists of multiple different stages
     purposes.
 - The application and all its units are then removed.
 - In the case that this leaves machines with no running applications, the machines are also removed.
+
+
+
+````{dropdown} One or more units are stuck in error state
+
+If the status of one or more of the units being removed is error, Juju will not proceed until the error has been resolved or the remove applications command has been run again with the force flag.
+
+```{ibnote}
+See more: {ref}`mark-unit-errors-as-resolved`
+```
+
+````
+`````
 
 
