@@ -370,7 +370,7 @@ If the leader unit is rescheduled, or removed entirely. When the new leader is e
 | :-------: | -------------------------- | ------------------------------------ |
 |  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
 
-> Since this event needs leadership changes to trigger, check out {ref}`triggers for the leader-electe hook <hook-leader-elected>` as the same situations apply for `leader-settings-changed`.
+> Since this event needs leadership changes to trigger, check out the triggers for the {ref}`hook-leader-elected`, as the same situations apply for the {ref}`hook-leader-settings-changed` too.
 
 <!--
 *Which hooks can be guaranteed to have fired before it, if any?*?
@@ -859,8 +859,8 @@ The secret rotation interval is specified using a named rotation policy, one of:
 
 *Which environment variables is it executed with?*
 
-* JUJU_SECRET_ID holds the ID of the secret that needs rotation.
-* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+* `JUJU_SECRET_ID` holds the ID of the secret that needs rotation.
+* `JUJU_SECRET_LABEL` holds the label given to the secret by the owner.
 
 *Who gets it*?
 
