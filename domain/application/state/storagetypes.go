@@ -11,10 +11,11 @@ import (
 // application_storage_directive table representing the storage directives of
 // an application.
 type applicationStorageDirective struct {
-	Count           uint32 `db:"count"`
-	SizeMiB         uint64 `db:"size_mib"`
-	StorageName     string `db:"storage_name"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+	Count            uint32 `db:"count"`
+	CharmStorageKind string `db:"kind"`
+	SizeMiB          uint64 `db:"size_mib"`
+	StorageName      string `db:"storage_name"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
 }
 
 // insertStorageFilesystem represents the set of values required for inserting a

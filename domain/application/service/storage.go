@@ -22,6 +22,31 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+// cachedStoragePoolProvider is a special implementation of
+// [StoragePoolProvider] it exists to provide a temporary read through cache of
+// storage providers used by a storage pool.
+//
+// For example if the provider is asked to provide the provider for a storage
+// pool it will cache the provider so that future questions of the same pool can
+// return the provider in the cache.
+//
+// This type exists to be short lived. It should only ever be created for single
+// operation that requires fetching a storage pools provide multiple times in
+// the operation.
+//
+// This implementation is NOT thread safe and never will be. Short operations
+// with a defined end that ask the same question repeatedly is that this type
+// exists to solve.
+type cachedStoragePoolProvider struct {
+	// Cache is the internal cache used. This value must be initialised by the
+	// user.
+	Cache map[domainstorage.StoragePoolUUID]storage.Provider
+
+	// StoragePoolProvider is the storage pool provider that is wrapped by this
+	// cache.
+	StoragePoolProvider
+}
+
 // StoragePoolProvider defines an interface by where provider based questions
 // for storage pools can be asked. This interface acts as the bridge between a
 // storage pool and the underlying provider that is used.
@@ -342,6 +367,36 @@ func (v *DefaultStoragePoolProvider) GetProviderForPool(
 	return provider, nil
 }
 
+// GetProviderForPool returns the storage provider associated with the given
+// storage pool. This func will first consult the cache to see if the provider
+// is available there and then if not proxy the call through to the underlying
+// [StorageProviderPool].
+//
+// This func is not thread safe and never will be. Implements the
+// [StorageProviderPool] interface.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] if the provided pool uuid is not valid.
+// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// provided pool uuid.
+func (c cachedStoragePoolProvider) GetProviderForPool(
+	ctx context.Context,
+	poolUUID domainstorage.StoragePoolUUID,
+) (storage.Provider, error) {
+	provider, has := c.Cache[poolUUID]
+	if has {
+		return provider, nil
+	}
+
+	provider, err := c.StoragePoolProvider.GetProviderForPool(ctx, poolUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Cache[poolUUID] = provider
+	return provider, nil
+}
+
 // DetachStorageForUnit detaches the specified storage from the specified unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
@@ -422,18 +477,26 @@ func (s *ProviderService) getUnitStorageInfo(
 	return storageDirectives, existingUnitStorage, nil
 }
 
-// makeUnitStorageArgs creates the storage arguments required for a CAAS unit in
+// makeUnitStorageArgs creates the storage arguments required for a unit in
 // the model. This func looks at the set of directives for the unit and the
 // existing storage available. From this any new instances that need to be
 // created are calculated and all storage attachments are added.
 func makeUnitStorageArgs(
+	ctx context.Context,
+	storagePoolProvider StoragePoolProvider,
 	storageDirectives []application.StorageDirective,
 	existingStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
 ) (application.CreateUnitStorageArg, error) {
 	rvalDirectives := make([]application.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []application.CreateUnitStorageInstanceArg{}
 	rvalToAttach := make([]application.CreateStorageAttachmentArg, 0, len(storageDirectives))
+	// rvalToOwn is the list of storage instance uuid's that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
+
+	storagePoolProvider = cachedStoragePoolProvider{
+		Cache:               map[domainstorage.StoragePoolUUID]storage.Provider{},
+		StoragePoolProvider: storagePoolProvider,
+	}
 
 	for _, sd := range storageDirectives {
 		// We make the storage directive args first. This is becase we know we
@@ -463,12 +526,18 @@ func makeUnitStorageArgs(
 				numExistingStorage, sd.Name, sd.Count,
 			)
 		}
+
 		// Remove the already existing storage instances from the count.
+		// The remainder being what needs to be created.
 		sd.Count -= numExistingStorage
 
 		rvalToOwn = append(rvalToOwn, existingStorageUUIDs...)
 
-		instArgs, err := makeUnitStorageInstancesFromDirective(sd)
+		instArgs, err := makeUnitStorageInstancesFromDirective(
+			ctx,
+			storagePoolProvider,
+			sd,
+		)
 		if err != nil {
 			return application.CreateUnitStorageArg{}, errors.Errorf(
 				"making new storage instance args: %w", err,
@@ -516,12 +585,62 @@ func makeStorageAttachmentArgs(
 	return attachments, nil
 }
 
+// encodeStorageKindFromCharmStorageType provides a mapping from charm storage
+// type to storage kind.
+func encodeStorageKindFromCharmStorageType(
+	storageType internalcharm.StorageType,
+) (domainstorageprov.Kind, error) {
+	switch storageType {
+	case internalcharm.StorageBlock:
+		return domainstorageprov.KindBlock, nil
+	case internalcharm.StorageFilesystem:
+		return domainstorageprov.KindFilesystem, nil
+	default:
+		return -1, errors.Errorf(
+			"no mapping exists from charm storage type %q to storage kind",
+			storageType,
+		)
+	}
+}
+
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage
 // directive and creating a set of storage instance args that are capable of
 // fulfilling the requirements of the directive.
 func makeUnitStorageInstancesFromDirective(
+	ctx context.Context,
+	storagePoolProvider StoragePoolProvider,
 	directive application.StorageDirective,
 ) ([]application.CreateUnitStorageInstanceArg, error) {
+	// Early exit if no storage instances are to be created. Save's a lot of
+	// busy work that goes unused.
+	if directive.Count == 0 {
+		return nil, nil
+	}
+
+	storageKind, err := encodeStorageKindFromCharmStorageType(directive.Type)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	provider, err := storagePoolProvider.GetProviderForPool(
+		ctx, directive.PoolUUID,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting storage provider for storage directive pool %q: %w",
+			directive.PoolUUID, err,
+		)
+	}
+
+	composition, err := domainstorageprov.CalculateStorageInstanceComposition(
+		storageKind, provider,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"calculating storage entity composition for directive: %w", err,
+		)
+	}
+
 	rval := make([]application.CreateUnitStorageInstanceArg, 0, directive.Count)
 	for range directive.Count {
 		uuid, err := domainstorage.NewStorageInstanceUUID()
@@ -531,21 +650,40 @@ func makeUnitStorageInstancesFromDirective(
 			)
 		}
 
-		fsUUID, err := domainstorageprov.NewFilesystemUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new storage filesystem uuid: %w", err,
-			)
+		instArg := application.CreateUnitStorageInstanceArg{
+			Name: directive.Name,
+			UUID: uuid,
 		}
-		// TODO (tlm): We are only focused on Kubernetes storage working at the
-		// moment. For that reason we are just hardcoding out volume and
-		// filesystem. This will be updated to cover all storage and for a
-		// machine in the near future.
-		rval = append(rval, application.CreateUnitStorageInstanceArg{
-			Name:           directive.Name,
-			UUID:           uuid,
-			FilesystemUUID: &fsUUID,
-		})
+
+		if composition.FilesystemRequired {
+			u, err := domainstorageprov.NewFilesystemUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new storage filesystem uuid: %w", err,
+				)
+			}
+
+			instArg.Filesystem = &application.CreateUnitStorageFilesystemArg{
+				UUID:           u,
+				ProvisionScope: composition.FilesystemProvisionScope,
+			}
+		}
+
+		if composition.VolumeRequired {
+			u, err := domainstorageprov.NewVolumeUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new storage volume uuid: %w", err,
+				)
+			}
+
+			instArg.Volume = &application.CreateUnitStorageVolumeArg{
+				UUID:           u,
+				ProvisionScope: composition.VolumeProvisionScope,
+			}
+		}
+
+		rval = append(rval, instArg)
 	}
 
 	return rval, nil
@@ -555,6 +693,7 @@ func makeUnitStorageInstancesFromDirective(
 // directive create params for an application and converting them into
 // [application.StorageDirective] types for creating units.
 func makeStorageDirectiveFromApplicationArg(
+	charmStorage map[string]internalcharm.Storage,
 	applicationArgs []application.CreateApplicationStorageDirectiveArg,
 ) []application.StorageDirective {
 	rval := make([]application.StorageDirective, 0, len(applicationArgs))
@@ -562,6 +701,7 @@ func makeStorageDirectiveFromApplicationArg(
 		rval = append(rval, application.StorageDirective{
 			Name:     arg.Name,
 			Count:    arg.Count,
+			Type:     charmStorage[arg.Name.String()].Type,
 			PoolUUID: arg.PoolUUID,
 			Size:     arg.Size,
 		})

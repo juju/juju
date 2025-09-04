@@ -291,7 +291,7 @@ func (s *ProviderService) AddIAASUnits(
 	}
 
 	args, err := s.makeIAASUnitArgs(
-		units, storageDirectives, origin.Platform, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, origin.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return nil, nil, errors.Errorf("making IAAS unit args: %w", err)
@@ -357,7 +357,7 @@ func (s *ProviderService) AddCAASUnits(
 	}
 
 	args, err := s.makeCAASUnitArgs(
-		units, storageDirectives, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return nil, errors.Errorf("making CAAS unit args: %w", err)
@@ -660,7 +660,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 	}
 
 	unitStorageArgs, err := makeUnitStorageArgs(
-		directivesToFollow, existingUnitStorage,
+		ctx, s.storagePoolProvider, directivesToFollow, existingUnitStorage,
 	)
 	if err != nil {
 		return application.RegisterUnitStorageArg{}, errors.Capture(err)
@@ -693,7 +693,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 		// We can safely assume that all CAAS units create filesystems but we
 		// are not in charge of the business logic here. So instead let us just
 		// skip this instance if it does not have a non filesystem uuid.
-		if inst.FilesystemUUID == nil {
+		if inst.Filesystem == nil {
 			continue
 		}
 
@@ -710,7 +710,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 
 		// Pop the first unassigned provider id and give it to the new
 		// filesystem.
-		filesystemProviderIDs[*inst.FilesystemUUID] = nameIDs[0]
+		filesystemProviderIDs[inst.Filesystem.UUID] = nameIDs[0]
 		unassignedNameMapping[inst.Name] = nameIDs[1:]
 	}
 
@@ -768,10 +768,11 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	}
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)
 	unitArgs, err := s.makeIAASUnitArgs(
-		units, storageDirectives, arg.Platform, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, arg.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
@@ -822,9 +823,12 @@ func (s *ProviderService) makeCAASApplicationArg(
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
 	}
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(arg.StorageDirectives)
+	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Storage,
+		arg.StorageDirectives,
+	)
 	unitArgs, err := s.makeCAASUnitArgs(
-		units, storageDirectives, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
