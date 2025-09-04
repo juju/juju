@@ -5,6 +5,9 @@
 -- both.
 CREATE TABLE operation (
     uuid TEXT NOT NULL PRIMARY KEY,
+    -- operation_id is a sequence number, and the sequence is shared with 
+    -- the operation_task.task_id sequence.
+    operation_id TEXT NOT NULL,
     summary TEXT,
     enqueued_at TIMESTAMP NOT NULL,
     started_at TIMESTAMP,
@@ -12,6 +15,9 @@ CREATE TABLE operation (
     parallel BOOLEAN DEFAULT false,
     execution_group TEXT
 );
+
+CREATE UNIQUE INDEX idx_operation_id
+ON operation (operation_id);
 
 -- operation_action is a join table to link an operation to its charm_action.
 CREATE TABLE operation_action (
@@ -41,6 +47,9 @@ CREATE TABLE operation_exec (
 CREATE TABLE operation_task (
     uuid TEXT NOT NULL PRIMARY KEY,
     operation_uuid TEXT NOT NULL,
+    -- task_id is a sequence number, and the sequence is shared with 
+    -- the operation.operation_id sequence.
+    task_id TEXT NOT NULL,
     enqueued_at DATETIME NOT NULL,
     started_at DATETIME,
     completed_at DATETIME,
@@ -48,6 +57,9 @@ CREATE TABLE operation_task (
     FOREIGN KEY (operation_uuid)
     REFERENCES operation (uuid)
 );
+
+CREATE UNIQUE INDEX idx_task_id
+ON operation_task (task_id);
 
 -- operation_unit_task is a join table to link a task with its unit receiver.
 CREATE TABLE operation_unit_task (
