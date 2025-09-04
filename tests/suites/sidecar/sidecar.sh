@@ -131,7 +131,6 @@ test_pebble_checks() {
 	destroy_model "${model_name}"
 }
 
-
 test_credential_get_k8s() {
 	if [ -n "$(skip 'test_credential_get_k8s')" ]; then
 		echo "==> SKIP: Asked to skip credential get k8s"
@@ -156,10 +155,10 @@ test_credential_get_k8s() {
 	out_default="$(juju run juju-qa-credential-get-k8s/0 hit-k8s-api-default)"
 	out_credget="$(juju run juju-qa-credential-get-k8s/0 hit-k8s-api-credential-get)"
 	if [ "$out_default" != "$out_credget" ]; then
-	    echo "Default in-cluster result differs from credential-get result:"
-	    echo -e "Default output:\n$out_default"
-	    echo -e "Credential-get output:\n$out_credget"
-	    exit 1
+		echo "Default in-cluster result differs from credential-get result:"
+		echo -e "Default output:\n$out_default"
+		echo -e "Credential-get output:\n$out_credget"
+		exit 1
 	fi
 
 	# Clean up model
