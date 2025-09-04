@@ -1,6 +1,10 @@
 (kubernetes-clouds-and-juju)=
 # Kubernetes clouds and Juju
 
+```{ibnote}
+See also: {ref}`list-of-supported-kubernetes-clouds`
+```
+
 In Juju, all Kubernetes clouds behave fundamentally the same.
 
 ## Kubernetes in Juju
