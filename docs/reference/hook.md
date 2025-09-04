@@ -144,15 +144,12 @@ All hooks share a lot of common behaviour in terms of the environment in which t
 are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
-Some hooks can also be grouped according to the Juju subsystem they represent. The hook kinds are:
-
-* relation: used to inform a charm about changes to related applications and units
-* secret: used to inform a charm about changes to secrets it either owns or has consumed
-* storage: used to inform a charm about changes to storage attached to its unit
-* upgrade series: used to coordinate upgrade of host OS (3.6 or earlier only)
-* workload: used to inform the charm about events related to a Pebble managed workload (currently Kubernetes only)
-
-The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds.
+Some hooks can also be grouped according to the Juju subsystem they represent. The hook kinds are
+* {ref}`relation-hooks`
+* {ref}`secret-hooks`
+* {ref}`storage-hooks`
+* {ref}`upgrade-series-hooks`
+* {ref}`workload-hooks`
 
 (hook-execution)=
 ## Hook execution
@@ -174,7 +171,7 @@ A charm's lifecycle consists of distinct **phases**:
 Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
 about hook sequencing during install, upgrade, and relation removal.
 
-In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
+In normal operation, a unit will run at least the {ref}`hook-install`, {ref}`hook-start`, {ref}`hook-config-changed` and {ref}`hook-stop` hooks over the course of its lifetime.
 
 (installation-phase)=
 ### Installation phase
@@ -202,12 +199,12 @@ This is covered in subsequent sections where hook kinds are explored in more det
 (upgrade-phase)=
 ### Upgrade phase
 
-When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-changed` hook.
+When a charm is upgraded, the {ref}`hook-upgrade-charm` hook is followed by a {ref}`hook-config-changed` hook.
 
-The `upgrade-charm` hook always runs once immediately after the charm directory
+The {ref}`hook-upgrade-charm` hook always runs once immediately after the charm directory
 contents have been changed by an unforced charm upgrade operation, and *may* do
 so after a forced upgrade; but will *not* be run after a forced upgrade from an
-existing error state. (Consequently, neither will the `config-changed` hook that
+existing error state. (Consequently, neither will the {ref}`hook-config-changed` hook that
 would ordinarily follow the {ref}`hook-upgrade-charm` hook.)
 
 (teardown-phase)=
@@ -219,7 +216,7 @@ When a unit is to be removed, the following hooks are executed:
 * {ref}`hook-storage-detaching` | {ref}`hook-relation-broken` (in any order)
 * {ref}`hook-remove`
 
-The `remove` event is the last event a unit will ever see before being removed.
+The {ref}`hook-remove` hook is the last hook a unit will ever see before being removed.
 
 ## Errors in hooks
 
@@ -241,12 +238,14 @@ having failed transiently (to ensure that they only request user intervention in
 the most trying circumstances) as well as careful to log any relevant
 information or advice before signalling the error.
 
-## Hooks in detail
+## List of hooks
 
-This section describes the workflows and associated hook events which are important to the operation of Juju.
+> [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
 
 (relation-hooks)=
 ### Relation hooks
+
+Relation hooks are used to inform a charm about changes to related applications and units.
 
 When an application becomes involved in a relation, each one of its units will start to receive relevant hook events
 for that relation. From the moment the relation is created, any unit involved in it can interact with it.
@@ -291,10 +290,10 @@ For example, if the `wordpress/0*` leader uses `relation-set` to write to its lo
 -->
 
 ```{note}
-"Immediately" only applies within the context of this particular relation - that is, when
-"foo-relation-joined" is run for unit "bar/99" in relation id "foo:123", the only guarantee is that
-the next hook to be run *in relation id "foo:123"* will be "foo-relation-changed" for "bar/99".
-Non-relation hooks may intervene, as may hooks for other relations, and even for other "foo" relations.
+"Immediately" only applies within the context of this particular relation --that is, when
+`foo-relation-joined` is run for unit `bar/99` in relation ID `foo:123`, the only guarantee is that
+the next hook to be run in relation ID `foo:123` will be `foo-relation-changed` for `bar/99`.
+Non-relation hooks may intervene, as may hooks for other relations, and even for other `foo` relations.
 ```
 
 A unit will depart a relation when either the relation or the unit itself is marked for termination. When this happens,
@@ -305,7 +304,7 @@ It's also still possible to call the `relation-set` hook command.
 
 The `relation-departed` hook also sets an additional environment variable:
 
-* JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
+* `JUJU_DEPARTING_UNIT` holds the name of the related unit departing the relation.
 
 The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself.
 Before this hook is run, a `relation-departed` hook will be executed for every unit known to be related; it will never run while the relation
@@ -319,227 +318,8 @@ Once `relation-broken` fires, however, the relation no longer exists. This is a 
 Both `relation-departed` and `relation-broken` will always fire, regardless of how the relation is terminated.
 ```
 
-(secret-hooks)=
-### Secret hooks
-
-Secret hooks operate in an environment with additional environment variables available:
-
-* `JUJU_SECRET_ID` holds the ID of the secret.
-* `JUJU_SECRET_LABEL` holds the label of the secret.
-* `JUJU_SECRET_REVISION` holds the revision of the secret.
-
-Secret hooks are used to:
-* inform the owner of a secret that a revision should be removed because it has expired.
-* inform the owner of a secret that it should be rotated because it has become stale.
-* inform the owner of a secret that unused revisions can safely be removed.
-* inform the consumer of a secret that a new revision is available.
-
-The `secret-expired` hook is triggered when the secret's expiry time has been reached and the expired secret revision should be removed.
-
-The `secret-rotate` hook is triggered when a secret has become stale at the end of its rotation interval and a new revision should be created.
-
-The `secret-remove` hook is triggered when there are revisions of a secret that are no longer being tracked by any consumers and can be safely removed.
-
-The `secret-changed` hook is triggered when there is a new revision available for a previously consumed secret.
-
-(storage-hooks)=
-### Storage hooks
-
-The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
-
-For every storage defined by a charm, storage hook events are named after the storage name:
-
-* `<storage_name>-storage-attached`
-* `<storage_name>-storage-detaching`
-
-For each charm storage, any or all of the above storage hooks can be implemented.
-Storage hooks operate in an environment with additional environment variables available:
-
-* `JUJU_STORAGE_ID` holds the ID of the storage.
-* `JUJU_STORAGE_LOCATION` holds the path at which the storage is mounted.
-* `JUJU_STORAGE_KIND` holds the kind of storage (`block` or `filesystem`).
-
-The `storage-attached` hook is triggered when new storage is available for the charm to use.
-
-```{note}
-For machine charms, all `storage-attached` hooks will be run before the `install` event fires.
-This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
-not receive the `install` event until such errors have been resolved.
-
-For Kubernetes charms, any `storage-attached` hooks are run some time after the `start` hook has completed.
-```
-
-The `storage-detaching` hook is triggered after the `stop` hook has completed and all such hooks will be run before triggering the `remove` hook.
-
-### Upgrade series hook
-
-This hook is run to inform the charm the version of the underlying OS will be upgraded.
-
-Upgrade series hooks operate in an environment with additional environment variables available:
-
-* `JUJU_TARGET_BASE` holds the target base for the machine.
-
-### Workload (pebble) hooks
-
-The hook names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
-
-Workload hooks operate in an environment with additional environment variables available:
-
-* `JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
-* `JUJU_NOTICE_ID` holds the Pebble notice ID.
-* `JUJU_NOTICE_TYPE` holds the Pebble notice type.
-* `JUJU_NOTICE_KEY` holds the Pebble notice key.
-* `JUJU_PEBBLE_CHECK_NAME` holds the name of the Pebble check.
-
-## List of hooks
-
-> [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
-
-(hook-config-changed)=
-### `config-changed`
-
-*What triggers it?*
-
-The `config-changed` hook always runs once immediately after the initial `install`, `leader-elected` hooks, and likewise after the `upgrade-charm` hook.
-
-It also runs whenever:
-* application configuration changes.
-* when any IP address of the machine hosting the unit changes.
-* when the trust value of the application changes.
-* when recovering from transient unit agent errors.
-
-*Which environment variables is it executed with?*
-
-All {ref}`the generic environment variables <hook-execution>`.
-
-*Who gets it*?
-
-When application config or trust has changed, all the units of an application for which the config has changed.
-When the networking on a machine has changed, any units deployed to that machine.
-
-
-<!--
-#### Pebble hooks
-> These hooks require an associated workload/container, and the name of the workload/container whose change triggered the hook. The hook file names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
--->
-
-(hook-container-pebble-check-failed)=
-### `<container>-pebble-check-failed`
-> Kubernetes sidecar charms only.
->
-> Added in Juju 3.6.
-
-*What triggers it?*
-
-A Pebble check passing the failure threshold.
-
-*Which environment variables is it executed with?*
-
-All {ref}`the generic environment variables <hook-execution>` and:
-
-* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
-* $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
-
-*Who gets it*?
-
-The charm responsible for the container to which the hook pertains.
-
-(hook-container-pebble-check-recovered)=
-### `<container>-pebble-check-recovered`
-> Kubernetes sidecar charms only.
->
-> Added in Juju 3.6.
-
-*What triggers it?*
-
-A Pebble check passing after previously reaching the failure threshold.
-
-*Which environment variables is it executed with?*
-
-All {ref}`the generic environment variables <hook-execution>` and:
-
-* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
-* $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
-
-*Who gets it*?
-
-The charm responsible for the container to which the hook pertains.
-
-(hook-container-pebble-custom-notice)=
-### `<container>-pebble-custom-notice`
-> Kubernetes sidecar charms only
-
-*What triggers it?*
-
-A Pebble notice of type "custom" occurring.
-
-*Which environment variables is it executed with?*
-
-All {ref}`the generic environment variables <hook-execution>` and:
-
-* `JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
-* `JUJU_NOTICE_ID` holds the Pebble notice ID.
-* `JUJU_NOTICE_TYPE` holds the Pebble notice type.
-* `JUJU_NOTICE_KEY` holds the Pebble notice key.
-
-*Who gets it*?
-
-The charm responsible for the container to which the hook pertains.
-
-(hook-container-pebble-ready)=
-### `<container>-pebble-ready`
-> Kubernetes sidecar charms only.
-
-*What triggers it?*
-
-The requested container being ready.
-
-The `pebble-ready` event doesn't guarantee the workload container is *still* up. For example, if you manually `kubectl patch` during (for example) `install`, then you may receive this event after the old workload is down but before the new one is up.
-For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/reference/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/reference/ops-testing.html#ops.testing.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
-
-Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of a charm's lifecycle. Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
-
-This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
-
-
-*Which environment variables is it executed with?*
-
-* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
-
-*Who gets it*?
-
-The charm responsible for the container to which the hook pertains.
-
-<!--
-
-<a href="#heading--relation-event-triggers"><h2 id="heading--relation-event-triggers">Relation event triggers</h2></a>
-
-Relation events trigger as a response to changes in the Juju model relation topology. When a new relation is created or removed, events are fired on all units of both involved applications.
-
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | ---------------------------------------- | ------------------------------------ |
-|  Relate   | `juju integrate foo:a bar:b`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-created -> b-relation-changed` |
-|  Remove relation   | `juju remove-relation foo:a bar:b`     | `(foo): a-relation-broken`<br> `(bar): b-relation-broken` |
-
-If you have two already related applications, and one of them gains or loses a unit, then the newly added unit will receive the same event sequences as if it had just been related (from its point of view, the relation is 'brand new'), while the units that were there already receive a `-relation-joined` event.
-Similarly if a unit is removed, that unit will receive `-relation-broken`, while the ones that remain will see a `-relation-departed`.
-
-|  Scenario   | Example Command                          | Resulting Events                     |
-| :-------: | ---------------------------------------- | ------------------------------------ |
-|  Add unit   | `juju add-unit foo -n 1`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-joined -> b-relation-changed` |
-|  Remove relation   | `juju remove-unit foo:a --num-units 1`     | `(foo): a-relation-broken`<br> `(bar): b-relation-departed` |
-
-```{note}
-
-`-relation-changed` events are not only fired as part of these event sequences, but also whenever a unit touches the relation data.
-As such, contrary to many other events, `-relation-changed` events are mostly triggered by charm code (and not by the cloud admin doing things on the Juju model).
-
-```
--->
-
-
 (hook-relation-broken)=
-### `<endpoint>-relation-broken`
+#### `<endpoint>-relation-broken`
 
 *What triggers it?*
 
@@ -574,7 +354,7 @@ TBA
 -->
 
 (hook-relation-changed)=
-### `<endpoint>-relation-changed`
+#### `<endpoint>-relation-changed`
 
 
 *What triggers it?*
@@ -632,7 +412,7 @@ TBA
 -->
 
 (hook-relation-created)=
-### `<endpoint>-relation-created`
+#### `<endpoint>-relation-created`
 
 *What triggers it?*
 
@@ -672,7 +452,7 @@ TBA
 -->
 
 (hook-relation-departed)=
-### `<endpoint>-relation-departed`
+#### `<endpoint>-relation-departed`
 
 *What triggers it?*
 
@@ -744,7 +524,7 @@ TBA
 -->
 
 (hook-relation-joined)=
-### `<endpoint>-relation-joined`
+#### `<endpoint>-relation-joined`
 
 *What triggers it?*
 
@@ -802,8 +582,460 @@ TBA
 TBA
 -->
 
+(secret-hooks)=
+### Secret hooks
+
+Secret hooks operate in an environment with additional environment variables available:
+
+* `JUJU_SECRET_ID` holds the ID of the secret.
+* `JUJU_SECRET_LABEL` holds the label of the secret.
+* `JUJU_SECRET_REVISION` holds the revision of the secret.
+
+Secret hooks are used to:
+* inform the owner of a secret that a revision should be removed because it has expired.
+* inform the owner of a secret that it should be rotated because it has become stale.
+* inform the owner of a secret that unused revisions can safely be removed.
+* inform the consumer of a secret that a new revision is available.
+
+The `secret-expired` hook is triggered when the secret's expiry time has been reached and the expired secret revision should be removed.
+
+The `secret-rotate` hook is triggered when a secret has become stale at the end of its rotation interval and a new revision should be created.
+
+The `secret-remove` hook is triggered when there are revisions of a secret that are no longer being tracked by any consumers and can be safely removed.
+
+The `secret-changed` hook is triggered when there is a new revision available for a previously consumed secret.
+
+(hook-secret-changed)=
+#### `secret-changed`
+
+*What triggers it?*
+
+When a charm reads the content of a secret to which it has been granted access, it becomes a consumer of that secret.
+Having become a secret consumer, a charm receives the `secret-changed` event when the secret owner publishes a new secret revision.
+This event gives the consuming charm the chance to read the updated content of the latest secret revision.
+
+*Which environment variables is it executed with?*
+
+* JUJU_SECRET_ID holds the ID of the secret that has a new revision.
+* JUJU_SECRET_LABEL holds the label given to the secret by the consumer.
+
+The secret label can be set whenever a secret's content is read by passing `--label <label>` to the `secret-get` command.
+Thereafter, any subsequent `secret-changed` hooks will be run with this label.
+
+*Who gets it*?
+
+All units observing the affected secret.
+
+```{note}
+Upon receiving that event (or at any time after that) a consumer can choose to:
+
+ - Start tracking the latest revision by passing `--refresh` to the `secret-get` command.
+ - Inspect the latest revision value, without tracking it just yet by passing `--peek` to the `secret-get` command.
+
+ Without `--refresh` or `--peek`, the `secret-get` command continues to return the previously tracked revision, which may not be the latest.
+
+Once all consumers have stopped tracking a specific outdated revision, the owner will receive a `secret-remove` hook to be notified of that fact, and can then remove that revision.
+```
+
+(hook-secret-expired)=
+#### `secret-expired`
+
+> Currently supported only for {ref}`charm secrets <charm-secret>`.
+
+```{versionadded} 3.0.2
+```
+
+*What triggers it?*
+
+Secret expiration enables the charm to define a moment in time when the given secret is obsoleted and should effectively stop working.
+At that moment, Juju will inform the charm via the secret-expired hook that the given secret is expiring, at which point the charm has a chance to remove that particular secret revision from the model with the `secret-remove` command.
+
+```{note}
+Until the charm indeed removes the expired secret revision, Juju will continue to regularly call the `secret-expired` hook to notify that the secret revision is supposed to be dropped.
+```
+
+*Which environment variables is it executed with?*
+
+* JUJU_SECRET_ID holds the ID of the secret that is expiring.
+* JUJU_SECRET_REVISION holds the revision that is expiring.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+
+*Who gets it*?
+
+The secret owner. For application owned secrets, the owner is the unit leader.
+
+(hook-secret-remove)=
+#### `secret-remove`
+> Currently supported only for charm secrets.
+
+*Who gets it*?
+
+The secret owner. For application owned secrets, the owner is the unit leader.
+
+*What triggers it?*
+
+A secret revision no longer having any consumers and thus being safe to remove.
+
+This situation can occur when:
+
+- All consumers tracking a now-outdated revision have updated to tracking a newer one, so the old revision can be removed.
+- No consumer is tracking an intermediate revision, and a newer one has already been created. So there is a orphaned revision which no consumer will ever be able to peek or update to, because there is already a newer one the consumer would get instead.
+
+In short, the purpose of this event is to notify the owner of a secret that a specific revision of it is safe to remove: no charm is presently observing it or ever will be able to in the future.
+
+*Which environment variables is it executed with?*
+
+* JUJU_SECRET_ID holds the ID of the secret that is expiring.
+* JUJU_SECRET_REVISION holds the revision that can be removed.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+
+(hook-secret-rotate)=
+#### `secret-rotate`
+> Currently supported only for charm secrets.
+
+```{versionadded} 3.0.2
+```
+
+*What triggers it?*
+
+Secret rotation enables the charm to define a moment in time when the given secret becomes stale and should be updated to generate a new revision.
+At that moment, Juju will inform the charm via the `secret-rotate` hook that the given secret is stale, at which point the charm has a chance to add a new secret revision to the model with the `secret-set` command.
+Until the charm updates the secret to create a new revision, Juju will continue to regularly call the `secret-rotate` hook to notify that the secret is supposed to be updated.
+
+```{tip}
+The secret rotation interval is specified using a named rotation policy, one of:
+* never
+* hourly
+* daily
+* weekly
+* monthly
+* quarterly
+* yearly
+```
+
+*Which environment variables is it executed with?*
+
+* JUJU_SECRET_ID holds the ID of the secret that needs rotation.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+
+*Who gets it*?
+
+The secret owner. For application owned secrets, the owner is the unit leader.
+
+(storage-hooks)=
+### Storage hooks
+
+Storage hooks are used to inform a charm about changes to storage attached to its unit.
+
+The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
+
+For every storage defined by a charm, storage hook events are named after the storage name:
+
+* `<storage_name>-storage-attached`
+* `<storage_name>-storage-detaching`
+
+For each charm storage, any or all of the above storage hooks can be implemented.
+Storage hooks operate in an environment with additional environment variables available:
+
+* `JUJU_STORAGE_ID` holds the ID of the storage.
+* `JUJU_STORAGE_LOCATION` holds the path at which the storage is mounted.
+* `JUJU_STORAGE_KIND` holds the kind of storage (`block` or `filesystem`).
+
+The `storage-attached` hook is triggered when new storage is available for the charm to use.
+
+```{note}
+For machine charms, all `storage-attached` hooks will be run before the `install` event fires.
+This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
+not receive the `install` event until such errors have been resolved.
+
+For Kubernetes charms, any `storage-attached` hooks are run some time after the `start` hook has completed.
+```
+
+The `storage-detaching` hook is triggered after the `stop` hook has completed and all such hooks will be run before triggering the `remove` hook.
+
+(hook-storage-attached)=
+#### `<storage>-storage-attached`
+
+*What triggers it?*
+
+A storage volume having been attached to the charm's host machine or container and being ready to be interacted with.
+
+<!--
+| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
+| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
+-->
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+
+*Who gets it*?
+
+TBA
+-->
+
+(hook-storage-detaching)=
+#### `<storage>-storage-detaching`
+
+*What triggers it?*
+
+A request to detach storage having been processed.
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+
+*Who gets it*?
+
+TBA
+-->
+
+(upgrade-series-hooks)=
+### Upgrade series hooks
+
+> Juju `3.6` or earlier only.
+
+These hooks are run to tell the charm the version of OS that the host machine will be upgraded to.
+
+Upgrade series hooks operate in an environment with additional environment variables available:
+
+* `JUJU_TARGET_BASE` holds the target base for the machine.
+
+(hook-post-series-upgrade)=
+#### `post-series-upgrade`
+> Removed in Juju 4.
+
+*What triggers it?*
+
+Fired after the series upgrade has taken place.
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+
+*Who gets it*?
+
+TBA
+
+-->
+
+(hook-pre-series-upgrade)=
+#### `pre-series-upgrade`
+> Removed in Juju 4.
+
+
+*What triggers it?*
+
+This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line. This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
+
+|  Scenario | Example command | Resulting events |
+|:-:|-|-|
+| {ref}`upgrade-a-machine` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
+
+ Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
+
+
+
+```{caution}
+ Leadership is pinned during the series upgrade process.  Even if the current leader dies or is removed, re-election will not occur for applications on the upgrading machine until the series upgrade operation completes.
+```
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+
+*Who gets it*?
+
+TBA
+-->
+
+(workload-hooks)=
+### Workload (Pebble) hooks
+
+> Currently Kubernetes only.
+
+Workload (Pebble) hooks are used to inform the charm about events related to a Pebble managed workload.
+
+The hook names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
+
+Workload hooks operate in an environment with additional environment variables available:
+
+* `JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
+* `JUJU_NOTICE_ID` holds the Pebble notice ID.
+* `JUJU_NOTICE_TYPE` holds the Pebble notice type.
+* `JUJU_NOTICE_KEY` holds the Pebble notice key.
+* `JUJU_PEBBLE_CHECK_NAME` holds the name of the Pebble check.
+
+(hook-container-pebble-check-failed)=
+#### `<container>-pebble-check-failed`
+> Kubernetes sidecar charms only.
+
+```{versionadded} 3.6
+```
+
+*What triggers it?*
+
+A Pebble check passing the failure threshold.
+
+*Which environment variables is it executed with?*
+
+All the {ref}`generic environment variables <generic-environment-variables>` and:
+
+* `$JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
+* `$JUJU_PEBBLE_CHECK_NAME` holds the name of the Pebble check.
+
+*Who gets it*?
+
+The charm responsible for the container to which the hook pertains.
+
+(hook-container-pebble-check-recovered)=
+#### `<container>-pebble-check-recovered`
+> Kubernetes sidecar charms only.
+
+```{versionadded} 3.6
+```
+
+*What triggers it?*
+
+A Pebble check passing after previously reaching the failure threshold.
+
+*Which environment variables is it executed with?*
+
+All the {ref}`generic environment variables <generic-environment-variables>` and:
+
+* `$JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
+* `$JUJU_PEBBLE_CHECK_NAME` holds the name of the Pebble check.
+
+*Who gets it*?
+
+The charm responsible for the container to which the hook pertains.
+
+(hook-container-pebble-custom-notice)=
+#### `<container>-pebble-custom-notice`
+> Kubernetes sidecar charms only
+
+*What triggers it?*
+
+A Pebble notice of type "custom" occurring.
+
+*Which environment variables is it executed with?*
+
+All the {ref}`generic environment variables <generic-environment-variables>` and:
+
+* `JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
+* `JUJU_NOTICE_ID` holds the Pebble notice ID.
+* `JUJU_NOTICE_TYPE` holds the Pebble notice type.
+* `JUJU_NOTICE_KEY` holds the Pebble notice key.
+
+*Who gets it*?
+
+The charm responsible for the container to which the hook pertains.
+
+(hook-container-pebble-ready)=
+#### `<container>-pebble-ready`
+> Kubernetes sidecar charms only.
+
+*What triggers it?*
+
+The requested container being ready.
+
+The `pebble-ready` event doesn't guarantee the workload container is *still* up. For example, if you manually `kubectl patch` during (for example) `install`, then you may receive this event after the old workload is down but before the new one is up.
+For this reason it's essential, even in `pebble-ready` event handlers, to catch [`ConnectionError`](https://ops.readthedocs.io/en/latest/reference/pebble.html#ops.pebble.ConnectionError) when using Pebble to make container changes. There is a [`Container.can_connect`()](https://ops.readthedocs.io/en/latest/reference/ops-testing.html#ops.testing.Container.can_connect) method, but note that this is a point-in-time check, so just because `can_connect()` returns `True` doesn’t mean it will still return `True` moments later. So, **code defensively** to avoid race conditions.
+
+Moreover, as pod churn can occur at any moment, `pebble-ready` events can be received throughout any phase of a charm's lifecycle. Each container could churn multiple times, and they all can do so independently from one another. In short, the charm should make no assumptions at all about the moment in time at which it may or may not receive `pebble-ready` events, or how often that can occur. The fact that the charm receives a `pebble-ready` event indicates that the container has just become ready (for the first time, or again, after pod churn), therefore you typically will need to **reconfigure your workload from scratch** every single time.
+
+This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
+
+
+*Which environment variables is it executed with?*
+
+* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
+
+*Who gets it*?
+
+The charm responsible for the container to which the hook pertains.
+
+<!--
+
+<a href="#heading--relation-event-triggers"><h2 id="heading--relation-event-triggers">Relation event triggers</h2></a>
+
+Relation events trigger as a response to changes in the Juju model relation topology. When a new relation is created or removed, events are fired on all units of both involved applications.
+
+|   Scenario  | Example Command                          | Resulting Events                     |
+| :-------: | ---------------------------------------- | ------------------------------------ |
+|  Relate   | `juju integrate foo:a bar:b`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-created -> b-relation-changed` |
+|  Remove relation   | `juju remove-relation foo:a bar:b`     | `(foo): a-relation-broken`<br> `(bar): b-relation-broken` |
+
+If you have two already related applications, and one of them gains or loses a unit, then the newly added unit will receive the same event sequences as if it had just been related (from its point of view, the relation is 'brand new'), while the units that were there already receive a `-relation-joined` event.
+Similarly if a unit is removed, that unit will receive `-relation-broken`, while the ones that remain will see a `-relation-departed`.
+
+|  Scenario   | Example Command                          | Resulting Events                     |
+| :-------: | ---------------------------------------- | ------------------------------------ |
+|  Add unit   | `juju add-unit foo -n 1`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-joined -> b-relation-changed` |
+|  Remove relation   | `juju remove-unit foo:a --num-units 1`     | `(foo): a-relation-broken`<br> `(bar): b-relation-departed` |
+
+```{note}
+
+`-relation-changed` events are not only fired as part of these event sequences, but also whenever a unit touches the relation data.
+As such, contrary to many other events, `-relation-changed` events are mostly triggered by charm code (and not by the cloud admin doing things on the Juju model).
+
+```
+-->
+
+### Other hooks
+
+(hook-config-changed)=
+#### `config-changed`
+
+*What triggers it?*
+
+The `config-changed` hook always runs once immediately after the initial `install`, `leader-elected` hooks, and likewise after the `upgrade-charm` hook.
+
+It also runs whenever:
+* application configuration changes.
+* when any IP address of the machine hosting the unit changes.
+* when the trust value of the application changes.
+* when recovering from transient unit agent errors.
+
+*Which environment variables is it executed with?*
+
+All the {ref}`generic environment variables <generic-environment-variables>`.
+
+*Who gets it*?
+
+When application config or trust has changed, all the units of an application for which the config has changed.
+When the networking on a machine has changed, any units deployed to that machine.
+
+
+<!--
+#### Pebble hooks
+> These hooks require an associated workload/container, and the name of the workload/container whose change triggered the hook. The hook file names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
+-->
+
+
+
 (hook-install)=
-### `install`
+#### `install`
 
 *What triggers it?*
 
@@ -851,7 +1083,7 @@ TBA
 -->
 
 (hook-leader-deposed)=
-### `leader-deposed`
+#### `leader-deposed`
 
 <!--
 *What triggers it?*
@@ -872,7 +1104,7 @@ TBA
 -->
 
 (hook-leader-elected)=
-### `leader-elected`
+#### `leader-elected`
 
 *What triggers it?*
 
@@ -932,7 +1164,7 @@ The leader unit, once Juju elects one.
 
 
 (hook-leader-settings-changed)=
-### `leader-settings-changed`
+#### `leader-settings-changed`
 
 *What triggers it?*
 
@@ -967,66 +1199,9 @@ TBA
 
 All follower units, when a new leader is chosen.
 
-(hook-post-series-upgrade)=
-### `post-series-upgrade`
-> Removed in Juju 4.
-
-*What triggers it?*
-
-Fired after the series upgrade has taken place.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
-
--->
-
-(hook-pre-series-upgrade)=
-### `pre-series-upgrade`
-> Removed in Juju 4.
-
-
-*What triggers it?*
-
-This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line. This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
-
-|  Scenario | Example command | Resulting events |
-|:-:|-|-|
-| {ref}`upgrade-a-machine` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
-
- Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
-
-
-
-```{caution}
- Leadership is pinned during the series upgrade process.  Even if the current leader dies or is removed, re-election will not occur for applications on the upgrading machine until the series upgrade operation completes.
-```
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (hook-remove)=
-### `remove`
+#### `remove`
 
 *What triggers it?*
 
@@ -1059,122 +1234,10 @@ TBA
 -->
 
 
-(hook-secret-changed)=
-### `secret-changed`
 
-*What triggers it?*
-
-When a charm reads the content of a secret to which it has been granted access, it becomes a consumer of that secret.
-Having become a secret consumer, a charm receives the `secret-changed` event when the secret owner publishes a new secret revision.
-This event gives the consuming charm the chance to read the updated content of the latest secret revision.
-
-*Which environment variables is it executed with?*
-
-* JUJU_SECRET_ID holds the ID of the secret that has a new revision.
-* JUJU_SECRET_LABEL holds the label given to the secret by the consumer.
-
-The secret label can be set whenever a secret's content is read by passing `--label <label>` to the `secret-get` command.
-Thereafter, any subsequent `secret-changed` hooks will be run with this label.
-
-*Who gets it*?
-
-All units observing the affected secret.
-
-```{note}
-Upon receiving that event (or at any time after that) a consumer can choose to:
-
- - Start tracking the latest revision by passing `--refresh` to the `secret-get` command.
- - Inspect the latest revision value, without tracking it just yet by passing `--peek` to the `secret-get` command.
-
- Without `--refresh` or `--peek`, the `secret-get` command continues to return the previously tracked revision, which may not be the latest.
-
-Once all consumers have stopped tracking a specific outdated revision, the owner will receive a `secret-remove` hook to be notified of that fact, and can then remove that revision.
-```
-
-(hook-secret-expired)=
-### `secret-expired`
-> Currently supported only for {ref}`charm secrets <charm-secret>`.
->
-> Added in Juju 3.0.2
-
-*What triggers it?*
-
-Secret expiration enables the charm to define a moment in time when the given secret is obsoleted and should effectively stop working.
-At that moment, Juju will inform the charm via the secret-expired hook that the given secret is expiring, at which point the charm has a chance to remove that particular secret revision from the model with the `secret-remove` command.
-
-```{note}
-Until the charm indeed removes the expired secret revision, Juju will continue to regularly call the `secret-expired` hook to notify that the secret revision is supposed to be dropped.
-```
-
-*Which environment variables is it executed with?*
-
-* JUJU_SECRET_ID holds the ID of the secret that is expiring.
-* JUJU_SECRET_REVISION holds the revision that is expiring.
-* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
-
-*Who gets it*?
-
-The secret owner. For application owned secrets, the owner is the unit leader.
-
-(hook-secret-remove)=
-### `secret-remove`
-> Currently supported only for charm secrets.
-
-*Who gets it*?
-
-The secret owner. For application owned secrets, the owner is the unit leader.
-
-*What triggers it?*
-
-A secret revision no longer having any consumers and thus being safe to remove.
-
-This situation can occur when:
-
-- All consumers tracking a now-outdated revision have updated to tracking a newer one, so the old revision can be removed.
-- No consumer is tracking an intermediate revision, and a newer one has already been created. So there is a orphaned revision which no consumer will ever be able to peek or update to, because there is already a newer one the consumer would get instead.
-
-In short, the purpose of this event is to notify the owner of a secret that a specific revision of it is safe to remove: no charm is presently observing it or ever will be able to in the future.
-
-*Which environment variables is it executed with?*
-
-* JUJU_SECRET_ID holds the ID of the secret that is expiring.
-* JUJU_SECRET_REVISION holds the revision that can be removed.
-* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
-
-(hook-secret-rotate)=
-### `secret-rotate`
-> Currently supported only for charm secrets.
->
-> Added in Juju 3.0.2
-
-*What triggers it?*
-
-Secret rotation enables the charm to define a moment in time when the given secret becomes stale and should be updated to generate a new revision.
-At that moment, Juju will inform the charm via the `secret-rotate` hook that the given secret is stale, at which point the charm has a chance to add a new secret revision to the model with the `secret-set` command.
-Until the charm updates the secret to create a new revision, Juju will continue to regularly call the `secret-rotate` hook to notify that the secret is supposed to be updated.
-
-```{tip}
-The secret rotation interval is specified using a named rotation policy, one of:
-* never
-* hourly
-* daily
-* weekly
-* monthly
-* quarterly
-* yearly
-```
-
-*Which environment variables is it executed with?*
-
-* JUJU_SECRET_ID holds the ID of the secret that needs rotation.
-* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
-
-*Who gets it*?
-
-The secret owner. For application owned secrets, the owner is the unit leader.
 
 (hook-start)=
-### `start`
+#### `start`
 
 *What triggers it?*
 
@@ -1210,7 +1273,7 @@ The `config-changed` hook. (The `start` hook is fired immediately after.)
 Any unit.
 
 (hook-stop)=
-### `stop`
+#### `stop`
 
 *What triggers it?*
 
@@ -1244,55 +1307,10 @@ Any unit.
 
 
 
-(hook-storage-attached)=
-### `<storage>-storage-attached`
 
-*What triggers it?*
-
-A storage volume having been attached to the charm's host machine or container and being ready to be interacted with.
-
-<!--
-| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
-| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
--->
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
-(hook-storage-detaching)=
-### `<storage>-storage-detaching`
-
-*What triggers it?*
-
-A request to detach storage having been processed.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (hook-update-status)=
-### `update-status`
+#### `update-status`
 
 *What triggers it?*
 
@@ -1326,7 +1344,7 @@ TBA
 -->
 
 (hook-upgrade-charm)=
-### `upgrade-charm`
+#### `upgrade-charm`
 
 *What triggers it?*
 
