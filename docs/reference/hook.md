@@ -241,6 +241,7 @@ having failed transiently (to ensure that they only request user intervention in
 the most trying circumstances) as well as careful to log any relevant
 information or advice before signalling the error.
 
+(list-of-hooks)=
 ## List of hooks
 <!-- > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go) -->
 
