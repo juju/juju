@@ -144,13 +144,11 @@ All hooks share a lot of common behaviour in terms of the environment in which t
 are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
-Some hooks can also be grouped according to the Juju subsystem they represent. The hook kinds are
-* {ref}`leadership-hooks`
-* {ref}`relation-hooks`
-* {ref}`secret-hooks`
-* {ref}`storage-hooks`
-* {ref}`upgrade-series-hooks`
-* {ref}`workload-hooks`
+Some hooks can also be grouped according to the Juju subsystem they represent (leadership, relations, secrets, storage, series, workload/Pebble).
+
+```{ibnote}
+See more: {ref}`list-of-hooks`
+```
 
 (hook-execution)=
 ## Hook execution
@@ -159,7 +157,11 @@ Hooks are run with environment variables set by Juju to expose relevant contextu
 
 The Juju environment variables are set in addition to those supplied by the execution environment itself.
 
-All hooks get a common set of environment variables; see {ref}`generic environment variables <generic-environment-variables>`. In addition, some hook( kind)s also get hook (kind) specific environment variables, as specified in the documentation for each hook.
+All hooks get a common set of environment variables; in addition, some hook( kind)s also get hook (kind) specific environment variables, as specified in the documentation for each hook.
+
+```{ibnote}
+See more: {ref}`list-of-hooks`
+```
 
 ## Hook ordering
 
@@ -244,7 +246,15 @@ information or advice before signalling the error.
 
 This section gives the complete list of hooks.
 
-Where hooks belong to a kind, we nest them under that kind.
+Where hooks belong to a kind, we nest them under that kind; otherwise, under "other". Thus:
+
+* {ref}`leadership-hooks`
+* {ref}`relation-hooks`
+* {ref}`secret-hooks`
+* {ref}`storage-hooks`
+* {ref}`upgrade-series-hooks`
+* {ref}`workload-hooks`
+* {ref}`other-hooks`
 
 In all cases we cover
 - What triggers the hook?
@@ -1131,6 +1141,7 @@ As such, contrary to many other events, `-relation-changed` events are mostly tr
 ```
 -->
 
+(other-hooks)=
 ### Other hooks
 
 (hook-config-changed)=
