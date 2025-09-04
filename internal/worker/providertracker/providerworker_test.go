@@ -422,8 +422,9 @@ func (s *providerWorkerSuite) newWorker(c *tc.C, trackerType TrackerType) worker
 			atomic.AddInt64(&s.ephemeralCalled, 1)
 			return s.environ, nil
 		},
-		Logger: s.logger,
-		Clock:  clock.WallClock,
+		Logger:        s.logger,
+		LogSinkGetter: &stubLogSinkGetter{},
+		Clock:         clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 

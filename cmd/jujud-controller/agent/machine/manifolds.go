@@ -528,13 +528,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
-		logSinkName: ifDatabaseUpgradeComplete(logsink.Manifold(logsink.ManifoldConfig{
+		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
 			LogSink:        config.LogSink,
-		})),
+		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
@@ -800,6 +800,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// a model for upgrade scenarios.
 		providerTrackerName: providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerDomainServicesName,
+			LogSinkName:                  logSinkName,
 			NewWorker:                    providertracker.NewWorker,
 			NewTrackerWorker:             providertracker.NewTrackerWorker,
 			NewEphemeralProvider:         providertracker.NewEphemeralProvider,
