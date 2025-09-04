@@ -1,8 +1,9 @@
 -- An operation is an overview of an action or commands run on a remote
 -- target by the user. It will be linked to N number of tasks, depending
 -- on the number of entities it is run on.
--- An operation can be an action_operation or an exec_operation, but not
--- both.
+-- An operation can be an action (meaning there will be an entry in 
+-- operation_action) or not. If there is no entry, then the operation is an 
+-- exec.
 CREATE TABLE operation (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- operation_id is a sequence number, and the sequence is shared with 
