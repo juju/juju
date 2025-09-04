@@ -439,7 +439,7 @@ func validateApplicationStorageDirectiveParams(
 	ctx context.Context,
 	charmStorageDefs map[string]internalcharm.Storage,
 	overrides map[string]ApplicationStorageDirectiveOverride,
-	providerValidator StorageProviderValidator,
+	poolProvider StoragePoolProvider,
 ) error {
 	for name, override := range overrides {
 		storageDef, exists := charmStorageDefs[name]
@@ -450,7 +450,7 @@ func validateApplicationStorageDirectiveParams(
 		}
 
 		err := validateApplicationStorageDirectiveParam(
-			ctx, storageDef, override, providerValidator,
+			ctx, storageDef, override, poolProvider,
 		)
 		if err != nil {
 			return errors.Capture(err)
@@ -467,7 +467,7 @@ func validateApplicationStorageDirectiveParam(
 	ctx context.Context,
 	charmStorageDef internalcharm.Storage,
 	override ApplicationStorageDirectiveOverride,
-	providerValidator StorageProviderValidator,
+	poolProvider StoragePoolProvider,
 ) error {
 	if override.Count != nil {
 		minCount := uint32(0)
@@ -506,7 +506,7 @@ func validateApplicationStorageDirectiveParam(
 	}
 
 	if override.PoolUUID != nil {
-		supports, err := providerValidator.CheckPoolSupportsCharmStorage(
+		supports, err := poolProvider.CheckPoolSupportsCharmStorage(
 			ctx, *override.PoolUUID, charmStorageDef.Type,
 		)
 		if err != nil {

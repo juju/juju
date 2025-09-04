@@ -135,7 +135,7 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
-		applicationservicetest.StorageProviderValidator{},
+		applicationservicetest.StoragePoolProvider{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

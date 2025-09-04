@@ -64,7 +64,7 @@ type ProviderService struct {
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
 
-	storageProviderValidator StorageProviderValidator
+	storagePoolProvider StoragePoolProvider
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -74,7 +74,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
-	storageProviderValidator StorageProviderValidator,
+	storagePoolProvider StoragePoolProvider,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -89,10 +89,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		agentVersionGetter:       agentVersionGetter,
-		provider:                 provider,
-		caasApplicationProvider:  caasApplicationProvider,
-		storageProviderValidator: storageProviderValidator,
+		agentVersionGetter:      agentVersionGetter,
+		provider:                provider,
+		caasApplicationProvider: caasApplicationProvider,
+		storagePoolProvider:     storagePoolProvider,
 	}
 }
 
@@ -855,7 +855,7 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,
-		s.storageProviderValidator,
+		s.storagePoolProvider,
 	)
 	if err != nil {
 		return errors.Errorf(

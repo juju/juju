@@ -25,7 +25,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderState,StorageProviderValidator
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderState,StoragePoolProvider
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -mock_names=Provider=MockStorageProvider -destination internal_storage_mock_test.go github.com/juju/juju/internal/storage Provider,ProviderRegistry
 
 type baseSuite struct {
@@ -37,7 +37,7 @@ type baseSuite struct {
 	agentVersionGetter *MockAgentVersionGetter
 	provider           *MockProvider
 	caasProvider       *MockCAASProvider
-	storageValidator   *MockStorageProviderValidator
+	storageValidator   *MockStoragePoolProvider
 	leadership         *MockEnsurer
 	validator          *MockValidator
 
@@ -65,7 +65,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
-	s.storageValidator = NewMockStorageProviderValidator(ctrl)
+	s.storageValidator = NewMockStoragePoolProvider(ctrl)
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
@@ -128,7 +128,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
-	s.storageValidator = NewMockStorageProviderValidator(ctrl)
+	s.storageValidator = NewMockStoragePoolProvider(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(

@@ -22,9 +22,39 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// DefaultStorageProviderValidator is the default implementation of
-// [StorageProviderValidator] for this domain.
-type DefaultStorageProviderValidator struct {
+// StoragePoolProvider defines an interface by where provider based questions
+// for storage pools can be asked. This interface acts as the bridge between a
+// storage pool and the underlying provider that is used.
+type StoragePoolProvider interface {
+	// CheckPoolSupportsCharmStorage checks that the provided storage
+	// pool uuid can be used for provisioning a certain type of charm storage.
+	//
+	// The following errors may be expected:
+	// - [coreerrors.NotValid] if the provided pool uuid is not valid.
+	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+	// provided pool uuid.
+	CheckPoolSupportsCharmStorage(
+		context.Context,
+		domainstorage.StoragePoolUUID,
+		internalcharm.StorageType,
+	) (bool, error)
+
+	// GetProviderForPool returns the storage provider that is backing a given
+	// storage pool. This is a utility func for this domain to enable asking
+	// questions of a provider when you are starting with a storage pool.
+	//
+	// The following errors may be expected:
+	// - [coreerrors.NotValid] if the provided pool uuid is not valid.
+	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+	// provided pool uuid.
+	GetProviderForPool(
+		context.Context, domainstorage.StoragePoolUUID,
+	) (storage.Provider, error)
+}
+
+// DefaultStoragePoolProvider is the default implementation of
+// [StoragePoolProvider] for this domain.
+type DefaultStoragePoolProvider struct {
 	providerRegistryGetter corestorage.ModelStorageRegistryGetter
 	st                     StorageProviderState
 }
@@ -32,13 +62,13 @@ type DefaultStorageProviderValidator struct {
 // StorageProviderState defines the required interface of the model's state for
 // interacting with storage providers.
 type StorageProviderState interface {
-	// GetProviderTypeOfPool returns the provider type that is in use for the
+	// GetProviderTypeForPool returns the provider type that is in use for the
 	// given pool.
 	//
 	// The following error types can be expected:
 	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
 	// provided pool uuid.
-	GetProviderTypeOfPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
+	GetProviderTypeForPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
 }
 
 // StorageState describes retrieval and persistence methods for
@@ -151,22 +181,19 @@ type StorageState interface {
 	) ([]application.StorageDirective, error)
 }
 
-// StorageProviderValidator is an interface for defining the requirement of an
-// external validator that can check assumptions made about storage providers
-// when deploying applications.
-type StorageProviderValidator interface {
-	// CheckPoolSupportsCharmStorage checks that the provided storage
-	// pool uuid can be used for provisioning a certain type of charm storage.
-	//
-	// The following errors may be expected:
-	// - [coreerrors.NotValid] if the provided pool uuid is not valid.
-	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
-	// provided pool uuid.
-	CheckPoolSupportsCharmStorage(
-		context.Context,
-		domainstorage.StoragePoolUUID,
-		internalcharm.StorageType,
-	) (bool, error)
+// NewStoragePoolProvider returns a new [DefaultStoragePoolProvider]
+// that allows getting provider information for a storage pool.
+//
+// The returned [DefaultStoragePoolProvider] implements the
+// [StoragePoolProvider] interface.
+func NewStoragePoolProvider(
+	providerRegistryGetter corestorage.ModelStorageRegistryGetter,
+	st StorageProviderState,
+) *DefaultStoragePoolProvider {
+	return &DefaultStoragePoolProvider{
+		providerRegistryGetter: providerRegistryGetter,
+		st:                     st,
+	}
 }
 
 // AttachStorage attached the specified storage to the specified unit.
@@ -243,44 +270,14 @@ func (s *Service) AddStorageForUnit(
 // The following errors may be expected:
 // - [storageerrors.PoolNotFoundError] when no storage pool exists for the
 // provided pool uuid.
-func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
+func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
 	storageType internalcharm.StorageType,
 ) (bool, error) {
-	if err := poolUUID.Validate(); err != nil {
-		return false, errors.Errorf(
-			"storage pool uuid is not valid: %w", err,
-		).Add(coreerrors.NotValid)
-	}
-
-	providerTypeStr, err := v.st.GetProviderTypeOfPool(ctx, poolUUID)
+	provider, err := v.GetProviderForPool(ctx, poolUUID)
 	if err != nil {
 		return false, errors.Capture(err)
-	}
-
-	providerRegistry, err := v.providerRegistryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return false, errors.Errorf(
-			"getting model storage provider registry: %w", err,
-		)
-	}
-
-	providerType := storage.ProviderType(providerTypeStr)
-	provider, err := providerRegistry.StorageProvider(providerType)
-	// We check if the error is for the provider type not being found and
-	// translate it over to a ProviderTypeNotFound error. This error type is not
-	// recorded in the contract as  this should never be possible. But we are
-	// being a good citizen and returning meaningful errors.
-	if errors.Is(err, coreerrors.NotFound) {
-		return false, errors.Errorf(
-			"provider type %q for storage pool %q does not exist",
-			providerTypeStr, poolUUID,
-		).Add(storageerrors.ProviderTypeNotFound)
-	} else if err != nil {
-		return false, errors.Errorf(
-			"getting storage provider for pool %q: %w", poolUUID, err,
-		)
 	}
 
 	switch storageType {
@@ -293,6 +290,56 @@ func (v *DefaultStorageProviderValidator) CheckPoolSupportsCharmStorage(
 			"unknown charm storage type %q", storageType,
 		)
 	}
+}
+
+// GetProviderForPool returns the storage provider that is backing a given
+// storage pool. This is a utility func for this domain to enable asking
+// questions of a provider when you are starting with a storage pool.
+//
+// The following errors may be expected:
+// - [coreerrors.NotValid] if the provided pool uuid is not valid.
+// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// provided pool uuid.
+func (v *DefaultStoragePoolProvider) GetProviderForPool(
+	ctx context.Context,
+	poolUUID domainstorage.StoragePoolUUID,
+) (storage.Provider, error) {
+	if err := poolUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"storage pool uuid is not valid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	providerTypeStr, err := v.st.GetProviderTypeForPool(ctx, poolUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	providerRegistry, err := v.providerRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting model storage provider registry: %w", err,
+		)
+	}
+
+	providerType := storage.ProviderType(providerTypeStr)
+	provider, err := providerRegistry.StorageProvider(providerType)
+	// We check if the error is for the provider type not being found and
+	// translate it over to a ProviderTypeNotFound error. This error type is not
+	// recorded in the contract as  this should never be possible. But we are
+	// being a good citizen and returning meaningful errors.
+	if errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Errorf(
+			"provider type %q for storage pool %q does not exist",
+			providerTypeStr, poolUUID,
+		).Add(storageerrors.ProviderTypeNotFound)
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting storage provider for pool %q: %w", poolUUID, err,
+		)
+	}
+
+	return provider, nil
 }
 
 // DetachStorageForUnit detaches the specified storage from the specified unit.
@@ -521,17 +568,4 @@ func makeStorageDirectiveFromApplicationArg(
 	}
 
 	return rval
-}
-
-// NewStorageProviderValidator returns a new [DefaultStorageProviderValidator]
-// that allows checking of storage providers against expected storage
-// requirements.
-func NewStorageProviderValidator(
-	providerRegistryGetter corestorage.ModelStorageRegistryGetter,
-	st StorageProviderState,
-) *DefaultStorageProviderValidator {
-	return &DefaultStorageProviderValidator{
-		providerRegistryGetter: providerRegistryGetter,
-		st:                     st,
-	}
 }

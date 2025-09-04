@@ -1706,7 +1706,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		nil,
 		providerGetter,
 		caasProviderGetter,
-		service.NewStorageProviderValidator(registryGetter, state),
+		service.NewStoragePoolProvider(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

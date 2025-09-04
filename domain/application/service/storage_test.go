@@ -26,7 +26,7 @@ import (
 )
 
 // storageProviderSuite provides a set of tests for validating
-// [DefaultStorageProviderValidator].
+// [DefaultStoragePoolProvider].
 type storageProviderSuite struct {
 	provider *MockStorageProvider
 	registry *MockProviderRegistry
@@ -192,11 +192,11 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
 		"", storageerrors.PoolNotFoundError,
 	)
 
-	validator := NewStorageProviderValidator(s, s.state)
+	validator := NewStoragePoolProvider(s, s.state)
 	_, err = validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageFilesystem,
 	)
@@ -211,7 +211,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
 		"testprovider", nil,
 	)
 	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
@@ -219,7 +219,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageFilesystem(c *tc.C) {
 	)
 	s.provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true)
 
-	validator := NewStorageProviderValidator(s, s.state)
+	validator := NewStoragePoolProvider(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageFilesystem,
 	)
@@ -235,7 +235,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) 
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetProviderTypeOfPool(gomock.Any(), poolUUID).Return(
+	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
 		"testprovider", nil,
 	)
 	s.registry.EXPECT().StorageProvider(internalstorage.ProviderType("testprovider")).Return(
@@ -243,7 +243,7 @@ func (s *storageProviderSuite) TestPoolSupportsCharmStorageBlockdevice(c *tc.C) 
 	)
 	s.provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true)
 
-	validator := NewStorageProviderValidator(s, s.state)
+	validator := NewStoragePoolProvider(s, s.state)
 	supports, err := validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, internalcharm.StorageBlock,
 	)
