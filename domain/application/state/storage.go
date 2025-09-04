@@ -625,13 +625,13 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 	return nil
 }
 
-// GetProviderTypeOfPool returns the provider type that is in use for the
+// GetProviderTypeForPool returns the provider type that is in use for the
 // given pool.
 //
 // The following error types can be expected:
 // - [storageerrors.PoolNotFoundError] when no storage pool exists for the
 // provided pool uuid.
-func (st *State) GetProviderTypeOfPool(
+func (st *State) GetProviderTypeForPool(
 	ctx context.Context, poolUUID domainstorage.StoragePoolUUID,
 ) (string, error) {
 	db, err := st.DB(ctx)

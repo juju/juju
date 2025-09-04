@@ -247,26 +247,26 @@ func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
 // TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
 // for a pool that doesn't exist returns the caller an error satisfying
 // [storageerrors.PoolNotFoundError].
-func (s *storageSuite) TestGetProviderTypeOfPoolNotFound(c *tc.C) {
+func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
 
-	_, err = st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	_, err = st.GetProviderTypeForPool(c.Context(), poolUUID)
 	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool
 // is correctly returned.
-func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
+func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
 
-	pType, err := st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	pType, err := st.GetProviderTypeForPool(c.Context(), poolUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(pType, tc.Equals, "ptype")
 }
