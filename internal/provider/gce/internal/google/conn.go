@@ -112,14 +112,14 @@ func newRESTClient[T any](ctx context.Context, creds *Credentials, httpClient *j
 	return client, errors.Trace(err)
 }
 
-func fetchResults[T any](allItems iter.Seq2[*T, error], badge string, match ...func(*T) bool) ([]*T, error) {
+func fetchResults[T any](allItems iter.Seq2[*T, error], badge string, matchers ...func(*T) bool) ([]*T, error) {
 	var results []*T
 	for item, err := range allItems {
 		if err != nil {
 			return nil, errors.Annotatef(err, "fetching %q", badge)
 		}
-		include := len(match) == 0
-		for _, m := range match {
+		include := len(matchers) == 0
+		for _, m := range matchers {
 			if m(item) {
 				include = true
 				break

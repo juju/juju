@@ -101,10 +101,15 @@ func (c *Connection) Subnetworks(ctx context.Context, region string, urls ...str
 		Region:  region,
 	}
 	urlSet := set.NewStrings(urls...)
+	wantAll := urlSet.Size() == 0
 	iter := c.subnetworks.List(ctx, req)
 	return fetchResults[computepb.Subnetwork](iter.All(), "subnetworks", func(subnet *computepb.Subnetwork) bool {
+		// Filter out special purpose subnets.
+		if wantAll {
+			return subnet.Purpose == nil
+		}
 		// Unfortunately, we can't filter on self link URl so need to do it client side.
-		return urlSet.Size() == 0 || urlSet.Contains(subnet.GetSelfLink())
+		return urlSet.Contains(subnet.GetSelfLink())
 	})
 }
 
