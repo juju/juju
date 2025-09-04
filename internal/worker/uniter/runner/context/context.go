@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
@@ -1263,7 +1264,7 @@ func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
 	// and we need it for some of the fields (but not the credentials).
 	modelSpec, err := ctx.state.CloudSpec()
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get model credentials")
+		return nil, errors.Annotatef(err, "getting model credentials")
 	}
 
 	inClusterConfig := ctx.inClusterConfig
@@ -1272,17 +1273,17 @@ func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
 	}
 	config, err := inClusterConfig()
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read in-cluster config")
+		return nil, errors.Annotatef(err, "reading in-cluster config")
 	}
 
 	// InClusterConfig doesn't actually load the certificate file, so do it ourselves.
 	if config.TLSClientConfig.CAFile == "" {
 		// Oddly, InClusterConfig logs this error, but does not return it.
-		return nil, errors.New("cannot read certificate file")
+		return nil, errors.New("reading certificate file")
 	}
 	certBytes, err := os.ReadFile(config.TLSClientConfig.CAFile)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read certificate file")
+		return nil, errors.Annotatef(err, "reading certificate file")
 	}
 
 	credential := &params.CloudSpec{
@@ -1291,7 +1292,7 @@ func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
 		Region:   modelSpec.Region,
 		Endpoint: config.Host,
 		Credential: &params.CloudCredential{
-			AuthType: "oauth2",
+			AuthType: string(cloud.OAuth2AuthType),
 			Attributes: map[string]string{
 				"Token": config.BearerToken,
 			},
