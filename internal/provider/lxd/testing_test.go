@@ -410,6 +410,7 @@ type StubClient struct {
 	ServerVer          string
 	NetworkNames       []string
 	NetworkState       map[string]api.NetworkState
+	ProfileNames       []string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -521,6 +522,11 @@ func (conn *StubClient) DeleteProfile(name string) error {
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
+}
+
+func (conn *StubClient) GetProfileNames() ([]string, error) {
+	conn.AddCall("GetProfileNames")
+	return conn.ProfileNames, conn.NextErr()
 }
 
 func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
@@ -776,6 +782,8 @@ func (s *EnvironSuite) NewEnviron(c *tc.C,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
 		cloud:                 cloudSpec,
+		uuid:                  eCfg.UUID(),
+		name:                  "model",
 	}
 }
 
@@ -809,6 +817,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 		provider:              &provid,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
+		uuid:                  eCfg.UUID(),
 	}
 }
 

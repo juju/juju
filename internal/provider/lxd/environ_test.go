@@ -4,16 +4,20 @@
 package lxd_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -41,6 +45,10 @@ func (s *environSuite) TestName(c *tc.C) {
 	c.Check(s.Env.Name(), tc.Equals, "lxd")
 }
 
+func (s *environSuite) TearDownTest(c *tc.C) {
+	s.Client.ProfileNames = nil
+	s.BaseSuite.TearDownTest(c)
+}
 func (s *environSuite) TestProvider(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
@@ -122,6 +130,59 @@ func (s *environSuite) TestBootstrapAPI(c *tc.C) {
 	}})
 }
 
+func (s *environSuite) TestDestroyProfiles(c *tc.C) {
+	defer s.SetupMocks(c).Finish()
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), model.ShortModelUUID(model.UUID(s.Config.UUID())))
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), model.ShortModelUUID(model.UUID(utils.MustNewUUID().String())))
+
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
+
+	callCtx := c.Context()
+	err := s.Env.DestroyProfiles(callCtx)
+	c.Assert(err, tc.IsNil)
+
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
+		{"GetProfileNames", []interface{}{}},
+		{"DeleteProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName + "-watermelon-0"}},
+		{"DeleteProfile", []interface{}{profileName + "-strawberry-1"}},
+	})
+}
+
+func (s *environSuite) TestDestroyProfilesShouldNotFailIfDeleteProfileReturnsErr(c *tc.C) {
+	defer s.SetupMocks(c).Finish()
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(utils.MustNewUUID().String()))
+
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
+
+	s.Client.Stub.SetErrors(nil, nil, fmt.Errorf("profile is in use"))
+
+	callCtx := c.Context()
+	err := s.Env.DestroyProfiles(callCtx)
+	c.Assert(err, tc.IsNil)
+
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
+		{"GetProfileNames", []interface{}{}},
+		{"DeleteProfile", []interface{}{profileName}},
+		{"DeleteProfile", []interface{}{profileName + "-watermelon-0"}},
+		{"DeleteProfile", []interface{}{profileName + "-strawberry-1"}},
+	})
+}
+
+func (s *environSuite) TestDestroyProfilesReturnErr(c *tc.C) {
+	defer s.SetupMocks(c).Finish()
+	s.Client.Stub.SetErrors(fmt.Errorf("connection err"))
+
+	callCtx := c.Context()
+	err := s.Env.DestroyProfiles(callCtx)
+	c.Assert(err, tc.ErrorMatches, "get profiles: connection err")
+
+	s.Stub.CheckCalls(c, []testhelpers.StubCall{
+		{"GetProfileNames", []interface{}{}},
+	})
+}
+
 func (s *environSuite) TestDestroy(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
@@ -138,6 +199,9 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 			},
 		}},
 	}
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(utils.MustNewUUID().String()).ShortId())
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
 
 	callCtx := c.Context()
 	err := s.Env.Destroy(callCtx)
@@ -150,6 +214,10 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
 		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []interface{}{}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
 	})
 }
 
@@ -233,6 +301,9 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 	machine2.Config["user.juju-controller-uuid"] = "not-" + s.Config.UUID()
 
 	s.Client.Containers = append(s.Client.Containers, *machine0, *machine1, *machine2)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(utils.MustNewUUID().String()).ShortId())
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
 
 	callCtx := c.Context()
 	err := s.Env.DestroyController(callCtx, s.Config.UUID())
@@ -244,6 +315,10 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 		{FuncName: "GetStoragePools", Args: nil},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []interface{}{}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
 		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
 		{FuncName: "RemoveContainers", Args: []interface{}{[]string{machine1.Name}}},
 		{FuncName: "StorageSupported", Args: nil},
@@ -281,7 +356,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(utils.MustNewUUID().String()).ShortId())
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
 
 	err := s.Env.DestroyController(c.Context(), s.Config.UUID())
 	c.Assert(err, tc.ErrorMatches, "not authorized")
@@ -296,6 +374,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 		{FuncName: "GetStoragePools", Args: nil},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []interface{}{}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
 		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
 		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
 	})
@@ -305,6 +387,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 		"GetStoragePools",
 		"GetStoragePoolVolumes",
 		"GetStoragePoolVolumes",
+		"GetProfileNames",
+		"DeleteProfile",
+		"DeleteProfile",
+		"DeleteProfile",
 		"AliveContainers",
 		"RemoveContainers")
 }
@@ -336,7 +422,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 	s.Client.Containers = append(s.Client.Containers, *machine0)
 
 	// RemoveContainers will error not-auth.
-	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	s.Client.Stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, errTestUnAuth)
+	profileName := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(s.Config.UUID()).ShortId())
+	profileNameOtherModel := fmt.Sprintf("juju-%s-%s", s.Env.Name(), names.NewModelTag(utils.MustNewUUID().String()).ShortId())
+	s.Client.ProfileNames = []string{profileName, profileName + "-watermelon-0", profileName + "-strawberry-1", profileNameOtherModel, profileNameOtherModel + "-peach-4"}
 
 	err := s.Env.DestroyController(c.Context(), s.Config.UUID())
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
@@ -351,6 +440,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 		{FuncName: "GetStoragePools", Args: nil},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
 		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []interface{}{}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
 		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
 		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
 		{FuncName: "StorageSupported", Args: nil},
@@ -405,8 +498,8 @@ func TestEnvironCloudProfileSuite(t *testing.T) {
 }
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
@@ -414,8 +507,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *tc.C) {
 
 func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *tc.C) {
 	defer s.setup(c, nil).Finish()
-	s.expectForProfileCreateRace("juju-controller")
-	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
+	s.expectForProfileCreateRace("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", errors.New("The profile already exists"))
 
 	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
@@ -423,8 +516,8 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C) {
 	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
-	s.expectHasProfileFalse("juju-controller")
-	s.expectCreateProfile("juju-controller", nil)
+	s.expectHasProfileFalse("juju-controller-2d02ee")
+	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
 	err := s.cloudSpecEnv.SetCloudSpec(c.Context(), lxdCloudSpec())
 	c.Assert(err, tc.ErrorIsNil)
@@ -513,13 +606,13 @@ func (s *environProfileSuite) TestLXDProfileNames(c *tc.C) {
 
 	exp := s.svr.EXPECT()
 	exp.GetContainerProfiles("testname").Return([]string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	}, nil)
 
 	result, err := s.lxdEnv.LXDProfileNames("testname")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, []string{
-		lxdprofile.Name("foo", "bar", 1),
+		lxdprofile.Name("foo", "shortid", "bar", 1),
 	})
 }
 

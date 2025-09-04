@@ -17,6 +17,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -29,6 +30,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	statushistory "github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerServiceSuite struct {
@@ -392,8 +394,8 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 			LXDProfile:      []byte(`{"config": {"foo":"baz"}, "description": "another"}`),
 		},
 	}
-	pName0 := "juju-test-ubuntu-4"
-	pName1 := "juju-test-test-8"
+	pName0 := "juju-test-deadbe-ubuntu-4"
+	pName1 := "juju-test-deadbe-test-8"
 	s.state.EXPECT().GetLXDProfilesForMachine(gomock.Any(), machineID).Return(result, nil)
 	s.lxdProfileProvider.EXPECT().MaybeWriteLXDProfile(pName0, lxdprofile.Profile{
 		Config:      map[string]string{"foo": "bar"},
@@ -409,9 +411,10 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfiles(c *tc.C) {
 		return s.lxdProfileProvider, nil
 	}
 	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	modelUUID := model.UUID(coretesting.ModelTag.Id())
 
 	// Act
-	obtainedProfileNames, err := service.UpdateLXDProfiles(c.Context(), "test", machineID)
+	obtainedProfileNames, err := service.UpdateLXDProfiles(c.Context(), "test", modelUUID, machineID)
 
 	// Assert:
 	c.Assert(err, tc.IsNil)
@@ -427,9 +430,10 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesNoSupport(c *tc.C) {
 		return nil, coreerrors.NotSupported
 	}
 	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	modelUUID := model.UUID(coretesting.ModelTag.Id())
 
 	// Act
-	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", modelUUID, "7")
 
 	// Assert: no work is done and the method doesn't fail
 	c.Assert(err, tc.IsNil)
@@ -444,9 +448,10 @@ func (s *lxdProviderServiceSuite) TestUpdateLXDProfilesFail(c *tc.C) {
 		return nil, errors.Errorf("boom")
 	}
 	service := NewProviderService(s.state, nil, nil, providerGetter, nil, loggertesting.WrapCheckLog(c))
+	modelUUID := model.UUID(coretesting.ModelTag.Id())
 
 	// Act
-	_, err := service.UpdateLXDProfiles(c.Context(), "blue", "7")
+	_, err := service.UpdateLXDProfiles(c.Context(), "blue", modelUUID, "7")
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "getting provider: boom")

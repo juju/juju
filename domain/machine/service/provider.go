@@ -15,6 +15,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	domainconstraints "github.com/juju/juju/domain/constraints"
@@ -213,7 +214,7 @@ func (s *ProviderService) GetInstanceTypesFetcher(ctx context.Context) (environs
 // given machine if the providers supports it. A slice of profile names
 // is returned. If the provider does not support LXDProfiles, no error
 // is returned.
-func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName, machineID string) ([]string, error) {
+func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName string, modelUUID model.UUID, machineID string) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -235,8 +236,9 @@ func (s *ProviderService) UpdateLXDProfiles(ctx context.Context, modelName, mach
 	// write the same profile at the same time. Previously this code
 	// had a lock, but the services must not contain state.
 	var pNames []string
+	shortUUID := model.ShortModelUUID(modelUUID)
 	for _, arg := range profileArgs {
-		pName := lxdprofile.Name(modelName, arg.ApplicationName, arg.CharmRevision)
+		pName := lxdprofile.Name(modelName, shortUUID, arg.ApplicationName, arg.CharmRevision)
 		profile, err := decodeLXDProfile(arg.LXDProfile)
 		if err != nil {
 			return nil, errors.Errorf("decoding LXD profile for machine %s: %w", machineID, err)

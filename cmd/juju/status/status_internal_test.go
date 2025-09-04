@@ -260,7 +260,7 @@ var (
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 		"lxd-profiles": M{
-			"juju-controller-lxd-profile-1": M{
+			"juju-controller-deadbe-lxd-profile-1": M{
 				"config": M{
 					"environment.http_proxy": "",
 					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
@@ -2869,7 +2869,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addCharmHubCharm{"lxd-profile"},
-		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
+		setCharmProfiles{"1", []string{"juju-controller-deadbe-lxd-profile-1"}},
 		addApplication{name: "lxd-profile", charm: "lxd-profile"},
 		setApplicationExposed{"lxd-profile", true},
 		addAliveUnit{"lxd-profile", "1"},
@@ -2893,7 +2893,7 @@ var statusTests = []testCase{
 						"exposed":       true,
 						"charm-name":    "lxd-profile",
 						"charm-rev":     1,
-						"charm-profile": "juju-controller-lxd-profile-1",
+						"charm-profile": "juju-controller-deadbe-lxd-profile-1",
 						"base":          M{"name": "ubuntu", "channel": "12.10"},
 						"application-status": M{
 							"current": "active",
@@ -3460,7 +3460,7 @@ func (as addApplication) step(c *tc.C, ctx *ctx) {
 		EndpointBindings: make(map[string]string),
 	}
 	if as.charm == "lxd-profile" {
-		app.CharmProfile = "juju-controller-lxd-profile-1"
+		app.CharmProfile = "juju-controller-deadbe-lxd-profile-1"
 	}
 	if info.charm.Meta().Subordinate {
 		ctx.subordinateApps[as.name] = &app
