@@ -103,7 +103,7 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 
 ## Relation databag
 
-When a relation is established, in the Juju database description of that relation two sets of databags are created, one for each of the applications involved in the relation, and in each case there are further dabatags, one application-scoped and, for each unit of each application, one scoped to the unit. When a hook is executed, there is a local copy of the databags on the unit where it is executed, and the information in them is provided during hook execution via environment variables.
+When you create a relation between two applications, this results in the creation of relation databags. Databags are per relation and per application, and can be application-scoped or unit-scoped. Each unit involved in a relation gets a local copy of all the databags for that relation.
 
 ### Permissions around relation databags
 
