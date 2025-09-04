@@ -2,19 +2,10 @@
 # How to manage the Juju dashboard
 
 ```{ibnote}
-See also: {ref}`juju-dashboard`, [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard)
+See also: {ref}`juju-dashboard`
 ```
 
 This document demonstrates how to use Juju Dashboard.
-
-````{caution}
-Starting with `juju v.3.0`,  Juju Dashboard needs to be set up via the `juju-dashboard` charm. (Previously it came automatically with every controller.)
-
-```{ibnote}
-See more: [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard)
-```
-
-````
 
 (set-up-the-juju-dashboard)=
 ## Set up the Juju dashboard
@@ -82,7 +73,7 @@ See more: {ref}`command-juju-dashboard`
 
 Now copy-paste the URL into the browser to access the dashboard.
 
-```{important}
+```{tip}
 
 If you don't want to copy and paste the URL manually, typing `juju dashboard --browser` will open the link in your default browser automatically.
 
