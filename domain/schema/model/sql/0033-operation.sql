@@ -132,6 +132,10 @@ CREATE TABLE operation_task_log (
 );
 
 -- operation_parameter holds the parameters passed to an operation.
+-- In the case of an action, these are the user-passed parameters, where the 
+-- keys should match the charm_action's parameters.
+-- In the case of an exec, these will contain the "command" and "timeout" 
+-- parameters.
 CREATE TABLE operation_parameter (
     operation_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,

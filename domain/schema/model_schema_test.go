@@ -307,7 +307,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 
 		// Operations
 		"operation_action",
-		"operation_exec",
 		"operation_machine_task",
 		"operation",
 		"operation_task",
