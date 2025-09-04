@@ -121,7 +121,7 @@ type firewallerFactory struct{}
 
 // GetFirewaller implements FirewallerFactory
 func (f *firewallerFactory) GetFirewaller(env environs.Environ) Firewaller {
-	return &neutronFirewaller{firewallerBase{environ: env.(*Environ)}}
+	return &neutronFirewaller{firewallerBase: firewallerBase{environ: env.(*Environ)}}
 }
 
 type firewallerBase struct {
@@ -554,7 +554,7 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) (firew
 // OpenModelPorts implements Firewaller interface
 func (c *neutronFirewaller) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	err := c.openPortsInGroup(ctx, c.jujuGroupName(c.environ.controllerUUID), rules)
-	if errors.IsNotFound(err) && !c.environ.usingSecurityGroups {
+	if errors.Is(err, errors.NotFound) && !c.environ.usingSecurityGroups {
 		logger.Warningf("attempted to open %v but network port security is disabled. Already open", rules)
 		return nil
 	}
@@ -665,7 +665,9 @@ func (c *neutronFirewaller) getSecurityGroupByName(ctx context.ProviderCallConte
 	}
 	retryStrategy.Func = func() error {
 		groups, err := neutronClient.SecurityGroupByNameV2(name)
-		if err != nil {
+		if gooseerrors.IsNotFound(err) {
+			return errors.NotFoundf("security group %q", name)
+		} else if err != nil {
 			handleCredentialError(err, ctx)
 			return err
 		}

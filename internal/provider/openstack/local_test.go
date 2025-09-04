@@ -2058,8 +2058,61 @@ func (s *localServerSuite) TestGetSecurityGroupByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupResult.Id)
 
-	groupResult, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, "juju-unknown-machine-name")
-	c.Assert(err, gc.ErrorMatches, "failed to find security group with name: juju-unknown-machine-name")
+	// The goose error returned by Neutron service should be translated to an errors.NotFound.
+	_, err = openstack.GetSecurityGroupByName(s.env, s.callCtx, "juju-unknown-machine-name")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestOpenModelPorts checks that OpenModelPorts returns a nil error
+// when security groups are enabled and the security group exists.
+func (s *localServerSuite) TestOpenModelPorts(c *gc.C) {
+	// Security groups are created when bootstrapEnv is invoked.
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+	s.env.Config()
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := true
+	controllerUUID := coretesting.ControllerTag.Id()
+
+	err = openstack.OpenModelPorts(s.env, s.callCtx, enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, gc.IsNil)
+}
+
+// TestOpenModelPortsSecurityGroupDisabled checks that OpenModelPorts
+// returns a nil error when security groups are disabled, because security
+// groups are not created when it is disabled.
+func (s *localServerSuite) TestOpenModelPortsSecurityGroupDisabled(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := false
+	controllerUUID := "unknown-uuid"
+
+	err = openstack.OpenModelPorts(s.env, s.callCtx, enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, gc.IsNil)
+}
+
+// TestOpenModelPortsErrorNotFound checks that OpenModelPorts returns
+// an errors.NotFound when fetching a security group that does not exist and
+// security group is enabled.
+func (s *localServerSuite) TestOpenModelPortsErrorNotFound(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := true
+	controllerUUID := "unknown-uuid"
+
+	err = openstack.OpenModelPorts(s.env, s.callCtx, enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // localHTTPSServerSuite contains tests that run against an Openstack service

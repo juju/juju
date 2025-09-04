@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -79,6 +80,22 @@ func MachineGroupName(e environs.Environ, controllerUUID, machineId string) stri
 func GetSecurityGroupByName(e environs.Environ, ctx context.ProviderCallContext, name string) (neutron.SecurityGroupV2, error) {
 	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
 	return switching.getSecurityGroupByName(ctx, name)
+}
+
+func OpenModelPorts(
+	e environs.Environ,
+	ctx context.ProviderCallContext,
+	enableSecurityGroup bool,
+	controllerUUID string,
+	rules firewall.IngressRules,
+) error {
+	environ := e.(*Environ)
+	environ.usingSecurityGroups = enableSecurityGroup
+	environ.controllerUUID = controllerUUID
+	switching := &neutronFirewaller{
+		firewallerBase: firewallerBase{environ: environ},
+	}
+	return switching.OpenModelPorts(ctx, rules)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
