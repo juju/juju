@@ -1,8 +1,9 @@
 -- An operation is an overview of an action or commands run on a remote
 -- target by the user. It will be linked to N number of tasks, depending
 -- on the number of entities it is run on.
--- An operation can be an action_operation or an exec_operation, but not
--- both.
+-- An operation can be an action (meaning there will be an entry in 
+-- operation_action) or not. If there is no entry, then the operation is an 
+-- exec.
 CREATE TABLE operation (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- operation_id is a sequence number, and the sequence is shared with 
@@ -30,16 +31,6 @@ CREATE TABLE operation_action (
     CONSTRAINT fk_charm_action
     FOREIGN KEY (charm_uuid, charm_action_key)
     REFERENCES charm_action (charm_uuid, "key")
-);
-
--- operation_exec contains the commands for the operation to run.
-CREATE TABLE operation_exec (
-    operation_uuid TEXT NOT NULL PRIMARY KEY,
-    command TEXT NOT NULL,
-    timeout DATETIME,
-    CONSTRAINT fk_operation_uuid
-    FOREIGN KEY (operation_uuid)
-    REFERENCES operation (uuid)
 );
 
 -- A operation_task is the individual representation of an operation on a specific
@@ -108,13 +99,13 @@ CREATE TABLE operation_task_status (
     updated_at DATETIME,
     CONSTRAINT fk_task_uuid
     FOREIGN KEY (task_uuid)
-    REFERENCES task (uuid),
+    REFERENCES operation_task (uuid),
     CONSTRAINT fk_task_status
     FOREIGN KEY (status_id)
     REFERENCES operation_task_status_value (id)
 );
 
--- Status values for tasks.
+-- operation_task_status_value holds the possible status values for a task.
 CREATE TABLE operation_task_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
@@ -138,4 +129,19 @@ CREATE TABLE operation_task_log (
     CONSTRAINT fk_task_uuid
     FOREIGN KEY (task_uuid)
     REFERENCES operation_task (uuid)
+);
+
+-- operation_parameter holds the parameters passed to an operation.
+-- In the case of an action, these are the user-passed parameters, where the 
+-- keys should match the charm_action's parameters.
+-- In the case of an exec, these will contain the "command" and "timeout" 
+-- parameters.
+CREATE TABLE operation_parameter (
+    operation_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (operation_uuid, "key"),
+    CONSTRAINT fk_operation_uuid
+    FOREIGN KEY (operation_uuid)
+    REFERENCES operation (uuid)
 );

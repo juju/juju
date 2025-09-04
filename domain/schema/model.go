@@ -235,6 +235,10 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByFieldForTable("relation", "uuid", customNamespaceRelationRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("storage_attachment", "unit_uuid", customNamespaceStorageAttachmentLifecycle),
+
+		// Action parameters are immutable, only insertions and deletions are
+		// allowed.
+		triggersForUnmodifiableTable("operation_parameter", "operation_parameter table is unmodifiable, only insertions and deletions are allowed"),
 	)
 
 	patches = append(patches, func() schema.Patch {
