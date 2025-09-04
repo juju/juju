@@ -197,7 +197,7 @@ juju deploy some-bundle --map-machines=existing,3=4,4=5
 
 ````
 
-````{dropdown} Examples: Use a placement directive to deploy to specific targets
+````{dropdown} Examples: Deploy to specific targets using placement directives
 
 ```{ibnote}
 See also: {ref}`placement-directive`
