@@ -12,6 +12,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -51,10 +52,12 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 // input unit UUID, that is still alive. If the unit is the last one on the
 // machine, it will cascade and the machine is also set to dying. The
 // affected machine UUID is returned.
-func (st *State) EnsureUnitNotAliveCascade(ctx context.Context, uUUID string) (machineUUID string, err error) {
+func (st *State) EnsureUnitNotAliveCascade(
+	ctx context.Context, uUUID string,
+) (cascaded internal.CascadedUnitLives, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
+		return cascaded, errors.Capture(err)
 	}
 
 	unitUUID := entityUUID{UUID: uUUID}
@@ -64,7 +67,7 @@ SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
 AND    life_id = 0`, unitUUID)
 	if err != nil {
-		return "", errors.Errorf("preparing unit life update: %w", err)
+		return cascaded, errors.Errorf("preparing unit life update: %w", err)
 	}
 
 	var mUUID string
@@ -80,10 +83,13 @@ AND    life_id = 0`, unitUUID)
 
 		return nil
 	})); err != nil {
-		return "", err
+		return cascaded, err
 	}
 
-	return mUUID, nil
+	if mUUID != "" {
+		cascaded.MachineUUID = &mUUID
+	}
+	return cascaded, nil
 }
 
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the

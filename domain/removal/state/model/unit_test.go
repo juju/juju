@@ -62,10 +62,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) 
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(machineUUID, tc.Equals, unitMachineUUID.String())
+	c.Assert(*cascade.MachineUUID, tc.Equals, unitMachineUUID.String())
 
 	// Unit had life "alive" and should now be "dying".
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
@@ -102,9 +102,9 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUID.String())
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), app1UnitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(machineUUID, tc.Equals, "")
+	c.Assert(cascade.MachineUUID, tc.IsNil)
 
 	// Unit had life "alive" and should now be "dying".
 	s.checkUnitLife(c, app1UnitUUID.String(), life.Dying)
@@ -136,11 +136,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitMachineAlr
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The machine was already "dying", so we don't expect a machine UUID.
-	c.Check(machineUUID, tc.Equals, "")
+	c.Assert(cascade.MachineUUID, tc.IsNil)
 
 	// Unit had life "alive" and should now be "dying".
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
@@ -167,12 +167,12 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	machineUUID, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This isn't the last unit on the machine, so we don't expect a machine
 	// UUID.
-	c.Assert(machineUUID, tc.Equals, "")
+	c.Assert(cascade.MachineUUID, tc.IsNil)
 
 	// Unit had life "alive" and should now be "dying".
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
