@@ -1194,7 +1194,7 @@ Therefore, ways to cause `install` to occur are:
 
 
 > Note:
-> - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
+> - Typically, operations performed on {ref}`hook-install` should also be considered for {ref}`hook-upgrade-charm`.
 > - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 
