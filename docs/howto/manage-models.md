@@ -60,7 +60,7 @@ juju switch
 
 This will show the current controller, user, and model in a `<controller>:<user>/<model>` format.
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ````text
 localhost-localhost:admin/test
@@ -382,7 +382,7 @@ See more: {ref}`command-juju-enable-command`
 juju diff-bundle <bundle>
 ```
 
-````{dropdown} Expand to see an example
+````{dropdown} Example scenario
 
 Consider, for example, a model for which the `status` command yields the output below:
 

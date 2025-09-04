@@ -147,7 +147,7 @@ juju config mediawiki
 ```
 
 
-````{dropdown} Expand to view a sample output
+````{dropdown} Example output
 
 ``` text
 application: mediawiki
@@ -267,7 +267,7 @@ See more: {ref}`scale-an-application-horizontally`
 ```
 
 
-````{dropdown} Expand to view an example featuring the machine charm for Wordpress
+````{dropdown} Example scenario: scaling Wordpress
 
 The `wordpress` charm supports high availability natively, so we can proceed to scale up horizontally:
 
@@ -277,7 +277,7 @@ juju add-unit wordpress
 
 ````
 
-````{dropdown} Expand to view an example featuring the machine charm for Mediawiki
+````{dropdown} Example scenario: scaling Mediawiki
 
 The `mediawiki` charm needs to be placed behind a load balancing reverse proxy. We can do that by deploying the `haproxy` charm, integrating the `haproxy` application with `wordpress`, and then scaling the `wordpress` application up horizontally:
 
@@ -415,7 +415,7 @@ See also: {ref}`constraint`
 juju deploy mysql --constraints "mem=6G cores=2"
 ```
 
-````{dropdown} Expand to see more examples
+````{dropdown} Further examples
 
 Assuming a LXD cloud, to deploy PostgreSQL with a specific amount of CPUs and memory, you can use a combination of the `instance-type` and `mem` constraints, as below -- `instance-type=c5.large` maps to 2 CPUs and 4 GiB, but `mem` overrides the latter, such that the result is a machine with 2 CPUs and *3.5* GiB of memory.
 
