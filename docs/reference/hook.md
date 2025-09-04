@@ -158,55 +158,10 @@ The documentation in this section will, where relevant, describe behaviour speci
 ## Hook execution
 
 Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
+
 The Juju environment variables are set in addition to those supplied by the execution environment itself.
 
-````{tip}
-For the curious, or to debug charm behaviour, the environment variables for a specific event
-can be obtained by running
-
-    juju debug-hooks <unit name>
-
-and waiting for the desired event to fire. If the next prompt looks as below
-
-    root@database-0:/var/lib/juju#
-
-meaning that we are still waiting for an event to occur.
-
-As soon as that happens, the prompt will look similar to the below
-
-    root@database-0:/var/lib/juju/agents/unit-database-0/charm#
-
-meaning we're inside the charm hook execution context.
-
-At this point,  typing `printenv` will print out the environment variables.
-
-```{ibnote}
-See more: {ref}`debug-a-charm`
-```
-````
-
-The following environment variables are set for every hook:
-
-* PATH is the usual Unix path, prefixed by a directory containing command line tools through which the hooks can interact with Juju.
-* JUJU_CHARM_DIR holds the path to the charm directory.
-* JUJU_HOOK_NAME holds the name of the currently executing hook.
-* JUJU_UNIT_NAME holds the name of the local unit.
-* JUJU_CONTEXT_ID, JUJU_AGENT_SOCKET_NETWORK and JUJU_AGENT_SOCKET_ADDRESS are set (but should not be messed with: the command line tools won't work without them).
-* JUJU_API_ADDRESSES holds a space separated list of Juju API addresses.
-* JUJU_MODEL_UUID holds the UUID of the current model.
-* JUJU_MODEL_NAME holds the human friendly name of the current model.
-* JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate.
-* JUJU_MACHINE_ID holds the ID of the machine on which the local unit is running.
-* JUJU_AVAILABILITY_ZONE holds the cloud's availability zone where the machine has been provisioned.
-* CLOUD_API_VERSION holds the API version of the cloud endpoint.
-* JUJU_VERSION holds the version of the model hosting the local unit.
-* JUJU_CHARM_HTTP_PROXY holds the value of the `juju-http-proxy` model config attribute.
-* JUJU_CHARM_HTTPS_PROXY holds the value of the `juju-https-proxy` model config attribute.
-* JUJU_CHARM_FTP_PROXY holds the value of the `juju-ftp-proxy` model config attribute.
-* JUJU_CHARM_NO_PROXY holds the value of the `juju-no-proxy` model config attribute.
-
-Additionally, hooks will have extra environment variables set which correspond to the kind of hook.
-The operation of each hook kind is explained in the following sections, including any relevant additional environment variables.
+All hooks get a common set of environment variables; see {ref}`generic environment variables <generic-environment-variables>`. In addition, some hook( kind)s also get hook (kind) specific environment variables, as specified in the documentation for each hook.
 
 ## Hook ordering
 
@@ -226,14 +181,14 @@ In normal operation, a unit will run at least the `install`, `start`, `config-ch
 
 When a charm is first deployed, the following hooks are executed in order before a charm reaches its operation phase:
 
-* storage-attached (for machine charms if the unit has storage)
-* install
-* leader-elected (if the unit is a leader)
-* config-changed
-* start
+* {ref}`hook-storage-attached` (for machine charms if the unit has storage)
+* {ref}`hook-install`
+* {ref}`hook-leader-elected` (if the unit is a leader)
+* {ref}`hook-config-changed`
+* {ref}`hook-start`
 
 ```{note}
-Only machine charms have the behaviour where the `storage-attached` hook must run before the `install` hook.
+Only machine charms have the behaviour where the {ref}`hook-storage-attached` hook must run before the {ref}`hook-install` hook.
 See {ref}`storage hooks <storage-hooks>` for more details.
 ```
 
@@ -253,16 +208,16 @@ The `upgrade-charm` hook always runs once immediately after the charm directory
 contents have been changed by an unforced charm upgrade operation, and *may* do
 so after a forced upgrade; but will *not* be run after a forced upgrade from an
 existing error state. (Consequently, neither will the `config-changed` hook that
-would ordinarily follow the upgrade-charm.)
+would ordinarily follow the {ref}`hook-upgrade-charm` hook.)
 
 (teardown-phase)=
 ### Teardown phase
 
 When a unit is to be removed, the following hooks are executed:
 
-* `stop`
-* `storage-detaching` | `relation-broken` (in any order)
-* `remove`
+* {ref}`hook-stop`
+* {ref}`hook-storage-detaching` | {ref}`hook-relation-broken` (in any order)
+* {ref}`hook-remove`
 
 The `remove` event is the last event a unit will ever see before being removed.
 
@@ -312,8 +267,8 @@ For every endpoint defined by a charm, relation hook events are named after the 
 For each charm endpoint, any or all of the above relation hooks can be implemented.
 Relation hooks operate in an environment with additional environment variables available:
 
-* `JUJU_RELATION` holds the name of the relation. This is of limited value, because every relation hook already "knows" what charm relation it was written for; that is, in the `foo-relation-joined` hook, JUJU_RELATION is `foo`.
-* `JUJU_RELATION_ID` holds the ID of the relation. It is more useful, because it serves as unique identifier for a particular relation, and thereby allows the charm to handle distinct relations over a single endpoint. In hooks for the `foo` charm relation, JUJU_RELATION_ID always has the form "foo:<id>", where id uniquely but opaquely identifies the runtime relation currently in play.
+* `JUJU_RELATION` holds the name of the relation. This is of limited value, because every relation hook already "knows" what charm relation it was written for; that is, in the `foo-relation-joined` hook, `JUJU_RELATION` is `foo`.
+* `JUJU_RELATION_ID` holds the ID of the relation. It is more useful, because it serves as unique identifier for a particular relation, and thereby allows the charm to handle distinct relations over a single endpoint. In hooks for the `foo` charm relation, `JUJU_RELATION_ID` always has the form `foo:<id>`, where ID uniquely but opaquely identifies the runtime relation currently in play.
 * `JUJU_REMOTE_APP` holds the name of the related application.
 
 Furthermore, all relation hooks except `relation-created` and `relation-broken` are notifications about some specific unit of a related application, and operate in an environment with the following additional environment variables available:
@@ -1415,3 +1370,31 @@ TBA
 
 Any unit.
 
+
+
+## Hook and action environment variables
+
+### `<environment variable(s) specific to a hook (kind) or action>`
+
+See the documentation for the relevant hook or action.
+
+(generic-environment-variables)=
+### Generic environment variables
+
+* `PATH` is the usual Unix path, prefixed by a directory containing command line tools through which the hooks can interact with Juju.
+* `JUJU_CHARM_DIR` holds the path to the charm directory.
+* `JUJU_HOOK_NAME` holds the name of the currently executing hook.
+* `JUJU_UNIT_NAME` holds the name of the local unit.
+* `JUJU_CONTEXT_ID`, `JUJU_AGENT_SOCKET_NETWORK` and `JUJU_AGENT_SOCKET_ADDRESS` are set (but should not be messed with: the command line tools won't work without them).
+* `JUJU_API_ADDRESSES` holds a space separated list of Juju API addresses.
+* `JUJU_MODEL_UUID` holds the UUID of the current model.
+* `JUJU_MODEL_NAME` holds the human friendly name of the current model.
+* `JUJU_PRINCIPAL_UNIT` holds the name of the principal unit if the current unit is a subordinate.
+* `JUJU_MACHINE_ID` holds the ID of the machine on which the local unit is running.
+* `JUJU_AVAILABILITY_ZONE` holds the cloud's availability zone where the machine has been provisioned.
+* `CLOUD_API_VERSION` holds the API version of the cloud endpoint.
+* `JUJU_VERSION` holds the version of the model hosting the local unit.
+* `JUJU_CHARM_HTTP_PROXY` holds the value of the `juju-http-proxy` model config attribute.
+* `JUJU_CHARM_HTTPS_PROXY` holds the value of the `juju-https-proxy` model config attribute.
+* `JUJU_CHARM_FTP_PROXY` holds the value of the `juju-ftp-proxy` model config attribute.
+* `JUJU_CHARM_NO_PROXY` holds the value of the `juju-no-proxy` model config attribute.
