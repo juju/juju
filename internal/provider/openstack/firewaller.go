@@ -121,7 +121,7 @@ type firewallerFactory struct{}
 
 // GetFirewaller implements FirewallerFactory
 func (f *firewallerFactory) GetFirewaller(env environs.Environ) Firewaller {
-	return &neutronFirewaller{firewallerBase{environ: env.(*Environ)}}
+	return &neutronFirewaller{firewallerBase: firewallerBase{environ: env.(*Environ)}}
 }
 
 type firewallerBase struct {
