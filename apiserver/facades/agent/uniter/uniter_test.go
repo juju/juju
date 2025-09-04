@@ -3084,39 +3084,6 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := s.uniter.GetMeterStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(result.Results[0].Code, gc.Equals, "")
-	c.Assert(result.Results[0].Info, gc.Equals, "")
-}
-
-func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
-	tags := []string{
-		"user-admin",
-		"unit-nosuchunit",
-		"thisisnotatag",
-		"machine-0",
-		"model-blah",
-	}
-	args := params.Entities{Entities: make([]params.Entity, len(tags))}
-	for i, tag := range tags {
-		args.Entities[i] = params.Entity{Tag: tag}
-	}
-	result, err := s.uniter.GetMeterStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, len(tags))
-	for i, result := range result.Results {
-		c.Logf("checking result %d", i)
-		c.Assert(result.Code, gc.Equals, "")
-		c.Assert(result.Info, gc.Equals, "")
-		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
-	}
-}
-
 func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	relatedApplication := s.AddTestingApplication(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
@@ -3897,7 +3864,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
+func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoOp(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
 
@@ -3916,94 +3883,6 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.State.MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
-		Batches: []params.MetricBatchParam{{
-			Tag: s.meteredUnit.Tag().String(),
-			Batch: params.MetricBatch{
-				UUID:     uuid,
-				CharmURL: s.meteredCharm.URL(),
-				Created:  time.Now(),
-				Metrics:  metrics,
-			}}}})
-
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.State.MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredApplication, SetCharmURL: true})
-
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	tests := []struct {
-		about  string
-		tag    string
-		expect string
-	}{{
-		about:  "different unit",
-		tag:    unit2.Tag().String(),
-		expect: "permission denied",
-	}, {
-		about:  "user tag",
-		tag:    names.NewLocalUserTag("admin").String(),
-		expect: `"user-admin" is not a valid unit tag`,
-	}, {
-		about:  "machine tag",
-		tag:    names.NewMachineTag("0").String(),
-		expect: `"machine-0" is not a valid unit tag`,
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.about)
-		result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
-			Batches: []params.MetricBatchParam{{
-				Tag: test.tag,
-				Batch: params.MetricBatch{
-					UUID:     uuid,
-					CharmURL: "",
-					Created:  time.Now(),
-					Metrics:  metrics,
-				}}}})
-
-		if test.expect == "" {
-			c.Assert(result.OneError(), jc.ErrorIsNil)
-		} else {
-			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
-		}
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = s.State.MetricBatch(uuid)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	}
 }
 
 type uniterNetworkInfoSuite struct {

@@ -423,18 +423,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.legacyProxySettings = modelConfig.LegacyProxySettings()
 	ctx.jujuProxySettings = modelConfig.JujuProxySettings()
 
-	// MeterStatus is removed in 4.0, so the facade is not available.
-	// Setting meter status code and info to be empty string should be
-	// valid.
-	statusCode, statusInfo, err := f.unit.MeterStatus()
-	if err != nil && !errors.Is(err, errors.NotImplemented) {
-		return errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
-
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
 	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
 	switch f.modelType {

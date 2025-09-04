@@ -69,7 +69,6 @@ var (
 		"log-forwarder",
 		"logging-config-updater",
 		"machine-undertaker",
-		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",

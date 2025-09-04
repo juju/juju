@@ -83,10 +83,10 @@ var facadeVersions = facades.FacadeVersions{
 	"MachineManager":               {9, 10},
 	"MachineUndertaker":            {1},
 	"Machiner":                     {5},
-	"MeterStatus":                  {2},
+	// MeterStatus methods are noops, but we retain it for compatibility.
+	"MeterStatus": {2},
+	// MetricsAdder methods are noops, but we retain it for compatibility.
 	"MetricsAdder":                 {2},
-	"MetricsDebug":                 {2},
-	"MetricsManager":               {1},
 	"MigrationFlag":                {1},
 	"MigrationMaster":              {3},
 	"MigrationMinion":              {1},

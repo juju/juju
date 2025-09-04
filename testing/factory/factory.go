@@ -6,7 +6,6 @@ package factory
 import (
 	"fmt"
 	"math/rand"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -136,7 +135,6 @@ type RelationParams struct {
 type MetricParams struct {
 	Unit       *state.Unit
 	Time       *time.Time
-	Metrics    []state.Metric
 	Sent       bool
 	DeleteTime *time.Time
 }
@@ -688,54 +686,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 
 	return unit, params.Password
-}
-
-// MakeMetric makes a metric with specified params, filling in
-// sane defaults for missing values.
-// If params is not specified, defaults are used.
-func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricBatch {
-	now := time.Now().Round(time.Second).UTC()
-	if params == nil {
-		params = &MetricParams{}
-	}
-	if params.Unit == nil {
-		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "ch:quantal/metered"})
-		meteredApplication := factory.MakeApplication(c, &ApplicationParams{Charm: meteredCharm})
-		params.Unit = factory.MakeUnit(c, &UnitParams{Application: meteredApplication, SetCharmURL: true})
-	}
-	if params.Time == nil {
-		params.Time = &now
-	}
-	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{
-			Key:    "pings",
-			Value:  strconv.Itoa(uniqueInteger()),
-			Time:   *params.Time,
-			Labels: map[string]string{"foo": "bar"},
-		}}
-	}
-
-	chURL := params.Unit.CharmURL()
-	c.Assert(chURL, gc.NotNil)
-
-	metric, err := factory.st.AddMetrics(
-		state.BatchParam{
-			UUID:     utils.MustNewUUID().String(),
-			Created:  *params.Time,
-			CharmURL: *chURL,
-			Metrics:  params.Metrics,
-			Unit:     params.Unit.UnitTag(),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	if params.Sent {
-		t := now
-		if params.DeleteTime != nil {
-			t = *params.DeleteTime
-		}
-		err := metric.SetSent(t)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	return metric
 }
 
 // MakeRelation create a relation with specified params, filling in sane

@@ -119,7 +119,14 @@ func (c createProfilesStep) Run(ctx context.ProviderCallContext) error {
 
 		var newProfiles []string
 		for _, profileName := range profiles {
-			isCharmProfile := strings.HasPrefix(profileName, prefixTrailingHyphen) && lxdprofile.IsValidName(profileName)
+			isCharmProfile := strings.HasPrefix(profileName, prefixTrailingHyphen) &&
+				// A new model profile may have been created in a previous run (and crashed),
+				// which we want to skip here.
+				// Since the shortID suffix could consist only of numbers, we might
+				// mistakenly treat it as a charm profile (e.g. `juju-model-017671`).
+				// So we explicitly exclude it here.
+				profileName != c.env.profileName() &&
+				lxdprofile.IsValidName(profileName)
 			if !isCharmProfile {
 				continue
 			}

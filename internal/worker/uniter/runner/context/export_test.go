@@ -106,15 +106,6 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), ctx.modelType, machPorts, appPortRanges)
 
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-
-	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
 	return ctx, nil
 }
 
@@ -273,9 +264,7 @@ type ModelHookContextParams struct {
 	ModelName string
 	UnitName  string
 
-	MeterCode string
-	MeterInfo string
-	SLALevel  string
+	SLALevel string
 
 	AvailZone    string
 	APIAddresses []string
@@ -293,18 +282,14 @@ type ModelHookContextParams struct {
 // The returned value is not otherwise valid.
 func NewModelHookContext(p ModelHookContextParams) *HookContext {
 	return &HookContext{
-		id:                  p.ID,
-		hookName:            p.HookName,
-		unitName:            p.UnitName,
-		uuid:                p.ModelUUID,
-		modelName:           p.ModelName,
-		apiAddrs:            p.APIAddresses,
-		legacyProxySettings: p.LegacyProxySettings,
-		jujuProxySettings:   p.JujuProxySettings,
-		meterStatus: &meterStatus{
-			code: p.MeterCode,
-			info: p.MeterInfo,
-		},
+		id:                     p.ID,
+		hookName:               p.HookName,
+		unitName:               p.UnitName,
+		uuid:                   p.ModelUUID,
+		modelName:              p.ModelName,
+		apiAddrs:               p.APIAddresses,
+		legacyProxySettings:    p.LegacyProxySettings,
+		jujuProxySettings:      p.JujuProxySettings,
 		relationId:             -1,
 		assignedMachineTag:     p.MachineTag,
 		availabilityZone:       p.AvailZone,

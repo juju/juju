@@ -64,6 +64,17 @@ func (s *CharmSuite) checkRemoved(c *gc.C) {
 	c.Check(count, gc.Equals, 0)
 }
 
+func removeUnit(c *gc.C, unit *state.Unit) {
+	ensureUnitDead(c, unit)
+	err := unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func ensureUnitDead(c *gc.C, unit *state.Unit) {
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *CharmSuite) TestAliveCharm(c *gc.C) {
 	s.testCharm(c)
 }
@@ -898,27 +909,6 @@ func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 	})
 }
 
-var metricsYaml = `
-metrics:
-  blips:
-    description: A custom metric.
-    type: gauge
-`
-
-func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
-	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(metricsYaml)))
-	c.Assert(err, jc.ErrorIsNil)
-
-	forEachStandardCharm(c, func(name string) {
-		chd := testcharms.Repo.CharmDir(name)
-		meta := chd.Meta()
-		config := chd.Config()
-
-		ch := s.AddMetricsCharm(c, name, metricsYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
-	})
-}
-
 var metaYamlSnippet = `
 summary: blah
 description: blah blah
@@ -985,12 +975,4 @@ func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
 		ch := s.AddManifestCharm(c, name, manifestYaml, 123)
 		c.Assert(ch.Manifest(), gc.DeepEquals, manifest)
 	})
-}
-
-func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := state.AddTestingCharmFromRepo(c, s.State, "metered", testcharms.CharmRepo())
-	c.Assert(added.Metrics(), gc.NotNil)
-
-	charmDir := testcharms.CharmRepo().CharmDir("metered")
-	c.Assert(charmDir.Metrics(), gc.DeepEquals, added.Metrics())
 }

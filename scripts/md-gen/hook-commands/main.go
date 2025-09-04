@@ -6,7 +6,6 @@ package main
 import (
 	"os"
 	"slices"
-	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
@@ -67,9 +66,6 @@ func main() {
 // Copied from cmd/juju/commands/helptool.go
 type dummyHookContext struct{ jujuc.Context }
 
-func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
-	return nil
-}
 func (dummyHookContext) UnitName() string {
 	return ""
 }

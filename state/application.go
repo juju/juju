@@ -2509,7 +2509,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
-	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
 
 	workloadVersionDoc := &statusDoc{
 		Status:  status.Unknown,
@@ -2544,7 +2543,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
-		meterStatusDoc:     meterStatus,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -2997,7 +2995,6 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 			Assert: append(observedFieldsMatch, asserts...),
 			Remove: true,
 		},
-		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalWorkloadVersionKey()),

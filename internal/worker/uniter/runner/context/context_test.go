@@ -118,14 +118,6 @@ func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
 	c.Assert(name, gc.Equals, "u/123")
 }
 
-func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
-	ctx := s.GetContext(c, 1, "u/123", names.StorageTag{})
-	err := ctx.AddMetric("key", "123", time.Now())
-	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
-	err = ctx.AddMetricLabels("key", "123", time.Now(), map[string]string{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
-}
-
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	zone, err := ctx.AvailabilityZone()
