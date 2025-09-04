@@ -524,19 +524,18 @@ Behind the scenes, the application removal consists of multiple different stages
 - The client tells the controller to remove the application.
 - The controller signals to the application (charm) that it is going to be
   destroyed.
-- The charm breaks any relations to its application by calling
-  relationship-broken and relationship-departed.
-- The charm calls its ‘stop hook’ which should:
-  - Stop the application
-  - Remove any files/configuration created during the application lifecycle
+- The charm breaks any relations to its application by calling the
+  `<endpoint>-relation-broken` and `<endpoint>-relations-departed` hooks.
+- The charm calls its `stop` hook which should:
+  - Stop the application.
+  - Remove any files/configuration created during the application lifecycle.
   - Prepare any backup(s) of the application that are required for restore
     purposes.
 - The application and all its units are then removed.
 - In the case that this leaves machines with no running applications, the machines are also removed.
 
 
-
-````{dropdown} One or more units are stuck in error state
+````{dropdown} Scenario: One or more units are stuck in error state
 
 If the status of one or more of the units being removed is error, Juju will not proceed until the error has been resolved or the remove applications command has been run again with the force flag.
 
