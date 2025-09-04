@@ -235,7 +235,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger,
 	)
 
-	storageValidator := applicationservice.NewStorageProviderValidator(
+	storageValidator := applicationservice.NewStoragePoolProvider(
 		s.storageRegistry, state,
 	)
 
