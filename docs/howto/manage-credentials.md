@@ -18,9 +18,7 @@ The procedure for how to add a cloud credential to Juju depends on whether the c
 
 ### Add a credential for a machine cloud
 
-In general, if your cloud is a local LXD cloud and if you have controller {ref}`user-access-controller-superuser` access: Your cloud credential is set up and retrieved automatically for you, so you can skip this step; run `juju credentials` to confirm.
-
-<!-- (If you don't have controller {ref}`user-access-controller-superuser` access, you might still be able to make this happen automatically by running `juju autoload-credentials`, but only for existing models on a controller you ???.) -->
+In general, if your cloud is a local LXD cloud and if you have controller {ref}`user-access-controller-superuser` access: Your cloud credential is set up and retrieved automatically for you, so you can skip this step; run `juju credentials` to confirm. (If you only have {ref}`user-access-cloud-add-model` access, you might still be able to make this happen automatically by running `juju autoload-credentials`.)
 
 Otherwise, to add a machine cloud credential to Juju:
 
