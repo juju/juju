@@ -9,10 +9,10 @@ CREATE TABLE application_remote_offerer (
     -- version is the unique version number that is incremented when the 
     -- consumer model changes the offerer application.
     version INT NOT NULL,
-    -- external_controller_uuid is the offering controller where the
+    -- offerer_controller_uuid is the offering controller where the
     -- offerer application is located. There is no FK constraint on it,
     -- because that information is located in the controller DB.
-    external_controller_uuid TEXT NOT NULL,
+    offerer_controller_uuid TEXT NOT NULL,
     -- offerer_model_uuid is the model in the offering controller where
     -- the offerer application is located. There is no FK constraint on it,
     -- because we don't have the model locally.
@@ -50,15 +50,15 @@ CREATE TABLE application_remote_consumer (
 -- relation UUID for a given local relation.
 CREATE TABLE application_remote_relation (
     uuid TEXT NOT NULL PRIMARY KEY,
-    -- relation_endpoint_uuid is the local relation endpoint UUID.
-    relation_endpoint_uuid TEXT NOT NULL,
+    -- relation_uuid is the local relation UUID.
+    relation_uuid TEXT NOT NULL,
     -- consumer_relation_uuid is the relation UUID in the consumer model.
     -- There is no FK constraint on it, because we don't have the relation
     -- locally in the model.
     consumer_relation_uuid TEXT NOT NULL,
-    CONSTRAINT fk_relation_endpoint_uuid
-    FOREIGN KEY (relation_endpoint_uuid)
-    REFERENCES relation_endpoint (uuid)
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid)
 );
 
 -- offer connection links the application remote consumer to the offer.
@@ -66,14 +66,10 @@ CREATE TABLE offer_connection (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- offer_uuid is the offer that the remote application is using.
     offer_uuid TEXT NOT NULL,
-    -- relation_endpoint_uuid is the relation for which the offer connection
-    -- is made. It uses the relation endpoint, as we can identify both the
+    -- remote_relation_uuid is the relation for which the offer connection
+    -- is made. It uses the relation, as we can identify both the
     -- relation id and the relation key from it.
-    relation_endpoint_uuid TEXT NOT NULL,
-    -- consumer_model_uuid is the model in which the consumer application
-    -- exists. There is no FK constraint on it, because we don't have the model
-    -- locally.
-    consumer_model_uuid TEXT NOT NULL,
+    remote_relation_uuid TEXT NOT NULL,
     -- username is the user in the consumer model that created the offer
     -- connection. This is not a user, but an offer user for which offers are
     -- granted permissions on.
@@ -81,33 +77,7 @@ CREATE TABLE offer_connection (
     CONSTRAINT fk_offer_uuid
     FOREIGN KEY (offer_uuid)
     REFERENCES offer (uuid),
-    CONSTRAINT fk_relation_endpoint_uuid
-    FOREIGN KEY (relation_endpoint_uuid)
-    REFERENCES relation_endpoint (uuid)
-);
-
-CREATE TABLE application_remote_offerer_status (
-    application_remote_offerer_uuid TEXT NOT NULL PRIMARY KEY,
-    relation_status_type_id TEXT NOT NULL,
-    suspended_reason TEXT,
-    updated_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_application_remote_offerer_uuid
-    FOREIGN KEY (application_remote_offerer_uuid)
-    REFERENCES application_remote_offerer (uuid),
-    CONSTRAINT fk_relation_status_type_id
-    FOREIGN KEY (relation_status_type_id)
-    REFERENCES relation_status_type (id)
-);
-
-CREATE TABLE application_remote_consumer_status (
-    application_remote_consumer_uuid TEXT NOT NULL PRIMARY KEY,
-    relation_status_type_id TEXT NOT NULL,
-    suspended_reason TEXT,
-    updated_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_application_remote_consumer_uuid
-    FOREIGN KEY (application_remote_consumer_uuid)
-    REFERENCES application_remote_consumer (uuid),
-    CONSTRAINT fk_relation_status_type_id
-    FOREIGN KEY (relation_status_type_id)
-    REFERENCES relation_status_type (id)
+    CONSTRAINT fk_remote_relation_uuid
+    FOREIGN KEY (remote_relation_uuid)
+    REFERENCES relation (uuid)
 );
