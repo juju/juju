@@ -302,7 +302,7 @@ The `leader-elected` event is emitted for a unit that is elected as leader. Toge
 
 
 
-- `leader-elected` is always emitted **after** peer-`relation-created` during the Startup phase. However, by the time `relation-created` runs, Juju may already have a leader. This means that, in peer-relation-created handlers, it might already be the case that `self.unit.is_leader()` returns `True` even though the unit did not receive a leadership event yet. If the starting unit is *not* leader, it will receive a {ref}``leader-settings-changed` <event-leader-settings-changed>` instead.
+- `leader-elected` is always emitted **after** peer-`relation-created` during the Startup phase. However, by the time `relation-created` runs, Juju may already have a leader. This means that, in peer-relation-created handlers, it might already be the case that `self.unit.is_leader()` returns `True` even though the unit did not receive a leadership event yet. If the starting unit is *not* leader, it will receive a {ref}`hook-leader-settings-changed` hook instead.
 
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
@@ -512,7 +512,7 @@ Hooks bound to this event should be the only ones that rely on remote relation s
 
 Charm authors should expect this event to fire many times during an application's life cycle. Units in an application are able to update relation data as needed, and a `relation-changed` event will fire every time the data in a relation changes. Since relation data can be updated on a per unit bases, a unit may receive multiple `relation-changed` events if it is related to multiple units in an application and all those units update their relation data.
 
-This event is guaranteed to follow immediately after each {ref}`hook-relation-joined`. So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
+This event is guaranteed to follow immediately after each {ref}`hook-relation-joined` hook. So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
 
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
@@ -946,7 +946,7 @@ TBA
 (upgrade-series-hooks)=
 ### Upgrade series hooks
 
-> Juju `3.6` or earlier only.
+> Juju `3.6` or earlier only. To be removed in Juju 4.
 
 These hooks are run to tell the charm the version of OS that the host machine will be upgraded to.
 
@@ -956,7 +956,6 @@ Upgrade series hooks operate in an environment with additional environment varia
 
 (hook-post-series-upgrade)=
 #### `post-series-upgrade`
-> Removed in Juju 4.
 
 *What triggers it?*
 
@@ -979,8 +978,6 @@ TBA
 
 (hook-pre-series-upgrade)=
 #### `pre-series-upgrade`
-> Removed in Juju 4.
-
 
 *What triggers it?*
 
