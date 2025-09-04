@@ -5,6 +5,7 @@ package context
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -17,10 +18,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
@@ -180,6 +183,10 @@ type HookContext struct {
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
+
+	// inClusterConfig supplies the K8s rest.InClusterConfig function,
+	// overrideable for testing.
+	inClusterConfig func() (*rest.Config, error)
 
 	// principal is the unitName of the principal charm.
 	principal string
@@ -1239,15 +1246,61 @@ func (ctx *HookContext) GetRawK8sSpec() (string, error) {
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
-	if ctx.modelType == model.CAAS {
-		return nil, errors.NotSupportedf("credential-get on a %q model", model.CAAS)
+	if ctx.cloudSpec != nil {
+		return ctx.cloudSpec, nil
 	}
 	var err error
-	ctx.cloudSpec, err = ctx.state.CloudSpec()
-	if err != nil {
-		return nil, err
+	if ctx.modelType == model.CAAS {
+		ctx.cloudSpec, err = ctx.cloudSpecK8s()
+	} else {
+		ctx.cloudSpec, err = ctx.state.CloudSpec()
 	}
-	return ctx.cloudSpec, nil
+	return ctx.cloudSpec, err
+}
+
+// cloudSpecK8s loads the in-cluster configuration to connect to the Kubernetes API.
+func (ctx *HookContext) cloudSpecK8s() (*params.CloudSpec, error) {
+	// Hit controller's CloudSpec API to determine whether we have permission,
+	// and we need it for some of the fields (but not the credentials).
+	modelSpec, err := ctx.state.CloudSpec()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model credentials")
+	}
+
+	inClusterConfig := ctx.inClusterConfig
+	if inClusterConfig == nil {
+		inClusterConfig = rest.InClusterConfig
+	}
+	config, err := inClusterConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading in-cluster config")
+	}
+
+	// InClusterConfig doesn't actually load the certificate file, so do it ourselves.
+	if config.TLSClientConfig.CAFile == "" {
+		// Oddly, InClusterConfig logs this error, but does not return it.
+		return nil, errors.New("reading certificate file")
+	}
+	certBytes, err := os.ReadFile(config.TLSClientConfig.CAFile)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading certificate file")
+	}
+
+	credential := &params.CloudSpec{
+		Type:     modelSpec.Type, // "kubernetes"
+		Name:     modelSpec.Name,
+		Region:   modelSpec.Region,
+		Endpoint: config.Host,
+		Credential: &params.CloudCredential{
+			AuthType: string(cloud.OAuth2AuthType),
+			Attributes: map[string]string{
+				"Token": config.BearerToken,
+			},
+		},
+		CACertificates:    []string{string(certBytes)},
+		IsControllerCloud: modelSpec.IsControllerCloud,
+	}
+	return credential, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
