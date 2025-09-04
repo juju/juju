@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modellife"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/operationpruner"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer"
 	"github.com/juju/juju/internal/worker/remoterelationofferer"
@@ -101,6 +102,9 @@ type ManifoldsConfig struct {
 	// NewMigrationMaster is called to create a new migrationmaster
 	// worker.
 	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	// OperationPrunerInterval determines how often the operations are pruned
+	OperationPrunerInterval time.Duration
 
 	// ProviderServicesGetter is used to access the provider service.
 	ProviderServicesGetter modelworkermanager.ProviderServicesGetter
@@ -365,6 +369,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
 		})),
+		// the operationPruner is the worker that prune operation based on their age or result/log size periodically
+		operationPrunerName: ifNotMigrating(operationpruner.Manifold(operationpruner.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			PruneInterval:      config.OperationPrunerInterval,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.operationpruner"),
+			Clock:              config.Clock,
+		})),
 	}
 	return result
 }
@@ -580,6 +591,7 @@ const (
 	firewallerName               = "firewaller"
 	httpClientName               = "http-client"
 	instancePollerName           = "instance-poller"
+	operationPrunerName          = "operation-pruner"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
 	machineUndertakerName        = "machine-undertaker"
