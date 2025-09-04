@@ -39,6 +39,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -82,10 +83,11 @@ type UniterAPI struct {
 	modelProviderService    ModelProviderService
 	networkService          NetworkService
 	portService             PortService
+	operationService        OperationService
 	relationService         RelationService
+	removalService          RemovalService
 	secretService           SecretService
 	unitStateService        UnitStateService
-	removalService          RemovalService
 
 	store objectstore.ObjectStore
 
@@ -1193,22 +1195,76 @@ func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.A
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	_, err := u.accessUnit(ctx)
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
 
-	return params.ErrorResults{}, nil
+	for i, arg := range args.Entities {
+		actionID, err := u.authTaskID(ctx, canAccess, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = u.operationService.StartTask(ctx, actionID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results, nil
+}
+
+// authTaskID tests the task receiver for the task ID to authenticate against,
+// returns the task ID if successful.
+func (u *UniterAPI) authTaskID(ctx context.Context, canAccess common.AuthFunc, tagStr string) (string, error) {
+	actionTag, err := names.ParseActionTag(tagStr)
+	if err != nil {
+		return "", err
+	}
+	receiverStr, err := u.operationService.ReceiverFromTask(ctx, actionTag.Id())
+	if err != nil {
+		return "", err
+	}
+	receiverTag, err := names.ActionReceiverTag(receiverStr)
+	if err != nil {
+		return "", err
+	}
+	if !canAccess(receiverTag) {
+		return "", apiservererrors.ErrPerm
+	}
+	return actionTag.Id(), nil
 }
 
 // FinishActions saves the result of a completed Action
 func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecutionResults) (params.ErrorResults, error) {
-	_, err := u.accessUnit(ctx)
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
 
-	return params.ErrorResults{}, nil
+	for i, arg := range args.Results {
+		taskID, err := u.authTaskID(ctx, canAccess, arg.ActionTag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		taskResultArg := operation.CompletedTaskResult{
+			TaskID:  taskID,
+			Status:  arg.Status,
+			Results: arg.Results,
+			Message: arg.Message,
+		}
+		err = u.operationService.FinishTask(ctx, taskResultArg)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results, nil
 }
 
 // LogActionsMessages records the log messages against the specified actions.

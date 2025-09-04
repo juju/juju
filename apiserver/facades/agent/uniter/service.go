@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
@@ -46,13 +47,14 @@ type Services struct {
 	ModelConfigService         ModelConfigService
 	ModelInfoService           ModelInfoService
 	ModelProviderService       ModelProviderService
-	PortService                PortService
 	NetworkService             NetworkService
+	OperationService           OperationService
+	PortService                PortService
 	RelationService            RelationService
+	RemovalService             RemovalService
 	SecretService              SecretService
 	StorageProvisioningService StorageProvisioningService
 	UnitStateService           UnitStateService
-	RemovalService             RemovalService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -361,6 +363,19 @@ type PortService interface {
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid, grouped
 	// by endpoint.
 	GetUnitOpenedPorts(ctx context.Context, unitUUID coreunit.UUID) (network.GroupedPortRanges, error)
+}
+
+// OperationService provides access to operations and tasks.
+type OperationService interface {
+	// StartTask marks a task as running and logs the time it was started.
+	StartTask(ctx context.Context, id string) error
+
+	// FinishTask saves the result of a completed Task.
+	FinishTask(context.Context, operation.CompletedTaskResult) error
+
+	// ReceiverFromTask return a receiver string for the task identified.
+	// The string should satisfy the ActionReceiverTag type.
+	ReceiverFromTask(ctx context.Context, id string) (string, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

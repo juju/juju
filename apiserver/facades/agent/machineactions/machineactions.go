@@ -7,19 +7,37 @@ package machineactions
 import (
 	"context"
 
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/rpc/params"
 )
+
+// OperationService provides access to operations and tasks.
+type OperationService interface {
+	// StartTask marks a task as running and logs the time it was started.
+	StartTask(ctx context.Context, id string) error
+
+	// FinishTask saves the result of a completed Task.
+	FinishTask(context.Context, operation.CompletedTaskResult) error
+
+	// ReceiverFromTask return a receiver string for the task identified.
+	// The string should satisfy the ActionReceiverTag type.
+	ReceiverFromTask(ctx context.Context, id string) (string, error)
+}
 
 // Facade implements the machineactions interface and is the concrete
 // implementation of the api end point.
 type Facade struct {
 	watcherRegistry facade.WatcherRegistry
 	accessMachine   common.AuthFunc
+
+	operationService OperationService
 }
 
 // NewFacade creates a new server-side machineactions API end point.
@@ -44,12 +62,69 @@ func (f *Facade) Actions(ctx context.Context, args params.Entities) params.Actio
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (f *Facade) BeginActions(ctx context.Context, args params.Entities) params.ErrorResults {
-	return params.ErrorResults{}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
+
+	for i, arg := range args.Entities {
+		actionID, err := f.authTaskID(ctx, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = f.operationService.StartTask(ctx, actionID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results
 }
 
-// FinishActions saves the result of a completed Action
+// authTaskID tests the task receiver for the task ID to authenticate against,
+// returns the task ID if successful.
+func (f *Facade) authTaskID(ctx context.Context, tagStr string) (string, error) {
+	actionTag, err := names.ParseActionTag(tagStr)
+	if err != nil {
+		return "", err
+	}
+	receiverStr, err := f.operationService.ReceiverFromTask(ctx, actionTag.Id())
+	if err != nil {
+		return "", err
+	}
+	receiverTag, err := names.ActionReceiverTag(receiverStr)
+	if err != nil {
+		return "", err
+	}
+	if !f.accessMachine(receiverTag) {
+		return "", apiservererrors.ErrPerm
+	}
+	return actionTag.Id(), nil
+}
+
+// FinishActions saves the result of a completed Action and sets
+// its status to completed.
 func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionResults) params.ErrorResults {
-	return params.ErrorResults{}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
+
+	for i, arg := range args.Results {
+		taskID, err := f.authTaskID(ctx, arg.ActionTag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		taskResultArg := operation.CompletedTaskResult{
+			TaskID:  taskID,
+			Status:  arg.Status,
+			Results: arg.Results,
+			Message: arg.Message,
+		}
+		err = f.operationService.FinishTask(ctx, taskResultArg)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing
