@@ -759,8 +759,8 @@ This event gives the consuming charm the chance to read the updated content of t
 
 *Which environment variables is it executed with?*
 
-* JUJU_SECRET_ID holds the ID of the secret that has a new revision.
-* JUJU_SECRET_LABEL holds the label given to the secret by the consumer.
+* `JUJU_SECRET_ID` holds the ID of the secret that has a new revision.
+* `JUJU_SECRET_LABEL` holds the label given to the secret by the consumer.
 
 The secret label can be set whenever a secret's content is read by passing `--label <label>` to the `secret-get` command.
 Thereafter, any subsequent `secret-changed` hooks will be run with this label.
@@ -799,9 +799,9 @@ Until the charm indeed removes the expired secret revision, Juju will continue t
 
 *Which environment variables is it executed with?*
 
-* JUJU_SECRET_ID holds the ID of the secret that is expiring.
-* JUJU_SECRET_REVISION holds the revision that is expiring.
-* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+* `JUJU_SECRET_ID` holds the ID of the secret that is expiring.
+* `JUJU_SECRET_REVISION` holds the revision that is expiring.
+* `JUJU_SECRET_LABEL` holds the label given to the secret by the owner.
 
 *Who gets it*?
 
