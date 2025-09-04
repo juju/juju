@@ -261,8 +261,14 @@ In all cases we cover
 - Which environment variables is it executed with?
 - Who gets it?
 
+(leadership-hooks)=
+### Leadership hooks
+
+
 (hook-leader-deposed)=
 #### `leader-deposed`
+
+TBA
 
 <!--
 *What triggers it?*
@@ -282,8 +288,6 @@ TBA
 TBA
 -->
 
-(leadership-hooks)=
-### Leadership hooks
 
 (hook-leader-elected)=
 #### `leader-elected`
