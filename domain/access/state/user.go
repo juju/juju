@@ -236,32 +236,27 @@ WHERE  u.uuid = $M.uuid`
 // be returned.
 // Exported for use in credential.
 func GetUserUUIDByName(ctx context.Context, tx *sqlair.TX, name user.Name) (user.UUID, error) {
-	uName := userName{Name: name.Name()}
+	userNameAndUUID := nameAndUUID{Name: name.Name()}
 
 	stmt := `
-SELECT user.uuid AS &M.getUserUUIDs
+SELECT user.uuid AS &nameAndUUID.uuid
 FROM user
-WHERE user.name = $userName.name
+WHERE user.name = $nameAndUUID.name
 AND user.removed = false`
 
-	selectUserUUIDStmt, err := sqlair.Prepare(stmt, sqlair.M{}, uName)
+	selectUserUUIDStmt, err := sqlair.Prepare(stmt, userNameAndUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	result := sqlair.M{}
-	err = tx.Query(ctx, selectUserUUIDStmt, uName).Get(&result)
+	err = tx.Query(ctx, selectUserUUIDStmt, userNameAndUUID).Get(&userNameAndUUID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", errors.Errorf("%w when finding user uuid for name %q", accesserrors.UserNotFound, name)
 	} else if err != nil {
 		return "", errors.Errorf("looking up user uuid for name %q: %w", name, err)
 	}
 
-	if result["getUserUUIDs"] == nil {
-		return "", errors.Errorf("retrieving user uuid for user name %q, no result provided", name)
-	}
-
-	return user.UUID(result["getUserUUIDs"].(string)), nil
+	return user.UUID(userNameAndUUID.UUID), nil
 }
 
 // GetUserByName will retrieve the user with authentication information
