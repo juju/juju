@@ -26,11 +26,11 @@ In either case, the cloud definition is saved to the directory defined in
 (add-a-machine-cloud)=
 ### Add a machine cloud
 
-```{ibnote}
-See also: {ref}`list-of-supported-machine-clouds`
-```
+First, check the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
-If your cloud is a public cloud or a localhost LXD cloud: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify. Otherwise, to add a machine cloud to Juju, run the `add-cloud` command:
+Then, if your cloud is a public cloud or a localhost LXD cloud: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
+
+Otherwise, to add a machine cloud to Juju, run the `add-cloud` command:
 
 ```text
 juju add-cloud
@@ -51,11 +51,11 @@ See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`
 (add-a-kubernetes-cloud)=
 ### Add a Kubernetes cloud
 
-```{ibnote}
-See also: {ref}`list-of-supported-kubernetes-clouds`
-```
+First, check the {ref}`list of supported clouds <list-of-supported-kubernetes-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
-If you're using a localhost MicroK8s cloud installed from a strictly confined snap: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify. Otherwise, to add a Kubernetes cloud to Juju:
+Then, if you're using a localhost MicroK8s cloud installed from a strictly confined snap: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
+
+Otherwise, to add a Kubernetes cloud to Juju:
 
 1. Prepare your kubeconfig file.
 
