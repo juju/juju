@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -34,6 +35,7 @@ type Config struct {
 	NewTrackerWorker     NewTrackerWorkerFunc
 	NewEphemeralProvider NewEphemeralProviderFunc
 	Logger               logger.Logger
+	LogSinkGetter        logger.ModelLogSinkGetter
 	Clock                clock.Clock
 }
 
@@ -59,6 +61,9 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.LogSinkGetter == nil {
+		return errors.NotValidf("nil LogSinkGetter")
 	}
 	return nil
 }
@@ -330,6 +335,20 @@ func (w *providerWorker) initTrackerWorker(ctx context.Context, namespace string
 		// Create the tracker worker based on the namespace.
 		domainServices := w.config.DomainServicesGetter.ServicesForModel(namespace)
 
+		// LoggerContext for the provider worker, this is then used for all
+		// logging.
+		var logger logger.Logger
+		modelUUID := model.UUID(namespace)
+		if err := modelUUID.Validate(); err == nil {
+			loggerContext, err := w.config.LogSinkGetter.GetLoggerContext(ctx, modelUUID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger = loggerContext.GetLogger("juju.worker.providertracker")
+		} else {
+			logger = w.config.Logger.Child(database.ShortNamespace(namespace))
+		}
+
 		tracker, err := w.config.NewTrackerWorker(ctx, TrackerConfig{
 			ModelService:      domainServices.Model(),
 			CloudService:      domainServices.Cloud(),
@@ -339,7 +358,7 @@ func (w *providerWorker) initTrackerWorker(ctx context.Context, namespace string
 				w.config.GetIAASProvider,
 				w.config.GetCAASProvider,
 			),
-			Logger: w.config.Logger.Child(database.ShortNamespace(namespace)),
+			Logger: logger,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

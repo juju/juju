@@ -55,6 +55,8 @@ type ManifoldConfig struct {
 	// ProviderServiceFactoriesName is the name of the domain services getter
 	// that provides the services required by the provider.
 	ProviderServiceFactoriesName string
+	// LogSinkName is the name of the logger.ModelLogger dependency.
+	LogSinkName string
 	// NewWorker is a function that creates a new Worker.
 	NewWorker NewWorkerFunc
 	// NewTrackerWorker is a function that creates a new TrackerWorker.
@@ -79,6 +81,9 @@ type ManifoldConfig struct {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.ProviderServiceFactoriesName == "" {
 		return errors.NotValidf("empty ProviderServiceFactoriesName")
+	}
+	if cfg.LogSinkName == "" {
+		return errors.NotValidf("empty LogSinkName")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -127,11 +132,17 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ProviderServiceFactoriesName,
+			config.LogSinkName,
 		},
 		Output: manifoldOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			domainServicesGetter, err := config.GetProviderServicesGetter(getter, config.ProviderServiceFactoriesName)
 			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var logSinkGetter logger.ModelLogSinkGetter
+			if err := getter.Get(config.LogSinkName, &logSinkGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -143,6 +154,7 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 				NewTrackerWorker:     config.NewTrackerWorker,
 				NewEphemeralProvider: config.NewEphemeralProvider,
 				Logger:               config.Logger,
+				LogSinkGetter:        logSinkGetter,
 				Clock:                config.Clock,
 			})
 			if err != nil {

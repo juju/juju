@@ -19,6 +19,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/services"
@@ -42,6 +43,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.ProviderServiceFactoriesName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.LogSinkName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -80,6 +85,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		ProviderServiceFactoriesName: "provider-services",
+		LogSinkName:                  "log-sink",
 		Logger:                       s.logger,
 		Clock:                        clock.WallClock,
 		NewWorker: func(cfg Config) (worker.Worker, error) {
@@ -106,11 +112,12 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"provider-services": &stubProviderServices{},
+		"log-sink":          &stubLogSinkGetter{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"provider-services"}
+var expectedInputs = []string{"provider-services", "log-sink"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(MultiTrackerManifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -156,8 +163,9 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *tc.C) {
 			c.Fail()
 			return nil, nil
 		},
-		Logger: s.logger,
-		Clock:  clock.WallClock,
+		Logger:        s.logger,
+		LogSinkGetter: &stubLogSinkGetter{},
+		Clock:         clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -213,8 +221,9 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *tc.C) {
 			c.Fail()
 			return nil, nil
 		},
-		Logger: s.logger,
-		Clock:  clock.WallClock,
+		Logger:        s.logger,
+		LogSinkGetter: &stubLogSinkGetter{},
+		Clock:         clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -261,4 +270,8 @@ func (w *stubWorker) Wait() error {
 
 type stubProviderServices struct {
 	services.ProviderServices
+}
+
+type stubLogSinkGetter struct {
+	logger.ModelLogSinkGetter
 }
