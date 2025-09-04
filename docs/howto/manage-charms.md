@@ -197,35 +197,6 @@ juju deploy some-bundle --map-machines=existing,3=4,4=5
 
 ````
 
-````{dropdown} Tips for troubleshooting - machines
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
-
-For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
-
-```text
-juju deploy <charm> --debug --verbose
-```
-
-If it still fails,  connect to the machine and examine the logs.
-
-```{ibnote}
-See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
-```
-
-If Juju fails to provision a subset of machines for some reason (e.g., machine quota limits on the cloud provider), you can also use the {ref}`command-juju-retry-provisioning` command to retry the provisioning of specific machine numbers.
-
-````
-
-````{dropdown} Tips for troubleshooting - Kubernetes
-
-Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
-
-```text
-
-kubectl exec <pod> -itc <container> -n <namespace> -- bash
-```
-````
-
 ````{dropdown} Examples: Use a placement directive to deploy to specific targets
 
 ```{ibnote}
@@ -261,6 +232,36 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 ```
 
+````
+
+
+````{dropdown} Troubleshooting - machines
+Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
+
+For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
+
+```text
+juju deploy <charm> --debug --verbose
+```
+
+If it still fails,  connect to the machine and examine the logs.
+
+```{ibnote}
+See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
+```
+
+If Juju fails to provision a subset of machines for some reason (e.g., machine quota limits on the cloud provider), you can also use the {ref}`command-juju-retry-provisioning` command to retry the provisioning of specific machine numbers.
+
+````
+
+````{dropdown} Troubleshooting - Kubernetes
+
+Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
+
+```text
+
+kubectl exec <pod> -itc <container> -n <namespace> -- bash
+```
 ````
 
 (debug-a-charm)=
