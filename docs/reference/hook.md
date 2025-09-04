@@ -145,6 +145,7 @@ are notified that a hook event has occurred, how errors are reported, and how a 
 a unit being in an error state due to a failed hook execution etc.
 
 Some hooks can also be grouped according to the Juju subsystem they represent. The hook kinds are
+* {ref}`leadership-hooks`
 * {ref}`relation-hooks`
 * {ref}`secret-hooks`
 * {ref}`storage-hooks`
@@ -239,8 +240,136 @@ the most trying circumstances) as well as careful to log any relevant
 information or advice before signalling the error.
 
 ## List of hooks
+<!-- > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go) -->
 
-> [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
+This section gives the complete list of hooks.
+
+Where hooks belong to a kind, we nest them under that kind.
+
+In all cases we cover
+- What triggers the hook?
+- Which environment variables is it executed with?
+- Who gets it?
+
+(hook-leader-deposed)=
+#### `leader-deposed`
+
+<!--
+*What triggers it?*
+
+TBA
+
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+
+*Who gets it*?
+
+TBA
+-->
+
+(leadership-hooks)=
+### Leadership hooks
+
+(hook-leader-elected)=
+#### `leader-elected`
+
+*What triggers it?*
+
+The `leader-elected` event is emitted for a unit that is elected as leader. Together with `leader-settings-changed`, it is one of two "leadership events". A unit receiving this event can be guaranteed that it will have leadership for approximately 30 seconds (from the moment the event is received). After that time, Juju *might* have elected a different leader. The same holds if the unit checks leadership by `Unit.is_leader()`: if the result is `True`, then the unit can be ensured that it has leadership for the next 30s.
+
+> Leadership can change while a hook is running. (You could start a hook on unit/0 who is the leader, and while that hook is processing, you lose network connectivity for a long time [more than 30s], and then by the time the hook notices, Juju has already moved on to another leader.)
+
+> Juju doesn't guarantee that a leader will see every event: if the leader unit is overloaded long enough for the lease to expire (>30s), then Juju will elect a different leader. Events that fired in between would be received units that are not leader yet or not leader anymore.
+
+
+
+- `leader-elected` is always emitted **after** peer-`relation-created` during the Startup phase. However, by the time `relation-created` runs, Juju may already have a leader. This means that, in peer-relation-created handlers, it might already be the case that `self.unit.is_leader()` returns `True` even though the unit did not receive a leadership event yet. If the starting unit is *not* leader, it will receive a {ref}``leader-settings-changed` <event-leader-settings-changed>` instead.
+
+|   Scenario  | Example Command                          | Resulting Events                     |
+| :-------: | -------------------------- | ------------------------------------ |
+|  Start new unit   | `juju deploy foo`<br>`juju add-unit foo`  | (new leader) `install -> (*peer)-relation-created -> leader-elected`|
+
+-  During the Operation phase, leadership changes can in principle occur at any time, for example if the leader unit is unresponsive for some time. When a leader loses leadership it will only receive a `leader-settings-changed` event, just like all the other non-leader units. The new leader will receive `leader-elected`.
+
+> It is not possible to select a specific unit and 'promote' that unit to leader, or 'demote' an existing leader unit. Juju has control over which unit will become leader after the current leader is gone.
+
+```{note}
+
+However, you can cause leadership change by destroying the leader unit or killing the jujud-machine service in operator charms.
+
+- non-Kubernetes models: `juju remove-unit <leader_unit>`
+- operator charms: `juju ssh -m <id> -- systemctl stop jujud-machine-<id>`
+- sidecar charms: ssh into the charm container, source the `/etc/profile.d/juju-introspection.sh` script, and then get access to a few cli tools, including `juju_stop_unit`.
+
+That will cause the lease to expire within 60s, and another unit of the same application will be elected leader and receive `leader-elected`.
+
+```
+
+- If the leader unit is removed, then one of the remaining units will be elected as leader and see the `leader-elected` event; all the other remaining units will see `leader-settings-changed`. If the leader unit was not removed, no leadership events will be fired on any units.
+
+> Note that unless there's only one unit left, it is impossible to predict or control which one of the remaining units will be elected as the new leader.
+
+|   Scenario  | Example Command                          | Resulting Events                     |
+| :-------: | -------------------------- | ------------------------------------ |
+|  Current leader loses leadership   | `juju remove-unit foo`  | (new leader): `leader-elected` <br> (all other foo units): `leader-settings-changed`|
+
+
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+-->
+
+*Who gets it*?
+
+The leader unit, once Juju elects one.
+
+
+(hook-leader-settings-changed)=
+#### `leader-settings-changed`
+
+*What triggers it?*
+
+The `leader-settings-changed` event is emitted when a leadership change occurs, all units that are not the new leader will receive the event. Also, this event is emitted if changes have been made to leader settings.
+
+During startup sequence, for all non-leader units:
+
+|   Scenario   | Example Command  | Resulting Events |
+| :-------: | -------------------------- | ------------------------------------ |
+|  Create unit   | `juju deploy foo -n 2`  | `install -> leader-settings-changed -> config-changed -> start` (non-leader)|
+
+
+If the leader unit is rescheduled, or removed entirely. When the new leader is elected:
+
+|  Scenario   | Example Command                          | Resulting Events                     |
+| :-------: | -------------------------- | ------------------------------------ |
+|  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
+
+> Since this event needs leadership changes to trigger, check out {ref}`triggers for the leader-electe hook <hook-leader-elected>` as the same situations apply for `leader-settings-changed`.
+
+<!--
+*Which hooks can be guaranteed to have fired before it, if any?*?
+
+TBA
+
+*Which environment variables is it executed with?*
+
+TBA
+-->
+
+*Who gets it*?
+
+All follower units, when a new leader is chosen.
 
 (relation-hooks)=
 ### Relation hooks
@@ -1081,123 +1210,6 @@ TBA
 
 TBA
 -->
-
-(hook-leader-deposed)=
-#### `leader-deposed`
-
-<!--
-*What triggers it?*
-
-TBA
-
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
-(hook-leader-elected)=
-#### `leader-elected`
-
-*What triggers it?*
-
-The `leader-elected` event is emitted for a unit that is elected as leader. Together with `leader-settings-changed`, it is one of two "leadership events". A unit receiving this event can be guaranteed that it will have leadership for approximately 30 seconds (from the moment the event is received). After that time, Juju *might* have elected a different leader. The same holds if the unit checks leadership by `Unit.is_leader()`: if the result is `True`, then the unit can be ensured that it has leadership for the next 30s.
-
-> Leadership can change while a hook is running. (You could start a hook on unit/0 who is the leader, and while that hook is processing, you lose network connectivity for a long time [more than 30s], and then by the time the hook notices, Juju has already moved on to another leader.)
-
-> Juju doesn't guarantee that a leader will see every event: if the leader unit is overloaded long enough for the lease to expire (>30s), then Juju will elect a different leader. Events that fired in between would be received units that are not leader yet or not leader anymore.
-
-
-
-- `leader-elected` is always emitted **after** peer-`relation-created` during the Startup phase. However, by the time `relation-created` runs, Juju may already have a leader. This means that, in peer-relation-created handlers, it might already be the case that `self.unit.is_leader()` returns `True` even though the unit did not receive a leadership event yet. If the starting unit is *not* leader, it will receive a {ref}``leader-settings-changed` <event-leader-settings-changed>` instead.
-
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Start new unit   | `juju deploy foo`<br>`juju add-unit foo`  | (new leader) `install -> (*peer)-relation-created -> leader-elected`|
-
--  During the Operation phase, leadership changes can in principle occur at any time, for example if the leader unit is unresponsive for some time. When a leader loses leadership it will only receive a `leader-settings-changed` event, just like all the other non-leader units. The new leader will receive `leader-elected`.
-
-> It is not possible to select a specific unit and 'promote' that unit to leader, or 'demote' an existing leader unit. Juju has control over which unit will become leader after the current leader is gone.
-
-```{note}
-
-However, you can cause leadership change by destroying the leader unit or killing the jujud-machine service in operator charms.
-
-- non-Kubernetes models: `juju remove-unit <leader_unit>`
-- operator charms: `juju ssh -m <id> -- systemctl stop jujud-machine-<id>`
-- sidecar charms: ssh into the charm container, source the `/etc/profile.d/juju-introspection.sh` script, and then get access to a few cli tools, including `juju_stop_unit`.
-
-That will cause the lease to expire within 60s, and another unit of the same application will be elected leader and receive `leader-elected`.
-
-```
-
-- If the leader unit is removed, then one of the remaining units will be elected as leader and see the `leader-elected` event; all the other remaining units will see `leader-settings-changed`. If the leader unit was not removed, no leadership events will be fired on any units.
-
-> Note that unless there's only one unit left, it is impossible to predict or control which one of the remaining units will be elected as the new leader.
-
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Current leader loses leadership   | `juju remove-unit foo`  | (new leader): `leader-elected` <br> (all other foo units): `leader-settings-changed`|
-
-
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
--->
-
-*Who gets it*?
-
-The leader unit, once Juju elects one.
-
-
-(hook-leader-settings-changed)=
-#### `leader-settings-changed`
-
-*What triggers it?*
-
-The `leader-settings-changed` event is emitted when a leadership change occurs, all units that are not the new leader will receive the event. Also, this event is emitted if changes have been made to leader settings.
-
-During startup sequence, for all non-leader units:
-
-|   Scenario   | Example Command  | Resulting Events |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Create unit   | `juju deploy foo -n 2`  | `install -> leader-settings-changed -> config-changed -> start` (non-leader)|
-
-
-If the leader unit is rescheduled, or removed entirely. When the new leader is elected:
-
-|  Scenario   | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
-
-> Since this event needs leadership changes to trigger, check out {ref}`triggers for the leader-electe hook <hook-leader-elected>` as the same situations apply for `leader-settings-changed`.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
--->
-
-*Who gets it*?
-
-All follower units, when a new leader is chosen.
 
 
 (hook-remove)=
