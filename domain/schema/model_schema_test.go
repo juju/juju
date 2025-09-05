@@ -305,6 +305,12 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"offer",
 		"offer_endpoint",
 
+		// Remote Application
+		"application_remote_consumer",
+		"application_remote_offerer",
+		"application_remote_relation",
+		"offer_connection",
+
 		// Operations
 		"operation_action",
 		"operation_machine_task",
