@@ -10,13 +10,20 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// Run creates an operation with tasks for various machines and units, using the provided parameters.
-func (s *Service) Run(ctx context.Context, args []operation.RunArgs) (operation.RunResult,
-	error) {
+// StartExecOperation creates an exec operation with tasks for various machines and units,
+// using the provided parameters.
+func (s *Service) StartExecOperation(ctx context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error) {
 	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
 }
 
-// RunOnAllMachines creates an operation with tasks based on the provided parameters on all machines.
-func (s *Service) RunOnAllMachines(ctx context.Context, args operation.TaskArgs) (operation.RunResult, error) {
+// StartExecOperationOnAllMachines creates an exec operation with tasks based
+// on the provided parameters on all machines.
+func (s *Service) StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error) {
+	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
+}
+
+// StartActionOperation creates an action operation with tasks for various
+// units using the provided parameters.
+func (s *Service) StartActionOperation(ctx context.Context, args []operation.ActionArgs) (operation.RunResult, error) {
 	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
 }

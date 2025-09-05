@@ -6,7 +6,6 @@ package action
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
@@ -36,7 +35,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	const leader = "/leader"
 	actionResults := make([]params.ActionResult, len(arg.Actions))
 	actionResultByUnitName := make(map[string]*params.ActionResult)
-	runParams := make([]operation.RunArgs, 0, len(arg.Actions))
+	runParams := make([]operation.ActionArgs, 0, len(arg.Actions))
 	for i, action := range arg.Actions {
 		taskParams := operation.TaskArgs{
 			ActionName:     action.Name,
@@ -48,9 +47,9 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		if strings.HasSuffix(action.Receiver, leader) {
 			receiver := strings.TrimSuffix(action.Receiver, leader)
 			actionResultByUnitName[action.Receiver] = &actionResults[i]
-			runParams = append(runParams, operation.RunArgs{
-				Target:   operation.Target{LeaderUnit: []string{receiver}},
-				TaskArgs: taskParams,
+			runParams = append(runParams, operation.ActionArgs{
+				ActionTarget: operation.ActionTarget{LeaderUnit: receiver},
+				TaskArgs:     taskParams,
 			})
 			continue
 		}
@@ -61,9 +60,9 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 			continue
 		}
 		actionResultByUnitName[unitTag.Id()] = &actionResults[i]
-		runParams = append(runParams, operation.RunArgs{
-			Target: operation.Target{
-				Units: []unit.Name{unit.Name(unitTag.Id())},
+		runParams = append(runParams, operation.ActionArgs{
+			ActionTarget: operation.ActionTarget{
+				Unit: unit.Name(unitTag.Id()),
 			},
 			TaskArgs: taskParams,
 		})
@@ -75,7 +74,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{Actions: actionResults}, nil
 	}
 
-	result, err := a.operationService.Run(ctx, runParams)
+	result, err := a.operationService.StartActionOperation(ctx, runParams)
 	if err != nil {
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
@@ -115,15 +114,12 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 	}
 
 	target := makeOperationTarget(run.Applications, run.Machines, run.Units)
-	args, err := newOperationTaskParams(run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
+	args, err := newOperationTaskParams(run)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.Run(ctx, []operation.RunArgs{{
-		Target:   target,
-		TaskArgs: args,
-	}})
+	result, err := a.operationService.StartExecOperation(ctx, target, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
@@ -150,12 +146,12 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Errorf("cannot run on all machines with a %s model", modelInfo.Type)
 	}
 
-	args, err := newOperationTaskParams(run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
+	args, err := newOperationTaskParams(run)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.RunOnAllMachines(ctx, args)
+	result, err := a.operationService.StartExecOperationOnAllMachines(ctx, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
@@ -181,25 +177,19 @@ func toEnqueuedActions(result operation.RunResult) params.EnqueuedActions {
 	}
 }
 
+// newOperationTaskParams converts a params.RunParams to an operation.ExecArgs.
 func newOperationTaskParams(
-	quotedCommands string,
-	timeout time.Duration,
-	parallel *bool,
-	executionGroup *string,
-) (operation.TaskArgs, error) {
-	if coreoperation.HasJujuExecAction(quotedCommands) {
-		return operation.TaskArgs{}, errors.Errorf("cannot use %q as an action command",
-			quotedCommands).Add(coreerrors.NotSupported)
+	run params.RunParams,
+) (operation.ExecArgs, error) {
+	if coreoperation.HasJujuExecAction(run.Commands) {
+		return operation.ExecArgs{}, errors.Errorf("cannot use %q as an action command",
+			run.Commands).Add(coreerrors.NotSupported)
 	}
 
-	actionParams := map[string]interface{}{}
-	actionParams["command"] = quotedCommands
-	actionParams["timeout"] = timeout.Nanoseconds()
-
-	return operation.TaskArgs{
-		ActionName:     coreoperation.JujuExecActionName,
-		Parameters:     actionParams,
-		IsParallel:     zeroNilPtr(parallel),
-		ExecutionGroup: zeroNilPtr(executionGroup),
+	return operation.ExecArgs{
+		Command:        run.Commands,
+		Timeout:        run.Timeout,
+		Parallel:       zeroNilPtr(run.Parallel),
+		ExecutionGroup: zeroNilPtr(run.ExecutionGroup),
 	}, nil
 }

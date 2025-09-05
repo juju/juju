@@ -67,11 +67,17 @@ type OperationService interface {
 	// GetOperationsByIDs returns a list of specified operations, identified by their IDs.
 	GetOperationsByIDs(ctx context.Context, operationIDs []string) (operation.QueryResult, error)
 
-	// Run creates an operation with tasks for various machines and units, using the provided parameters.
-	Run(ctx context.Context, args []operation.RunArgs) (operation.RunResult, error)
+	// StartExecOperation creates an exec operation with tasks for various
+	// machines and units, using the provided parameters.
+	StartExecOperation(ctx context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error)
 
-	// RunOnAllMachines creates an operation with tasks based on the provided parameters on all machines.
-	RunOnAllMachines(ctx context.Context, args operation.TaskArgs) (operation.RunResult, error)
+	// StartExecOperationOnAllMachines creates an exec operation
+	// based on the provided parameters on all machines.
+	StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
+
+	// StartActionOperation creates an action operation with tasks for various
+	// units using the provided parameters.
+	StartActionOperation(ctx context.Context, args []operation.ActionArgs) (operation.RunResult, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
