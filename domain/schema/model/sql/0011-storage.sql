@@ -132,7 +132,7 @@ CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
     storage_name TEXT NOT NULL,
-    storage_kind_id INT,
+    storage_kind_id INT NOT NULL,
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,

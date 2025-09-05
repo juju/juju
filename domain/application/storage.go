@@ -32,22 +32,25 @@ type CreateUnitStorageFilesystemArg struct {
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
 // storage instance on behalf of a unit.
 type CreateUnitStorageInstanceArg struct {
-	// Name is the name of the storage and must correspond to the storage name
-	// defined in the charm the unit is running.
-	Name domainstorage.Name
-
-	// UUID is the unique identifier to associate with the storage instance.
-	UUID domainstorage.StorageInstanceUUID
-
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
 	Filesystem *CreateUnitStorageFilesystemArg
 
+	// Kind defines the type of storage that is being created.
+	Kind domainstorageprov.Kind
+
+	// Name is the name of the storage and must correspond to the storage name
+	// defined in the charm the unit is running.
+	Name domainstorage.Name
+
 	// Volume describes the properties of a new volume to be created alongside
 	// the storage instance. If this value is not nil a new volume will be
 	// created with the storage instance.
 	Volume *CreateUnitStorageVolumeArg
+
+	// UUID is the unique identifier to associate with the storage instance.
+	UUID domainstorage.StorageInstanceUUID
 }
 
 // CreateUnitStorageVolumeArg describes a set of arguments for a volume
