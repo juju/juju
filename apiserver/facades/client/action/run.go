@@ -5,19 +5,105 @@ package action
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/juju/collections/transform"
+	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/names/v6"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	coreoperation "github.com/juju/juju/core/operation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// EnqueueOperation takes a list of Actions and queues them up to be executed as
+// an operation, each action running as a task on the designated ActionReceiver.
+// We return the ID of the overall operation and each individual task.
+func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (params.EnqueuedActions, error) {
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.EnqueuedActions{}, errors.Capture(err)
+	}
+
+	if len(arg.Actions) == 0 {
+		return params.EnqueuedActions{}, apiservererrors.ServerError(errors.New("no actions specified"))
+	}
+
+	const leader = "/leader"
+	actionResults := make([]params.ActionResult, len(arg.Actions))
+	actionResultByUnitName := make(map[string]*params.ActionResult)
+	runParams := make([]operation.RunArgs, 0, len(arg.Actions))
+	for i, action := range arg.Actions {
+		taskParams := operation.TaskArgs{
+			ActionName:     action.Name,
+			Parameters:     action.Parameters,
+			IsParallel:     zeroNilPtr(action.Parallel),
+			ExecutionGroup: zeroNilPtr(action.ExecutionGroup),
+		}
+
+		if strings.HasSuffix(action.Receiver, leader) {
+			receiver := strings.TrimSuffix(action.Receiver, leader)
+			actionResultByUnitName[action.Receiver] = &actionResults[i]
+			runParams = append(runParams, operation.RunArgs{
+				Target:   operation.Target{LeaderUnit: []string{receiver}},
+				TaskArgs: taskParams,
+			})
+			continue
+		}
+
+		unitTag, err := names.ParseUnitTag(action.Receiver)
+		if err != nil {
+			actionResults[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		actionResultByUnitName[unitTag.Id()] = &actionResults[i]
+		runParams = append(runParams, operation.RunArgs{
+			Target: operation.Target{
+				Units: []unit.Name{unit.Name(unitTag.Id())},
+			},
+			TaskArgs: taskParams,
+		})
+
+	}
+
+	// If no valid run params (all receivers invalid), do not call service; return per-action errors.
+	if len(runParams) == 0 {
+		return params.EnqueuedActions{Actions: actionResults}, nil
+	}
+
+	result, err := a.operationService.Run(ctx, runParams)
+	if err != nil {
+		return params.EnqueuedActions{}, errors.Capture(err)
+	}
+
+	for _, unitResult := range result.Units {
+		targetName := unitResult.ReceiverName.String()
+		if unitResult.IsLeader {
+			targetName = unitResult.ReceiverName.Application() + leader
+		}
+		ar := actionResultByUnitName[targetName]
+		if ar == nil {
+			return params.EnqueuedActions{}, errors.Errorf("unexpected result for %q", targetName)
+		}
+		*ar = toActionResult(names.NewUnitTag(unitResult.ReceiverName.String()), unitResult.TaskInfo)
+	}
+	// Mark missing results
+	for key, ar := range actionResultByUnitName {
+		if ar != nil && ar.Action == nil && ar.Error == nil {
+			ar.Error = apiservererrors.ServerError(jujuerrors.NotFoundf("missing result for %q", key))
+		}
+	}
+	return params.EnqueuedActions{
+		OperationTag: names.NewOperationTag(result.OperationID).String(),
+		Actions:      actionResults,
+	}, nil
+}
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
