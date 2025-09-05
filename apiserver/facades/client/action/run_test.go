@@ -81,9 +81,9 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 		IsParallel:     true,
 		ExecutionGroup: "grp",
 	}
-	s.OperationService.EXPECT().Run(gomock.Any(), []operation.RunArgs{{
-		Target: operation.Target{
-			Units: []unit.Name{"app/0"},
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
+		ActionTarget: operation.ActionTarget{
+			Unit: "app/0",
 		},
 		TaskArgs: taskArgs,
 	},
@@ -128,9 +128,9 @@ func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
 	taskArgs := operation.TaskArgs{
 		ActionName: "do",
 	}
-	s.OperationService.EXPECT().Run(gomock.Any(), []operation.RunArgs{{
-		Target: operation.Target{
-			LeaderUnit: []string{"myapp"},
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
+		ActionTarget: operation.ActionTarget{
+			LeaderUnit: "myapp",
 		},
 		TaskArgs: taskArgs,
 	},
@@ -168,9 +168,9 @@ func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
 		IsParallel:     false,
 		ExecutionGroup: "", // defaulted to ""
 	}
-	s.OperationService.EXPECT().Run(gomock.Any(), []operation.RunArgs{{
-		Target: operation.Target{
-			Units: []unit.Name{"app/0"},
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
+		ActionTarget: operation.ActionTarget{
+			Unit: "app/0",
 		},
 		TaskArgs: taskArgs,
 	}}).Return(operation.RunResult{OperationID: "404" /*placeholder, we check the input args */}, nil)
@@ -193,13 +193,13 @@ func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
 
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.RunArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
 			c.Assert(len(got), tc.Equals, 3)
 			// order: leader, app/2, app/0
-			c.Assert(got[0].LeaderUnit, tc.DeepEquals, []string{"app"})
-			c.Assert(got[1].Units, tc.DeepEquals, []unit.Name{"app/2"})
-			c.Assert(got[2].Units, tc.DeepEquals, []unit.Name{"app/0"})
+			c.Assert(got[0].LeaderUnit, tc.DeepEquals, "app")
+			c.Assert(got[1].Unit, tc.DeepEquals, unit.Name("app/2"))
+			c.Assert(got[2].Unit, tc.DeepEquals, unit.Name("app/0"))
 			ti1 := operation.TaskInfo{ID: "1", TaskArgs: got[0].TaskArgs}
 			ti2 := operation.TaskInfo{ID: "2", TaskArgs: got[1].TaskArgs}
 			ti3 := operation.TaskInfo{ID: "3", TaskArgs: got[2].TaskArgs}
@@ -233,8 +233,8 @@ func (s *enqueueSuite) TestEnqueue_SomeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.RunArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
 			c.Assert(len(got), tc.Equals, 1)
 			ti := operation.TaskInfo{ID: "1", TaskArgs: got[0].TaskArgs}
 			return operation.RunResult{OperationID: "4", Units: []operation.UnitTaskResult{{ReceiverName: unit.Name(
@@ -259,7 +259,7 @@ func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
 	// Arrange
 	api := s.NewActionAPI(c)
 	// Ensure Run is not called
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act: all tag receiver are invalid
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "bad1", Name: "do"}, {Receiver: "also/bad", Name: "do"}}})
@@ -275,7 +275,7 @@ func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
 func (s *enqueueSuite) TestEnqueue_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "unit-app-0",
 		Name: "do"}}})
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -287,8 +287,8 @@ func (s *enqueueSuite) TestEnqueue_UnexpectedExtraResult(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.RunArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
 			return operation.RunResult{
 				OperationID: "5",
 				Units: []operation.UnitTaskResult{
@@ -308,8 +308,8 @@ func (s *enqueueSuite) TestEnqueue_MissingResultPerActionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
 	// Arrange
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.RunArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
 			// only return app/0 result; missing app/1
 			ti := operation.TaskInfo{ID: "0", TaskArgs: got[0].TaskArgs}
 			return operation.RunResult{OperationID: "8", Units: []operation.UnitTaskResult{{ReceiverName: unit.Name(
@@ -394,7 +394,7 @@ func (s *runSuite) TestRun_PermissionDenied(c *tc.C) {
 		modeltesting.GenModelUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
 	// Ensure the service is not called
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err = api.Run(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
@@ -409,7 +409,7 @@ func (s *runSuite) TestRun_RejectNestedExec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err1 := api.Run(c.Context(), params.RunParams{Commands: "foo; juju-exec bar", Timeout: time.Second})
@@ -432,21 +432,20 @@ func (s *runSuite) TestRun_SuccessMapping(c *tc.C) {
 		Units:          []string{"app/1", "db/0"},
 		Commands:       "echo hello",
 		Timeout:        5 * time.Second,
-		Parallel:       func(b bool) *bool { return &b }(false),
-		ExecutionGroup: func(s string) *string { return &s }("eg-1"),
+		Parallel:       ptr(false),
+		ExecutionGroup: ptr("eg-1"),
 	}
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, got []operation.RunArgs) (operation.RunResult, error) {
-			c.Assert(len(got), tc.Equals, 1)
-			rp := got[0]
-			c.Check(rp.Applications, tc.DeepEquals, []string{"a1", "a2"})
-			c.Check(rp.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
-			c.Check(rp.Units, tc.DeepEquals, []unit.Name{"app/1", "db/0"})
-			c.Check(rp.ActionName, tc.Equals, coreoperation.JujuExecActionName)
-			c.Check(rp.IsParallel, tc.Equals, false)
-			c.Check(rp.ExecutionGroup, tc.Equals, "eg-1")
-			c.Check(rp.Parameters["command"], tc.Equals, "echo hello")
-			c.Check(rp.Parameters["timeout"], tc.Equals, (5 * time.Second).Nanoseconds())
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error) {
+			c.Check(target.Applications, tc.DeepEquals, []string{"a1", "a2"})
+			c.Check(target.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
+			c.Check(target.Units, tc.DeepEquals, []unit.Name{"app/1", "db/0"})
+			c.Check(args, tc.Equals, operation.ExecArgs{
+				Command:        runParams.Commands,
+				Timeout:        runParams.Timeout,
+				Parallel:       *runParams.Parallel,
+				ExecutionGroup: *runParams.ExecutionGroup,
+			})
 			return operation.RunResult{OperationID: "1"}, nil
 		})
 
@@ -465,17 +464,13 @@ func (s *runSuite) TestRun_Defaults(c *tc.C) {
 	// Arrange
 	api := s.NewActionAPI(c)
 	runParams := params.RunParams{Commands: "whoami", Timeout: time.Second}
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, got []operation.RunArgs) (operation.RunResult, error) {
-			rp := got[0]
-			c.Check(rp.IsParallel, tc.Equals, false)
-			c.Check(rp.ExecutionGroup, tc.Equals, "")
-			c.Check(rp.ActionName, tc.Equals, coreoperation.JujuExecActionName)
-			c.Check(rp.Parameters["command"], tc.Equals, "whoami")
-			c.Check(rp.Parameters["timeout"], tc.Equals, (1 * time.Second).Nanoseconds())
-			return operation.RunResult{OperationID: "2"}, nil
-		})
 
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), operation.ExecArgs{
+		Command:        runParams.Commands,
+		Timeout:        runParams.Timeout,
+		Parallel:       false,
+		ExecutionGroup: "",
+	}).Return(operation.RunResult{OperationID: "2"}, nil)
 	// Act
 	res, err := api.Run(c.Context(), runParams)
 
@@ -490,7 +485,7 @@ func (s *runSuite) TestRun_ResultMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		operation.RunResult{
 			OperationID: "9",
 			Machines: []operation.MachineTaskResult{{
@@ -525,7 +520,7 @@ func (s *runSuite) TestRun_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		operation.RunResult{}, fmt.Errorf("boom"))
 
 	// Act
@@ -541,12 +536,11 @@ func (s *runSuite) TestRun_EmptyTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, got []operation.RunArgs) (operation.RunResult, error) {
-			rp := got[0]
-			c.Check(rp.Applications, tc.HasLen, 0)
-			c.Check(rp.Machines, tc.HasLen, 0)
-			c.Check(rp.Units, tc.HasLen, 0)
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, target operation.Target, _ operation.ExecArgs) (operation.RunResult, error) {
+			c.Check(target.Applications, tc.HasLen, 0)
+			c.Check(target.Machines, tc.HasLen, 0)
+			c.Check(target.Units, tc.HasLen, 0)
 			return operation.RunResult{}, errors.New("no target")
 		})
 
@@ -564,32 +558,13 @@ func (s *runSuite) TestRun_BlockServiceError(c *tc.C) {
 	// Arrange: use parent mock action API to handle specifically the block changes
 	api := s.MockBaseSuite.NewActionAPI(c)
 	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", fmt.Errorf("block-fail"))
-	s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err := api.Run(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "block-fail")
-}
-
-// TestRun_TimeoutConversion checks precise timeout conversion to ns for a few
-// edge values.
-func (s *runSuite) TestRun_TimeoutConversion(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	api := s.NewActionAPI(c)
-	times := []time.Duration{0, 123 * time.Millisecond, 1 * time.Nanosecond}
-	for _, t := range times {
-		s.OperationService.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, got []operation.RunArgs) (operation.RunResult, error) {
-				c.Check(got[0].Parameters["timeout"], tc.Equals, t.Nanoseconds())
-				return operation.RunResult{}, errors.New("no target") // ignore result
-			})
-
-		// Act
-		_, _ = api.Run(c.Context(), params.RunParams{Commands: "cmd", Timeout: t})
-	}
 }
 
 func (s *runSuite) assertBlocked(c *tc.C, err error, msg string) {
@@ -636,7 +611,7 @@ func (s *runAllSuite) TestRunOnAllMachines_PermissionDenied(c *tc.C) {
 		modeltesting.GenModelUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
 	// Ensure the operation service is not invoked
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err = api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
@@ -655,7 +630,7 @@ func (s *runSuite) TestRunOnAllMachines_ChangeBlockedError(c *tc.C) {
 	s.BlockCommandService.EXPECT().
 		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
 		Return("", errors.New("block-error"))
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
@@ -676,7 +651,7 @@ func (s *runSuite) TestRunOnAllMachines_NonIAASModel(c *tc.C) {
 		Return("", blockcommanderrors.NotFound).
 		AnyTimes()
 	s.ModelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{Type: coremodel.CAAS}, nil)
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
@@ -697,7 +672,7 @@ func (s *runAllSuite) TestRunOnAllMachines_ModelInfoError(c *tc.C) {
 		Return("", blockcommanderrors.NotFound).
 		AnyTimes()
 	s.ModelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.New("mi boom"))
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "cmd", Timeout: time.Second})
@@ -712,7 +687,7 @@ func (s *runAllSuite) TestRunOnAllMachines_RejectNestedExec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err1 := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "juju-exec foo", Timeout: time.Second})
@@ -729,15 +704,8 @@ func (s *runAllSuite) TestRunOnAllMachines_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, tp operation.TaskArgs) (operation.RunResult, error) {
-			c.Check(tp.ActionName, tc.Equals, "juju-exec")
-			c.Check(tp.IsParallel, tc.Equals, false) // default
-			c.Check(tp.ExecutionGroup, tc.Equals, "")
-			c.Check(tp.Parameters["command"], tc.Equals, "whoami")
-			c.Check(tp.Parameters["timeout"], tc.Equals, (2 * time.Second).Nanoseconds())
-			return operation.RunResult{}, errors.New("service fail")
-		})
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).
+		Return(operation.RunResult{}, errors.New("service fail"))
 
 	// Act
 	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "whoami", Timeout: 2 * time.Second})
@@ -753,11 +721,22 @@ func (s *runAllSuite) TestRunOnAllMachines_Success(c *tc.C) {
 	// Arrange
 	// Don't block
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().RunOnAllMachines(gomock.Any(), gomock.Any()).Return(
+	params := params.RunParams{
+		Commands:       "whoami",
+		Timeout:        time.Second,
+		Parallel:       ptr(true),
+		ExecutionGroup: ptr("test"),
+	}
+	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), operation.ExecArgs{
+		Command:        params.Commands,
+		Timeout:        params.Timeout,
+		Parallel:       *params.Parallel,
+		ExecutionGroup: *params.ExecutionGroup,
+	}).Return(
 		operation.RunResult{OperationID: "77"}, nil)
 
 	// Act
-	res, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "true", Timeout: time.Second})
+	res, err := api.RunOnAllMachines(c.Context(), params)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

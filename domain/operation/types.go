@@ -69,9 +69,17 @@ type OperationInfo struct {
 	Error       error
 }
 
-// RunArgs represents the parameters used for running operations.
-type RunArgs struct {
-	Target
+// ExecArgs represents the parameters used for running exec.
+type ExecArgs struct {
+	Command        string
+	Timeout        time.Duration
+	Parallel       bool
+	ExecutionGroup string
+}
+
+// ActionArgs represents the parameters used for running actions.
+type ActionArgs struct {
+	ActionTarget
 	TaskArgs
 }
 
@@ -129,4 +137,11 @@ type Target struct {
 	Machines     []machine.Name
 	Units        []unit.Name
 	LeaderUnit   []string
+}
+
+// ActionTarget allows running an action on a specific unit or a leader unit of an application
+// only one of both fields should be set.
+type ActionTarget struct {
+	Unit       unit.Name
+	LeaderUnit string
 }
