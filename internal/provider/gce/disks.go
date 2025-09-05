@@ -178,6 +178,11 @@ func gibToMib(g int64) uint64 {
 	return uint64(g) * 1024
 }
 
+// mibToGib converts mebibytes to gibibytes.
+func mibToGib(m uint64) int64 {
+	return int64(m / 1024)
+}
+
 func nameVolume(zone string) (string, error) {
 	volumeUUID, err := utils.NewUUID()
 	if err != nil {
@@ -217,9 +222,10 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 		return nil, nil, errors.New("cannot create local ssd disks")
 	}
 
-	size := p.Size
-	if p.Size < google.MinDiskSizeGB {
-		p.Size = google.MinDiskSizeGB
+	// volume.Size is expressed in MiB, but GCE only accepts sizes in GiB.
+	size := mibToGib(p.Size)
+	if size < google.MinDiskSizeGB {
+		size = google.MinDiskSizeGB
 	}
 	zone = path.Base(inst.GetZone())
 	volumeName, err = nameVolume(zone)
@@ -230,7 +236,7 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	// way to help solve the need to have zone all over the place.
 	disk := &computepb.Disk{
 		Name:   &volumeName,
-		SizeGb: ptr(int64(size)),
+		SizeGb: ptr(size),
 		Type:   ptr(string(persistentType)),
 		Labels: resourceTagsToDiskLabels(p.ResourceTags),
 	}

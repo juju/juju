@@ -87,7 +87,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	}
 	s.params = []storage.VolumeParams{{
 		Tag:        names.NewVolumeTag("0"),
-		Size:       1024,
+		Size:       20 * 1024,
 		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
@@ -128,7 +128,7 @@ func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *gc.C) {
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	expected := &computepb.Disk{
 		Name:   ptr("zone"),
-		SizeGb: ptr(int64(1024)),
+		SizeGb: ptr(int64(20)),
 		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
@@ -168,7 +168,7 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 
 	expected := &computepb.Disk{
 		Name:   ptr("zone"),
-		SizeGb: ptr(int64(1024)),
+		SizeGb: ptr(int64(20)),
 		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
@@ -302,7 +302,7 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 		Return(&computepb.Disk{
 			Name:             ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
 			Status:           ptr("READY"),
-			SizeGb:           ptr(int64(1)),
+			SizeGb:           ptr(int64(10)),
 			Users:            []string(nil),
 			LabelFingerprint: ptr("fingerprint"),
 			Labels:           map[string]string{"foo": "bar"},
@@ -329,7 +329,7 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Size:       1024,
+		Size:       10 * 1024,
 		Persistent: true,
 	})
 }
@@ -455,7 +455,7 @@ func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
 		Return(&computepb.Disk{
 			Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
-			SizeGb: ptr(int64(1)),
+			SizeGb: ptr(int64(10)),
 		}, nil)
 
 	source := s.setUpSource(c)
@@ -464,7 +464,7 @@ func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].Error, jc.ErrorIsNil)
-	c.Assert(res[0].VolumeInfo.Size, gc.Equals, uint64(1024))
+	c.Assert(res[0].VolumeInfo.Size, gc.Equals, uint64(10*1024))
 	c.Assert(res[0].VolumeInfo.VolumeId, gc.Equals, volName)
 }
 
