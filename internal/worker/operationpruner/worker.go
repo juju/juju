@@ -70,6 +70,11 @@ func (config Config) Validate() error {
 type prunerWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
+
+	maxAge     time.Duration
+	maxSizeMB  int
+	lastUpdate time.Time
+	lastPrune  time.Time
 }
 
 // NewWorker returns a new pruner worker.
@@ -98,6 +103,16 @@ func (w *prunerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report shows up in the dependency engine report.
+func (w *prunerWorker) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"max-age":     w.maxAge,
+		"max-size-mb": w.maxSizeMB,
+		"last-update": w.lastUpdate,
+		"last-prune":  w.lastPrune,
+	}
+}
+
 // loop is the worker's main loop.
 //   - It watches for changes to the model configuration to get up-to-date values
 //     for the pruning interval and the maximum size of operation results.
@@ -118,10 +133,9 @@ func (w *prunerWorker) loop() error {
 		return errors.Errorf("getting model config: %w", err)
 	}
 
+	w.updateConfig(initCfg)
 	var (
 		pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
-		maxSizeMB  = int(initCfg.MaxActionResultsSizeMB())
-		maxAge     = initCfg.MaxActionResultsAge()
 	)
 	defer pruneTimer.Stop()
 	for {
@@ -137,18 +151,26 @@ func (w *prunerWorker) loop() error {
 				!changes.Contains(config.MaxActionResultsAge) {
 				continue
 			}
+
 			cfg, err := w.config.ModelConfig.ModelConfig(ctx)
 			if err != nil {
 				return errors.Errorf("getting model config: %w", err)
 			}
-			maxSizeMB = int(cfg.MaxActionResultsSizeMB())
-			maxAge = cfg.MaxActionResultsAge()
+			w.updateConfig(cfg)
 		case <-pruneTimer.Chan():
-			err := w.config.OperationService.PruneOperations(ctx, maxAge, maxSizeMB)
+			err := w.config.OperationService.PruneOperations(ctx,
+				w.maxAge, w.maxSizeMB)
 			if err != nil {
 				return errors.Capture(err)
 			}
+			w.lastPrune = w.config.Clock.Now()
 			pruneTimer.Reset(w.config.PruneInterval)
 		}
 	}
+}
+
+func (w *prunerWorker) updateConfig(initCfg *config.Config) {
+	w.maxAge = initCfg.MaxActionResultsAge()
+	w.maxSizeMB = int(initCfg.MaxActionResultsSizeMB())
+	w.lastUpdate = w.config.Clock.Now()
 }
