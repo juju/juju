@@ -159,6 +159,65 @@ func (s *stateSuite) TestPruneModelChangeLogWitness(c *tc.C) {
 	}})
 }
 
+func (s *stateSuite) TestPruneModelLogsWarning(c *tc.C) {
+	// Truncate the change log to ensure a clean state.
+	s.truncateChangeLog(c, s.TxnRunner())
+
+	now := time.Now().Truncate(time.Second)
+	window := changestream.Window{
+		Start: now,
+		End:   now,
+	}
+
+	var entries []string
+	recorder := loggertesting.RecordLog(func(s string, a ...any) {
+		entries = append(entries, s)
+
+		c.Logf(s, a...)
+	})
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(recorder))
+
+	s.insertControllerNodes(c, 2)
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
+
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 1, now)
+
+	newWindow, pruned, err := st.Prune(c.Context(), window)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pruned, tc.Equals, int64(0))
+
+	c.Check(entries, tc.DeepEquals, []string{
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+	})
+
+	// Should not prune anything as there are no new changes. Notice that the
+	// warning is not logged.
+
+	newWindow, pruned, err = st.Prune(c.Context(), newWindow)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pruned, tc.Equals, int64(0))
+
+	// Add some new changes and it should log the warning.
+
+	now = time.Now()
+
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
+
+	s.insertChangeLogItems(c, s.TxnRunner(), 1, 1, now)
+
+	_, pruned, err = st.Prune(c.Context(), newWindow)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pruned, tc.Equals, int64(1))
+
+	c.Check(entries, tc.DeepEquals, []string{
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+	})
+}
+
 func (s *stateSuite) TestLowestWatermark(c *tc.C) {
 	now := time.Now()
 	testCases := []struct {
