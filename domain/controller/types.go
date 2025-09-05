@@ -8,3 +8,10 @@ const (
 	// represent the public key owned by a controller.
 	ControllerSSHKeyComment = "juju-system-key"
 )
+
+// ControllerInfo contains information about the current controller.
+type ControllerInfo struct {
+	UUID         string
+	CACert       string
+	APIAddresses []string
+}

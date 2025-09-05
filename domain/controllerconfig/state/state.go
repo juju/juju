@@ -102,7 +102,7 @@ VALUES ($KeyValue.*)
 		// layer, we don't want to allow changing the controller UUID or name
 		// from the state layer either.
 		switch k {
-		case controller.ControllerUUIDKey:
+		case controller.ControllerUUIDKey, controller.CACertKey:
 			continue
 		case controller.APIPort:
 			controllerValues.APIPort = sql.Null[string]{V: v, Valid: true}
@@ -128,7 +128,9 @@ VALUES ($KeyValue.*)
 	}
 
 	updateControllerStmt, err := st.Prepare(`
-UPDATE controller SET api_port = $controllerValues.api_port`, controllerValues)
+UPDATE controller
+SET api_port = $controllerValues.api_port
+`, controllerValues)
 	if err != nil {
 		return errors.Capture(err)
 	}
