@@ -798,18 +798,18 @@ func (c *MockModelDBStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.
 }
 
 // EnsureUnitNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureUnitNotAliveCascade(arg0 context.Context, arg1 string) (internal.CascadedUnitLives, error) {
+func (m *MockModelDBState) EnsureUnitNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) (internal.CascadedUnitLives, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUnitNotAliveCascade", arg0, arg1)
+	ret := m.ctrl.Call(m, "EnsureUnitNotAliveCascade", arg0, arg1, arg2)
 	ret0, _ := ret[0].(internal.CascadedUnitLives)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EnsureUnitNotAliveCascade indicates an expected call of EnsureUnitNotAliveCascade.
-func (mr *MockModelDBStateMockRecorder) EnsureUnitNotAliveCascade(arg0, arg1 any) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (mr *MockModelDBStateMockRecorder) EnsureUnitNotAliveCascade(arg0, arg1, arg2 any) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAliveCascade", reflect.TypeOf((*MockModelDBState)(nil).EnsureUnitNotAliveCascade), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAliveCascade", reflect.TypeOf((*MockModelDBState)(nil).EnsureUnitNotAliveCascade), arg0, arg1, arg2)
 	return &MockModelDBStateEnsureUnitNotAliveCascadeCall{Call: call}
 }
 
@@ -825,13 +825,13 @@ func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Return(arg0 internal.Cas
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Do(f func(context.Context, string) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Do(f func(context.Context, string, bool) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -53,7 +53,7 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 // machine, it will cascade and the machine is also set to dying. The
 // affected machine UUID is returned.
 func (st *State) EnsureUnitNotAliveCascade(
-	ctx context.Context, uUUID string,
+	ctx context.Context, uUUID string, destroyStorage bool,
 ) (cascaded internal.CascadedUnitLives, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {

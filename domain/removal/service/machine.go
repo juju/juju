@@ -122,7 +122,9 @@ func (s *Service) RemoveMachine(
 		// we need to schedule their removal as well.
 		s.logger.Infof(ctx, "machine has units %v, scheduling removal", unitUUIDs)
 
-		s.removeUnits(ctx, unitUUIDs, force, wait)
+		// TODO (manadart 2025-09-05): Review what we should do here.
+		// Don't destroy storage instances for the machine's units by default?
+		s.removeUnits(ctx, unitUUIDs, false, force, wait)
 	}
 
 	if len(machineUUIDs) > 0 {

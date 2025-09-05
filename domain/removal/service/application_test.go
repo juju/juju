@@ -39,7 +39,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccess(c *tc.C) {
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(removal.ApplicationArtifacts{}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -57,7 +57,7 @@ func (s *applicationSuite) TestRemoveApplicationForceNoWaitSuccess(c *tc.C) {
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String()).Return(removal.ApplicationArtifacts{}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, true, 0)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -80,7 +80,7 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 	// The forced removal scheduled after the wait duration.
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, true, time.Minute)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -92,7 +92,7 @@ func (s *applicationSuite) TestRemoveApplicationNotFound(c *tc.C) {
 
 	s.modelState.EXPECT().ApplicationExists(gomock.Any(), appUUID.String()).Return(false, nil)
 
-	_, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
+	_, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -117,7 +117,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnits(c *tc.C)
 	exp.UnitExists(gomock.Any(), "unit-1").Return(false, nil)
 	exp.UnitExists(gomock.Any(), "unit-2").Return(false, nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -143,7 +143,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithMachines(c *tc
 	exp.MachineExists(gomock.Any(), "machine-1").Return(false, nil)
 	exp.MachineExists(gomock.Any(), "machine-2").Return(false, nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -169,7 +169,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithRelations(c *t
 	exp.RelationExists(gomock.Any(), "relation-1").Return(false, nil)
 	exp.RelationExists(gomock.Any(), "relation-2").Return(false, nil)
 
-	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, 0)
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }

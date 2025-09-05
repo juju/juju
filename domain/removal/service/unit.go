@@ -25,10 +25,15 @@ type UnitState interface {
 	UnitExists(ctx context.Context, unitUUID string) (bool, error)
 
 	// EnsureUnitNotAliveCascade ensures that there is no unit identified by the
-	// input unit UUID, that is still alive. If the unit is the last one on the
-	// machine, it will cascade and the machine is also set to dying. The
-	// affected machine UUID is returned.
-	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (internal.CascadedUnitLives, error)
+	// input unit UUID that is still "alive". If the unit is the last one on the
+	// machine, the machine will also be guaranteed to not be "alive".
+	// Unit storage attachments will be guaranteed not to be "alive", an if
+	// destroyStorage is supplied as true, so will the unit's storage instances
+	// All associated entities who's life advancement cascaded with the unit are
+	// returned.
+	EnsureUnitNotAliveCascade(
+		ctx context.Context, unitUUID string, destroyStorage bool,
+	) (internal.CascadedUnitLives, error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
@@ -53,16 +58,18 @@ type UnitState interface {
 // If it does, the unit is guaranteed after this call to be:
 //   - No longer alive.
 //   - Removed or scheduled to be removed with the input force qualification.
-//   - If the unit is the last one on the machine, the machine will also
-//     guaranteed to be no longer alive and scheduled for removal.
-//
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // unit. This duration is ignored if the force argument is false.
 // The UUID for the scheduled removal job is returned.
+// If the unit is the last one on the machine, the machine will be guaranteed 
+// to no be longer alive and scheduled for removal.
+// If destroyStorage is true, the unit's storage instances will be guaranteed
+// to no be longer alive and scheduled for removal.
 func (s *Service) RemoveUnit(
 	ctx context.Context,
 	unitUUID unit.UUID,
+	destroyStorage bool,
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
@@ -80,7 +87,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
