@@ -62,6 +62,27 @@ Base path to look for machine disk images.
 | immutable     | false         |
 | mandatory     | false         |
 
+### vpc-id-force
+Force Juju to use the GCE VPC ID specified with vpc-id, when it fails the minimum validation criteria.
+
+| | |
+|-|-|
+| type | bool |
+| default value | false |
+| immutable | true |
+| mandatory | false |
+
+### vpc-id
+Use a specific VPC network (optional). When not specified, Juju requires a default VPC to be available for the account.
+
+Example: vpc-a1b2c3d4
+| | |
+|-|-|
+| type | string |
+| default value | "" |
+| immutable | true |
+| mandatory | false |
+
 
 
 ## Supported constraints

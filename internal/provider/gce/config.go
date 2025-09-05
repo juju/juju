@@ -4,21 +4,36 @@
 package gce
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 const (
-	cfgBaseImagePath = "base-image-path"
+	cfgBaseImagePathKey = "base-image-path"
+	vpcIDKey            = "vpc-id"
+	vpcIDForceKey       = "vpc-id-force"
 )
 
 var configSchema = environschema.Fields{
-	cfgBaseImagePath: {
+	cfgBaseImagePathKey: {
 		Description: "Base path to look for machine disk images.",
 		Type:        environschema.Tstring,
+	},
+	vpcIDKey: {
+		Description: "Use a specific VPC network (optional). When not specified, Juju requires a default VPC to be available for the account.",
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
+	vpcIDForceKey: {
+		Description: "Force Juju to use the GCE VPC ID specified with vpc-id, when it fails the minimum validation criteria.",
+		Type:        environschema.Tbool,
+		Immutable:   true,
 	},
 }
 
@@ -31,10 +46,15 @@ var configFields = func() schema.Fields {
 	return fs
 }()
 
-var configImmutableFields = []string{}
+var configImmutableFields = []string{
+	vpcIDKey,
+	vpcIDForceKey,
+}
 
 var configDefaults = schema.Defaults{
-	cfgBaseImagePath: schema.Omit,
+	cfgBaseImagePathKey: schema.Omit,
+	vpcIDKey:            google.NetworkDefaultName,
+	vpcIDForceKey:       false,
 }
 
 type environConfig struct {
@@ -53,6 +73,12 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 	attrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	ecfg := &environConfig{cfg, attrs}
+	explicitVpc, ok := attrs[vpcIDKey]
+	if !ok || explicitVpc.(string) == "" && ecfg.forceVPCID() {
+		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")
 	}
 
 	if old != nil {
@@ -74,14 +100,20 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 		}
 	}
 
-	ecfg := &environConfig{
-		config: cfg,
-		attrs:  attrs,
-	}
 	return ecfg, nil
 }
 
 func (c *environConfig) baseImagePath() (string, bool) {
-	path, ok := c.attrs[cfgBaseImagePath].(string)
+	path, ok := c.attrs[cfgBaseImagePathKey].(string)
 	return path, ok
+}
+
+func (c *environConfig) vpcID() (string, bool) {
+	vpcID, ok := c.attrs[vpcIDKey].(string)
+	return vpcID, ok
+}
+
+func (c *environConfig) forceVPCID() bool {
+	force, _ := c.attrs[vpcIDForceKey].(bool)
+	return force
 }

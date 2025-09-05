@@ -6,13 +6,13 @@ package google
 import (
 	"context"
 	"fmt"
+	"iter"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/googleapis/gax-go/v2/callctx"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	transporthttp "google.golang.org/api/transport/http"
 )
@@ -112,17 +112,22 @@ func newRESTClient[T any](ctx context.Context, creds *Credentials, httpClient *j
 	return client, errors.Trace(err)
 }
 
-func fetchResults[T any](iter func() (*T, error), badge string) ([]*T, error) {
+func fetchResults[T any](allItems iter.Seq2[*T, error], badge string, matchers ...func(*T) bool) ([]*T, error) {
 	var results []*T
-	for {
-		item, err := iter()
-		if errors.Is(err, iterator.Done) {
-			break
-		}
+	for item, err := range allItems {
 		if err != nil {
 			return nil, errors.Annotatef(err, "fetching %q", badge)
 		}
-		results = append(results, item)
+		include := len(matchers) == 0
+		for _, m := range matchers {
+			if m(item) {
+				include = true
+				break
+			}
+		}
+		if include {
+			results = append(results, item)
+		}
 	}
 	return results, nil
 }
