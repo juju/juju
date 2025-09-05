@@ -155,6 +155,10 @@ type PermissionState interface {
 	// given target.
 	DeletePermission(ctx context.Context, subject user.Name, target permission.ID) error
 
+	// ImportOfferAccess imports the user access for offers in the
+	// model.
+	ImportOfferAccess(ctx context.Context, importAccess []access.OfferImportAccess) error
+
 	// UpdatePermission updates the permission on the target for the given
 	// subject (user). If a subject does not exist, it is created using the
 	// subject and api user. Access can be granted or revoked.

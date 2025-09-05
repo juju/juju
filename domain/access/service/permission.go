@@ -63,6 +63,17 @@ func (s *PermissionService) DeletePermission(ctx context.Context, subject user.N
 	return errors.Capture(s.st.DeletePermission(ctx, subject, target))
 }
 
+// ImportOfferAccess imports the user access for offers in the model.
+func (s *PermissionService) ImportOfferAccess(
+	ctx context.Context,
+	importAccess []access.OfferImportAccess,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return errors.Capture(s.st.ImportOfferAccess(ctx, importAccess))
+}
+
 // ReadUserAccessForTarget returns the user access for the given user on
 // the given target. A NotValid error is returned if the subject (user)
 // string is empty, or the target is not valid. Any errors from the state

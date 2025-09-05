@@ -31,17 +31,15 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 	app := model.AddApplication(description.ApplicationArgs{})
 	offerUUID := uuid.MustNewUUID()
 	offerArgs := description.ApplicationOfferArgs{
-		// provide a UUID via the migration, it should be used
-		// in the new offer.
 		OfferUUID:       offerUUID.String(),
 		OfferName:       "test",
 		Endpoints:       map[string]string{"db-admin": "db-admin"},
 		ApplicationName: "test",
 	}
 	app.AddOffer(offerArgs)
+	offerUUID2 := uuid.MustNewUUID()
 	offerArgs2 := description.ApplicationOfferArgs{
-		// No uuid is provided during the migration, one should be
-		// created.
+		OfferUUID:       offerUUID2.String(),
 		OfferName:       "second",
 		Endpoints:       map[string]string{"identity": "identity"},
 		ApplicationName: "apple",
@@ -54,6 +52,7 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 			ApplicationName: "test",
 			Endpoints:       []string{"db-admin"},
 		}, {
+			UUID:            offerUUID2,
 			Name:            "second",
 			ApplicationName: "apple",
 			Endpoints:       []string{"identity"},
@@ -61,7 +60,7 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 	}
 	s.importService.EXPECT().ImportOffers(
 		gomock.Any(),
-		importOfferArgsMatcher{c: c, expected: input, requiredUUID: offerUUID},
+		input,
 	).Return(nil)
 
 	// Act
@@ -69,39 +68,6 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-type importOfferArgsMatcher struct {
-	c            *tc.C
-	requiredUUID uuid.UUID
-	expected     []crossmodelrelation.OfferImport
-}
-
-func (m importOfferArgsMatcher) Matches(x interface{}) bool {
-	obtained, ok := x.([]crossmodelrelation.OfferImport)
-	m.c.Assert(ok, tc.IsTrue)
-	if !ok {
-		return false
-	}
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.UUID", tc.IsUUID)
-	m.c.Check(obtained, tc.UnorderedMatch[[]crossmodelrelation.OfferImport](mc), m.expected)
-
-	// One of the offerUUIDs must be the expected one.
-	var found bool
-	for _, o := range obtained {
-		if o.UUID == m.requiredUUID {
-			found = true
-			break
-		}
-	}
-	m.c.Check(found, tc.IsTrue,
-		tc.Commentf("input does not contain offer UUID %q: %+v", m.requiredUUID, obtained))
-	return true
-}
-
-func (m importOfferArgsMatcher) String() string {
-	return "match CreateOfferArgs"
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {

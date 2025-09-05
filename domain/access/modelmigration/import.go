@@ -14,10 +14,12 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -44,12 +46,23 @@ type ImportService interface {
 	// If a permission for the user and target key already exists,
 	// [accesserrors.PermissionAlreadyExists] is returned.
 	CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
+	// ImportOfferAccess imports the user access for offers in the
+	// model.
+	ImportOfferAccess(ctx context.Context, importAccess []access.OfferImportAccess) error
 	// SetLastModelLogin will set the last login time for the user to the given
 	// value. The following error types are possible from this function:
 	// [accesserrors.UserNameNotValid] when the username supplied is not valid.
 	// [accesserrors.UserNotFound] when the user cannot be found.
 	// [modelerrors.NotFound] if no model by the given modelUUID exists.
 	SetLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID, time time.Time) error
+}
+
+// ImportOfferAccessService provides a subset of the access domain
+// service methods needed for offer permissions import.
+type ImportOfferAccessService interface {
+	// ImportOfferAccess imports the user access for offers in the
+	// model.
+	ImportOfferAccess(ctx context.Context, importAccess []access.OfferImportAccess) error
 }
 
 type importOperation struct {
@@ -109,4 +122,74 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	}
 	return nil
+}
+
+// RegisterOfferAccessImport registers offer access import operations with the
+// given coordinator.
+func RegisterOfferAccessImport(coordinator Coordinator, logger logger.Logger) {
+	coordinator.Add(&offerAccessImportOperation{
+		logger: logger,
+	})
+}
+
+type offerAccessImportOperation struct {
+	modelmigration.BaseOperation
+
+	logger  logger.Logger
+	service ImportOfferAccessService
+}
+
+// Name returns the name of this operation.
+func (i *offerAccessImportOperation) Name() string {
+	return "import offer user permissions"
+}
+
+// Setup implements Operation.
+func (i *offerAccessImportOperation) Setup(scope modelmigration.Scope) error {
+	i.service = service.NewService(
+		state.NewState(scope.ControllerDB(), i.logger))
+	return nil
+}
+
+// Execute the import on the model user permissions contained in the model.
+func (i *offerAccessImportOperation) Execute(ctx context.Context, model description.Model) error {
+	input := make([]access.OfferImportAccess, 0)
+	apps := model.Applications()
+
+	for _, app := range apps {
+		for _, offer := range app.Offers() {
+			offerUUID, err := uuid.UUIDFromString(offer.OfferUUID())
+			if err != nil {
+				return errors.Errorf("uuid for offer %q,%q: %w",
+					offer.ApplicationName(), offer.OfferName(), err)
+			}
+
+			acl, err := encodeImportACL(offer.ACL())
+			if err != nil {
+				return errors.Errorf("offer %q: %w", offer.OfferName(), err)
+			}
+
+			imp := access.OfferImportAccess{
+				UUID:   offerUUID,
+				Access: acl,
+			}
+			input = append(input, imp)
+		}
+	}
+	if len(input) == 0 {
+		return nil
+	}
+	return i.service.ImportOfferAccess(ctx, input)
+}
+
+func encodeImportACL(input map[string]string) (map[string]corepermission.Access, error) {
+	output := make(map[string]corepermission.Access)
+	for name, accessVal := range input {
+		access := corepermission.Access(accessVal)
+		if err := access.Validate(); err != nil {
+			return nil, errors.Errorf("encoding access for user %q: %w", name, err)
+		}
+		output[name] = access
+	}
+	return output, nil
 }

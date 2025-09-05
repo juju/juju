@@ -209,3 +209,10 @@ type dbModelExists struct {
 
 // dbEveryoneExternal represents the permissions of the everyone@external user.
 type dbEveryoneExternal dbPermission
+
+// nameAndUUID is an agnostic container for a `name` and `uuid`
+// column combination.
+type nameAndUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}

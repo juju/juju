@@ -6,9 +6,13 @@ package state
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -158,7 +162,7 @@ func (st *PermissionState) UpdatePermission(ctx context.Context, args access.Upd
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		subjectUUID, err := st.userUUID(ctx, tx, args.Subject)
+		subjectUUID, err := st.getUserUUID(ctx, tx, args.Subject)
 		if errors.Is(err, accesserrors.UserNotFound) && !args.Subject.IsLocal() {
 			subjectUUID, err = st.addExternalUser(ctx, tx, args.Subject)
 		}
@@ -644,6 +648,86 @@ AND    m.cloud_credential_name = $input.cred_name
 	return results, nil
 }
 
+// ImportOfferAccess imports the user access for offers in the model.
+func (st *PermissionState) ImportOfferAccess(
+	ctx context.Context,
+	importAccess []access.OfferImportAccess,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	userNames := set.NewStrings()
+	for _, imp := range importAccess {
+		userNames = userNames.Union(set.NewStrings(slices.Collect(maps.Keys(imp.Access))...))
+	}
+	userNames.Add(corepermission.EveryoneUserName.String())
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		namesAndUUIDs, err := st.getUserUUIDs(ctx, tx, userNames.Values())
+		if err != nil {
+			return errors.Errorf("getting user uuids: %w", err)
+		}
+		perms, err := encodeOfferPermissions(namesAndUUIDs, importAccess)
+		if err != nil {
+			return errors.Errorf("encoding offer permissions: %w", err)
+		}
+		for _, perm := range perms {
+			if err = insertPermission(ctx, tx, perm); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+func encodeOfferPermissions(namesAndUUIDs map[string]string, input []access.OfferImportAccess) ([]dbPermission, error) {
+	var result []dbPermission
+	everyoneUUID := namesAndUUIDs[corepermission.EveryoneUserName.String()]
+	for _, o := range input {
+		var foundEveryoneAccess bool
+		for name, offerAccess := range o.Access {
+			if name == corepermission.EveryoneUserName.String() {
+				foundEveryoneAccess = true
+			}
+			userUUID, ok := namesAndUUIDs[name]
+			if !ok {
+				return nil, errors.Errorf("offer access for %q", name).Add(accesserrors.UserNotFound)
+			}
+			permissionUUID, err := uuid.NewUUID()
+			if err != nil {
+				return nil, errors.Errorf("offer access new uuid: %w", err)
+			}
+			result = append(result, dbPermission{
+				UUID:       permissionUUID.String(),
+				GrantOn:    o.UUID.String(),
+				GrantTo:    userUUID,
+				AccessType: offerAccess.String(),
+				ObjectType: corepermission.Offer.String(),
+			})
+		}
+		if foundEveryoneAccess {
+			continue
+		}
+		// In case the Everyone user access was not imported, add now.
+		permissionUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("offer access new uuid: %w", err)
+		}
+		result = append(result, dbPermission{
+			UUID:       permissionUUID.String(),
+			GrantOn:    o.UUID.String(),
+			GrantTo:    everyoneUUID,
+			AccessType: corepermission.ReadAccess.String(),
+			ObjectType: corepermission.Offer.String(),
+		})
+	}
+	return result, nil
+}
+
 // findUserByName finds the user provided exists, hasn't been removed and is not
 // disabled. Return data needed to fill in corePermission.UserAccess.
 func (st *PermissionState) findUserByName(ctx context.Context, tx *sqlair.TX, name user.Name) (dbPermissionUser, error) {
@@ -719,36 +803,49 @@ WHERE   name = $M.grant_on
 	return nil
 }
 
-// userUUID returns the UUID for the associated name
-// if the user is active.
-func (st *PermissionState) userUUID(
+// getUserUUID returns the UUID for the associated name
+// if the user is active and not removed.
+func (st *PermissionState) getUserUUID(
 	ctx context.Context, tx *sqlair.TX, name user.Name,
 ) (user.UUID, error) {
-	type inputOut struct {
-		Name string `db:"name"`
-		UUID string `db:"uuid"`
+	uuids, err := st.getUserUUIDs(ctx, tx, []string{name.String()})
+	if err != nil {
+		return "", err
 	}
+	value := uuids[name.String()]
+	return user.UUID(value), nil
+}
+
+// getUserUUIDs returns the UUIDs for the associated names
+// if the user is active and not removed.
+func (st *PermissionState) getUserUUIDs(
+	ctx context.Context, tx *sqlair.TX, namesInput []string,
+) (map[string]string, error) {
+
+	type names []string
 
 	stmt, err := st.Prepare(`
-SELECT  u.uuid AS &inputOut.uuid
-FROM    v_user_auth u
-WHERE   name = $inputOut.name
-AND     u.disabled = false
-AND     u.removed = false
-`, inputOut{})
+SELECT &nameAndUUID.*
+FROM   v_user_auth AS u
+WHERE  u.name IN ($names[:])
+AND    u.disabled = false
+AND    u.removed = false
+`, nameAndUUID{}, names{})
 
 	if err != nil {
-		return "", errors.Errorf("preparing user exist statement: %w", err)
+		return nil, errors.Errorf("preparing user exist statement: %w", err)
 	}
-	inOut := inputOut{Name: name.Name()}
 
-	err = tx.Query(ctx, stmt, inOut).Get(&inOut)
+	var out []nameAndUUID
+	err = tx.Query(ctx, stmt, names(namesInput)).GetAll(&out)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("active user %q: %w", name, accesserrors.UserNotFound)
+		return nil, errors.Errorf("active users %q: %w", strings.Join(namesInput, ", "), accesserrors.UserNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("getting user %q: %w", name, err)
+		return nil, errors.Errorf("getting users %q: %w", strings.Join(namesInput, ", "), err)
 	}
-	return user.UUID(inOut.UUID), nil
+	return transform.SliceToMap(out, func(in nameAndUUID) (string, string) {
+		return in.Name, in.UUID
+	}), nil
 }
 
 func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, subjectUUID user.UUID, args access.UpdatePermissionArgs) error {
@@ -1042,7 +1139,8 @@ AND    ot.type = $dbPermission.object_type
 	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Errorf("%q on %q: %w", perm.GrantTo, perm.GrantOn, accesserrors.PermissionAlreadyExists)
 	} else if err != nil {
-		return errors.Errorf("adding permission %q for %q on %q: %w", perm.AccessType, perm.GrantTo, perm.GrantOn, err)
+		return errors.Errorf("adding permission %q for %q on %q: %w",
+			perm.AccessType, perm.GrantTo, perm.GrantOn, err)
 	}
 	return nil
 }

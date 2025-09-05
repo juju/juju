@@ -69,20 +69,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 func (i *importOperation) importOffers(ctx context.Context, apps []description.Application) error {
 	input := make([]crossmodelrelation.OfferImport, 0)
-	var err error
 	for _, app := range apps {
 		for _, offer := range app.Offers() {
-			offerUUIDStr := offer.OfferUUID()
-
-			var offerUUID uuid.UUID
-
-			if offerUUIDStr == "" {
-				offerUUID, err = uuid.NewUUID()
-			} else {
-				offerUUID, err = uuid.UUIDFromString(offerUUIDStr)
-			}
+			offerUUID, err := uuid.UUIDFromString(offer.OfferUUID())
 			if err != nil {
-				return errors.Errorf("making uuid for offer %q,%q: %w",
+				return errors.Errorf("validating uuid for offer %q,%q: %w",
 					offer.ApplicationName(), offer.OfferName(), err)
 			}
 
