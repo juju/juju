@@ -19,5 +19,4 @@ type StringSlice []string
 
 type controllerValues struct {
 	APIPort sql.Null[string] `db:"api_port"`
-	CACert  string           `db:"ca_cert"`
 }
