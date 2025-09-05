@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
+	"github.com/juju/juju/internal/worker/changestreampruner"
 	"github.com/juju/juju/internal/worker/charmrevisioner"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
@@ -361,7 +362,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewUserSecretsFacade: secretspruner.NewUserSecretsFacade,
 			NewWorker:            secretspruner.NewWorker,
 		})),
-		// The userSecretsDrainWorker is the worker that drains the user secrets from the inactive backend to the current active backend.
+		// The userSecretsDrainWorker is the worker that drains the user secrets
+		// from the inactive backend to the current active backend.
 		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
@@ -369,13 +371,23 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
 		})),
-		// the operationPruner is the worker that prune operation based on their age or result/log size periodically
-		operationPrunerName: ifNotMigrating(operationpruner.Manifold(operationpruner.ManifoldConfig{
+
+		// the operationPruner is the worker that prune operation based on their
+		// age or result/log size periodically
+		operationPrunerName: ifResponsible(ifNotMigrating(operationpruner.Manifold(operationpruner.ManifoldConfig{
 			DomainServicesName: domainServicesName,
 			PruneInterval:      config.OperationPrunerInterval,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.operationpruner"),
 			Clock:              config.Clock,
-		})),
+		}))),
+
+		changeStreamPrunerName: ifResponsible(ifNotMigrating(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
+			DomainServiceName:      domainServicesName,
+			Clock:                  config.Clock,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.changestreampruner"),
+			NewWorker:              changestreampruner.NewWorker,
+			GetChangeStreamService: changestreampruner.GetModelChangeStreamService,
+		}))),
 	}
 	return result
 }
@@ -580,11 +592,10 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	providerTrackerName = "provider-tracker"
-
 	apiRemoteRelationCallerName  = "api-remote-relation-caller"
 	applicationScalerName        = "application-scaler"
 	asyncCharmDownloader         = "async-charm-downloader"
+	changeStreamPrunerName       = "change-stream-pruner"
 	charmRevisionerName          = "charm-revisioner"
 	computeProvisionerName       = "compute-provisioner"
 	domainServicesName           = "domain-services"
@@ -596,6 +607,7 @@ const (
 	loggingConfigUpdaterName     = "logging-config-updater"
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
+	providerTrackerName          = "provider-tracker"
 	remoteRelationConsumerName   = "remote-relation-consumer"
 	remoteRelationOffererName    = "remote-relation-offerer"
 	removalName                  = "removal"

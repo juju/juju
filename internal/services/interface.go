@@ -16,6 +16,7 @@ import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockcommandservice "github.com/juju/juju/domain/blockcommand/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
+	changestreamservice "github.com/juju/juju/domain/changestream/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	controllerservice "github.com/juju/juju/domain/controller/service"
@@ -89,6 +90,8 @@ type ControllerDomainServices interface {
 	SecretBackend() *secretbackendservice.WatchableService
 	// Macaroon returns the macaroon bakery backend service
 	Macaroon() *macaroonservice.Service
+	// ControllerChangeStream returns the global controller change stream.
+	ControllerChangeStream() *changestreamservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the
@@ -169,6 +172,8 @@ type ModelDomainServices interface {
 	// ModelProvider returns a service for accessing info relevant to the
 	// provider for a model.
 	ModelProvider() *modelproviderservice.Service
+	// ChangeStream returns the model change stream.
+	ChangeStream() *changestreamservice.Service
 
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely

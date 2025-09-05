@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"go.uber.org/goleak"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -37,20 +38,27 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.DBAccessor = ""
+	cfg.DomainServiceName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.GetChangeStreamService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessor: "dbaccessor",
-		Clock:      s.clock,
-		Logger:     loggertesting.WrapCheckLog(c),
+		DomainServiceName: "domain-service",
+		Clock:             s.clock,
+		Logger:            loggertesting.WrapCheckLog(c),
 		NewWorker: func(WorkerConfig) (worker.Worker, error) {
+			return nil, nil
+		},
+		GetChangeStreamService: func(getter dependency.Getter, name string) (ChangeStreamService, error) {
 			return nil, nil
 		},
 	}

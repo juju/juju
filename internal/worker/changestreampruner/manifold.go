@@ -12,25 +12,29 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/services"
 )
 
-// NewWorkerFn is an alias function that allows the creation of
-// EventQueueWorker.
-type NewWorkerFn = func(WorkerConfig) (worker.Worker, error)
+// NewWorkerFunc function that allows the creation of ChangeStreamPruner.
+type NewWorkerFunc func(WorkerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	DBAccessor string
+	DomainServiceName string
+
+	// GetChangeStreamService is used to extract the removal
+	// service from domain service dependency.
+	GetChangeStreamService func(getter dependency.Getter, name string) (ChangeStreamService, error)
 
 	Clock     clock.Clock
 	Logger    logger.Logger
-	NewWorker NewWorkerFn
+	NewWorker NewWorkerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.DBAccessor == "" {
-		return errors.NotValidf("empty DBAccessorName")
+	if cfg.DomainServiceName == "" {
+		return errors.NotValidf("empty DomainServiceName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -41,6 +45,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if cfg.GetChangeStreamService == nil {
+		return errors.NotValidf("nil GetChangeStreamService")
+	}
 	return nil
 }
 
@@ -49,25 +56,23 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.DBAccessor,
+			config.DomainServiceName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var dbGetter DBGetter
-			if err := getter.Get(config.DBAccessor, &dbGetter); err != nil {
+			changeStreamService, err := config.GetChangeStreamService(getter, config.DomainServiceName)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			cfg := WorkerConfig{
-				DBGetter: dbGetter,
-				Clock:    config.Clock,
-				Logger:   config.Logger,
-			}
-
-			w, err := config.NewWorker(cfg)
+			w, err := config.NewWorker(WorkerConfig{
+				ChangeStreamService: changeStreamService,
+				Clock:               config.Clock,
+				Logger:              config.Logger,
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -76,6 +81,22 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
-	return newWorker(cfg)
+// GetControllerChangeStreamService extracts the controller change stream
+// service from the domain service dependency.
+func GetControllerChangeStreamService(getter dependency.Getter, name string) (ChangeStreamService, error) {
+	var services services.ControllerDomainServices
+	if err := getter.Get(name, &services); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return services.ControllerChangeStream(), nil
+}
+
+// GetModelChangeStreamService extracts the model change stream service from the
+// domain service dependency.
+func GetModelChangeStreamService(getter dependency.Getter, name string) (ChangeStreamService, error) {
+	var services services.ModelDomainServices
+	if err := getter.Get(name, &services); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return services.ChangeStream(), nil
 }

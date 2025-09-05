@@ -42,6 +42,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"api-config-watcher",
 		"api-remote-relation-caller",
 		"async-charm-downloader",
+		"change-stream-pruner",
 		"charm-revisioner",
 		"clock",
 		"compute-provisioner",
@@ -90,6 +91,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"caas-firewaller",
 		"caas-model-config-manager",
 		"caas-model-operator",
+		"change-stream-pruner",
 		"charm-revisioner",
 		"clock",
 		"domain-services",
@@ -158,7 +160,7 @@ func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	worker, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CheckKill(c, worker)
+	defer workertest.DirtyKill(c, worker)
 
 	var aClock clock.Clock
 	err = manifold.Output(worker, &aClock)
@@ -292,6 +294,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-responsible-flag",
 		"lease-manager",
+	},
+
+	"change-stream-pruner": {
+		"agent",
+		"api-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
 	},
 
 	"clock": {},
@@ -442,6 +455,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"http-client",
 		"is-responsible-flag",
+	},
+
+	"change-stream-pruner": {
+		"agent",
+		"api-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
 	},
 
 	"clock": {},
