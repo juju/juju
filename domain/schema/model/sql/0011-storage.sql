@@ -137,7 +137,7 @@ CREATE TABLE storage_instance (
     -- attachment of this storage instance MUST make this association.
     charm_name TEXT,
     storage_name TEXT NOT NULL,
-    storage_kind_id INT,
+    storage_kind_id INT NOT NULL,
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,

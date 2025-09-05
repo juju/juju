@@ -651,6 +651,7 @@ func makeUnitStorageInstancesFromDirective(
 		}
 
 		instArg := application.CreateUnitStorageInstanceArg{
+			Kind: storageKind,
 			Name: directive.Name,
 			UUID: uuid,
 		}

@@ -58,6 +58,7 @@ type insertStorageInstance struct {
 	LifeID          int    `db:"life_id"`
 	RequestSizeMiB  uint64 `db:"requested_size_mib"`
 	StorageID       string `db:"storage_id"`
+	StorageKindID   int    `db:"storage_kind_id"`
 	StorageName     string `db:"storage_name"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
 	UUID            string `db:"uuid"`

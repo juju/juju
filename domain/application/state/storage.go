@@ -838,6 +838,7 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			LifeID:          int(life.Alive),
 			RequestSizeMiB:  directive.SizeMiB,
 			StorageID:       storageID,
+			StorageKindID:   int(arg.Kind),
 			StorageName:     arg.Name.String(),
 			StoragePoolUUID: directive.StoragePoolUUID,
 			UUID:            arg.UUID.String(),
