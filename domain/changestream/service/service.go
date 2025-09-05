@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/changestream"
 )
@@ -20,15 +19,13 @@ type State interface {
 
 // Service defines a service for interacting with the underlying state.
 type Service struct {
-	st     State
-	logger logger.Logger
+	st State
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, logger logger.Logger) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:     st,
-		logger: logger,
+		st: st,
 	}
 }
 

@@ -34,6 +34,8 @@ import (
 	blockcommandstate "github.com/juju/juju/domain/blockcommand/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
+	changestreamservice "github.com/juju/juju/domain/changestream/service"
+	changestreamstate "github.com/juju/juju/domain/changestream/state"
 	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
 	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
@@ -548,11 +550,23 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Watchabl
 	)
 }
 
+// Operation returns the service for managing long-running operations.
 func (s *ModelServices) Operation() *operationservice.Service {
 	return operationservice.NewService(
 		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.clock,
 		s.logger.Child("operation"))
+}
+
+// ControllerChangeStream returns the model change stream.
+func (s *ModelServices) ChangeStream() *changestreamservice.Service {
+	return changestreamservice.NewService(
+		changestreamstate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			s.clock,
+			s.logger.Child("changestream"),
+		),
+	)
 }
 
 // Stub returns the stub service. A special service which collects temporary
