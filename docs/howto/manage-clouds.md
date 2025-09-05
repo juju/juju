@@ -2,7 +2,7 @@
 # How to manage clouds
 
 ```{ibnote}
-See also: {ref}`cloud`, {ref}`List of supported clouds <list-of-supported-clouds>`
+See also: {ref}`cloud`
 ```
 
 This document shows how to manage your existing cloud(s) with Juju.
@@ -11,28 +11,26 @@ This document shows how to manage your existing cloud(s) with Juju.
 ## Add a cloud
 
 ```{ibnote}
-See also: {ref}`list-of-supported-clouds` > `<cloud name>`
+See also: {ref}`list-of-supported-clouds`
 ```
 
-```{important}
-This step is typically required only for non-localhost private clouds.
-```
+The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or a Kubernetes cloud -- more below.
 
-The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud.
+In either case, the cloud definition is saved to the directory defined in
+- the {ref}`envvar-juju-data` environment variable or, if that is not defined,
+    - `$XDG_DATA_HOME/juju` or, if that is not defined,
+        - `~/.local/share/juju`
 
-```{important}
-In either case, the cloud definition is saved to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`.
-```
+ in a file called `clouds.yaml`.
 
 (add-a-machine-cloud)=
 ### Add a machine cloud
 
-```{tip}
-**If your cloud is a public cloud or a localhost LXD cloud:** <br>
-Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
-```
+First, check the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
-To add a machine cloud to Juju, run the `add-cloud` command:
+Then, if your cloud is a public cloud or a localhost LXD cloud: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
+
+Otherwise, to add a machine cloud to Juju, run the `add-cloud` command:
 
 ```text
 juju add-cloud
@@ -47,18 +45,17 @@ This will start an interactive session where you'll be asked to choose a cloud t
 The command also has a manual mode where you can specify the desired cloud name and cloud definition file in-line; whether you want this definition to be known just to the Juju client or also to an existing controller (the latter creates what is known as a multi-cloud controller); etc.
 
 ```{ibnote}
-See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`, {ref}`envvar-juju-data`
+See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`
 ```
 
 (add-a-kubernetes-cloud)=
 ### Add a Kubernetes cloud
 
-```{tip}
-**If you're using a localhost MicroK8s cloud installed from a strictly confined snap:** <br>
-Juju likely already knows about it, so you can skip this step. Run `juju clouds` to confirm.
-```
+First, check the {ref}`list of supported clouds <list-of-supported-kubernetes-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
-To add a Kubernetes cloud to Juju:
+Then, if you're using a localhost MicroK8s cloud installed from a strictly confined snap: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
+
+Otherwise, to add a Kubernetes cloud to Juju:
 
 1. Prepare your kubeconfig file.
 
@@ -92,7 +89,7 @@ To get a list of all the clouds that your Juju client is currently aware of, run
 juju clouds --client --all
 ```
 
-This will return something similar to:
+````{dropdown} Example output
 
 ```text
 You can bootstrap a new controller using one of these clouds...
@@ -111,7 +108,9 @@ microk8s     1        localhost      k8s      1            built-in  A Kubernete
 oracle       4        us-phoenix-1   oci      0            public    Oracle Compute Cloud Service
 ```
 
-where each line represents a cloud that Juju can interact with -- the cloud name (that you will have to use to interact with the cloud), the number of cloud regions Juju is aware of, the default region (for the current Juju client), the type/API used to control it, the number of credentials associated with a cloud, the source of the cloud, and a brief description.
+````
+
+In the output, each line represents a cloud that Juju can interact with -- the cloud name (that you will have to use to interact with the cloud), the number of cloud regions Juju is aware of, the default region (for the current Juju client), the type/API used to control it, the number of credentials associated with a cloud, the source of the cloud, and a brief description.
 
 By omitting the flags, you will see a list of the clouds available on the client for which you have also registered the credentials. Alternatively, by passing other flags you can specify an output format or file, etc.
 
@@ -127,7 +126,7 @@ To get more detail about a particular cloud, run the `show-cloud` command follow
 juju show-cloud azure
 ```
 
-The command also has flags that allow you to specify whether you want this information from the client or rather a controller; whether you want the output to include the configuration options specific to the cloud; an output format or file; etc.
+The command also has flags that allow you to specify whether you want this information from the client or a controller; whether you want the output to include the configuration options specific to the cloud; an output format or file; etc.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-cloud`
@@ -143,8 +142,7 @@ To see which regions Juju is aware of for any given cloud, use the `regions` com
 juju regions aws
 ```
 
-This should output something similar to:
-
+````{dropdown} Example output
 ```text
 Client Cloud Regions
 us-east-1
@@ -170,6 +168,7 @@ ap-northeast-3
 me-south-1
 sa-east-1
 ```
+````
 
 The command also has flags that allow you to select a specific controller, choose an output format or file, etc.
 
@@ -219,7 +218,7 @@ To synchronise the Juju client with changes occurring on public clouds (e.g. clo
 juju update-public-clouds
 ```
 
-The command also allows you to specify whether you want this update to happen on the client or rather a controller.
+The command also allows you to specify whether you want this update to happen on the client or a controller.
 
 ```{ibnote}
 See more: {ref}`command-juju-update-public-clouds`
@@ -277,17 +276,13 @@ If you specify a controller without supplying a YAML file then the remote cloud 
 See also: {ref}`removing-things`
 ```
 
-```{important}
-This only applies to cloud definitions added explicitly via `add-cloud` or `add-k8s`. It removes the cloud definition from the client and/or the controller.
-```
-
-To remove a cloud definition from Juju, run the `remove-cloud` command followed by the name of the cloud. For example:
+Given a cloud definition that you've added explicitly to Juju via `add-cloud` or `add-k8s`, to remove that definition from Juju, run the `remove-cloud` command followed by the name of the cloud. For example:
 
 ```text
 juju remove-cloud lxd-remote
 ```
 
-The command also allows you to specify whether this operation should be performed on the client or rather on a specific controller.
+The command also allows you to specify whether this operation should be performed on the client or a on a specific controller.
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-cloud`

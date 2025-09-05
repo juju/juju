@@ -40,6 +40,8 @@ Juju supports all of the following clouds. Click to find out more about using yo
 (list-of-supported-kubernetes-clouds)=
 ## List of supported Kubernetes clouds
 
+> See also: {ref}`kubernetes-clouds-and-juju`
+
 - {ref}`Amazon EKS <cloud-kubernetes-eks>`
 - {ref}`Canonical K8s <cloud-canonical-k8s>`
 - {ref}`Google GKE <cloud-kubernetes-gke>`

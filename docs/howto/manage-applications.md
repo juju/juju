@@ -16,36 +16,6 @@ To deploy an application, find and deploy a charm / bundle that delivers it.
 See more: {ref}`deploy-a-charm`
 ```
 
-````{note}
-
-- **Machines:**
-
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
-
-For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
-
-```text
-juju deploy <charm> --debug --verbose
-```
-
-If it still fails,  connect to the machine and examine the logs.
-
-```{ibnote}
-See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
-```
-
-- **Kubernetes:**
-
-Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
-
-```text
-
-kubectl exec <pod> -itc <container> -n <namespace> -- bash
-```
-
-````
-
-
 (view-details-about-an-application)=
 ## View details about an application
 
@@ -64,7 +34,10 @@ See more: {ref}`command-juju-deploy`
 
 
 ## Set the machine base for an application
-> Only for machine clouds.
+
+```{note}
+Only for machine clouds.
+```
 
 You can set the base for the machines provisioned by Juju for your application's units either during deployment or after.
 
@@ -147,7 +120,7 @@ juju config mediawiki
 ```
 
 
-````{dropdown} Expand to view a sample output
+````{dropdown} Example output
 
 ``` text
 application: mediawiki
@@ -266,49 +239,9 @@ See more: [Charmhub > `<your charm of interest`](https://charmhub.io/)
 See more: {ref}`scale-an-application-horizontally`
 ```
 
-
-````{dropdown} Expand to view an example featuring the machine charm for Wordpress
-
-The `wordpress` charm supports high availability natively, so we can proceed to scale up horizontally:
-
-```text
-juju add-unit wordpress
-```
-
-````
-
-````{dropdown} Expand to view an example featuring the machine charm for Mediawiki
-
-The `mediawiki` charm needs to be placed behind a load balancing reverse proxy. We can do that by deploying the `haproxy` charm, integrating the `haproxy` application with `wordpress`, and then scaling the `wordpress` application up horizontally:
-
-``` text
-# Suppose you have a deployment with mediawiki and mysql and you want to scale mediawiki.
-juju deploy mediawiki
-juju deploy mysql
-
-# Deploy haproxy and integrate it with your existing deployment, then expose haproxy:
-juju deploy haproxy
-juju integrate mediawiki:db mysql
-juju integrate mediawiki haproxy
-juju expose haproxy
-
-# Get the proxy's IP address:
-juju status haproxy
-
-# Finally, scale mediawiki up horizontally
-# (since it's a machine charm, use 'add-unit')
-# by adding a few more units:
-juju add-unit -n 5 mediawiki
-
-```
-
-````
+<!-- TODO Add example scenarios for charms that support scaling natively and charms that require a proxy. -->
 
 Every time a unit is added to an application, Juju will spread out that application's units, distributing them evenly as supported by the provider (e.g., across multiple availability zones) to best ensure high availability. So long as a cloud's availability zones don't all fail at once, and the charm and the charm's workload are well-written (changing leaders, coordinating across units, etc.), you can rest assured that cloud downtime will not affect your application.
-
-```{ibnote}
-See more: [Charmhub | `wordpress`](https://charmhub.io/wordpress), [Charmhub | `mediawiki`](https://charmhub.io/mediawiki), [Charmhub | `haproxy`](https://charmhub.io/haproxy)
-```
 
 (integrate-an-application-with-another-application)=
 ## Integrate an application with another application
@@ -350,9 +283,7 @@ juju expose percona-cluster --endpoints db-admin --to-cidrs 10.0.0.0/24
 
 ```
 
-```{important}
-To override an initial `expose` command, run the command again with the new desired specifications.
-```
+To change the `expose` details, run the command again with the new desired specifications.
 
 ```{ibnote}
 See more: {ref}`command-juju-expose`
@@ -404,7 +335,7 @@ See more: {ref}`command-juju-unexpose`
 ## Manage constraints for an application
 
 ```{ibnote}
-See also: {ref}`constraint`
+See also: {ref}`constraint`, {ref}`list-of-constraints`
 ```
 
 **Set values.** You can set constraints for an application during deployment or later.
@@ -415,7 +346,7 @@ See also: {ref}`constraint`
 juju deploy mysql --constraints "mem=6G cores=2"
 ```
 
-````{dropdown} Expand to see more examples
+````{dropdown} More examples
 
 Assuming a LXD cloud, to deploy PostgreSQL with a specific amount of CPUs and memory, you can use a combination of the `instance-type` and `mem` constraints, as below -- `instance-type=c5.large` maps to 2 CPUs and 4 GiB, but `mem` overrides the latter, such that the result is a machine with 2 CPUs and *3.5* GiB of memory.
 
@@ -441,16 +372,6 @@ juju deploy redis -n 2 --constraints zones=us-east-1a,us-east-1d
 See more: {ref}`command-juju-deploy`
 ```
 
-```{caution}
-**If you want to use the `image-id` constraint with `juju deploy`:** <br>
-You must also use the `--base` flag of the command. The base specified via `--base` will be used to determine the charm revision deployed on the resource created with the `image-id` constraint.
-```
-
-```{ibnote}
-See more: {ref}`command-juju-deploy`
-```
-
-
 <!--CLARIFY:
 --base on its own does two things: (1) it determines the OS to be used on the provisioned machines; (2) it determines the charm revision to be deployed on the provisioned machines. In conjunction with `image-id`, though, it only does (2) -- part (1) is overridden by the (unknown) OS specified in the image chosen via `image-id`.
 -->
@@ -459,10 +380,6 @@ See more: {ref}`command-juju-deploy`
 
 ``` text
 juju set-constraints mariadb cores=2
-```
-
-```{tip}
-To reset a constraint key to its default value, run the command with the value part empty (e.g., `juju deploy apache2 --constraints mem= `).
 ```
 
 ```{ibnote}
@@ -477,6 +394,15 @@ juju constraints mariadb
 
 ```{ibnote}
 See more: {ref}`command-juju-constraints`
+```
+
+**Reset values.** To reset an application's constraint key to its default value, use the usual set procedure leaving the constraint value part empty. For example:
+
+```text
+juju set-constraints apache2 mem=
+```
+```{ibnote}
+See more: {ref}`command-juju-set-constraints`
 ```
 
 ## Change space bindings for an application
@@ -531,9 +457,6 @@ See also: {ref}`removing-things`
 
 To remove an application, run the `remove-application` command followed by the name of the application. For example:
 
-```{caution}
-Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application.
-```
 
 ```text
 juju remove-application kafka
@@ -543,20 +466,36 @@ This will issue a warning with a list of all the pieces to be removed and a requ
 
 All associated resources will also be removed, provided they are not hosting containers or another application's units.
 
-If persistent storage is in use by the application it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
+If persistent storage is in use by the application, it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
-```{note}
-It it normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
-```
+If the application has relations with another application, this relation will be terminated (which may adversely affect the other application). Removal of a subordinate relation will remove units of the subordinate application as well.
+
+Note: It is normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
+
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-application`
 ```
 
 
-````{note} Troubleshooting:
+`````{dropdown} Troubleshooting
 
-````{dropdown} One or more units are stuck in error state
+Behind the scenes, the application removal consists of multiple different stages. If something goes wrong, it can be useful to determine in which step it happened. The steps are the following:
+- The client tells the controller to remove the application.
+- The controller signals to the application (charm) that it is going to be
+  destroyed.
+- The charm breaks any relations to its application by calling the
+  `<endpoint>-relation-broken` and `<endpoint>-relation-departed` hooks.
+- The charm calls its `stop` hook which should:
+  - Stop the application.
+  - Remove any files/configuration created during the application lifecycle.
+  - Prepare any backup(s) of the application that are required for restore
+    purposes.
+- The application and all its units are then removed.
+- In the case that this leaves machines with no running applications, the machines are also removed.
+
+
+````{dropdown} Scenario: One or more units are stuck in error state
 
 If the status of one or more of the units being removed is error, Juju will not proceed until the error has been resolved or the remove applications command has been run again with the force flag.
 
@@ -564,21 +503,7 @@ If the status of one or more of the units being removed is error, Juju will not 
 See more: {ref}`mark-unit-errors-as-resolved`
 ```
 
-```
 ````
-
-Behind the scenes, the application removal consists of multiple different stages. If something goes wrong, it can be useful to determine in which step it happened. The steps are the following:
-- The client tells the controller to remove the application.
-- The controller signals to the application (charm) that it is going to be
-  destroyed.
-- The charm breaks any relations to its application by calling
-  relationship-broken and relationship-departed.
-- The charm calls its ‘stop hook’ which should:
-  - Stop the application
-  - Remove any files/configuration created during the application lifecycle
-  - Prepare any backup(s) of the application that are required for restore
-    purposes.
-- The application and all its units are then removed.
-- In the case that this leaves machines with no running applications, the machines are also removed.
+`````
 
 

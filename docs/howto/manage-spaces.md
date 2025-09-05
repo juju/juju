@@ -45,8 +45,13 @@ This command is especially relevant for a MAAS cloud. There, you cannot add a sp
 
 ## View  available spaces
 
-The spaces known to `juju` can be viewed with the `spaces` command, as follows:
+To view the available spaces, including their associated subnets, run the `spaces` command:
 
+```text
+juju spaces
+```
+
+````{dropdown} Example output
 ```text
 $ juju spaces
 Name   Space ID  Subnets
@@ -63,11 +68,13 @@ alpha  0         172.31.0.0/20
                  252.64.0.0/12
                  252.80.0.0/12
 ```
+````
+
+The command also has flags that make it possible to filter by model or trim the output down to exclude subnets.
 
 ```{ibnote}
 See more: {ref}`command-juju-spaces`
 ```
-
 
 ## View details about a space
 

@@ -93,7 +93,7 @@ juju show-user alice
 This will display the user's username, display name (if available), access level, creation date, and last connection time, in a YAML format.
 
 
-````{dropdown} Expand to see a sample output for user 'admin'
+````{dropdown} Example output for user 'admin'
 
 ```text
 user-name: admin

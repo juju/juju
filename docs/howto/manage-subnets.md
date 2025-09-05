@@ -13,7 +13,7 @@ To view the subnets known to `juju`, run:
 juju subnets
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```
 subnets:

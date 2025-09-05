@@ -8,10 +8,6 @@ See also: {ref}`model`
 (add-a-model)=
 ## Add a model
 
-```{caution}
-**If you have multiple credentials:** Be careful which one you use for the new model. Any machines added to the model subsequently will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account!
-```
-
 To add a model to the current controller using the default credential and switch to this model, run the `add-model` command followed by the name of the model. For example:
 
 ```text
@@ -34,7 +30,7 @@ juju models
 
 The current model will be denoted with an asterisk.
 
-````{dropdown} Example outcome
+````{dropdown} Example output
 
 ```text
 Controller: localhost-localhost
@@ -64,7 +60,7 @@ juju switch
 
 This will show the current controller, user, and model in a `<controller>:<user>/<model>` format.
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ````text
 localhost-localhost:admin/test
@@ -72,9 +68,7 @@ localhost-localhost:admin/test
 
 ````
 
-```{important}
-You can also identify the current model by running `juju models` -- your current model is the model with an asterisk!
-```
+Alternatively, run `juju models`; your current model is the model with an asterisk!
 
 **Switch to a different model.** To change from the current model to a different model, use the `switch` command followed by the target model name in a `<controller>:<user>/<model` format:
 
@@ -82,7 +76,7 @@ You can also identify the current model by running `juju models` -- your current
 juju switch <controller>:<admin>/<model>
 ```
 
-The command also allows you to specify the target controller in an abbreviated form by omitting one or more of the components.
+The command also allows you to specify the target controller in an abbreviated form by omitting one or more of the components. However, for important operations, we recommend you specify the model in the unambiguous form shown above.
 
 <!--
 |Ways to change to a model:||
@@ -95,10 +89,6 @@ The command also allows you to specify the target controller in an abbreviated f
 
 ```{ibnote}
 See more: {ref}`command-juju-switch`
-```
-
-```{caution}
-For important operations we recommend you specify the model in the unambiguous form shown above.
 ```
 
 ## View the status of a model
@@ -120,13 +110,11 @@ Model "admin/test" is empty.
 
 ````
 
-
 By passing various options you can also specify a model, see the output in color formatting or with additional sections for relations or storage, watch the status for a given duration, etc.
 
 ```{ibnote}
 See more: {ref}`command-juju-status`
 ```
-
 
 ## View details about a model
 
@@ -299,7 +287,7 @@ See also: {ref}`constraint`
 
 **Set values.** You can set constraints for the `controller` model during controller creation or to regular models at any other point.
 
- ```{caution}
+ ```{note}
 **To set constraints for just the `controller` application in the `controller` model *only*:** Use the `bootstrap` command with the `--bootstrap-constraints` flag. See more: {ref}`manage-constraints-for-a-controller`.
 ```
 
@@ -394,7 +382,7 @@ See more: {ref}`command-juju-enable-command`
 juju diff-bundle <bundle>
 ```
 
-````{dropdown} Expand to see an example
+````{dropdown} Example scenario
 
 Consider, for example, a model for which the `status` command yields the output below:
 
@@ -668,9 +656,9 @@ See more: {ref}`migrate-a-model`
 
 When you're done, verify that the model has been succesful by running the `status` command. If the output looks wrong, you will have to do some investigation.
 
-`````{note}
+`````{dropdown} Troubleshooting
 
-````{dropdown} Error: some agents have not upgraded to the current model version <version>
+````{dropdown} Error: some agents have not upgraded to the current model version
 
 When the running agent software that is more than 1 patch point behind the targeted upgrade version the upgrade process will abort.
 
@@ -866,39 +854,32 @@ Now a migration can be run as normal and any secrets will be correctly migrated 
 -->
 
 
-````{note}
+```{ibnote}
+See more: {ref}`command-juju-migrate`
+```
+
+````{dropdown} Troubleshooting
 
 ```{dropdown} Error: migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: granting admin permission to the owner: user "<user>" is permanently deleted'
-
 
 This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller.
 
 **Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user.
 
-
 ```
 
 ```{dropdown} Error:migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: credential "<credential>" not found (not found)'
 
-
 This error occurs when the model owner does not own the credential associated with the model. The solution is to change the credential to a credential the user owns (via `juju set-credential`).
-
 
 ```
 
 ```{dropdown} Error: migration: 'aborted, removing model from target controller: machine sanity check failed, 1 error found'
 
-
 This error occurs when the machines known by Juju differ from the ones the underlying cloud reports (e.g., a LXD cloud still sees a container that has been removed from Juju). The solution is to check the cloud and resolve the difference (i.e., continuing with the previous example, to delete the container from the LXD cloud as well).
 
-
 ```
-
 ````
-
-```{ibnote}
-See more: {ref}`command-juju-migrate`
-```
 
 ## Destroy a model
 

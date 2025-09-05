@@ -179,7 +179,7 @@ The underlying cloud's storage resource is normally destroyed by first detaching
 juju remove-storage osd-devices/3
 ```
 
-````{dropdown} Expand to see a scenario where you use this to upgrade your storage
+````{dropdown} Example scenario: storage upgrade
 
 To upgrade the OSD journal of Ceph unit `ceph-osd/0` from magnetic to solid state (SSD) and dispose of the unneeded original journal `osd-journals/0`:
 

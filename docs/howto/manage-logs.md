@@ -216,7 +216,7 @@ juju model-config logging-config="unit.mysql/0=DEBUG"
 See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
 ```
 
-```{caution}
+```{tip}
 **To avoid filling up the database unnecessarily:**
 <br>When verbose logging is no longer needed,  return logging to normal levels!
 ```
@@ -324,7 +324,7 @@ juju bootstrap <cloud> --config mylogconfig.yaml --config logforward-enabled=Tru
 
 ## Manage the log files
 
-```{caution}
+```{important}
 Only applicable for machines -- for Kubernetes logs are written directly to `stdout` of the container and can be retrieved with native Kubernetes methods, e.g., `kubectl logs -c <container-name> <pod-name> -n <model-name>` .
 
 ```

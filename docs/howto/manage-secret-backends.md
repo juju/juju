@@ -64,7 +64,7 @@ To view all the backends available in the controller, run the `secret-backends` 
 juju secret-backends
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```text
 Backend           Type        Secrets  Message
@@ -90,7 +90,7 @@ To see all the secret backends in use on a model, use the `show-model` command. 
 juju show-model
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```text
 mymodel:

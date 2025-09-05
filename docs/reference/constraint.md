@@ -36,6 +36,7 @@ Several noteworthy constraint characteristics:
 -   When used in conjunction with a placement directive (the `--to` option), the placement directive takes precedence.
 -->
 
+(list-of-constraints)=
 ## List of constraints
 
 <!--Source: https://github.com/juju/juju/blob/develop/core/constraints/constraints.go#L23 -->
