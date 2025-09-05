@@ -5,215 +5,122 @@ package changestreampruner
 
 import (
 	"context"
-	"fmt"
-	"sort"
 	"time"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/domain/changestream"
 )
 
-type modelPruner struct {
-	tomb tomb.Tomb
+const (
+	// defaultPruneInterval is the default interval at which the pruner will
+	// run.
+	defaultPruneInterval = time.Second * 5
+)
 
-	db coredatabase.TxnRunner
-
-	namespaceWindow NamespaceWindow
-
-	clock  clock.Clock
-	logger logger.Logger
+// ChangeStreamService provides access to the changestream service.
+type ChangeStreamService interface {
+	// Prune prunes the change log up to the lowest watermark across all
+	// controllers for the model.
+	Prune(ctx context.Context, currentWindow changestream.Window) (changestream.Window, int64, error)
 }
 
-// NewModelPruner creates a new modelPruner for the given database and
-// namespace.
-func NewModelPruner(
-	db coredatabase.TxnRunner,
-	namespaceWindow NamespaceWindow,
-	clock clock.Clock,
-	logger logger.Logger,
-) worker.Worker {
-	w := &modelPruner{
-		db: db,
+// WorkerConfig contains the configuration required to run a changestream
+// pruner.
+type WorkerConfig struct {
+	// ChangeStreamService provides access to the changestream service.
+	ChangeStreamService ChangeStreamService
 
-		namespaceWindow: namespaceWindow,
+	// Clock provides access to the current time and timers.
+	Clock clock.Clock
 
-		clock:  clock,
-		logger: logger,
+	// Logger is used to log messages.
+	Logger logger.Logger
+}
+
+// Validate validates the worker configuration.
+func (cfg WorkerConfig) Validate() error {
+	if cfg.ChangeStreamService == nil {
+		return errors.NotValidf("nil ChangeStreamService")
 	}
-
-	w.tomb.Go(w.loop)
-	return w
-}
-
-// Kill stops the model pruner.
-func (w *modelPruner) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait waits for the model pruner to stop.
-func (w *modelPruner) Wait() error {
-	return w.tomb.Wait()
-}
-
-// Report returns the current status of the model pruner.
-func (w *modelPruner) Report() map[string]any {
-	return map[string]any{
-		"namespace": w.namespaceWindow.Namespace(),
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
-}
-
-func (w *modelPruner) loop() error {
-	ctx := w.tomb.Context(context.Background())
-	pruned, err := w.prune(ctx)
-	if errors.Is(err, context.Canceled) {
-		return tomb.ErrDying
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if pruned > 0 {
-		w.logger.Infof(ctx, "pruned %d rows from change log", pruned)
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
 
-func (w *modelPruner) prune(ctx context.Context) (int64, error) {
-	currentWindow := w.namespaceWindow.CurrentWindow()
+// Pruner is a worker that prunes the change log for a particular namespace.
+type Pruner struct {
+	tomb tomb.Tomb
 
-	var pruned int64
-	err := w.db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Locate the lowest watermark, this is the watermark that we will
-		// use to prune the change log.
-		lowest, window, err := w.locateLowestWatermark(ctx, tx, currentWindow)
-		if err != nil {
-			return errors.Annotatef(err, "failed to locate lowest watermark")
+	changeStreamService ChangeStreamService
+	clock               clock.Clock
+	logger              logger.Logger
+}
+
+// NewModelPruner creates a new Pruner for the given database and
+// namespace.
+func NewWorker(config WorkerConfig) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w := &Pruner{
+		changeStreamService: config.ChangeStreamService,
+		clock:               config.Clock,
+		logger:              config.Logger,
+	}
+
+	w.tomb.Go(w.loop)
+	return w, nil
+}
+
+// Kill stops the model pruner.
+func (w *Pruner) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait waits for the model pruner to stop.
+func (w *Pruner) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *Pruner) loop() error {
+	ctx := w.tomb.Context(context.Background())
+
+	timer := w.clock.NewTimer(defaultPruneInterval)
+	defer timer.Stop()
+
+	var window changestream.Window
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+
+		case <-timer.Chan():
+			w.logger.Debugf(ctx, "running changestream pruner")
+
+			newWindow, pruned, err := w.changeStreamService.Prune(ctx, window)
+			if errors.Is(err, context.Canceled) {
+				return tomb.ErrDying
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+
+			if pruned > 0 {
+				w.logger.Infof(ctx, "pruned %d rows from change log", pruned)
+			}
+
+			window = newWindow
+
+			timer.Reset(defaultPruneInterval)
 		}
-
-		// Update the current window, this is used to determine if the
-		// change stream is keeping up with the pruner.
-		w.namespaceWindow.UpdateWindow(window)
-
-		// Prune the change log, using the lowest watermark.
-		pruned, err = w.deleteChangeLog(ctx, tx, lowest)
-		if err != nil {
-			return errors.Annotatef(err, "failed to prune change log")
-		}
-
-		return nil
-	})
-	return pruned, errors.Trace(err)
-}
-
-var selectWitnessQuery = sqlair.MustPrepare(`SELECT &Watermark.* FROM change_log_witness;`, Watermark{})
-
-func (w *modelPruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, current Window) (Watermark, Window, error) {
-	// Gather all the valid watermarks, post row pruning. These include
-	// the controller id which we know are valid based on the
-	// controller_node table. If at any point we delete rows from the
-	// change_log_witness table, the change stream will put the witness
-	// back in place after the next change log is written.
-	var watermarks []Watermark
-	if err := tx.Query(ctx, selectWitnessQuery).GetAll(&watermarks); errors.Is(err, sqlair.ErrNoRows) {
-		// Nothing to do if there are no watermarks.
-		return Watermark{}, Window{}, nil
-	} else if err != nil {
-		return Watermark{}, Window{}, errors.Trace(err)
 	}
-
-	// Gather all the watermarks that are within the windowed time period.
-	// If there are no watermarks within the window, then we can assume
-	// that the stream is keeping up and we don't need to prune anything.
-	sorted := sortWatermarks(watermarks)
-
-	// Find the first and last watermark in the sorted list, this is our
-	// window. It should hold the start and the end of the window.
-	watermarkView := Window{
-		start: sorted[0].UpdatedAt,
-		end:   sorted[len(sorted)-1].UpdatedAt,
-	}
-
-	// If the watermark is outside of the window, we should log a warning
-	// message to indicate that the change stream is not keeping up. Only if
-	// the watermark is different from the last window, as we don't want to
-	// spam the logs if there are no changes.
-	now := w.clock.Now()
-	timeView := Window{
-		start: now.Add(-defaultWindowDuration),
-		end:   now,
-	}
-
-	if !timeView.Contains(watermarkView) && !watermarkView.Equals(current) {
-		w.logger.Warningf(ctx, "watermarks %q are outside of window, check logs to see if the change stream is keeping up", sorted[0].ControllerID)
-	}
-
-	return sorted[0], watermarkView, nil
-}
-
-var deleteQuery = sqlair.MustPrepare(`DELETE FROM change_log WHERE id <= $M.id;`, sqlair.M{})
-
-func (w *modelPruner) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest Watermark) (int64, error) {
-	// Delete all the change logs that are lower than the lowest watermark.
-	var outcome sqlair.Outcome
-	if err := tx.Query(ctx, deleteQuery, sqlair.M{"id": lowest.LowerBound}).Get(&outcome); err != nil {
-		return -1, errors.Trace(err)
-	}
-	pruned, err := outcome.Result().RowsAffected()
-	return pruned, errors.Trace(err)
-}
-
-func sortWatermarks(watermarks []Watermark) []Watermark {
-	// If there is only one watermark, just use that one and return out early.
-	if len(watermarks) == 1 {
-		return watermarks
-	}
-
-	// Sort the watermarks by the lower bound.
-	sort.Slice(watermarks, func(i, j int) bool {
-		if watermarks[i].LowerBound == watermarks[j].LowerBound {
-			return watermarks[i].UpdatedAt.Before(watermarks[j].UpdatedAt)
-		}
-		return watermarks[i].LowerBound < watermarks[j].LowerBound
-	})
-
-	return watermarks
-}
-
-// ModelNamespace represents a model and the associated DQlite namespace that it
-// uses.
-type ModelNamespace struct {
-	Namespace string `db:"namespace"`
-}
-
-// Watermark represents a row from the change_log_witness table.
-type Watermark struct {
-	ControllerID string    `db:"controller_id"`
-	LowerBound   int64     `db:"lower_bound"`
-	UpdatedAt    time.Time `db:"updated_at"`
-}
-
-// Window represents a time window with a start and end time.
-type Window struct {
-	start, end time.Time
-}
-
-// Contains returns true if the Window contains the given time.
-func (w Window) Contains(o Window) bool {
-	if w.Equals(o) {
-		return true
-	}
-	return w.start.Before(o.start) && w.end.After(o.end)
-}
-
-// Equals returns true if the Window is equal to the given Window.
-func (w Window) Equals(o Window) bool {
-	return w.start.Equal(o.start) && w.end.Equal(o.end)
-}
-
-func (w Window) String() string {
-	return fmt.Sprintf("start: %s, end: %s", w.start.Format(time.RFC3339), w.end.Format(time.RFC3339))
 }

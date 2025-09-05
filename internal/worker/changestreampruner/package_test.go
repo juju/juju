@@ -15,17 +15,16 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter,NamespaceWindow
+//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner ChangeStreamService
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 type baseSuite struct {
 	databasetesting.DqliteSuite
 
-	dbGetter        *MockDBGetter
-	namespaceWindow *MockNamespaceWindow
-	clock           *MockClock
-	timer           *MockTimer
+	changeStreamService *MockChangeStreamService
+	clock               *MockClock
+	timer               *MockTimer
 }
 
 // SetUpTest is responsible for setting up a testing database suite initialised
@@ -50,32 +49,15 @@ func (s *baseSuite) ApplyDDLForRunner(c *tc.C, runner coredatabase.TxnRunner) {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.dbGetter = NewMockDBGetter(ctrl)
-	s.namespaceWindow = NewMockNamespaceWindow(ctrl)
+	s.changeStreamService = NewMockChangeStreamService(ctrl)
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
 
 	return ctrl
 }
 
-func (s *baseSuite) expectControllerDBGet(times int) {
-	s.dbGetter.EXPECT().GetDB(gomock.Any(), coredatabase.ControllerNS).Return(s.TxnRunner(), nil).Times(times)
-}
-
-func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunner) {
-	s.expectDBGetTimes(namespace, txnRunner, 1)
-}
-
-func (s *baseSuite) expectDBGetTimes(namespace string, txnRunner coredatabase.TxnRunner, amount int) {
-	s.dbGetter.EXPECT().GetDB(gomock.Any(), namespace).Return(txnRunner, nil).Times(amount)
-}
-
 func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
-}
-
-func (s *baseSuite) expectTimerImmediate() {
-	s.expectTimerRepeated(1, nil)
 }
 
 func (s *baseSuite) expectTimerRepeated(times int, done chan struct{}) {
