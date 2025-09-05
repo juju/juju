@@ -22,18 +22,18 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type operationSuite struct {
+type getOperationSuite struct {
 	MockBaseSuite
 }
 
-func TestOperationSuite(t *testing.T) {
+func TestGetOperationSuite(t *testing.T) {
 	// Keep legacy runner but now we populate with real tests
-	tc.Run(t, &operationSuite{})
+	tc.Run(t, &getOperationSuite{})
 }
 
 // TestListOperations_PermissionDenied verifies ListOperations returns ErrPerm
 // and does not call service when read permission is denied.
-func (s *operationSuite) TestListOperations_PermissionDenied(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_PermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	// Authorizer without read permission
@@ -52,7 +52,7 @@ func (s *operationSuite) TestListOperations_PermissionDenied(c *tc.C) {
 
 // TestListOperations_NoFilters verifies that no filters pass an empty target
 // and no other filters, and empty result is returned.
-func (s *operationSuite) TestListOperations_NoFilters(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_NoFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -77,7 +77,7 @@ func (s *operationSuite) TestListOperations_NoFilters(c *tc.C) {
 
 // TestListOperations_ApplicationsFilter ensures application names flow into
 // Target.Applications.
-func (s *operationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -97,7 +97,7 @@ func (s *operationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 
 // TestListOperations_UnitsFilter verifies string unit names convert to
 // []unit.Name in Target.Units.
-func (s *operationSuite) TestListOperations_UnitsFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_UnitsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -116,7 +116,7 @@ func (s *operationSuite) TestListOperations_UnitsFilter(c *tc.C) {
 
 // TestListOperations_MachinesFilter verifies string machine names convert
 // to []machine.Name in Target.Machines.
-func (s *operationSuite) TestListOperations_MachinesFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_MachinesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -133,7 +133,7 @@ func (s *operationSuite) TestListOperations_MachinesFilter(c *tc.C) {
 }
 
 // TestListOperations_ActionNamesFilter confirms actions filter passes through.
-func (s *operationSuite) TestListOperations_ActionNamesFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_ActionNamesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -150,7 +150,7 @@ func (s *operationSuite) TestListOperations_ActionNamesFilter(c *tc.C) {
 }
 
 // TestListOperations_StatusFilter confirms status filter passes through.
-func (s *operationSuite) TestListOperations_StatusFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_StatusFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -167,7 +167,7 @@ func (s *operationSuite) TestListOperations_StatusFilter(c *tc.C) {
 }
 
 // TestListOperations_LimitOffset verifies Limit and Offset pointers pass unchanged.
-func (s *operationSuite) TestListOperations_LimitOffset(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_LimitOffset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -187,7 +187,7 @@ func (s *operationSuite) TestListOperations_LimitOffset(c *tc.C) {
 
 // TestListOperations_CombinedFilters ensures multiple filters are passed
 // together without modification.
-func (s *operationSuite) TestListOperations_CombinedFilters(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_CombinedFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -217,7 +217,7 @@ func (s *operationSuite) TestListOperations_CombinedFilters(c *tc.C) {
 }
 
 // TestListOperations_ServiceError ensures service error is propagated.
-func (s *operationSuite) TestListOperations_ServiceError(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -230,7 +230,7 @@ func (s *operationSuite) TestListOperations_ServiceError(c *tc.C) {
 
 // TestListOperations_MappingSingleOperation validates mapping of
 // OperationInfo with unit and machine actions into params.
-func (s *operationSuite) TestListOperations_MappingSingleOperation(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_MappingSingleOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -264,7 +264,7 @@ func (s *operationSuite) TestListOperations_MappingSingleOperation(c *tc.C) {
 }
 
 // TestListOperations_TruncatedPassThrough ensures Truncated flag propagates.
-func (s *operationSuite) TestListOperations_TruncatedPassThrough(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_TruncatedPassThrough(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -278,7 +278,7 @@ func (s *operationSuite) TestListOperations_TruncatedPassThrough(c *tc.C) {
 }
 
 // TestListOperations_OperationErrorMapping validates mapping of operation-level error to params.Error.
-func (s *operationSuite) TestListOperations_OperationErrorMapping(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_OperationErrorMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -295,7 +295,7 @@ func (s *operationSuite) TestListOperations_OperationErrorMapping(c *tc.C) {
 
 // TestListOperations_ActionFieldMapping ensures TaskInfo fields map into
 // ActionResult fields.
-func (s *operationSuite) TestListOperations_ActionFieldMapping(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_ActionFieldMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -338,7 +338,7 @@ func (s *operationSuite) TestListOperations_ActionFieldMapping(c *tc.C) {
 }
 
 // TestListOperations_EmptyOperations verifies that an empty operations slice results in empty results.
-func (s *operationSuite) TestListOperations_EmptyOperations(c *tc.C) {
+func (s *getOperationSuite) TestListOperations_EmptyOperations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -363,7 +363,7 @@ func toEntities(tags ...string) params.Entities {
 
 // TestOperations_PermissionDenied verifies read permission is enforced
 // and that the service is not called when denied.
-func (s *operationSuite) TestOperations_PermissionDenied(c *tc.C) {
+func (s *getOperationSuite) TestOperations_PermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
@@ -383,7 +383,7 @@ func (s *operationSuite) TestOperations_PermissionDenied(c *tc.C) {
 
 // TestOperations_AllTagsInvalid returns per-entity parse errors and
 // does not call the service.
-func (s *operationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
+func (s *getOperationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -404,7 +404,7 @@ func (s *operationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
 
 // TestOperations_MixedValidInvalid calls service with only valid IDs and
 // aligns results in input order with parse errors preserved.
-func (s *operationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
+func (s *getOperationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -436,7 +436,7 @@ func (s *operationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
 }
 
 // TestOperations_EmptyInput returns empty results and does not call service.
-func (s *operationSuite) TestOperations_EmptyInput(c *tc.C) {
+func (s *getOperationSuite) TestOperations_EmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -451,7 +451,7 @@ func (s *operationSuite) TestOperations_EmptyInput(c *tc.C) {
 }
 
 // TestOperations_ServiceError ensures service errors are propagated.
-func (s *operationSuite) TestOperations_ServiceError(c *tc.C) {
+func (s *getOperationSuite) TestOperations_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -468,7 +468,7 @@ func (s *operationSuite) TestOperations_ServiceError(c *tc.C) {
 
 // TestOperations_MappingOutOfOrder maps out-of-order service results to the
 // correct input positions by tag.
-func (s *operationSuite) TestOperations_MappingOutOfOrder(c *tc.C) {
+func (s *getOperationSuite) TestOperations_MappingOutOfOrder(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -494,7 +494,7 @@ func (s *operationSuite) TestOperations_MappingOutOfOrder(c *tc.C) {
 
 // TestOperations_UnexpectedTag errors when the service returns an operation
 // not requested, by tag.
-func (s *operationSuite) TestOperations_UnexpectedTag(c *tc.C) {
+func (s *getOperationSuite) TestOperations_UnexpectedTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -513,7 +513,7 @@ func (s *operationSuite) TestOperations_UnexpectedTag(c *tc.C) {
 
 // TestOperations_DuplicateTags validates the behavior of the operation API
 // when duplicate tags are provided in the request.
-func (s *operationSuite) TestOperations_DuplicateTags(c *tc.C) {
+func (s *getOperationSuite) TestOperations_DuplicateTags(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -535,7 +535,7 @@ func (s *operationSuite) TestOperations_DuplicateTags(c *tc.C) {
 }
 
 // TestOperations_MissingServiceReturn allows missing returns without error.
-func (s *operationSuite) TestOperations_MissingServiceReturn(c *tc.C) {
+func (s *getOperationSuite) TestOperations_MissingServiceReturn(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -558,7 +558,7 @@ func (s *operationSuite) TestOperations_MissingServiceReturn(c *tc.C) {
 }
 
 // TestOperations_LargeBatch ensures stable mapping for many entries.
-func (s *operationSuite) TestOperations_LargeBatch(c *tc.C) {
+func (s *getOperationSuite) TestOperations_LargeBatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
