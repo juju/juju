@@ -10,12 +10,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/changestream"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -49,7 +49,7 @@ func NewState(factory coredatabase.TxnRunnerFactory, clock clock.Clock, logger l
 func (st *State) Prune(ctx context.Context, currentWindow changestream.Window) (changestream.Window, int64, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return changestream.Window{}, -1, errors.Trace(err)
+		return changestream.Window{}, -1, errors.Capture(err)
 	}
 
 	var (
@@ -61,7 +61,7 @@ func (st *State) Prune(ctx context.Context, currentWindow changestream.Window) (
 		// use to prune the change log.
 		lowest, window, err := st.locateLowestWatermark(ctx, tx, currentWindow)
 		if err != nil {
-			return errors.Annotatef(err, "failed to locate lowest watermark")
+			return errors.Errorf("locating lowest watermark: %w", err)
 		}
 
 		// Update the current window, this is used to determine if the
@@ -71,18 +71,18 @@ func (st *State) Prune(ctx context.Context, currentWindow changestream.Window) (
 		// Prune the change log, using the lowest watermark.
 		pruned, err = st.deleteChangeLog(ctx, tx, lowest)
 		if err != nil {
-			return errors.Annotatef(err, "failed to prune change log")
+			return errors.Errorf("deleting change log: %w", err)
 		}
 
 		return nil
 	})
-	return newWindow, pruned, errors.Trace(err)
+	return newWindow, pruned, errors.Capture(err)
 }
 
 func (st *State) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, current changestream.Window) (Watermark, changestream.Window, error) {
 	selectWitnessQuery, err := st.Prepare(`SELECT &Watermark.* FROM change_log_witness;`, Watermark{})
 	if err != nil {
-		return Watermark{}, changestream.Window{}, errors.Trace(err)
+		return Watermark{}, changestream.Window{}, errors.Capture(err)
 	}
 
 	// Gather all the valid watermarks, post row pruning. These include
@@ -95,7 +95,7 @@ func (st *State) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, curre
 		// Nothing to do if there are no watermarks.
 		return Watermark{}, changestream.Window{}, nil
 	} else if err != nil {
-		return Watermark{}, changestream.Window{}, errors.Trace(err)
+		return Watermark{}, changestream.Window{}, errors.Capture(err)
 	}
 
 	// Gather all the watermarks that are within the windowed time period.
@@ -130,16 +130,16 @@ func (st *State) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, curre
 func (st *State) deleteChangeLog(ctx context.Context, tx *sqlair.TX, lowest Watermark) (int64, error) {
 	deleteQuery, err := st.Prepare(`DELETE FROM change_log WHERE id <= $M.id;`, sqlair.M{})
 	if err != nil {
-		return -1, errors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 
 	// Delete all the change logs that are lower than the lowest watermark.
 	var outcome sqlair.Outcome
 	if err := tx.Query(ctx, deleteQuery, sqlair.M{"id": lowest.LowerBound}).Get(&outcome); err != nil {
-		return -1, errors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 	pruned, err := outcome.Result().RowsAffected()
-	return pruned, errors.Trace(err)
+	return pruned, errors.Capture(err)
 }
 
 func sortWatermarks(watermarks []Watermark) []Watermark {
