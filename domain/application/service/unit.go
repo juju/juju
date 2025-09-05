@@ -176,7 +176,8 @@ type UnitState interface {
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(
+func (s *ProviderService) makeIAASUnitArgs(
+	ctx context.Context,
 	units []AddIAASUnitArg,
 	storageDirectives []application.StorageDirective,
 	platform deployment.Platform,
@@ -189,7 +190,9 @@ func (s *Service) makeIAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		unitStorageArgs, err := makeUnitStorageArgs(
+			ctx, s.storagePoolProvider, storageDirectives, nil,
+		)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making storage arguments for IAAS unit: %w", err,
@@ -212,7 +215,8 @@ func (s *Service) makeIAASUnitArgs(
 	return args, nil
 }
 
-func (s *Service) makeCAASUnitArgs(
+func (s *ProviderService) makeCAASUnitArgs(
+	ctx context.Context,
 	units []AddUnitArg,
 	storageDirectives []application.StorageDirective,
 	constraints constraints.Constraints,
@@ -224,7 +228,9 @@ func (s *Service) makeCAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		unitStorageArgs, err := makeUnitStorageArgs(
+			ctx, s.storagePoolProvider, storageDirectives, nil,
+		)
 		if err != nil {
 			return nil, errors.Errorf("making storage for CAAS unit: %w", err)
 		}

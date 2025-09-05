@@ -48,8 +48,8 @@ CREATE TABLE storage_pool_origin (
 );
 
 INSERT INTO storage_pool_origin (id, origin) VALUES
-(1, 'user'),
-(2, 'provider-default');
+(0, 'user'),
+(1, 'provider-default');
 
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
@@ -108,10 +108,31 @@ CREATE TABLE unit_storage_directive (
 CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
+-- storage_kind defines what type Juju considers a storage instance in the model
+-- to be of. While we have the concept of charm storage kind it is not
+-- necessarily the same as the storage instance. This is even more true when we
+-- are trying to understand the composition of a storage_instance and not the
+-- purpose it may be fulfilling.
+--
+-- It is possible for a storage_instance to not be associated to a charm in the
+-- model.
+CREATE TABLE storage_kind (
+    id   INT NOT NULL PRIMARY KEY,
+    kind TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_storage_kind_kind
+ON storage_kind (kind);
+
+INSERT INTO storage_kind VALUES
+(0, 'block'),
+(1, 'filesystem');
+
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
     storage_name TEXT NOT NULL,
+    storage_kind_id INT,
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
