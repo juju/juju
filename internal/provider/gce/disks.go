@@ -22,6 +22,7 @@ import (
 
 const (
 	storageProviderType = storage.ProviderType("gce")
+	diskTypeAttribute   = "disk-type"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -214,12 +215,17 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 		// because we need to know what its AZ is.
 		return nil, nil, errors.Annotatef(err, "cannot obtain %q from instance cache", instId)
 	}
-	persistentType, ok := p.Attributes["type"].(google.DiskType)
-	if !ok {
-		persistentType = google.DiskPersistentStandard
-	}
-	if persistentType == google.DiskLocalSSD {
-		return nil, nil, errors.New("cannot create local ssd disks")
+
+	diskType := google.DiskPersistentStandard
+	if val, ok := p.Attributes[diskTypeAttribute].(string); ok {
+		dt := google.DiskType(val)
+		switch dt {
+		case google.DiskPersistentSSD, google.DiskPersistentStandard:
+			diskType = dt
+		case google.DiskLocalSSD:
+			return nil, nil, errors.NotValidf("local SSD disk storage")
+		default:
+		}
 	}
 
 	// volume.Size is expressed in MiB, but GCE only accepts sizes in GiB.
@@ -237,7 +243,7 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	disk := &computepb.Disk{
 		Name:   &volumeName,
 		SizeGb: ptr(size),
-		Type:   ptr(string(persistentType)),
+		Type:   ptr(string(diskType)),
 		Labels: resourceTagsToDiskLabels(p.ResourceTags),
 	}
 	err = v.gce.CreateDisks(ctx, zone, []*computepb.Disk{disk})

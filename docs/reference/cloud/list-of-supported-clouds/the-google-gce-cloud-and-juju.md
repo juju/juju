@@ -142,7 +142,7 @@ See first: {ref}`storage-provider`
 
 Configuration options:
 
-- `type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).
+- `disk-type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).
 
 (gce-appendix-example-authentication-workflows)=
 ## Appendix: Example authentication workflows
