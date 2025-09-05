@@ -14,7 +14,7 @@ This document shows how to manage your existing cloud(s) with Juju.
 See also: {ref}`list-of-supported-clouds`
 ```
 
-The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud -- more below.
+The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or a Kubernetes cloud -- more below.
 
 In either case, the cloud definition is saved to the directory defined in
 - the {ref}`envvar-juju-data` environment variable or, if that is not defined,
@@ -126,7 +126,7 @@ To get more detail about a particular cloud, run the `show-cloud` command follow
 juju show-cloud azure
 ```
 
-The command also has flags that allow you to specify whether you want this information from the client or rather a controller; whether you want the output to include the configuration options specific to the cloud; an output format or file; etc.
+The command also has flags that allow you to specify whether you want this information from the client or a controller; whether you want the output to include the configuration options specific to the cloud; an output format or file; etc.
 
 ```{ibnote}
 See more: {ref}`command-juju-show-cloud`
@@ -218,7 +218,7 @@ To synchronise the Juju client with changes occurring on public clouds (e.g. clo
 juju update-public-clouds
 ```
 
-The command also allows you to specify whether you want this update to happen on the client or rather a controller.
+The command also allows you to specify whether you want this update to happen on the client or a controller.
 
 ```{ibnote}
 See more: {ref}`command-juju-update-public-clouds`
@@ -282,7 +282,7 @@ Given a cloud definition that you've added explicitly to Juju via `add-cloud` or
 juju remove-cloud lxd-remote
 ```
 
-The command also allows you to specify whether this operation should be performed on the client or rather on a specific controller.
+The command also allows you to specify whether this operation should be performed on the client or a on a specific controller.
 
 ```{ibnote}
 See more: {ref}`command-juju-remove-cloud`
