@@ -710,6 +710,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewEnvironFunc:                newEnvirons,
 		NewContainerBrokerFunc:        newCAASBroker,
 		NewMigrationMaster:            migrationmaster.NewWorker,
+		OperationPrunerInterval:       24 * time.Hour,
 		DomainServices:                cfg.DomainServices,
 		ProviderServicesGetter:        cfg.ProviderServicesGetter,
 		LeaseManager:                  cfg.LeaseManager,
