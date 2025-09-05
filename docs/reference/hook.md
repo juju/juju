@@ -144,7 +144,7 @@ All hooks share a lot of common behaviour in terms of the environment in which t
 are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
-Some hooks can also be grouped according to the Juju subsystem they represent (leadership, relations, secrets, storage, series, workload/Pebble).
+Some hooks can also be grouped according to the Juju subsystem they represent (leadership, relations, secrets, storage, series upgrade, workload/Pebble).
 
 ```{ibnote}
 See more: {ref}`list-of-hooks`
@@ -157,7 +157,7 @@ Hooks are run with environment variables set by Juju to expose relevant contextu
 
 The Juju environment variables are set in addition to those supplied by the execution environment itself.
 
-All hooks get a common set of environment variables; in addition, some hook( kind)s also get hook (kind) specific environment variables, as specified in the documentation for each hook.
+All hooks get a common set of environment variables; in addition, some hooks (or hook kinds) also get hook (hook kind) specific environment variables, as specified in the documentation for each hook.
 
 ```{ibnote}
 See more: {ref}`list-of-hooks`
@@ -265,31 +265,6 @@ In all cases we cover
 (leadership-hooks)=
 ### Leadership hooks
 
-
-(hook-leader-deposed)=
-#### `leader-deposed`
-
-TBA
-
-<!--
-*What triggers it?*
-
-TBA
-
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
-
 (hook-leader-elected)=
 #### `leader-elected`
 
@@ -300,8 +275,6 @@ The `leader-elected` event is emitted for a unit that is elected as leader. Toge
 > Leadership can change while a hook is running. (You could start a hook on unit/0 who is the leader, and while that hook is processing, you lose network connectivity for a long time [more than 30s], and then by the time the hook notices, Juju has already moved on to another leader.)
 
 > Juju doesn't guarantee that a leader will see every event: if the leader unit is overloaded long enough for the lease to expire (>30s), then Juju will elect a different leader. Events that fired in between would be received units that are not leader yet or not leader anymore.
-
-
 
 - `leader-elected` is always emitted **after** peer-`relation-created` during the Startup phase. However, by the time `relation-created` runs, Juju may already have a leader. This means that, in peer-relation-created handlers, it might already be the case that `self.unit.is_leader()` returns `True` even though the unit did not receive a leadership event yet. If the starting unit is *not* leader, it will receive a {ref}`hook-leader-settings-changed` hook instead.
 
@@ -347,7 +320,7 @@ TBA
 
 *Who gets it*?
 
-The leader unit, once Juju elects one.
+The leader unit, each time Juju elects one.
 
 
 (hook-leader-settings-changed)=
@@ -384,7 +357,7 @@ TBA
 
 *Who gets it*?
 
-All follower units, when a new leader is chosen.
+All follower units, each time a new leader is chosen.
 
 (relation-hooks)=
 ### Relation hooks
@@ -476,7 +449,7 @@ This hook is fired only once per unit per relation and is the exact inverse of `
 The hook indicates that the relation under consideration is no longer valid, and that the charm’s software must be configured as though the relation had never existed. It will only be called after every hook bound to `<endpoint>-relation-departed` has been run. If a hook bound to this event is being executed, it is guaranteed that no remote units are currently known locally.
 
 
-> It is important to note that the `relation-broken` hook might run even if no other units have ever joined the relation. This is not a bug: even if no remote units have ever joined, the fact of the unit’s participation can be detected in other hooks via the `relation-ids` tool, and the `-broken` hook needs to execute to allow the charm to clean up any optimistically-generated configuration.
+> It is important to note that the `relation-broken` hook might run even if no other units have ever joined the relation. This is not a bug: even if no remote units have ever joined, the fact of the unit’s participation can be detected in other hooks via the `relation-ids` hook command, and the `-broken` hook needs to execute to allow the charm to clean up any optimistically-generated configuration.
 
 > Also, it’s important to internalise the fact that there may be multiple relations in play with the same name, and that they’re independent: one `relation-broken` hook does not mean that *every* such relation is broken.
 
@@ -1428,7 +1401,7 @@ See the documentation for the relevant hook or action.
 * `JUJU_CHARM_DIR` holds the path to the charm directory.
 * `JUJU_HOOK_NAME` holds the name of the currently executing hook.
 * `JUJU_UNIT_NAME` holds the name of the local unit.
-* `JUJU_CONTEXT_ID`, `JUJU_AGENT_SOCKET_NETWORK` and `JUJU_AGENT_SOCKET_ADDRESS` are set (but should not be messed with: the command line tools won't work without them).
+* `JUJU_CONTEXT_ID`, `JUJU_AGENT_SOCKET_NETWORK` and `JUJU_AGENT_SOCKET_ADDRESS` are used by the hook commands to connect to the local agent.
 * `JUJU_API_ADDRESSES` holds a space separated list of Juju API addresses.
 * `JUJU_MODEL_UUID` holds the UUID of the current model.
 * `JUJU_MODEL_NAME` holds the human friendly name of the current model.
@@ -1436,7 +1409,7 @@ See the documentation for the relevant hook or action.
 * `JUJU_MACHINE_ID` holds the ID of the machine on which the local unit is running.
 * `JUJU_AVAILABILITY_ZONE` holds the cloud's availability zone where the machine has been provisioned.
 * `CLOUD_API_VERSION` holds the API version of the cloud endpoint.
-* `JUJU_VERSION` holds the version of the model hosting the local unit.
+* `JUJU_VERSION` holds the version of the agent for the local unit.
 * `JUJU_CHARM_HTTP_PROXY` holds the value of the `juju-http-proxy` model config attribute.
 * `JUJU_CHARM_HTTPS_PROXY` holds the value of the `juju-https-proxy` model config attribute.
 * `JUJU_CHARM_FTP_PROXY` holds the value of the `juju-ftp-proxy` model config attribute.
