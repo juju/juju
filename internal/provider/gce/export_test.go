@@ -19,6 +19,7 @@ var (
 	GetDisks                                      = getDisks
 	Bootstrap                                     = &bootstrap
 	FirewallerSuffixFunc                          = &randomSuffixNamer
+	GibToMib                                      = gibToMib
 )
 
 func GlobalFirewallName(env *environ) string {
