@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/transform"
-	jujuerrors "github.com/juju/errors"
-
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -96,7 +94,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	// Mark missing results
 	for key, ar := range actionResultByUnitName {
 		if ar != nil && ar.Action == nil && ar.Error == nil {
-			ar.Error = apiservererrors.ServerError(jujuerrors.NotFoundf("missing result for %q", key))
+			ar.Error = apiservererrors.ServerError(errors.Errorf("missing result for %q", key).Add(coreerrors.NotFound))
 		}
 	}
 	return params.EnqueuedActions{

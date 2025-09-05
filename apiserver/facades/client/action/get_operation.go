@@ -6,10 +6,10 @@ package action
 import (
 	"context"
 
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -81,7 +81,8 @@ func (a *ActionAPI) Operations(ctx context.Context, arg params.Entities) (params
 	for tag, slots := range tagToResults {
 		for _, slot := range slots {
 			if slot.OperationTag == "" && slot.Error == nil {
-				slot.Error = apiservererrors.ServerError(jujuerrors.NotFoundf("missing result for %q", tag))
+				slot.Error = apiservererrors.ServerError(errors.Errorf("missing result for %q: %w",
+					tag, coreerrors.NotFound))
 			}
 		}
 	}
