@@ -23,5 +23,7 @@ test_cloud_gce() {
 
 	test_deploy_gpu_instance
 
+	test_attach_storage_pool
+
 	destroy_controller "test-cloud-gce"
 }
