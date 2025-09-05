@@ -12,7 +12,11 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	controllererrors "github.com/juju/juju/domain/controller/errors"
+	"github.com/juju/juju/domain/controllernode"
+	controllernodestate "github.com/juju/juju/domain/controllernode/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -95,4 +99,36 @@ func (s *stateSuite) TestGetCACert(c *tc.C) {
 	cert, err := st.GetCACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cert, tc.Equals, "test-ca-cert")
+}
+
+func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	controllerNodeState := controllernodestate.NewState(s.TxnRunnerFactory())
+	// Arrange: 2 controller nodes
+	controllerID1 := "1"
+	nodeID1 := uint64(15237855465837235027)
+	err := controllerNodeState.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0."+controllerID1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addrs1 := []controllernode.APIAddress{
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	}
+	err = controllerNodeState.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			controllerID1: addrs1,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, domaincontroller.ControllerInfo{
+		UUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		CACert:       "test-ca-cert",
+		APIAddresses: []string{"10.0.0.2:17070", "10.0.0.42:18080"},
+	})
 }

@@ -23,3 +23,7 @@ type caCertValue struct {
 type namespace struct {
 	Namespace string `db:"namespace"`
 }
+
+type controllerUUID struct {
+	UUID string `db:"uuid"`
+}

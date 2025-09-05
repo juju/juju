@@ -11,6 +11,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -83,4 +84,22 @@ func (s *serviceSuite) TestGetCACert(c *tc.C) {
 	cert, err := NewService(s.state).GetCACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cert, tc.Equals, "the-cert")
+}
+
+func (s *serviceSuite) TestGetControllerInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
+		UUID:         "controller-uuid",
+		CACert:       "the-cert",
+		APIAddresses: []string{"addr1", "addr2"},
+	}, nil)
+
+	cert, err := NewService(s.state).GetControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cert, tc.DeepEquals, domaincontroller.ControllerInfo{
+		UUID:         "controller-uuid",
+		CACert:       "the-cert",
+		APIAddresses: []string{"addr1", "addr2"},
+	})
 }
