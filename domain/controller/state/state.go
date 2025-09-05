@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -121,4 +122,29 @@ func (st *State) GetModelNamespaces(ctx context.Context) ([]string, error) {
 	return transform.Slice(namespaces, func(ns namespace) string {
 		return ns.Namespace
 	}), nil
+}
+
+// GetCACert returns the controller CA certificate.
+func (st *State) GetCACert(ctx context.Context) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare("SELECT &caCertValue.* FROM controller", caCertValue{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var cert caCertValue
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&cert); errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("no controller CA certificate found")
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	return cert.CACert, errors.Capture(err)
 }

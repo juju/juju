@@ -23,6 +23,9 @@ type State interface {
 	// GetModelNamespaces returns the model namespaces of all models in the
 	// state.
 	GetModelNamespaces(ctx context.Context) ([]string, error)
+
+	// GetCACert returns the controller CA certificate.
+	GetCACert(ctx context.Context) (string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -61,4 +64,12 @@ func (s *Service) GetModelNamespaces(ctx context.Context) ([]string, error) {
 	defer span.End()
 
 	return s.st.GetModelNamespaces(ctx)
+}
+
+// GetCACert returns the controller CA certificate.
+func (s *Service) GetCACert(ctx context.Context) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetCACert(ctx)
 }

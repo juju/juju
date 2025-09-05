@@ -41,6 +41,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetCACert mocks base method.
+func (m *MockState) GetCACert(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCACert", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCACert indicates an expected call of GetCACert.
+func (mr *MockStateMockRecorder) GetCACert(arg0 any) *MockStateGetCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCACert", reflect.TypeOf((*MockState)(nil).GetCACert), arg0)
+	return &MockStateGetCACertCall{Call: call}
+}
+
+// MockStateGetCACertCall wrap *gomock.Call
+type MockStateGetCACertCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCACertCall) Return(arg0 string, arg1 error) *MockStateGetCACertCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCACertCall) Do(f func(context.Context) (string, error)) *MockStateGetCACertCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCACertCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetCACertCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetControllerAgentInfo mocks base method.
 func (m *MockState) GetControllerAgentInfo(arg0 context.Context) (controller.ControllerAgentInfo, error) {
 	m.ctrl.T.Helper()

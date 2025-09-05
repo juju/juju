@@ -74,3 +74,13 @@ func (s *serviceSuite) TestGetModelNamespaces(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(allNamespaces, tc.DeepEquals, namespaces)
 }
+
+func (s *serviceSuite) TestGetCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCACert(gomock.Any()).Return("the-cert", nil)
+
+	cert, err := NewService(s.state).GetCACert(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cert, tc.Equals, "the-cert")
+}

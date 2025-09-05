@@ -57,11 +57,15 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 		}
 		delete(values, jujucontroller.APIPort)
 
+		caCert := values[jujucontroller.CACertKey]
+		delete(values, jujucontroller.CACertKey)
+
 		controllerData := dbController{
 			UUID:          values[jujucontroller.ControllerUUIDKey],
 			ModelUUID:     controllerModelUUID.String(),
 			TargetVersion: jujuversion.Current.String(),
 			APIPort:       sql.Null[string]{V: apiPort, Valid: true},
+			CACert:        caCert,
 		}
 		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (*) VALUES ($dbController.*)`, controllerData)
 		if err != nil {
@@ -90,8 +94,6 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config, controllerModelUUI
 				if err := tx.Query(ctx, insertStmt, updateKeyValues).Run(); err != nil {
 					return errors.Capture(err)
 				}
-			} else {
-				return errors.Errorf("no controller config values to insert at bootstrap")
 			}
 
 			return nil
@@ -115,4 +117,6 @@ type dbController struct {
 	TargetVersion string `db:"target_version"`
 	// APIPort is the port the controller API is listening on.
 	APIPort sql.Null[string] `db:"api_port"`
+	// CACert is the controller CA certificate.
+	CACert string `db:"ca_cert"`
 }

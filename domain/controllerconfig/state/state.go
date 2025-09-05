@@ -104,6 +104,8 @@ VALUES ($KeyValue.*)
 		switch k {
 		case controller.ControllerUUIDKey:
 			continue
+		case controller.CACertKey:
+			controllerValues.CACert = v
 		case controller.APIPort:
 			controllerValues.APIPort = sql.Null[string]{V: v, Valid: true}
 		default:
@@ -128,7 +130,10 @@ VALUES ($KeyValue.*)
 	}
 
 	updateControllerStmt, err := st.Prepare(`
-UPDATE controller SET api_port = $controllerValues.api_port`, controllerValues)
+UPDATE controller
+SET api_port = $controllerValues.api_port,
+    ca_cert = $controllerValues.ca_cert
+`, controllerValues)
 	if err != nil {
 		return errors.Capture(err)
 	}

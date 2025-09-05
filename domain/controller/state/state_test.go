@@ -29,7 +29,7 @@ func TestStateSuite(t *testing.T) {
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.controllerModelUUID = coremodel.UUID(jujutesting.ModelTag.Id())
 	s.ControllerSuite.SetUpTest(c)
-	_ = s.ControllerSuite.SeedControllerTable(c, s.controllerModelUUID)
+	_ = s.SeedControllerTable(c, s.controllerModelUUID)
 }
 
 func (s *stateSuite) TestControllerModelUUID(c *tc.C) {
@@ -78,12 +78,21 @@ func (s *stateSuite) TestGetModelNamespacesNotFound(c *tc.C) {
 func (s *stateSuite) TestGetModelNamespaces(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO namespace_list (namespace) VALUES ('namespace1'), ('namespace2')")
 		return err
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	allNamespaces, err := st.GetModelNamespaces(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allNamespaces, tc.DeepEquals, []string{"namespace1", "namespace2"})
+}
+
+func (s *stateSuite) TestGetCACert(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	cert, err := st.GetCACert(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cert, tc.Equals, "test-ca-cert")
 }
