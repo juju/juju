@@ -62,6 +62,19 @@ type CAASApplicationProvisioningInfo struct {
 	Error                *Error                       `json:"error,omitempty"`
 }
 
+// KubernetesFilesystemUnitAttachmentParams holds the parameters for
+// creating a filesystem attachment for the unit.
+type KubernetesFilesystemUnitAttachmentParams struct {
+	UnitTag  string `json:"unit-tag"`
+	VolumeId string `json:"volume-id"`
+}
+
+// CAASApplicationFilesystemProvisioningInfo holds info needed to provision a caas application filesystem.
+type CAASApplicationFilesystemProvisioningInfo struct {
+	Filesystems               []KubernetesFilesystemParams                          `json:"filesystems,omitempty"`
+	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
+}
+
 // DockerImageInfo holds the details for a Docker resource type.
 type DockerImageInfo struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.

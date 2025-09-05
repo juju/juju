@@ -1127,7 +1127,7 @@
     {
         "Name": "Application",
         "Description": "",
-        "Version": 20,
+        "Version": 21,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -1355,7 +1355,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ScaleApplicationsParams"
+                            "$ref": "#/definitions/ScaleApplicationsParamsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ScaleApplicationResults"
@@ -3139,11 +3139,17 @@
                         "num-units"
                     ]
                 },
-                "ScaleApplicationParams": {
+                "ScaleApplicationParamsV2": {
                     "type": "object",
                     "properties": {
                         "application-tag": {
                             "type": "string"
+                        },
+                        "attach-storage": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "force": {
                             "type": "boolean"
@@ -3186,13 +3192,13 @@
                     },
                     "additionalProperties": false
                 },
-                "ScaleApplicationsParams": {
+                "ScaleApplicationsParamsV2": {
                     "type": "object",
                     "properties": {
                         "applications": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ScaleApplicationParams"
+                                "$ref": "#/definitions/ScaleApplicationParamsV2"
                             }
                         }
                     },

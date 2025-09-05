@@ -421,6 +421,11 @@ type ScaleApplicationsParams struct {
 	Applications []ScaleApplicationParams `json:"applications"`
 }
 
+// ScaleApplicationsParamsV2 holds bulk parameters for the Application.ScaleApplication call.
+type ScaleApplicationsParamsV2 struct {
+	Applications []ScaleApplicationParamsV2 `json:"applications"`
+}
+
 // ScaleApplicationParams holds parameters for the Application.ScaleApplication call.
 type ScaleApplicationParams struct {
 	// ApplicationTag holds the tag of the application to scale.
@@ -435,6 +440,28 @@ type ScaleApplicationParams struct {
 	// Force controls whether or not scaling of an application
 	// will be forced, i.e. ignore operational errors.
 	Force bool `json:"force"`
+}
+
+// ScaleApplicationParamsV2 holds parameters for the Application.ScaleApplication call.
+// V2 support attach storage.
+type ScaleApplicationParamsV2 struct {
+	// ApplicationTag holds the tag of the application to scale.
+	ApplicationTag string `json:"application-tag"`
+
+	// Scale is the number of units which should be running.
+	Scale int `json:"scale"`
+
+	// Scale is the number of units which should be added/removed from the existing count.
+	ScaleChange int `json:"scale-change,omitempty"`
+
+	// Force controls whether or not scaling of an application
+	// will be forced, i.e. ignore operational errors.
+	Force bool `json:"force"`
+
+	// AttachStorage contains IDs of existing storage that should be
+	// attached to the application unit that will be deployed. This
+	// may be non-empty only if NumUnits is 1.
+	AttachStorage []string `json:"attach-storage,omitempty"`
 }
 
 // ScaleApplicationResults contains the results of a ScaleApplication
