@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/juju/domain/changestream"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/domain/changestream"
 )
 
 type serviceSuite struct {
