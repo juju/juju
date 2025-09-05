@@ -15,3 +15,9 @@ type CascadedUnitLives struct {
 	// instances that are not longer alive.
 	StorageInstanceUUIDs []string
 }
+
+// IsEmpty returns true if the struct value indicates that no associated
+// entites were ensured to be "dying" along with a unit.
+func (c CascadedUnitLives) IsEmpty() bool {
+	return c.MachineUUID == nil && len(c.StorageInstanceUUIDs) == 0
+}

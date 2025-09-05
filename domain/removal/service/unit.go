@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -27,7 +28,7 @@ type UnitState interface {
 	// input unit UUID, that is still alive. If the unit is the last one on the
 	// machine, it will cascade and the machine is also set to dying. The
 	// affected machine UUID is returned.
-	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (machineUUID string, err error)
+	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (internal.CascadedUnitLives, error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
@@ -79,7 +80,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	machineUUID, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
@@ -107,15 +108,15 @@ func (s *Service) RemoveUnit(
 	unitJobUUID, err := s.unitScheduleRemoval(ctx, unitUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if machineUUID == "" {
-		// If there is no machine UUID, then the unit was not the last one on
-		// the machine, so we can return early.
+	} else if cascaded.IsEmpty() {
+		// No other intities associated with the unit were 
+		// also ensured to be "dying", so we're done.
 		return unitJobUUID, nil
 	}
 
-	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", machineUUID)
+	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
 
-	s.removeMachines(ctx, []string{machineUUID}, force, wait)
+	s.removeMachines(ctx, []string{*cascaded.MachineUUID}, force, wait)
 
 	return unitJobUUID, nil
 }
