@@ -70,6 +70,9 @@ func (config Config) Validate() error {
 type prunerWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
+
+	currentConfig *config.Config
+	lastUpdate    time.Time
 }
 
 // NewWorker returns a new pruner worker.
@@ -118,10 +121,9 @@ func (w *prunerWorker) loop() error {
 		return errors.Errorf("getting model config: %w", err)
 	}
 
+	w.updateConfig(initCfg)
 	var (
 		pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
-		maxSizeMB  = int(initCfg.MaxActionResultsSizeMB())
-		maxAge     = initCfg.MaxActionResultsAge()
 	)
 	defer pruneTimer.Stop()
 	for {
@@ -137,18 +139,36 @@ func (w *prunerWorker) loop() error {
 				!changes.Contains(config.MaxActionResultsAge) {
 				continue
 			}
+
 			cfg, err := w.config.ModelConfig.ModelConfig(ctx)
 			if err != nil {
 				return errors.Errorf("getting model config: %w", err)
 			}
-			maxSizeMB = int(cfg.MaxActionResultsSizeMB())
-			maxAge = cfg.MaxActionResultsAge()
+			w.updateConfig(cfg)
 		case <-pruneTimer.Chan():
-			err := w.config.OperationService.PruneOperations(ctx, maxAge, maxSizeMB)
+			err := w.config.OperationService.PruneOperations(ctx,
+				w.currentConfig.MaxActionResultsAge(),
+				int(w.currentConfig.MaxActionResultsSizeMB()))
 			if err != nil {
 				return errors.Capture(err)
 			}
 			pruneTimer.Reset(w.config.PruneInterval)
 		}
+	}
+}
+
+func (w *prunerWorker) updateConfig(initCfg *config.Config) {
+	w.currentConfig = initCfg
+	w.lastUpdate = w.config.Clock.Now()
+}
+
+// Report shows up in the dependency engine report.
+func (w *prunerWorker) Report() map[string]interface{} {
+	cfg := w.currentConfig
+	return map[string]interface{}{
+		"max-age":        cfg.MaxActionResultsAge(),
+		"max-size-mb":    cfg.MaxActionResultsSizeMB(),
+		"prune-interval": w.config.PruneInterval,
+		"last-update":    w.lastUpdate,
 	}
 }
