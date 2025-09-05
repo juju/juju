@@ -5,7 +5,6 @@ package gce_test
 
 import (
 	"context"
-	"strconv"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	jc "github.com/juju/testing/checkers"
@@ -79,25 +78,6 @@ func (s *environSuite) TestConfig(c *gc.C) {
 	c.Assert(env.Config().AllAttrs(), jc.DeepEquals, s.NewConfig(c, nil).AllAttrs())
 }
 
-func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
-	ctrl := s.SetupMocks(c)
-	defer ctrl.Finish()
-
-	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-
-	fwName := "juju-" + s.ModelUUID
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return(nil, gce.InvalidCredentialError)
-
-	params := environs.BootstrapParams{
-		ControllerConfig:        testing.FakeControllerConfig(),
-		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-	}
-	_, err := env.Bootstrap(envtesting.BootstrapContext(context.Background(), c), s.CallCtx, params)
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
-}
-
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	config := testing.FakeControllerConfig()
 	s.assertBootstrap(c, config, []int{config.APIPort()})
@@ -132,27 +112,6 @@ func (s *environSuite) assertBootstrap(c *gc.C, config controller.Config, expect
 			Arch: "amd64",
 			Base: base.MakeDefaultBase("ubuntu", "22.04"),
 		}, nil
-	})
-
-	fwName := gce.GlobalFirewallName(env)
-	s.MockService.EXPECT().Firewalls(gomock.Any(), fwName).Return([]*computepb.Firewall{{
-		Name:         &fwName,
-		TargetTags:   []string{fwName},
-		SourceRanges: []string{"0.0.0.0/0"},
-	}}, nil)
-
-	expectedPortsStr := make([]string, len(expectedPorts))
-	for i, port := range expectedPorts {
-		expectedPortsStr[i] = strconv.Itoa(port)
-	}
-	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &computepb.Firewall{
-		Name:         &fwName,
-		TargetTags:   []string{fwName},
-		SourceRanges: []string{"0.0.0.0/0"},
-		Allowed: []*computepb.Allowed{{
-			IPProtocol: ptr("tcp"),
-			Ports:      expectedPortsStr,
-		}},
 	})
 
 	result, err := env.Bootstrap(envtesting.BootstrapContext(context.Background(), c), s.CallCtx, params)

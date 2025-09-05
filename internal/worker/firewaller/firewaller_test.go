@@ -1004,15 +1004,15 @@ func (s *InstanceModeSuite) addMachineUnitAndEnsureMocks(c *gc.C, ctrl *gomock.C
 	// Initial event.
 	unitsCh <- []string{unitTag.Id()}
 
-	// Add a machine.
-	s.machinesCh <- []string{tag.Id()}
-
 	instId := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId().Return(instId, nil).Times(1)
 
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).Times(1)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).Times(1)
+
+	// Add a machine.
+	s.machinesCh <- []string{tag.Id()}
 
 	return m
 }
@@ -1366,6 +1366,28 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(17070)), "0.0.0.0/0"),
 	})
+}
+
+func (s *InstanceModeSuite) TestConfigureModelFirewallIpV4Only(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.withIpv6 = false
+	s.modelIngressRules = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	}
+
+	s.ensureMocks(c, ctrl)
+
+	fw := s.newFirewaller(c)
+	defer workertest.CleanKill(c, fw)
+
+	want := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR),
+	}
+	s.assertModelIngressRules(c, want)
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C) (chan []string, *macaroon.Macaroon) {
