@@ -50,7 +50,7 @@ being triggered when the action is invoked.
 (action-execution)=
 ## Action execution
 
-Actions operate in an execution environment similar to a {ref}`hook <hook-execution>`. As such, they're executed with all the generic hook environment variables plus the following action-specific environment variables:
+Actions operate in an execution environment similar to a {ref}`hook <hook-execution>`. As such, they're executed with all the {ref}`generic environment variables <generic-environment-variables>` plus the following action-specific environment variables:
 
 * `JUJU_ACTION_NAME` holds the name of the action.
 * `JUJU_ACTION_UUID` holds the UUID of the action.

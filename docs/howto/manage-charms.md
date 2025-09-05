@@ -374,6 +374,8 @@ juju debug-hooks mysql/0 X-relation-changed  # for a specific hook
 The command launches a tmux session that will intercept matching hooks and/or
 actions, which you can then execute manually by running `./dispatch`.
 
+You can also view the environment variables for a specific event by running `debug-hooks` and waiting for the desired event to fire. If the next prompt looks like `root@database-0:/var/lib/juju#`, that means we are still waiting for an event to occur. If the prompt looks like `root@database-0:/var/lib/juju/agents/unit-database-0/charm#`, that means an event _has_ occurred, and we are inside the charm hook execution context. At this point, typing `printenv` will print out the environment variables.
+
 ```{ibnote}
 See more: {ref}`command-juju-debug-hooks`
 ```
