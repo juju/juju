@@ -245,8 +245,8 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	}
 
 	volume = &storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
+		Tag: p.Tag,
+		VolumeInfo: storage.VolumeInfo{
 			VolumeId:   disk.GetName(),
 			Size:       gibToMib(disk.GetSizeGb()),
 			Persistent: true,
@@ -254,9 +254,9 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	}
 
 	volumeAttachment = &storage.VolumeAttachment{
-		p.Tag,
-		p.Attachment.Machine,
-		storage.VolumeAttachmentInfo{
+		Volume:  p.Tag,
+		Machine: p.Attachment.Machine,
+		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 			DeviceLink: fmt.Sprintf(
 				"/dev/disk/by-id/google-%s",
 				attachedDisk.GetDeviceName(),
@@ -422,11 +422,11 @@ func (v *volumeSource) describeOneVolume(ctx context.ProviderCallContext, volNam
 		return storage.DescribeVolumesResult{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
 	}
 	desc := storage.DescribeVolumesResult{
-		&storage.VolumeInfo{
+		VolumeInfo: &storage.VolumeInfo{
 			Size:     gibToMib(disk.GetSizeGb()),
 			VolumeId: disk.GetName(),
 		},
-		nil,
+		Error: nil,
 	}
 	return desc, nil
 }
@@ -457,9 +457,9 @@ func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachPara
 			continue
 		}
 		results[i].VolumeAttachment = &storage.VolumeAttachment{
-			attachment.Volume,
-			attachment.Machine,
-			storage.VolumeAttachmentInfo{
+			Volume:  attachment.Volume,
+			Machine: attachment.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 				DeviceLink: fmt.Sprintf(
 					"/dev/disk/by-id/google-%s",
 					attached.GetDeviceName(),
