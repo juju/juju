@@ -239,49 +239,9 @@ See more: [Charmhub > `<your charm of interest`](https://charmhub.io/)
 See more: {ref}`scale-an-application-horizontally`
 ```
 
-
-````{dropdown} Example scenario: scaling Wordpress
-
-The `wordpress` charm supports high availability natively, so we can proceed to scale up horizontally:
-
-```text
-juju add-unit wordpress
-```
-
-````
-
-````{dropdown} Example scenario: scaling Mediawiki
-
-The `mediawiki` charm needs to be placed behind a load balancing reverse proxy. We can do that by deploying the `haproxy` charm, integrating the `haproxy` application with `wordpress`, and then scaling the `wordpress` application up horizontally:
-
-``` text
-# Suppose you have a deployment with mediawiki and mysql and you want to scale mediawiki.
-juju deploy mediawiki
-juju deploy mysql
-
-# Deploy haproxy and integrate it with your existing deployment, then expose haproxy:
-juju deploy haproxy
-juju integrate mediawiki:db mysql
-juju integrate mediawiki haproxy
-juju expose haproxy
-
-# Get the proxy's IP address:
-juju status haproxy
-
-# Finally, scale mediawiki up horizontally
-# (since it's a machine charm, use 'add-unit')
-# by adding a few more units:
-juju add-unit -n 5 mediawiki
-
-```
-
-````
+<!-- TODO Add example scenarios for charms that support scaling natively and charms that require a proxy. -->
 
 Every time a unit is added to an application, Juju will spread out that application's units, distributing them evenly as supported by the provider (e.g., across multiple availability zones) to best ensure high availability. So long as a cloud's availability zones don't all fail at once, and the charm and the charm's workload are well-written (changing leaders, coordinating across units, etc.), you can rest assured that cloud downtime will not affect your application.
-
-```{ibnote}
-See more: [Charmhub | `wordpress`](https://charmhub.io/wordpress), [Charmhub | `mediawiki`](https://charmhub.io/mediawiki), [Charmhub | `haproxy`](https://charmhub.io/haproxy)
-```
 
 (integrate-an-application-with-another-application)=
 ## Integrate an application with another application
@@ -323,7 +283,7 @@ juju expose percona-cluster --endpoints db-admin --to-cidrs 10.0.0.0/24
 
 ```
 
-To override an initial `expose` command, run the command again with the new desired specifications.
+To change the `expose` details, run the command again with the new desired specifications.
 
 ```{ibnote}
 See more: {ref}`command-juju-expose`
@@ -386,7 +346,7 @@ See also: {ref}`constraint`, {ref}`list-of-constraints`
 juju deploy mysql --constraints "mem=6G cores=2"
 ```
 
-````{dropdown} Further examples
+````{dropdown} More examples
 
 Assuming a LXD cloud, to deploy PostgreSQL with a specific amount of CPUs and memory, you can use a combination of the `instance-type` and `mem` constraints, as below -- `instance-type=c5.large` maps to 2 CPUs and 4 GiB, but `mem` overrides the latter, such that the result is a machine with 2 CPUs and *3.5* GiB of memory.
 
@@ -508,9 +468,9 @@ All associated resources will also be removed, provided they are not hosting con
 
 If persistent storage is in use by the application, it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
-If the application has relations with another application, this relation will be terminated (which may adversely affect the other application).
+If the application has relations with another application, this relation will be terminated (which may adversely affect the other application). Removal of a subordinate relation will remove units of the subordinate application as well.
 
-Note: It it normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
+Note: It is normal for application removal to take a while (you can inspect progress in the usual way with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
 
 
 ```{ibnote}
@@ -525,7 +485,7 @@ Behind the scenes, the application removal consists of multiple different stages
 - The controller signals to the application (charm) that it is going to be
   destroyed.
 - The charm breaks any relations to its application by calling the
-  `<endpoint>-relation-broken` and `<endpoint>-relations-departed` hooks.
+  `<endpoint>-relation-broken` and `<endpoint>-relation-departed` hooks.
 - The charm calls its `stop` hook which should:
   - Stop the application.
   - Remove any files/configuration created during the application lifecycle.

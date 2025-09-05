@@ -71,7 +71,7 @@ To deploy a charm / bundle from [Charmhub](https://charmhub.io/) / your local fi
 juju deploy <charm | charm bundle> | <path to the local charm or bundle>
 ```
 
-The command also allows you to add another argument to specify a custom name (alias) for your deployed application (charms only). You can also take advantage of the rich set of flags to specify a charm channel or revision, a machine base, a machine constraint (e.g., availability zone), the number of application units you want (clusterised), a space binding, a placement directive (e.g., to deploy to a LXD container), a specific storage instance, a specific machine, etc., and even to trust the application with the current credential -- in case the application requires access to the backing cloud in order to fulfil its purpose (e.g., stojrage-related tasks).
+The command also allows you to add another argument to specify a custom name (alias) for your deployed application(s). You can also take advantage of the rich set of flags to specify a charm channel or revision, a machine base, a machine constraint (e.g., availability zone), the number of application units you want (clusterised), a space binding, a placement directive (e.g., to deploy to a LXD container), a specific storage instance, a specific machine, etc., and even to trust the application with the current credential -- in case the application requires access to the backing cloud in order to fulfil its purpose (e.g., storage-related tasks).
 
 If you are on a machine cloud and have manually pre-provisioned machines with the `juju add-machine` command, Juju will use those machines; if not, Juju will automatically spin up suitable infrastructure (machines or pods), using its own defaults or the  the base, constraints, etc., that you passed during deploy. Either way, once that's done, Juju will proceed to deploy the contents of the charm / bundle, and the result is applications that you can then manage in the usual Juju way -- configure, integrate, scale, upgrade, etc.
 
@@ -236,7 +236,8 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 
 ````{dropdown} Troubleshooting - machines
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
+
+Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud; in some cases perform network configuration via `cloud-init`; download the `jujud` binaries from the controller; and start `jujud`, which will download and install the charm.
 
 For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
 
@@ -256,7 +257,7 @@ If Juju fails to provision a subset of machines for some reason (e.g., machine q
 
 ````{dropdown} Troubleshooting - Kubernetes
 
-Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
+Deploy on Kubernetes includes creating a Kubernetes `StatefulSet`, which creates `Pod`s. Within those `Pod`s are a charm container and the workload containers for the charm. To troubleshoot, inspect these containers with `kubectl`:
 
 ```text
 
