@@ -21,8 +21,6 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -31,6 +29,8 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	caasconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/caasoperator/remotestate"
 	"github.com/juju/juju/internal/worker/introspection"

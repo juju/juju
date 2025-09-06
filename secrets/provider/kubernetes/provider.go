@@ -29,13 +29,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 )

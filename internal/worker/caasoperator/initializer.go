@@ -18,9 +18,9 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/config"
+	caasconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/wrench"
 )

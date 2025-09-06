@@ -17,7 +17,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
 type rbacSuite struct {

@@ -13,10 +13,10 @@ import (
 
 	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/rpc/params"
 )
 

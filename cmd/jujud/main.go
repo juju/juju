@@ -25,7 +25,6 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/debug/coveruploader"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"

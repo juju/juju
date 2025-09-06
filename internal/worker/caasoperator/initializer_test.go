@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/caasoperator/mocks"
 	"github.com/juju/juju/testing"
