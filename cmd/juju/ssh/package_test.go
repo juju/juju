@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/cmd/juju/ssh Context,LeaderAPI,SSHClientAPI,SSHControllerAPI,CloudCredentialAPI,ApplicationAPI,CharmsAPI,ModelCommand
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/k8s_exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/k8s_exec_mock.go github.com/juju/juju/internal/provider/kubernetes/exec Executor
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

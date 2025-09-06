@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )

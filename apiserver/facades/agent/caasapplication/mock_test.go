@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/caas"
-	_ "github.com/juju/juju/caas/kubernetes/provider"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	_ "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 )
