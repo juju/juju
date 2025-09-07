@@ -35,19 +35,23 @@ To just update selected metadata like rotate policy, do not specify any secret v
 `
 	examples := `
     secret-set secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
-    secret-set secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
-    secret-set secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
+    secret-set secret:9m4e2mr0ui3e8a215n4g key#base64=AA==
+    secret-set secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret
     secret-set secret:9m4e2mr0ui3e8a215n4g --expire 24h
-    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 24h token=s3cret 
-    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 2025-01-01T06:06:06 token=s3cret 
+    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 24h token=s3cret
+    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 2025-01-01T06:06:06 token=s3cret
     secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password" \
-        data#base64 s3cret== 
+        data#base64=s3cret==
     secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password"
     secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password" \
         --file=/path/to/file
+        # With YAML-like content, one key per line, value coerced to a string:
+        # string42: 42
+        # null-byte: "\0"
+        # key#base64: AA==
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:     "secret-set",
