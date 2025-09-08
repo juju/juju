@@ -24,7 +24,7 @@ import (
 // detected, meaning Juju cannot choose one automatically.
 var ErrMultipleDetectedCredentials = errors.New("multiple detected credentials")
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package common -destination credentialstore_mock_test.go github.com/juju/juju/jujuclient CredentialStore
+//go:generate go run go.uber.org/mock/mockgen -typed -package common -destination credentialstore_mock_test.go github.com/juju/juju/api/jujuclient CredentialStore
 
 // RegisterCredentials will attempt to register any credentials that a provider
 // has to offer.

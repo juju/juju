@@ -14,7 +14,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modelupgrader_mock.go github.com/juju/juju/cmd/juju/commands ModelUpgraderAPI
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/synctool_mock.go github.com/juju/juju/cmd/juju/commands SyncToolAPI
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modelconfig_mock.go github.com/juju/juju/cmd/juju/commands ModelConfigAPI
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore,CookieJar
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/api/jujuclient ClientStore,CookieJar
 
 func TestMain(m *testing.M) {
 	testhelpers.ExecHelperProcess()
