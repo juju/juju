@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -33,7 +34,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 )
 
 type GenerateAgentsSuite struct {

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v6"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/api/jujuclient"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/jujuclient"
 )
 
 var logger = internallogger.GetLogger("juju.cmd.juju.cloud")

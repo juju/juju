@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type defaultCredentialSuite struct {

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/jujuclient"
 )
 
 type utilsSuite struct {

@@ -18,11 +18,11 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/modelupgrader"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 )
 
 var logger = internallogger.GetLogger("juju.cmd.modelcmd")

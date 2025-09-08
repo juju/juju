@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -17,7 +18,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type ImageMetadataSuite struct {

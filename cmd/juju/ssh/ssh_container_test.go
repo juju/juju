@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/controller"
@@ -25,7 +26,6 @@ import (
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	k8smocks "github.com/juju/juju/internal/provider/kubernetes/mocks"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type sshContainerSuite struct {

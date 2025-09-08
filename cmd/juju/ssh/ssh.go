@@ -19,12 +19,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
 	jujussh "github.com/juju/juju/internal/network/ssh"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

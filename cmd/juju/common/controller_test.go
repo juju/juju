@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/version"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )

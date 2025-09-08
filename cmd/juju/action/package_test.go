@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v4/exec"
 
 	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/watcher"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 const (

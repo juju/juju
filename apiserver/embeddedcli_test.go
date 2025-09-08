@@ -14,11 +14,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

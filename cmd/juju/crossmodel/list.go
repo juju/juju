@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/applicationoffers"
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -20,7 +21,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 const listCommandDoc = `

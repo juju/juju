@@ -7,9 +7,9 @@ import (
 	"context"
 	"os"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 var (

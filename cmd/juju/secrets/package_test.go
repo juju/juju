@@ -6,7 +6,7 @@ package secrets
 import (
 	"context"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/api/jujuclient"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI,UpdateSecretsAPI,RemoveSecretsAPI

@@ -6,8 +6,8 @@ package jujuclienttesting
 import (
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
 )
 
 // MinimalStore returns a simple store that can be used

@@ -11,13 +11,13 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type ListSuite struct {

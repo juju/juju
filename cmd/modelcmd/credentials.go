@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 var (

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/authentication"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -35,7 +36,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

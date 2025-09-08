@@ -4,9 +4,9 @@
 package jujuclienttesting
 
 import (
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/jujuclient"
 )
 
 type StubStore struct {

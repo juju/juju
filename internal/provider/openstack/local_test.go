@@ -39,6 +39,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -75,7 +76,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type ProviderSuite struct {

@@ -26,11 +26,11 @@ import (
 
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 // defaultLineCount is the default number of lines to

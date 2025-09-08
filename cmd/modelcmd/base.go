@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -31,7 +32,6 @@ import (
 	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

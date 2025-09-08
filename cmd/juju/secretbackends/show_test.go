@@ -11,11 +11,11 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/jujuclient"
 )
 
 type ShowSuite struct {

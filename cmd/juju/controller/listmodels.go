@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 
