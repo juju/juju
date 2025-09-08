@@ -4,7 +4,6 @@
 package service
 
 import (
-	"context"
 	"io"
 	"strings"
 	"testing"
@@ -57,7 +56,7 @@ func (s *serviceSuite) TestGetActionSuccess(c *tc.C) {
 
 	s.state.EXPECT().GetAction(gomock.Any(), operationID.String()).Return(expectedAction, "", nil)
 
-	action, err := s.service().GetAction(context.Background(), operationID)
+	action, err := s.service().GetAction(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
@@ -69,7 +68,7 @@ func (s *serviceSuite) TestGetActionError(c *tc.C) {
 
 	s.state.EXPECT().GetAction(gomock.Any(), operationID.String()).Return(operation.Action{}, "", expectedError)
 
-	_, err := s.service().GetAction(context.Background(), operationID)
+	_, err := s.service().GetAction(c.Context(), operationID)
 	c.Assert(err, tc.ErrorMatches, `retrieving action ".*": action not found`)
 }
 
@@ -84,7 +83,7 @@ func (s *serviceSuite) TestCancelActionSuccess(c *tc.C) {
 
 	s.state.EXPECT().CancelAction(gomock.Any(), operationID.String()).Return(expectedAction, nil)
 
-	action, err := s.service().CancelAction(context.Background(), operationID)
+	action, err := s.service().CancelAction(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
@@ -96,7 +95,7 @@ func (s *serviceSuite) TestCancelActionError(c *tc.C) {
 
 	s.state.EXPECT().CancelAction(gomock.Any(), operationID.String()).Return(operation.Action{}, expectedError)
 
-	_, err := s.service().CancelAction(context.Background(), operationID)
+	_, err := s.service().CancelAction(c.Context(), operationID)
 	c.Assert(err, tc.ErrorMatches, `cancelling action ".*": action not found`)
 }
 
@@ -116,7 +115,7 @@ func (s *serviceSuite) TestGetActionWithOutput(c *tc.C) {
 	s.mockObjectStore.EXPECT().Get(gomock.Any(), outputPath).Return(
 		io.NopCloser(strings.NewReader(outputJSON)), int64(len(outputJSON)), nil)
 
-	action, err := s.service().GetAction(context.Background(), operationID)
+	action, err := s.service().GetAction(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
@@ -136,7 +135,7 @@ func (s *serviceSuite) TestGetActionWithEmptyOutput(c *tc.C) {
 
 	s.state.EXPECT().GetAction(gomock.Any(), operationID.String()).Return(expectedAction, "", nil)
 
-	action, err := s.service().GetAction(context.Background(), operationID)
+	action, err := s.service().GetAction(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
