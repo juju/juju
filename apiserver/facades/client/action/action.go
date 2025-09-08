@@ -77,7 +77,8 @@ type OperationService interface {
 
 	// StartActionOperation creates an action operation with tasks for various
 	// units using the provided parameters.
-	StartActionOperation(ctx context.Context, args []operation.ActionArgs) (operation.RunResult, error)
+	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
+		args operation.TaskArgs) (operation.RunResult, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions

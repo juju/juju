@@ -5,6 +5,7 @@ package action
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	"github.com/juju/collections/transform"
@@ -35,22 +36,19 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	const leader = "/leader"
 	actionResults := make([]params.ActionResult, len(arg.Actions))
 	actionResultByUnitName := make(map[string]*params.ActionResult)
-	runParams := make([]operation.ActionArgs, 0, len(arg.Actions))
+	receivers := make([]operation.ActionReceiver, 0, len(arg.Actions))
+
+	taskParams := taskParamHolder{}
 	for i, action := range arg.Actions {
-		taskParams := operation.TaskArgs{
-			ActionName:     action.Name,
-			Parameters:     action.Parameters,
-			IsParallel:     zeroNilPtr(action.Parallel),
-			ExecutionGroup: zeroNilPtr(action.ExecutionGroup),
+		if err := taskParams.Set(action); err != nil {
+			return params.EnqueuedActions{},
+				errors.Errorf("all actions parameters from the same operation should be the same: %v", err)
 		}
 
 		if strings.HasSuffix(action.Receiver, leader) {
 			receiver := strings.TrimSuffix(action.Receiver, leader)
 			actionResultByUnitName[action.Receiver] = &actionResults[i]
-			runParams = append(runParams, operation.ActionArgs{
-				ActionReceiver: operation.ActionReceiver{LeaderUnit: receiver},
-				TaskArgs:       taskParams,
-			})
+			receivers = append(receivers, operation.ActionReceiver{LeaderUnit: receiver})
 			continue
 		}
 
@@ -60,21 +58,15 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 			continue
 		}
 		actionResultByUnitName[unitTag.Id()] = &actionResults[i]
-		runParams = append(runParams, operation.ActionArgs{
-			ActionReceiver: operation.ActionReceiver{
-				Unit: unit.Name(unitTag.Id()),
-			},
-			TaskArgs: taskParams,
-		})
-
+		receivers = append(receivers, operation.ActionReceiver{Unit: unit.Name(unitTag.Id())})
 	}
 
-	// If no valid run params (all receivers invalid), do not call service; return per-action errors.
-	if len(runParams) == 0 {
+	// If no valid receivers (all are invalid), do not call service; return per-action errors.
+	if len(receivers) == 0 {
 		return params.EnqueuedActions{Actions: actionResults}, nil
 	}
 
-	result, err := a.operationService.StartActionOperation(ctx, runParams)
+	result, err := a.operationService.StartActionOperation(ctx, receivers, taskParams.Get())
 	if err != nil {
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
@@ -100,6 +92,46 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		OperationTag: names.NewOperationTag(result.OperationID).String(),
 		Actions:      actionResults,
 	}, nil
+}
+
+// taskParamHolder is a parameter holder for the task parameters.
+// It helps to validate that all parameters for bulk actions from the facade
+// are the same.
+type taskParamHolder struct {
+	args *operation.TaskArgs
+}
+
+// Set sets the task parameters, if there is different of the previous
+// parameters, an error is returned.
+func (h *taskParamHolder) Set(arg params.Action) error {
+	incoming := operation.TaskArgs{
+		ActionName:     arg.Name,
+		Parameters:     arg.Parameters,
+		IsParallel:     zeroNilPtr(arg.Parallel),
+		ExecutionGroup: zeroNilPtr(arg.ExecutionGroup),
+	}
+	if h.args != nil {
+		var errs []error
+		if h.args.ActionName != incoming.ActionName {
+			errs = append(errs, errors.Errorf("action name mismatch: %q != %q", h.args.ActionName, incoming.ActionName))
+		}
+		if h.args.IsParallel != incoming.IsParallel {
+			errs = append(errs, errors.Errorf("parallel mismatch: %v != %v", h.args.IsParallel, incoming.IsParallel))
+		}
+		if h.args.ExecutionGroup != incoming.ExecutionGroup {
+			errs = append(errs, errors.Errorf("execution group mismatch: %v != %v", h.args.ExecutionGroup, incoming.ExecutionGroup))
+		}
+		if !reflect.DeepEqual(h.args.Parameters, incoming.Parameters) {
+			errs = append(errs, errors.Errorf("parameters mismatch: %v != %v", h.args.Parameters, incoming.Parameters))
+		}
+		return errors.Join(errs...)
+	}
+	h.args = &incoming
+	return nil
+}
+
+func (h *taskParamHolder) Get() operation.TaskArgs {
+	return *h.args
 }
 
 // Run the commands specified on the machines identified through the

@@ -82,12 +82,6 @@ type ExecArgs struct {
 	ExecutionGroup string
 }
 
-// ActionArgs represents the parameters used for running actions.
-type ActionArgs struct {
-	ActionReceiver
-	TaskArgs
-}
-
 // TaskArgs represents the parameters used for running tasks.
 type TaskArgs struct {
 	ActionName     string

@@ -25,6 +25,8 @@ func (s *Service) StartExecOperationOnAllMachines(ctx context.Context, args oper
 
 // StartActionOperation creates an action operation with tasks for various
 // units using the provided parameters.
-func (s *Service) StartActionOperation(ctx context.Context, args []operation.ActionArgs) (operation.RunResult, error) {
+func (s *Service) StartActionOperation(ctx context.Context,
+	target []operation.ActionReceiver,
+	args operation.TaskArgs) (operation.RunResult, error) {
 	return operation.RunResult{}, errors.New("operations in Dqlite not supported")
 }

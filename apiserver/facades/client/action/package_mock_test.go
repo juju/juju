@@ -364,18 +364,18 @@ func (c *MockOperationServiceGetOperationsByIDsCall) DoAndReturn(f func(context.
 }
 
 // StartActionOperation mocks base method.
-func (m *MockOperationService) StartActionOperation(arg0 context.Context, arg1 []operation.ActionArgs) (operation.RunResult, error) {
+func (m *MockOperationService) StartActionOperation(arg0 context.Context, arg1 []operation.ActionReceiver, arg2 operation.TaskArgs) (operation.RunResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartActionOperation", arg0, arg1)
+	ret := m.ctrl.Call(m, "StartActionOperation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(operation.RunResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StartActionOperation indicates an expected call of StartActionOperation.
-func (mr *MockOperationServiceMockRecorder) StartActionOperation(arg0, arg1 any) *MockOperationServiceStartActionOperationCall {
+func (mr *MockOperationServiceMockRecorder) StartActionOperation(arg0, arg1, arg2 any) *MockOperationServiceStartActionOperationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartActionOperation", reflect.TypeOf((*MockOperationService)(nil).StartActionOperation), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartActionOperation", reflect.TypeOf((*MockOperationService)(nil).StartActionOperation), arg0, arg1, arg2)
 	return &MockOperationServiceStartActionOperationCall{Call: call}
 }
 
@@ -391,13 +391,13 @@ func (c *MockOperationServiceStartActionOperationCall) Return(arg0 operation.Run
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceStartActionOperationCall) Do(f func(context.Context, []operation.ActionArgs) (operation.RunResult, error)) *MockOperationServiceStartActionOperationCall {
+func (c *MockOperationServiceStartActionOperationCall) Do(f func(context.Context, []operation.ActionReceiver, operation.TaskArgs) (operation.RunResult, error)) *MockOperationServiceStartActionOperationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceStartActionOperationCall) DoAndReturn(f func(context.Context, []operation.ActionArgs) (operation.RunResult, error)) *MockOperationServiceStartActionOperationCall {
+func (c *MockOperationServiceStartActionOperationCall) DoAndReturn(f func(context.Context, []operation.ActionReceiver, operation.TaskArgs) (operation.RunResult, error)) *MockOperationServiceStartActionOperationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

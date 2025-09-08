@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -81,20 +82,16 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 		IsParallel:     true,
 		ExecutionGroup: "grp",
 	}
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionReceiver: operation.ActionReceiver{
-			Unit: "app/0",
-		},
-		TaskArgs: taskArgs,
-	},
-	}).Return(operation.RunResult{
-		OperationID: "1",
-		Units: []operation.UnitTaskResult{{
-			ReceiverName: "app/0",
-			TaskInfo: operation.TaskInfo{
-				ID:       "1",
-				TaskArgs: taskArgs,
-			}}}}, nil)
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionReceiver{{Unit: "app/0"}},
+		taskArgs).
+		Return(operation.RunResult{
+			OperationID: "1",
+			Units: []operation.UnitTaskResult{{
+				ReceiverName: "app/0",
+				TaskInfo: operation.TaskInfo{
+					ID:       "1",
+					TaskArgs: taskArgs,
+				}}}}, nil)
 
 	// Act
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{
@@ -128,13 +125,8 @@ func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
 	taskArgs := operation.TaskArgs{
 		ActionName: "do",
 	}
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionReceiver: operation.ActionReceiver{
-			LeaderUnit: "myapp",
-		},
-		TaskArgs: taskArgs,
-	},
-	}).Return(operation.RunResult{
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionReceiver{{LeaderUnit: "myapp"}},
+		taskArgs).Return(operation.RunResult{
 		OperationID: "2",
 		Units: []operation.UnitTaskResult{{
 			ReceiverName: "myapp/0",
@@ -168,12 +160,8 @@ func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
 		IsParallel:     false,
 		ExecutionGroup: "", // defaulted to ""
 	}
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionReceiver: operation.ActionReceiver{
-			Unit: "app/0",
-		},
-		TaskArgs: taskArgs,
-	}}).Return(operation.RunResult{OperationID: "404" /*placeholder, we check the input args */}, nil)
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionReceiver{{Unit: "app/0"}},
+		taskArgs).Return(operation.RunResult{OperationID: "404" /*placeholder, we check the input args */}, nil)
 
 	// Act
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{
@@ -187,22 +175,24 @@ func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
 }
 
 // TestEnqueue_MultipleActions validates the enqueue operation for multiple
-// actions with correct execution order and parameters.
+// actions with the correct execution order and parameters.
 func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
-			c.Assert(len(got), tc.Equals, 3)
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, gotReceivers []operation.ActionReceiver,
+			gotParams operation.TaskArgs) (operation.RunResult,
+			error) {
+			c.Assert(len(gotReceivers), tc.Equals, 3)
 			// order: leader, app/2, app/0
-			c.Assert(got[0].LeaderUnit, tc.DeepEquals, "app")
-			c.Assert(got[1].Unit, tc.DeepEquals, unit.Name("app/2"))
-			c.Assert(got[2].Unit, tc.DeepEquals, unit.Name("app/0"))
-			ti1 := operation.TaskInfo{ID: "1", TaskArgs: got[0].TaskArgs}
-			ti2 := operation.TaskInfo{ID: "2", TaskArgs: got[1].TaskArgs}
-			ti3 := operation.TaskInfo{ID: "3", TaskArgs: got[2].TaskArgs}
+			c.Assert(gotReceivers[0].LeaderUnit, tc.DeepEquals, "app")
+			c.Assert(gotReceivers[1].Unit, tc.DeepEquals, unit.Name("app/2"))
+			c.Assert(gotReceivers[2].Unit, tc.DeepEquals, unit.Name("app/0"))
+			ti1 := operation.TaskInfo{ID: "1", TaskArgs: gotParams}
+			ti2 := operation.TaskInfo{ID: "2", TaskArgs: gotParams}
+			ti3 := operation.TaskInfo{ID: "3", TaskArgs: gotParams}
 			return operation.RunResult{OperationID: "3",
 				Units: []operation.UnitTaskResult{
 					{ReceiverName: "app/0", TaskInfo: ti3},
@@ -214,17 +204,50 @@ func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
 
 	// Act
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "app/leader",
-		Name: "x"}, {Receiver: "unit-app-2", Name: "y"}, {Receiver: "unit-app-0", Name: "z"}}})
+		Name: "x"}, {Receiver: "unit-app-2", Name: "x"}, {Receiver: "unit-app-0", Name: "x"}}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(res.Actions), tc.Equals, 3)
 	c.Check(res.Actions[0].Action.Name, tc.Equals, "x")
 	c.Check(res.Actions[0].Action.Receiver, tc.Equals, "unit-app-9")
-	c.Check(res.Actions[1].Action.Name, tc.Equals, "y")
+	c.Check(res.Actions[1].Action.Name, tc.Equals, "x")
 	c.Check(res.Actions[1].Action.Receiver, tc.Equals, "unit-app-2")
-	c.Check(res.Actions[2].Action.Name, tc.Equals, "z")
+	c.Check(res.Actions[2].Action.Name, tc.Equals, "x")
 	c.Check(res.Actions[2].Action.Receiver, tc.Equals, "unit-app-0")
+}
+
+// TestEnqueue_MultipleActionsErrors verifies that enqueueing multiple actions
+// results in appropriate errors when conditions fail.
+func (s *enqueueSuite) TestEnqueue_MultipleActionsErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	api := s.NewActionAPI(c)
+	// Ensure StartActionOperation is not called
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{
+		{
+			Receiver: "app/leader",
+			Name:     "x",
+		}, {
+			Receiver:       "unit-app-2",
+			Name:           "y",
+			Parameters:     map[string]interface{}{"a": 1},
+			Parallel:       ptr(true),
+			ExecutionGroup: ptr("eg-1"),
+		}}})
+
+	// Assert
+	// this trick is necessary to get ride of the \n in the error message which
+	// mess up the comparison
+	err = fmt.Errorf("%v", strings.Replace(err.Error(), "\n", " ", -1))
+	c.Check(err, tc.ErrorMatches, ".*action name mismatch.*")
+	c.Check(err, tc.ErrorMatches, ".*parallel mismatch.*")
+	c.Check(err, tc.ErrorMatches, ".*execution group mismatch.*")
+	c.Check(err, tc.ErrorMatches, ".*parameters mismatch.*")
 }
 
 // TestEnqueue_SomeInvalid validates the behavior of the EnqueueOperation method
@@ -233,12 +256,12 @@ func (s *enqueueSuite) TestEnqueue_SomeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
-			c.Assert(len(got), tc.Equals, 1)
-			ti := operation.TaskInfo{ID: "1", TaskArgs: got[0].TaskArgs}
-			return operation.RunResult{OperationID: "4", Units: []operation.UnitTaskResult{{ReceiverName: unit.Name(
-				"app/3"), TaskInfo: ti}}}, nil
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, gotReceivers []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult,
+			error) {
+			c.Assert(len(gotReceivers), tc.Equals, 1)
+			ti := operation.TaskInfo{ID: "1", TaskArgs: args}
+			return operation.RunResult{OperationID: "4", Units: []operation.UnitTaskResult{{ReceiverName: "app/3", TaskInfo: ti}}}, nil
 		})
 
 	// Act
@@ -259,7 +282,7 @@ func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
 	// Arrange
 	api := s.NewActionAPI(c)
 	// Ensure Run is not called
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act: all tag receiver are invalid
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "bad1", Name: "do"}, {Receiver: "also/bad", Name: "do"}}})
@@ -275,7 +298,7 @@ func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
 func (s *enqueueSuite) TestEnqueue_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "unit-app-0",
 		Name: "do"}}})
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -287,8 +310,9 @@ func (s *enqueueSuite) TestEnqueue_UnexpectedExtraResult(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ []operation.ActionReceiver,
+			_ operation.TaskArgs) (operation.RunResult, error) {
 			return operation.RunResult{
 				OperationID: "5",
 				Units: []operation.UnitTaskResult{
@@ -308,12 +332,11 @@ func (s *enqueueSuite) TestEnqueue_MissingResultPerActionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
 	// Arrange
-	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, got []operation.ActionArgs) (operation.RunResult, error) {
+	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error) {
 			// only return app/0 result; missing app/1
-			ti := operation.TaskInfo{ID: "0", TaskArgs: got[0].TaskArgs}
-			return operation.RunResult{OperationID: "8", Units: []operation.UnitTaskResult{{ReceiverName: unit.Name(
-				"app/0"), TaskInfo: ti}}}, nil
+			ti := operation.TaskInfo{ID: "0", TaskArgs: args}
+			return operation.RunResult{OperationID: "8", Units: []operation.UnitTaskResult{{ReceiverName: "app/0", TaskInfo: ti}}}, nil
 		})
 
 	// Act
