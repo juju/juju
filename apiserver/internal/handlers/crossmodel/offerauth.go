@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/internal/crossmodel"
 	"github.com/juju/juju/core/logger"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -50,10 +51,10 @@ func AddOfferAuthHandlers(authContext OfferAuthContext, mux *apiserverhttp.Mux) 
 	discharger.AddMuxHandlers(appOfferDischargeMux, localOfferAccessLocationPath)
 
 	if err := mux.AddHandler("POST", localOfferAccessLocationPath+"/discharge", appOfferDischargeMux); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Errorf("adding discharge handler: %w", err)
 	}
 	if err := mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Errorf("adding public key handler: %w", err)
 	}
 	return nil
 }

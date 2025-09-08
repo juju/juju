@@ -30,7 +30,9 @@ const (
 	offerUUIDKey   = "offer-uuid"
 	sourceModelKey = "source-model-uuid"
 	relationKey    = "relation-key"
+)
 
+const (
 	offerPermissionCaveat = "has-offer-permission"
 
 	// offerPermissionExpiryTime is used to expire offer macaroons.

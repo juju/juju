@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/internal/crossmodel"
+	internalcrossmodel "github.com/juju/juju/apiserver/internal/crossmodel"
 	handlerscrossmodel "github.com/juju/juju/apiserver/internal/handlers/crossmodel"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -343,7 +345,24 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
+		return nil, errors.Annotate(err, "getting controller config")
+	}
+
+	// Create a new offer auth context. This will be used to bake new
+	// macaroons for offers, and to validate incoming macaroons.
+	// TODO (stickupkid): This should be done in a worker and passed as a
+	// dependency. It operates independently of the API server.
+	offerAuthContext, err := newOfferAuthContext(
+		ctx,
+		controllerDomainServices.Access(),
+		controllerDomainServices.Macaroon(),
+		cfg.ControllerUUID,
+		cfg.ControllerModelUUID,
+		cfg.Clock,
+		logger,
+	)
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating offer auth context")
 	}
 
 	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
@@ -383,6 +402,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
 		localMacaroonAuthenticator:    cfg.LocalMacaroonAuthenticator,
+		offerAuthContext:              offerAuthContext,
 		jwtAuthenticator:              cfg.JWTAuthenticator,
 		httpAuthenticators:            httpAuthenticators,
 		loginAuthenticators:           loginAuthenticators,
@@ -1038,7 +1058,7 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	fmt.Fprintf(w, "%s\n", status)
+	_, _ = fmt.Fprintf(w, "%s\n", status)
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
@@ -1182,10 +1202,6 @@ func (srv *Server) GetAuditConfig() auditlog.Config {
 	return srv.getAuditConfig()
 }
 
-func serverError(err error) error {
-	return apiservererrors.ServerError(err)
-}
-
 // monitoredHandler wraps an HTTP handler for tracking metrics with given label.
 // It increments and decrements connection counters for monitoring purposes.
 func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Handler {
@@ -1196,6 +1212,36 @@ func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Han
 		defer gauge.Dec()
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func newOfferAuthContext(
+	ctx context.Context,
+	accessService AccessService,
+	macaroonService MacaroonService,
+	controllerUUID string,
+	controllerModelUUID model.UUID,
+	clock clock.Clock,
+	logger corelogger.Logger,
+) (*internalcrossmodel.AuthContext, error) {
+	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting offers third party key")
+	}
+
+	// Create a auth context for offer authentication.
+	// TODO (stickupkid): Use a bakery to cook the macaroons for the offers.
+	return internalcrossmodel.NewAuthContext(
+		accessService,
+		key,
+		controllerUUID,
+		controllerModelUUID,
+		clock,
+		logger,
+	), nil
+}
+
+func serverError(err error) error {
+	return apiservererrors.ServerError(err)
 }
 
 type applicationServiceGetter struct {
