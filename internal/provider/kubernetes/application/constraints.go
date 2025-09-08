@@ -14,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // ConstraintApplier defines a function type that applies a resource constraint

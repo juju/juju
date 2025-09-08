@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // Claim represents an assertion over a generic Kubernetes object to assert

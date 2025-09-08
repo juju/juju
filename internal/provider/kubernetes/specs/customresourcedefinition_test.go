@@ -12,7 +12,7 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/utils/pointer"
 
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/testing"
 )
 

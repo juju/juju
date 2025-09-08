@@ -13,10 +13,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
+	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 )
 
 func Test(t *testing.T) {

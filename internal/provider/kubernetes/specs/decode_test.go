@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	k8sspces "github.com/juju/juju/caas/kubernetes/provider/specs"
+	k8sspces "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/testing"
 )
 

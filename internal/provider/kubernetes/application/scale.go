@@ -12,7 +12,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/scale"
+	"github.com/juju/juju/internal/provider/kubernetes/scale"
 )
 
 // Scale scales the Application's unit to the value specificied. Scale must

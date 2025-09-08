@@ -16,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // Role extends the k8s role.

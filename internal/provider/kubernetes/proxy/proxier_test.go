@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 )
 
 type proxySuite struct {

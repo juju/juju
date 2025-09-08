@@ -15,7 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.storage")

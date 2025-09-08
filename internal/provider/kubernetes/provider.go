@@ -23,15 +23,15 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
+	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 )
 
 // ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.

@@ -26,12 +26,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/proxy"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure

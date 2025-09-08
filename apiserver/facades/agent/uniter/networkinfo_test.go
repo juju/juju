@@ -17,9 +17,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	k8stesting "github.com/juju/juju/caas/kubernetes/testing"
 	"github.com/juju/juju/core/network"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

@@ -13,11 +13,11 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/application"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/internal/provider/kubernetes/application"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 func getServiceLabels(appName string, labelVersion constants.LabelVersion) map[string]string {

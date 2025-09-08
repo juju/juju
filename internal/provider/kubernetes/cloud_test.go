@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 var _ = gc.Suite(&cloudSuite{})

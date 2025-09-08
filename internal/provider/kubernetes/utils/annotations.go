@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 type AnnotationKeySupplier func() string

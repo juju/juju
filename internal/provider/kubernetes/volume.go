@@ -19,11 +19,11 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/storage"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	jujustorage "github.com/juju/juju/storage"
 )
 

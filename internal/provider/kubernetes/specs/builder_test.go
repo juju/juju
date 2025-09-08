@@ -29,13 +29,13 @@ import (
 	"k8s.io/client-go/rest/fake"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	providermocks "github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	k8sspecsmocks "github.com/juju/juju/caas/kubernetes/provider/specs/mocks"
 	"github.com/juju/juju/cloud"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	providermocks "github.com/juju/juju/internal/provider/kubernetes/mocks"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
+	k8sspecsmocks "github.com/juju/juju/internal/provider/kubernetes/specs/mocks"
 	"github.com/juju/juju/testing"
 )
 

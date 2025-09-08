@@ -14,11 +14,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sstorage "github.com/juju/juju/internal/provider/kubernetes/storage"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/storage"
 )
 

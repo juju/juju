@@ -45,11 +45,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
-	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/assumes"
@@ -64,6 +59,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
+	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
+	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )

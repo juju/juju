@@ -14,12 +14,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/proxy"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 func getSecretLabels(appName string, labelVersion constants.LabelVersion) map[string]string {

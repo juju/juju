@@ -14,8 +14,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // CustomResourceDefinition extends the k8s customresourcedefinition.

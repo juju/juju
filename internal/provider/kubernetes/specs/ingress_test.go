@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/testing"
 )
 

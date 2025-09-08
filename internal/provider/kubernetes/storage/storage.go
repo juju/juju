@@ -16,10 +16,10 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/storage"
 	storageprovider "github.com/juju/juju/storage/provider"
 )

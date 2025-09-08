@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	k8stesting "github.com/juju/juju/caas/kubernetes/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 	coretesting "github.com/juju/juju/testing"
 )
 

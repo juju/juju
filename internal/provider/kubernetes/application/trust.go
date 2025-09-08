@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
 func getDefaultApplicationNamespaceRules(namespace string) []rbacv1.PolicyRule {

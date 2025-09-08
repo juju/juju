@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/proxy"
 )
 

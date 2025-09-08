@@ -16,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	netv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // Ingress extends the k8s Ingress.

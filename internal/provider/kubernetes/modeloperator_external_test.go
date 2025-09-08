@@ -17,9 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/mocks"
+	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	"github.com/juju/juju/testing"
 )
 

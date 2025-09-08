@@ -19,9 +19,9 @@ import (
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	jujutesting "github.com/juju/juju/testing"
 )
 

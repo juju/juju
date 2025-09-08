@@ -16,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // Service extends the k8s service.

@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/pointer"
 
-	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
+	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
 	"github.com/juju/juju/testing"
 )
 

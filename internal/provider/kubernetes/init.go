@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 var (

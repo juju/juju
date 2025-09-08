@@ -20,10 +20,10 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a

@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/status"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // CustomResource extends the k8s CustomResource.

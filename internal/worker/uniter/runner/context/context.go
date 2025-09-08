@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"

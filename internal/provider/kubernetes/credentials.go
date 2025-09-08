@@ -10,9 +10,9 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 type environProviderCredentials struct {

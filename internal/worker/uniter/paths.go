@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	caasconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/juju/sockets"
 )
 

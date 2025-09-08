@@ -17,9 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/testing"
 )
 

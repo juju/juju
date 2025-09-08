@@ -11,9 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/application"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/provider/kubernetes/application"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/testing"
 )
 

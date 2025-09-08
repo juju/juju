@@ -23,11 +23,11 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/testing"
 )
 

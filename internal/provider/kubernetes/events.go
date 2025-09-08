@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
 // Constants below are copied from "k8s.io/kubernetes/pkg/kubelet/events"

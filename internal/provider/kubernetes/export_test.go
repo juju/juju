@@ -17,11 +17,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 )

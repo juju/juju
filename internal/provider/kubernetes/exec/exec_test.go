@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	coretesting "github.com/juju/juju/testing"
 )
 

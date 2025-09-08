@@ -22,12 +22,12 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/mocks"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/testing"
 )
 

@@ -17,10 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 // DummyUpgradeCAASController implements UpgradeCAASControllerBroker for the

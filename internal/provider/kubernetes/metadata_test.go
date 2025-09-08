@@ -17,8 +17,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
 type K8sMetadataSuite struct {

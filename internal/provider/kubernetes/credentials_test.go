@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
 type credentialsSuite struct {

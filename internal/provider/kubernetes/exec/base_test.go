@@ -17,9 +17,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	execmocks "github.com/juju/juju/caas/kubernetes/provider/exec/mocks"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	execmocks "github.com/juju/juju/internal/provider/kubernetes/exec/mocks"
+	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	"github.com/juju/juju/testing"
 )
 

@@ -15,9 +15,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 type ingressSuite struct {

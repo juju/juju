@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/caas/kubernetes/provider/resources Resource,Applier
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/internal/provider/kubernetes/resources Resource,Applier
 
 const (
 	// JujuFieldManager marks the resource changes were made by Juju.

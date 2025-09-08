@@ -11,7 +11,7 @@ import (
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
 var _ = gc.Suite(&secretsSuite{})

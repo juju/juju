@@ -12,8 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 func getPodSpec368() corev1.PodSpec {

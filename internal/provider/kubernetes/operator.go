@@ -26,16 +26,16 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/storage"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/juju/osenv"
 )
 

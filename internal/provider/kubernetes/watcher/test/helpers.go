@@ -7,8 +7,8 @@ import (
 	jujuclock "github.com/juju/clock"
 	"k8s.io/client-go/tools/cache"
 
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 )
 
 func NewKubernetesTestWatcher() (k8swatcher.KubernetesNotifyWatcher, func()) {

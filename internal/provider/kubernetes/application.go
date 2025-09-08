@@ -5,7 +5,7 @@ package provider
 
 import (
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/internal/provider/kubernetes/application"
 )
 
 // Application returns an Application interface.

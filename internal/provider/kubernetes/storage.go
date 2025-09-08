@@ -16,11 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	"github.com/juju/juju/internal/provider/kubernetes/storage"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	jujustorage "github.com/juju/juju/storage"
 )
 

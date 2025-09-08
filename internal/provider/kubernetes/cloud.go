@@ -12,12 +12,12 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 // ClientConfigFuncGetter returns a function returning az reader that will read a k8s cluster config for a given cluster type

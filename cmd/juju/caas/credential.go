@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
 const rbacLabelKeyName = k8scloud.RBACLabelKeyName
