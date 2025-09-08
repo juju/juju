@@ -121,3 +121,8 @@ type taskStatus struct {
 type taskUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// objectStorePath represents the path from object store metadata.
+type objectStorePath struct {
+	Path string `db:"path"`
+}

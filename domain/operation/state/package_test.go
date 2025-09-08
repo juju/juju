@@ -182,3 +182,21 @@ func (s *baseSuite) insertOperationParameter(c *tc.C, operationUUID, key, value 
 INSERT INTO operation_parameter (operation_uuid, "key", value)
 VALUES (?, ?, ?)`, operationUUID, key, value)
 }
+
+// insertObjectStoreMetadata adds object store metadata to the database.
+func (s *baseSuite) insertObjectStoreMetadata(c *tc.C, uuid, sha256, sha384 string, size int, path string) {
+	s.runQuery(c, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)`, uuid, sha256, sha384, size)
+
+	s.runQuery(c, `
+INSERT INTO object_store_metadata_path (path, metadata_uuid)
+VALUES (?, ?)`, path, uuid)
+}
+
+// insertOperationTaskOutput links a task to its output in object store.
+func (s *baseSuite) insertOperationTaskOutput(c *tc.C, taskUUID, storeUUID string) {
+	s.runQuery(c, `
+INSERT INTO operation_task_output (task_uuid, store_uuid)
+VALUES (?, ?)`, taskUUID, storeUUID)
+}

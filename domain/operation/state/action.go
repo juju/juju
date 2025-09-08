@@ -17,27 +17,38 @@ import (
 )
 
 // GetAction returns the action identified by its task ID.
+// It returns the action as well as the path to its output in the object store,
+// if any. It's up to the caller to retrieve the actual output from the object
+// store.
 //
 // The following errors may be returned:
 // - [operationerrors.ActionNotFound] when the action does not exists.
-func (s *State) GetAction(ctx context.Context, taskID string) (operation.Action, error) {
+func (s *State) GetAction(ctx context.Context, taskID string) (operation.Action, string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return operation.Action{}, errors.Capture(err)
+		return operation.Action{}, "", errors.Capture(err)
 	}
 
-	var result operation.Action
+	var (
+		result     operation.Action
+		outputPath string
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 
 		result, err = s.getActionByTaskID(ctx, tx, taskID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		// Retrieve the output path, if any.
+		outputPath, err = s.getTaskOutput(ctx, tx, taskID)
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.Action{}, errors.Errorf("getting action %q: %w", taskID, err)
+		return operation.Action{}, "", errors.Errorf("getting action %q: %w", taskID, err)
 	}
 
-	return result, nil
+	return result, outputPath, nil
 }
 
 // CancelAction attempts to cancel an enqueued action, identified by its
@@ -116,8 +127,6 @@ func (s *State) getActionByTaskID(ctx context.Context, tx *sqlair.TX, taskID str
 	if err != nil {
 		return operation.Action{}, errors.Capture(err)
 	}
-
-	// TODO(nvinuesa): Retrieve task output contents
 
 	action, err := encodeAction(result, parameters, nil, logEntries)
 	if err != nil {
@@ -219,6 +228,31 @@ ORDER BY created_at ASC
 	}
 
 	return logEntries, nil
+}
+
+func (s *State) getTaskOutput(ctx context.Context, tx *sqlair.TX, taskID string) (string, error) {
+	ident := taskIdent{ID: taskID}
+
+	// Get the path from the object store metadata
+	pathQuery := `
+SELECT path AS &objectStorePath.path
+FROM   operation_task ot
+JOIN   operation_task_output oto ON ot.uuid = oto.task_uuid
+JOIN   v_object_store_metadata os ON oto.store_uuid = os.uuid
+WHERE  ot.task_id = $taskIdent.task_id
+`
+	pathStmt, err := s.Prepare(pathQuery, objectStorePath{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing object store path statement: %w", err)
+	}
+
+	var storePath objectStorePath
+	err = tx.Query(ctx, pathStmt, ident).Get(&storePath)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", errors.Errorf("querying object store path: %w", err)
+	}
+
+	return storePath.Path, nil
 }
 
 func encodeAction(ar actionResult, parameters []actionParameter, output []taskOutputParameter, logs []taskLogEntry) (operation.Action, error) {
