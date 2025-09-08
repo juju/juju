@@ -64,8 +64,8 @@ type OperationService interface {
 	// given parameters.
 	GetOperations(ctx context.Context, args operation.QueryArgs) (operation.QueryResult, error)
 
-	// GetOperationsByIDs returns a list of specified operations, identified by their IDs.
-	GetOperationsByIDs(ctx context.Context, operationIDs []string) (operation.QueryResult, error)
+	// GetOperationByID returns an operation by its ID.
+	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
 
 	// StartExecOperation creates an exec operation with tasks for various
 	// machines and units, using the provided parameters.
@@ -296,28 +296,31 @@ func makeOperationReceivers(applicationNames []string, machineNames []string, un
 // toOperationResults converts an operation.QueryResult to a params.OperationResults.
 func toOperationResults(result operation.QueryResult) params.OperationResults {
 	return params.OperationResults{
-		Results: transform.Slice(result.Operations, func(op operation.OperationInfo) params.OperationResult {
-			machineResult := transform.Slice(op.Machines, func(f operation.MachineTaskResult) params.ActionResult {
-				result := toActionResult(names.NewMachineTag(f.ReceiverName.String()), f.TaskInfo)
-				return result
-			})
-			unitResults := transform.Slice(op.Units, func(f operation.UnitTaskResult) params.ActionResult {
-				result := toActionResult(names.NewUnitTag(f.ReceiverName.String()), f.TaskInfo)
-				return result
-			})
-			return params.OperationResult{
-				OperationTag: names.NewOperationTag(op.OperationID).String(),
-				Summary:      op.Summary,
-				Fail:         op.Fail,
-				Enqueued:     op.Enqueued,
-				Started:      op.Started,
-				Completed:    op.Completed,
-				Status:       op.Status.String(),
-				Actions:      append(machineResult, unitResults...),
-				Error:        apiservererrors.ServerError(op.Error),
-			}
-		}),
+		Results:   transform.Slice(result.Operations, toOperationResult),
 		Truncated: result.Truncated,
+	}
+}
+
+// toOperationResult converts an operation.OperationInfo to a params.OperationResult.
+func toOperationResult(op operation.OperationInfo) params.OperationResult {
+	machineResult := transform.Slice(op.Machines, func(f operation.MachineTaskResult) params.ActionResult {
+		result := toActionResult(names.NewMachineTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+	unitResults := transform.Slice(op.Units, func(f operation.UnitTaskResult) params.ActionResult {
+		result := toActionResult(names.NewUnitTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+	return params.OperationResult{
+		OperationTag: names.NewOperationTag(op.OperationID).String(),
+		Summary:      op.Summary,
+		Fail:         op.Fail,
+		Enqueued:     op.Enqueued,
+		Started:      op.Started,
+		Completed:    op.Completed,
+		Status:       op.Status.String(),
+		Actions:      append(machineResult, unitResults...),
+		Error:        apiservererrors.ServerError(op.Error),
 	}
 }
 

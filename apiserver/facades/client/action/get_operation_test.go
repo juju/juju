@@ -375,7 +375,7 @@ func (s *getOperationSuite) TestOperations_PermissionDenied(c *tc.C) {
 		modeltesting.GenModelUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
 	// Ensure no call
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	_, err = api.Operations(c.Context(), toEntities("operation-1"))
@@ -391,7 +391,7 @@ func (s *getOperationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
 	// Arrange
 	api := s.NewActionAPI(c)
 	// No service call expected
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 	arg := toEntities("not-a-tag", "application-foo", "unit-app-0")
 
 	// Act
@@ -411,16 +411,14 @@ func (s *getOperationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).DoAndReturn(
-		func(ctx context.Context, ids []string) (operation.QueryResult, error) {
-			return operation.QueryResult{Operations: []operation.OperationInfo{{
-				OperationID: "1",
-				Summary:     "a",
-			}, {
-				OperationID: "2",
-				Summary:     "b",
-			}}}, nil
-		})
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "1").Return(operation.OperationInfo{
+		OperationID: "1",
+		Summary:     "a",
+	}, nil)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "2").Return(operation.OperationInfo{
+		OperationID: "2",
+		Summary:     "b",
+	}, nil)
 	arg := toEntities("operation-1", "bad-tag", "operation-2")
 
 	// Act
@@ -443,7 +441,7 @@ func (s *getOperationSuite) TestOperations_EmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), gomock.Any()).Times(0)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
 	res, err := api.Operations(c.Context(), params.Entities{})
@@ -458,106 +456,20 @@ func (s *getOperationSuite) TestOperations_ServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).Return(
-		operation.QueryResult{}, fmt.Errorf("boom"))
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "1").Return(
+		operation.OperationInfo{OperationID: "1"}, nil)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "2").Return(
+		operation.OperationInfo{OperationID: "2"}, fmt.Errorf("boom"))
 	arg := toEntities("operation-1", "operation-2")
 
 	// Act
-	_, err := api.Operations(c.Context(), arg)
-
-	// Assert
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
-// TestOperations_MappingOutOfOrder maps out-of-order service results to the
-// correct input positions by tag.
-func (s *getOperationSuite) TestOperations_MappingOutOfOrder(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2", "3"}).Return(
-		operation.QueryResult{Operations: []operation.OperationInfo{{
-			OperationID: "3",
-		}, {
-			OperationID: "1",
-		}, {
-			OperationID: "2",
-		}}}, nil)
-	arg := toEntities("operation-1", "operation-2", "operation-3")
-
-	// Act
 	res, err := api.Operations(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res.Results[0].OperationTag, tc.Equals, "operation-1")
-	c.Check(res.Results[1].OperationTag, tc.Equals, "operation-2")
-	c.Check(res.Results[2].OperationTag, tc.Equals, "operation-3")
-}
-
-// TestOperations_UnexpectedTag errors when the service returns an operation
-// not requested, by tag.
-func (s *getOperationSuite) TestOperations_UnexpectedTag(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1"}).Return(
-		operation.QueryResult{Operations: []operation.OperationInfo{{
-			OperationID: "999",
-		}}}, nil)
-	arg := toEntities("operation-1")
-
-	// Act
-	_, err := api.Operations(c.Context(), arg)
-
-	// Assert
-	c.Assert(err, tc.ErrorMatches, "unexpected result for \"operation-999\"")
-}
-
-// TestOperations_DuplicateTags validates the behavior of the operation API
-// when duplicate tags are provided in the request.
-func (s *getOperationSuite) TestOperations_DuplicateTags(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "1"}).Return(
-		operation.QueryResult{Operations: []operation.OperationInfo{{
-			OperationID: "1", // Only one operation to domain
-		}}}, nil)
-	arg := toEntities("operation-1", "operation-1")
-
-	// Act
-	res, err := api.Operations(c.Context(), arg)
-
-	// Assert: operation is duplicated in result
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res.Results[1].OperationTag, tc.Equals, "operation-1")
+	c.Assert(res.Results, tc.HasLen, 2)
 	c.Check(res.Results[0].Error, tc.IsNil)
-	c.Check(res.Results[0].OperationTag, tc.Equals, "operation-1")
-	c.Check(res.Results[0].Error, tc.IsNil)
-}
-
-// TestOperations_MissingServiceReturn allows missing returns without error.
-func (s *getOperationSuite) TestOperations_MissingServiceReturn(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	api := s.NewActionAPI(c)
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), []string{"1", "2"}).Return(
-		operation.QueryResult{Operations: []operation.OperationInfo{{
-			OperationID: "2",
-		}}}, nil)
-	arg := toEntities("bad", "operation-1", "operation-2", "also-bad")
-
-	// Act
-	res, err := api.Operations(c.Context(), arg)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res.Results[0].Error, tc.NotNil) // bad tag
-	c.Check(res.Results[1].OperationTag, tc.Equals, "")
-	c.Check(res.Results[1].Error, tc.ErrorMatches, ".*not found.*") // no results
-	c.Check(res.Results[2].OperationTag, tc.Equals, "operation-2")
-	c.Check(res.Results[3].Error, tc.NotNil) // bad tag
+	c.Check(res.Results[1].Error, tc.ErrorMatches, ".*boom.*")
 }
 
 // TestOperations_LargeBatch ensures stable mapping for many entries.
@@ -565,31 +477,21 @@ func (s *getOperationSuite) TestOperations_LargeBatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	ids := []string{"1", "2", "3", "4", "5", "6", "7", "8"}
-	s.OperationService.EXPECT().GetOperationsByIDs(gomock.Any(), ids).Return(
-		operation.QueryResult{
-			Operations: []operation.OperationInfo{
-				{OperationID: "8"},
-				{OperationID: "7"},
-				{OperationID: "6"},
-				{OperationID: "5"},
-				{OperationID: "4"},
-				{OperationID: "3"},
-				{OperationID: "2"},
-				{OperationID: "1"},
-			},
-		}, nil)
 	arg := toEntities(
 		"operation-1", "operation-2", "operation-3", "operation-4",
 		"operation-5", "operation-6", "operation-7", "operation-8",
 	)
+	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, s string) (operation.OperationInfo, error) {
+			return operation.OperationInfo{OperationID: s}, nil
+		}).Times(len(arg.Entities))
 
 	// Act
 	res, err := api.Operations(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	for i := 1; i <= 8; i++ {
+	for i := 1; i < len(arg.Entities); i++ {
 		c.Check(res.Results[i-1].OperationTag, tc.Equals, fmt.Sprintf("operation-%d", i))
 	}
 }

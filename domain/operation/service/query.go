@@ -16,7 +16,7 @@ func (s *Service) GetOperations(ctx context.Context, params operation.QueryArgs)
 	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
 }
 
-// GetOperationsByIDs returns a list of specified operations, identified by their IDs.
-func (s *Service) GetOperationsByIDs(ctx context.Context, operationIDs []string) (operation.QueryResult, error) {
-	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
+// GetOperationByID returns an operation by its ID.
+func (s *Service) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
+	return operation.OperationInfo{}, errors.New("actions in Dqlite not supported")
 }
