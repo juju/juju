@@ -45,12 +45,12 @@ type ModificationStatusGetter interface {
 }
 
 const (
-	// Status values common to machine and unit agents, and actions.
+	// Status values common to machine and unit agents, and tasks.
 
 	// Error means the entity requires human intervention
 	// in order to operate correctly.
 	//
-	// The action did not get run due to an error.
+	// The task did not get run due to an error.
 	Error Status = "error"
 )
 
@@ -67,13 +67,13 @@ const (
 )
 
 const (
-	// Status values specific to machine agents and actions.
+	// Status values specific to machine agents and tasks.
 
 	// Pending is set when:
 	//
 	// The machine is not yet participating in the model.
 	//
-	// The action first is queued.
+	// The task first is queued.
 	Pending Status = "pending"
 )
 
@@ -92,7 +92,7 @@ const (
 )
 
 const (
-	// Status values specific to unit agents and actions.
+	// Status values specific to unit agents and tasks.
 
 	// Failed is set when:
 	//
@@ -100,7 +100,7 @@ const (
 	// activity, but it cannot be detected. It might also be that the unit agent
 	// detected an unrecoverable condition and managed to tell the Juju server about it.
 	//
-	// The action did not complete successfully.
+	// The task did not completed successfully.
 	Failed Status = "failed"
 )
 
@@ -118,8 +118,8 @@ const (
 	Rebooting Status = "rebooting"
 
 	// Executing is set when:
-	// The agent is running a hook or action. The human-readable message should reflect
-	// which hook or action is being run.
+	// The agent is running a hook or task. The human-readable message should reflect
+	// which hook or task is being run.
 	Executing Status = "executing"
 
 	// Idle is set when:
@@ -231,19 +231,22 @@ const (
 )
 
 const (
-	// Status values specific to actions.
+	// Status values specific to tasks. The combined status of an operation's
+	// tasks result in the operation's status.
 
-	// Completed indicates that the action ran to completion as intended.
+	// Completed indicates that the task ran to completion as intended.
 	Completed Status = "completed"
 
-	// Cancelled means that the Action was cancelled before being run.
+	// Cancelled means that the task was cancelled before being run.
 	Cancelled Status = "cancelled"
 
-	// Aborting indicates that the Action is running but should be
+	// Aborting indicates that the task is running but should be
 	// aborted.
 	Aborting Status = "aborting"
 
-	// Aborted indicates the Action was aborted.
+	// Aborted indicates the task was aborted.
+	// TODO: is this really used? What is the difference between aborted
+	// and cancelled?
 	Aborted Status = "aborted"
 )
 
@@ -257,7 +260,7 @@ const (
 )
 
 const (
-	// Status values that are common to instances and actions.
+	// Status values that are common to instances and tasks.
 
 	// Running indicates that the entity is currently running.
 	Running Status = "running"
@@ -322,6 +325,24 @@ func (s Status) KnownMachineStatus() bool {
 		Pending,
 		Stopped,
 		Down:
+		return true
+	}
+	return false
+}
+
+// KnownTaskStatus returns true if status has a known value for
+// a task or operation.
+func (s Status) KnownTaskStatus() bool {
+	switch s {
+	case
+		Aborting,
+		Aborted,
+		Cancelled,
+		Completed,
+		Error,
+		Failed,
+		Pending,
+		Running:
 		return true
 	}
 	return false

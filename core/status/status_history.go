@@ -95,6 +95,8 @@ const (
 	KindFilesystem HistoryKind = "filesystem"
 	// KindVolume represents an entry for a volume.
 	KindVolume HistoryKind = "volume"
+	// KindTask represents a task in an operation.
+	KindTask HistoryKind = "task"
 )
 
 // String returns a string representation of the HistoryKind.
@@ -109,7 +111,7 @@ func (k HistoryKind) Valid() bool {
 		KindApplication, KindSAAS,
 		KindMachineInstance, KindMachine,
 		KindContainerInstance, KindContainer,
-		KindFilesystem, KindVolume:
+		KindFilesystem, KindVolume, KindTask:
 		return true
 	}
 	return false
@@ -130,5 +132,6 @@ func AllHistoryKind() map[HistoryKind]string {
 		KindContainer:         "statuses from the containers only and not their host machines",
 		KindFilesystem:        "statuses from the specified filesystem",
 		KindVolume:            "statuses from the specified volume",
+		KindTask:              "statuses for the task",
 	}
 }

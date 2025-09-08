@@ -150,6 +150,57 @@ func (s *StatusSuite) TestKnownInstanceStatus(c *tc.C) {
 	}
 }
 
+// TestKnownTaskStatus asserts that the KnownTaskStatus method checks
+// for the correct statuses for instances.
+func (s *StatusSuite) TestKnownTaskStatus(c *tc.C) {
+	for _, t := range []struct {
+		status status.Status
+		known  bool
+	}{
+		{status.Active, false},
+		{status.Allocating, false},
+		{status.Attached, false},
+		{status.Attaching, false},
+		{status.Available, false},
+		{status.Blocked, false},
+		{status.Broken, false},
+		{status.Busy, false},
+		{status.Destroying, false},
+		{status.Detached, false},
+		{status.Detaching, false},
+		{status.Down, false},
+		{status.Empty, false},
+		{status.Executing, false},
+		{status.Idle, false},
+		{status.Joined, false},
+		{status.Joining, false},
+		{status.Lost, false},
+		{status.Maintenance, false},
+		{status.Provisioning, false},
+		{status.ProvisioningError, false},
+		{status.Rebooting, false},
+		{status.Suspended, false},
+		{status.Suspending, false},
+		{status.Started, false},
+		{status.Stopped, false},
+		{status.Terminated, false},
+		{status.Waiting, false},
+		{status.Unknown, false},
+		{status.Unset, false},
+
+		{status.Aborting, true},
+		{status.Aborted, true},
+		{status.Cancelled, true},
+		{status.Completed, true},
+		{status.Error, true},
+		{status.Failed, true},
+		{status.Pending, true},
+		{status.Running, true},
+	} {
+		c.Check(t.status.KnownTaskStatus(), tc.Equals, t.known, tc.Commentf("checking status %q", t.status))
+	}
+}
+
 // TestKnownMachineStatus asserts that the KnownMachineStatus method checks for the correct statuses for machines.
 func (s *StatusSuite) TestKnownMachineStatus(c *tc.C) {
 	for _, t := range []struct {
