@@ -403,7 +403,7 @@ func (c *MockOperationServiceStartActionOperationCall) DoAndReturn(f func(contex
 }
 
 // StartExecOperation mocks base method.
-func (m *MockOperationService) StartExecOperation(arg0 context.Context, arg1 operation.Target, arg2 operation.ExecArgs) (operation.RunResult, error) {
+func (m *MockOperationService) StartExecOperation(arg0 context.Context, arg1 operation.Receivers, arg2 operation.ExecArgs) (operation.RunResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartExecOperation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(operation.RunResult)
@@ -430,13 +430,13 @@ func (c *MockOperationServiceStartExecOperationCall) Return(arg0 operation.RunRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceStartExecOperationCall) Do(f func(context.Context, operation.Target, operation.ExecArgs) (operation.RunResult, error)) *MockOperationServiceStartExecOperationCall {
+func (c *MockOperationServiceStartExecOperationCall) Do(f func(context.Context, operation.Receivers, operation.ExecArgs) (operation.RunResult, error)) *MockOperationServiceStartExecOperationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceStartExecOperationCall) DoAndReturn(f func(context.Context, operation.Target, operation.ExecArgs) (operation.RunResult, error)) *MockOperationServiceStartExecOperationCall {
+func (c *MockOperationServiceStartExecOperationCall) DoAndReturn(f func(context.Context, operation.Receivers, operation.ExecArgs) (operation.RunResult, error)) *MockOperationServiceStartExecOperationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

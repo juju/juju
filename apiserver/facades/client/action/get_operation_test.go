@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/rpc/params"
@@ -58,9 +60,9 @@ func (s *getOperationSuite) TestListOperations_NoFilters(c *tc.C) {
 	api := s.NewActionAPI(c)
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Target.Applications, tc.HasLen, 0)
-			c.Check(qp.Target.Machines, tc.HasLen, 0)
-			c.Check(qp.Target.Units, tc.HasLen, 0)
+			c.Check(qp.Receivers.Applications, tc.HasLen, 0)
+			c.Check(qp.Receivers.Machines, tc.HasLen, 0)
+			c.Check(qp.Receivers.Units, tc.HasLen, 0)
 			c.Check(qp.ActionNames, tc.IsNil)
 			c.Check(qp.Status, tc.IsNil)
 			c.Check(qp.Limit, tc.IsNil)
@@ -76,7 +78,7 @@ func (s *getOperationSuite) TestListOperations_NoFilters(c *tc.C) {
 }
 
 // TestListOperations_ApplicationsFilter ensures application names flow into
-// Target.Applications.
+// Receivers.Applications.
 func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
@@ -84,7 +86,7 @@ func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 	apps := []string{"app-a", "app-b"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Target.Applications, tc.DeepEquals, apps)
+			c.Check(qp.Receivers.Applications, tc.DeepEquals, apps)
 			return operation.QueryResult{}, nil
 		})
 
@@ -96,7 +98,7 @@ func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 }
 
 // TestListOperations_UnitsFilter verifies string unit names convert to
-// []unit.Name in Target.Units.
+// []unit.Name in Receivers.Units.
 func (s *getOperationSuite) TestListOperations_UnitsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
@@ -104,7 +106,7 @@ func (s *getOperationSuite) TestListOperations_UnitsFilter(c *tc.C) {
 	units := []string{"app-a/0", "app-b/3"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Target.Units, tc.DeepEquals, []unit.Name{"app-a/0", "app-b/3"})
+			c.Check(qp.Receivers.Units, tc.DeepEquals, []unit.Name{"app-a/0", "app-b/3"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -123,7 +125,7 @@ func (s *getOperationSuite) TestListOperations_MachinesFilter(c *tc.C) {
 	machines := []string{"0", "42"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Target.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
+			c.Check(qp.Receivers.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -154,14 +156,15 @@ func (s *getOperationSuite) TestListOperations_StatusFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	status := []string{"running", "completed"}
+	status := []corestatus.Status{"running", "completed"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
 			c.Check(qp.Status, tc.DeepEquals, status)
 			return operation.QueryResult{}, nil
 		})
 	// Act
-	_, err := api.ListOperations(c.Context(), params.OperationQueryArgs{Status: status})
+	_, err := api.ListOperations(c.Context(), params.OperationQueryArgs{
+		Status: transform.Slice(status, corestatus.Status.String)})
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -195,14 +198,14 @@ func (s *getOperationSuite) TestListOperations_CombinedFilters(c *tc.C) {
 	units := []string{"a/0"}
 	machines := []string{"1"}
 	actionNames := []string{"do"}
-	status := []string{"running"}
+	status := []corestatus.Status{"running"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Target.Applications, tc.DeepEquals, apps)
+			c.Check(qp.Receivers.Applications, tc.DeepEquals, apps)
 			c.Check(qp.ActionNames, tc.DeepEquals, actionNames)
 			c.Check(qp.Status, tc.DeepEquals, status)
-			c.Check(qp.Target.Units, tc.DeepEquals, []unit.Name{"a/0"})
-			c.Check(qp.Target.Machines, tc.DeepEquals, []machine.Name{"1"})
+			c.Check(qp.Receivers.Units, tc.DeepEquals, []unit.Name{"a/0"})
+			c.Check(qp.Receivers.Machines, tc.DeepEquals, []machine.Name{"1"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -211,7 +214,7 @@ func (s *getOperationSuite) TestListOperations_CombinedFilters(c *tc.C) {
 		Units:        units,
 		Machines:     machines,
 		ActionNames:  actionNames,
-		Status:       status})
+		Status:       transform.Slice(status, corestatus.Status.String)})
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }

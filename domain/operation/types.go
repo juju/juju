@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/machine"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -30,9 +31,9 @@ type CompletedTaskResult struct {
 
 // QueryArgs represents the parameters used for querying operations.
 type QueryArgs struct {
-	// Target defines a filter on which target(s) we want to retrieve operations.
-	// if empty, operations from all targets will be retrieved.
-	Target
+	// Receivers defines a filter on which receiver(s) we want to retrieve operations.
+	// if empty, operations from all receivers will be retrieved.
+	Receivers
 
 	// ActionNames defines which specific action names we want to retrieve.
 	// If empty, all operations will be retrieved among exec or actions operations
@@ -40,7 +41,7 @@ type QueryArgs struct {
 
 	// Status defines which specific status we want to retrieve.
 	// If empty, operations with any status will be retrieved.
-	Status []string
+	Status []corestatus.Status
 
 	// These attributes are used to support client side
 	// batching of results.
@@ -48,7 +49,7 @@ type QueryArgs struct {
 	Offset *int
 }
 
-// QueryResult represents the result of a query operation.
+// QueryResult contains the result of a query request for operations.
 type QueryResult struct {
 	Operations []OperationInfo
 	Truncated  bool
@@ -62,14 +63,18 @@ type OperationInfo struct {
 	Enqueued    time.Time
 	Started     time.Time
 	Completed   time.Time
-	Status      string
+	Status      corestatus.Status
 	Machines    []MachineTaskResult
 	Units       []UnitTaskResult
-	Truncated   bool
-	Error       error
+
+	// Truncated indicates that there are more results to be fetched, but the whole
+	// result set has been truncated to either the limit passed as a query
+	// parameter or the default limit on the server side.
+	Truncated bool
+	Error     error
 }
 
-// ExecArgs represents the parameters used for running exec.
+// ExecArgs represents the parameters used for running exec commands.
 type ExecArgs struct {
 	Command        string
 	Timeout        time.Duration
@@ -79,7 +84,7 @@ type ExecArgs struct {
 
 // ActionArgs represents the parameters used for running actions.
 type ActionArgs struct {
-	ActionTarget
+	ActionReceiver
 	TaskArgs
 }
 
@@ -131,17 +136,17 @@ type TaskLog struct {
 	Message   string
 }
 
-// Target represents various targets for operations.
-type Target struct {
+// Receivers represents various receivers for operations.
+type Receivers struct {
 	Applications []string
 	Machines     []machine.Name
 	Units        []unit.Name
 	LeaderUnit   []string
 }
 
-// ActionTarget allows running an action on a specific unit or a leader unit of an application
+// ActionReceiver allows running an action on a specific unit or a leader unit of an application
 // only one of both fields should be set.
-type ActionTarget struct {
+type ActionReceiver struct {
 	Unit       unit.Name
 	LeaderUnit string
 }

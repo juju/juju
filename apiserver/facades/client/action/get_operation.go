@@ -6,25 +6,33 @@ package action
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-// ListOperations fetches the called actions for specified apps/units.
+// ListOperations fetches the called operations for specified apps/units.
 func (a *ActionAPI) ListOperations(ctx context.Context, arg params.OperationQueryArgs) (params.OperationResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.OperationResults{}, errors.Capture(err)
 	}
 
+	var status []corestatus.Status
+	if arg.Status != nil {
+		status = transform.Slice(arg.Status, func(f string) corestatus.Status {
+			return corestatus.Status(f)
+		})
+	}
 	args := operation.QueryArgs{
-		Target:      makeOperationTarget(arg.Applications, arg.Machines, arg.Units),
+		Receivers:   makeOperationReceivers(arg.Applications, arg.Machines, arg.Units),
 		ActionNames: arg.ActionNames,
-		Status:      arg.Status,
+		Status:      status,
 		Limit:       arg.Limit,
 		Offset:      arg.Offset,
 	}

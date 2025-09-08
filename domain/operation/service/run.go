@@ -12,18 +12,19 @@ import (
 
 // StartExecOperation creates an exec operation with tasks for various machines and units,
 // using the provided parameters.
-func (s *Service) StartExecOperation(ctx context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error) {
-	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
+func (s *Service) StartExecOperation(ctx context.Context, target operation.Receivers,
+	args operation.ExecArgs) (operation.RunResult, error) {
+	return operation.RunResult{}, errors.New("operations in Dqlite not supported")
 }
 
 // StartExecOperationOnAllMachines creates an exec operation with tasks based
 // on the provided parameters on all machines.
 func (s *Service) StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error) {
-	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
+	return operation.RunResult{}, errors.New("operations in Dqlite not supported")
 }
 
 // StartActionOperation creates an action operation with tasks for various
 // units using the provided parameters.
 func (s *Service) StartActionOperation(ctx context.Context, args []operation.ActionArgs) (operation.RunResult, error) {
-	return operation.RunResult{}, errors.New("actions in Dqlite not supported")
+	return operation.RunResult{}, errors.New("operations in Dqlite not supported")
 }

@@ -48,8 +48,8 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 			receiver := strings.TrimSuffix(action.Receiver, leader)
 			actionResultByUnitName[action.Receiver] = &actionResults[i]
 			runParams = append(runParams, operation.ActionArgs{
-				ActionTarget: operation.ActionTarget{LeaderUnit: receiver},
-				TaskArgs:     taskParams,
+				ActionReceiver: operation.ActionReceiver{LeaderUnit: receiver},
+				TaskArgs:       taskParams,
 			})
 			continue
 		}
@@ -61,7 +61,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		}
 		actionResultByUnitName[unitTag.Id()] = &actionResults[i]
 		runParams = append(runParams, operation.ActionArgs{
-			ActionTarget: operation.ActionTarget{
+			ActionReceiver: operation.ActionReceiver{
 				Unit: unit.Name(unitTag.Id()),
 			},
 			TaskArgs: taskParams,
@@ -113,7 +113,7 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 		return results, errors.Capture(err)
 	}
 
-	target := makeOperationTarget(run.Applications, run.Machines, run.Units)
+	target := makeOperationReceivers(run.Applications, run.Machines, run.Units)
 	args, err := newOperationTaskParams(run)
 	if err != nil {
 		return results, errors.Capture(err)

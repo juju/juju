@@ -69,7 +69,7 @@ type OperationService interface {
 
 	// StartExecOperation creates an exec operation with tasks for various
 	// machines and units, using the provided parameters.
-	StartExecOperation(ctx context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error)
+	StartExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
 
 	// StartExecOperationOnAllMachines creates an exec operation
 	// based on the provided parameters on all machines.
@@ -283,9 +283,9 @@ func makeActionResult(action operation.Action) params.ActionResult {
 	return result
 }
 
-// makeOperationTarget creates a Target from the given application names, machine names and unit names.
-func makeOperationTarget(applicationNames []string, machineNames []string, unitNames []string) operation.Target {
-	return operation.Target{
+// makeOperationReceivers creates a Receivers from the given application names, machine names and unit names.
+func makeOperationReceivers(applicationNames []string, machineNames []string, unitNames []string) operation.Receivers {
+	return operation.Receivers{
 		Applications: applicationNames,
 		Machines:     transform.Slice(machineNames, as[machine.Name]),
 		Units:        transform.Slice(unitNames, as[unit.Name]),
@@ -311,7 +311,7 @@ func toOperationResults(result operation.QueryResult) params.OperationResults {
 				Enqueued:     op.Enqueued,
 				Started:      op.Started,
 				Completed:    op.Completed,
-				Status:       op.Status,
+				Status:       op.Status.String(),
 				Actions:      append(machineResult, unitResults...),
 				Error:        apiservererrors.ServerError(op.Error),
 			}

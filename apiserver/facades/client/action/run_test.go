@@ -82,7 +82,7 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 		ExecutionGroup: "grp",
 	}
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionTarget: operation.ActionTarget{
+		ActionReceiver: operation.ActionReceiver{
 			Unit: "app/0",
 		},
 		TaskArgs: taskArgs,
@@ -129,7 +129,7 @@ func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
 		ActionName: "do",
 	}
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionTarget: operation.ActionTarget{
+		ActionReceiver: operation.ActionReceiver{
 			LeaderUnit: "myapp",
 		},
 		TaskArgs: taskArgs,
@@ -169,7 +169,7 @@ func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
 		ExecutionGroup: "", // defaulted to ""
 	}
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), []operation.ActionArgs{{
-		ActionTarget: operation.ActionTarget{
+		ActionReceiver: operation.ActionReceiver{
 			Unit: "app/0",
 		},
 		TaskArgs: taskArgs,
@@ -436,7 +436,7 @@ func (s *runSuite) TestRun_SuccessMapping(c *tc.C) {
 		ExecutionGroup: ptr("eg-1"),
 	}
 	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, target operation.Target, args operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error) {
 			c.Check(target.Applications, tc.DeepEquals, []string{"a1", "a2"})
 			c.Check(target.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
 			c.Check(target.Units, tc.DeepEquals, []unit.Name{"app/1", "db/0"})
@@ -537,7 +537,7 @@ func (s *runSuite) TestRun_EmptyTarget(c *tc.C) {
 	// Arrange
 	api := s.NewActionAPI(c)
 	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, target operation.Target, _ operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, target operation.Receivers, _ operation.ExecArgs) (operation.RunResult, error) {
 			c.Check(target.Applications, tc.HasLen, 0)
 			c.Check(target.Machines, tc.HasLen, 0)
 			c.Check(target.Units, tc.HasLen, 0)
