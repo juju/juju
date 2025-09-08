@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -165,8 +164,6 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
-	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
-	s.st.EXPECT().IsController().Return(false)
 
 	rules, err := s.api.ModelFirewallRules()
 
@@ -185,25 +182,11 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	})
 	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
 
-	ctrlAttrs := map[string]interface{}{
-		controller.APIPort:            17777,
-		controller.AutocertDNSNameKey: "example.com",
-	}
-	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
-	s.st.EXPECT().IsController().Return(true)
-
 	rules, err := s.api.ModelFirewallRules()
-
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-	}, {
-		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("17777")),
-		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
-	}, {
-		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("80")),
-		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
 	}}})
 }
 
