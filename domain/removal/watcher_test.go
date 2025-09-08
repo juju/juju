@@ -155,7 +155,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		// Removing a unit also removes the machine, as it's the last unit
 		// on the machine.
-		_, err := svc.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, 0)
+		_, err := svc.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, false, 0)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert(
