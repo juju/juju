@@ -31,6 +31,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/internal/crossmodel"
+	handlerscrossmodel "github.com/juju/juju/apiserver/internal/handlers/crossmodel"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
 	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
@@ -103,6 +105,8 @@ type Server struct {
 	connectionID     uint64
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
+
+	offerAuthContext *crossmodel.AuthContext
 
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	logSink                corelogger.ModelLogger
@@ -855,6 +859,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
 	}, "register")
+
+	// HTTP handler for application offer macaroon authentication.
+	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.offerAuthContext, srv.mux); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	handlers := []handler{{
 		pattern: modelRoutePrefix + "/log",
