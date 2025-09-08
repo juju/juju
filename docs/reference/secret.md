@@ -12,7 +12,7 @@ In Juju, (starting with Juju 3.0) a **secret** is a sensitive bit of information
 (charm-secret)=
 ### Charm secret
 
-```{versionadded} `3.0.0`
+```{versionadded} 3.0.0
 ```
 
 A **charm secret** is a secret created by a charm. A charm secret is shared with another charm (the secret 'observer') over relation data. The secret is tied to the lifecycle of the relation.
