@@ -5,22 +5,25 @@ package crossmodel
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/yaml.v3"
-	"k8s.io/utils/clock"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -118,7 +121,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(ctx context.Context, caveat string)
 	var details offerAccessDetails
 	err = yaml.Unmarshal([]byte(rest), &details)
 	if err != nil {
-		return OfferAccessDetails{}, errors.Trace(err)
+		return OfferAccessDetails{}, internalerrors.Errorf("unmarshalling offer access caveat details: %w", err).Add(coreerrors.NotValid)
 	}
 
 	a.logger.Debugf(ctx, "offer access caveat details: %+v", details)
@@ -167,8 +170,10 @@ func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.
 }
 
 func (a *AuthContext) checkOfferAccess(ctx context.Context, userAccess common.UserAccessFunc, username, offerUUID string) error {
+	fmt.Println("HERE 1")
 	userTag := names.NewUserTag(username)
 	isAdmin, err := hasAccess(ctx, userAccess, userTag, permission.SuperuserAccess, a.controllerTag)
+	fmt.Println("HERE 1", isAdmin, err)
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	} else if isAdmin {
