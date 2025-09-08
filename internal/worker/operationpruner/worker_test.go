@@ -77,8 +77,10 @@ func (s *workerSuite) TestPrunesAfterBothConfigValues(c *tc.C) {
 
 	mocked.expectModelConfig(c, "1h", "20M").Times(1)
 
-	// Expect one prune call after timer fires with the values above.
-	wait := mocked.expectPruneOperation(c, time.Hour, 20)
+	// Expect two prune calls:
+	// - One for changing the values at once,
+	// - One because we wait for it
+	wait := mocked.expectPruneOperation(c, time.Hour, 20, 2)
 	defer wait()
 
 	// Emit changes
@@ -88,13 +90,16 @@ func (s *workerSuite) TestPrunesAfterBothConfigValues(c *tc.C) {
 	mocked.advancePruneInterval(c)
 }
 
-func (w *workerMocks) expectPruneOperation(c *tc.C, duration time.Duration, sizeMB int) (waitForMe func()) {
+func (w *workerMocks) expectPruneOperation(c *tc.C, duration time.Duration, sizeMB int, times int) (waitForMe func()) {
 	waitForIt := make(chan struct{})
 	w.operationService.EXPECT().PruneOperations(gomock.Any(), duration, sizeMB).DoAndReturn(
 		func(ctx context.Context, duration time.Duration, sizeMB int) error {
-			close(waitForIt)
+			times--
+			if times == 0 {
+				close(waitForIt)
+			}
 			return nil
-		}).Times(1)
+		}).Times(times)
 	return func() {
 		select {
 		case <-waitForIt:
@@ -115,8 +120,10 @@ func (s *workerSuite) TestPrunesAfterBothConfigValuesSequentially(c *tc.C) {
 
 	mocked.expectModelConfig(c, "1h", "20M").Times(2) // called twice
 
-	// Expect one prune call after timer fires with the values above.
-	wait := mocked.expectPruneOperation(c, time.Hour, 20)
+	// Expect three prune calls:
+	// - two for changing the values one after another,
+	// - One because we wait for it
+	wait := mocked.expectPruneOperation(c, time.Hour, 20, 3)
 	defer wait()
 
 	// Emit changes one by one

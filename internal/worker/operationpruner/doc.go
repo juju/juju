@@ -32,7 +32,8 @@
 //  2. Reads the initial MaxActionResultsAge and MaxActionResultsSizeMB.
 //  3. On each tick of the prune interval, calls OperationService.PruneOperations
 //     with the latest limits.
-//  4. Updates limits whenever the relevant model config keys change.
+//  4. Updates limits whenever the relevant model config keys change, and then
+//     trigger a new prune operation.
 //
 // # Integration
 //

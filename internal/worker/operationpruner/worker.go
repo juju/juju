@@ -165,16 +165,29 @@ func (w *prunerWorker) loop() error {
 				return errors.Errorf("getting model config: %w", err)
 			}
 			w.updateConfig(ctx, cfg)
-		case <-pruneTimer.Chan():
-			err := w.config.OperationService.PruneOperations(ctx,
-				w.maxAge, w.maxSizeMB)
+			err = w.doPrune(ctx, pruneTimer)
 			if err != nil {
 				return errors.Capture(err)
 			}
-			w.lastPrune = w.config.Clock.Now()
-			pruneTimer.Reset(w.nextPruneInterval(ctx))
+		case <-pruneTimer.Chan():
+			err = w.doPrune(ctx, pruneTimer)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 	}
+}
+
+// doPrune prunes operations.
+func (w *prunerWorker) doPrune(ctx context.Context, pruneTimer clock.Timer) error {
+	err := w.config.OperationService.PruneOperations(ctx,
+		w.maxAge, w.maxSizeMB)
+	if err != nil {
+		return errors.Errorf("pruning operations: %w", err)
+	}
+	w.lastPrune = w.config.Clock.Now()
+	pruneTimer.Reset(w.nextPruneInterval(ctx))
+	return nil
 }
 
 // nextPruneInterval returns a jittered duration for the next prune interval.
