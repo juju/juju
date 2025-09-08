@@ -107,9 +107,9 @@ func IsEmpty(dev blockdevice.BlockDevice) bool {
 		dev.FilesystemType == "" &&
 		dev.HardwareId == "" &&
 		dev.InUse == false &&
-		dev.Label == "" &&
+		dev.FilesystemLabel == "" &&
 		dev.MountPoint == "" &&
 		dev.SizeMiB == 0 &&
-		dev.UUID == "" &&
+		dev.FilesystemUUID == "" &&
 		dev.WWN == ""
 }

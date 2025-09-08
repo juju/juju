@@ -1313,8 +1313,8 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 		result := params.BlockDevice{
 			DeviceName:     bd.DeviceName,
 			DeviceLinks:    bd.DeviceLinks,
-			Label:          bd.Label,
-			UUID:           bd.UUID,
+			Label:          bd.FilesystemLabel,
+			UUID:           bd.FilesystemUUID,
 			HardwareId:     bd.HardwareId,
 			WWN:            bd.WWN,
 			BusAddress:     bd.BusAddress,
@@ -1978,18 +1978,18 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		}
 
 		blockDeviceInfo := blockdevice.BlockDevice{
-			DeviceName:     vp.BlockDevice.DeviceName,
-			DeviceLinks:    vp.BlockDevice.DeviceLinks,
-			Label:          vp.BlockDevice.Label,
-			UUID:           vp.BlockDevice.UUID,
-			HardwareId:     vp.BlockDevice.HardwareId,
-			WWN:            vp.BlockDevice.WWN,
-			BusAddress:     vp.BlockDevice.BusAddress,
-			SizeMiB:        vp.BlockDevice.SizeMiB,
-			FilesystemType: vp.BlockDevice.FilesystemType,
-			InUse:          vp.BlockDevice.InUse,
-			MountPoint:     vp.BlockDevice.MountPoint,
-			SerialId:       vp.BlockDevice.SerialId,
+			DeviceName:      vp.BlockDevice.DeviceName,
+			DeviceLinks:     vp.BlockDevice.DeviceLinks,
+			FilesystemLabel: vp.BlockDevice.Label,
+			FilesystemUUID:  vp.BlockDevice.UUID,
+			HardwareId:      vp.BlockDevice.HardwareId,
+			WWN:             vp.BlockDevice.WWN,
+			BusAddress:      vp.BlockDevice.BusAddress,
+			SizeMiB:         vp.BlockDevice.SizeMiB,
+			FilesystemType:  vp.BlockDevice.FilesystemType,
+			InUse:           vp.BlockDevice.InUse,
+			MountPoint:      vp.BlockDevice.MountPoint,
+			SerialId:        vp.BlockDevice.SerialId,
 		}
 
 		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(

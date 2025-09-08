@@ -67,18 +67,18 @@ func blockDevicesFromParams(in []params.BlockDevice) []blockdevice.BlockDevice {
 	out := make([]blockdevice.BlockDevice, len(in))
 	for i, d := range in {
 		out[i] = blockdevice.BlockDevice{
-			DeviceName:     d.DeviceName,
-			DeviceLinks:    d.DeviceLinks,
-			Label:          d.Label,
-			UUID:           d.UUID,
-			HardwareId:     d.HardwareId,
-			WWN:            d.WWN,
-			BusAddress:     d.BusAddress,
-			SizeMiB:        d.SizeMiB,
-			FilesystemType: d.FilesystemType,
-			InUse:          d.InUse,
-			MountPoint:     d.MountPoint,
-			SerialId:       d.SerialId,
+			DeviceName:      d.DeviceName,
+			DeviceLinks:     d.DeviceLinks,
+			FilesystemLabel: d.Label,
+			FilesystemUUID:  d.UUID,
+			HardwareId:      d.HardwareId,
+			WWN:             d.WWN,
+			BusAddress:      d.BusAddress,
+			SizeMiB:         d.SizeMiB,
+			FilesystemType:  d.FilesystemType,
+			InUse:           d.InUse,
+			MountPoint:      d.MountPoint,
+			SerialId:        d.SerialId,
 		}
 	}
 	return out

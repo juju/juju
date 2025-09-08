@@ -62,8 +62,8 @@ func blockDevicesToParams(in []blockdevice.BlockDevice) []params.BlockDevice {
 		out[i] = params.BlockDevice{
 			DeviceName:     d.DeviceName,
 			DeviceLinks:    d.DeviceLinks,
-			Label:          d.Label,
-			UUID:           d.UUID,
+			Label:          d.FilesystemLabel,
+			UUID:           d.FilesystemUUID,
 			HardwareId:     d.HardwareId,
 			WWN:            d.WWN,
 			BusAddress:     d.BusAddress,

@@ -51,17 +51,17 @@ func (s *stateSuite) TestDeleteMachine(c *tc.C) {
 	_, machineName := s.addMachine(c)
 
 	bd := blockdevice.BlockDevice{
-		DeviceName:     "name-666",
-		Label:          "label-666",
-		UUID:           "device-666",
-		HardwareId:     "hardware-666",
-		WWN:            "wwn-666",
-		BusAddress:     "bus-666",
-		SizeMiB:        666,
-		FilesystemType: "btrfs",
-		InUse:          true,
-		MountPoint:     "mount-666",
-		SerialId:       "serial-666",
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
 	}
 	bdUUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, bdUUID, string(machineName))
@@ -91,7 +91,7 @@ func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, bloc
 	_, err := db.ExecContext(c.Context(), `
 INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use, machine_uuid)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE name=?))
-`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse, machineName)
+`, blockDeviceUUID, bd.DeviceName, bd.FilesystemLabel, bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse, machineName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {

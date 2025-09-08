@@ -82,9 +82,9 @@ func listBlockDevices(ctx context.Context) ([]blockdevice.BlockDevice, error) {
 					dev.SizeMiB = size / bytesInMiB
 				}
 			case "LABEL":
-				dev.Label = pair[2]
+				dev.FilesystemLabel = pair[2]
 			case "UUID":
-				dev.UUID = pair[2]
+				dev.FilesystemUUID = pair[2]
 			case "FSTYPE":
 				dev.FilesystemType = pair[2]
 			case "TYPE":

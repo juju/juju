@@ -31,8 +31,8 @@ func BlockDevicePath(device BlockDevice) (string, error) {
 		// return the first device link in the list
 		return device.DeviceLinks[0], nil
 	}
-	if device.UUID != "" {
-		return path.Join(diskByUUID, device.UUID), nil
+	if device.FilesystemUUID != "" {
+		return path.Join(diskByUUID, device.FilesystemUUID), nil
 	}
 	if device.DeviceName != "" {
 		return path.Join(diskByDeviceName, device.DeviceName), nil

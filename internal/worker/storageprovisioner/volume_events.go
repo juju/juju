@@ -148,8 +148,8 @@ func blockDeviceToParams(in blockdevice.BlockDevice) *params.BlockDevice {
 	return &params.BlockDevice{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,
-		Label:          in.Label,
-		UUID:           in.UUID,
+		Label:          in.FilesystemLabel,
+		UUID:           in.FilesystemUUID,
 		HardwareId:     in.HardwareId,
 		WWN:            in.WWN,
 		BusAddress:     in.BusAddress,

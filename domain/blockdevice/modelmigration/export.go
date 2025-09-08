@@ -62,8 +62,8 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		err := model.AddBlockDevice(machineId, description.BlockDeviceArgs{
 			Name:           bd.DeviceName,
 			Links:          bd.DeviceLinks,
-			Label:          bd.Label,
-			UUID:           bd.UUID,
+			Label:          bd.FilesystemLabel,
+			UUID:           bd.FilesystemUUID,
 			HardwareID:     bd.HardwareId,
 			SerialID:       bd.SerialId,
 			WWN:            bd.WWN,

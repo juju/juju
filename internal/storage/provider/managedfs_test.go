@@ -199,7 +199,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *tc.C, readOnly, reattach bool,
 		DeviceName: "sda",
 		HardwareId: "capncrunch",
 		SizeMiB:    2,
-		UUID:       uuid,
+		FilesystemUUID:       uuid,
 	}
 	s.filesystems[names.NewFilesystemTag("0/0")] = storage.Filesystem{
 		Tag:    names.NewFilesystemTag("0/0"),

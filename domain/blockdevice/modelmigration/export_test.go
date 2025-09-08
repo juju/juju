@@ -53,18 +53,18 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Times(1).
 		Return(map[string]blockdevice.BlockDevice{
 			"666": {
-				DeviceName:     "foo",
-				DeviceLinks:    []string{"a-link"},
-				Label:          "label",
-				UUID:           "device-uuid",
-				HardwareId:     "hardware-id",
-				WWN:            "wwn",
-				BusAddress:     "bus-address",
-				SerialId:       "serial-id",
-				SizeMiB:        100,
-				FilesystemType: "ext4",
-				InUse:          true,
-				MountPoint:     "/path/to/here",
+				DeviceName:      "foo",
+				DeviceLinks:     []string{"a-link"},
+				FilesystemLabel: "label",
+				FilesystemUUID:  "device-uuid",
+				HardwareId:      "hardware-id",
+				WWN:             "wwn",
+				BusAddress:      "bus-address",
+				SerialId:        "serial-id",
+				SizeMiB:         100,
+				FilesystemType:  "ext4",
+				InUse:           true,
+				MountPoint:      "/path/to/here",
 			},
 		}, nil)
 

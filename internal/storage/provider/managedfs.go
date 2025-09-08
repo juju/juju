@@ -166,7 +166,7 @@ func (s *managedFilesystemSource) attachFilesystem(
 		s.run,
 		s.dirFuncs,
 		devicePath,
-		blockDevice.UUID,
+		blockDevice.FilesystemUUID,
 		arg.Path,
 		arg.ReadOnly,
 	); err != nil {
