@@ -424,19 +424,21 @@ type RelationService interface {
 // RemovalService defines operations for removing juju entities.
 type RemovalService interface {
 	// RemoveApplication checks if a application with the input application UUID
-	// exists. If it does, the application is guaranteed after this call to be:
-	//   - No longer alive.
-	//   - Removed or scheduled to be removed with the input force qualification.
-	//   - If the application has units, the units are also guaranteed to be no
-	//     longer alive and scheduled for removal.
-	//
+	// exists. If it does, the application is guaranteed after this call to:
+	//   - Be no longer alive.
+	//   - Be removed or scheduled to be removed with the input force qualification.
+	//   - Have no units that are alive.
+	//   - Have all units scheduled for removal.
 	// The input wait duration is the time that we will give for the normal
 	// life-cycle advancement and removal to finish before forcefully removing the
 	// application. This duration is ignored if the force argument is false.
+	// If destroyStorage is true, the application units' storage instances will be 
+	// guaranteed to no be longer alive and scheduled for removal.
 	// The UUID for the scheduled removal job is returned.
 	RemoveApplication(
 		ctx context.Context,
 		appUUID coreapplication.ID,
+		destroyStorage bool,
 		force bool,
 		wait time.Duration,
 	) (removal.UUID, error)
@@ -445,16 +447,18 @@ type RemovalService interface {
 	// If it does, the unit is guaranteed after this call to be:
 	//   - No longer alive.
 	//   - Removed or scheduled to be removed with the input force qualification.
-	//   - If the unit is the last one on the machine, the machine will also
-	//     guaranteed to be no longer alive and scheduled for removal.
-	//
 	// The input wait duration is the time that we will give for the normal
 	// life-cycle advancement and removal to finish before forcefully removing the
 	// unit. This duration is ignored if the force argument is false.
 	// The UUID for the scheduled removal job is returned.
+	// If the unit is the last one on the machine, the machine will be guaranteed 
+	// to no be longer alive and scheduled for removal.
+	// If destroyStorage is true, the unit's storage instances will be guaranteed
+	// to no be longer alive and scheduled for removal.
 	RemoveUnit(
 		ctx context.Context,
 		unitUUID unit.UUID,
+		destroyStorage bool,
 		force bool,
 		wait time.Duration,
 	) (removal.UUID, error)

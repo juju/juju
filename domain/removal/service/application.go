@@ -52,9 +52,9 @@ type ApplicationState interface {
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // application. This duration is ignored if the force argument is false.
+// If destroyStorage is true, the application units' storage instances will be 
+// guaranteed to no be longer alive and scheduled for removal.
 // The UUID for the scheduled removal job is returned.
-// If destroyStorage is true, the unit's storage instances will be guaranteed
-// to no be longer alive and scheduled for removal.
 func (s *Service) RemoveApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
