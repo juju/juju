@@ -41,21 +41,22 @@ type OfferAuthContext interface {
 // AddOfferAuthHandlers adds the HTTP handlers used for application offer
 // macaroon authentication.
 func AddOfferAuthHandlers(authContext OfferAuthContext, mux *apiserverhttp.Mux) error {
-	appOfferHandler := &localOfferAuthHandler{authContext: authContext}
 	appOfferDischargeMux := http.NewServeMux()
 
+	appOfferHandler := &localOfferAuthHandler{authContext: authContext}
 	discharger := httpbakery.NewDischarger(httpbakery.DischargerParams{
 		Key:     authContext.OfferThirdPartyKey(),
 		Checker: httpbakery.ThirdPartyCaveatCheckerFunc(appOfferHandler.checkThirdPartyCaveat),
 	})
 	discharger.AddMuxHandlers(appOfferDischargeMux, localOfferAccessLocationPath)
 
-	if err := mux.AddHandler("POST", localOfferAccessLocationPath+"/discharge", appOfferDischargeMux); err != nil {
+	if err := mux.AddHandler("POST", localOfferAccessLocationPath+"/discharge", appOfferDischargeMux); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return internalerrors.Errorf("adding discharge handler: %w", err)
 	}
-	if err := mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux); err != nil {
+	if err := mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return internalerrors.Errorf("adding public key handler: %w", err)
 	}
+
 	return nil
 }
 
