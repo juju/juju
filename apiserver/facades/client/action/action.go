@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -24,7 +25,6 @@ import (
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -53,8 +53,8 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
-	// GetAction returns the action identified by its UUID.
-	GetAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
+	// GetAction returns the action identified by its ID.
+	GetAction(ctx context.Context, actionID coreoperation.ID) (operation.Action, error)
 
 	// CancelAction attempts to cancel an enqueued action, identified by its
 	// UUID.
@@ -155,12 +155,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
-		if err != nil {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		action, err := a.operationService.GetAction(ctx, actionUUID)
+		action, err := a.operationService.GetAction(ctx, coreoperation.ID(actionTag.Id()))
 		if err != nil {
 			// NOTE(nvinuesa): The returned error in this case is not correct
 			// (should be NotFound for ActionNotFound for example), but since
@@ -192,12 +187,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
-		if err != nil {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		cancelledAction, err := a.operationService.CancelAction(ctx, actionUUID)
+		cancelledAction, err := a.operationService.CancelAction(ctx, coreoperation.ID(actionTag.Id()))
 		if internalerrors.Is(err, operationerrors.ActionNotFound) {
 			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
@@ -277,8 +267,36 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 }
 
 func makeActionResult(action operation.Action) params.ActionResult {
+	actionTag := names.NewMachineTag(action.OperationID.String())
+	ac := &params.Action{
+		Tag:            actionTag.Id(),
+		Name:           action.Name,
+		Receiver:       action.Receiver,
+		Parameters:     action.Parameters,
+		Parallel:       &action.Parallel,
+		ExecutionGroup: action.ExecutionGroup,
+	}
+
 	result := params.ActionResult{
-		Action: &params.Action{},
+		Action:   ac,
+		Enqueued: action.Enqueued,
+		Status:   action.Status,
+		Output:   action.Output,
+	}
+	if action.Started != nil {
+		result.Started = *action.Started
+	}
+	if action.Completed != nil {
+		result.Completed = *action.Completed
+	}
+	if action.Message != nil {
+		result.Message = *action.Message
+	}
+	for _, log := range action.Log {
+		result.Log = append(result.Log, params.ActionMessage{
+			Message:   log.Message,
+			Timestamp: log.Timestamp,
+		})
 	}
 
 	return result

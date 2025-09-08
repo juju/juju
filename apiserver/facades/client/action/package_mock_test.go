@@ -15,9 +15,8 @@ import (
 
 	model "github.com/juju/juju/core/model"
 	charm "github.com/juju/juju/domain/application/charm"
-	operation "github.com/juju/juju/domain/operation"
+	operation0 "github.com/juju/juju/domain/operation"
 	charm0 "github.com/juju/juju/internal/charm"
-	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -208,10 +207,10 @@ func (m *MockOperationService) EXPECT() *MockOperationServiceMockRecorder {
 }
 
 // CancelAction mocks base method.
-func (m *MockOperationService) CancelAction(arg0 context.Context, arg1 uuid.UUID) (operation.Action, error) {
+func (m *MockOperationService) CancelAction(arg0 context.Context, arg1 operation.ID) (operation0.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CancelAction", arg0, arg1)
-	ret0, _ := ret[0].(operation.Action)
+	ret0, _ := ret[0].(operation0.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -229,28 +228,28 @@ type MockOperationServiceCancelActionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceCancelActionCall) Return(arg0 operation.Action, arg1 error) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) Return(arg0 operation0.Action, arg1 error) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceCancelActionCall) Do(f func(context.Context, uuid.UUID) (operation.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) Do(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceCancelActionCall) DoAndReturn(f func(context.Context, uuid.UUID) (operation.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelActionCall) DoAndReturn(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceCancelActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAction mocks base method.
-func (m *MockOperationService) GetAction(arg0 context.Context, arg1 uuid.UUID) (operation.Action, error) {
+func (m *MockOperationService) GetAction(arg0 context.Context, arg1 operation.ID) (operation0.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAction", arg0, arg1)
-	ret0, _ := ret[0].(operation.Action)
+	ret0, _ := ret[0].(operation0.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -268,19 +267,19 @@ type MockOperationServiceGetActionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceGetActionCall) Return(arg0 operation.Action, arg1 error) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetActionCall) Return(arg0 operation0.Action, arg1 error) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceGetActionCall) Do(f func(context.Context, uuid.UUID) (operation.Action, error)) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetActionCall) Do(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceGetActionCall) DoAndReturn(f func(context.Context, uuid.UUID) (operation.Action, error)) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetActionCall) DoAndReturn(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceGetActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

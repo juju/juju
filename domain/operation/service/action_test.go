@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -40,50 +41,54 @@ func (s *serviceSuite) service() *Service {
 
 func (s *serviceSuite) TestGetActionSuccess(c *tc.C) {
 	actionUUID := uuid.MustNewUUID()
+	operationID := coreoperation.ID("42")
 	expectedAction := operation.Action{
-		UUID:     actionUUID,
-		Receiver: "test-app/0",
+		OperationID: operationID,
+		UUID:        actionUUID,
+		Receiver:    "test-app/0",
 	}
 
-	s.state.EXPECT().GetAction(gomock.Any(), actionUUID.String()).Return(expectedAction, nil)
+	s.state.EXPECT().GetAction(gomock.Any(), operationID.String()).Return(expectedAction, nil)
 
-	action, err := s.service().GetAction(context.Background(), actionUUID)
+	action, err := s.service().GetAction(context.Background(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
 }
 
 func (s *serviceSuite) TestGetActionError(c *tc.C) {
-	actionUUID := uuid.MustNewUUID()
+	operationID := coreoperation.ID("42")
 	expectedError := errors.New("action not found")
 
-	s.state.EXPECT().GetAction(gomock.Any(), actionUUID.String()).Return(operation.Action{}, expectedError)
+	s.state.EXPECT().GetAction(gomock.Any(), operationID.String()).Return(operation.Action{}, expectedError)
 
-	_, err := s.service().GetAction(context.Background(), actionUUID)
+	_, err := s.service().GetAction(context.Background(), operationID)
 	c.Assert(err, tc.ErrorMatches, `retrieving action ".*": action not found`)
 }
 
 func (s *serviceSuite) TestCancelActionSuccess(c *tc.C) {
 	actionUUID := uuid.MustNewUUID()
+	operationID := coreoperation.ID("42")
 	expectedAction := operation.Action{
-		UUID:     actionUUID,
-		Receiver: "test-app/0",
+		OperationID: operationID,
+		UUID:        actionUUID,
+		Receiver:    "test-app/0",
 	}
 
-	s.state.EXPECT().CancelAction(gomock.Any(), actionUUID.String()).Return(expectedAction, nil)
+	s.state.EXPECT().CancelAction(gomock.Any(), operationID.String()).Return(expectedAction, nil)
 
-	action, err := s.service().CancelAction(context.Background(), actionUUID)
+	action, err := s.service().CancelAction(context.Background(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(action.UUID, tc.Equals, actionUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
 }
 
 func (s *serviceSuite) TestCancelActionError(c *tc.C) {
-	actionUUID := uuid.MustNewUUID()
+	operationID := coreoperation.ID("42")
 	expectedError := errors.New("action not found")
 
-	s.state.EXPECT().CancelAction(gomock.Any(), actionUUID.String()).Return(operation.Action{}, expectedError)
+	s.state.EXPECT().CancelAction(gomock.Any(), operationID.String()).Return(operation.Action{}, expectedError)
 
-	_, err := s.service().CancelAction(context.Background(), actionUUID)
+	_, err := s.service().CancelAction(context.Background(), operationID)
 	c.Assert(err, tc.ErrorMatches, `cancelling action ".*": action not found`)
 }

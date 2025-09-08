@@ -16,6 +16,8 @@ import (
 type Action struct {
 	// UUID is the action unique identifier.
 	UUID uuid.UUID
+	// OperationID is the operation ID that created the action.
+	OperationID coreoperation.ID
 	// Receiver is the action receiver (unit / machine).
 	Receiver string
 	// Name is the action name from the charm.
