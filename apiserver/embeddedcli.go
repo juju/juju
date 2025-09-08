@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/mitchellh/go-linereader"
 
+	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

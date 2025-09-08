@@ -16,6 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type MainSuite struct {

@@ -24,6 +24,8 @@ import (
 	"github.com/juju/utils/v4"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
@@ -55,8 +57,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testcharms"
 )
 

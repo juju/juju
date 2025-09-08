@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/core/version"
@@ -24,7 +25,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 const (

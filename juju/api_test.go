@@ -19,6 +19,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -30,8 +32,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 )

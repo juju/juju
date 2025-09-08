@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

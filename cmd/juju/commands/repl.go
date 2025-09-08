@@ -16,11 +16,11 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 type replCommand struct {

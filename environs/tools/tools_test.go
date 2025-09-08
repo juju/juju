@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -26,7 +27,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient"
 )
 
 type SimpleStreamsToolsSuite struct {

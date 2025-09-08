@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient"
 )
 
 type URLsSuite struct {

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/api/jujuclient"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -27,7 +28,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
-	"github.com/juju/juju/jujuclient"
 )
 
 // GetControllerConfigServiceFunc is a helper function that gets a

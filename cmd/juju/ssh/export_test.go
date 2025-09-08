@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/retry"
 
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type (

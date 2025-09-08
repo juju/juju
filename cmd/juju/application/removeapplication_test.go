@@ -14,14 +14,14 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apiapplication "github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 

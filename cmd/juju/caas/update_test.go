@@ -16,6 +16,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/api/jujuclient"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	_ "github.com/juju/juju/internal/provider/maas"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -12,6 +12,8 @@ import (
 	"github.com/juju/tc"
 
 	apiapplication "github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/instance"
@@ -19,8 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
@@ -21,7 +22,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2" // needed when getting valid local credentials
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

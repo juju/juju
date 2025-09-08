@@ -17,6 +17,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -26,8 +28,6 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
 

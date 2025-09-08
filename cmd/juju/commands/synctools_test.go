@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/jujuclient"
 )
 
 type syncToolSuite struct {

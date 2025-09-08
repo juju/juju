@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ResumeRelationSuite struct {

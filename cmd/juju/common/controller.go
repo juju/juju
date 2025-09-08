@@ -16,13 +16,13 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/block"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	caasprovider "github.com/juju/juju/internal/provider/kubernetes"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

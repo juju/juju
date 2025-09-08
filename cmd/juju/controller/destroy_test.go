@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucontroller "github.com/juju/juju/controller"
@@ -27,7 +28,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

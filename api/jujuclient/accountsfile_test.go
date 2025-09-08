@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 )
 
 type AccountsFileSuite struct {

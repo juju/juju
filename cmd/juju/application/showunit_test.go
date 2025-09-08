@@ -13,12 +13,12 @@ import (
 	"github.com/juju/tc"
 
 	apiapplication "github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type ShowUnitSuite struct {

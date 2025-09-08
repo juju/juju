@@ -12,7 +12,7 @@ package user_test
 import (
 	reflect "reflect"
 
-	jujuclient "github.com/juju/juju/jujuclient"
+	jujuclient "github.com/juju/juju/api/jujuclient"
 	gomock "go.uber.org/mock/gomock"
 )
 

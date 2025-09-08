@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	jujucloud "github.com/juju/juju/cloud"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

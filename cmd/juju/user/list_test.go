@@ -14,10 +14,10 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/usermanager"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
 

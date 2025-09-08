@@ -16,10 +16,10 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/proxy"
-	"github.com/juju/juju/jujuclient"
 )
 
 var logger = internallogger.GetLogger("juju.juju")

@@ -6,8 +6,8 @@ package storage_test
 import (
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/jujuclient"
 )
 
 type BaseStorageSuite struct {

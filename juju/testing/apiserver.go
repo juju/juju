@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
@@ -65,7 +66,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/watcherregistry"
-	"github.com/juju/juju/jujuclient"
 )
 
 const AdminSecret = "dummy-secret"

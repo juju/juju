@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient"
 )
 
 type OpenSuite struct {

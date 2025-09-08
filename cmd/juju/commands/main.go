@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	proxyutils "github.com/juju/proxy"
 
+	"github.com/juju/juju/api/jujuclient"
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -46,7 +47,6 @@ import (
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 )
 
 var logger = internallogger.GetLogger("juju.cmd.juju.commands")

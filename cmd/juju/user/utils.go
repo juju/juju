@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/api/jujuclient"
 )
 
 // ControllerCommand defines a subset methods of the modelcmd.ControllerCommandBase that the generateUserControllerAccessToken function uses.
