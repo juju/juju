@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -113,6 +114,13 @@ func (w *prunerWorker) Report() map[string]interface{} {
 	}
 }
 
+// jitter returns a random duration around the given period, between 0.5 and 1.5
+// times the period.
+func jitter(period time.Duration) time.Duration {
+	half := period / 2
+	return retry.ExpBackoff(half, period+half, 2, true)(0, 1)
+}
+
 // loop is the worker's main loop.
 //   - It watches for changes to the model configuration to get up-to-date values
 //     for the pruning interval and the maximum size of operation results.
@@ -133,9 +141,9 @@ func (w *prunerWorker) loop() error {
 		return errors.Errorf("getting model config: %w", err)
 	}
 
-	w.updateConfig(initCfg)
+	w.updateConfig(ctx, initCfg)
 	var (
-		pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
+		pruneTimer = w.config.Clock.NewTimer(w.nextPruneInterval(ctx))
 	)
 	defer pruneTimer.Stop()
 	for {
@@ -156,7 +164,7 @@ func (w *prunerWorker) loop() error {
 			if err != nil {
 				return errors.Errorf("getting model config: %w", err)
 			}
-			w.updateConfig(cfg)
+			w.updateConfig(ctx, cfg)
 		case <-pruneTimer.Chan():
 			err := w.config.OperationService.PruneOperations(ctx,
 				w.maxAge, w.maxSizeMB)
@@ -164,13 +172,21 @@ func (w *prunerWorker) loop() error {
 				return errors.Capture(err)
 			}
 			w.lastPrune = w.config.Clock.Now()
-			pruneTimer.Reset(w.config.PruneInterval)
+			pruneTimer.Reset(w.nextPruneInterval(ctx))
 		}
 	}
 }
 
-func (w *prunerWorker) updateConfig(initCfg *config.Config) {
+// nextPruneInterval returns a jittered duration for the next prune interval.
+func (w *prunerWorker) nextPruneInterval(ctx context.Context) time.Duration {
+	jittered := jitter(w.config.PruneInterval)
+	w.config.Logger.Debugf(ctx, "jittered prune interval: %v", jittered)
+	return jittered
+}
+
+func (w *prunerWorker) updateConfig(ctx context.Context, initCfg *config.Config) {
 	w.maxAge = initCfg.MaxActionResultsAge()
 	w.maxSizeMB = int(initCfg.MaxActionResultsSizeMB())
 	w.lastUpdate = w.config.Clock.Now()
+	w.config.Logger.Debugf(ctx, "config updated: max-age=%v, max-size-mb=%v", w.maxAge, w.maxSizeMB)
 }

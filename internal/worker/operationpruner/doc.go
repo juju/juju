@@ -15,6 +15,8 @@
 // On a fixed interval, configured via the worker Config.PruneInterval,
 // the worker asks an OperationService to prune operations older than the
 // configured age or when the total size exceeds the configured limit.
+// Config.PruneInterval is randomized between 0.5 to 1.5 its value
+// so that multiple workers don't all prune/at the same time,
 //
 // Services
 //

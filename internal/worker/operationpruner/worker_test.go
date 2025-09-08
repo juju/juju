@@ -257,10 +257,9 @@ func (w *workerMocks) expectModelConfig(c *tc.C, age string, size string) *gomoc
 	}).Call
 }
 
-// advancePruneInterval advances the clock by the prune interval and assert a loop
-// completes.
+// advancePruneInterval advances the clock at least by the prune interval
 func (w *workerMocks) advancePruneInterval(c *tc.C) {
-	w.clock.Advance(w.pruneInterval)
+	w.clock.Advance(w.pruneInterval * 3 / 2) // jitter can be up to 1/2 prune interval
 }
 
 // pushConfigChanges emits the given changes to the model config watcher and
