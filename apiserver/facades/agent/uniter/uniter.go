@@ -153,7 +153,7 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 			continue
 		}
 
-		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, time.Duration(0))
+		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, false, time.Duration(0))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
 			continue
@@ -598,8 +598,8 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 	return result, nil
 }
 
-// Destroy advances all given units' lifecycles as far as
-// possible.
+// Destroy advances all given units' lifecycles as 
+// far as possible and schedules their removal.
 func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -633,7 +633,9 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			continue
 		}
 
-		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, time.Duration(0))
+		// This preserves the behaviour prior to 4.0 
+		// and does not destroy storage.
+		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, false, time.Duration(0))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
 			continue
@@ -2240,7 +2242,9 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal coreunit.
 			return internalerrors.Capture(err)
 		}
 
-		_, err = u.removalService.RemoveUnit(ctx, subUUID, false, time.Duration(0))
+		// This preserves the behaviour prior to 4.0 
+		// and does not destroy storage.
+		_, err = u.removalService.RemoveUnit(ctx, subUUID, false, false, time.Duration(0))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return errors.NotFoundf("unit %q", subName)
 		} else if err != nil {

@@ -570,18 +570,16 @@ type RemovalService interface {
 	// If it does, the unit is guaranteed after this call to be:
 	//   - No longer alive.
 	//   - Removed or scheduled to be removed with the input force qualification.
-	//   - If the unit is the last one on the machine, the machine will also
-	//     guaranteed to be no longer alive and scheduled for removal.
-	//
 	// The input wait duration is the time that we will give for the normal
 	// life-cycle advancement and removal to finish before forcefully removing the
 	// unit. This duration is ignored if the force argument is false.
 	// The UUID for the scheduled removal job is returned.
+	// If the unit is the last one on the machine, the machine will be guaranteed
+	// to no be longer alive and scheduled for removal.
+	// If destroyStorage is true, the unit's storage instances will be guaranteed
+	// to no be longer alive and scheduled for removal.
 	RemoveUnit(
-		ctx context.Context,
-		unitUUID coreunit.UUID,
-		force bool,
-		wait time.Duration,
+		ctx context.Context, unitUUID coreunit.UUID, destroyStorage, force bool, wait time.Duration,
 	) (removal.UUID, error)
 
 	// MarkUnitAsDead marks the unit as dead. It will not remove the unit as
