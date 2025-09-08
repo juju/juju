@@ -16,6 +16,14 @@ type controllerControllerAgentInfo struct {
 	SystemIdentity string `db:"system_identity"`
 }
 
+type caCertValue struct {
+	CACert string `db:"ca_cert"`
+}
+
 type namespace struct {
 	Namespace string `db:"namespace"`
+}
+
+type controllerUUID struct {
+	UUID string `db:"uuid"`
 }

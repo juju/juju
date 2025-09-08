@@ -4,6 +4,7 @@ CREATE TABLE controller (
     target_version TEXT NOT NULL,
     api_port TEXT,
     cert TEXT,
+    ca_cert TEXT,
     private_key TEXT,
     ca_private_key TEXT,
     system_identity TEXT

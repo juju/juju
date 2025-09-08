@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
+	controller0 "github.com/juju/juju/domain/controller"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,6 +40,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// GetCACert mocks base method.
+func (m *MockState) GetCACert(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCACert", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCACert indicates an expected call of GetCACert.
+func (mr *MockStateMockRecorder) GetCACert(arg0 any) *MockStateGetCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCACert", reflect.TypeOf((*MockState)(nil).GetCACert), arg0)
+	return &MockStateGetCACertCall{Call: call}
+}
+
+// MockStateGetCACertCall wrap *gomock.Call
+type MockStateGetCACertCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCACertCall) Return(arg0 string, arg1 error) *MockStateGetCACertCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCACertCall) Do(f func(context.Context) (string, error)) *MockStateGetCACertCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCACertCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetCACertCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetControllerAgentInfo mocks base method.
@@ -76,6 +116,45 @@ func (c *MockStateGetControllerAgentInfoCall) Do(f func(context.Context) (contro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetControllerAgentInfoCall) DoAndReturn(f func(context.Context) (controller.ControllerAgentInfo, error)) *MockStateGetControllerAgentInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetControllerInfo mocks base method.
+func (m *MockState) GetControllerInfo(arg0 context.Context) (controller0.ControllerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerInfo", arg0)
+	ret0, _ := ret[0].(controller0.ControllerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerInfo indicates an expected call of GetControllerInfo.
+func (mr *MockStateMockRecorder) GetControllerInfo(arg0 any) *MockStateGetControllerInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerInfo", reflect.TypeOf((*MockState)(nil).GetControllerInfo), arg0)
+	return &MockStateGetControllerInfoCall{Call: call}
+}
+
+// MockStateGetControllerInfoCall wrap *gomock.Call
+type MockStateGetControllerInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetControllerInfoCall) Return(arg0 controller0.ControllerInfo, arg1 error) *MockStateGetControllerInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetControllerInfoCall) Do(f func(context.Context) (controller0.ControllerInfo, error)) *MockStateGetControllerInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetControllerInfoCall) DoAndReturn(f func(context.Context) (controller0.ControllerInfo, error)) *MockStateGetControllerInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

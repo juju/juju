@@ -28,6 +28,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	cfg := controller.Config{
 		controller.CACertKey:         testing.CACert,
 		controller.ControllerUUIDKey: testing.ControllerTag.Id(),
+		controller.AutocertURLKey:    "https://example.com",
 	}
 	modelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.IsNil)
@@ -35,10 +36,16 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var cert string
-	row := s.DB().QueryRow("SELECT value FROM controller_config where key = ?", controller.CACertKey)
+	row := s.DB().QueryRow("SELECT ca_cert FROM controller")
 	c.Assert(row.Scan(&cert), tc.ErrorIsNil)
 
 	c.Check(cert, tc.Equals, testing.CACert)
+
+	var autoCertURL string
+	row = s.DB().QueryRow("SELECT value FROM controller_config WHERE key = ?", controller.AutocertURLKey)
+	c.Assert(row.Scan(&autoCertURL), tc.ErrorIsNil)
+
+	c.Check(autoCertURL, tc.Equals, "https://example.com")
 
 	var dbUUID, dbModelUUID, dbTargetVersion string
 	row = s.DB().QueryRow("SELECT uuid, model_uuid, target_version FROM controller")
@@ -61,7 +68,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfigAPIPort(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
-	row := s.DB().QueryRow("SELECT COUNT(*) FROM controller_config where key = ?", controller.APIPort)
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM controller_config WHERE key = ?", controller.APIPort)
 	c.Assert(row.Scan(&count), tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 
@@ -76,12 +83,4 @@ func (s *bootstrapSuite) TestValidModelUUID(c *tc.C) {
 	cfg := controller.Config{controller.CACertKey: testing.CACert}
 	err := InsertInitialControllerConfig(cfg, coremodel.UUID("bad-uuid"))(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-}
-
-func (s *bootstrapSuite) TestInsertMinimalControllerConfig(c *tc.C) {
-	cfg := controller.Config{}
-	modelUUID, err := coremodel.NewUUID()
-	c.Assert(err, tc.IsNil)
-	err = InsertInitialControllerConfig(cfg, modelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, tc.ErrorMatches, "no controller config values to insert at bootstrap")
 }

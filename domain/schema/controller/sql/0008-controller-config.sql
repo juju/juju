@@ -15,6 +15,11 @@ SELECT
 FROM controller
 UNION ALL
 SELECT
+    'ca-cert' AS "key",
+    controller.ca_cert AS value
+FROM controller
+UNION ALL
+SELECT
     'api-port' AS "key",
     controller.api_port AS value
 FROM controller
