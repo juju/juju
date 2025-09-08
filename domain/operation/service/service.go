@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 
@@ -56,6 +57,8 @@ type State interface {
 	// NamespaceForTaskLogWatcher returns the name space for watching task
 	// log messages.
 	NamespaceForTaskLogWatcher() string
+	// PruneOperations deletes operations that are older than maxAge and larger than maxSizeMB (in megabytes).
+	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error
 }
 
 // Service provides the API for managing operation

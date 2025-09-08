@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/life"
@@ -26,7 +27,7 @@ type baseSuite struct {
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 // runQuery executes the provided SQL query string using the current state's database connection.

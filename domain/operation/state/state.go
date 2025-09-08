@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -17,13 +19,15 @@ import (
 // State is used to access the database.
 type State struct {
 	*domain.StateBase
+	clock  clock.Clock
 	logger logger.Logger
 }
 
 // NewState creates a state to access the database.
-func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 		logger:    logger,
 	}
 }

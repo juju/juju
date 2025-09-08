@@ -12,6 +12,7 @@ package service
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -352,6 +353,44 @@ func (c *MockStateNamespaceForTaskLogWatcherCall) Do(f func() string) *MockState
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForTaskLogWatcherCall) DoAndReturn(f func() string) *MockStateNamespaceForTaskLogWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PruneOperations mocks base method.
+func (m *MockState) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PruneOperations", ctx, maxAge, maxSizeMB)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PruneOperations indicates an expected call of PruneOperations.
+func (mr *MockStateMockRecorder) PruneOperations(ctx, maxAge, maxSizeMB any) *MockStatePruneOperationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PruneOperations", reflect.TypeOf((*MockState)(nil).PruneOperations), ctx, maxAge, maxSizeMB)
+	return &MockStatePruneOperationsCall{Call: call}
+}
+
+// MockStatePruneOperationsCall wrap *gomock.Call
+type MockStatePruneOperationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatePruneOperationsCall) Return(arg0 error) *MockStatePruneOperationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatePruneOperationsCall) Do(f func(context.Context, time.Duration, int) error) *MockStatePruneOperationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatePruneOperationsCall) DoAndReturn(f func(context.Context, time.Duration, int) error) *MockStatePruneOperationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
