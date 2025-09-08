@@ -5,7 +5,6 @@ package crossmodel
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -161,7 +160,7 @@ func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details Offer
 }
 
 func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
-	if target.ObjectType != permission.Offer {
+	if target.ObjectType == permission.Cloud {
 		return "", errors.NotValidf("target %q", target.ObjectType)
 	}
 
@@ -170,10 +169,9 @@ func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.
 }
 
 func (a *AuthContext) checkOfferAccess(ctx context.Context, userAccess common.UserAccessFunc, username, offerUUID string) error {
-	fmt.Println("HERE 1")
 	userTag := names.NewUserTag(username)
+
 	isAdmin, err := hasAccess(ctx, userAccess, userTag, permission.SuperuserAccess, a.controllerTag)
-	fmt.Println("HERE 1", isAdmin, err)
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	} else if isAdmin {
@@ -188,9 +186,7 @@ func (a *AuthContext) checkOfferAccess(ctx context.Context, userAccess common.Us
 	}
 
 	isConsume, err := hasAccess(ctx, userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
-	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
-		return err
-	} else if err != nil {
+	if err != nil {
 		return err
 	} else if !isConsume {
 		return apiservererrors.ErrPerm
