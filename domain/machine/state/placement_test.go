@@ -14,11 +14,14 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/sequence"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -340,6 +343,48 @@ func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *placementSuite) TestPlaceMachineExistingMachineInvalidArch(c *tc.C) {
+	// Arrange: create a machine with an arch of arm64.
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04",
+				Architecture: architecture.ARM64,
+			},
+		})
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Arrange: Mark the machine hw characteristics as arm64.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = "arm64"`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: place something on the machine, with a constrained arch of amd64.
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: "0",
+			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
+		})
+		return err
+	})
+
+	// Assert: the placement fails with an error.
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineConstraintViolation)
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {

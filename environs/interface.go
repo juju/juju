@@ -475,6 +475,9 @@ type InstanceLister interface {
 // InstancePrechecker.PrecheckInstance.
 type PrecheckInstanceParams struct {
 	// Base contains the base of the machine.
+	// TODO(jack-w-shaw): This should be a platform, so we include the
+	// architecture, since we don't always want to include the arch in
+	// the contraints
 	Base corebase.Base
 
 	// Constraints contains the machine constraints.

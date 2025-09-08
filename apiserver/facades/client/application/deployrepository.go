@@ -440,6 +440,22 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 	} else {
 		cons = arg.Cons
 
+		// If the charm specifies a unique architecture, ensure that is set in
+		// the constraints. Charmhub handles any existing arch constraints.
+		if !cons.HasArch() {
+			arches := set.NewStrings()
+			for _, base := range resolvedCharm.Manifest().Bases {
+				for _, arch := range base.Architectures {
+					arches.Add(arch)
+				}
+			}
+			if arches.Size() == 1 {
+				cons.Arch = &arches.Values()[0]
+			} else {
+				v.logger.Warningf(ctx, "charm supports multiple architectures, unable to determine which to deploy to")
+			}
+		}
+
 		if arg.NumUnits != nil {
 			numUnits = *arg.NumUnits
 		} else {
@@ -609,19 +625,19 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	argBase := arg.Base
 	var usedModelDefaultBase bool
 
-	// ResolveApplicationConstraints handles falling back to the model constraints
-	// and, as a special case for Arch, to DefaultArchitecture. This means that
-	// it is guaranteed that Arch is set.
-	// This isn't ideal, because we resolve the constraints later within the service,
-	// but we need to calculate the arch here correctly to ensure we resolve the
-	// correct charm from charmhub. Ideally, this whole package would be pushed
-	// into the service layer.
+	// ResolveApplicationConstraints handles falling back to the model
+	// constraints.
+	// This isn't ideal, because we resolve the constraints later within the
+	// service, but we need to calculate the arch here correctly to ensure we
+	// resolve the correct charm from charmhub. Ideally, this whole package
+	// would be pushed into the service layer.
 	resolvedCons, err := v.applicationService.ResolveApplicationConstraints(ctx, arg.Cons)
 	if err != nil {
 		return corecharm.Platform{}, usedModelDefaultBase, internalerrors.Errorf("resolving application constraints: %w", err)
 	}
-	platform := corecharm.Platform{
-		Architecture: *resolvedCons.Arch,
+	platform := corecharm.Platform{}
+	if resolvedCons.Arch != nil {
+		platform.Architecture = *resolvedCons.Arch
 	}
 
 	if argBase != nil {

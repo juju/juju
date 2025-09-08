@@ -3,16 +3,14 @@
 
 package constraints
 
-import "github.com/juju/juju/core/arch"
-
 // ArchOrDefault returns the arch for the constraint if there is one,
-// else it returns the default arch.
-func ArchOrDefault(cons Value, defaultCons *Value) string {
+// falling back to the arch from the default constraint if there is one
+func ArchOrDefault(cons Value, defaultCons Value) string {
 	if cons.HasArch() {
 		return *cons.Arch
 	}
-	if defaultCons != nil && defaultCons.HasArch() {
+	if defaultCons.HasArch() {
 		return *defaultCons.Arch
 	}
-	return arch.DefaultArchitecture
+	return ""
 }

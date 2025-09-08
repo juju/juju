@@ -1682,7 +1682,7 @@ func (b bundleArchConstraint) Arch() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return constraints.ArchOrDefault(cons, &b.defaultConstraints), nil
+	return constraints.ArchOrDefault(cons, b.defaultConstraints), nil
 }
 
 func verifyEndpointBindings(endpointBindings map[string]string, knownSpaceNames set.Strings) error {

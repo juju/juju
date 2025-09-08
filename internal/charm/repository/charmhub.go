@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
@@ -178,21 +179,37 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, transport.RefreshResponse, error) {
 	c.logger.Tracef(ctx, "Resolving CharmHub charm %q with origin %v", charmName, requestedOrigin)
 
+	requestedArch := requestedOrigin.Platform.Architecture
+	// CharmHub refresh API requires an architecture to be specified in order
+	// to retrieve the supported bases. It will return the supported bases for
+	// the latest revision that supports that arch.
+	//
+	// If the caller doesn't specify an architecture, we can say relatively
+	// confidently that we will want to deploy with the default architecture.
+	// The exception if for charms that have only ever supported a non-default
+	// arch. In this case, it will need to be specified by the caller. Oh well,
+	// this is a limitation inherent to the design of the charmhub API.
+	if requestedOrigin.Platform.Architecture == "" {
+		requestedOrigin.Platform.Architecture = arch.DefaultArchitecture
+	}
+
 	// First attempt to find the charm based on the only input provided.
 	response, err := c.refreshOne(ctx, charmName, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Annotatef(err, "resolving with preferred channel")
 	}
 
-	// resolvedBases holds a slice of supported bases from the subsequent
-	// refresh API call. The bases can inform the consumer of the API about what
-	// they can also install *IF* the retry resolution uses a base that doesn't
-	// match their requirements. This can happen in the client if the series
-	// selection also wants to consider model-config default-base after the
-	// call.
 	var (
-		effectiveChannel  string
+		effectiveChannel string
+
+		// resolvedBases holds a slice of supported bases from the subsequent
+		// refresh API call. The bases can inform the consumer of the API about what
+		// they can also install *IF* the retry resolution uses a base that doesn't
+		// match their requirements. This can happen in the client if the series
+		// selection also wants to consider model-config default-base after the
+		// call.
 		resolvedBases     []corecharm.Platform
+		resolvedArches    = set.NewStrings()
 		chSuggestedOrigin = requestedOrigin
 	)
 	switch {
@@ -222,6 +239,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 					OS:           v.Name,
 					Channel:      v.Channel,
 				})
+				resolvedArches.Add(v.Architecture)
 			}
 		}
 		// Entities installed by revision do not have an effective channel in the data.
@@ -238,6 +256,31 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 		effectiveChannel = response.EffectiveChannel
 	}
 
+	// We can't say for sure that whether the requested arch was requested by
+	// a constraint, or just a caller filling in a default value. So the deductions
+	// we can do for the arch to use are limited.
+	// In most cases we know that the charm we have resolved supports the requested
+	// arch. An exception is when we deploy specific revisions. In this case, we
+	// need to check the charm is supports the requested arch.
+	// If there is no arch requested, then we can try to deduce one from the
+	// resolved bases.
+	resArch := requestedArch
+	if resolvedArches.Size() > 0 {
+		if requestedArch != "" && !resolvedArches.Contains(requestedArch) {
+			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{},
+				errors.Errorf("requested architecture %q not found in available architectures %v", requestedArch, resolvedArches.Values())
+		}
+		if requestedArch == "" {
+			if resolvedArches.Size() == 1 {
+				resArch = resolvedArches.Values()[0]
+			}
+		}
+	}
+	if resArch == "" {
+		resArch = arch.DefaultArchitecture
+	}
+	chSuggestedOrigin.Platform.Architecture = resArch
+
 	// Use the channel that was actually picked by the API. This should
 	// account for the closed tracks in a given channel.
 	channel, err := charm.ParseChannelNormalize(effectiveChannel)
@@ -251,7 +294,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 		Schema:       "ch",
 		Name:         charmName,
 		Revision:     revision,
-		Architecture: chSuggestedOrigin.Platform.Architecture,
+		Architecture: resArch,
 	}
 
 	// Create a resolved origin.  Keep the original values for ID and Hash, if

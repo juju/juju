@@ -13,7 +13,7 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application/architecture"
+	domainarchitecture "github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -55,13 +55,21 @@ func PlaceMachine(
 		return netNodeUUID, []coremachine.Name{machineName}, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
+		machineName := coremachine.Name(args.Directive.Directive)
 		// Look up the existing machine by name (example: 0 or 0/lxd/0) and then
 		// return the associated net node UUID.
-		netNodeUUID, err := getMachineNetNodeUUIDFromName(ctx, tx, preparer, coremachine.Name(args.Directive.Directive))
+		machineUUID, netNodeUUID, err := getMachineUUIDAndNetNodeUUIDFromName(ctx, tx, preparer, machineName)
+		if err != nil {
+			return "", nil, errors.Capture(err)
+		}
+		err = validateMachineSatisfiesConstraints(ctx, tx, preparer, machineUUID, args.Constraints)
+		if err != nil {
+			return "", nil, errors.Errorf("validating machine placement: %w", err)
+		}
 		// At this point we know that the machine exists, so we can return its
 		// name taken from the directive.
-		machineNames := []coremachine.Name{coremachine.Name(args.Directive.Directive)}
-		return netNodeUUID, machineNames, errors.Capture(err)
+		machineNames := []coremachine.Name{machineName}
+		return netNodeUUID, machineNames, nil
 
 	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd or lxd:0). If there
@@ -692,30 +700,32 @@ func acquireParentMachineForContainer(
 	return machineUUID, machineName, nil
 }
 
-func getMachineNetNodeUUIDFromName(
+func getMachineUUIDAndNetNodeUUIDFromName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	name coremachine.Name,
-) (string, error) {
-	machine := machineNameWithNetNodeUUID{Name: name}
+) (string, string, error) {
+	mName := machineName{Name: name}
 	query := `
-SELECT &machineNameWithNetNodeUUID.net_node_uuid
+SELECT &machineUUIDAndNetNodeUUID.*
 FROM machine
-WHERE name = $machineNameWithNetNodeUUID.name
+WHERE name = $machineName.name
 `
-	stmt, err := preparer.Prepare(query, machine)
+	stmt, err := preparer.Prepare(query, mName, machineUUIDAndNetNodeUUID{})
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
-	err = tx.Query(ctx, stmt, machine).Get(&machine)
+
+	var machine machineUUIDAndNetNodeUUID
+	err = tx.Query(ctx, stmt, mName).Get(&machine)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("machine %q not found", name).
+		return "", "", errors.Errorf("machine %q not found", name).
 			Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("querying machine %q: %w", name, err)
+		return "", "", errors.Errorf("querying machine %q: %w", name, err)
 	}
-	return machine.NetNodeUUID, nil
+	return machine.MachineUUID, machine.NetNodeUUID, nil
 }
 
 func getMachineUUIDFromName(
@@ -744,21 +754,60 @@ WHERE name = $machineNameWithMachineUUID.name
 	return machine.UUID, nil
 }
 
-func encodeArchitecture(a architecture.Architecture) (int, error) {
+// validateMachineSatisfiesConstraints checks that the machine specified satisfies
+// the provided constraints and matches the provided platform.
+//
+// TODO(jack-w-shaw): This only checks that the machine arch matches. In future,
+// we will need to verify the remaining constraints and platform as well.
+func validateMachineSatisfiesConstraints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	preparer domain.Preparer,
+	machineUUID string,
+	cons constraints.Constraints,
+) error {
+	query := `
+SELECT    &instanceDataResult.arch
+FROM      v_hardware_characteristics AS v
+WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
+	instanceData := instanceDataResult{
+		MachineUUID: machineUUID,
+	}
+	stmt, err := preparer.Prepare(query, instanceData)
+	if err != nil {
+		return errors.Errorf("preparing retrieve hardware characteristics statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, instanceData).Get(&instanceData)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.Errorf("getting machine hardware characteristics for %q: %w", machineUUID, machineerrors.NotProvisioned)
+	} else if err != nil {
+		return errors.Errorf("querying machine cloud instance for machine %q: %w", machineUUID, err)
+	}
+
+	if instanceData.Arch != nil && cons.Arch != nil && *instanceData.Arch != *cons.Arch {
+		return errors.Errorf("machine %q has arch %q, but constraints require arch %q", machineUUID, *instanceData.Arch, *cons.Arch).
+			Add(machineerrors.MachineConstraintViolation)
+	}
+
+	return nil
+}
+
+func encodeArchitecture(a domainarchitecture.Architecture) (int, error) {
 	switch a {
 	// This is a valid case if we're uploading charms and the value isn't
 	// supplied.
-	case architecture.Unknown:
+	case domainarchitecture.Unknown:
 		return -1, nil
-	case architecture.AMD64:
+	case domainarchitecture.AMD64:
 		return 0, nil
-	case architecture.ARM64:
+	case domainarchitecture.ARM64:
 		return 1, nil
-	case architecture.PPC64EL:
+	case domainarchitecture.PPC64EL:
 		return 2, nil
-	case architecture.S390X:
+	case domainarchitecture.S390X:
 		return 3, nil
-	case architecture.RISCV64:
+	case domainarchitecture.RISCV64:
 		return 4, nil
 	default:
 		return 0, errors.Errorf("unsupported architecture: %d", a)

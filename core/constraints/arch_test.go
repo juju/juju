@@ -20,13 +20,13 @@ func TestArchSuite(t *testing.T) {
 }
 
 func (s *archSuite) TestArchOrDefault(c *tc.C) {
-	a := ArchOrDefault(MustParse("mem=4G"), nil)
-	c.Assert(a, tc.Equals, "amd64")
-	a = ArchOrDefault(MustParse("arch=arm64"), nil)
+	a := ArchOrDefault(MustParse("mem=4G"), Value{})
+	c.Assert(a, tc.Equals, "")
+	a = ArchOrDefault(MustParse("arch=arm64"), Value{})
 	c.Assert(a, tc.Equals, "arm64")
 	defaultCons := MustParse("arch=arm64")
-	a = ArchOrDefault(MustParse("mem=4G"), &defaultCons)
+	a = ArchOrDefault(MustParse("mem=4G"), defaultCons)
 	c.Assert(a, tc.Equals, "arm64")
-	a = ArchOrDefault(MustParse("arch=s390x"), &defaultCons)
+	a = ArchOrDefault(MustParse("arch=s390x"), defaultCons)
 	c.Assert(a, tc.Equals, "s390x")
 }
