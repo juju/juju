@@ -5,11 +5,13 @@ package gce_test
 
 import (
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -375,7 +377,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
 		AccessConfigs: []*computepb.AccessConfig{{
 			Type:  ptr("ONE_TO_ONE_NAT"),
-			Name:  ptr("ExternalNAT"),
+			Name:  ptr("External NAT"),
 			NatIP: ptr("25.185.142.227"),
 		}},
 	})
@@ -502,7 +504,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
 		AccessConfigs: []*computepb.AccessConfig{{
 			Type:  ptr("ONE_TO_ONE_NAT"),
-			Name:  ptr("ExternalNAT"),
+			Name:  ptr("External NAT"),
 			NatIP: ptr("25.185.142.227"),
 		}},
 	})
@@ -572,7 +574,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		Network:   ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy"),
 		AccessConfigs: []*computepb.AccessConfig{{
 			Type:  ptr("ONE_TO_ONE_NAT"),
-			Name:  ptr("ExternalNAT"),
+			Name:  ptr("External NAT"),
 			NatIP: ptr("25.185.142.227"),
 		}},
 	}}
@@ -623,7 +625,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network1"),
 		AccessConfigs: []*computepb.AccessConfig{{
 			Type:  ptr("ONE_TO_ONE_NAT"),
-			Name:  ptr("ExternalNAT"),
+			Name:  ptr("External NAT"),
 			NatIP: ptr("25.185.142.227"),
 		}},
 	})
@@ -679,4 +681,240 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		},
 		Origin: corenetwork.OriginProvider,
 	}})
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceNoSubnets(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
+
+	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, jc.ErrorIs, gce.ErrNoSubnets)
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceNoSubnetsAuto(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 0)
+}
+
+func (s *environNetSuite) TestSubnetsForInstancePlacementNoSubnetsAuto(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
+
+	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Placement: "subnet=foo",
+	})
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, jc.ErrorIs, gce.ErrAutoSubnetsInvalid)
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceSpacesNoSubnetsAuto(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
+
+	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=foo"),
+	})
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, jc.ErrorIs, gce.ErrAutoSubnetsInvalid)
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceNoSpacesOrPlacement(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	// Result is picked at random from the available subnets.
+	c.Assert(set.NewStrings("subnet1", "subnet2", "subnet3", "subnet4").Contains(*subnets[0].Name), jc.IsTrue)
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceSpaces(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=foo,bar"),
+		SubnetsToZones: []map[corenetwork.Id][]string{
+			{"subnet1": {"home-zone", "away-zone"}, "subnet2": {"home-zone", "away-zone"}},
+			{"subnet3": {"home-zone", "away-zone"}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	// Only a single nic is allowed since there's only 1 VPC.
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	// Result is picked at random from the available subnets.
+	c.Assert(set.NewStrings("subnet1", "subnet2").Contains(*subnets[0].Name), jc.IsTrue)
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceSpacesFiltersFan(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=foo"),
+		SubnetsToZones: []map[corenetwork.Id][]string{
+			{"subnet1": {"home-zone", "away-zone"}, "INFAN": {}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(*subnets[0].Name, gc.Equals, "subnet1")
+}
+
+func (s *environNetSuite) TestSubnetsForInstancePlacement(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Placement: "subnet=subnet3",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(*subnets[0].Name, gc.Equals, "subnet3")
+}
+
+func (s *environNetSuite) TestSubnetsForInstancePlacementCIDR(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name:        ptr("subnet1"),
+			IpCidrRange: ptr("10.0.10.0/24"),
+		}, {
+			Name:        ptr("subnet2"),
+			IpCidrRange: ptr("10.0.20.0/24"),
+		}, {
+			Name:        ptr("subnet3"),
+			IpCidrRange: ptr("10.0.30.0/24"),
+		}, {
+			Name:        ptr("subnet4"),
+			IpCidrRange: ptr("10.0.40.0/24"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Placement: "subnet=10.0.30.0/24",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(*subnets[0].Name, gc.Equals, "subnet3")
+}
+
+func (s *environNetSuite) TestSubnetsForInstanceNoFound(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Placement: "subnet=subnet5",
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
