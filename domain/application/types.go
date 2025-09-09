@@ -198,13 +198,27 @@ type AddUnitArg struct {
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
+
+	// NetNodeUUID is the new network node uuid to assign to this unit.
+	NetNodeUUID domainnetwork.NetNodeUUID
 }
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
 	AddUnitArg
 	Platform deployment.Platform
-	Nonce    *string
+
+	// MachineNetNodeUUID either represents the new net uuid to give a machine
+	// that is created by this struct or if the placement is onto an existing
+	// machine the existing netnode uuid of the machine.
+	MachineNetNodeUUID domainnetwork.NetNodeUUID
+
+	// MachineUUID either represents the new machine uuid to give a machine that
+	// is created by this struct or if the placement is onto an existing machine
+	// the existing machine uuid of the machine.
+	MachineUUID machine.UUID
+
+	Nonce *string
 }
 
 // RegisterCAASUnitParams contains parameters for introducing
