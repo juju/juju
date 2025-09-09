@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
+	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/testing"
@@ -229,6 +231,380 @@ func (s *storageSuite) TestUnitStorageAttachmentsWithInvalidStorageID(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error.Code, tc.Equals, params.CodeNotValid)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolume(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentInfo(
+		gomock.Any(), vaUUID,
+	).Return(storageprovisioning.VolumeAttachmentInfo{
+		HardwareID:      "hwid",
+		WWN:             "wwn",
+		BlockDeviceName: "sda",
+		BlockDeviceLink: "by-id/xyz",
+	}, nil)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result, tc.Equals, params.StorageAttachmentResult{
+		Result: params.StorageAttachment{
+			StorageTag: "storage-foo-1",
+			OwnerTag:   names.NewUnitTag(owner.String()).String(),
+			UnitTag:    unitTag.String(),
+			Kind:       params.StorageKindBlock,
+			Location:   "/dev/disk/by-id/wwn-wwn",
+			Life:       corelife.Alive,
+		},
+	})
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithNotProvisioned(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(vaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentInfo(
+		gomock.Any(), vaUUID,
+	).Return(storageprovisioning.VolumeAttachmentInfo{
+		HardwareID: "hwid",
+		WWN:        "wwn",
+	}, nil)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotProvisioned)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithUnitNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(
+		"", applicationerrors.UnitNotFound,
+	)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithStorageInstanceNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return("", storageprovisioningerrors.StorageInstanceNotFound)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithStorageAttachmentNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return("", storageprovisioningerrors.StorageAttachmentNotFound)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithVolumeAttachmentNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForFilesystem(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	fsaUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindFilesystem,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(fsaUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachment(
+		gomock.Any(), fsaUUID,
+	).Return(storageprovisioning.FilesystemAttachment{
+		MountPoint: "/mnt/data",
+	}, nil)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result, tc.Equals, params.StorageAttachmentResult{
+		Result: params.StorageAttachment{
+			StorageTag: "storage-foo-1",
+			OwnerTag:   names.NewUnitTag(owner.String()).String(),
+			UnitTag:    unitTag.String(),
+			Kind:       params.StorageKindFilesystem,
+			Location:   "/mnt/data",
+			Life:       corelife.Alive,
+		},
+	})
+}
+
+func (s *storageSuite) TestStorageAttachmentsForFilesystemWithStorageInstanceNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindFilesystem,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return("", storageprovisioningerrors.StorageInstanceNotFound)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *storageSuite) TestStorageAttachmentsForFilesystemWithFilesystemAttachmentNotFound(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	owner := unittesting.GenNewName(c, "foo/0")
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: saUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindFilesystem,
+		Life:                  domainlife.Alive,
+	}, nil)
+	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {

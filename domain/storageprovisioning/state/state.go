@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -640,7 +639,7 @@ WHERE     sa.uuid = $storageAttachmentUUID.uuid`, input, dbVal)
 		Life:                  dbVal.Life,
 	}
 	if dbVal.OwnerUnitName.Valid {
-		n := unit.Name(dbVal.OwnerUnitName.String)
+		n := coreunit.Name(dbVal.OwnerUnitName.String)
 		info.Owner = &n
 	}
 	return info, nil
