@@ -600,14 +600,12 @@ func (s *RefreshSuite) TestSwitch(c *tc.C) {
 
 	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
-	s.charmAdder.CheckCallNames(c, "CheckCharmPlacement", "AddCharm")
+	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := apputils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Stable}, s.testPlatform)
 
-	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
 	c.Assert(err, tc.ErrorIsNil)
-	s.charmAdder.CheckCall(c, 0, "CheckCharmPlacement", "foo", parsedSwitchUrl)
 	origin.Revision = (*int)(nil)
-	s.charmAdder.CheckCall(c, 1, "AddCharm", s.resolvedCharmURL, origin, false)
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",

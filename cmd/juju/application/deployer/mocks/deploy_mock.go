@@ -441,44 +441,6 @@ func (c *MockDeployerAPICharmInfoCall) DoAndReturn(f func(context.Context, strin
 	return c
 }
 
-// CheckCharmPlacement mocks base method.
-func (m *MockDeployerAPI) CheckCharmPlacement(arg0 context.Context, arg1 string, arg2 *charm0.URL) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckCharmPlacement indicates an expected call of CheckCharmPlacement.
-func (mr *MockDeployerAPIMockRecorder) CheckCharmPlacement(arg0, arg1, arg2 any) *MockDeployerAPICheckCharmPlacementCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockDeployerAPI)(nil).CheckCharmPlacement), arg0, arg1, arg2)
-	return &MockDeployerAPICheckCharmPlacementCall{Call: call}
-}
-
-// MockDeployerAPICheckCharmPlacementCall wrap *gomock.Call
-type MockDeployerAPICheckCharmPlacementCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDeployerAPICheckCharmPlacementCall) Return(arg0 error) *MockDeployerAPICheckCharmPlacementCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPICheckCharmPlacementCall) Do(f func(context.Context, string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPICheckCharmPlacementCall) DoAndReturn(f func(context.Context, string, *charm0.URL) error) *MockDeployerAPICheckCharmPlacementCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Close mocks base method.
 func (m *MockDeployerAPI) Close() error {
 	m.ctrl.T.Helper()

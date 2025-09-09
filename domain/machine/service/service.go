@@ -10,8 +10,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -433,17 +431,6 @@ func (s *Service) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.U
 	defer span.End()
 
 	return errors.Capture(s.st.SetAppliedLXDProfileNames(ctx, mUUID.String(), profileNames))
-}
-
-// GetMachineArchesForApplication returns a list of architectures which are
-// included across the machines of the given application.
-//
-// TODO: Implement this method.
-func (s *Service) GetMachineArchesForApplication(ctx context.Context, appUUID application.ID) ([]arch.Arch, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return nil, errors.Errorf("GetMachineArchesForApplication not implemented")
 }
 
 // GetAllProvisionedMachineInstanceID returns all provisioned machine

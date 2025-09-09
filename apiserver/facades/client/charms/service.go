@@ -7,7 +7,6 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/domain/application/charm"
@@ -53,12 +52,4 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(context.Context, coreapplication.ID) (constraints.Value, error)
-}
-
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// GetMachineArchesForApplication returns a list of architectures which are
-	// included across the machines of the given application.
-	GetMachineArchesForApplication(context.Context, coreapplication.ID) ([]arch.Arch, error)
 }
