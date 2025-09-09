@@ -483,6 +483,21 @@ func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetScale", reflect.TypeOf((*MockApplication)(nil).SetScale), arg0, arg1, arg2)
 }
 
+// StorageConstraints mocks base method.
+func (m *MockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageConstraints")
+	ret0, _ := ret[0].(map[string]state.StorageConstraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StorageConstraints indicates an expected call of StorageConstraints.
+func (mr *MockApplicationMockRecorder) StorageConstraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageConstraints", reflect.TypeOf((*MockApplication)(nil).StorageConstraints))
+}
+
 // UnsetExposeSettings mocks base method.
 func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
 	m.ctrl.T.Helper()

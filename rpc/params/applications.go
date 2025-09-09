@@ -708,3 +708,34 @@ type PendingResourceUpload struct {
 	// Type of the resource, a string matching one of the resource.Type
 	Type string
 }
+
+// ApplicationStorageGet holds the parameters for making the applicationStorageGet call.
+type ApplicationStorageGet struct {
+	ApplicationName string `json:"application"`
+}
+
+// ApplicationStorageResult contains the entire application's storage constraints
+type ApplicationStorageResult struct {
+	Result ApplicationStorage
+	Errors *Error
+}
+
+// ApplicationStorage contains the result of an application's storage constraints
+type ApplicationStorage struct {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instances.
+	Pool string `json:"pool"`
+
+	// Size is the required size of the storage instances, in MiB.
+	Size uint64 `json:"size"`
+
+	// Count is the required number of storage instances.
+	Count uint64 `json:"count"`
+}
+
+// ApplicationStorageUpdate holds the parameters for making the applicationStorageUpdate call.
+type ApplicationStorageUpdate struct {
+	ApplicationName string            `json:"application"`
+	Config          map[string]string `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
+	ConfigYAML      string            `json:"config-yaml"`
+}

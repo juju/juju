@@ -1675,3 +1675,10 @@ func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
 	err = application.ValidateSecretConfig(chCfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *applicationSuite) TestGetApplicationStorage(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGet{ApplicationName: "wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storage.Result, gc.NotNil)
+}

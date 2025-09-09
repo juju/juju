@@ -119,6 +119,7 @@ type Application interface {
 	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
+	StorageConstraints() (map[string]state.StorageConstraints, error)
 }
 
 // Bindings defines a subset of the functionality provided by the

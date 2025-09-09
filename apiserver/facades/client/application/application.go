@@ -3117,3 +3117,31 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 		Results: results,
 	}, nil
 }
+
+func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGet) (params.ApplicationStorageResult, error) {
+
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.ApplicationStorageResult{}, errors.Trace(err)
+	}
+
+	storageConstraints, err := app.StorageConstraints()
+	if err != nil {
+		return params.ApplicationStorageResult{}, errors.Trace(err)
+	}
+
+	var applicationStorage params.ApplicationStorage
+
+	if cons, ok := storageConstraints["database"]; ok {
+		applicationStorage = params.ApplicationStorage{
+			Pool:  cons.Pool,
+			Size:  cons.Size,
+			Count: cons.Count,
+		}
+	}
+
+	return params.ApplicationStorageResult{
+		Result: applicationStorage,
+		Errors: apiservererrors.ServerError(nil),
+	}, nil
+}
