@@ -5,6 +5,7 @@ package operationpruner
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -72,6 +73,9 @@ type prunerWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
 
+	// mu guards the fields below it.
+	mu sync.Mutex
+
 	maxAge     time.Duration
 	maxSizeMB  int
 	lastUpdate time.Time
@@ -106,6 +110,8 @@ func (w *prunerWorker) Wait() error {
 
 // Report shows up in the dependency engine report.
 func (w *prunerWorker) Report() map[string]interface{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return map[string]interface{}{
 		"max-age":     w.maxAge,
 		"max-size-mb": w.maxSizeMB,
@@ -180,11 +186,14 @@ func (w *prunerWorker) loop() error {
 
 // doPrune prunes operations.
 func (w *prunerWorker) doPrune(ctx context.Context, pruneTimer clock.Timer) error {
-	err := w.config.OperationService.PruneOperations(ctx,
-		w.maxAge, w.maxSizeMB)
+	maxAge, maxSizeMB := w.getPruneArgs()
+	err := w.config.OperationService.PruneOperations(ctx, maxAge, maxSizeMB)
 	if err != nil {
 		return errors.Errorf("pruning operations: %w", err)
 	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.lastPrune = w.config.Clock.Now()
 	pruneTimer.Reset(w.nextPruneInterval(ctx))
 	return nil
@@ -197,7 +206,21 @@ func (w *prunerWorker) nextPruneInterval(ctx context.Context) time.Duration {
 	return jittered
 }
 
+// getPruneArgs returns the current prune arguments. The returned values are
+// guarded by w.mu to avoid races
+func (w *prunerWorker) getPruneArgs() (time.Duration, int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.maxAge, w.maxSizeMB
+}
+
+// updateConfig updates the pruner's configuration. It is guarded by w.mu to
+// avoid races.
 func (w *prunerWorker) updateConfig(ctx context.Context, initCfg *config.Config) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.maxAge = initCfg.MaxActionResultsAge()
 	w.maxSizeMB = int(initCfg.MaxActionResultsSizeMB())
 	w.lastUpdate = w.config.Clock.Now()
