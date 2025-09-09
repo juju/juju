@@ -1036,9 +1036,9 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	_, units := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 
 	removalState := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	_, err := removalState.EnsureUnitNotAliveCascade(c.Context(), units[0].String())
+	_, err := removalState.EnsureUnitNotAliveCascade(c.Context(), units[0].String(), false)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), units[1].String())
+	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), units[1].String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:

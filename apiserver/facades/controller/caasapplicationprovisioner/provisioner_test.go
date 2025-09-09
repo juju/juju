@@ -244,7 +244,9 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("gitlab/0")).Return(coreunit.UUID("unit-uuid"), nil)
 	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), coreunit.UUID("unit-uuid")).Return(nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), coreunit.UUID("unit-uuid"), false, time.Duration(0)).Return(removal.UUID("removal-uuid"), nil)
+	s.removalService.EXPECT().RemoveUnit(
+		gomock.Any(), coreunit.UUID("unit-uuid"), false, false, time.Duration(0),
+	).Return(removal.UUID("removal-uuid"), nil)
 
 	result, err := s.api.Remove(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "unit-gitlab-0",
@@ -255,19 +257,22 @@ func (s *CAASApplicationProvisionerSuite) TestRemove(c *tc.C) {
 	}}})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestDestroyUnits(c *tc.C) {
+func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsDestroyStorage(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	// Arrange
 	unitName := coreunit.Name("foo/0")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return(removal.UUID(""), nil)
+	s.removalService.EXPECT().RemoveUnit(
+		gomock.Any(), unitUUID, true, false, time.Duration(0),
+	).Return(removal.UUID(""), nil)
 
 	// Act
 	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{{
-			UnitTag: names.NewUnitTag(unitName.String()).String(),
+			UnitTag:        names.NewUnitTag(unitName.String()).String(),
+			DestroyStorage: true,
 		}},
 	})
 
@@ -286,7 +291,7 @@ func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsForce(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, true, time.Hour).Return(removal.UUID(""), nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, true, time.Hour).Return(removal.UUID(""), nil)
 
 	// Act
 	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{

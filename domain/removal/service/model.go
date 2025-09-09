@@ -169,12 +169,15 @@ func (s *Service) removeModel(
 		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
 	}
 
+	// We always destroy storage instances with the model.
+	const destroyStorage = true
+
 	if len(artifacts.UnitUUIDs) > 0 {
 		// If there are any units that transitioned from alive to dying or
 		// dead, we need to schedule their removal as well.
 		s.logger.Infof(ctx, "model has units %v, scheduling removal", artifacts.UnitUUIDs)
 
-		s.removeUnits(ctx, artifacts.UnitUUIDs, force, wait)
+		s.removeUnits(ctx, artifacts.UnitUUIDs, destroyStorage, force, wait)
 	}
 
 	if len(artifacts.MachineUUIDs) > 0 {
@@ -190,7 +193,7 @@ func (s *Service) removeModel(
 		// or dead, we need to schedule their removal as well.
 		s.logger.Infof(ctx, "model has applications %v, scheduling removal", artifacts.ApplicationUUIDs)
 
-		s.removeApplications(ctx, artifacts.ApplicationUUIDs, force, wait)
+		s.removeApplications(ctx, artifacts.ApplicationUUIDs, destroyStorage, force, wait)
 	}
 
 	return modelJobUUID, nil

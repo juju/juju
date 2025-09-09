@@ -106,7 +106,7 @@ func (s *uniterSuite) TestEnsureDead(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.removalService.EXPECT().MarkUnitAsDead(gomock.Any(), unitUUID).Return(nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, false, time.Duration(0)).Return("", nil)
 
 	// Act
 	res, err := s.uniter.EnsureDead(c.Context(), params.Entities{
@@ -172,7 +172,7 @@ func (s *uniterSuite) TestDestroy(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, time.Duration(0)).Return("", nil)
+	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, false, time.Duration(0)).Return("", nil)
 
 	// Act
 	res, err := s.uniter.Destroy(c.Context(), params.Entities{
@@ -244,8 +244,10 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *tc.C) {
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), subordinateUnitName1).Return(subordinateUnitUUID1, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), subordinateUnitName2).Return(subordinateUnitUUID2, nil)
 
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), subordinateUnitUUID1, false, time.Duration(0)).Return(removal.UUID(""), nil)
-	s.removalService.EXPECT().RemoveUnit(gomock.Any(), subordinateUnitUUID2, false, time.Duration(0)).Return(removal.UUID(""), nil)
+	s.removalService.EXPECT().RemoveUnit(
+		gomock.Any(), subordinateUnitUUID1, false, false, time.Duration(0)).Return(removal.UUID(""), nil)
+	s.removalService.EXPECT().RemoveUnit(
+		gomock.Any(), subordinateUnitUUID2, false, false, time.Duration(0)).Return(removal.UUID(""), nil)
 
 	// Act:
 	res, err := s.uniter.DestroyAllSubordinates(c.Context(), params.Entities{

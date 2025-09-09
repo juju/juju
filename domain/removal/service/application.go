@@ -44,19 +44,21 @@ type ApplicationState interface {
 }
 
 // RemoveApplication checks if a application with the input application UUID
-// exists. If it does, the application is guaranteed after this call to be:
-//   - No longer alive.
-//   - Removed or scheduled to be removed with the input force qualification.
-//   - If the application has units, the units are also guaranteed to be no
-//     longer alive and scheduled for removal.
-//
+// exists. If it does, the application is guaranteed after this call to:
+// - Not be alive.
+// - Be removed or scheduled to be removed with the input force qualification.
+// - Have no units that are alive.
+// - Have all units scheduled for removal.
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // application. This duration is ignored if the force argument is false.
+// If destroyStorage is true, the application units' storage instances will be
+// guaranteed to be not alive and to be scheduled for removal.
 // The UUID for the scheduled removal job is returned.
 func (s *Service) RemoveApplication(
 	ctx context.Context,
 	appUUID coreapplication.ID,
+	destroyStorage bool,
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
@@ -113,7 +115,7 @@ func (s *Service) RemoveApplication(
 		// we need to schedule their removal as well.
 		s.logger.Infof(ctx, "application has units %v, scheduling removal", artifacts.UnitUUIDs)
 
-		s.removeUnits(ctx, artifacts.UnitUUIDs, force, wait)
+		s.removeUnits(ctx, artifacts.UnitUUIDs, destroyStorage, force, wait)
 	}
 
 	if len(artifacts.MachineUUIDs) > 0 {

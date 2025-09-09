@@ -17,6 +17,7 @@ import (
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
+	internal "github.com/juju/juju/domain/removal/internal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -797,18 +798,18 @@ func (c *MockModelDBStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.
 }
 
 // EnsureUnitNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureUnitNotAliveCascade(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockModelDBState) EnsureUnitNotAliveCascade(arg0 context.Context, arg1 string, arg2 bool) (internal.CascadedUnitLives, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUnitNotAliveCascade", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "EnsureUnitNotAliveCascade", arg0, arg1, arg2)
+	ret0, _ := ret[0].(internal.CascadedUnitLives)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EnsureUnitNotAliveCascade indicates an expected call of EnsureUnitNotAliveCascade.
-func (mr *MockModelDBStateMockRecorder) EnsureUnitNotAliveCascade(arg0, arg1 any) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (mr *MockModelDBStateMockRecorder) EnsureUnitNotAliveCascade(arg0, arg1, arg2 any) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAliveCascade", reflect.TypeOf((*MockModelDBState)(nil).EnsureUnitNotAliveCascade), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitNotAliveCascade", reflect.TypeOf((*MockModelDBState)(nil).EnsureUnitNotAliveCascade), arg0, arg1, arg2)
 	return &MockModelDBStateEnsureUnitNotAliveCascadeCall{Call: call}
 }
 
@@ -818,19 +819,19 @@ type MockModelDBStateEnsureUnitNotAliveCascadeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Return(arg0 string, arg1 error) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Return(arg0 internal.CascadedUnitLives, arg1 error) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Do(f func(context.Context, string) (string, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) Do(f func(context.Context, string, bool) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
+func (c *MockModelDBStateEnsureUnitNotAliveCascadeCall) DoAndReturn(f func(context.Context, string, bool) (internal.CascadedUnitLives, error)) *MockModelDBStateEnsureUnitNotAliveCascadeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

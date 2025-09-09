@@ -193,7 +193,10 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = a.removalService.RemoveUnit(ctx, unitUUID, false, 0)
+
+		// This preserves the behaviour prior to 4.0
+		// and does not destroy storage.
+		_, err = a.removalService.RemoveUnit(ctx, unitUUID, false, false, 0)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
 		} else if err != nil {
@@ -499,7 +502,8 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 	if args.MaxWait != nil {
 		maxWait = *args.MaxWait
 	}
-	_, err = a.removalService.RemoveUnit(ctx, unitUUID, args.Force, maxWait)
+
+	_, err = a.removalService.RemoveUnit(ctx, unitUUID, args.DestroyStorage, args.Force, maxWait)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.DestroyUnitResult{}, nil
 	} else if err != nil {

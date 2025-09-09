@@ -609,7 +609,7 @@ func (s *watcherSuite) TestWatchMachineAndMachineUnitLifeWithUnits(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Removing the unit should trigger a change
-		_, err := removalService.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, 0)
+		_, err := removalService.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, false, 0)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -627,7 +627,7 @@ func (s *watcherSuite) TestWatchMachineAndMachineUnitLifeWithUnits(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Removing the unit should trigger a change
-		_, err := removalService.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, 0)
+		_, err := removalService.RemoveUnit(c.Context(), unit.UUID(unitUUID), false, false, 0)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()

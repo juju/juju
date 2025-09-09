@@ -1183,7 +1183,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		if arg.MaxWait != nil {
 			maxWait = *arg.MaxWait
 		}
-		_, err = api.removalService.RemoveUnit(ctx, unitUUID, arg.Force, maxWait)
+		_, err = api.removalService.RemoveUnit(ctx, unitUUID, arg.DestroyStorage, arg.Force, maxWait)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return nil, errors.NotFoundf("unit %q", unitName)
 		} else if err != nil {
@@ -1263,7 +1263,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		if arg.MaxWait != nil {
 			maxWait = *arg.MaxWait
 		}
-		_, err = api.removalService.RemoveApplication(ctx, appID, arg.Force, maxWait)
+		_, err = api.removalService.RemoveApplication(ctx, appID, arg.DestroyStorage, arg.Force, maxWait)
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Annotatef(err, "removing application %q", tag.Id())
 		}

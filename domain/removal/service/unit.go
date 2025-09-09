@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -24,10 +25,15 @@ type UnitState interface {
 	UnitExists(ctx context.Context, unitUUID string) (bool, error)
 
 	// EnsureUnitNotAliveCascade ensures that there is no unit identified by the
-	// input unit UUID, that is still alive. If the unit is the last one on the
-	// machine, it will cascade and the machine is also set to dying. The
-	// affected machine UUID is returned.
-	EnsureUnitNotAliveCascade(ctx context.Context, unitUUID string) (machineUUID string, err error)
+	// input unit UUID that is still "alive". If the unit is the last one on the
+	// machine, the machine will also be guaranteed to not be "alive".
+	// Unit storage attachments will be guaranteed not to be "alive", an if
+	// destroyStorage is supplied as true, so will the unit's storage instances
+	// All associated entities who's life advancement cascaded with the unit are
+	// returned.
+	EnsureUnitNotAliveCascade(
+		ctx context.Context, unitUUID string, destroyStorage bool,
+	) (internal.CascadedUnitLives, error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
 	// input unit UUID, qualified with the input force boolean.
@@ -50,18 +56,20 @@ type UnitState interface {
 
 // RemoveUnit checks if a unit with the input name exists.
 // If it does, the unit is guaranteed after this call to be:
-//   - No longer alive.
-//   - Removed or scheduled to be removed with the input force qualification.
-//   - If the unit is the last one on the machine, the machine will also
-//     guaranteed to be no longer alive and scheduled for removal.
-//
+// - Not alive.
+// - Removed or scheduled to be removed with the input force qualification.
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // unit. This duration is ignored if the force argument is false.
+// If the unit is the last one on the machine, the machine will be guaranteed
+// to not be alive and be scheduled for removal.
+// If destroyStorage is true, the unit's storage instances will be guaranteed
+// to not be alive and be scheduled for removal.
 // The UUID for the scheduled removal job is returned.
 func (s *Service) RemoveUnit(
 	ctx context.Context,
 	unitUUID unit.UUID,
+	destroyStorage bool,
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
@@ -79,7 +87,7 @@ func (s *Service) RemoveUnit(
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
 	// If the machine UUID is returned, then the machine was also set to dying.
-	machineUUID, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String())
+	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
@@ -107,15 +115,15 @@ func (s *Service) RemoveUnit(
 	unitJobUUID, err := s.unitScheduleRemoval(ctx, unitUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if machineUUID == "" {
-		// If there is no machine UUID, then the unit was not the last one on
-		// the machine, so we can return early.
+	} else if cascaded.IsEmpty() {
+		// No other intities associated with the unit were
+		// also ensured to be "dying", so we're done.
 		return unitJobUUID, nil
 	}
 
-	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", machineUUID)
+	s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
 
-	s.removeMachines(ctx, []string{machineUUID}, force, wait)
+	s.removeMachines(ctx, []string{*cascaded.MachineUUID}, force, wait)
 
 	return unitJobUUID, nil
 }

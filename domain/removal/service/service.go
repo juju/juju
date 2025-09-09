@@ -158,9 +158,11 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	return nil
 }
 
-func (s *Service) removeUnits(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+func (s *Service) removeUnits(ctx context.Context, uuids []string, destroyStorage, force bool, wait time.Duration) {
 	for _, unitUUID := range uuids {
-		if _, err := s.RemoveUnit(ctx, unit.UUID(unitUUID), force, wait); errors.Is(err, applicationerrors.UnitNotFound) {
+		if _, err := s.RemoveUnit(
+			ctx, unit.UUID(unitUUID), destroyStorage, force, wait,
+		); errors.Is(err, applicationerrors.UnitNotFound) {
 			// There could be a chance that the unit has already been removed by
 			// another process. We can safely ignore this error and continue
 			// with the next unit.
@@ -206,9 +208,13 @@ func (s *Service) removeRelations(ctx context.Context, uuids []string, force boo
 	}
 }
 
-func (s *Service) removeApplications(ctx context.Context, uuids []string, force bool, wait time.Duration) {
+func (s *Service) removeApplications(
+	ctx context.Context, uuids []string, destroyStorage, force bool, wait time.Duration,
+) {
 	for _, applicationUUID := range uuids {
-		if _, err := s.RemoveApplication(ctx, application.ID(applicationUUID), force, wait); errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if _, err := s.RemoveApplication(
+			ctx, application.ID(applicationUUID), destroyStorage, force, wait,
+		); errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// There could be a chance that the application has already been
 			// removed by another process. We can safely ignore this error and
 			// continue with the next application.
