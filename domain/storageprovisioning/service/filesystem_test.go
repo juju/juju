@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
@@ -697,5 +698,112 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 	)
 
 	_, err := svc.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
+		netNodeUUID, nil,
+	)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "1234", netNodeUUID.String(),
+	).Return(fsaUUID.String(), nil)
+
+	result, err := svc.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "1234", unitUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, fsaUUID)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
+		"", applicationerrors.UnitNotFound,
+	)
+
+	_, err := svc.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "1234", unitUUID,
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
+		netNodeUUID, nil,
+	)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "1234", netNodeUUID.String(),
+	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	_, err = svc.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "1234", unitUUID,
+	)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithNetNodeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
+		netNodeUUID, nil,
+	)
+
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "1234", netNodeUUID.String(),
+	).Return("", networkerrors.NetNodeNotFound)
+
+	_, err = svc.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "1234", unitUUID,
+	)
+	c.Check(err, tc.ErrorIs, networkerrors.NetNodeNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithFilesystemAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(
+		netNodeUUID, nil,
+	)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForStorageID(
+		gomock.Any(), "1234", netNodeUUID.String(),
+	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
+
+	_, err = svc.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "1234", unitUUID,
+	)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
