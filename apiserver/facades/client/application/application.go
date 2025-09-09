@@ -59,6 +59,10 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	Database = "database"
+)
+
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -3118,30 +3122,29 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGet) (params.ApplicationStorageResult, error) {
-
+func (api *APIBase) GetApplicationStorage(args params.ApplicationGetStorageConstraints) (params.ApplicationGetStorageConstraintsResult, error) {
+	res := params.ApplicationGetStorageConstraintsResult{}
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
-		return params.ApplicationStorageResult{}, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 
 	storageConstraints, err := app.StorageConstraints()
 	if err != nil {
-		return params.ApplicationStorageResult{}, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 
-	var applicationStorage params.ApplicationStorage
-
-	if cons, ok := storageConstraints["database"]; ok {
-		applicationStorage = params.ApplicationStorage{
-			Pool:  cons.Pool,
-			Size:  cons.Size,
-			Count: cons.Count,
-		}
+	cons, exists := storageConstraints[Database]
+	if !exists {
+		res.Error = apiservererrors.ServerError(errors.NotFoundf("storage constraints for %s", args.ApplicationName))
+		return res, nil
 	}
 
-	return params.ApplicationStorageResult{
-		Result: applicationStorage,
-		Errors: apiservererrors.ServerError(nil),
-	}, nil
+	res.Result = params.ApplicationStorage{
+		Pool:  cons.Pool,
+		Size:  cons.Size,
+		Count: cons.Count,
+	}
+
+	return res, nil
 }

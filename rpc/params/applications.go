@@ -709,15 +709,16 @@ type PendingResourceUpload struct {
 	Type string
 }
 
-// ApplicationStorageGet holds the parameters for making the applicationStorageGet call.
-type ApplicationStorageGet struct {
+// ApplicationGetStorageConstraints holds the request parameters to get application storage.
+
+type ApplicationGetStorageConstraints struct {
 	ApplicationName string `json:"application"`
 }
 
-// ApplicationStorageResult contains the entire application's storage constraints
-type ApplicationStorageResult struct {
+// ApplicationGetStorageConstraintsResult returns the application's current storage results.
+type ApplicationGetStorageConstraintsResult struct {
 	Result ApplicationStorage
-	Errors *Error
+	Error  *Error `json:"error,omitempty"`
 }
 
 // ApplicationStorage contains the result of an application's storage constraints

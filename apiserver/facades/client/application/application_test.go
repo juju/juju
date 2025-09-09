@@ -1677,8 +1677,19 @@ func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
 }
 
 func (s *applicationSuite) TestGetApplicationStorage(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGet{ApplicationName: "wordpress"})
+	ch := s.AddTestingCharm(c, "storage-block")
+
+	sc := state.StorageConstraints{Pool: "", Size: 2048, Count: 1}
+	sCons := map[string]state.StorageConstraints{
+		"data": sc,
+	}
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationGetStorageConstraints{ApplicationName: application.Name()})
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storage.Result, gc.NotNil)
+	c.Assert(storage.Result.Pool, gc.Equals, sc.Pool)
+	c.Assert(storage.Result.Count, gc.Equals, sc.Count)
+	c.Assert(storage.Result.Size, gc.Equals, sc.Size)
 }
