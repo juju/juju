@@ -100,11 +100,11 @@ func (api *APIBase) getConfig(
 	// If the applications charm origin is from charm-hub, then build the real
 	// channel and send that back.
 	var appChannel string
-	if corecharm.CharmHub.Matches(string(origin.Source)) && origin.Channel != nil {
+	if corecharm.CharmHub.Matches(origin.Source.String()) && origin.Channel != nil {
 		ch := origin.Channel
 		appChannel = charm.MakePermissiveChannel(ch.Track, string(ch.Risk), ch.Branch).String()
 	}
-	osType, err := encodeOSType(origin.Platform.OSType)
+	osType, err := encodeOSType(origin.Platform.OS)
 	if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}

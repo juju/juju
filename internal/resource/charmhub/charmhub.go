@@ -104,7 +104,7 @@ func (ch *CharmHubClient) getResourceDetails(ctx context.Context, req ResourceRe
 	// during deploy when a resolving resources for add pending resources.
 	// This also closes a timing window where a charm and resource
 	// is updated in the channel in between deploy and resource use.
-	cfg, err := charmhub.DownloadOneFromRevision(ctx, origin.CharmhubIdentifier, origin.Revision)
+	cfg, err := charmhub.DownloadOneFromRevision(ctx, origin.ID, *origin.Revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Capture(err)
 	}

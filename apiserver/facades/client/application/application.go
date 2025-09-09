@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -21,7 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
-	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -41,10 +39,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -858,25 +853,17 @@ func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.Applicati
 	return result, nil
 }
 
-func makeParamsCharmOrigin(origin application.CharmOrigin) (params.CharmOrigin, error) {
-	osType, err := encodeOSType(origin.Platform.OSType)
-	if err != nil {
-		return params.CharmOrigin{}, errors.Trace(err)
-	}
-	architecture, err := encodeArchitecture(origin.Platform.Architecture)
-	if err != nil {
-		return params.CharmOrigin{}, errors.Trace(err)
-	}
-	source, err := encodeSource(origin.Source)
+func makeParamsCharmOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
+	osType, err := encodeOSType(origin.Platform.OS)
 	if err != nil {
 		return params.CharmOrigin{}, errors.Trace(err)
 	}
 	retOrigin := params.CharmOrigin{
-		Source:       source,
-		ID:           origin.CharmhubIdentifier,
+		Source:       origin.Source.String(),
+		ID:           origin.ID,
 		Hash:         origin.Hash,
-		Revision:     &origin.Revision,
-		Architecture: architecture,
+		Revision:     origin.Revision,
+		Architecture: origin.Platform.Architecture,
 		Base: params.Base{
 			Name:    osType,
 			Channel: origin.Platform.Channel,
@@ -894,45 +881,12 @@ func makeParamsCharmOrigin(origin application.CharmOrigin) (params.CharmOrigin, 
 	return retOrigin, nil
 }
 
-func encodeOSType(t deployment.OSType) (string, error) {
+func encodeOSType(t string) (string, error) {
 	switch t {
-	case deployment.Ubuntu:
-		return strings.ToLower(ostype.Ubuntu.String()), nil
+	case ostype.Ubuntu.String():
+		return corebase.UbuntuOS, nil
 	default:
 		return "", internalerrors.Errorf("unsupported OS type %v", t)
-	}
-}
-
-func encodeSource(s applicationcharm.CharmSource) (string, error) {
-	switch s {
-	case applicationcharm.CharmHubSource:
-		return corecharm.CharmHub.String(), nil
-	case applicationcharm.LocalSource:
-		return corecharm.Local.String(), nil
-	default:
-		return "", errors.Errorf("unsupported source %q", s)
-	}
-}
-
-func encodeArchitecture(a architecture.Architecture) (string, error) {
-	switch a {
-	case architecture.AMD64:
-		return arch.AMD64, nil
-	case architecture.ARM64:
-		return arch.ARM64, nil
-	case architecture.PPC64EL:
-		return arch.PPC64EL, nil
-	case architecture.S390X:
-		return arch.S390X, nil
-	case architecture.RISCV64:
-		return arch.RISCV64, nil
-
-	// This is a valid case if we're uploading charms and the value isn't
-	// supplied.
-	case architecture.Unknown:
-		return "", nil
-	default:
-		return "", errors.Errorf("unsupported architecture %q", a)
 	}
 }
 
@@ -1746,6 +1700,15 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
+		locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, tag.Name)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
+			continue
+		} else if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		bindings, err := api.applicationService.GetApplicationEndpointBindings(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
@@ -1818,12 +1781,12 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 		// If the applications charm origin is from charm-hub, then build the real
 		// channel and send that back.
 		var channel string
-		if corecharm.CharmHub.Matches(string(origin.Source)) && origin.Channel != nil {
+		if corecharm.CharmHub.Matches(origin.Source.String()) && origin.Channel != nil {
 			ch := origin.Channel
 			channel = charm.MakePermissiveChannel(ch.Track, string(ch.Risk), ch.Branch).String()
 		}
 
-		osType, err := encodeOSType(origin.Platform.OSType)
+		osType, err := encodeOSType(origin.Platform.OS)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
@@ -1831,7 +1794,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 
 		out[i].Result = &params.ApplicationResult{
 			Tag:   tag.String(),
-			Charm: origin.Name,
+			Charm: locator.Name,
 			Base: params.Base{
 				Name:    osType,
 				Channel: origin.Platform.Channel,

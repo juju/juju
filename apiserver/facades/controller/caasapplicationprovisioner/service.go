@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/removal"
@@ -136,7 +136,7 @@ type ApplicationService interface {
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name.
-	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
+	GetApplicationCharmOrigin(ctx context.Context, name string) (charm.Origin, error)
 
 	// GetApplicationLifeByName looks up the life of the specified application.
 	GetApplicationLifeByName(ctx context.Context, appName string) (life.Value, error)

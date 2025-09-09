@@ -6,7 +6,7 @@ package charmhub
 import (
 	"io"
 
-	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/core/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -38,5 +38,5 @@ type CharmID struct {
 	// Origin holds the origin of a charm. This includes the source of the
 	// charm, along with the revision and channel to identify where the charm
 	// originated from.
-	Origin application.CharmOrigin
+	Origin charm.Origin
 }

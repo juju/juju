@@ -18,17 +18,17 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
-	domainapplication "github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/deployment"
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/charmhub"
@@ -45,7 +45,7 @@ type OpenerSuite struct {
 	resourceSize         int64
 	resourceReader       io.ReadCloser
 	resourceRevision     int
-	charmOrigin          domainapplication.CharmOrigin
+	charmOrigin          charm.Origin
 	resourceClient       *MockResourceClient
 	resourceClientGetter *MockResourceClientGetter
 	resourceService      *MockResourceService
@@ -245,13 +245,13 @@ func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
 
 	rev := 0
-	s.charmOrigin = domainapplication.CharmOrigin{
-		Source:   applicationcharm.CharmHubSource,
-		Revision: rev,
-		Channel:  &deployment.Channel{Risk: "stable"},
-		Platform: deployment.Platform{
-			Architecture: architecture.AMD64,
-			OSType:       deployment.Ubuntu,
+	s.charmOrigin = charm.Origin{
+		Source:   charm.CharmHub,
+		Revision: &rev,
+		Channel:  &internalcharm.Channel{Risk: "stable"},
+		Platform: charm.Platform{
+			Architecture: arch.AMD64,
+			OS:           ostype.Ubuntu.String(),
 			Channel:      "20.04/stable",
 		},
 	}

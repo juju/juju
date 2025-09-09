@@ -16,6 +16,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	application "github.com/juju/juju/core/application"
+	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
 	life "github.com/juju/juju/core/life"
@@ -23,12 +24,11 @@ import (
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
-	application0 "github.com/juju/juju/domain/application"
-	charm "github.com/juju/juju/domain/application/charm"
+	charm0 "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
 	removal "github.com/juju/juju/domain/removal"
 	config "github.com/juju/juju/environs/config"
-	charm0 "github.com/juju/juju/internal/charm"
+	charm1 "github.com/juju/juju/internal/charm"
 	resource "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -360,10 +360,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetApplicationCharmOrigin mocks base method.
-func (m *MockApplicationService) GetApplicationCharmOrigin(arg0 context.Context, arg1 string) (application0.CharmOrigin, error) {
+func (m *MockApplicationService) GetApplicationCharmOrigin(arg0 context.Context, arg1 string) (charm.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationCharmOrigin", arg0, arg1)
-	ret0, _ := ret[0].(application0.CharmOrigin)
+	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -381,19 +381,19 @@ type MockApplicationServiceGetApplicationCharmOriginCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) Return(arg0 application0.CharmOrigin, arg1 error) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) Return(arg0 charm.Origin, arg1 error) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) Do(f func(context.Context, string) (application0.CharmOrigin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) Do(f func(context.Context, string) (charm.Origin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) DoAndReturn(f func(context.Context, string) (application0.CharmOrigin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) DoAndReturn(f func(context.Context, string) (charm.Origin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -594,10 +594,10 @@ func (c *MockApplicationServiceGetApplicationTrustSettingCall) DoAndReturn(f fun
 }
 
 // GetCharmLocatorByApplicationName mocks base method.
-func (m *MockApplicationService) GetCharmLocatorByApplicationName(arg0 context.Context, arg1 string) (charm.CharmLocator, error) {
+func (m *MockApplicationService) GetCharmLocatorByApplicationName(arg0 context.Context, arg1 string) (charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmLocatorByApplicationName", arg0, arg1)
-	ret0, _ := ret[0].(charm.CharmLocator)
+	ret0, _ := ret[0].(charm0.CharmLocator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -615,25 +615,25 @@ type MockApplicationServiceGetCharmLocatorByApplicationNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Return(arg0 charm.CharmLocator, arg1 error) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Return(arg0 charm0.CharmLocator, arg1 error) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Do(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Do(f func(context.Context, string) (charm0.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm0.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetCharmMetadataResources mocks base method.
-func (m *MockApplicationService) GetCharmMetadataResources(arg0 context.Context, arg1 charm.CharmLocator) (map[string]resource.Meta, error) {
+func (m *MockApplicationService) GetCharmMetadataResources(arg0 context.Context, arg1 charm0.CharmLocator) (map[string]resource.Meta, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmMetadataResources", arg0, arg1)
 	ret0, _ := ret[0].(map[string]resource.Meta)
@@ -660,22 +660,22 @@ func (c *MockApplicationServiceGetCharmMetadataResourcesCall) Return(arg0 map[st
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmMetadataResourcesCall) Do(f func(context.Context, charm.CharmLocator) (map[string]resource.Meta, error)) *MockApplicationServiceGetCharmMetadataResourcesCall {
+func (c *MockApplicationServiceGetCharmMetadataResourcesCall) Do(f func(context.Context, charm0.CharmLocator) (map[string]resource.Meta, error)) *MockApplicationServiceGetCharmMetadataResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmMetadataResourcesCall) DoAndReturn(f func(context.Context, charm.CharmLocator) (map[string]resource.Meta, error)) *MockApplicationServiceGetCharmMetadataResourcesCall {
+func (c *MockApplicationServiceGetCharmMetadataResourcesCall) DoAndReturn(f func(context.Context, charm0.CharmLocator) (map[string]resource.Meta, error)) *MockApplicationServiceGetCharmMetadataResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetCharmMetadataStorage mocks base method.
-func (m *MockApplicationService) GetCharmMetadataStorage(arg0 context.Context, arg1 charm.CharmLocator) (map[string]charm0.Storage, error) {
+func (m *MockApplicationService) GetCharmMetadataStorage(arg0 context.Context, arg1 charm0.CharmLocator) (map[string]charm1.Storage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmMetadataStorage", arg0, arg1)
-	ret0, _ := ret[0].(map[string]charm0.Storage)
+	ret0, _ := ret[0].(map[string]charm1.Storage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -693,19 +693,19 @@ type MockApplicationServiceGetCharmMetadataStorageCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmMetadataStorageCall) Return(arg0 map[string]charm0.Storage, arg1 error) *MockApplicationServiceGetCharmMetadataStorageCall {
+func (c *MockApplicationServiceGetCharmMetadataStorageCall) Return(arg0 map[string]charm1.Storage, arg1 error) *MockApplicationServiceGetCharmMetadataStorageCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmMetadataStorageCall) Do(f func(context.Context, charm.CharmLocator) (map[string]charm0.Storage, error)) *MockApplicationServiceGetCharmMetadataStorageCall {
+func (c *MockApplicationServiceGetCharmMetadataStorageCall) Do(f func(context.Context, charm0.CharmLocator) (map[string]charm1.Storage, error)) *MockApplicationServiceGetCharmMetadataStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmMetadataStorageCall) DoAndReturn(f func(context.Context, charm.CharmLocator) (map[string]charm0.Storage, error)) *MockApplicationServiceGetCharmMetadataStorageCall {
+func (c *MockApplicationServiceGetCharmMetadataStorageCall) DoAndReturn(f func(context.Context, charm0.CharmLocator) (map[string]charm1.Storage, error)) *MockApplicationServiceGetCharmMetadataStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -867,7 +867,7 @@ func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Conte
 }
 
 // IsCharmAvailable mocks base method.
-func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 charm.CharmLocator) (bool, error) {
+func (m *MockApplicationService) IsCharmAvailable(arg0 context.Context, arg1 charm0.CharmLocator) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsCharmAvailable", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -894,13 +894,13 @@ func (c *MockApplicationServiceIsCharmAvailableCall) Return(arg0 bool, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceIsCharmAvailableCall) Do(f func(context.Context, charm.CharmLocator) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
+func (c *MockApplicationServiceIsCharmAvailableCall) Do(f func(context.Context, charm0.CharmLocator) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceIsCharmAvailableCall) DoAndReturn(f func(context.Context, charm.CharmLocator) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
+func (c *MockApplicationServiceIsCharmAvailableCall) DoAndReturn(f func(context.Context, charm0.CharmLocator) (bool, error)) *MockApplicationServiceIsCharmAvailableCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

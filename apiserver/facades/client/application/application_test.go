@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os/ostype"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/resource"
@@ -33,7 +34,6 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -299,17 +299,17 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *tc.C) {
 		Source:       applicationcharm.CharmHubSource,
 		Architecture: architecture.ARM64,
 	}, nil)
-	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(domainapplication.CharmOrigin{
-		Source:   "charmhub",
-		Revision: 42,
-		Channel: &deployment.Channel{
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Revision: ptr(42),
+		Channel: &internalcharm.Channel{
 			Track: "1.0",
 			Risk:  "stable",
 		},
-		Platform: deployment.Platform{
-			OSType:       deployment.Ubuntu,
+		Platform: corecharm.Platform{
+			OS:           ostype.Ubuntu.String(),
 			Channel:      "24.04",
-			Architecture: architecture.ARM64,
+			Architecture: corearch.ARM64,
 		},
 	}, nil)
 
@@ -344,12 +344,13 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 		Revision: 42,
 		Source:   applicationcharm.LocalSource,
 	}, nil)
-	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(domainapplication.CharmOrigin{
-		Source:   "local",
-		Revision: 42,
-		Platform: deployment.Platform{
-			OSType:  deployment.Ubuntu,
-			Channel: "24.04",
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(corecharm.Origin{
+		Source:   corecharm.Local,
+		Revision: ptr(42),
+		Platform: corecharm.Platform{
+			OS:           ostype.Ubuntu.String(),
+			Channel:      "24.04",
+			Architecture: arch,
 		},
 	}, nil)
 

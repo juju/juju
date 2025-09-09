@@ -17,18 +17,18 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/removal"
 	envconfig "github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -150,10 +150,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
-	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "gitlab").Return(application.CharmOrigin{
-		Platform: deployment.Platform{
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "gitlab").Return(charm.Origin{
+		Platform: charm.Platform{
 			Channel: "stable",
-			OSType:  deployment.Ubuntu,
+			OS:      ostype.Ubuntu.String(),
 		},
 	}, nil)
 	s.applicationService.EXPECT().GetCharmModifiedVersion(gomock.Any(), coreapplication.ID("deadbeef")).Return(10, nil)
