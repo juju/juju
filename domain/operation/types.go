@@ -31,13 +31,13 @@ type CompletedTaskResult struct {
 
 // QueryArgs represents the parameters used for querying operations.
 type QueryArgs struct {
-	// Receivers defines a filter on which receiver(s) we want to retrieve operations.
-	// if empty, operations from all receivers will be retrieved.
-	Receivers
-
 	// ActionNames defines which specific action names we want to retrieve.
 	// If empty, all operations will be retrieved among exec or actions operations
 	ActionNames []string
+
+	// Receivers defines a filter on which receiver(s) we want to retrieve operations.
+	// if empty, operations from all receivers will be retrieved.
+	Receivers Receivers
 
 	// Status defines which specific status we want to retrieve.
 	// If empty, operations with any status will be retrieved.
@@ -85,16 +85,17 @@ type ExecArgs struct {
 // TaskArgs represents the parameters used for running tasks.
 type TaskArgs struct {
 	ActionName     string
-	Parameters     map[string]interface{}
-	IsParallel     bool
 	ExecutionGroup string
+	IsParallel     bool
+	Parameters     map[string]interface{}
 }
 
 // RunResult represents the result of a run operation.
 type RunResult struct {
 	OperationID string
-	Machines    []MachineTaskResult
-	Units       []UnitTaskResult
+
+	Machines []MachineTaskResult
+	Units    []UnitTaskResult
 }
 
 // MachineTaskResult represents the result of a machine task.
@@ -112,16 +113,21 @@ type UnitTaskResult struct {
 
 // TaskInfo represents the information about a task.
 type TaskInfo struct {
-	TaskArgs
-	ID        string
-	Enqueued  time.Time
-	Started   time.Time
+	ID string
+
+	ActionName     string
+	ExecutionGroup string
+	IsParallel     bool
+	Parameters     map[string]interface{}
+
 	Completed time.Time
-	Status    string
-	Message   string
-	Log       []TaskLog
-	Output    map[string]interface{}
+	Enqueued  time.Time
 	Error     error
+	Log       []TaskLog
+	Message   string
+	Output    map[string]any
+	Started   time.Time
+	Status    corestatus.Status
 }
 
 // TaskLog represents a log message for a task.

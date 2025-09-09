@@ -344,7 +344,7 @@ func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionRe
 		Enqueued:  info.Enqueued,
 		Started:   info.Started,
 		Completed: info.Completed,
-		Status:    info.Status,
+		Status:    info.Status.String(),
 		Message:   info.Message,
 		Log:       logs,
 		Output:    info.Output,

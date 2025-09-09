@@ -43,7 +43,7 @@ func TestEnqueueSuite(t *stdtesting.T) {
 func (s *enqueueSuite) TestEnqueuePermissionDenied(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
-	// Arrange : FakeAuthorizer without write permission should yield ErrPerm
+	// Arrange: FakeAuthorizer without write permission should yield ErrPerm
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
 	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService, s.BlockCommandService, s.ModelInfoService,
 		s.OperationService, modeltesting.GenModelUUID(c))
@@ -89,8 +89,11 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 			Units: []operation.UnitTaskResult{{
 				ReceiverName: "app/0",
 				TaskInfo: operation.TaskInfo{
-					ID:       "2",
-					TaskArgs: taskArgs,
+					ID:             "2",
+					ActionName:     taskArgs.ActionName,
+					Parameters:     taskArgs.Parameters,
+					IsParallel:     taskArgs.IsParallel,
+					ExecutionGroup: taskArgs.ExecutionGroup,
 				}}}}, nil)
 
 	// Act
@@ -132,8 +135,7 @@ func (s *enqueueSuite) TestEnqueueLeaderReceiver(c *tc.C) {
 			ReceiverName: "myapp/0",
 			IsLeader:     true,
 			TaskInfo: operation.TaskInfo{
-				ID:       "3",
-				TaskArgs: taskArgs,
+				ID: "3",
 			}}}}, nil)
 
 	// Act
@@ -190,9 +192,9 @@ func (s *enqueueSuite) TestEnqueueMultipleActions(c *tc.C) {
 			c.Assert(gotReceivers[0].LeaderUnit, tc.DeepEquals, "app")
 			c.Assert(gotReceivers[1].Unit, tc.DeepEquals, unit.Name("app/2"))
 			c.Assert(gotReceivers[2].Unit, tc.DeepEquals, unit.Name("app/0"))
-			ti1 := operation.TaskInfo{ID: "1", TaskArgs: gotParams}
-			ti2 := operation.TaskInfo{ID: "2", TaskArgs: gotParams}
-			ti3 := operation.TaskInfo{ID: "3", TaskArgs: gotParams}
+			ti1 := operation.TaskInfo{ID: "1", ActionName: gotParams.ActionName}
+			ti2 := operation.TaskInfo{ID: "2", ActionName: gotParams.ActionName}
+			ti3 := operation.TaskInfo{ID: "3", ActionName: gotParams.ActionName}
 			return operation.RunResult{OperationID: "0",
 				Units: []operation.UnitTaskResult{
 					{ReceiverName: "app/0", TaskInfo: ti3},
@@ -260,7 +262,7 @@ func (s *enqueueSuite) TestEnqueueSomeInvalid(c *tc.C) {
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult,
 			error) {
 			c.Assert(len(gotReceivers), tc.Equals, 1)
-			ti := operation.TaskInfo{ID: "5", TaskArgs: args}
+			ti := operation.TaskInfo{ID: "5", ActionName: args.ActionName}
 			return operation.RunResult{OperationID: "4", Units: []operation.UnitTaskResult{{ReceiverName: "app/3", TaskInfo: ti}}}, nil
 		})
 
@@ -335,7 +337,7 @@ func (s *enqueueSuite) TestEnqueueMissingResultPerActionError(c *tc.C) {
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error) {
 			// only return app/0 result; missing app/1
-			ti := operation.TaskInfo{ID: "9", TaskArgs: args}
+			ti := operation.TaskInfo{ID: "9"}
 			return operation.RunResult{OperationID: "8", Units: []operation.UnitTaskResult{{ReceiverName: "app/0", TaskInfo: ti}}}, nil
 		})
 
@@ -513,13 +515,17 @@ func (s *runSuite) TestRunResultMapping(c *tc.C) {
 			OperationID: "9",
 			Machines: []operation.MachineTaskResult{{
 				ReceiverName: "2",
-				TaskInfo: operation.TaskInfo{ID: "10",
-					TaskArgs: operation.TaskArgs{ActionName: coreoperation.JujuExecActionName}},
+				TaskInfo: operation.TaskInfo{
+					ID:         "10",
+					ActionName: coreoperation.JujuExecActionName,
+				},
 			}},
 			Units: []operation.UnitTaskResult{{
 				ReceiverName: "app/0",
-				TaskInfo: operation.TaskInfo{ID: "11",
-					TaskArgs: operation.TaskArgs{ActionName: coreoperation.JujuExecActionName}},
+				TaskInfo: operation.TaskInfo{
+					ID:         "11",
+					ActionName: coreoperation.JujuExecActionName,
+				},
 			}},
 		}, nil)
 

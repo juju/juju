@@ -237,8 +237,8 @@ func (s *getOperationSuite) TestListOperationsMappingSingleOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
-	tiM := operation.TaskInfo{ID: "1", TaskArgs: operation.TaskArgs{ActionName: "m-act"}}
-	tiU := operation.TaskInfo{ID: "2", TaskArgs: operation.TaskArgs{ActionName: "u-act"}}
+	tiM := operation.TaskInfo{ID: "1", ActionName: "m-act"}
+	tiU := operation.TaskInfo{ID: "2", ActionName: "u-act"}
 	qr := operation.QueryResult{Operations: []operation.OperationInfo{{
 		OperationID: "123",
 		Summary:     "s",
@@ -305,13 +305,13 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	when := time.Date(2025, time.January, 2, 3, 4, 5, 0, time.UTC)
 	log := []operation.TaskLog{{Timestamp: when, Message: "log1"}}
 	ti := operation.TaskInfo{
-		ID:       "1",
-		TaskArgs: operation.TaskArgs{ActionName: "run"},
-		Status:   "running",
-		Message:  "in progress",
-		Log:      log,
-		Output:   map[string]interface{}{"k": "v"},
-		Error:    fmt.Errorf("task-fail")}
+		ID:         "1",
+		ActionName: "run",
+		Status:     "running",
+		Message:    "in progress",
+		Log:        log,
+		Output:     map[string]interface{}{"k": "v"},
+		Error:      fmt.Errorf("task-fail")}
 	qr := operation.QueryResult{
 		Operations: []operation.OperationInfo{{
 			OperationID: "1",
