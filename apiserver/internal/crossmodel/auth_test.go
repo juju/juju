@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -66,7 +67,7 @@ func (s *authSuite) TestCheckOfferAccessCaveat(c *tc.C) {
 	authContext := s.newAuthContext(c)
 	details, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission "+s.newAccessCaveat(s.modelUUID.String()))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(details, tc.DeepEquals, OfferAccessDetails{
+	c.Check(details, tc.DeepEquals, crossmodelbakery.OfferAccessDetails{
 		SourceModelUUID: s.modelUUID.String(),
 		User:            "mary",
 		OfferUUID:       "mysql-uuid",
@@ -261,8 +262,8 @@ permission: %s
 `[1:], s.modelUUID.String(), permission)
 }
 
-func (s *authSuite) newOfferAccessDetails() OfferAccessDetails {
-	return OfferAccessDetails{
+func (s *authSuite) newOfferAccessDetails() crossmodelbakery.OfferAccessDetails {
+	return crossmodelbakery.OfferAccessDetails{
 		SourceModelUUID: s.modelUUID.String(),
 		User:            "mary",
 		OfferUUID:       "mysql-uuid",

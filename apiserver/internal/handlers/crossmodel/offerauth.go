@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/internal/crossmodel"
+	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -30,12 +30,12 @@ type OfferAuthContext interface {
 
 	// CheckOfferAccessCaveat validates the offer access caveat and
 	// returns the details encoded within it.
-	CheckOfferAccessCaveat(ctx context.Context, caveat string) (crossmodel.OfferAccessDetails, error)
+	CheckOfferAccessCaveat(ctx context.Context, caveat string) (crossmodelbakery.OfferAccessDetails, error)
 
 	// CheckLocalAccessRequest validates the local access request
 	// encoded in the offer access details and returns the first party
 	// caveats that should be added to the discharge macaroon.
-	CheckLocalAccessRequest(ctx context.Context, details crossmodel.OfferAccessDetails) ([]checkers.Caveat, error)
+	CheckLocalAccessRequest(ctx context.Context, details crossmodelbakery.OfferAccessDetails) ([]checkers.Caveat, error)
 }
 
 // AddOfferAuthHandlers adds the HTTP handlers used for application offer
