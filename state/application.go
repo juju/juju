@@ -3629,6 +3629,44 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
+// UpsertStorageConstraints upserts the storage constraints for the application.
+func (a *Application) UpsertStorageConstraints(cons map[string]StorageConstraints) error {
+
+	storageConstraintsKey := a.storageConstraintsKey()
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+		}
+
+		var storageConstraintsOp txn.Op
+
+		_, err := readStorageConstraints(a.st, storageConstraintsKey)
+		if errors.Is(err, errors.NotFound) {
+			storageConstraintsOp = createStorageConstraintsOp(
+				storageConstraintsKey, cons,
+			)
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "setting storage constraints for app %q", a.doc.Name)
+		} else {
+			storageConstraintsOp = replaceStorageConstraintsOp(
+				storageConstraintsKey, cons,
+			)
+		}
+		return []txn.Op{storageConstraintsOp}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot upsert storage constraints")
+	}
+
+	return nil
+}
+
 // DeviceConstraints returns the device constraints for the application.
 func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())

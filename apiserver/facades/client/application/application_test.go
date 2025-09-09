@@ -1684,6 +1684,8 @@ func (s *applicationSuite) TestGetApplicationStorage(c *gc.C) {
 		"data": sc,
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+	c.Assert(application, gc.NotNil)
+	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationGetStorageConstraints{ApplicationName: application.Name()})
 

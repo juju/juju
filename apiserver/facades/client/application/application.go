@@ -3148,3 +3148,22 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationGetStorageConst
 
 	return res, nil
 }
+
+func (api *APIBase) UpsertApplicationStorage(args params.ApplicationStorageUpsert) (params.ApplicationGetStorageConstraintsResult, error) {
+	res := params.ApplicationGetStorageConstraintsResult{}
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	cons := map[string]state.StorageConstraints{
+		Database: {
+			Pool:  args.ApplicationStorage.Pool,
+			Size:  args.ApplicationStorage.Size,
+			Count: args.ApplicationStorage.Count,
+		},
+	}
+	err = app.UpsertStorageConstraints(cons)
+
+	return res, errors.Trace(err)
+}

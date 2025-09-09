@@ -554,6 +554,20 @@ func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmConfig", reflect.TypeOf((*MockApplication)(nil).UpdateCharmConfig), arg0, arg1)
 }
 
+// UpsertStorageConstraints mocks base method.
+func (m *MockApplication) UpsertStorageConstraints(arg0 map[string]state.StorageConstraints) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertStorageConstraints", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertStorageConstraints indicates an expected call of UpsertStorageConstraints.
+func (mr *MockApplicationMockRecorder) UpsertStorageConstraints(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertStorageConstraints", reflect.TypeOf((*MockApplication)(nil).UpsertStorageConstraints), arg0)
+}
+
 // MockCharm is a mock of Charm interface.
 type MockCharm struct {
 	ctrl     *gomock.Controller

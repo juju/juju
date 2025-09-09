@@ -734,9 +734,9 @@ type ApplicationStorage struct {
 	Count uint64 `json:"count"`
 }
 
-// ApplicationStorageUpdate holds the parameters for making the applicationStorageUpdate call.
-type ApplicationStorageUpdate struct {
-	ApplicationName string            `json:"application"`
-	Config          map[string]string `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
-	ConfigYAML      string            `json:"config-yaml"`
+// ApplicationStorageUpsert holds the parameters for making the applicationStorageUpsert call.
+type ApplicationStorageUpsert struct {
+	ApplicationName string `json:"application"`
+
+	ApplicationStorage ApplicationStorage `json:"application-storage"`
 }

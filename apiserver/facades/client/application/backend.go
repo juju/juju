@@ -120,6 +120,7 @@ type Application interface {
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
 	StorageConstraints() (map[string]state.StorageConstraints, error)
+	UpsertStorageConstraints(map[string]state.StorageConstraints) error
 }
 
 // Bindings defines a subset of the functionality provided by the
