@@ -26,7 +26,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
@@ -50,6 +49,7 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/naturalsort"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"

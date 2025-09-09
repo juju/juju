@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/container"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

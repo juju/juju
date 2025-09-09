@@ -11,9 +11,9 @@ import (
 	admission "k8s.io/api/admissionregistration/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/pki"
 )
 

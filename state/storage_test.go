@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	k8stesting "github.com/juju/juju/caas/kubernetes/testing"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"

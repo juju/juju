@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/context"
@@ -424,7 +423,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 
 	cloud := jujucloud.Cloud{
 		Name:      "newcloudname",
-		Type:      string(k8sconstants.CAASProviderType),
+		Type:      string(jujucloud.CloudTypeKubernetes),
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
@@ -433,7 +432,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.AddCloud(cloud, adminTag.Name()).Return(nil).Times(2)
 
-	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
+	addCloudArg := createAddCloudParam(string(jujucloud.CloudTypeKubernetes))
 
 	add := func() {
 		err := s.api.AddCloud(addCloudArg)

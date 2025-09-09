@@ -18,8 +18,8 @@ import (
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"

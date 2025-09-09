@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/mongo"
 )
 

@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -395,7 +395,7 @@ func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (para
 // there will be detailed validation errors per model.  Such model errors are returned
 // separately and do not contribute to the overall method error status.
 // Controller admins can 'force' an update of the credential
-// regardless of whether it is deemed valid or not.
+// regardless of whether it is deemed valiggd or not.
 func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
 	return api.commonUpdateCredentials(true, args.Force, false, params.TaggedCredentials{Credentials: args.Credentials})
 }
@@ -708,7 +708,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return err
 	}
 
-	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
+	if cloudArgs.Cloud.Type != jujucloud.CloudTypeKubernetes {
 		// All non-k8s cloud need to go through whitelist.
 		controllerInfo, err := api.backend.ControllerInfo()
 		if err != nil {
