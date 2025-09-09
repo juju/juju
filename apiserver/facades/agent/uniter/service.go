@@ -636,6 +636,72 @@ type StorageProvisioningService interface {
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
 
+	// GetFilesystemAttachment retrieves the
+	// [domainstorageprovisioning.FilesystemAttachment] for the supplied filesystem
+	// attachment uuid.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided filesystem attachment uuid.
+	GetFilesystemAttachment(
+		ctx context.Context,
+		uuid storageprovisioning.FilesystemAttachmentUUID,
+	) (storageprovisioning.FilesystemAttachment, error)
+
+	// GetFilesystemAttachmentUUIDForStorageID returns the filesystem
+	// attachment UUID for the supplied storage instance id which is attached to
+	// the given net node UUID.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+	// instance exists for the supplied storage instance id.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided values.
+	GetFilesystemAttachmentUUIDForStorageID(
+		ctx context.Context,
+		storageID string,
+		unitUUID coreunit.UUID,
+	) (storageprovisioning.FilesystemAttachmentUUID, error)
+
+	// GetVolumeAttachmentUUIDForStorageID returns the volume
+	// attachment uuid for the supplied storage id.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
+	// unit exists for the supplied unit UUID.
+	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+	// instance exists for the supplied storage instance id.
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied values.
+	GetVolumeAttachmentUUIDForStorageID(
+		ctx context.Context,
+		storageID string,
+		unitUUID coreunit.UUID,
+	) (storageprovisioning.VolumeAttachmentUUID, error)
+
+	// GetVolumeAttachmentInfo retrieves information about the volume attachment
+	// with volume information included.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied uuid.
+	GetVolumeAttachmentInfo(
+		ctx context.Context,
+		volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
+	) (storageprovisioning.VolumeAttachmentInfo, error)
+
+	// GetStorageAttachmentInfo returns information about a storage attachment for
+	// the given storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+	// attachment does not exist.
+	GetStorageAttachmentInfo(
+		ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+	) (storageprovisioning.StorageAttachmentInfo, error)
+
 	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
 	// given storage ID and unit UUID.
 	//
