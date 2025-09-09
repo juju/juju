@@ -19,6 +19,8 @@ import (
 	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
+	changestreamservice "github.com/juju/juju/domain/changestream/service"
+	changestreamstate "github.com/juju/juju/domain/changestream/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerservice "github.com/juju/juju/domain/controller/service"
@@ -202,6 +204,17 @@ func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.Ag
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("agentbinary"),
 		s.controllerObjectStore,
+	)
+}
+
+// ControllerChangeStream returns the global controller change stream.
+func (s *ControllerServices) ControllerChangeStream() *changestreamservice.Service {
+	return changestreamservice.NewService(
+		changestreamstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+			s.clock,
+			s.logger.Child("changestream"),
+		),
 	)
 }
 
