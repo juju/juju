@@ -33,9 +33,9 @@ func TestGetOperationSuite(t *testing.T) {
 	tc.Run(t, &getOperationSuite{})
 }
 
-// TestListOperations_PermissionDenied verifies ListOperations returns ErrPerm
+// TestListOperationsPermissionDenied verifies ListOperations returns ErrPerm
 // and does not call service when read permission is denied.
-func (s *getOperationSuite) TestListOperations_PermissionDenied(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	// Authorizer without read permission
@@ -52,9 +52,9 @@ func (s *getOperationSuite) TestListOperations_PermissionDenied(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestListOperations_NoFilters verifies that no filters pass an empty target
+// TestListOperationsNoFilters verifies that no filters pass an empty target
 // and no other filters, and empty result is returned.
-func (s *getOperationSuite) TestListOperations_NoFilters(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsNoFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -77,9 +77,9 @@ func (s *getOperationSuite) TestListOperations_NoFilters(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_ApplicationsFilter ensures application names flow into
+// TestListOperationsApplicationsFilter ensures application names flow into
 // Receivers.Applications.
-func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsApplicationsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -97,9 +97,9 @@ func (s *getOperationSuite) TestListOperations_ApplicationsFilter(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_UnitsFilter verifies string unit names convert to
+// TestListOperationsUnitsFilter verifies string unit names convert to
 // []unit.Name in Receivers.Units.
-func (s *getOperationSuite) TestListOperations_UnitsFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsUnitsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -116,9 +116,9 @@ func (s *getOperationSuite) TestListOperations_UnitsFilter(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_MachinesFilter verifies string machine names convert
+// TestListOperationsMachinesFilter verifies string machine names convert
 // to []machine.Name in Target.Machines.
-func (s *getOperationSuite) TestListOperations_MachinesFilter(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsMachinesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -134,8 +134,8 @@ func (s *getOperationSuite) TestListOperations_MachinesFilter(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_ActionNamesFilter confirms actions filter passes through.
-func (s *getOperationSuite) TestListOperations_ActionNamesFilter(c *tc.C) {
+// TestListOperationsActionNamesFilter confirms actions filter passes through.
+func (s *getOperationSuite) TestListOperationsActionNamesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -151,8 +151,8 @@ func (s *getOperationSuite) TestListOperations_ActionNamesFilter(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_StatusFilter confirms status filter passes through.
-func (s *getOperationSuite) TestListOperations_StatusFilter(c *tc.C) {
+// TestListOperationsStatusFilter confirms status filter passes through.
+func (s *getOperationSuite) TestListOperationsStatusFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -169,8 +169,8 @@ func (s *getOperationSuite) TestListOperations_StatusFilter(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_LimitOffset verifies Limit and Offset pointers pass unchanged.
-func (s *getOperationSuite) TestListOperations_LimitOffset(c *tc.C) {
+// TestListOperationsLimitOffset verifies Limit and Offset pointers pass unchanged.
+func (s *getOperationSuite) TestListOperationsLimitOffset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -188,9 +188,9 @@ func (s *getOperationSuite) TestListOperations_LimitOffset(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_CombinedFilters ensures multiple filters are passed
+// TestListOperationsCombinedFilters ensures multiple filters are passed
 // together without modification.
-func (s *getOperationSuite) TestListOperations_CombinedFilters(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsCombinedFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -219,8 +219,8 @@ func (s *getOperationSuite) TestListOperations_CombinedFilters(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestListOperations_ServiceError ensures service error is propagated.
-func (s *getOperationSuite) TestListOperations_ServiceError(c *tc.C) {
+// TestListOperationsServiceError ensures service error is propagated.
+func (s *getOperationSuite) TestListOperationsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -231,9 +231,9 @@ func (s *getOperationSuite) TestListOperations_ServiceError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-// TestListOperations_MappingSingleOperation validates mapping of
+// TestListOperationsMappingSingleOperation validates mapping of
 // OperationInfo with unit and machine actions into params.
-func (s *getOperationSuite) TestListOperations_MappingSingleOperation(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsMappingSingleOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -266,8 +266,8 @@ func (s *getOperationSuite) TestListOperations_MappingSingleOperation(c *tc.C) {
 	c.Check(res.Results[0].Actions[1].Action.Tag, tc.Equals, names.NewActionTag("2").String())
 }
 
-// TestListOperations_TruncatedPassThrough ensures Truncated flag propagates.
-func (s *getOperationSuite) TestListOperations_TruncatedPassThrough(c *tc.C) {
+// TestListOperationsTruncatedPassThrough ensures Truncated flag propagates.
+func (s *getOperationSuite) TestListOperationsTruncatedPassThrough(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -280,8 +280,8 @@ func (s *getOperationSuite) TestListOperations_TruncatedPassThrough(c *tc.C) {
 	c.Assert(res.Truncated, tc.Equals, true)
 }
 
-// TestListOperations_OperationErrorMapping validates mapping of operation-level error to params.Error.
-func (s *getOperationSuite) TestListOperations_OperationErrorMapping(c *tc.C) {
+// TestListOperationsOperationErrorMapping validates mapping of operation-level error to params.Error.
+func (s *getOperationSuite) TestListOperationsOperationErrorMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -296,9 +296,9 @@ func (s *getOperationSuite) TestListOperations_OperationErrorMapping(c *tc.C) {
 	c.Assert(res.Results[0].Error.Message, tc.Matches, ".*op-fail.*")
 }
 
-// TestListOperations_ActionFieldMapping ensures TaskInfo fields map into
+// TestListOperationsActionFieldMapping ensures TaskInfo fields map into
 // ActionResult fields.
-func (s *getOperationSuite) TestListOperations_ActionFieldMapping(c *tc.C) {
+func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -340,8 +340,8 @@ func (s *getOperationSuite) TestListOperations_ActionFieldMapping(c *tc.C) {
 	c.Check(ar.Error.Message, tc.Matches, ".*task-fail.*")
 }
 
-// TestListOperations_EmptyOperations verifies that an empty operations slice results in empty results.
-func (s *getOperationSuite) TestListOperations_EmptyOperations(c *tc.C) {
+// TestListOperationsEmptyOperations verifies that an empty operations slice results in empty results.
+func (s *getOperationSuite) TestListOperationsEmptyOperations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -364,9 +364,9 @@ func toEntities(tags ...string) params.Entities {
 	return params.Entities{Entities: ents}
 }
 
-// TestOperations_PermissionDenied verifies read permission is enforced
+// TestOperationsPermissionDenied verifies read permission is enforced
 // and that the service is not called when denied.
-func (s *getOperationSuite) TestOperations_PermissionDenied(c *tc.C) {
+func (s *getOperationSuite) TestOperationsPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
@@ -384,9 +384,9 @@ func (s *getOperationSuite) TestOperations_PermissionDenied(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestOperations_AllTagsInvalid returns per-entity parse errors and
+// TestOperationsAllTagsInvalid returns per-entity parse errors and
 // does not call the service.
-func (s *getOperationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
+func (s *getOperationSuite) TestOperationsAllTagsInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -405,9 +405,9 @@ func (s *getOperationSuite) TestOperations_AllTagsInvalid(c *tc.C) {
 	}
 }
 
-// TestOperations_MixedValidInvalid calls service with only valid IDs and
+// TestOperationsMixedValidInvalid calls service with only valid IDs and
 // aligns results in input order with parse errors preserved.
-func (s *getOperationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
+func (s *getOperationSuite) TestOperationsMixedValidInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -436,8 +436,8 @@ func (s *getOperationSuite) TestOperations_MixedValidInvalid(c *tc.C) {
 	c.Check(res.Results[2].Summary, tc.Equals, "b")
 }
 
-// TestOperations_EmptyInput returns empty results and does not call service.
-func (s *getOperationSuite) TestOperations_EmptyInput(c *tc.C) {
+// TestOperationsEmptyInput returns empty results and does not call service.
+func (s *getOperationSuite) TestOperationsEmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -451,8 +451,8 @@ func (s *getOperationSuite) TestOperations_EmptyInput(c *tc.C) {
 	c.Assert(res.Results, tc.HasLen, 0)
 }
 
-// TestOperations_ServiceError ensures service errors are propagated.
-func (s *getOperationSuite) TestOperations_ServiceError(c *tc.C) {
+// TestOperationsServiceError ensures service errors are propagated.
+func (s *getOperationSuite) TestOperationsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -472,8 +472,8 @@ func (s *getOperationSuite) TestOperations_ServiceError(c *tc.C) {
 	c.Check(res.Results[1].Error, tc.ErrorMatches, ".*boom.*")
 }
 
-// TestOperations_LargeBatch ensures stable mapping for many entries.
-func (s *getOperationSuite) TestOperations_LargeBatch(c *tc.C) {
+// TestOperationsLargeBatch ensures stable mapping for many entries.
+func (s *getOperationSuite) TestOperationsLargeBatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)

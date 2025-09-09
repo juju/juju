@@ -39,8 +39,8 @@ func TestEnqueueSuite(t *stdtesting.T) {
 	tc.Run(t, &enqueueSuite{})
 }
 
-// TestEnqueue_PermissionDenied verifies that enqueuing an operation without proper permission returns ErrPerm.
-func (s *enqueueSuite) TestEnqueue_PermissionDenied(c *tc.C) {
+// TestEnqueuePermissionDenied verifies that enqueuing an operation without proper permission returns ErrPerm.
+func (s *enqueueSuite) TestEnqueuePermissionDenied(c *tc.C) {
 
 	defer s.setupMocks(c).Finish()
 	// Arrange : FakeAuthorizer without write permission should yield ErrPerm
@@ -56,9 +56,9 @@ func (s *enqueueSuite) TestEnqueue_PermissionDenied(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestEnqueue_NoActions verifies that enqueuing an operation with no actions results
+// TestEnqueueNoActions verifies that enqueuing an operation with no actions results
 // in an appropriate error response.
-func (s *enqueueSuite) TestEnqueue_NoActions(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueNoActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -70,9 +70,9 @@ func (s *enqueueSuite) TestEnqueue_NoActions(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no actions specified")
 }
 
-// TestEnqueue_SingleUnit verifies the enqueue operation for a single unit with
+// TestEnqueueSingleUnit verifies the enqueue operation for a single unit with
 // actions, parameters, and execution groups.
-func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	api := s.NewActionAPI(c)
@@ -89,7 +89,7 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 			Units: []operation.UnitTaskResult{{
 				ReceiverName: "app/0",
 				TaskInfo: operation.TaskInfo{
-					ID:       "1",
+					ID:       "2",
 					TaskArgs: taskArgs,
 				}}}}, nil)
 
@@ -107,7 +107,7 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 	c.Assert(res.Actions, tc.HasLen, 1)
 	c.Check(res.Actions[0].Error, tc.IsNil)
 	c.Check(res.Actions[0].Action, tc.DeepEquals, &params.Action{
-		Tag:            "action-1",
+		Tag:            "action-2",
 		Receiver:       "unit-app-0",
 		Name:           "do",
 		Parameters:     map[string]interface{}{"k": "v"},
@@ -116,9 +116,9 @@ func (s *enqueueSuite) TestEnqueue_SingleUnit(c *tc.C) {
 	})
 }
 
-// TestEnqueue_LeaderReceiver verifies the enqueue operation behavior when
+// TestEnqueueLeaderReceiver verifies the enqueue operation behavior when
 // the receiver is the leader unit of an application.
-func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueLeaderReceiver(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -132,7 +132,7 @@ func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
 			ReceiverName: "myapp/0",
 			IsLeader:     true,
 			TaskInfo: operation.TaskInfo{
-				ID:       "1",
+				ID:       "3",
 				TaskArgs: taskArgs,
 			}}}}, nil)
 
@@ -149,9 +149,9 @@ func (s *enqueueSuite) TestEnqueue_LeaderReceiver(c *tc.C) {
 	c.Check(res.Actions[0].Action.Receiver, tc.Equals, "unit-myapp-0")
 }
 
-// TestEnqueue_Defaults verifies the enqueue operation applies default values
+// TestEnqueueDefaults verifies the enqueue operation applies default values
 // for isParallel and ExecutionGroup parameters.
-func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	api := s.NewActionAPI(c)
@@ -174,9 +174,9 @@ func (s *enqueueSuite) TestEnqueue_Defaults(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestEnqueue_MultipleActions validates the enqueue operation for multiple
+// TestEnqueueMultipleActions validates the enqueue operation for multiple
 // actions with the correct execution order and parameters.
-func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueMultipleActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -193,7 +193,7 @@ func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
 			ti1 := operation.TaskInfo{ID: "1", TaskArgs: gotParams}
 			ti2 := operation.TaskInfo{ID: "2", TaskArgs: gotParams}
 			ti3 := operation.TaskInfo{ID: "3", TaskArgs: gotParams}
-			return operation.RunResult{OperationID: "3",
+			return operation.RunResult{OperationID: "0",
 				Units: []operation.UnitTaskResult{
 					{ReceiverName: "app/0", TaskInfo: ti3},
 					{ReceiverName: "app/2", TaskInfo: ti2},
@@ -217,9 +217,9 @@ func (s *enqueueSuite) TestEnqueue_MultipleActions(c *tc.C) {
 	c.Check(res.Actions[2].Action.Receiver, tc.Equals, "unit-app-0")
 }
 
-// TestEnqueue_MultipleActionsErrors verifies that enqueueing multiple actions
+// TestEnqueueMultipleActionsErrors verifies that enqueueing multiple actions
 // results in appropriate errors when conditions fail.
-func (s *enqueueSuite) TestEnqueue_MultipleActionsErrors(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -250,9 +250,9 @@ func (s *enqueueSuite) TestEnqueue_MultipleActionsErrors(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, ".*parameters mismatch.*")
 }
 
-// TestEnqueue_SomeInvalid validates the behavior of the EnqueueOperation method
+// TestEnqueueSomeInvalid validates the behavior of the EnqueueOperation method
 // when some provided actions are invalid (receiver with a bad tag)
-func (s *enqueueSuite) TestEnqueue_SomeInvalid(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueSomeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -260,7 +260,7 @@ func (s *enqueueSuite) TestEnqueue_SomeInvalid(c *tc.C) {
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult,
 			error) {
 			c.Assert(len(gotReceivers), tc.Equals, 1)
-			ti := operation.TaskInfo{ID: "1", TaskArgs: args}
+			ti := operation.TaskInfo{ID: "5", TaskArgs: args}
 			return operation.RunResult{OperationID: "4", Units: []operation.UnitTaskResult{{ReceiverName: "app/3", TaskInfo: ti}}}, nil
 		})
 
@@ -275,9 +275,9 @@ func (s *enqueueSuite) TestEnqueue_SomeInvalid(c *tc.C) {
 	c.Assert(res.Actions[1].Error, tc.IsNil)
 }
 
-// TestEnqueue_AllInvalid_NoServiceCall verifies that no service call is made
+// TestEnqueueAllInvalid_NoServiceCall verifies that no service call is made
 // when all actions have invalid receivers.
-func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueAllInvalid_NoServiceCall(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -294,8 +294,8 @@ func (s *enqueueSuite) TestEnqueue_AllInvalid_NoServiceCall(c *tc.C) {
 	c.Assert(res.Actions[1].Error, tc.NotNil)
 }
 
-// TestEnqueue_ServiceError checks that EnqueueOperation returns an error when the OperationService.Run fails.
-func (s *enqueueSuite) TestEnqueue_ServiceError(c *tc.C) {
+// TestEnqueueServiceError checks that EnqueueOperation returns an error when the OperationService.Run fails.
+func (s *enqueueSuite) TestEnqueueServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
@@ -304,9 +304,9 @@ func (s *enqueueSuite) TestEnqueue_ServiceError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-// TestEnqueue_UnexpectedExtraResult verifies the behavior when an unexpected
+// TestEnqueueUnexpectedExtraResult verifies the behavior when an unexpected
 // extra result is returned during operation execution.
-func (s *enqueueSuite) TestEnqueue_UnexpectedExtraResult(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueUnexpectedExtraResult(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -318,7 +318,7 @@ func (s *enqueueSuite) TestEnqueue_UnexpectedExtraResult(c *tc.C) {
 				Units: []operation.UnitTaskResult{
 					{
 						ReceiverName: "otherapp/9", // this result is not expected
-						TaskInfo:     operation.TaskInfo{ID: "0"},
+						TaskInfo:     operation.TaskInfo{ID: "6"},
 					}}}, nil
 		})
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "unit-app-0",
@@ -326,16 +326,16 @@ func (s *enqueueSuite) TestEnqueue_UnexpectedExtraResult(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "unexpected result for \"otherapp/9\"")
 }
 
-// TestEnqueue_MissingResultPerActionError verifies that EnqueueOperation
+// TestEnqueueMissingResultPerActionError verifies that EnqueueOperation
 // returns an error when results are missing for actions.
-func (s *enqueueSuite) TestEnqueue_MissingResultPerActionError(c *tc.C) {
+func (s *enqueueSuite) TestEnqueueMissingResultPerActionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.NewActionAPI(c)
 	// Arrange
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error) {
 			// only return app/0 result; missing app/1
-			ti := operation.TaskInfo{ID: "0", TaskArgs: args}
+			ti := operation.TaskInfo{ID: "9", TaskArgs: args}
 			return operation.RunResult{OperationID: "8", Units: []operation.UnitTaskResult{{ReceiverName: "app/0", TaskInfo: ti}}}, nil
 		})
 
@@ -368,33 +368,33 @@ func (s *runSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	return s.MockBaseSuite.NewActionAPI(c)
 }
 
-// TestRun_BlockOnAllMachines ensures RunOnAllMachines is blocked when a
+// TestRunBlockOnAllMachines ensures RunOnAllMachines is blocked when a
 // change block is active.
-func (s *runSuite) TestRun_BlockOnAllMachines(c *tc.C) {
+func (s *runSuite) TestRunBlockOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: Use parent mock action API to handle specifically the block changes
 	client := s.MockBaseSuite.NewActionAPI(c)
 
 	// block all changes
-	s.blockAllChanges(c, "TestRun_BlockOnAllMachines")
+	s.blockAllChanges(c, "TestRunBlockOnAllMachines")
 	_, err := client.RunOnAllMachines(
 		c.Context(),
 		params.RunParams{
 			Commands: "hostname",
 			Timeout:  testing.LongWait,
 		})
-	s.assertBlocked(c, err, "TestRun_BlockOnAllMachines")
+	s.assertBlocked(c, err, "TestRunBlockOnAllMachines")
 }
 
 // TestBlockRunMachineAndApplication ensures Run is blocked with mixed
 // targets when a change block is active.
-func (s *runSuite) TestRun_BlockMachineAndApplication(c *tc.C) {
+func (s *runSuite) TestRunBlockMachineAndApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: Use parent mock action API to handle specifically the block changes
 	client := s.MockBaseSuite.NewActionAPI(c)
 
 	// block all changes
-	s.blockAllChanges(c, "TestRun_BlockMachineAndApplication")
+	s.blockAllChanges(c, "TestRunBlockMachineAndApplication")
 	_, err := client.Run(
 		c.Context(),
 		params.RunParams{
@@ -403,12 +403,12 @@ func (s *runSuite) TestRun_BlockMachineAndApplication(c *tc.C) {
 			Machines:     []string{"0"},
 			Applications: []string{"magic"},
 		})
-	s.assertBlocked(c, err, "TestRun_BlockMachineAndApplication")
+	s.assertBlocked(c, err, "TestRunBlockMachineAndApplication")
 }
 
-// TestRun_PermissionDenied verifies Run enforces admin permission and
+// TestRunPermissionDenied verifies Run enforces admin permission and
 // does not call OperationService when denied.
-func (s *runSuite) TestRun_PermissionDenied(c *tc.C) {
+func (s *runSuite) TestRunPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
@@ -426,9 +426,9 @@ func (s *runSuite) TestRun_PermissionDenied(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestRun_RejectNestedExec ensures commands containing juju-exec/juju-run
+// TestRunRejectNestedExec ensures commands containing juju-exec/juju-run
 // are rejected by Run.
-func (s *runSuite) TestRun_RejectNestedExec(c *tc.C) {
+func (s *runSuite) TestRunRejectNestedExec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -443,9 +443,9 @@ func (s *runSuite) TestRun_RejectNestedExec(c *tc.C) {
 	c.Assert(err2, tc.ErrorMatches, "cannot use \".*\" as an action command")
 }
 
-// TestRun_SuccessMapping verifies input mapping to OperationService.Run and
+// TestRunSuccessMapping verifies input mapping to OperationService.Run and
 // output mapping to params.EnqueuedActions.
-func (s *runSuite) TestRun_SuccessMapping(c *tc.C) {
+func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -481,8 +481,8 @@ func (s *runSuite) TestRun_SuccessMapping(c *tc.C) {
 	c.Check(len(res.Actions), tc.Equals, 0)
 }
 
-// TestRun_Defaults verifies defaulting for Parallel and ExecutionGroup.
-func (s *runSuite) TestRun_Defaults(c *tc.C) {
+// TestRunDefaults verifies defaulting for Parallel and ExecutionGroup.
+func (s *runSuite) TestRunDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -502,9 +502,9 @@ func (s *runSuite) TestRun_Defaults(c *tc.C) {
 	c.Check(res.OperationTag, tc.Equals, "operation-2")
 }
 
-// TestRun_ResultMapping ensures toEnqueuedActions maps unit and machine
+// TestRunResultMapping ensures toEnqueuedActions maps unit and machine
 // results correctly.
-func (s *runSuite) TestRun_ResultMapping(c *tc.C) {
+func (s *runSuite) TestRunResultMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -513,12 +513,12 @@ func (s *runSuite) TestRun_ResultMapping(c *tc.C) {
 			OperationID: "9",
 			Machines: []operation.MachineTaskResult{{
 				ReceiverName: "2",
-				TaskInfo: operation.TaskInfo{ID: "1",
+				TaskInfo: operation.TaskInfo{ID: "10",
 					TaskArgs: operation.TaskArgs{ActionName: coreoperation.JujuExecActionName}},
 			}},
 			Units: []operation.UnitTaskResult{{
 				ReceiverName: "app/0",
-				TaskInfo: operation.TaskInfo{ID: "1",
+				TaskInfo: operation.TaskInfo{ID: "11",
 					TaskArgs: operation.TaskArgs{ActionName: coreoperation.JujuExecActionName}},
 			}},
 		}, nil)
@@ -532,14 +532,14 @@ func (s *runSuite) TestRun_ResultMapping(c *tc.C) {
 	c.Assert(res.Actions, tc.HasLen, 2)
 	// machine action
 	c.Check(res.Actions[0].Action.Receiver, tc.Equals, "machine-2")
-	c.Check(res.Actions[0].Action.Tag, tc.Equals, names.NewActionTag("1").String())
+	c.Check(res.Actions[0].Action.Tag, tc.Equals, names.NewActionTag("10").String())
 	// unit action
 	c.Check(res.Actions[1].Action.Receiver, tc.Equals, "unit-app-0")
-	c.Check(res.Actions[1].Action.Tag, tc.Equals, names.NewActionTag("1").String())
+	c.Check(res.Actions[1].Action.Tag, tc.Equals, names.NewActionTag("11").String())
 }
 
-// TestRun_ServiceError verifies service error is propagated by Run.
-func (s *runSuite) TestRun_ServiceError(c *tc.C) {
+// TestRunServiceError verifies service error is propagated by Run.
+func (s *runSuite) TestRunServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -553,9 +553,9 @@ func (s *runSuite) TestRun_ServiceError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-// TestRun_EmptyTarget passes through empty target slices when filters are
+// TestRunEmptyTarget passes through empty target slices when filters are
 // empty.
-func (s *runSuite) TestRun_EmptyTarget(c *tc.C) {
+func (s *runSuite) TestRunEmptyTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -574,9 +574,9 @@ func (s *runSuite) TestRun_EmptyTarget(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "no target")
 }
 
-// TestRun_BlockServiceError ensures a non-NotFound block service error
+// TestRunBlockServiceError ensures a non-NotFound block service error
 // is propagated and service Run is not called.
-func (s *runSuite) TestRun_BlockServiceError(c *tc.C) {
+func (s *runSuite) TestRunBlockServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: use parent mock action API to handle specifically the block changes
 	api := s.MockBaseSuite.NewActionAPI(c)
@@ -623,9 +623,9 @@ func (s *runAllSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	return s.MockBaseSuite.NewActionAPI(c)
 }
 
-// TestRunOnAllMachines_PermissionDenied verifies admin permission is
+// TestRunOnAllMachinesPermissionDenied verifies admin permission is
 // enforced and the service is not called.
-func (s *runAllSuite) TestRunOnAllMachines_PermissionDenied(c *tc.C) {
+func (s *runAllSuite) TestRunOnAllMachinesPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
@@ -643,9 +643,9 @@ func (s *runAllSuite) TestRunOnAllMachines_PermissionDenied(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestRunOnAllMachines_ChangeBlockedError propagates ChangeAllowed
+// TestRunOnAllMachinesChangeBlockedError propagates ChangeAllowed
 // error from the block service and does not call RunOnAllMachines.
-func (s *runSuite) TestRunOnAllMachines_ChangeBlockedError(c *tc.C) {
+func (s *runSuite) TestRunOnAllMachinesChangeBlockedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: use parent NewActionAPI to keep standard authorizer setup
 	api := s.MockBaseSuite.NewActionAPI(c)
@@ -662,9 +662,9 @@ func (s *runSuite) TestRunOnAllMachines_ChangeBlockedError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "block-error")
 }
 
-// TestRunOnAllMachines_NonIAASModel returns an error when the model
+// TestRunOnAllMachinesNonIAASModel returns an error when the model
 // type is not IAAS.
-func (s *runSuite) TestRunOnAllMachines_NonIAASModel(c *tc.C) {
+func (s *runSuite) TestRunOnAllMachinesNonIAASModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
 	api := s.MockBaseSuite.NewActionAPI(c)
@@ -683,9 +683,9 @@ func (s *runSuite) TestRunOnAllMachines_NonIAASModel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "cannot run on all machines with a caas model")
 }
 
-// TestRunOnAllMachines_ModelInfoError propagates an error when
+// TestRunOnAllMachinesModelInfoError propagates an error when
 // fetching model info fails.
-func (s *runAllSuite) TestRunOnAllMachines_ModelInfoError(c *tc.C) {
+func (s *runAllSuite) TestRunOnAllMachinesModelInfoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
 	api := s.MockBaseSuite.NewActionAPI(c)
@@ -704,9 +704,9 @@ func (s *runAllSuite) TestRunOnAllMachines_ModelInfoError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "mi boom")
 }
 
-// TestRunOnAllMachines_RejectNestedExec rejects nested juju-exec or
+// TestRunOnAllMachinesRejectNestedExec rejects nested juju-exec or
 // juju-run commands.
-func (s *runAllSuite) TestRunOnAllMachines_RejectNestedExec(c *tc.C) {
+func (s *runAllSuite) TestRunOnAllMachinesRejectNestedExec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -721,9 +721,9 @@ func (s *runAllSuite) TestRunOnAllMachines_RejectNestedExec(c *tc.C) {
 	c.Assert(err2, tc.ErrorMatches, "cannot use \".*\" as an action command")
 }
 
-// TestRunOnAllMachines_ServiceError propagates a service error and
+// TestRunOnAllMachinesServiceError propagates a service error and
 // ensures args mapping is correct.
-func (s *runAllSuite) TestRunOnAllMachines_ServiceError(c *tc.C) {
+func (s *runAllSuite) TestRunOnAllMachinesServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	api := s.NewActionAPI(c)
@@ -737,9 +737,9 @@ func (s *runAllSuite) TestRunOnAllMachines_ServiceError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "service fail")
 }
 
-// TestRunOnAllMachines_Success verifies success mapping to
+// TestRunOnAllMachinesSuccess verifies success mapping to
 // params.EnqueuedActions.
-func (s *runAllSuite) TestRunOnAllMachines_Success(c *tc.C) {
+func (s *runAllSuite) TestRunOnAllMachinesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	// Don't block

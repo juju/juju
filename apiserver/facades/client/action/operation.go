@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -41,9 +41,14 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 
 	taskParams := taskParamHolder{}
 	for i, action := range arg.Actions {
+		// Validate that all actions have the same parameters, modulo the receiver.
+		// Note: this is a change of behavior from Juju 3, which allows different
+		// actions to be run as one operation. However, the only known user of this
+		// API is the Juju CLI, which actually only runs one action at a time, on
+		// several receivers.
 		if err := taskParams.Set(action); err != nil {
 			return params.EnqueuedActions{},
-				errors.Errorf("all actions parameters from the same operation should be the same: %v", err)
+				errors.Errorf("all actions args within one operation, modulo the receiver, should be the same: %v", err)
 		}
 
 		if strings.HasSuffix(action.Receiver, leader) {
