@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -396,4 +397,41 @@ func (s *serviceSuite) TestWatchStorageAttachment(c *tc.C) {
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.WatchStorageAttachment(c.Context(), storageAttachmentUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetStorageAttachmentInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	owner := unittesting.GenNewName(c, "foo/0")
+	info := storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: storageAttachmentUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+	}
+
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).Return(
+		info, nil,
+	)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, info)
+}
+
+func (s *serviceSuite) TestGetStorageAttachmentInfoWithStorageAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).Return(
+		storageprovisioning.StorageAttachmentInfo{},
+		storageprovisioningerrors.StorageAttachmentNotFound,
+	)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	_, err := svc.GetStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }

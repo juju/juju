@@ -1718,10 +1718,10 @@ AND       sva.net_node_uuid = $netNodeUUID.uuid
 func (st *State) GetVolumeAttachmentInfo(
 	ctx context.Context,
 	uuid string,
-) (domainstorageprovisioning.VolumeAttachmentInfo, error) {
+) (storageprovisioning.VolumeAttachmentInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
 	}
 
 	var (
@@ -1745,7 +1745,7 @@ SELECT &volumeAttachmentData.* FROM (
 		input, dbVal,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1759,10 +1759,10 @@ SELECT &volumeAttachmentData.* FROM (
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentInfo{
+	return storageprovisioning.VolumeAttachmentInfo{
 		HardwareID:      dbVal.HardwareId,
 		WWN:             dbVal.WWN,
 		BlockDeviceName: dbVal.BlockDeviceName,
