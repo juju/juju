@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	domaincontroller "github.com/juju/juju/domain/controller"
 	controllererrors "github.com/juju/juju/domain/controller/errors"
 	"github.com/juju/juju/domain/controllernode"
 	controllernodestate "github.com/juju/juju/domain/controllernode/state"
@@ -126,9 +125,7 @@ func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
 
 	info, err := st.GetControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, domaincontroller.ControllerInfo{
-		UUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		CACert:       "test-ca-cert",
-		APIAddresses: []string{"10.0.0.2:17070", "10.0.0.42:18080"},
-	})
+	c.Check(info.UUID, tc.Equals, "deadbeef-1bad-500d-9000-4b1d0d06f00d")
+	c.Check(info.CACert, tc.Equals, "test-ca-cert")
+	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080"})
 }
