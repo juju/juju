@@ -5,10 +5,12 @@ package operationpruner
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -70,6 +72,14 @@ func (config Config) Validate() error {
 type prunerWorker struct {
 	config   Config
 	catacomb catacomb.Catacomb
+
+	// mu guards the fields below it.
+	mu sync.Mutex
+
+	maxAge     time.Duration
+	maxSizeMB  int
+	lastUpdate time.Time
+	lastPrune  time.Time
 }
 
 // NewWorker returns a new pruner worker.
@@ -98,6 +108,25 @@ func (w *prunerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report shows up in the dependency engine report.
+func (w *prunerWorker) Report() map[string]interface{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return map[string]interface{}{
+		"max-age":     w.maxAge,
+		"max-size-mb": w.maxSizeMB,
+		"last-update": w.lastUpdate,
+		"last-prune":  w.lastPrune,
+	}
+}
+
+// jitter returns a random duration around the given period, between 0.5 and 1.5
+// times the period.
+func jitter(period time.Duration) time.Duration {
+	half := period / 2
+	return retry.ExpBackoff(half, period+half, 2, true)(0, 1)
+}
+
 // loop is the worker's main loop.
 //   - It watches for changes to the model configuration to get up-to-date values
 //     for the pruning interval and the maximum size of operation results.
@@ -118,10 +147,9 @@ func (w *prunerWorker) loop() error {
 		return errors.Errorf("getting model config: %w", err)
 	}
 
+	w.updateConfig(ctx, initCfg)
 	var (
-		pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
-		maxSizeMB  = int(initCfg.MaxActionResultsSizeMB())
-		maxAge     = initCfg.MaxActionResultsAge()
+		pruneTimer = w.config.Clock.NewTimer(w.nextPruneInterval(ctx))
 	)
 	defer pruneTimer.Stop()
 	for {
@@ -137,18 +165,64 @@ func (w *prunerWorker) loop() error {
 				!changes.Contains(config.MaxActionResultsAge) {
 				continue
 			}
+
 			cfg, err := w.config.ModelConfig.ModelConfig(ctx)
 			if err != nil {
 				return errors.Errorf("getting model config: %w", err)
 			}
-			maxSizeMB = int(cfg.MaxActionResultsSizeMB())
-			maxAge = cfg.MaxActionResultsAge()
-		case <-pruneTimer.Chan():
-			err := w.config.OperationService.PruneOperations(ctx, maxAge, maxSizeMB)
+			w.updateConfig(ctx, cfg)
+			err = w.doPrune(ctx, pruneTimer)
 			if err != nil {
 				return errors.Capture(err)
 			}
-			pruneTimer.Reset(w.config.PruneInterval)
+		case <-pruneTimer.Chan():
+			err = w.doPrune(ctx, pruneTimer)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 	}
+}
+
+// doPrune prunes operations.
+func (w *prunerWorker) doPrune(ctx context.Context, pruneTimer clock.Timer) error {
+	maxAge, maxSizeMB := w.getPruneArgs()
+	err := w.config.OperationService.PruneOperations(ctx, maxAge, maxSizeMB)
+	if err != nil {
+		return errors.Errorf("pruning operations: %w", err)
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastPrune = w.config.Clock.Now()
+	pruneTimer.Reset(w.nextPruneInterval(ctx))
+	return nil
+}
+
+// nextPruneInterval returns a jittered duration for the next prune interval.
+func (w *prunerWorker) nextPruneInterval(ctx context.Context) time.Duration {
+	jittered := jitter(w.config.PruneInterval)
+	w.config.Logger.Debugf(ctx, "jittered prune interval: %v", jittered)
+	return jittered
+}
+
+// getPruneArgs returns the current prune arguments. The returned values are
+// guarded by w.mu to avoid races
+func (w *prunerWorker) getPruneArgs() (time.Duration, int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.maxAge, w.maxSizeMB
+}
+
+// updateConfig updates the pruner's configuration. It is guarded by w.mu to
+// avoid races.
+func (w *prunerWorker) updateConfig(ctx context.Context, initCfg *config.Config) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.maxAge = initCfg.MaxActionResultsAge()
+	w.maxSizeMB = int(initCfg.MaxActionResultsSizeMB())
+	w.lastUpdate = w.config.Clock.Now()
+	w.config.Logger.Debugf(ctx, "config updated: max-age=%v, max-size-mb=%v", w.maxAge, w.maxSizeMB)
 }
