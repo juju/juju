@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -95,6 +96,16 @@ type UnitState interface {
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
 	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[string]int, error)
+
+	// GetMachineUUIDAndNetNodeForName is responsible for identifying the uuid
+	// and net node for a machine by it's name.
+	//
+	// The following errors may be expected:
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the supplied machine name.
+	GetMachineUUIDAndNetNodeForName(
+		context.Context, string,
+	) (coremachine.UUID, network.NetNodeUUID, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
@@ -190,6 +201,41 @@ func (s *ProviderService) makeIAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
+		var (
+			machineUUID        coremachine.UUID
+			machineNetNodeUUID network.NetNodeUUID
+		)
+		// If the placement of the unit is on to an already established machine
+		// we need to resolve this to a machine uuid and netnode uuid.
+		if placement.Type == deployment.PlacementTypeMachine {
+			var err error
+			machineUUID, machineNetNodeUUID, err =
+				s.st.GetMachineUUIDAndNetNodeForName(
+					ctx, placement.Directive,
+				)
+			if err != nil {
+				return nil, errors.Errorf(
+					"getting machine %q for unit placement directive: %w",
+					placement.Directive, err,
+				)
+			}
+		} else {
+			var err error
+			machineUUID, err = coremachine.NewUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new machine uuid for IAAS unit: %w", err,
+				)
+			}
+
+			machineNetNodeUUID, err = network.NewNetNodeUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new machine net node uuid for IAAS unit: %w", err,
+				)
+			}
+		}
+
 		unitStorageArgs, err := makeUnitStorageArgs(
 			ctx, s.storagePoolProvider, storageDirectives, nil,
 		)
@@ -204,10 +250,14 @@ func (s *ProviderService) makeIAASUnitArgs(
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				Placement:            placement,
-				UnitStatusArg:        s.makeIAASUnitStatusArgs(),
+				// We use the same netnode uuid as the machine for the unit.
+				NetNodeUUID:   machineNetNodeUUID,
+				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			Platform: platform,
-			Nonce:    u.Nonce,
+			Platform:           platform,
+			Nonce:              u.Nonce,
+			MachineNetNodeUUID: machineNetNodeUUID,
+			MachineUUID:        machineUUID,
 		}
 		args[i] = arg
 	}
@@ -228,6 +278,13 @@ func (s *ProviderService) makeCAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
+		netNodeUUID, err := network.NewNetNodeUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"making new net node uuid for caas unit: %w", err,
+			)
+		}
+
 		unitStorageArgs, err := makeUnitStorageArgs(
 			ctx, s.storagePoolProvider, storageDirectives, nil,
 		)
@@ -239,6 +296,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
+				NetNodeUUID:          netNodeUUID,
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},
