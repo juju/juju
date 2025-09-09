@@ -235,7 +235,7 @@ type ApplicationService interface {
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name. If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
+	GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error)
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
 	// specified application ID.

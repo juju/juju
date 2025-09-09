@@ -8,10 +8,10 @@ import (
 	"io"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/resource/charmhub"
@@ -44,7 +44,7 @@ type ApplicationService interface {
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name.
-	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
+	GetApplicationCharmOrigin(ctx context.Context, name string) (charm.Origin, error)
 }
 
 type ResourceService interface {

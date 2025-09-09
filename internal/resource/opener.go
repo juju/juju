@@ -12,11 +12,10 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -100,12 +99,12 @@ func NewResourceOpenerForApplication(
 }
 
 func newClientGetter(
-	source applicationcharm.CharmSource,
+	source charm.Source,
 	charmhubClientGetter ResourceClientGetter,
 ) ResourceClientGetter {
 	var clientGetter ResourceClientGetter
 	switch source {
-	case applicationcharm.CharmHubSource:
+	case charm.CharmHub:
 		clientGetter = charmhubClientGetter
 	default:
 		// Use the no-op opener that returns a not-found error when called.
@@ -121,7 +120,7 @@ type ResourceOpener struct {
 	retrievedBy     string
 	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
-	charmOrigin     application.CharmOrigin
+	charmOrigin     charm.Origin
 	appID           coreapplication.ID
 
 	resourceClientGetter        ResourceClientGetter

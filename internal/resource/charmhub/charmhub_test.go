@@ -12,9 +12,10 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
-	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/os/ostype"
+	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -55,13 +56,13 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 		c.Context(),
 		charmhub.ResourceRequest{
 			CharmID: charmhub.CharmID{
-				Origin: application.CharmOrigin{
-					CharmhubIdentifier: "mycharmhubid",
-					Channel:            &deployment.Channel{Risk: "stable"},
-					Revision:           rev,
-					Platform: deployment.Platform{
-						Architecture: architecture.AMD64,
-						OSType:       deployment.Ubuntu,
+				Origin: charm.Origin{
+					ID:       "mycharmhubid",
+					Channel:  &internalcharm.Channel{Risk: "stable"},
+					Revision: &rev,
+					Platform: charm.Platform{
+						Architecture: arch.AMD64,
+						OS:           ostype.Ubuntu.String(),
 						Channel:      "20.04/stable",
 					},
 				},

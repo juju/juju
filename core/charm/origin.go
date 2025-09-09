@@ -77,8 +77,9 @@ func (o Origin) String() string {
 // Platform describes the platform used to install the charm with.
 type Platform struct {
 	Architecture string
-	OS           string
-	Channel      string
+	// TODO: This should be of type ostype.OSType
+	OS      string
+	Channel string
 }
 
 // MustParsePlatform parses a given string or returns a panic.

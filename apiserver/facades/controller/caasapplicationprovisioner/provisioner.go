@@ -6,7 +6,6 @@ package caasapplicationprovisioner
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
@@ -26,7 +26,6 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -388,7 +387,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, internalerrors.Capture(err)
 	}
 
-	osType, err := encodeOSType(origin.Platform.OSType)
+	osType, err := encodeOSType(origin.Platform.OS)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
@@ -559,10 +558,10 @@ func (a *API) watchEntity(ctx context.Context, appName string) (string, error) {
 	return id, nil
 }
 
-func encodeOSType(t deployment.OSType) (string, error) {
+func encodeOSType(t string) (string, error) {
 	switch t {
-	case deployment.Ubuntu:
-		return strings.ToLower(ostype.Ubuntu.String()), nil
+	case ostype.Ubuntu.String():
+		return corebase.UbuntuOS, nil
 	default:
 		return "", internalerrors.Errorf("unsupported OS type %v", t)
 	}

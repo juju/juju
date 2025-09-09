@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/core/os/ostype"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -615,13 +616,36 @@ func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
 		Name:   "foo",
 		Source: applicationcharm.CharmHubSource,
+		Platform: deployment.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       deployment.Ubuntu,
+		},
+		Channel: &deployment.Channel{
+			Track: "1.0",
+			Risk:  "stable",
+		},
+		Revision:           42,
+		Hash:               "hash",
+		CharmhubIdentifier: "id",
 	}, nil)
 
 	origin, err := s.service.GetApplicationCharmOrigin(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(origin, tc.DeepEquals, application.CharmOrigin{
-		Name:   "foo",
-		Source: applicationcharm.CharmHubSource,
+	c.Check(origin, tc.DeepEquals, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Architecture: arch.AMD64,
+			Channel:      "stable",
+			OS:           ostype.Ubuntu.String(),
+		},
+		Channel: &internalcharm.Channel{
+			Track: "1.0",
+			Risk:  "stable",
+		},
+		Revision: ptr(42),
+		Hash:     "hash",
+		ID:       "id",
 	})
 }
 
@@ -877,8 +901,9 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 		},
 	}
 	charmOrigin := application.CharmOrigin{
-		Name:   "foo",
-		Source: applicationcharm.CharmHubSource,
+		Name:     "foo",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: 42,
 		Platform: deployment.Platform{
 			Architecture: architecture.AMD64,
 			Channel:      "stable",
@@ -912,7 +937,8 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 		Principal: true,
 		CharmName: "foo",
 		CharmOrigin: corecharm.Origin{
-			Source: corecharm.CharmHub,
+			Source:   corecharm.CharmHub,
+			Revision: ptr(42),
 			Platform: corecharm.Platform{
 				Architecture: arch.AMD64,
 				Channel:      "stable",
@@ -955,8 +981,11 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc
 
 func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 	origin := application.CharmOrigin{
-		Name:   "foo",
-		Source: applicationcharm.CharmHubSource,
+		Name:               "foo",
+		Source:             applicationcharm.CharmHubSource,
+		Hash:               "hash",
+		CharmhubIdentifier: "id",
+		Revision:           42,
 		Platform: deployment.Platform{
 			Architecture: architecture.AMD64,
 			Channel:      "stable",
@@ -971,7 +1000,10 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(decoded, tc.DeepEquals, corecharm.Origin{
-		Source: corecharm.CharmHub,
+		Source:   corecharm.CharmHub,
+		ID:       "id",
+		Hash:     "hash",
+		Revision: ptr(42),
 		Platform: corecharm.Platform{
 			Architecture: arch.AMD64,
 			Channel:      "stable",
@@ -979,6 +1011,43 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 		},
 		Channel: &internalcharm.Channel{
 			Risk: internalcharm.Stable,
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodeCharmOriginNegativeRevision(c *tc.C) {
+	origin := application.CharmOrigin{
+		Name:               "foo",
+		Source:             applicationcharm.CharmHubSource,
+		Hash:               "hash",
+		CharmhubIdentifier: "id",
+		Revision:           -1,
+		Platform: deployment.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       deployment.Ubuntu,
+		},
+		Channel: &deployment.Channel{
+			Track: "1.0",
+			Risk:  "stable",
+		},
+	}
+
+	decoded, err := decodeCharmOrigin(origin)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(decoded, tc.DeepEquals, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "id",
+		Hash:   "hash",
+		Platform: corecharm.Platform{
+			Architecture: arch.AMD64,
+			Channel:      "stable",
+			OS:           ostype.Ubuntu.String(),
+		},
+		Channel: &internalcharm.Channel{
+			Track: "1.0",
+			Risk:  "stable",
 		},
 	})
 }

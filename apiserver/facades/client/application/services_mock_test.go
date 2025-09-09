@@ -784,10 +784,10 @@ func (c *MockApplicationServiceGetApplicationAndCharmConfigCall) DoAndReturn(f f
 }
 
 // GetApplicationCharmOrigin mocks base method.
-func (m *MockApplicationService) GetApplicationCharmOrigin(arg0 context.Context, arg1 string) (application0.CharmOrigin, error) {
+func (m *MockApplicationService) GetApplicationCharmOrigin(arg0 context.Context, arg1 string) (charm.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationCharmOrigin", arg0, arg1)
-	ret0, _ := ret[0].(application0.CharmOrigin)
+	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -805,19 +805,19 @@ type MockApplicationServiceGetApplicationCharmOriginCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) Return(arg0 application0.CharmOrigin, arg1 error) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) Return(arg0 charm.Origin, arg1 error) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) Do(f func(context.Context, string) (application0.CharmOrigin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) Do(f func(context.Context, string) (charm.Origin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationCharmOriginCall) DoAndReturn(f func(context.Context, string) (application0.CharmOrigin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
+func (c *MockApplicationServiceGetApplicationCharmOriginCall) DoAndReturn(f func(context.Context, string) (charm.Origin, error)) *MockApplicationServiceGetApplicationCharmOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

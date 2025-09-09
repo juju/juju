@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/os/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -22,6 +21,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
@@ -1537,17 +1537,22 @@ func (s *Service) GetApplicationTrustSetting(ctx context.Context, appName string
 // GetApplicationCharmOrigin returns the charm origin for the specified
 // application name. If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error) {
+func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error) {
 	if !isValidApplicationName(name) {
-		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
+		return corecharm.Origin{}, applicationerrors.ApplicationNameNotValid
 	}
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return application.CharmOrigin{}, errors.Capture(err)
+		return corecharm.Origin{}, errors.Capture(err)
 	}
 
-	return s.st.GetApplicationCharmOrigin(ctx, appID)
+	origin, err := s.st.GetApplicationCharmOrigin(ctx, appID)
+	if err != nil {
+		return corecharm.Origin{}, errors.Capture(err)
+	}
+
+	return decodeCharmOrigin(origin)
 }
 
 // GetApplicationAndCharmConfig returns the application and charm config for the
@@ -1933,8 +1938,16 @@ func decodeCharmOrigin(origin application.CharmOrigin) (corecharm.Origin, error)
 		return corecharm.Origin{}, errors.Errorf("decoding channel: %w", err)
 	}
 
+	var rev *int
+	if origin.Revision >= 0 {
+		rev = &origin.Revision
+	}
+
 	return corecharm.Origin{
 		Source:   decodedSource,
+		ID:       origin.CharmhubIdentifier,
+		Hash:     origin.Hash,
+		Revision: rev,
 		Channel:  decodedChannel,
 		Platform: decodePlatform,
 	}, nil
@@ -1981,15 +1994,17 @@ func decodeArchitecture(a architecture.Architecture) (arch.Arch, error) {
 		return arch.RISCV64, nil
 	case architecture.S390X:
 		return arch.S390X, nil
+	case architecture.Unknown:
+		return "", nil
 	default:
 		return "", errors.Errorf("unsupported architecture %q", a)
 	}
 }
 
-func decodeOS(osType deployment.OSType) (os.OSType, error) {
+func decodeOS(osType deployment.OSType) (ostype.OSType, error) {
 	switch osType {
 	case deployment.Ubuntu:
-		return os.Ubuntu, nil
+		return ostype.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unsupported OS type %q", osType)
 	}
