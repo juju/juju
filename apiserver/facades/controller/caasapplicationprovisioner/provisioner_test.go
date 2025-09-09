@@ -216,6 +216,32 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
 }
 
+func (s *CAASApplicationProvisionerSuite) TestWatchStorageConstraints(c *gc.C) {
+	storageConstraintsChanged := make(chan struct{}, 1)
+	s.st.app = &mockApplication{
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url:  "cs:gitlab",
+		},
+		storageConstraintsWatcher: statetesting.NewMockNotifyWatcher(storageConstraintsChanged),
+	}
+
+	storageConstraintsChanged <- struct{}{}
+
+	results, err := s.api.WatchStorageConstraints(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	res := s.resources.Get("1")
+	c.Assert(res, gc.FitsTypeOf, (*statetesting.MockNotifyWatcher)(nil))
+}
+
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,

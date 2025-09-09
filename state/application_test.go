@@ -4100,6 +4100,28 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
+func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
+	w := s.mysql.WatchStorageConstraints()
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewNotifyWatcherC(c, w)
+
+	// Make one change, check one event.
+	application, err := s.State.Application(s.mysql.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	constraints := map[string]state.StorageConstraints{
+		"data": {Count: 1, Size: 1024, Pool: "mypool"},
+	}
+	err = application.UpdateStorageConstraints(constraints)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 	err := s.mysql.SetMetricCredentials([]byte("hello there"))
 	c.Assert(err, jc.ErrorIsNil)
