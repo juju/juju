@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -25,6 +24,7 @@ import (
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -79,6 +79,11 @@ type OperationService interface {
 	// units using the provided parameters.
 	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
 		args operation.TaskArgs) (operation.RunResult, error)
+	// GetTask returns the task identified by its ID.
+	GetTask(ctx context.Context, taskID string) (operation.Task, error)
+	// CancelTask attempts to cancel an enqueued task, identified by its
+	// ID.
+	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -155,7 +160,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		action, err := a.operationService.GetAction(ctx, coreoperation.ID(actionTag.Id()))
+		action, err := a.operationService.GetTask(ctx, actionTag.Id())
 		if err != nil {
 			// NOTE(nvinuesa): The returned error in this case is not correct
 			// (should be NotFound for ActionNotFound for example), but since
@@ -187,8 +192,8 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		cancelledAction, err := a.operationService.CancelAction(ctx, coreoperation.ID(actionTag.Id()))
-		if internalerrors.Is(err, operationerrors.ActionNotFound) {
+		cancelledAction, err := a.operationService.CancelTask(ctx, actionTag.Id())
+		if internalerrors.Is(err, operationerrors.TaskNotFound) {
 			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
 		}
@@ -266,33 +271,33 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-func makeActionResult(action operation.Action) params.ActionResult {
-	actionTag := names.NewMachineTag(action.OperationID.String())
+func makeActionResult(task operation.Task) params.ActionResult {
+	actionTag := names.NewActionTag(task.TaskID)
 	ac := &params.Action{
 		Tag:            actionTag.Id(),
-		Name:           action.Name,
-		Receiver:       action.Receiver,
-		Parameters:     action.Parameters,
-		Parallel:       &action.Parallel,
-		ExecutionGroup: action.ExecutionGroup,
+		Name:           task.Name,
+		Receiver:       task.Receiver,
+		Parameters:     task.Parameters,
+		Parallel:       &task.Parallel,
+		ExecutionGroup: task.ExecutionGroup,
 	}
 
 	result := params.ActionResult{
 		Action:   ac,
-		Enqueued: action.Enqueued,
-		Status:   action.Status,
-		Output:   action.Output,
+		Enqueued: task.Enqueued,
+		Status:   task.Status,
+		Output:   task.Output,
 	}
-	if action.Started != nil {
-		result.Started = *action.Started
+	if task.Started != nil {
+		result.Started = *task.Started
 	}
-	if action.Completed != nil {
-		result.Completed = *action.Completed
+	if task.Completed != nil {
+		result.Completed = *task.Completed
 	}
-	if action.Message != nil {
-		result.Message = *action.Message
+	if task.Message != nil {
+		result.Message = *task.Message
 	}
-	for _, log := range action.Log {
+	for _, log := range task.Log {
 		result.Log = append(result.Log, params.ActionMessage{
 			Message:   log.Message,
 			Timestamp: log.Timestamp,

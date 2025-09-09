@@ -51,21 +51,9 @@ type operationTaskStatusRow struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-// unitRow represents the struct for querying unit information.
-type unitRow struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
-// machineRow represents the struct for querying machine information.
-type machineRow struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
-// actionResult represents the result of joining operation with its tasks and
+// taskResult represents the result of joining operation with its tasks and
 // receivers.
-type actionResult struct {
+type taskResult struct {
 	OperationUUID  string         `db:"operation_uuid"`
 	Receiver       sql.NullString `db:"receiver"`
 	Name           sql.NullString `db:"name"`
@@ -75,28 +63,22 @@ type actionResult struct {
 	EnqueuedAt     time.Time      `db:"enqueued_at"`
 	StartedAt      sql.NullTime   `db:"started_at"`
 	CompletedAt    sql.NullTime   `db:"completed_at"`
-	StatusID       sql.NullInt64  `db:"status_id"`
+	Status         string         `db:"status"`
 	StatusMessage  sql.NullString `db:"status_message"`
 	StatusValue    sql.NullString `db:"status_value"`
+	OutputPath     sql.NullString `db:"path"`
 }
 
-// operationUUID represents a simple wrapper for operation UUID queries.
-type operationUUID struct {
+// uuid represents a simple wrapper for operation UUID queries.
+type uuid struct {
 	UUID string `db:"uuid"`
 }
 
-// actionParameter represents a parameter key-value pair for an action.
-type actionParameter struct {
+// taskParameter represents a parameter key-value pair for a task.
+type taskParameter struct {
 	OperationUUID string `db:"operation_uuid"`
 	Key           string `db:"key"`
 	Value         string `db:"value"`
-}
-
-// taskOutputParameter represents an output key-value pair from a task.
-type taskOutputParameter struct {
-	TaskUUID string `db:"task_uuid"`
-	Key      string `db:"key"`
-	Value    string `db:"value"`
 }
 
 // taskLogEntry represents a log entry from operation_task_log.
@@ -115,14 +97,4 @@ type taskIdent struct {
 // operation_task_status table.
 type taskStatus struct {
 	StatusID int `db:"status_id"`
-}
-
-// taskUUID represents a task UUID parameter for queries.
-type taskUUID struct {
-	UUID string `db:"uuid"`
-}
-
-// objectStorePath represents the path from object store metadata.
-type objectStorePath struct {
-	Path string `db:"path"`
 }

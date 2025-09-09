@@ -15,32 +15,46 @@ import (
 // Action represents a domain action.
 type Action struct {
 	// UUID is the action unique identifier.
+	"github.com/juju/juju/internal/uuid"
+)
+
+// TaskLogMessage represents a logged message on an task.
+type TaskLogMessage struct {
+	// Timestamp is when the message was logged.
+	Timestamp time.Time
+	// Message is the content of the logged message.
+	Message string
+}
+
+// Task represents a domain task.
+type Task struct {
+	// UUID is the task unique identifier.
 	UUID uuid.UUID
-	// OperationID is the operation ID that created the action.
-	OperationID coreoperation.ID
-	// Receiver is the action receiver (unit / machine).
+	// TaskID is the task (unique, numeric, sequence) identifier.
+	TaskID string
+	// Receiver is the task receiver (unit / machine).
 	Receiver string
-	// Name is the action name from the charm.
+	// Name is the task name from the charm.
 	Name string
-	// Parameters are the action parameters.
+	// Parameters are the task parameters.
 	Parameters map[string]any
-	// Parallel indicates if the action can run in parallel.
+	// Parallel indicates if the task can run in parallel.
 	Parallel bool
 	// ExecutionGroup groups actions for execution.
 	ExecutionGroup *string
-	// Enqueued is when the action was enqueued.
+	// Enqueued is when the task was enqueued.
 	Enqueued time.Time
-	// Started is when the action started execution.
+	// Started is when the task started execution.
 	Started *time.Time
-	// Completed is when the action completed execution.
+	// Completed is when the task completed execution.
 	Completed *time.Time
-	// Status is the current status of the action.
+	// Status is the current status of the task.
 	Status string
 	// Message is any status message.
 	Message *string
-	// Log contains the logged messages for the action.
-	Log []ActionMessage
-	// Output contains the action output results.
+	// Log contains the logged messages for the task.
+	Log []TaskLogMessage
+	// Output contains the task output results.
 	Output map[string]any
 }
 

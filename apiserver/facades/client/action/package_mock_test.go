@@ -15,7 +15,7 @@ import (
 
 	model "github.com/juju/juju/core/model"
 	charm "github.com/juju/juju/domain/application/charm"
-	operation0 "github.com/juju/juju/domain/operation"
+	operation "github.com/juju/juju/domain/operation"
 	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -206,80 +206,80 @@ func (m *MockOperationService) EXPECT() *MockOperationServiceMockRecorder {
 	return m.recorder
 }
 
-// CancelAction mocks base method.
-func (m *MockOperationService) CancelAction(arg0 context.Context, arg1 operation.ID) (operation0.Action, error) {
+// CancelTask mocks base method.
+func (m *MockOperationService) CancelTask(arg0 context.Context, arg1 string) (operation.Task, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CancelAction", arg0, arg1)
-	ret0, _ := ret[0].(operation0.Action)
+	ret := m.ctrl.Call(m, "CancelTask", arg0, arg1)
+	ret0, _ := ret[0].(operation.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CancelAction indicates an expected call of CancelAction.
-func (mr *MockOperationServiceMockRecorder) CancelAction(arg0, arg1 any) *MockOperationServiceCancelActionCall {
+// CancelTask indicates an expected call of CancelTask.
+func (mr *MockOperationServiceMockRecorder) CancelTask(arg0, arg1 any) *MockOperationServiceCancelTaskCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelAction", reflect.TypeOf((*MockOperationService)(nil).CancelAction), arg0, arg1)
-	return &MockOperationServiceCancelActionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelTask", reflect.TypeOf((*MockOperationService)(nil).CancelTask), arg0, arg1)
+	return &MockOperationServiceCancelTaskCall{Call: call}
 }
 
-// MockOperationServiceCancelActionCall wrap *gomock.Call
-type MockOperationServiceCancelActionCall struct {
+// MockOperationServiceCancelTaskCall wrap *gomock.Call
+type MockOperationServiceCancelTaskCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceCancelActionCall) Return(arg0 operation0.Action, arg1 error) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelTaskCall) Return(arg0 operation.Task, arg1 error) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceCancelActionCall) Do(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelTaskCall) Do(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceCancelActionCall) DoAndReturn(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceCancelActionCall {
+func (c *MockOperationServiceCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// GetAction mocks base method.
-func (m *MockOperationService) GetAction(arg0 context.Context, arg1 operation.ID) (operation0.Action, error) {
+// GetTask mocks base method.
+func (m *MockOperationService) GetTask(arg0 context.Context, arg1 string) (operation.Task, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAction", arg0, arg1)
-	ret0, _ := ret[0].(operation0.Action)
+	ret := m.ctrl.Call(m, "GetTask", arg0, arg1)
+	ret0, _ := ret[0].(operation.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAction indicates an expected call of GetAction.
-func (mr *MockOperationServiceMockRecorder) GetAction(arg0, arg1 any) *MockOperationServiceGetActionCall {
+// GetTask indicates an expected call of GetTask.
+func (mr *MockOperationServiceMockRecorder) GetTask(arg0, arg1 any) *MockOperationServiceGetTaskCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAction", reflect.TypeOf((*MockOperationService)(nil).GetAction), arg0, arg1)
-	return &MockOperationServiceGetActionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTask", reflect.TypeOf((*MockOperationService)(nil).GetTask), arg0, arg1)
+	return &MockOperationServiceGetTaskCall{Call: call}
 }
 
-// MockOperationServiceGetActionCall wrap *gomock.Call
-type MockOperationServiceGetActionCall struct {
+// MockOperationServiceGetTaskCall wrap *gomock.Call
+type MockOperationServiceGetTaskCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceGetActionCall) Return(arg0 operation0.Action, arg1 error) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetTaskCall) Return(arg0 operation.Task, arg1 error) *MockOperationServiceGetTaskCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceGetActionCall) Do(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetTaskCall) Do(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceGetTaskCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceGetActionCall) DoAndReturn(f func(context.Context, operation.ID) (operation0.Action, error)) *MockOperationServiceGetActionCall {
+func (c *MockOperationServiceGetTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceGetTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

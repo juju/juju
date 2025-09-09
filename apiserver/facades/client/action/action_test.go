@@ -66,10 +66,10 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	resAction := operation.Action{}
+	resAction := operation.Task{}
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		actionUUID,
 	).Return(resAction, nil)
@@ -125,10 +125,10 @@ func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		actionUUID,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -148,10 +148,10 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		actionUUID,
-	).Return(operation.Action{}, errors.New("boom"))
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -171,16 +171,16 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	actionUUID0 := uuid.MustNewUUID()
 	actionUUID1 := uuid.MustNewUUID()
-	resAction := operation.Action{}
+	resAction := operation.Task{}
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		actionUUID0,
 	).Return(resAction, nil)
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		actionUUID1,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -214,10 +214,10 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	cancelledAction := operation.Action{}
+	cancelledAction := operation.Task{}
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
 		actionUUID,
 	).Return(cancelledAction, nil)
@@ -273,10 +273,10 @@ func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
 		actionUUID,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -296,10 +296,10 @@ func (s *actionSuite) TestCancelServerError(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	actionUUID := uuid.MustNewUUID()
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
 		actionUUID,
-	).Return(operation.Action{}, errors.New("boom"))
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{

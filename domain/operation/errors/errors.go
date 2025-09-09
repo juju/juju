@@ -6,7 +6,7 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// ActionNotFound describes an error that occurs when the action being
+	// TaskNotFound describes an error that occurs when the task being
 	// operated on does not exist.
-	ActionNotFound = errors.ConstError("action not found")
+	TaskNotFound = errors.ConstError("task not found")
 )

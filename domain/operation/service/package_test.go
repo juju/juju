@@ -4,3 +4,4 @@
 package service
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go -source=./service.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter,ObjectStore

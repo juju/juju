@@ -14,7 +14,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type baseSuite struct {
@@ -57,18 +57,21 @@ VALUES (?, ?, 1, datetime('now'))`, taskUUID, operationUUID)
 }
 
 // insertOperationTaskWithID adds a new operation task to the database with a specific task ID.
-func (s *baseSuite) insertOperationTaskWithID(c *tc.C, taskUUID, operationUUID string, taskID string) {
+func (s *baseSuite) insertOperationTaskWithID(c *tc.C, taskUUID, operationUUID string, taskID string, statusID string) {
 	s.runQuery(c, `
 INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
 VALUES (?, ?, ?, datetime('now'))`, taskUUID, operationUUID, taskID)
+	s.runQuery(c, `
+INSERT INTO operation_task_status (task_uuid, status_id)
+VALUES (?, ?)`, taskUUID, statusID)
 }
 
 // insertUnit adds a new unit to the database with all required dependencies.
 func (s *baseSuite) insertUnit(c *tc.C, unitUUID, unitName string) {
-	appUUID := uuid.MustNewUUID().String()
-	charmUUID := uuid.MustNewUUID().String()
-	spaceUUID := uuid.MustNewUUID().String()
-	netNodeUUID := uuid.MustNewUUID().String()
+	appUUID := internaluuid.MustNewUUID().String()
+	charmUUID := internaluuid.MustNewUUID().String()
+	spaceUUID := internaluuid.MustNewUUID().String()
+	netNodeUUID := internaluuid.MustNewUUID().String()
 
 	// Extract application name from unit name (e.g., "test-app-1/0" -> "test-app-1")
 	appName := unitName
@@ -106,7 +109,7 @@ VALUES (?, ?, ?, ?, ?, ?)`, unitUUID, unitName, life.Alive, appUUID, netNodeUUID
 
 // insertMachine adds a new machine to the database with all required dependencies.
 func (s *baseSuite) insertMachine(c *tc.C, machineUUID, machineName string) {
-	netNodeUUID := uuid.MustNewUUID().String()
+	netNodeUUID := internaluuid.MustNewUUID().String()
 
 	// Insert net_node first
 	s.runQuery(c, `
