@@ -21,6 +21,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networktesting "github.com/juju/juju/domain/network/testing"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
@@ -217,7 +219,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		Constraints: coreconstraints.MustParse("arch=arm64"),
 	}, AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(receivedArgs, tc.DeepEquals, us)
+	c.Check(receivedArgs, createAddCAASUnitArgsChecker(), us)
 }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
@@ -390,6 +392,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	machineUUID := machinetesting.GenUUID(c)
+	machineNetNodeUUID := networktesting.GenNetNodeUUID(c)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -422,6 +426,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 		},
 	}
 
+	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
+		machineUUID, machineNetNodeUUID, nil,
+	)
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{}, nil,
 	)
@@ -437,7 +444,17 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 		},
 	}).Return(nil)
 
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
+	var recievedUnitArgs []application.AddIAASUnitArg
+	s.state.EXPECT().CreateIAASApplication(
+		gomock.Any(), "ubuntu", app, gomock.Any(),
+	).DoAndReturn(func(_ context.Context,
+		_ string,
+		_ application.AddIAASApplicationArg,
+		args []application.AddIAASUnitArg,
+	) (coreapplication.ID, []coremachine.Name, error) {
+		recievedUnitArgs = args
+		return id, nil, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
@@ -474,11 +491,14 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
 				Scope:     instance.MachineScope,
-				Directive: "zone=default",
+				Directive: "0",
 			},
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(recievedUnitArgs, tc.HasLen, 1)
+	c.Check(recievedUnitArgs[0].MachineNetNodeUUID, tc.Equals, machineNetNodeUUID)
+	c.Check(recievedUnitArgs[0].MachineUUID, tc.Equals, machineUUID)
 }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
@@ -625,12 +645,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 		CharmObjectStoreUUID: objectStoreUUID,
 		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
 	}, AddIAASUnitArg{
-		AddUnitArg: AddUnitArg{
-			Placement: &instance.Placement{
-				Scope:     instance.ModelScope,
-				Directive: "zone=default",
-			},
-		},
+		AddUnitArg: AddUnitArg{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -800,7 +815,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+	preCheckError := errors.New("precheck failure error")
 
+	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
+		machinetesting.GenUUID(c), networktesting.GenNetNodeUUID(c), nil,
+	)
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{}, nil,
 	)
@@ -814,7 +833,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 				Track: "24.04",
 			},
 		},
-	}).Return(errors.Errorf("boom"))
+	}).Return(preCheckError)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
@@ -851,11 +870,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{
 				Scope:     instance.MachineScope,
-				Directive: "zone=default",
+				Directive: "0",
 			},
 		},
 	})
-	c.Assert(err, tc.ErrorMatches, `.*boom`)
+	c.Assert(err, tc.ErrorIs, preCheckError)
 }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C) {
@@ -2058,7 +2077,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 	)
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
-		c.Assert(u, tc.DeepEquals, us)
+		c.Assert(u, createAddIAASUnitArgsChecker(), us)
 		return id, nil, nil
 	})
 
@@ -2436,7 +2455,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 
 	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(received, tc.DeepEquals, u)
+	c.Check(received, createAddCAASUnitArgsChecker(), u)
 	c.Check(unitNames, tc.HasLen, 1)
 	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
@@ -2507,7 +2526,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	}
 	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(received, tc.DeepEquals, u)
+	c.Check(received, createAddCAASUnitArgsChecker(), u)
 	c.Check(unitNames, tc.HasLen, 1)
 	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
@@ -2570,7 +2589,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 
 	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(received, tc.DeepEquals, u)
+	c.Check(received, createAddCAASUnitArgsChecker(), u)
 	c.Check(unitNames, tc.HasLen, 1)
 	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
@@ -2621,7 +2640,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 
 	unitNames, err := s.service.AddCAASUnits(c.Context(), "ubuntu", AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(received, tc.DeepEquals, u)
+	c.Check(received, createAddCAASUnitArgsChecker(), u)
 	c.Check(unitNames, tc.HasLen, 1)
 	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
@@ -2681,12 +2700,21 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*invalid placement.*")
 }
 
+// TestAddIAASUnitsMachinePlacement is testing the case where a unit is added to
+// a existing IAAS application with a placement on an already existing machine
+// in the model.
+//
+// In this test we want to see that the existing machine is found in the model
+// and that the machine uuid and netnode uuid that are used for the machine
+// match the already existing machine.
 func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := networktesting.GenNetNodeUUID(c)
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
@@ -2704,11 +2732,21 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 			},
 		},
 	}).Return(nil)
-
+	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
+		machineUUID, netNodeUUID, nil,
+	)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
-	s.state.EXPECT().AddIAASUnits(gomock.Any(), appUUID, gomock.Any()).Return([]coreunit.Name{"foo/0"}, nil, nil)
+	var recievedArgs []application.AddIAASUnitArg
+	s.state.EXPECT().AddIAASUnits(
+		gomock.Any(), appUUID, gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context, _ coreapplication.ID, args ...application.AddIAASUnitArg,
+	) ([]coreunit.Name, []coremachine.Name, error) {
+		recievedArgs = args
+		return []coreunit.Name{"foo/0"}, nil, nil
+	})
 
 	placement := &instance.Placement{
 		Scope:     instance.MachineScope,
@@ -2722,6 +2760,9 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	}
 	_, _, err := s.service.AddIAASUnits(c.Context(), "ubuntu", a)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(recievedArgs, tc.HasLen, 1)
+	c.Check(recievedArgs[0].MachineNetNodeUUID, tc.Equals, netNodeUUID)
+	c.Check(recievedArgs[0].MachineUUID, tc.Equals, machineUUID)
 }
 
 func (s *providerServiceSuite) TestResolveApplicationConstraintsNotSupported(c *tc.C) {

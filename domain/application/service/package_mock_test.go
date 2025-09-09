@@ -36,6 +36,7 @@ import (
 	store "github.com/juju/juju/domain/application/charm/store"
 	constraints0 "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
+	network0 "github.com/juju/juju/domain/network"
 	storage0 "github.com/juju/juju/domain/storage"
 	environs "github.com/juju/juju/environs"
 	statushistory "github.com/juju/juju/internal/statushistory"
@@ -3060,6 +3061,46 @@ func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineUUIDAndNetNodeForName mocks base method.
+func (m *MockState) GetMachineUUIDAndNetNodeForName(arg0 context.Context, arg1 string) (machine.UUID, network0.NetNodeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUIDAndNetNodeForName", arg0, arg1)
+	ret0, _ := ret[0].(machine.UUID)
+	ret1, _ := ret[1].(network0.NetNodeUUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetMachineUUIDAndNetNodeForName indicates an expected call of GetMachineUUIDAndNetNodeForName.
+func (mr *MockStateMockRecorder) GetMachineUUIDAndNetNodeForName(arg0, arg1 any) *MockStateGetMachineUUIDAndNetNodeForNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUIDAndNetNodeForName", reflect.TypeOf((*MockState)(nil).GetMachineUUIDAndNetNodeForName), arg0, arg1)
+	return &MockStateGetMachineUUIDAndNetNodeForNameCall{Call: call}
+}
+
+// MockStateGetMachineUUIDAndNetNodeForNameCall wrap *gomock.Call
+type MockStateGetMachineUUIDAndNetNodeForNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineUUIDAndNetNodeForNameCall) Return(arg0 machine.UUID, arg1 network0.NetNodeUUID, arg2 error) *MockStateGetMachineUUIDAndNetNodeForNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineUUIDAndNetNodeForNameCall) Do(f func(context.Context, string) (machine.UUID, network0.NetNodeUUID, error)) *MockStateGetMachineUUIDAndNetNodeForNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineUUIDAndNetNodeForNameCall) DoAndReturn(f func(context.Context, string) (machine.UUID, network0.NetNodeUUID, error)) *MockStateGetMachineUUIDAndNetNodeForNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
