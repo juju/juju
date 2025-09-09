@@ -28,6 +28,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -63,19 +64,37 @@ func (st *State) AddMachine(ctx context.Context, args domainmachine.AddMachineAr
 		return "", nil, errors.Capture(err)
 	}
 
-	var (
-		machineNames []machine.Name
-		netNodeUUID  string
-	)
+	var machineNames []machine.Name
+	machineUUID, err := machine.NewUUID()
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"generating new machine uuid: %w", err,
+		)
+	}
+	netNodeUUID, err := network.NewNetNodeUUID()
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"generating new machine net node uuid: %w", err,
+		)
+	}
+
+	placeArgs := domainmachine.PlaceMachineArgs{
+		Constraints: args.Constraints,
+		Directive:   args.Directive,
+		Platform:    args.Platform,
+		MachineUUID: machineUUID,
+		NetNodeUUID: netNodeUUID,
+		Nonce:       args.Nonce,
+	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		netNodeUUID, machineNames, err = PlaceMachine(ctx, tx, st, st.clock, args)
+		machineNames, err = PlaceMachine(ctx, tx, st, st.clock, placeArgs)
 		return err
 	})
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
 
-	return netNodeUUID, machineNames, nil
+	return netNodeUUID.String(), machineNames, nil
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
@@ -87,7 +106,7 @@ func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 	}
 
 	// Prepare query for machine uuid.
-	machineNameParam := machineName{Name: mName}
+	machineNameParam := machineName{Name: mName.String()}
 	machineUUIDParam := entityUUID{}
 	queryMachine := `SELECT uuid AS &entityUUID.* FROM machine WHERE name = $machineName.name`
 	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUIDParam)
@@ -183,7 +202,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (life.L
 		return -1, errors.Capture(err)
 	}
 
-	machineNameParam := machineName{Name: mName}
+	machineNameParam := machineName{Name: mName.String()}
 	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $machineName.name`
 	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, machineLife{})
 	if err != nil {
@@ -407,7 +426,7 @@ WHERE      m.uuid = $entityUUID.uuid
 }
 
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
-	machineNameParam := machineName{Name: mName}
+	machineNameParam := machineName{Name: mName.String()}
 	machineUUIDOutput := entityUUID{}
 	query := `SELECT &entityUUID.uuid FROM machine WHERE name = $machineName.name`
 	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDOutput)
@@ -451,10 +470,11 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 		return nil, errors.Capture(err)
 	}
 
-	// Transform the results ([]machineName) into a slice of machine.Name.
-	machineNames := transform.Slice(results, machineName.nameSliceTransform)
-
-	return machineNames, nil
+	rval := make([]machine.Name, 0, len(results))
+	for _, dbResult := range results {
+		rval = append(rval, machine.Name(dbResult.Name))
+	}
+	return rval, nil
 }
 
 // GetMachineParentUUID returns the parent UUID of the specified machine.
@@ -524,7 +544,7 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (machine
 	}
 
 	var uuid entityUUID
-	currentMachineName := machineName{Name: name}
+	currentMachineName := machineName{Name: name.String()}
 	query := `SELECT &entityUUID.uuid FROM machine WHERE name = $machineName.name`
 	queryStmt, err := st.Prepare(query, uuid, currentMachineName)
 	if err != nil {
@@ -556,7 +576,7 @@ func (st *State) ShouldKeepInstance(ctx context.Context, mName machine.Name) (bo
 		return false, errors.Capture(err)
 	}
 
-	machineNameParam := machineName{Name: mName}
+	machineNameParam := machineName{Name: mName.String()}
 	result := keepInstance{}
 	query := `
 SELECT &keepInstance.keep_instance
@@ -595,7 +615,7 @@ func (st *State) SetKeepInstance(ctx context.Context, mName machine.Name, keep b
 
 	// Prepare query for machine uuid.
 	machineUUID := entityUUID{}
-	machineNameParam := machineName{Name: mName}
+	machineNameParam := machineName{Name: mName.String()}
 	machineExistsQuery := `
 SELECT &entityUUID.uuid
 FROM   machine
@@ -1041,7 +1061,7 @@ WHERE parent_uuid = $entityUUID.uuid`
 	}
 
 	return transform.Slice(results, func(v machineName) string {
-		return v.Name.String()
+		return v.Name
 	}), nil
 }
 

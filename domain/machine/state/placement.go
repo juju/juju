@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -36,22 +36,18 @@ func PlaceMachine(
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	clock clock.Clock,
-	args domainmachine.AddMachineArgs,
-) (string, []coremachine.Name, error) {
+	args domainmachine.PlaceMachineArgs,
+) ([]coremachine.Name, error) {
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:
-		// The placement is unset, so we need to create a machine for the
-		// net node to link the unit to.
-		machineUUID, err := coremachine.NewUUID()
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		netNodeUUID, machineName, err := CreateMachine(ctx, tx, preparer, clock, domainmachine.CreateMachineArgs{
-			MachineUUID: machineUUID,
+		machineName, err := CreateMachine(ctx, tx, preparer, clock, createMachineArgs{
+			MachineUUID: args.MachineUUID.String(),
+			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
 			Nonce:       args.Nonce,
 			Constraints: args.Constraints,
 		})
+<<<<<<< HEAD
 		return netNodeUUID, []coremachine.Name{machineName}, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
@@ -71,6 +67,9 @@ func PlaceMachine(
 		machineNames := []coremachine.Name{machineName}
 		return netNodeUUID, machineNames, nil
 
+=======
+		return []coremachine.Name{machineName}, errors.Capture(err)
+>>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
 	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd or lxd:0). If there
 		// is no directive, we need to create a parent machine (the next in the
@@ -85,16 +84,21 @@ func PlaceMachine(
 		}
 		machineUUID, machineName, err := acquireParentMachineForContainer(ctx, tx, preparer, acquireParentMachineArgs, clock)
 		if err != nil {
-			return "", nil, errors.Capture(err)
+			return nil, errors.Capture(err)
 		}
+<<<<<<< HEAD
 		childMachineUUID, err := coremachine.NewUUID()
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
+=======
+
+>>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
 		// Use the container type to determine the scope of the container.
 		// For example, lxd.
 		insertChildMachineArgs := insertChildMachineForContainerPlacementArgs{
-			machineUUID: childMachineUUID.String(),
+			machineUUID: args.MachineUUID.String(),
+			netNodeUUID: args.NetNodeUUID.String(),
 			parentName:  machineName.String(),
 			parentUUID:  machineUUID.String(),
 			platform:    args.Platform,
@@ -102,11 +106,11 @@ func PlaceMachine(
 			scope:       args.Directive.Container.String(),
 			constraints: args.Constraints,
 		}
-		childNetNode, childMachineName, err := insertChildMachineForContainerPlacement(ctx, tx, preparer, insertChildMachineArgs, clock)
+		childMachineName, err := insertChildMachineForContainerPlacement(ctx, tx, preparer, insertChildMachineArgs, clock)
 		if err != nil {
-			return "", nil, errors.Errorf("inserting child machine for container placement: %w", err)
+			return nil, errors.Errorf("inserting child machine for container placement: %w", err)
 		}
-		return childNetNode, []coremachine.Name{
+		return []coremachine.Name{
 			machineName,
 			childMachineName,
 		}, nil
@@ -115,62 +119,133 @@ func PlaceMachine(
 		// The placement is handled by the provider, so we need to create a
 		// machine for the net node and then insert the provider placement
 		// for the machine.
-		machineName, err := nextMachineSequence(ctx, tx, preparer)
-		if err != nil {
-			return "", nil, errors.Capture(err)
+		cArgs := createMachineArgs{
+			MachineUUID: args.MachineUUID.String(),
+			NetNodeUUID: args.NetNodeUUID.String(),
+			Platform:    args.Platform,
+			Nonce:       args.Nonce,
+			Constraints: args.Constraints,
 		}
-		machineUUID, err := coremachine.NewUUID()
+		mName, err := CreateMachine(ctx, tx, preparer, clock, cArgs)
 		if err != nil {
-			return "", nil, errors.Capture(err)
+			return nil, errors.Capture(err)
+		}
+		if err := insertMachineProviderPlacement(ctx, tx, preparer, args.MachineUUID.String(), args.Directive.Directive); err != nil {
+			return nil, errors.Errorf("inserting machine provider placement: %w", err)
 		}
 
-		insertMachineAndNetNodeArgs := insertMachineAndNetNodeArgs{
-			machineUUID: machineUUID.String(),
-			machineName: machineName.String(),
-			platform:    args.Platform,
-			nonce:       args.Nonce,
-			constraints: args.Constraints,
-		}
-		netNodeUUID, err := insertMachineAndNetNode(ctx, tx, preparer, clock, insertMachineAndNetNodeArgs)
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		if err := insertMachineProviderPlacement(ctx, tx, preparer, machineUUID.String(), args.Directive.Directive); err != nil {
-			return "", nil, errors.Errorf("inserting machine provider placement: %w", err)
-		}
-		return netNodeUUID, []coremachine.Name{
-			machineName,
+		return []coremachine.Name{
+			mName,
 		}, nil
 
 	default:
-		return "", nil, errors.Errorf("invalid placement type: %v", args.Directive.Type)
+		return nil, errors.Errorf("invalid placement type: %v", args.Directive.Type)
 	}
 }
 
 // CreateMachine creates a new machine with the given arguments. Its name is
-// generated from the machine sequence. Also, the needed net node is inserted in
-// the net_node table.
+// generated from the machine sequence.
 func CreateMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	clock clock.Clock,
-	args domainmachine.CreateMachineArgs,
-) (string, coremachine.Name, error) {
+	args createMachineArgs,
+) (coremachine.Name, error) {
 	machineName, err := nextMachineSequence(ctx, tx, preparer)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	insertMachineAndNetNodeArgs := insertMachineAndNetNodeArgs{
-		machineUUID: args.MachineUUID.String(),
-		machineName: machineName.String(),
-		platform:    args.Platform,
-		nonce:       args.Nonce,
-		constraints: args.Constraints,
+	return machineName, CreateMachineWithName(
+		ctx, tx, preparer, clock, machineName.String(), args,
+	)
+}
+
+// CreateMachineWithName creates a new machine with the given arguments and
+// machine name.
+func CreateMachineWithName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	preparer domain.Preparer,
+	clock clock.Clock,
+	machineName string,
+	args createMachineArgs,
+) error {
+	lifeID, err := encodeLife(life.Alive)
+	if err != nil {
+		return errors.Capture(err)
 	}
-	netNodeUUID, err := insertMachineAndNetNode(ctx, tx, preparer, clock, insertMachineAndNetNodeArgs)
-	return netNodeUUID, machineName, errors.Capture(err)
+
+	m := insertMachine{
+		UUID:        args.MachineUUID,
+		NetNodeUUID: args.NetNodeUUID,
+		Name:        machineName,
+		LifeID:      lifeID,
+	}
+	if args.Nonce != nil && *args.Nonce != "" {
+		m.Nonce = sql.Null[string]{V: *args.Nonce, Valid: true}
+	}
+
+	insertMachineQuery := `
+INSERT INTO machine (uuid, net_node_uuid, name, life_id, nonce)
+VALUES ($insertMachine.*);
+`
+	insertMachineStmt, err := preparer.Prepare(insertMachineQuery, m)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = insertNetNode(ctx, tx, preparer, args.NetNodeUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, insertMachineStmt, m).Run(); err != nil {
+		return errors.Errorf("creating new machine: %w", err)
+	}
+
+	if err := insertMachinePlatform(ctx, tx, preparer, args.MachineUUID, args.Platform); err != nil {
+		return errors.Errorf("inserting machine platform: %w", err)
+	}
+
+	if err := insertMachineConstraints(ctx, tx, preparer, args.MachineUUID, args.Constraints); err != nil {
+		return errors.Errorf("inserting machine constraints: %w", err)
+	}
+
+	if err := insertMachineInstance(ctx, tx, preparer, args.MachineUUID); err != nil {
+		return errors.Errorf("inserting machine instance: %w", err)
+	}
+
+	if err := insertContainerType(ctx, tx, preparer, args.MachineUUID); err != nil {
+		return errors.Errorf("inserting machine container type: %w", err)
+	}
+
+	now := clock.Now()
+
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	machineInstanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := insertMachineStatus(ctx, tx, preparer, args.MachineUUID, setStatusInfo{
+		StatusID: machineStatusID,
+		Updated:  ptr(now),
+	}); err != nil {
+		return errors.Errorf("inserting machine status: %w", err)
+	}
+	if err := insertMachineInstanceStatus(ctx, tx, preparer, args.MachineUUID, setStatusInfo{
+		StatusID: machineInstanceStatusID,
+		Updated:  ptr(now),
+	}); err != nil {
+		return errors.Errorf("inserting machine instance status: %w", err)
+	}
+
+	return nil
 }
 
 func nextMachineSequence(ctx context.Context, tx *sqlair.TX, preparer domain.Preparer) (coremachine.Name, error) {
@@ -183,110 +258,25 @@ func nextMachineSequence(ctx context.Context, tx *sqlair.TX, preparer domain.Pre
 	return coremachine.Name(strconv.FormatUint(seq, 10)), nil
 }
 
-func insertMachineAndNetNode(
+func insertNetNode(
 	ctx context.Context,
 	tx *sqlair.TX,
 	preparer domain.Preparer,
-	clock clock.Clock,
-	args insertMachineAndNetNodeArgs,
-) (string, error) {
-	netNodeUUID, err := insertNetNode(ctx, tx, preparer)
+	netNodeUUID string,
+) error {
+	input := entityUUID{UUID: netNodeUUID}
+
+	insertNetNode := `INSERT INTO net_node (uuid) VALUES ($entityUUID.*)`
+	insertNetNodeStmt, err := preparer.Prepare(insertNetNode, input)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	lifeID, err := encodeLife(life.Alive)
-	if err != nil {
-		return "", errors.Capture(err)
+	if err := tx.Query(ctx, insertNetNodeStmt, input).Run(); err != nil {
+		return errors.Errorf("creating net node for machine: %w", err)
 	}
 
-	var nullableNonce sql.Null[string]
-	if args.nonce != nil && *args.nonce != "" {
-		nullableNonce = sql.Null[string]{V: *args.nonce, Valid: true}
-	}
-
-	m := createMachine{
-		UUID:        args.machineUUID,
-		NetNodeUUID: netNodeUUID,
-		Name:        args.machineName,
-		LifeID:      lifeID,
-		Nonce:       nullableNonce,
-	}
-
-	createMachineQuery := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id, nonce)
-VALUES ($createMachine.*);
-`
-	createMachineStmt, err := preparer.Prepare(createMachineQuery, m)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	if err := tx.Query(ctx, createMachineStmt, m).Run(); err != nil {
-		return "", errors.Errorf("creating new machine: %w", err)
-	}
-
-	if err := insertMachinePlatform(ctx, tx, preparer, args.machineUUID, args.platform); err != nil {
-		return "", errors.Errorf("inserting machine platform: %w", err)
-	}
-
-	if err := insertMachineConstraints(ctx, tx, preparer, args.machineUUID, args.constraints); err != nil {
-		return "", errors.Errorf("inserting machine constraints: %w", err)
-	}
-
-	if err := insertMachineInstance(ctx, tx, preparer, args.machineUUID); err != nil {
-		return "", errors.Errorf("inserting machine instance: %w", err)
-	}
-
-	if err := insertContainerType(ctx, tx, preparer, args.machineUUID); err != nil {
-		return "", errors.Errorf("inserting machine container type: %w", err)
-	}
-
-	now := clock.Now()
-
-	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	machineInstanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := insertMachineStatus(ctx, tx, preparer, args.machineUUID, setStatusInfo{
-		StatusID: machineStatusID,
-		Updated:  ptr(now),
-	}); err != nil {
-		return "", errors.Errorf("inserting machine status: %w", err)
-	}
-	if err := insertMachineInstanceStatus(ctx, tx, preparer, args.machineUUID, setStatusInfo{
-		StatusID: machineInstanceStatusID,
-		Updated:  ptr(now),
-	}); err != nil {
-		return "", errors.Errorf("inserting machine instance status: %w", err)
-	}
-
-	return netNodeUUID, nil
-}
-
-func insertNetNode(ctx context.Context, tx *sqlair.TX, preparer domain.Preparer) (string, error) {
-	uuid, err := domainnetwork.NewNetNodeUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	netNodeUUID := entityUUID{UUID: uuid.String()}
-
-	createNode := `INSERT INTO net_node (uuid) VALUES ($entityUUID.*)`
-	createNodeStmt, err := preparer.Prepare(createNode, netNodeUUID)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, createNodeStmt, netNodeUUID).Run(); err != nil {
-		return "", errors.Errorf("creating net node for machine: %w", err)
-	}
-
-	return netNodeUUID.UUID, nil
+	return nil
 }
 
 func insertMachinePlatform(
@@ -426,22 +416,24 @@ func insertChildMachineForContainerPlacement(
 	preparer domain.Preparer,
 	args insertChildMachineForContainerPlacementArgs,
 	clock clock.Clock,
-) (string, coremachine.Name, error) {
+) (coremachine.Name, error) {
 	machineName, err := nextContainerSequence(ctx, tx, preparer, args.scope, coremachine.Name(args.parentName))
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	insertMachineAndNetNodeArgs := insertMachineAndNetNodeArgs{
-		machineUUID: args.machineUUID,
-		machineName: machineName.String(),
-		platform:    args.platform,
-		nonce:       args.nonce,
-		constraints: args.constraints,
+	childCreateArgs := createMachineArgs{
+		MachineUUID: args.machineUUID,
+		NetNodeUUID: args.netNodeUUID,
+		Platform:    args.platform,
+		Nonce:       args.nonce,
+		Constraints: args.constraints,
 	}
-	netNodeUUID, err := insertMachineAndNetNode(ctx, tx, preparer, clock, insertMachineAndNetNodeArgs)
+	err = CreateMachineWithName(
+		ctx, tx, preparer, clock, machineName.String(), childCreateArgs,
+	)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	parentMachineQuery := `
@@ -454,13 +446,13 @@ VALUES ($machineParent.*);
 	}
 	parentMachineStmt, err := preparer.Prepare(parentMachineQuery, p)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, parentMachineStmt, p).Run(); err != nil {
-		return "", "", errors.Errorf("creating new container machine parent: %w", err)
+		return "", errors.Errorf("creating new container machine parent: %w", err)
 	}
-	return netNodeUUID, machineName, nil
+	return machineName, nil
 }
 
 func insertMachineProviderPlacement(
@@ -681,26 +673,31 @@ func acquireParentMachineForContainer(
 	// The directive is empty, so we need to create a new machine for the
 	// parent machine. We need to get the next machine sequence and then
 	// create the machine and net node.
-	machineName, err := nextMachineSequence(ctx, tx, preparer)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
+	//
+	// TODO (tlm): this should not be happening in the state layer and should
+	// be moved higher up into the service layer.
 	machineUUID, err := coremachine.NewUUID()
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-
-	insertMachineAndNetNodeArgs := insertMachineAndNetNodeArgs{
-		machineUUID: machineUUID.String(),
-		machineName: machineName.String(),
-		platform:    args.platform,
-		constraints: args.constraints,
-	}
-	_, err = insertMachineAndNetNode(ctx, tx, preparer, clock, insertMachineAndNetNodeArgs)
+	netNodeUUID, err := network.NewNetNodeUUID()
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-	return machineUUID, machineName, nil
+
+	c := createMachineArgs{
+		NetNodeUUID: netNodeUUID.String(),
+		MachineUUID: machineUUID.String(),
+		Platform:    args.platform,
+		Constraints: args.constraints,
+	}
+
+	mName, err := CreateMachine(ctx, tx, preparer, clock, c)
+
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return machineUUID, mName, nil
 }
 
 func getMachineUUIDAndNetNodeUUIDFromName(

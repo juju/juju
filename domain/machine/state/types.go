@@ -14,6 +14,15 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
+type createMachineArgs struct {
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	MachineUUID string
+	NetNodeUUID string
+	Platform    deployment.Platform
+	Nonce       *string
+}
+
 // instanceData represents the struct to be inserted into the instance_data
 // table.
 type instanceData struct {
@@ -121,7 +130,7 @@ type availabilityZoneName struct {
 }
 
 type machineName struct {
-	Name machine.Name `db:"name"`
+	Name string `db:"name"`
 }
 
 type machineInstanceUUID struct {
@@ -140,12 +149,6 @@ type keepInstance struct {
 type machineParent struct {
 	MachineUUID string `db:"machine_uuid"`
 	ParentUUID  string `db:"parent_uuid"`
-}
-
-// nameSliceTransform is a function that is used to transform a slice of
-// machineName into a slice of machine.Name.
-func (s machineName) nameSliceTransform() machine.Name {
-	return s.Name
 }
 
 // lxdProfile represents the struct to be used for the sqlair statements on the
@@ -175,7 +178,7 @@ type machineInstance struct {
 	IsContainer int64  `db:"is_container"`
 }
 
-type createMachine struct {
+type insertMachine struct {
 	Name        string           `db:"name"`
 	NetNodeUUID string           `db:"net_node_uuid"`
 	UUID        string           `db:"uuid"`
@@ -241,6 +244,7 @@ type insertMachineAndNetNodeArgs struct {
 
 type insertChildMachineForContainerPlacementArgs struct {
 	machineUUID string
+	netNodeUUID string
 	parentUUID  string
 	parentName  string
 	scope       string
