@@ -6,7 +6,6 @@ package action
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -681,7 +680,7 @@ func formatActionResult(id string, result actionapi.ActionResult, utc bool) (map
 	if len(result.Log) > 0 {
 		var logs []string
 		for _, msg := range result.Log {
-			logs = append(logs, formatLogMessage(operation.ActionMessage{
+			logs = append(logs, formatLogMessage(operation.TaskLogMessage{
 				Timestamp: msg.Timestamp,
 				Message:   msg.Message,
 			}, false, utc, false))
@@ -788,8 +787,7 @@ const (
 )
 
 func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
-	var actionMessage operation.ActionMessage
-	err := json.Unmarshal([]byte(encodedMessage), &actionMessage)
+	actionMessage, err := operation.DecodeTaskLogEntry(encodedMessage)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -815,7 +813,7 @@ func formatTimestamp(timestamp time.Time, progressFormat, utc, plain bool) strin
 	return timestamp.Format(timestampFormat)
 }
 
-func formatLogMessage(actionMessage operation.ActionMessage, progressFormat, utc, plain bool) string {
+func formatLogMessage(actionMessage operation.TaskLogMessage, progressFormat, utc, plain bool) string {
 	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc, plain), actionMessage.Message)
 }
 
