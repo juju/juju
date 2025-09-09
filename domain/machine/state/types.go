@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
-type createMachineArgs struct {
+type CreateMachineArgs struct {
 	Constraints constraints.Constraints
 	Directive   deployment.Placement
 	MachineUUID string

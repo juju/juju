@@ -117,7 +117,7 @@ func (st *State) InsertMigratingMachine(ctx context.Context, machineName string,
 				"machine %q already exists in model", machineName,
 			).Add(machineerrors.MachineAlreadyExists)
 		}
-		return CreateMachineWithName(ctx, tx, st, st.clock, machineName, createMachineArgs{
+		return CreateMachineWithName(ctx, tx, st, st.clock, machineName, CreateMachineArgs{
 			MachineUUID: args.MachineUUID.String(),
 			Platform:    args.Platform,
 			Nonce:       args.Nonce,
