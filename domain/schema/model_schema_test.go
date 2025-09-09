@@ -688,6 +688,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_offer_endpoint_immutable_update",
 
 		"trg_operation_parameter_immutable_update",
+		"trg_operation_machine_task_immutable_update",
+		"trg_operation_unit_task_immutable_update",
+		"trg_insert_machine_task_if_not_unit_task",
+		"trg_insert_unit_task_if_not_machine_task",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")
