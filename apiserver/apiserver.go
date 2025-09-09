@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/internal/crossmodel"
-	internalcrossmodel "github.com/juju/juju/apiserver/internal/crossmodel"
 	handlerscrossmodel "github.com/juju/juju/apiserver/internal/handlers/crossmodel"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
@@ -47,7 +46,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -1219,10 +1217,10 @@ func newOfferAuthContext(
 	accessService AccessService,
 	macaroonService MacaroonService,
 	controllerUUID string,
-	controllerModelUUID model.UUID,
+	controllerModelUUID coremodel.UUID,
 	clock clock.Clock,
 	logger corelogger.Logger,
-) (*internalcrossmodel.AuthContext, error) {
+) (*crossmodel.AuthContext, error) {
 	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting offers third party key")
@@ -1230,7 +1228,7 @@ func newOfferAuthContext(
 
 	// Create a auth context for offer authentication.
 	// TODO (stickupkid): Use a bakery to cook the macaroons for the offers.
-	return internalcrossmodel.NewAuthContext(
+	return crossmodel.NewAuthContext(
 		accessService,
 		key,
 		controllerUUID,
