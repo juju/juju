@@ -598,7 +598,7 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 	return result, nil
 }
 
-// Destroy advances all given units' lifecycles as 
+// Destroy advances all given units' lifecycles as
 // far as possible and schedules their removal.
 func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -633,7 +633,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			continue
 		}
 
-		// This preserves the behaviour prior to 4.0 
+		// This preserves the behaviour prior to 4.0
 		// and does not destroy storage.
 		_, err = u.removalService.RemoveUnit(ctx, unitUUID, false, false, time.Duration(0))
 		if errors.Is(err, applicationerrors.UnitNotFound) {
@@ -2242,7 +2242,7 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal coreunit.
 			return internalerrors.Capture(err)
 		}
 
-		// This preserves the behaviour prior to 4.0 
+		// This preserves the behaviour prior to 4.0
 		// and does not destroy storage.
 		_, err = u.removalService.RemoveUnit(ctx, subUUID, false, false, time.Duration(0))
 		if errors.Is(err, applicationerrors.UnitNotFound) {

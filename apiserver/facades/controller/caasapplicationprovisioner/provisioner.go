@@ -194,7 +194,7 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 			continue
 		}
 
-		// This preserves the behaviour prior to 4.0 
+		// This preserves the behaviour prior to 4.0
 		// and does not destroy storage.
 		_, err = a.removalService.RemoveUnit(ctx, unitUUID, false, false, 0)
 		if errors.Is(err, applicationerrors.UnitNotFound) {

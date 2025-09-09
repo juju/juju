@@ -146,16 +146,16 @@ type ApplicationService interface {
 type RemovalService interface {
 	// RemoveUnit checks if a unit with the input name exists.
 	// If it does, the unit is guaranteed after this call to be:
-	//   - No longer alive.
-	//   - Removed or scheduled to be removed with the input force qualification.
+	// - Not alive.
+	// - Removed or scheduled to be removed with the input force qualification.
 	// The input wait duration is the time that we will give for the normal
-	// life-cycle advancement and removal to finish before forcefully removing the
-	// unit. This duration is ignored if the force argument is false.
+	// life-cycle advancement and removal to finish before forcefully removing
+	// theunit. This duration is ignored if the force argument is false.
+	// If the unit is the last one on the machine, the machine will be
+	// guaranteed to not be alive and be scheduled for removal.
+	// If destroyStorage is true, the unit's storage instances will be
+	// guaranteedto not be alive and be scheduled for removal.
 	// The UUID for the scheduled removal job is returned.
-	// If the unit is the last one on the machine, the machine will be guaranteed 
-	// to no be longer alive and scheduled for removal.
-	// If destroyStorage is true, the unit's storage instances will be guaranteed
-	// to no be longer alive and scheduled for removal.
 	RemoveUnit(
 		ctx context.Context, unitUUID unit.UUID, destroyStorage, force bool, wait time.Duration,
 	) (removal.UUID, error)
