@@ -61,10 +61,10 @@ type Placement struct {
 	Directive string
 }
 
-// ParsePlacement parses the placement from the instance placement.
+// ParsePlacement parses the placement from the instance placement. If the
+// placement is nil then an unset placement will be returned.
 func ParsePlacement(placement *instance.Placement) (Placement, error) {
-	// If no placement is present, we assume that a machine placement will
-	// be used.
+	// If no placement is present we default to an unset placement.
 	if placement == nil {
 		return Placement{
 			Type: PlacementTypeUnset,
