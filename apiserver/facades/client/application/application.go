@@ -59,10 +59,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-const (
-	Database = "database"
-)
-
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -3122,7 +3118,9 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-func (api *APIBase) GetApplicationStorage(args params.ApplicationGetStorageConstraints) (params.ApplicationGetStorageConstraintsResult, error) {
+// GetApplicationStorage returns the current storage constraints defined for
+// the given application using the application name.
+func (api *APIBase) GetApplicationStorage(args params.AppStorageConsGet) (params.ApplicationGetStorageConstraintsResult, error) {
 	res := params.ApplicationGetStorageConstraintsResult{}
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
@@ -3134,36 +3132,59 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationGetStorageConst
 		return res, errors.Trace(err)
 	}
 
-	cons, exists := storageConstraints[Database]
-	if !exists {
-		res.Error = apiservererrors.ServerError(errors.NotFoundf("storage constraints for %s", args.ApplicationName))
-		return res, nil
+	sc := make(map[string]params.StorageConstraint)
+	for key, cons := range storageConstraints {
+		sc[key] = params.StorageConstraint{
+			Pool:  cons.Pool,
+			Size:  cons.Size,
+			Count: cons.Count,
+		}
 	}
-
-	res.Result = params.ApplicationStorage{
-		Pool:  cons.Pool,
-		Size:  cons.Size,
-		Count: cons.Count,
-	}
-
+	res.Result = sc
 	return res, nil
 }
 
-func (api *APIBase) UpsertApplicationStorage(args params.ApplicationStorageUpsert) (params.ApplicationGetStorageConstraintsResult, error) {
-	res := params.ApplicationGetStorageConstraintsResult{}
+func (api *APIBase) UpsertApplicationStorage(args params.AppStorageConsUpsert) (params.ApplicationUpsertStorageConstraintsResult, error) {
+	res := params.ApplicationUpsertStorageConstraintsResult{}
+
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
 
-	cons := map[string]state.StorageConstraints{
-		Database: {
-			Pool:  args.ApplicationStorage.Pool,
-			Size:  args.ApplicationStorage.Size,
-			Count: args.ApplicationStorage.Count,
-		},
+	ch, _, err := app.Charm()
+	if err != nil {
+		return res, errors.Trace(err)
 	}
-	err = app.UpsertStorageConstraints(cons)
 
-	return res, errors.Trace(err)
+	chMeta := ch.Meta()
+	if chMeta == nil || chMeta.Storage == nil {
+		return res, errors.NotFoundf("charm meta storage for %s", args.ApplicationName)
+	}
+
+	errs := make([]*params.Error, 0, len(args.ApplicationStorageDirective))
+
+	for storageName, _ := range args.ApplicationStorageDirective {
+		if _, exists := chMeta.Storage[storageName]; !exists {
+			errs = append(errs, apiservererrors.ServerError(errors.NotSupportedf("storage %s not supported by %s", storageName, args.ApplicationName)))
+		}
+	}
+	res.Errors = errs
+	if len(errs) > 0 {
+		return res, nil
+	}
+
+	sc := make(map[string]state.StorageConstraints)
+	for storageName, directive := range args.ApplicationStorageDirective {
+		// We have already checked that it exists above.
+		meta, _ := chMeta.Storage[storageName]
+
+		sc[storageName] = state.StorageConstraints{
+			Pool:  string(meta.Type),
+			Size:  directive.Size,
+			Count: directive.Count,
+		}
+	}
+
+	return res, nil
 }

@@ -711,18 +711,12 @@ type PendingResourceUpload struct {
 
 // ApplicationGetStorageConstraints holds the request parameters to get application storage.
 
-type ApplicationGetStorageConstraints struct {
+type AppStorageConsGet struct {
 	ApplicationName string `json:"application"`
 }
 
-// ApplicationGetStorageConstraintsResult returns the application's current storage results.
-type ApplicationGetStorageConstraintsResult struct {
-	Result ApplicationStorage
-	Error  *Error `json:"error,omitempty"`
-}
-
-// ApplicationStorage contains the result of an application's storage constraints
-type ApplicationStorage struct {
+// StorageConstraint contains the information for an application's storage constraint
+type StorageConstraint struct {
 	// Pool is the name of the storage pool from which to provision the
 	// storage instances.
 	Pool string `json:"pool"`
@@ -734,9 +728,29 @@ type ApplicationStorage struct {
 	Count uint64 `json:"count"`
 }
 
-// ApplicationStorageUpsert holds the parameters for making the applicationStorageUpsert call.
-type ApplicationStorageUpsert struct {
+// ApplicationGetStorageConstraintsResult returns the application's current storage results.
+type ApplicationGetStorageConstraintsResult struct {
+	Result map[string]StorageConstraint
+	Error  *Error `json:"error,omitempty"`
+}
+
+type StorageDirective struct {
+	Provider string `json:"provider"`
+
+	Size uint64 `json:"size"`
+
+	Count uint64 `json:"count"`
+}
+
+// AppStorageConsUpsert holds the parameters for making the applicationStorageUpsert call.
+type AppStorageConsUpsert struct {
 	ApplicationName string `json:"application"`
 
-	ApplicationStorage ApplicationStorage `json:"application-storage"`
+	// Holds the application storage directives where the key is the storage name.
+	ApplicationStorageDirective map[string]StorageDirective `json:"application-storage-directive"`
+}
+
+// ApplicationUpsertStorageConstraintsResult returns the application's current storage results.
+type ApplicationUpsertStorageConstraintsResult struct {
+	Errors []*Error `json:"errors,omitempty"`
 }
