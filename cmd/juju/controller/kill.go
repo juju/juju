@@ -300,6 +300,8 @@ func transformModelCloudSpecForInstanceRoles(
 		notSupportedAuthType = authType == cloud.InstanceRoleAuthType
 	case "azure":
 		notSupportedAuthType = authType == cloud.ManagedIdentityAuthType
+	case "gce":
+		notSupportedAuthType = authType == cloud.ServiceAccountAuthType
 	}
 	if notSupportedAuthType {
 		if modelCloudSpec.Type != controllerCloudSpec.Type ||

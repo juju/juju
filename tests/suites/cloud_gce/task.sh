@@ -20,8 +20,11 @@ test_cloud_gce() {
 	bootstrap "test-cloud-gce" "${file}"
 
 	test_pro_images
-
 	test_deploy_gpu_instance
 
 	destroy_controller "test-cloud-gce"
+
+	# This test bootstraps a custom controller.
+	test_serviceaccount_credential
+
 }
