@@ -40,7 +40,7 @@ func PlaceMachine(
 ) ([]coremachine.Name, error) {
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:
-		machineName, err := CreateMachine(ctx, tx, preparer, clock, createMachineArgs{
+		machineName, err := CreateMachine(ctx, tx, preparer, clock, CreateMachineArgs{
 			MachineUUID: args.MachineUUID.String(),
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
@@ -90,7 +90,7 @@ func PlaceMachine(
 		// The placement is handled by the provider, so we need to create a
 		// machine for the net node and then insert the provider placement
 		// for the machine.
-		cArgs := createMachineArgs{
+		cArgs := CreateMachineArgs{
 			MachineUUID: args.MachineUUID.String(),
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
@@ -121,7 +121,7 @@ func CreateMachine(
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	clock clock.Clock,
-	args createMachineArgs,
+	args CreateMachineArgs,
 ) (coremachine.Name, error) {
 	machineName, err := nextMachineSequence(ctx, tx, preparer)
 	if err != nil {
@@ -141,7 +141,7 @@ func CreateMachineWithName(
 	preparer domain.Preparer,
 	clock clock.Clock,
 	machineName string,
-	args createMachineArgs,
+	args CreateMachineArgs,
 ) error {
 	lifeID, err := encodeLife(life.Alive)
 	if err != nil {
@@ -393,7 +393,7 @@ func insertChildMachineForContainerPlacement(
 		return "", errors.Capture(err)
 	}
 
-	childCreateArgs := createMachineArgs{
+	childCreateArgs := CreateMachineArgs{
 		MachineUUID: args.machineUUID,
 		NetNodeUUID: args.netNodeUUID,
 		Platform:    args.platform,
@@ -652,7 +652,7 @@ func acquireParentMachineForContainer(
 		return "", "", errors.Capture(err)
 	}
 
-	c := createMachineArgs{
+	c := CreateMachineArgs{
 		NetNodeUUID: netNodeUUID.String(),
 		MachineUUID: machineUUID.String(),
 		Platform:    args.platform,
