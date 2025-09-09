@@ -324,6 +324,21 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) WatchProvisioningInfo(arg0 any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchProvisioningInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchProvisioningInfo), arg0)
 }
 
+// WatchStorageConstraints mocks base method.
+func (m *MockCAASProvisionerFacade) WatchStorageConstraints(arg0 string) (watcher.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchStorageConstraints", arg0)
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchStorageConstraints indicates an expected call of WatchStorageConstraints.
+func (mr *MockCAASProvisionerFacadeMockRecorder) WatchStorageConstraints(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStorageConstraints", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchStorageConstraints), arg0)
+}
+
 // WatchUnits mocks base method.
 func (m *MockCAASProvisionerFacade) WatchUnits(arg0 string) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()

@@ -1986,6 +1986,12 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
+// WatchStorageConstraints returns a watcher for observing changes to an
+// application's storage constraints.
+func (a *Application) WatchStorageConstraints() NotifyWatcher {
+	return newEntityWatcher(a.st, storageConstraintsC, a.storageConstraintsKey())
+}
+
 // WatchLeaderSettings returns a watcher for observing changed to an application's
 // leader settings.
 func (a *Application) WatchLeaderSettings() NotifyWatcher {

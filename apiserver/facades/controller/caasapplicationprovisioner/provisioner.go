@@ -257,6 +257,46 @@ func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.Notify
 	return result, nil
 }
 
+// WatchStorageConstraints provides a watcher for changes that affect an application's
+// storage constraint.
+func (a *API) WatchStorageConstraints(args params.Entities) (params.NotifyWatchResults, error) {
+	var result params.NotifyWatchResults
+	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		appName, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		res, err := a.watchStorageConstraints(appName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].NotifyWatcherId = res.NotifyWatcherId
+	}
+	return result, nil
+}
+
+func (a *API) watchStorageConstraints(appName names.ApplicationTag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	app, err := a.state.Application(appName.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	w := app.WatchStorageConstraints()
+
+	if _, ok := <-w.Changes(); ok {
+		result.NotifyWatcherId = a.resources.Register(w)
+	} else {
+		return result, watcher.EnsureErr(w)
+	}
+
+	return result, nil
+}
+
 // ProvisioningInfo returns the info needed to provision a caas application.
 func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProvisioningInfoResults, error) {
 	var result params.CAASApplicationProvisioningInfoResults

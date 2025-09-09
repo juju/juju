@@ -215,24 +215,25 @@ func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
 type mockApplication struct {
 	testing.Stub
 	state.Authenticator
-	life                 state.Life
-	tag                  names.Tag
-	password             string
-	base                 state.Base
-	charm                caasapplicationprovisioner.Charm
-	units                []*mockUnit
-	constraints          constraints.Value
-	storageConstraints   map[string]state.StorageConstraints
-	deviceConstraints    map[string]state.DeviceConstraints
-	charmModifiedVersion int
-	config               coreconfig.ConfigAttributes
-	scale                int
-	unitsWatcher         *statetesting.MockStringsWatcher
-	unitsChanges         chan []string
-	watcher              *statetesting.MockNotifyWatcher
-	charmPending         bool
-	provisioningState    *state.ApplicationProvisioningState
-	unitAttachmentInfos  []state.UnitAttachmentInfo
+	life                      state.Life
+	tag                       names.Tag
+	password                  string
+	base                      state.Base
+	charm                     caasapplicationprovisioner.Charm
+	units                     []*mockUnit
+	constraints               constraints.Value
+	storageConstraints        map[string]state.StorageConstraints
+	deviceConstraints         map[string]state.DeviceConstraints
+	charmModifiedVersion      int
+	config                    coreconfig.ConfigAttributes
+	scale                     int
+	unitsWatcher              *statetesting.MockStringsWatcher
+	unitsChanges              chan []string
+	watcher                   *statetesting.MockNotifyWatcher
+	storageConstraintsWatcher *statetesting.MockNotifyWatcher
+	charmPending              bool
+	provisioningState         *state.ApplicationProvisioningState
+	unitAttachmentInfos       []state.UnitAttachmentInfo
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -362,6 +363,11 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) WatchStorageConstraints() state.NotifyWatcher {
+	a.MethodCall(a, "WatchStorageConstraints")
+	return a.storageConstraintsWatcher
 }
 
 func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningState) error {

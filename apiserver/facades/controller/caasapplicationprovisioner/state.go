@@ -71,6 +71,7 @@ type Application interface {
 	GetScale() int
 	ClearResources() error
 	Watch() state.NotifyWatcher
+	WatchStorageConstraints() state.NotifyWatcher
 	WatchUnits() state.StringsWatcher
 	ProvisioningState() *state.ApplicationProvisioningState
 	SetProvisioningState(state.ApplicationProvisioningState) error
