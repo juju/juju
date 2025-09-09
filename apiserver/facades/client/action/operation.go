@@ -39,18 +39,17 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	actionResultByUnitName := make(map[string]*params.ActionResult)
 	receivers := make([]operation.ActionReceiver, 0, len(arg.Actions))
 
-	taskParams := taskParamHolder{}
-	for i, action := range arg.Actions {
-		// Validate that all actions have the same parameters, modulo the receiver.
-		// Note: this is a change of behavior from Juju 3, which allows different
-		// actions to be run as one operation. However, the only known user of this
-		// API is the Juju CLI, which actually only runs one action at a time, on
-		// several receivers.
-		if err := taskParams.Set(action); err != nil {
-			return params.EnqueuedActions{},
-				errors.Errorf("all actions args within one operation, modulo the receiver, should be the same: %v", err)
-		}
+	// Validate that all actions have the same parameters, modulo the receiver.
+	// Note: this is a change of behavior from Juju 3, which allows different
+	// actions to be run as one operation. However, the only known user of this
+	// API is the Juju CLI, which actually only runs one action at a time, on
+	// several receivers.
+	taskParams, err := a.validate(arg)
+	if err != nil {
+		return params.EnqueuedActions{}, errors.Capture(err)
+	}
 
+	for i, action := range arg.Actions {
 		if strings.HasSuffix(action.Receiver, leader) {
 			receiver := strings.TrimSuffix(action.Receiver, leader)
 			actionResultByUnitName[action.Receiver] = &actionResults[i]
@@ -72,7 +71,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{Actions: actionResults}, nil
 	}
 
-	result, err := a.operationService.StartActionOperation(ctx, receivers, taskParams.Get())
+	result, err := a.operationService.StartActionOperation(ctx, receivers, taskParams)
 	if err != nil {
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
@@ -100,44 +99,48 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	}, nil
 }
 
-// taskParamHolder is a parameter holder for the task parameters.
-// It helps to validate that all parameters for bulk actions from the facade
-// are the same.
-type taskParamHolder struct {
-	args *operation.TaskArgs
-}
+// validate validates that all actions have the same parameters, modulo the receiver.
+func (*ActionAPI) validate(arg params.Actions) (operation.TaskArgs, error) {
+	var result *operation.TaskArgs
 
-// Set sets the task parameters, if there is different of the previous
-// parameters, an error is returned.
-func (h *taskParamHolder) Set(arg params.Action) error {
-	incoming := operation.TaskArgs{
-		ActionName:     arg.Name,
-		Parameters:     arg.Parameters,
-		IsParallel:     zeroNilPtr(arg.Parallel),
-		ExecutionGroup: zeroNilPtr(arg.ExecutionGroup),
-	}
-	if h.args != nil {
+	for _, action := range arg.Actions {
+		incoming := operation.TaskArgs{
+			ActionName:     action.Name,
+			Parameters:     action.Parameters,
+			IsParallel:     zeroNilPtr(action.Parallel),
+			ExecutionGroup: zeroNilPtr(action.ExecutionGroup),
+		}
+
+		if result == nil {
+			result = &incoming
+			continue
+		}
+
 		var errs []error
-		if h.args.ActionName != incoming.ActionName {
-			errs = append(errs, errors.Errorf("action name mismatch: %q != %q", h.args.ActionName, incoming.ActionName))
+		if result.ActionName != incoming.ActionName {
+			errs = append(errs, errors.Errorf("action name mismatch: %q != %q", result.ActionName,
+				incoming.ActionName))
 		}
-		if h.args.IsParallel != incoming.IsParallel {
-			errs = append(errs, errors.Errorf("parallel mismatch: %v != %v", h.args.IsParallel, incoming.IsParallel))
+		if result.IsParallel != incoming.IsParallel {
+			errs = append(errs, errors.Errorf("parallel mismatch: %v != %v", result.IsParallel,
+				incoming.IsParallel))
 		}
-		if h.args.ExecutionGroup != incoming.ExecutionGroup {
-			errs = append(errs, errors.Errorf("execution group mismatch: %v != %v", h.args.ExecutionGroup, incoming.ExecutionGroup))
+		if result.ExecutionGroup != incoming.ExecutionGroup {
+			errs = append(errs, errors.Errorf("execution group mismatch: %v != %v", result.ExecutionGroup,
+				incoming.ExecutionGroup))
 		}
-		if !reflect.DeepEqual(h.args.Parameters, incoming.Parameters) {
-			errs = append(errs, errors.Errorf("parameters mismatch: %v != %v", h.args.Parameters, incoming.Parameters))
+		if !reflect.DeepEqual(result.Parameters, incoming.Parameters) {
+			errs = append(errs, errors.Errorf("parameters mismatch: %v != %v", result.Parameters,
+				incoming.Parameters))
 		}
-		return errors.Join(errs...)
+		return *result, errors.Join(errs...)
 	}
-	h.args = &incoming
-	return nil
-}
 
-func (h *taskParamHolder) Get() operation.TaskArgs {
-	return *h.args
+	if result == nil {
+		return operation.TaskArgs{}, errors.New("no actions specified")
+	}
+
+	return *result, nil
 }
 
 // ListOperations fetches the called operations for specified apps/units.
