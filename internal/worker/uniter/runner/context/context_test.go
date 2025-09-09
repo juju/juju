@@ -5,6 +5,8 @@ package context_test
 
 import (
 	stdcontext "context"
+	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
@@ -1081,7 +1084,7 @@ func (s *HookContextSuite) TestActionAbort(c *tc.C) {
 	for _, test := range tests {
 		ctrl := s.setupMocks(c)
 		client := api.NewMockUniterClient(ctrl)
-		hookContext := context.NewMockUnitHookContextWithUniter(c, s.mockUnit, client)
+		hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 		client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), test.Status, map[string]any(nil), "failed yo").Return(nil)
 
 		cancel := make(chan struct{})
@@ -1120,7 +1123,7 @@ func (s *HookContextSuite) TestActionFlushError(c *tc.C) {
 	}).Return(errors.New("flush failed"))
 
 	client := api.NewMockUniterClient(ctrl)
-	hookContext := context.NewMockUnitHookContextWithUniter(c, s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 	resultData := map[string]interface{}{
 		"stderr":      "flush failed",
 		"return-code": "1",
@@ -1141,7 +1144,7 @@ func (s *HookContextSuite) TestMissingAction(c *tc.C) {
 	defer ctrl.Finish()
 
 	client := api.NewMockUniterClient(ctrl)
-	hookContext := context.NewMockUnitHookContextWithUniter(c, s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 	client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), "failed", map[string]any(nil),
 		`action not implemented on unit "wordpress/0"`).Return(nil)
 
@@ -2052,4 +2055,70 @@ func (s *HookContextSuite) TestHookStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storage, tc.NotNil)
 	c.Assert(storage.Tag().Id(), tc.Equals, "data/0")
+}
+
+func (s *HookContextSuite) TestHookCloudSpecMachine(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	client := api.NewMockUniterClient(ctrl)
+	client.EXPECT().CloudSpec(gomock.Any()).Return(&params.CloudSpec{
+		Type: "lxd",
+		Credential: &params.CloudCredential{
+			AuthType: "authtype",
+		},
+	}, nil)
+
+	ctx := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
+	spec, err := ctx.CloudSpec(stdcontext.Background())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec.Type, tc.Equals, "lxd")
+	c.Assert(spec.Credential.AuthType, tc.Equals, "authtype")
+}
+
+func (s *HookContextSuite) TestHookCloudSpecK8s(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	tempDir := c.MkDir()
+	caFile := path.Join(tempDir, "ca.crt")
+	err := os.WriteFile(caFile, []byte("start\ncadata\nend\n"), 0600)
+	c.Assert(err, tc.ErrorIsNil)
+
+	client := api.NewMockUniterClient(ctrl)
+	client.EXPECT().CloudSpec(gomock.Any()).Return(&params.CloudSpec{
+		Type:   "kubernetes",
+		Name:   "myk8s",
+		Region: "myregion",
+		Credential: &params.CloudCredential{
+			AuthType: "overridden",
+		},
+		IsControllerCloud: true,
+	}, nil)
+
+	ctx := context.NewMockUnitHookContextWithUniter(c, model.CAAS, s.mockUnit, client)
+	ctx.SetInClusterConfig(func() (*rest.Config, error) {
+		return &rest.Config{
+			Host:        "https://localhost:1234",
+			BearerToken: "bearertoken",
+			TLSClientConfig: rest.TLSClientConfig{
+				CAFile: caFile,
+			},
+		}, nil
+	})
+
+	spec, err := ctx.CloudSpec(stdcontext.Background())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, &params.CloudSpec{
+		Type:     "kubernetes",
+		Name:     "myk8s",
+		Region:   "myregion",
+		Endpoint: "https://localhost:1234",
+		Credential: &params.CloudCredential{
+			AuthType:   "oauth2",
+			Attributes: map[string]string{"Token": "bearertoken"},
+		},
+		CACertificates:    []string{"start\ncadata\nend\n"},
+		IsControllerCloud: true,
+	})
 }

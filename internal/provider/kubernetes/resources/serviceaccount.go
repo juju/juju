@@ -42,7 +42,7 @@ func (sa *ServiceAccount) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (sa *ServiceAccount) ID() ID {
 	return ID{"ServiceAccount", sa.Name, sa.Namespace}
 }
@@ -89,11 +89,9 @@ func (sa *ServiceAccount) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s service account for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (sa *ServiceAccount) Ensure(
@@ -163,4 +161,23 @@ func (sa *ServiceAccount) Update(
 	}
 	sa.ServiceAccount = *out
 	return nil
+}
+
+// ListStatefulSets returns a list of statefulsets.
+func ListServiceAccounts(ctx context.Context, client v1.ServiceAccountInterface, namespace string, opts metav1.ListOptions) ([]ServiceAccount, error) {
+	var items []ServiceAccount
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, *NewServiceAccount(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

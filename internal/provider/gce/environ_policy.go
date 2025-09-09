@@ -29,6 +29,20 @@ func (env *environ) PrecheckInstance(ctx context.Context, args environs.Precheck
 		}
 	}
 
+	vpcLink, autosubnets, err := env.getVpcInfo(ctx)
+	if err != nil {
+		return env.HandleCredentialError(ctx, errors.Trace(err))
+	}
+	if !autosubnets && vpcLink != nil {
+		subnetworks, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(subnetworks) == 0 {
+			return errors.New("VPC does not auto create subnets and has no subnets")
+		}
+	}
+
 	return nil
 }
 

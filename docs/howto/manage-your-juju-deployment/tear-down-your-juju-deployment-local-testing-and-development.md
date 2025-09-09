@@ -13,7 +13,9 @@ $ multipass delete --purge my-juju-vm
 
 Uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
+```{ibnote}
+See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
+```
 
 `````
 
@@ -54,7 +56,9 @@ multipass delete --purge my-juju-vm
 
 Then uninstall Multipass.
 
-> See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
+```{ibnote}
+See more: [Multipass | Uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall)
+```
 
 `````
 

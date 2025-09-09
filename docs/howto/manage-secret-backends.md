@@ -1,7 +1,9 @@
 (manage-secret-backends)=
 # How to manage secret backends
 
-> See also: {ref}`secret-backend`
+```{ibnote}
+See also: {ref}`secret-backend`
+```
 
 Starting with Juju `3.1.0`, you can also manage secret backends in a number of ways.
 
@@ -29,7 +31,9 @@ EOF
 
 That's it. You can now start using this backend by adding it to a model.
 
-> See more: {ref}`secret-backend-configuration-options`
+```{ibnote}
+See more: {ref}`secret-backend-configuration-options`
+```
 
 <!--
 ```
@@ -48,8 +52,9 @@ Once you've configured a secret backend, to add it to a model, run the `add-secr
 juju add-secret-backend myvault vault token-rotate=10m --config /path/to/cfg.yaml
 ```
 
-> See more: {ref}`command-juju-add-secret-backend`, {ref}`secret-backend`
-
+```{ibnote}
+See more: {ref}`command-juju-add-secret-backend`, {ref}`secret-backend`
+```
 
 ## View all the secret backends available on a controller
 
@@ -59,7 +64,7 @@ To view all the backends available in the controller, run the `secret-backends` 
 juju secret-backends
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```text
 Backend           Type        Secrets  Message
@@ -73,8 +78,9 @@ myvault           vault            20  sealed
 
 The command also has options that allow you to filter by a specific controller or set an output format or an output file or reveal sensitive backend config content.
 
-> See more: {ref}`command-juju-secret-backends`
-
+```{ibnote}
+See more: {ref}`command-juju-secret-backends`
+```
 
 ## View all the secret backends active in a model
 
@@ -84,7 +90,7 @@ To see all the secret backends in use on a model, use the `show-model` command. 
 juju show-model
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```text
 mymodel:
@@ -122,7 +128,9 @@ mymodel:
 
 ````
 
-> See more: {ref}`command-juju-show-model`
+```{ibnote}
+See more: {ref}`command-juju-show-model`
+```
 
 ## Change the secret backend to be used by a model
 
@@ -134,7 +142,9 @@ juju model-config secret-backend=myothersecrets
 
 After the switch, any new secret revisions are stored in the new backend. Existing revisions continue to be read from the old backend.
 
-> See more: {ref}`configure-a-model`, {ref}`model-config-secret-backend`
+```{ibnote}
+See more: {ref}`configure-a-model`, {ref}`model-config-secret-backend`
+```
 
 ## View details about a secret backend
 
@@ -146,7 +156,9 @@ juju show-secret-backend myvault
 
 By passing various options you can also specify a controller, an output format, an output file, or whether to reveal sensitive information.
 
-> See more: {ref}`command-juju-show-secret-backend`
+```{ibnote}
+See more: {ref}`command-juju-show-secret-backend`
+```
 
 ## Update a secret backend
 
@@ -156,7 +168,9 @@ To update a secret backend on the controller, run the `update-secret-backend` co
 juju update-secret-backend myvault --config /path/to/cfg.yaml
 ```
 
-> See more: {ref}`command-juju-update-secret-backend`
+```{ibnote}
+See more: {ref}`command-juju-update-secret-backend`
+```
 
 ## Remove a secret backend
 
@@ -166,5 +180,7 @@ To remove a secret backend, use the `remove-secret-backend` command followed by 
 juju remove-secret-backend myvault
 ```
 
-> See more: {ref}`command-juju-update-secret-backend`
+```{ibnote}
+See more: {ref}`command-juju-update-secret-backend`
+```
 

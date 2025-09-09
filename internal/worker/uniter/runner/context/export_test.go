@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
@@ -126,14 +127,14 @@ func NewMockUnitHookContext(c *tc.C, mockUnit *api.MockUnit, modelType model.Mod
 	}
 }
 
-func NewMockUnitHookContextWithUniter(c *tc.C, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
+func NewMockUnitHookContextWithUniter(c *tc.C, modelType model.ModelType, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   mockUnit,
 		uniter:                 uniterClient,
 		logger:                 logger,
-		modelType:              model.IAAS,
+		modelType:              modelType,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
 		secretChanges:          newSecretsChangeRecorder(logger),
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
@@ -357,4 +358,8 @@ func (ctx *HookContext) PendingSecretRevokes() map[string][]uniter.SecretGrantRe
 
 func (ctx *HookContext) PendingSecretTrackLatest() map[string]bool {
 	return ctx.secretChanges.pendingTrackLatest
+}
+
+func (ctx *HookContext) SetInClusterConfig(inClusterConfig func() (*rest.Config, error)) {
+	ctx.inClusterConfig = inClusterConfig
 }

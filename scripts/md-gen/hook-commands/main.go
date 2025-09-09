@@ -7,7 +7,6 @@ import (
 	"context"
 	"os"
 	"slices"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -68,9 +67,6 @@ func main() {
 // Copied from cmd/juju/commands/helptool.go
 type dummyHookContext struct{ jujuc.Context }
 
-func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
-	return nil
-}
 func (dummyHookContext) UnitName() string {
 	return ""
 }

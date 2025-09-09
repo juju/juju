@@ -47,7 +47,7 @@ func ListPersistentVolumeClaims(ctx context.Context, client kubernetes.Interface
 			return nil, errors.Trace(err)
 		}
 		for _, item := range res.Items {
-			items = append(items, PersistentVolumeClaim{PersistentVolumeClaim: item})
+			items = append(items, *NewPersistentVolumeClaim(api, namespace, item.Name, &item))
 		}
 		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
 			break
@@ -63,7 +63,7 @@ func (pvc *PersistentVolumeClaim) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (pvc *PersistentVolumeClaim) ID() ID {
 	return ID{"PersistentVolumeClaim", pvc.Name, pvc.Namespace}
 }
@@ -111,11 +111,9 @@ func (pvc *PersistentVolumeClaim) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s persistent volume claim for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.

@@ -3,14 +3,17 @@
 
 This document describes details specific to using your existing Oracle OCI cloud with Juju.
 
-> See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm)
+```{ibnote}
+See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Notes on `juju add-cloud`
 
@@ -20,9 +23,7 @@ Name in Juju: `oracle`
 
 ## Notes on `juju add-credential`
 
-
 ### Authentication types
-
 
 #### `httpsig`
 Attributes:
@@ -44,20 +45,20 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 
 | | |
 |-|-|
-| type | string |
-| default value | "10.0.0.0/16" |
-| immutable | false |
-| mandatory | false |
+| type | `string` |
+| default value | `"10.0.0.0/16"` |
+| immutable | `false` |
+| mandatory | `false` |
 
 ### `compartment-id`
 The OCID of the compartment in which juju has access to create resources.
 
 | | |
 |-|-|
-| type | string |
-| default value | "" |
-| immutable | false |
-| mandatory | false |
+| type | `string` |
+| default value | `""` |
+| immutable | `false` |
+| mandatory | `false` |
 
 
 ## Supported constraints
@@ -94,7 +95,9 @@ The OCID of the compartment in which juju has access to create resources.
 
 ## Cloud-specific storage providers
 
-> See first: {ref}`storage-provider`
+```{ibnote}
+See first: {ref}`storage-provider`
+```
 
 ### `oracle`
 

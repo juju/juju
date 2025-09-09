@@ -1,7 +1,6 @@
 (juju-introspect)=
 # `juju-introspect`
 
-
 ```{toctree}
 :hidden:
 
@@ -9,12 +8,9 @@ list-of-juju-introspect-macros/index
 
 ```
 
-
-
 ## Summary
 
 Introspect Juju agents running on this machine.
-
 
 ## Usage
 
@@ -39,23 +35,22 @@ juju-introspect [options] (--listen=...|<path> [key=value [...]])
 
 ## Details
 
-
 Introspect Juju agents running on this machine.
 
 The juju-introspect command can be used to expose
 the agent's introspection socket via HTTP, using
-the --listen flag. e.g.
+the `--listen` flag. For example:
 
     juju-introspect --listen=:6060
 
 Otherwise, a single positional argument is required,
-which is the path to query. e.g.
+which is the path to query. For example:
 
     juju-introspect /debug/pprof/heap?debug=1
 
 By default, juju-introspect operates on the
 machine agent. If you wish to introspect a
 unit agent on the machine, you can specify the
-agent using --agent. e.g.
+agent using `--agent`. For example:
 
     juju-introspect --agent=unit-mysql-0 metrics

@@ -84,6 +84,11 @@ func (s *environNetSuite) SetUpTest(c *tc.C) {
 		Name:        ptr("sub-network2"),
 		IpCidrRange: ptr("10.0.20.0/24"),
 		SelfLink:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network2"),
+		Network:     ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+	}, {
+		Name:        ptr("sub-network4"),
+		IpCidrRange: ptr("10.0.40.0/24"),
+		SelfLink:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-east1/subnetworks/sub-network4"),
 		Network:     ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/another"),
 	}}
 }
@@ -109,12 +114,11 @@ func (s *environNetSuite) TestGettingAllSubnets(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", []any{s.networks[0].Subnetworks}...).Return(s.subnets[:2], nil)
 
 	subnets, err := env.Subnets(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
-
 	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "sub-network1",
 		ProviderNetworkId: "default",
@@ -123,11 +127,50 @@ func (s *environNetSuite) TestGettingAllSubnets(c *tc.C) {
 		VLANTag:           0,
 	}, {
 		ProviderId:        "sub-network2",
-		ProviderNetworkId: "another",
+		ProviderNetworkId: "default",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"home-zone", "away-zone"},
 		VLANTag:           0,
-	}, {
+	}})
+}
+
+func (s *environNetSuite) TestGettingAllSubnetsLegacy(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcID(env, ptr("legacy"))
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "legacy").Return(s.networks[2], nil)
+
+	subnets, err := env.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
+		ProviderId:        "legacy",
+		ProviderNetworkId: "legacy",
+		CIDR:              "10.240.0.0/16",
+		AvailabilityZones: []string{"home-zone", "away-zone"},
+		VLANTag:           0,
+	}})
+}
+
+func (s *environNetSuite) TestGettingAllSubnetsWithNoVPCCompat(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	// Upgraded models will not have a VPC set.
+	s.SetVpcID(env, nil)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
+	s.MockService.EXPECT().Networks(gomock.Any()).Return([]*computepb.Network{s.networks[2]}, nil)
+
+	subnets, err := env.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "legacy",
 		ProviderNetworkId: "legacy",
 		CIDR:              "10.240.0.0/16",
@@ -143,8 +186,9 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", []any{s.networks[0].Subnetworks[0]}...).
+		Return(s.subnets[:1], nil)
 
 	subnets, err := env.Subnets(c.Context(), []corenetwork.Id{
 		"sub-network1",
@@ -166,8 +210,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
 
 	subnets, err := env.Subnets(c.Context(), []corenetwork.Id{"sub-network1", "sub-network4"})
 	c.Assert(err, tc.ErrorMatches, `subnets \["sub-network4"\] not found`)
@@ -184,8 +227,9 @@ func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", s.networks[0].Subnetworks[1]).
+		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(c.Context(), []instance.Id{"inst-0"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -235,8 +279,9 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", s.networks[0].Subnetworks[0], s.networks[0].Subnetworks[1]).
+		Return(s.subnets, nil)
 
 	s.instances[1].NetworkInterfaces = append(s.instances[1].NetworkInterfaces, &computepb.NetworkInterface{
 		Name:       ptr("netif-1"),
@@ -324,8 +369,9 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", []any{s.networks[0].Subnetworks[1]}...).
+		Return(s.subnets[1:], nil)
 
 	infoLists, err := env.NetworkInterfaces(c.Context(), []instance.Id{"inst-0", "bogus"})
 	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
@@ -376,8 +422,10 @@ func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1",
+		[]any{s.networks[0].Subnetworks[0], s.networks[0].Subnetworks[1]}...).
+		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(c.Context(), []instance.Id{"inst-0"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -442,7 +490,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[2], nil)
 
 	infoList, err := env.NetworkInterfaces(c.Context(), []instance.Id{"inst-0"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -490,8 +538,10 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(s.zones, nil)
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(s.instances, nil)
-	s.MockService.EXPECT().Networks(gomock.Any()).Return(s.networks, nil)
-	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
+	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
+	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1",
+		[]any{s.networks[0].Subnetworks[0], s.networks[0].Subnetworks[1]}...).
+		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(c.Context(), []instance.Id{"inst-0"})
 	c.Assert(err, tc.ErrorIsNil)

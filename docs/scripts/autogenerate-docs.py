@@ -1,9 +1,7 @@
-import ast
+import os
 import re
 import shutil
 import subprocess
-import sys
-import os
 
 
 ##################################
@@ -85,7 +83,7 @@ def generate_cli_docs():
         shutil.rmtree(generated_cli_docs_dir)
 
     # Generate the CLI docs using "juju documentation" command.
-    subprocess.run(['juju', 'documentation', '--split', '--no-index', '--out', generated_cli_docs_dir],
+    subprocess.run(['go', 'run', 'scripts/docgen.go', '--split', '--no-index', '--out', generated_cli_docs_dir],
                    check=True)
 
     for page in os.listdir(generated_cli_docs_dir):

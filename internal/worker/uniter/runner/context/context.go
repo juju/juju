@@ -6,6 +6,7 @@ package context
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,8 +15,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -146,6 +149,10 @@ type HookContext struct {
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
+
+	// inClusterConfig supplies the K8s rest.InClusterConfig function,
+	// overrideable for testing.
+	inClusterConfig func() (*rest.Config, error)
 
 	// principal is the unitName of the principal charm.
 	principal string
@@ -1140,15 +1147,61 @@ func (c *HookContext) GoalState(ctx context.Context) (*application.GoalState, er
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (c *HookContext) CloudSpec(ctx context.Context) (*params.CloudSpec, error) {
-	if c.modelType == model.CAAS {
-		return nil, errors.NotSupportedf("credential-get on a %q model", model.CAAS)
+	if c.cloudSpec != nil {
+		return c.cloudSpec, nil
 	}
 	var err error
-	c.cloudSpec, err = c.uniter.CloudSpec(ctx)
-	if err != nil {
-		return nil, err
+	if c.modelType == model.CAAS {
+		c.cloudSpec, err = c.cloudSpecK8s(ctx)
+	} else {
+		c.cloudSpec, err = c.uniter.CloudSpec(ctx)
 	}
-	return c.cloudSpec, nil
+	return c.cloudSpec, err
+}
+
+// cloudSpecK8s loads the in-cluster configuration to connect to the Kubernetes API.
+func (c *HookContext) cloudSpecK8s(ctx context.Context) (*params.CloudSpec, error) {
+	// Hit controller's CloudSpec API to determine whether we have permission,
+	// and we need it for some of the fields (but not the credentials).
+	modelSpec, err := c.uniter.CloudSpec(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model credentials")
+	}
+
+	inClusterConfig := c.inClusterConfig
+	if inClusterConfig == nil {
+		inClusterConfig = rest.InClusterConfig
+	}
+	config, err := inClusterConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading in-cluster config")
+	}
+
+	// InClusterConfig doesn't actually load the certificate file, so do it ourselves.
+	if config.TLSClientConfig.CAFile == "" {
+		// Oddly, InClusterConfig logs this error, but does not return it.
+		return nil, errors.New("reading certificate file")
+	}
+	certBytes, err := os.ReadFile(config.TLSClientConfig.CAFile)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading certificate file")
+	}
+
+	credential := &params.CloudSpec{
+		Type:     modelSpec.Type, // "kubernetes"
+		Name:     modelSpec.Name,
+		Region:   modelSpec.Region,
+		Endpoint: config.Host,
+		Credential: &params.CloudCredential{
+			AuthType: string(cloud.OAuth2AuthType),
+			Attributes: map[string]string{
+				"Token": config.BearerToken,
+			},
+		},
+		CACertificates:    []string{string(certBytes)},
+		IsControllerCloud: modelSpec.IsControllerCloud,
+	}
+	return credential, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
@@ -1265,18 +1318,6 @@ func (c *HookContext) RelationIds() ([]int, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
-}
-
-// AddMetric adds metrics to the hook context.
-// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
-func (c *HookContext) AddMetric(key, value string, created time.Time) error {
-	return errors.New("metrics not allowed in this context")
-}
-
-// AddMetricLabels adds metrics with labels to the hook context.
-// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
-func (c *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
-	return errors.New("metrics not allowed in this context")
 }
 
 // ActionData returns the context's internal action data. It's meant to be

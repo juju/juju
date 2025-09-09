@@ -5,7 +5,6 @@ package jujuc
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -116,14 +115,6 @@ func (*RestrictedContext) NetworkInfo(_ context.Context, bindingNames []string, 
 
 // IsLeader implements hooks.Context.
 func (*RestrictedContext) IsLeader() (bool, error) { return false, ErrRestrictedContext }
-
-// AddMetric implements hooks.Context.
-func (*RestrictedContext) AddMetric(string, string, time.Time) error { return ErrRestrictedContext }
-
-// AddMetricLabels implements hooks.Context.
-func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]string) error {
-	return ErrRestrictedContext
-}
 
 // StorageTags implements hooks.Context.
 func (*RestrictedContext) StorageTags(_ context.Context) ([]names.StorageTag, error) {

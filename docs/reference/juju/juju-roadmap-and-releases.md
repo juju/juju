@@ -355,7 +355,7 @@ See the full list in these milestone pages:
 
 ```{caution}
 
-Juju 3.5 series is in security maintenance until 30 Apr 2025
+Juju 3.5 series is EOL
 
 ```
 

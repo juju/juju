@@ -4,7 +4,6 @@
 package resources_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -25,68 +24,71 @@ func TestPersistentVolumeSuite(t *testing.T) {
 }
 
 func (s *persistentVolumeSuite) TestApply(c *tc.C) {
-	ds := &corev1.PersistentVolume{
+	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ds1",
+			Name: "pv1",
 		},
 	}
 	// Create.
-	dsResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
-	result, err := s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	pvResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "pv1", pv)
+	c.Assert(pvResource.Apply(c.Context()), tc.ErrorIsNil)
+	result, err := s.client.CoreV1().PersistentVolumes().Get(c.Context(), "pv1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
-	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource = resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
+	pv.SetAnnotations(map[string]string{"a": "b"})
+	pvResource = resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "pv1", pv)
+	c.Assert(pvResource.Apply(c.Context()), tc.ErrorIsNil)
 
-	result, err = s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err = s.client.CoreV1().PersistentVolumes().Get(c.Context(), "pv1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.GetName(), tc.Equals, `ds1`)
+	c.Assert(result.GetName(), tc.Equals, `pv1`)
 	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
 func (s *persistentVolumeSuite) TestGet(c *tc.C) {
 	template := corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ds1",
+			Name: "pv1",
 		},
 	}
-	ds1 := template
-	ds1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.CoreV1().PersistentVolumes().Create(context.TODO(), &ds1, metav1.CreateOptions{})
+	pv1 := template
+	pv1.SetAnnotations(map[string]string{"a": "b"})
+	_, err := s.client.CoreV1().PersistentVolumes().Create(c.Context(), &pv1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	dsResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "ds1", &template)
-	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
-	err = dsResource.Get(context.TODO())
+	pvResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "pv1", &template)
+	c.Assert(len(pvResource.GetAnnotations()), tc.Equals, 0)
+	err = pvResource.Get(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
-	c.Assert(dsResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(pvResource.GetName(), tc.Equals, `pv1`)
+	c.Assert(pvResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
 func (s *persistentVolumeSuite) TestDelete(c *tc.C) {
-	ds := corev1.PersistentVolume{
+	pv := corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ds1",
+			Name: "pv1",
 		},
 	}
-	_, err := s.client.CoreV1().PersistentVolumes().Create(context.TODO(), &ds, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().PersistentVolumes().Create(c.Context(), &pv, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	result, err := s.client.CoreV1().PersistentVolumes().Get(c.Context(), "pv1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.GetName(), tc.Equals, `ds1`)
+	c.Assert(result.GetName(), tc.Equals, `pv1`)
 
-	dsResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "ds1", &ds)
-	err = dsResource.Delete(context.TODO())
+	pvResource := resources.NewPersistentVolume(s.client.CoreV1().PersistentVolumes(), "pv1", &pv)
+	err = pvResource.Delete(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = dsResource.Get(context.TODO())
-	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	err = pvResource.Delete(c.Context())
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
-	_, err = s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
+	err = pvResource.Get(c.Context())
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+
+	_, err = s.client.CoreV1().PersistentVolumes().Get(c.Context(), "pv1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }

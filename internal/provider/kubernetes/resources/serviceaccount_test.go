@@ -12,16 +12,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
+	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceAccountSuite struct {
 	resourceSuite
+	namespace            string
+	serviceAccountClient v1.ServiceAccountInterface
 }
 
 func TestServiceAccountSuite(t *testing.T) {
 	tc.Run(t, &serviceAccountSuite{})
+}
+
+func (s *serviceAccountSuite) SetUpTest(c *tc.C) {
+	s.resourceSuite.SetUpTest(c)
+	s.namespace = "ns1"
+	s.serviceAccountClient = s.client.CoreV1().ServiceAccounts(s.namespace)
 }
 
 func (s *serviceAccountSuite) TestApply(c *tc.C) {
@@ -33,17 +45,17 @@ func (s *serviceAccountSuite) TestApply(c *tc.C) {
 	}
 	// Create.
 	saResource := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts(sa.Namespace), "test", "sa1", sa)
-	c.Assert(saResource.Apply(context.TODO()), tc.ErrorIsNil)
-	result, err := s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
+	c.Assert(saResource.Apply(c.Context()), tc.ErrorIsNil)
+	result, err := s.client.CoreV1().ServiceAccounts("test").Get(c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	sa.SetAnnotations(map[string]string{"a": "b"})
 	saResource = resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts(sa.Namespace), "test", "sa1", sa)
-	c.Assert(saResource.Apply(context.TODO()), tc.ErrorIsNil)
+	c.Assert(saResource.Apply(c.Context()), tc.ErrorIsNil)
 
-	result, err = s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
+	result, err = s.client.CoreV1().ServiceAccounts("test").Get(c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `sa1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
@@ -59,12 +71,12 @@ func (s *serviceAccountSuite) TestGet(c *tc.C) {
 	}
 	sa1 := template
 	sa1.SetAnnotations(map[string]string{"a": "b"})
-	_, err := s.client.CoreV1().ServiceAccounts("test").Create(context.TODO(), &sa1, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().ServiceAccounts("test").Create(c.Context(), &sa1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	saResource := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts(sa1.Namespace), "test", "sa1", &template)
 	c.Assert(len(saResource.GetAnnotations()), tc.Equals, 0)
-	err = saResource.Get(context.TODO())
+	err = saResource.Get(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(saResource.GetName(), tc.Equals, `sa1`)
 	c.Assert(saResource.GetNamespace(), tc.Equals, `test`)
@@ -78,21 +90,24 @@ func (s *serviceAccountSuite) TestDelete(c *tc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.CoreV1().ServiceAccounts("test").Create(context.TODO(), &sa, metav1.CreateOptions{})
+	_, err := s.client.CoreV1().ServiceAccounts("test").Create(c.Context(), &sa, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
+	result, err := s.client.CoreV1().ServiceAccounts("test").Get(c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.GetName(), tc.Equals, `sa1`)
 
 	saResource := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts(sa.Namespace), "test", "sa1", &sa)
-	err = saResource.Delete(context.TODO())
+	err = saResource.Delete(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = saResource.Get(context.TODO())
+	err = saResource.Delete(c.Context())
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+
+	err = saResource.Get(c.Context())
 	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
-	_, err = s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
+	_, err = s.client.CoreV1().ServiceAccounts("test").Get(c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
@@ -104,7 +119,7 @@ func (s *serviceAccountSuite) TestUpdate(c *tc.C) {
 		},
 	}
 	_, err := s.client.CoreV1().ServiceAccounts("test").Create(
-		context.TODO(),
+		c.Context(),
 		&sa,
 		metav1.CreateOptions{},
 	)
@@ -115,11 +130,11 @@ func (s *serviceAccountSuite) TestUpdate(c *tc.C) {
 	}
 
 	saResource := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts(sa.Namespace), "test", "sa1", &sa)
-	err = saResource.Update(context.TODO())
+	err = saResource.Update(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	rsa, err := s.client.CoreV1().ServiceAccounts("test").Get(
-		context.TODO(),
+		c.Context(),
 		"sa1",
 		metav1.GetOptions{},
 	)
@@ -129,11 +144,11 @@ func (s *serviceAccountSuite) TestUpdate(c *tc.C) {
 
 func (s *serviceAccountSuite) TestEnsureCreatesNew(c *tc.C) {
 	sa := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts("test"), "test", "sa1", &corev1.ServiceAccount{})
-	cleanups, err := sa.Ensure(context.TODO())
+	cleanups, err := sa.Ensure(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	obj, err := s.client.CoreV1().ServiceAccounts("test").Get(
-		context.TODO(), "sa1", metav1.GetOptions{})
+		c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(&sa.ServiceAccount, tc.DeepEquals, obj)
 
@@ -143,7 +158,7 @@ func (s *serviceAccountSuite) TestEnsureCreatesNew(c *tc.C) {
 
 	// Test cleanup removes service account
 	_, err = s.client.CoreV1().ServiceAccounts("test").Get(
-		context.TODO(), "sa1", metav1.GetOptions{})
+		c.Context(), "sa1", metav1.GetOptions{})
 	c.Assert(k8serrors.IsNotFound(err), tc.IsTrue)
 }
 
@@ -156,7 +171,7 @@ func (s *serviceAccountSuite) TestEnsureUpdates(c *tc.C) {
 	}
 
 	_, err := s.client.CoreV1().ServiceAccounts("testing").Create(
-		context.TODO(), sa, metav1.CreateOptions{})
+		c.Context(), sa, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	sa.ObjectMeta.Labels = map[string]string{
@@ -164,12 +179,72 @@ func (s *serviceAccountSuite) TestEnsureUpdates(c *tc.C) {
 	}
 
 	resource := resources.NewServiceAccount(s.client.CoreV1().ServiceAccounts("testing"), "testing", "sa2", sa)
-	_, err = resource.Ensure(context.TODO())
+	_, err = resource.Ensure(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	obj, err := s.client.CoreV1().ServiceAccounts("testing").Get(
-		context.TODO(), sa.Name, metav1.GetOptions{})
+		c.Context(), sa.Name, metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(obj, tc.DeepEquals, &resource.ServiceAccount)
+}
+
+func (s *serviceAccountSuite) TestListServiceAccounts(c *tc.C) {
+	// Set up labels for model and app to list resource
+	controllerUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelName := "testmodel"
+
+	appName := "app1"
+	appLabel := providerutils.SelectorLabelsForApp(appName, constants.LabelVersion2)
+
+	modelLabel := providerutils.LabelsForModel(modelName, modelUUID.String(), controllerUUID.String(), constants.LabelVersion2)
+	labelSet := providerutils.LabelsMerge(appLabel, modelLabel)
+
+	// Create service1
+	service1Name := "service1"
+	service1 := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   service1Name,
+			Labels: labelSet,
+		},
+	}
+	_, err = s.serviceAccountClient.Create(c.Context(), service1, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create service2
+	service2Name := "service2"
+	service2 := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   service2Name,
+			Labels: labelSet,
+		},
+	}
+	_, err = s.serviceAccountClient.Create(c.Context(), service2, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// List resources with correct labels.
+	services, err := resources.ListServiceAccounts(context.Background(), s.serviceAccountClient, s.namespace, metav1.ListOptions{
+		LabelSelector: labelSet.String(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 2)
+	c.Assert(services[0].GetName(), tc.Equals, service1Name)
+	c.Assert(services[1].GetName(), tc.Equals, service2Name)
+
+	// List resources with no labels.
+	services, err = resources.ListServiceAccounts(context.Background(), s.serviceAccountClient, s.namespace, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 2)
+
+	// List resources with wrong labels.
+	services, err = resources.ListServiceAccounts(context.Background(), s.serviceAccountClient, s.namespace, metav1.ListOptions{
+		LabelSelector: "foo=bar",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 0)
 }

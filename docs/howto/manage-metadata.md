@@ -1,6 +1,8 @@
 (manage-metadata)=
 # How to manage Simplestreams metadata
-> See also: {ref}`metadata`
+```{ibnote}
+See also: {ref}`metadata`
+```
 <!--
 Using this to replace https://juju.is/docs/juju/cloud-image-metadata (https://discourse.charmhub.io/t/how-to-configure-machine-image-metadata-for-your-openstack-cloud/1137), because the recipe here is actually generic -- not specific to OpenStack.
 
@@ -29,11 +31,15 @@ juju metadata generate-image
 
 The cloud specification comes from the current Juju model, but it is possible to override certain cloud attributes, including the region, endpoint, and charm base using the command arguments. While "amd64" serves as the default setting for the architecture, this option can also be adjusted to accommodate different architectural requirements.
 
-> See more: {ref}`plugin-juju-metadata` > `generate-image`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `generate-image`
+```
 
 The generated metadata image can then be used to speed up bootstrap and deployment.
 
-> See more: {ref}`command-juju-bootstrap`, {ref}`cloud-vsphere`
+```{ibnote}
+See more: {ref}`command-juju-bootstrap`, {ref}`cloud-vsphere`
+```
 
 **For agent binaries.** To create metadata for Juju agent binaries, use the `metadata` plugin with the `generate-agent-binaries` subcommand. This generates simplestreams metadata for agent binaries, facilitating their discovery and use.
 
@@ -56,7 +62,9 @@ Newly generated metadata will be merged with any existing metadata that is alrea
 juju metadata generate-agent-binaries -d <workingdir> --stream proposed --clean
 ```
 
-> See more: {ref}`plugin-juju-metadata` > `generate-agent-binaries`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `generate-agent-binaries`
+```
 
 ## Validate metadata
 
@@ -71,7 +79,9 @@ that the validation may be performed on arbitrary metadata.
 
 <!-- A key use case is to validate newly generated metadata prior to deployment to production. In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc), and the validation is performed for each supported region and base. -->
 
-> See more: {ref}`plugin-juju-metadata` > `validate-images`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `validate-images`
+```
 
 **For agent binaries.** To ensure that the compressed tar archives (.tgz) for the Juju agent binaries are available and correct, use the `metadata` plugin with the `validate-agent-binaries` subcommand. For example:
 
@@ -81,7 +91,9 @@ juju metadata validate-agent-binaries
 
 It is also possible to indicate the os type for which to validate, the cloud provider, region as well as the endpoint. It is possible to specify a local directory containing agent metadata, in which case cloud attributes like provider type, region etc are optional.
 
-> See more: {ref}`plugin-juju-metadata` > `validate-agent-binaries`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `validate-agent-binaries`
+```
 
 ## Add metadata
 
@@ -92,7 +104,9 @@ juju metadata add-image <image-id> --base <base>
 ```
 It is also possible to pass various options to specify the image architecture, choose a model to operate in, and the cloud region where this image exists, etc.
 
-> See more: {ref}`plugin-juju-metadata` > `add-image`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `add-image`
+```
 
 ## Sign metadata
 
@@ -105,7 +119,9 @@ juju metadata sign -d <directory> -k <key>
 The specified keyring file is expected to contain an amored private key. If the key
 is encrypted, then a passphrase should be specified using the command option `--passphrase` to decrypt the key.
 
-> See more: {ref}`plugin-juju-metadata` > `sign`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `sign`
+```
 
 ## View all the known metadata
 
@@ -123,7 +139,10 @@ The result list can be filtered in order to show specific images for a region, a
 ```text
 juju metadata images --bases ubuntu@22.04 --region eu-west-1 --model mymodel
 ```
-> See more: {ref}`plugin-juju-metadata` > `images`
+
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `images`
+```
 
 ## Delete metadata
 
@@ -134,4 +153,6 @@ juju metadata delete-image <image-id>
 ```
 The command also allows you to specify whether this operation should show a verbose output or no informational output at all. The `--model` option can be set in order to specify the model to operate in.
 
-> See more: {ref}`plugin-juju-metadata` > `delete-image`
+```{ibnote}
+See more: {ref}`plugin-juju-metadata` > `delete-image`
+```

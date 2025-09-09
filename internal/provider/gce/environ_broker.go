@@ -121,7 +121,9 @@ func (env *environ) findInstanceSpec(
 }
 
 func (env *environ) imageURLBase(os ostype.OSType) (string, error) {
+	env.lock.Lock()
 	base, useCustomPath := env.ecfg.baseImagePath()
+	env.lock.Unlock()
 	if useCustomPath {
 		return base, nil
 	}
@@ -200,8 +202,14 @@ func (env *environ) startInstance(
 	if args.Constraints.HasAllocatePublicIP() {
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
+
+	vpcLink, subnetURL, err := env.getInstanceSubnet(ctx)
+	if err != nil {
+		return nil, env.HandleCredentialError(ctx, errors.Trace(err))
+	}
 	nic := &computepb.NetworkInterface{
-		Network: ptr(fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName)),
+		Network:    &vpcLink,
+		Subnetwork: subnetURL,
 	}
 
 	if allocatePublicIP {

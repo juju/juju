@@ -1,7 +1,9 @@
 (secret)=
 # Secret
 
-> See also: {ref}`manage-secrets`
+```{ibnote}
+See also: {ref}`manage-secrets`
+```
 
 In Juju, (starting with Juju 3.0) a **secret** is a sensitive bit of information (e.g., account credential, password, certificate, SSH key, API key, encryption key, etc.) that a {ref}`charm <charm>` needs to know.
 
@@ -10,7 +12,7 @@ In Juju, (starting with Juju 3.0) a **secret** is a sensitive bit of information
 (charm-secret)=
 ### Charm secret
 
-```{versionadded} 3.0.0
+```{versionadded} `3.0.0`
 ```
 
 A **charm secret** is a secret created by a charm. A charm secret is shared with another charm (the secret 'observer') over relation data. The secret is tied to the lifecycle of the relation.
@@ -45,8 +47,10 @@ A regex is used to ensure secret naming conformity: `^([a-z](?:-?[a-z0-9]){2,})$
 
 (secret-backend)=
 ## Secret backend
->
-> See also: {ref}`manage-secret-backends`
+
+```{ibnote}
+See also: {ref}`manage-secret-backends`
+```
 
 A **secret backend** is a service that is used to store sensitive content which Juju manages as {ref}`secrets <secret>`.
 
@@ -64,7 +68,9 @@ The name of a secret backend can be:
 
 The name is set via the `secret-backend` model configuration key.
 
-> See more: {ref}`list-of-model-configuration-keys`
+```{ibnote}
+See more: {ref}`list-of-model-configuration-keys`
+```
 
 ### Type
 
@@ -126,7 +132,9 @@ The `vault` backend supports the following configuration keys:
 |`tls-server-name`|The name to use as the SNI host when connecting via TLS.|
 |`token`|The vault authentication token.|
 
-> See more: [Vault | `vault server`](https://fig.io/manual/vault/server), [Hashicorp | Vault CLI](https://developer.hashicorp.com/vault/docs/commands). <br> (You will see more options there as we currently support only support a subset.)
+```{ibnote}
+See more: [Vault | `vault server`](https://fig.io/manual/vault/server), [Hashicorp | Vault CLI](https://developer.hashicorp.com/vault/docs/commands). <br> (You will see more options there as we currently support only a subset.)
+```
 
 A minimum configuration must include the `endpoint` and `token`. However, just that would not be insecure, as it wouldn't establish an encrypted TLS connection to Vault. For production you should configure your Vault securely, following recommendations in the upstream Vault documentation.
 
@@ -193,9 +201,7 @@ Also, whatever remote units/apps the secret owner grants the secret to, will als
 ## Secret lifecycle
 
 ```{important}
-
 This section currently covers only the lifecycle of a charm secret.
-
 ```
 
 Charms can use relations to share secrets, such as API keys, a database's address, credentials and so on. Like a relation has a "provider" and a "requirer", so a secret has an "owner" and an "observer" -- though these need not coincide with the applications' roles in the relation.

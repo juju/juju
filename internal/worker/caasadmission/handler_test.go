@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/utils/v3"
 	admission "k8s.io/api/admission/v1beta1"
 	authentication "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	providerutils "github.com/juju/juju/internal/provider/kubernetes/utils"
+	"github.com/juju/juju/internal/uuid"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
 
@@ -43,11 +43,11 @@ func TestHandlerSuite(t *testing.T) {
 
 func (h *HandlerSuite) SetUpTest(c *tc.C) {
 	h.logger = loggertesting.WrapCheckLog(c)
-	controllerUUID, err := utils.NewUUID()
+	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	h.controllerUUID = controllerUUID.String()
 
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	h.modelUUID = modelUUID.String()
 

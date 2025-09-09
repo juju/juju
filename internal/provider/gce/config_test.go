@@ -157,6 +157,14 @@ var changeConfigTests = []configTestSpec{{
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
 	expect: testing.Attrs{"unknown": "ignoti"},
+}, {
+	info:   "cannot change vpc-id",
+	insert: testing.Attrs{"vpc-id": "another-vpc"},
+	err:    "vpc-id: cannot change from some-vpc to another-vpc",
+}, {
+	info:   "cannot change vpc-id-force",
+	insert: testing.Attrs{"vpc-id-force": "true"},
+	err:    "vpc-id-force: cannot change from false to true",
 }}
 
 // TODO(wwitzel3) refactor this to the provider_test file.

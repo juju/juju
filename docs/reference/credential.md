@@ -1,7 +1,9 @@
 (credential)=
 # Credential
 
-> See also: {ref}`manage-credentials`
+```{ibnote}
+See also: {ref}`manage-credentials`
+```
 
 In Juju, a **credential** represents a collection of authentication material (like username & password, or client id & secret key) that is specific to a Juju {ref}`user <user>` and a {ref}`cloud <cloud>` and allows that user to interact with that cloud.
 
@@ -19,7 +21,6 @@ cat .local/share/juju/credentials.yaml
 ```
 -->
 
-
 ## Client vs. controller credential
 
 Juju credentials can be created for either the Juju client or the Juju controller or both -- where a **client credential** (previously known as a 'local credential') denotes a credential that the client is aware of and a **controller credential** (previously known as a 'remote credential') denotes a credential that a controller is aware of. When you bootstrap a controller and use a client credential, this credential gets automatically uploaded to the controller, so it becomes a controller credential also.
@@ -30,7 +31,10 @@ The set of client credentials and controller credentials can end up being the sa
 
 (credential-definition)=
 ## Credential definition
-> See also: {ref}`add-a-credential`
+
+```{ibnote}
+See also: {ref}`add-a-credential`
+```
 
 If your cloud is a built-in cloud (`microk8s` or `lxd` on your local machine), Juju will define and add your credential automatically. For all other clouds you will have to define and add your credential(s) yourself. Depending on the method you choose, you may need to be aware of the environment variables that you can use or the structure of the `credentials.yaml` file.
 
@@ -47,9 +51,7 @@ This includes definitions that Juju has created for your (e.g., for the built-in
 
 This file (on Linux usually located at `~/.local/share/juju/credentials.yaml`) has the following keys:
 
-
 ````{dropdown} Expand to view the schema all at once
-
 
 > [Source](https://github.com/juju/juju/blob/ecd609d9e8700e87f630b6fb8c8b6690f211092d/cloud/credentials.go#L87)
 

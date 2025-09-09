@@ -42,7 +42,7 @@ func (rb *RoleBinding) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (rb *RoleBinding) ID() ID {
 	return ID{"RoleBinding", rb.Name, rb.Namespace}
 }
@@ -89,11 +89,9 @@ func (rb *RoleBinding) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s role binding for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -102,4 +100,23 @@ func (rb *RoleBinding) ComputeStatus(_ context.Context, now time.Time) (string, 
 		return "", status.Terminated, rb.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, now, nil
+}
+
+// ListRoleBindings returns a list of role bindings.
+func ListRoleBindings(ctx context.Context, client rbacv1client.RoleBindingInterface, namespace string, opts metav1.ListOptions) ([]RoleBinding, error) {
+	var items []RoleBinding
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, *NewRoleBinding(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

@@ -4,7 +4,6 @@
 package application_test
 
 import (
-	"context"
 	"fmt"
 	stdtesting "testing"
 	"time"
@@ -14,14 +13,21 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
@@ -48,13 +54,16 @@ type applicationSuite struct {
 	testing.BaseSuite
 	client         *fake.Clientset
 	extendedClient *apiextensionsfake.Clientset
+	dynamicClient  *dynamicfake.FakeDynamicClient
 
-	namespace    string
-	appName      string
-	clock        *testclock.Clock
-	k8sWatcherFn k8swatcher.NewK8sWatcherFunc
-	watchers     []k8swatcher.KubernetesNotifyWatcher
-	applier      *resourcesmocks.MockApplier
+	namespace      string
+	appName        string
+	clock          *testclock.Clock
+	k8sWatcherFn   k8swatcher.NewK8sWatcherFunc
+	watchers       []k8swatcher.KubernetesNotifyWatcher
+	applier        *resourcesmocks.MockApplier
+	controllerUUID string
+	modelUUID      string
 }
 
 const defaultAgentVersion = "3.5-beta1"
@@ -70,6 +79,22 @@ func (s *applicationSuite) SetUpTest(c *tc.C) {
 	s.appName = "gitlab"
 	s.client = fake.NewSimpleClientset()
 	s.extendedClient = apiextensionsfake.NewSimpleClientset()
+
+	scheme := runtime.NewScheme()
+
+	gv := schema.GroupVersion{Group: "example.com", Version: "v1"}
+	scheme.AddKnownTypeWithName(gv.WithKind("Widget"), &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(gv.WithKind("WidgetList"), &unstructured.UnstructuredList{})
+	scheme.AddKnownTypeWithName(gv.WithKind("ClusterWidget"), &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(gv.WithKind("ClusterWidgetList"), &unstructured.UnstructuredList{})
+	listKinds := map[schema.GroupVersionResource]string{
+		{Group: "example.com", Version: "v1", Resource: "widgets"}:        "WidgetList",
+		{Group: "example.com", Version: "v1", Resource: "clusterwidgets"}: "ClusterWidgetList",
+	}
+
+	s.dynamicClient = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, listKinds)
+	s.dynamicClient = dynamicfake.NewSimpleDynamicClient(scheme)
+
 	s.clock = testclock.NewClock(time.Time{})
 }
 
@@ -101,11 +126,18 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 
 	controllerUUID := uuid.MustNewUUID()
 
+	modelUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.controllerUUID = controllerUUID.String()
+	s.modelUUID = modelUUID.String()
+
 	return application.NewApplicationForTest(
-		s.appName, s.namespace, "deadbeef", s.namespace, 2,
+		s.appName, s.namespace, modelUUID.String(), s.namespace, 2,
 		deploymentType,
 		s.client,
 		s.extendedClient,
+		s.dynamicClient,
 		watcherFn,
 		s.clock,
 		func() (string, error) {
@@ -138,7 +170,7 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application, isPrivate
 		},
 		Data: map[string][]byte{
 			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
-			"JUJU_K8S_MODEL":                []byte("deadbeef"),
+			"JUJU_K8S_MODEL":                []byte(s.modelUUID),
 			"JUJU_K8S_APPLICATION_PASSWORD": []byte(""),
 			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(""),
 			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(""),
@@ -381,35 +413,35 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application, isPrivate
 
 	c.Assert(app.Ensure(appConfig), tc.ErrorIsNil)
 
-	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
+	secret, err := s.client.CoreV1().Secrets("test").Get(c.Context(), "gitlab-application-config", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.DeepEquals, &appSecret)
 
-	secret, err = s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	secret, err = s.client.CoreV1().Secrets("test").Get(c.Context(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.DeepEquals, &nginxPullSecret)
 
-	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(svc, tc.DeepEquals, &appSvc)
 
-	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(sa, tc.DeepEquals, &appSA)
 
-	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	r, err := s.client.RbacV1().Roles(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.DeepEquals, &appRole)
 
-	cr, err := s.client.RbacV1().ClusterRoles().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	cr, err := s.client.RbacV1().ClusterRoles().Get(c.Context(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cr, tc.DeepEquals, &appClusterRole)
 
-	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rb, tc.DeepEquals, &appRoleBinding)
 
-	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(c.Context(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(crb, tc.DeepEquals, &appClusterRoleBinding)
 
@@ -420,52 +452,72 @@ func (s *applicationSuite) assertDelete(c *tc.C, app caas.Application) {
 	err := app.Delete()
 	c.Assert(err, tc.ErrorIsNil)
 
-	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{})
+	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoles.Items, tc.IsNil)
 
-	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(context.TODO(), metav1.ListOptions{})
+	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(clusterRoleBinding.Items, tc.IsNil)
 
-	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	configMaps, err := s.client.CoreV1().ConfigMaps(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(configMaps.Items, tc.IsNil)
+
+	customResourceDefinitions, err := s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(customResourceDefinitions.Items, tc.IsNil)
+
+	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(daemonSets.Items, tc.IsNil)
 
-	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(deployments.Items, tc.IsNil)
 
-	roles, err := s.client.RbacV1().Roles(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	ingresses, err := s.client.NetworkingV1().Ingresses(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ingresses.Items, tc.IsNil)
+
+	mutatingWebhookConfigs, err := s.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mutatingWebhookConfigs.Items, tc.IsNil)
+
+	roles, err := s.client.RbacV1().Roles(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roles.Items, tc.IsNil)
 
-	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(roleBindings.Items, tc.IsNil)
 
-	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secrets.Items, tc.IsNil)
 
-	services, err := s.client.CoreV1().Services(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	services, err := s.client.CoreV1().Services(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(services.Items, tc.IsNil)
 
-	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(serviceAccounts.Items, tc.IsNil)
 
-	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(context.TODO(), metav1.ListOptions{})
+	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(c.Context(), metav1.ListOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(statefulSets.Items, tc.IsNil)
+
+	validatingWebhookConfigurations, err := s.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(validatingWebhookConfigurations.Items, tc.IsNil)
 }
 
 func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -488,7 +540,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				},
 			})
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -553,7 +605,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -577,7 +629,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 			})
 
 			podSpec := getPodSpec35()
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -642,7 +694,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "3.6-beta3", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -666,7 +718,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 			})
 
 			podSpec := getPodSpec36()
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -755,7 +807,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 	)
 	s.assertEnsure(
 		c, app, true, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -778,7 +830,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 				},
 			})
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -843,10 +895,10 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().Deployments("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -916,10 +968,10 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().DaemonSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 
-			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "gitlab-database-appuuid", metav1.GetOptions{})
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1017,7 +1069,7 @@ func (s *applicationSuite) TestExistsDeployment(c *tc.C) {
 		},
 	}
 	dr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().Deployments("test").Create(context.TODO(),
+	_, err = s.client.AppsV1().Deployments("test").Create(c.Context(),
 		dr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1056,7 +1108,7 @@ func (s *applicationSuite) TestExistsStatefulSet(c *tc.C) {
 		},
 	}
 	sr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
+	_, err = s.client.AppsV1().StatefulSets("test").Create(c.Context(),
 		sr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1096,7 +1148,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *tc.C) {
 		},
 	}
 	dmr.SetDeletionTimestamp(&now)
-	_, err = s.client.AppsV1().DaemonSets("test").Create(context.TODO(),
+	_, err = s.client.AppsV1().DaemonSets("test").Create(c.Context(),
 		dmr, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1112,7 +1164,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *tc.C) {
 func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1124,7 +1176,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	})
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1138,7 +1190,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 	})
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), tc.Equals, 1)
@@ -1282,7 +1334,7 @@ func (s *applicationSuite) assertState(c *tc.C, deploymentType caas.DeploymentTy
 			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		},
 	}
-	_, err := s.client.CoreV1().Pods("test").Create(context.TODO(),
+	_, err := s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1295,7 +1347,7 @@ func (s *applicationSuite) assertState(c *tc.C, deploymentType caas.DeploymentTy
 			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		},
 	}
-	_, err = s.client.CoreV1().Pods("test").Create(context.TODO(),
+	_, err = s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod2, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1328,7 +1380,7 @@ func (s *applicationSuite) TestStateStateful(c *tc.C) {
 				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
-		_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
+		_, err := s.client.AppsV1().StatefulSets("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1356,7 +1408,7 @@ func (s *applicationSuite) TestStateStateless(c *tc.C) {
 				Replicas: pointer.Int32Ptr(int32(desiredReplicas)),
 			},
 		}
-		_, err := s.client.AppsV1().Deployments("test").Create(context.TODO(),
+		_, err := s.client.AppsV1().Deployments("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1386,7 +1438,7 @@ func (s *applicationSuite) TestStateDaemon(c *tc.C) {
 				DesiredNumberScheduled: int32(desiredReplicas),
 			},
 		}
-		_, err := s.client.AppsV1().DaemonSets("test").Create(context.TODO(),
+		_, err := s.client.AppsV1().DaemonSets("test").Create(c.Context(),
 			dmr, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		return desiredReplicas
@@ -1420,7 +1472,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.Deployment {
@@ -1506,7 +1558,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 			},
 		}
 	}
-	_, err = s.client.AppsV1().Deployments("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().Deployments("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1549,7 +1601,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.StatefulSet {
@@ -1635,7 +1687,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 			},
 		}
 	}
-	_, err = s.client.AppsV1().StatefulSets("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1678,7 +1730,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	getMainResourceSpec := func() *appsv1.DaemonSet {
@@ -1724,7 +1776,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 			},
 		}
 	}
-	_, err = s.client.AppsV1().DaemonSets("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	_, err = s.client.AppsV1().DaemonSets("test").Create(c.Context(), getMainResourceSpec(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1767,7 +1819,7 @@ func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(app.UpdatePorts([]caas.ServicePort{
@@ -1793,7 +1845,7 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *tc.C) {
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
-	svc, err := s.client.CoreV1().Services("test").Create(context.TODO(), existingSvc, metav1.CreateOptions{})
+	svc, err := s.client.CoreV1().Services("test").Create(c.Context(), existingSvc, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(svc.Spec.Ports, tc.DeepEquals, existingSvc.Spec.Ports)
 
@@ -1878,7 +1930,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1912,7 +1964,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -1946,7 +1998,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *tc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
-	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	_, err := s.client.CoreV1().Services("test").Create(c.Context(), getDefaultSvc(), metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	updatedSvc := getDefaultSvc()
@@ -2163,7 +2215,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				},
 			}
 		}
-		_, err := s.client.CoreV1().Pods(s.namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().Pods(s.namespace).Create(c.Context(), &pod, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		pvc := corev1.PersistentVolumeClaim{
@@ -2192,7 +2244,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				Phase: corev1.ClaimBound,
 			},
 		}
-		_, err = s.client.CoreV1().PersistentVolumeClaims(s.namespace).Create(context.TODO(), &pvc, metav1.CreateOptions{})
+		_, err = s.client.CoreV1().PersistentVolumeClaims(s.namespace).Create(c.Context(), &pvc, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 
 		pv := corev1.PersistentVolume{
@@ -2212,7 +2264,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 				Message: "volume bound",
 			},
 		}
-		_, err = s.client.CoreV1().PersistentVolumes().Create(context.TODO(), &pv, metav1.CreateOptions{})
+		_, err = s.client.CoreV1().PersistentVolumes().Create(c.Context(), &pv, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -2523,13 +2575,13 @@ func (s *applicationSuite) TestServiceActive(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	ss.Status.ReadyReplicas = 3
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := app.Service()
@@ -2562,7 +2614,7 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = app.Service()
@@ -2579,7 +2631,7 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = app.Service()
@@ -2596,14 +2648,14 @@ func (s *applicationSuite) TestServiceTerminated(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	now := metav1.Now()
 	ss.DeletionTimestamp = &now
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc, err := app.Service()
@@ -2636,13 +2688,13 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 	testSvc := getDefaultSvc()
 	testSvc.UID = "deadbeaf"
 	testSvc.Spec.ClusterIP = "10.6.6.6"
-	_, err := s.client.CoreV1().Services("test").Update(context.TODO(), testSvc, metav1.UpdateOptions{})
+	_, err := s.client.CoreV1().Services("test").Update(c.Context(), testSvc, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	ss.Status.ReadyReplicas = 0
-	_, err = s.client.AppsV1().StatefulSets("test").Update(context.TODO(), ss, metav1.UpdateOptions{})
+	_, err = s.client.AppsV1().StatefulSets("test").Update(c.Context(), ss, metav1.UpdateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	evt := corev1.Event{
@@ -2658,10 +2710,10 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 		Reason:  "FailedCreate",
 		Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
 	}
-	_, err = s.client.CoreV1().Events("test").Create(context.TODO(), &evt, metav1.CreateOptions{})
+	_, err = s.client.CoreV1().Events("test").Create(c.Context(), &evt, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
-		_ = s.client.CoreV1().Events("test").Delete(context.TODO(), evt.GetName(), metav1.DeleteOptions{})
+		_ = s.client.CoreV1().Events("test").Delete(c.Context(), evt.GetName(), metav1.DeleteOptions{})
 	}()
 
 	svc, err := app.Service()
@@ -2689,7 +2741,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2725,7 +2777,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 				ps.Containers[i].Resources.Limits = resourceRequests
 			}
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2804,7 +2856,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 		},
 	}
 
-	_, err := s.client.CoreV1().Secrets(s.namespace).Create(context.TODO(), &unusedPullSecret,
+	_, err := s.client.CoreV1().Secrets(s.namespace).Create(c.Context(), &unusedPullSecret,
 		metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2824,16 +2876,16 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 			corev1.DockerConfigJsonKey: pullSecretConfig,
 		},
 	}
-	_, err = s.client.CoreV1().Secrets(s.namespace).Create(context.TODO(), &nginxPullSecret,
+	_, err = s.client.CoreV1().Secrets(s.namespace).Create(c.Context(), &nginxPullSecret,
 		metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", func() {})
 
-	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
+	_, err = s.client.CoreV1().Secrets(s.namespace).Get(c.Context(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
 
-	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(c.Context(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(secret, tc.NotNil)
 	newPullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
@@ -2914,7 +2966,7 @@ func (s *applicationSuite) TestPVCNames(c *tc.C) {
 		},
 	}
 	for _, claim := range claims {
-		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), claim, metav1.CreateOptions{})
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), claim, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -2936,7 +2988,7 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				c.Check(ctr.Resources.Limits, tc.DeepEquals, limits)
@@ -2969,7 +3021,7 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
 				ps.Containers[i].Resources.Requests = workloadResourceLimits
 				ps.Containers[i].Resources.Limits = workloadResourceLimits
 			}
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				if ctr.Name == constants.ApplicationCharmContainer {
@@ -2986,6 +3038,691 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
 			}
 		},
 	)
+}
+
+func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	ctx := c.Context()
+
+	appName := s.appName
+	modelName := s.namespace
+	controllerUUID := s.controllerUUID
+	modelUUID := s.modelUUID
+	labelVersion := constants.LabelVersion2
+
+	appLabel := k8sutils.SelectorLabelsForApp(appName, labelVersion)
+	modelLabel := k8sutils.LabelsForModel(modelName, modelUUID, controllerUUID, labelVersion)
+	resourceLabels := k8sutils.LabelsMerge(appLabel, modelLabel)
+
+	// ServiceAccount (namespace-scoped)
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+	}
+	_, err := s.client.CoreV1().ServiceAccounts(modelName).Create(ctx, sa, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Role (namespace-scoped)
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "role1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"},
+		}},
+	}
+	_, err = s.client.RbacV1().Roles(modelName).Create(ctx, role, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// RoleBinding (namespace-scoped)
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rb1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: role.Name},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: modelName}},
+	}
+	_, err = s.client.RbacV1().RoleBindings(modelName).Create(ctx, rb, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ClusterRole (cluster-scoped)
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "cr1",
+			Labels: resourceLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""}, Resources: []string{"nodes"}, Verbs: []string{"get", "list"},
+		}},
+	}
+	_, err = s.client.RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ClusterRoleBinding (cluster-scoped)
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "crb1",
+			Labels: resourceLabels,
+		},
+		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: cr.Name},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: modelName}},
+	}
+	_, err = s.client.RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ConfigMap
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cm1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Data: map[string]string{"k": "v"},
+	}
+	_, err = s.client.CoreV1().ConfigMaps(modelName).Create(ctx, cm, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Secret
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-container-secret", appName),
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
+	_, err = s.client.CoreV1().Secrets(modelName).Create(ctx, secret, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Service (ref by Ingress/Webhooks)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: resourceLabels,
+			Ports:    []corev1.ServicePort{{Port: 80}},
+		},
+	}
+	_, err = s.client.CoreV1().Services(modelName).Create(ctx, svc, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// StatefulSet
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sts1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			ServiceName: "svc1",
+			Replicas:    pointer.Int32(1),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: resourceLabels},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: sa.Name,
+					Containers: []corev1.Container{{
+						Name:  "sts-container",
+						Image: "testImage",
+					}},
+				},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().StatefulSets(modelName).Create(ctx, sts, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Deployment
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32(1),
+			Selector: &metav1.LabelSelector{MatchLabels: resourceLabels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: resourceLabels},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: sa.Name,
+					Containers: []corev1.Container{{
+						Name:  "testContainer",
+						Image: "testImage",
+					}},
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: secret.Name}},
+				},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().Deployments(modelName).Create(ctx, deployment, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// DaemonSet
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ds1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "c", Image: "testImage"}},
+				},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().DaemonSets(modelName).Create(ctx, ds, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ingress
+	ing := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ing1",
+			Namespace: modelName,
+			Labels:    resourceLabels,
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{{
+				Host: "example.local",
+			}},
+		},
+	}
+	_, err = s.client.NetworkingV1().Ingresses(modelName).Create(ctx, ing, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// CRD (namespace-scoped)
+	namespacedCRD := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "widgets.example.com",
+			Labels: resourceLabels,
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "widgets", Singular: "widget", Kind: "Widget",
+			},
+			Scope: apiextensionsv1.NamespaceScoped,
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{{
+				Name:    "v1",
+				Served:  true,
+				Storage: true,
+				Schema: &apiextensionsv1.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]apiextensionsv1.JSONSchemaProps{
+							"spec": {Type: "object"},
+						},
+					},
+				},
+			}},
+		},
+	}
+	_, err = s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, namespacedCRD, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// CR (namespace-scoped)
+	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+	customResLabels := make(map[string]interface{}, len(resourceLabels))
+	for k, v := range resourceLabels {
+		customResLabels[k] = v
+	}
+	namespacedCR := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name":      "widget-1",
+				"namespace": modelName,
+				"labels":    customResLabels,
+			},
+			"spec": map[string]interface{}{"foo": "bar"},
+		},
+	}
+	_, err = s.dynamicClient.Resource(gvr).Namespace(modelName).Create(ctx, namespacedCR, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// CRD (cluster-scoped)
+	clusterCRD := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "clusterwidgets.example.com",
+			Labels: resourceLabels,
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "clusterwidgets",
+				Singular: "clusterwidget",
+				Kind:     "ClusterWidget",
+			},
+			Scope: apiextensionsv1.ClusterScoped,
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{{
+				Name:    "v1",
+				Served:  true,
+				Storage: true,
+				Schema: &apiextensionsv1.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]apiextensionsv1.JSONSchemaProps{
+							"spec": {Type: "object"},
+						},
+					},
+				},
+			}},
+		},
+	}
+	_, err = s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().
+		Create(ctx, clusterCRD, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// CR (cluster-scoped)
+	clusterGVR := schema.GroupVersionResource{
+		Group: "example.com", Version: "v1", Resource: "clusterwidgets",
+	}
+	clusterCR := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "ClusterWidget",
+			"metadata": map[string]interface{}{
+				"name": "clusterwidget-1",
+				"labels": func() map[string]interface{} {
+					m := make(map[string]interface{}, len(resourceLabels))
+					for k, v := range resourceLabels {
+						m[k] = v
+					}
+					return m
+				}(),
+			},
+			"spec": map[string]interface{}{"foo": "bar"},
+		},
+	}
+	_, err = s.dynamicClient.Resource(clusterGVR).Create(
+		ctx, clusterCR, metav1.CreateOptions{FieldManager: "juju"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// MutatingWebhookConfiguration
+	mwc := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "mwc1",
+			Labels: resourceLabels,
+		},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{
+			Name: "mwc1.example.com",
+		}},
+	}
+	_, err = s.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, mwc, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ValidatingWebhookConfiguration
+	vwc := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "vwc1",
+			Labels: resourceLabels,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name: "vwc1.example.com",
+		}},
+	}
+	_, err = s.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, vwc, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertDelete(c, app)
+
+	// We now test the case where the resource labels do not match juju's label.
+	// We declare the names of these variables that use the wrong labels as {resource}Bad as belown.
+	wrongAppLabel := k8sutils.SelectorLabelsForApp(appName+"-other", labelVersion)
+	wrongAppResourceLabels := k8sutils.LabelsMerge(wrongAppLabel, modelLabel)
+
+	wrongModelLabel := k8sutils.LabelsForModel("not-model-name", modelUUID, controllerUUID, labelVersion)
+	wrongModelResourceLabels := k8sutils.LabelsMerge(appLabel, wrongModelLabel)
+
+	// ServiceAccount (bad)
+	saBad := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+	}
+	_, err = s.client.CoreV1().ServiceAccounts(modelName).Create(ctx, saBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Role (bad)
+	roleBad := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "role1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"},
+		}},
+	}
+	_, err = s.client.RbacV1().Roles(modelName).Create(ctx, roleBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// RoleBinding (bad)
+	rbBad := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rb1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleBad.Name},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: saBad.Name, Namespace: modelName}},
+	}
+	_, err = s.client.RbacV1().RoleBindings(modelName).Create(ctx, rbBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ClusterRole (bad)
+	crBad := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "cr1-bad",
+			Labels: wrongAppResourceLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""}, Resources: []string{"nodes"}, Verbs: []string{"get", "list"},
+		}},
+	}
+	_, err = s.client.RbacV1().ClusterRoles().Create(ctx, crBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ClusterRoleBinding (bad)
+	crbBad := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "crb1-bad",
+			Labels: wrongModelResourceLabels,
+		},
+		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: crBad.Name},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: saBad.Name, Namespace: modelName}},
+	}
+	_, err = s.client.RbacV1().ClusterRoleBindings().Create(ctx, crbBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ConfigMap (bad)
+	cmBad := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cm1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Data: map[string]string{"k": "v"},
+	}
+	_, err = s.client.CoreV1().ConfigMaps(modelName).Create(ctx, cmBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Secret (bad)
+	secretBad := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-container-secret-bad", appName),
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
+	_, err = s.client.CoreV1().Secrets(modelName).Create(ctx, secretBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Service (bad)
+	svcBad := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc2",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: wrongAppResourceLabels,
+			Ports:    []corev1.ServicePort{{Port: 80}},
+		},
+	}
+	_, err = s.client.CoreV1().Services(modelName).Create(ctx, svcBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// StatefulSet (bad)
+	stsBad := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sts1-bad",
+			Namespace: modelName,
+			Labels:    wrongModelResourceLabels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			ServiceName: "svc2",
+			Replicas:    pointer.Int32(1),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: saBad.Name,
+					Containers: []corev1.Container{{
+						Name:  "sts-container",
+						Image: "testImage",
+					}},
+				},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().StatefulSets(modelName).Create(ctx, stsBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Deployment (bad)
+	deploymentBad := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32(1),
+			Selector: &metav1.LabelSelector{MatchLabels: wrongAppResourceLabels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: saBad.Name,
+					Containers:         []corev1.Container{{Name: "testContainer", Image: "testImage"}},
+					ImagePullSecrets:   []corev1.LocalObjectReference{{Name: secretBad.Name}},
+				},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().Deployments(modelName).Create(ctx, deploymentBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// DaemonSet (bad)
+	dsBad := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ds1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "testImage"}}},
+			},
+		},
+	}
+	_, err = s.client.AppsV1().DaemonSets(modelName).Create(ctx, dsBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ingress (bad)
+	ingBad := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ing1-bad",
+			Namespace: modelName,
+			Labels:    wrongAppResourceLabels,
+		},
+		Spec: networkingv1.IngressSpec{Rules: []networkingv1.IngressRule{{Host: "example-bad.local"}}},
+	}
+	_, err = s.client.NetworkingV1().Ingresses(modelName).Create(ctx, ingBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Namespace-scoped CR (bad) — same GVR, different labels
+	namespacedCRBad := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name":      "widget-2",
+				"namespace": modelName,
+				"labels": func() map[string]interface{} {
+					m := map[string]interface{}{}
+					for k, v := range wrongAppResourceLabels {
+						m[k] = v
+					}
+					return m
+				}(),
+			},
+			"spec": map[string]interface{}{"foo": "baz"},
+		},
+	}
+	_, err = s.dynamicClient.Resource(gvr).Namespace(modelName).Create(ctx, namespacedCRBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Cluster-scoped CR (bad) — same GVR, different labels
+	clusterCRBad := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "ClusterWidget",
+			"metadata": map[string]interface{}{
+				"name": "clusterwidget-2",
+				"labels": func() map[string]interface{} {
+					m := map[string]interface{}{}
+					for k, v := range wrongAppResourceLabels {
+						m[k] = v
+					}
+					return m
+				}(),
+			},
+			"spec": map[string]interface{}{"foo": "baz"},
+		},
+	}
+	_, err = s.dynamicClient.Resource(clusterGVR).Create(ctx, clusterCRBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// MutatingWebhookConfiguration (bad)
+	mwcBad := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "mwc1-bad",
+			Labels: wrongModelResourceLabels,
+		},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{Name: "mwc1-bad.example.com"}},
+	}
+	_, err = s.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, mwcBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ValidatingWebhookConfiguration (bad)
+	vwcBad := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "vwc1-bad",
+			Labels: wrongAppResourceLabels,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{Name: "vwc1-bad.example.com"}},
+	}
+	_, err = s.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, vwcBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// CRDs (bad)
+	namespacedCRDBad := namespacedCRD.DeepCopy()
+	namespacedCRDBad.Name = "widgets-bad.example.com"
+	namespacedCRDBad.Labels = wrongAppResourceLabels
+	_, err = s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, namespacedCRDBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	clusterCRDBad := clusterCRD.DeepCopy()
+	clusterCRDBad.Name = "clusterwidgets-bad.example.com"
+	clusterCRDBad.Labels = wrongAppResourceLabels
+	_, err = s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, clusterCRDBad, metav1.CreateOptions{FieldManager: "juju"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = app.Delete()
+	c.Assert(err, tc.ErrorIsNil)
+
+	clusterRoles, err := s.client.RbacV1().ClusterRoles().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRoles.Items, tc.NotNil)
+	c.Assert(clusterRoles.Items, tc.HasLen, 1)
+
+	clusterRoleBinding, err := s.client.RbacV1().ClusterRoleBindings().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRoleBinding.Items, tc.NotNil)
+	c.Assert(clusterRoleBinding.Items, tc.HasLen, 1)
+
+	configMaps, err := s.client.CoreV1().ConfigMaps(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(configMaps.Items, tc.NotNil)
+	c.Assert(configMaps.Items, tc.HasLen, 1)
+
+	customResourceDefinitions, err := s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(customResourceDefinitions.Items, tc.NotNil)
+	c.Assert(customResourceDefinitions.Items, tc.HasLen, 2)
+
+	daemonSets, err := s.client.AppsV1().DaemonSets(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(daemonSets.Items, tc.NotNil)
+	c.Assert(daemonSets.Items, tc.HasLen, 1)
+
+	deployments, err := s.client.AppsV1().Deployments(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(deployments.Items, tc.NotNil)
+	c.Assert(deployments.Items, tc.HasLen, 1)
+
+	ingresses, err := s.client.NetworkingV1().Ingresses(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ingresses.Items, tc.NotNil)
+	c.Assert(ingresses.Items, tc.HasLen, 1)
+
+	mutatingWebhookConfigs, err := s.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mutatingWebhookConfigs.Items, tc.NotNil)
+	c.Assert(mutatingWebhookConfigs.Items, tc.HasLen, 1)
+
+	roles, err := s.client.RbacV1().Roles(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(roles.Items, tc.NotNil)
+	c.Assert(roles.Items, tc.HasLen, 1)
+
+	roleBindings, err := s.client.RbacV1().RoleBindings(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(roleBindings.Items, tc.NotNil)
+	c.Assert(roleBindings.Items, tc.HasLen, 1)
+
+	secrets, err := s.client.CoreV1().Secrets(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(secrets.Items, tc.NotNil)
+	c.Assert(secrets.Items, tc.HasLen, 1)
+
+	services, err := s.client.CoreV1().Services(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(services.Items, tc.NotNil)
+	c.Assert(services.Items, tc.HasLen, 1)
+
+	serviceAccounts, err := s.client.CoreV1().ServiceAccounts(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serviceAccounts.Items, tc.NotNil)
+	c.Assert(serviceAccounts.Items, tc.HasLen, 1)
+
+	statefulSets, err := s.client.AppsV1().StatefulSets(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statefulSets.Items, tc.NotNil)
+	c.Assert(statefulSets.Items, tc.HasLen, 1)
+
+	validatingWebhookConfigurations, err := s.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(validatingWebhookConfigurations.Items, tc.NotNil)
+	c.Assert(validatingWebhookConfigurations.Items, tc.HasLen, 1)
 }
 
 func int64Ptr(a int64) *int64 {
