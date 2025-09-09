@@ -1632,6 +1632,144 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 	return nil
 }
 
+// GetVolumeAttachmentUUIDForStorageID returns the volume
+// attachment uuid for the supplied storage id.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+// instance exists for the supplied storage instance id.
+// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
+// net node uuid.
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied values.
+func (st *State) GetVolumeAttachmentUUIDForStorageID(
+	ctx context.Context,
+	storageInstanceID string,
+	nodeUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		storageIDInput = storageID{ID: storageInstanceID}
+		nodeUUIDInput  = netNodeUUID{UUID: nodeUUID}
+		dbVal          volumeAttachmentUUID
+	)
+
+	stmt, err := st.Prepare(`
+SELECT    sva.uuid AS &volumeAttachmentUUID.uuid
+FROM      storage_volume_attachment sva
+JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+LEFT JOIN storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
+LEFT JOIN storage_instance si ON siv.storage_instance_uuid = si.uuid
+WHERE     si.storage_id = $storageID.storage_id
+AND       sva.net_node_uuid = $netNodeUUID.uuid
+`, storageIDInput, nodeUUIDInput, dbVal)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(nodeUUID)); err != nil {
+			return errors.Errorf(
+				"checking if net node %q exists: %w", nodeUUID, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", nodeUUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageInstanceID); err != nil {
+			return errors.Errorf(
+				"checking if storage instance %q exists: %w", storageInstanceID, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"storage instance %q does not exist", storageInstanceID,
+			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, storageIDInput, nodeUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment for storage instance %q and net node %q does not exist",
+				storageInstanceID, nodeUUID,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return dbVal.UUID, nil
+}
+
+// GetVolumeAttachmentInfo retrieves information about the volume attachment
+// with volume information included.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied uuid.
+func (st *State) GetVolumeAttachmentInfo(
+	ctx context.Context,
+	uuid string,
+) (domainstorageprovisioning.VolumeAttachmentInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+	}
+
+	var (
+		input = volumeAttachmentUUID{UUID: uuid}
+		dbVal volumeAttachmentData
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &volumeAttachmentData.* FROM (
+	SELECT    sv.hardware_id,
+              sv.wwn,
+              bd.name AS block_device_name,
+              first_value(bdld.name) OVER bdld_first AS block_device_link
+    FROM      storage_volume_attachment sva
+    JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+    LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
+    LEFT JOIN block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+    WHERE     sva.uuid = $volumeAttachmentUUID.uuid
+	WINDOW    bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+)`,
+		input, dbVal,
+	)
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachmentInfo{}, errors.Capture(err)
+	}
+
+	return domainstorageprovisioning.VolumeAttachmentInfo{
+		HardwareID:      dbVal.HardwareId,
+		WWN:             dbVal.WWN,
+		BlockDeviceName: dbVal.BlockDeviceName,
+		BlockDeviceLink: dbVal.BlockDeviceLink,
+	}, nil
+}
+
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
 // watching volume life changes where the volume is machine provisioned. On top
 // of this the initial query for getting all volumes in the model that are

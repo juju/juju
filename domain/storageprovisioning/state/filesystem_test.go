@@ -992,6 +992,66 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	})
 }
 
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageID(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	_, _ = s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageID := s.getStorageID(c, storageInstanceUUID)
+
+	fsUUID, _ := s.newMachineFilesystem(c)
+	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	result, err := st.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), storageID, netNodeUUID.String(),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, fsaUUID.String())
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "storageID", netNodeUUID.String(),
+	)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithNetNodeNotFound(c *tc.C) {
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err = st.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), "storageID", netNodeUUID.String(),
+	)
+	c.Check(err, tc.ErrorIs, networkerrors.NetNodeNotFound)
+}
+
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithFilesystemAttachmentNotFound(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	_, _ = s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageID := s.getStorageID(c, storageInstanceUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetFilesystemAttachmentUUIDForStorageID(
+		c.Context(), storageID, netNodeUUID.String(),
+	)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
 // changeFilesystemLife is a utility function for updating the life value of a
 // filesystem.
 func (s *filesystemSuite) changeFilesystemLife(

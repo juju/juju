@@ -1007,6 +1007,81 @@ WHERE  filesystem_id = $filesystemID.filesystem_id
 	return storageprovisioning.FilesystemUUID(dbVal.UUID), nil
 }
 
+// GetFilesystemAttachmentUUIDForStorageID returns the filesystem
+// attachment UUID for the supplied storage instance id which is attached to
+// the given net node UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
+// instance exists for the supplied storage instance id.
+// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
+// net node UUID.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided values.
+func (st *State) GetFilesystemAttachmentUUIDForStorageID(
+	ctx context.Context,
+	storageInstanceID string,
+	nodeUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		storageIDInput = storageID{ID: storageInstanceID}
+		nodeUUIDInput  = netNodeUUID{UUID: nodeUUID}
+		dbVal          filesystemAttachmentUUID
+	)
+
+	stmt, err := st.Prepare(`
+SELECT    sva.uuid AS &filesystemAttachmentUUID.uuid
+FROM      storage_filesystem_attachment sva
+JOIN      storage_filesystem sv ON sva.storage_filesystem_uuid = sv.uuid
+LEFT JOIN storage_instance_filesystem siv ON sv.uuid = siv.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON siv.storage_instance_uuid = si.uuid
+WHERE     si.storage_id = $storageID.storage_id
+AND       sva.net_node_uuid = $netNodeUUID.uuid
+`, storageIDInput, nodeUUIDInput, dbVal)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(nodeUUID)); err != nil {
+			return errors.Errorf(
+				"checking if net node %q exists: %w", nodeUUID, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", nodeUUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageInstanceID); err != nil {
+			return errors.Errorf(
+				"checking if storage instance %q exists: %w", storageInstanceID, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"storage instance %q does not exist", storageInstanceID,
+			).Add(storageprovisioningerrors.StorageInstanceNotFound)
+		}
+		err = tx.Query(ctx, stmt, storageIDInput, nodeUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment for storage instance %q and net node %q does not exist",
+				storageInstanceID, nodeUUID,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return dbVal.UUID, nil
+}
+
 // InitialWatchStatementMachineProvisionedFilesystems returns both the
 // namespace for watching filesystem life changes where the filesystem is
 // machine provisioned. On top of this the initial query for getting all
