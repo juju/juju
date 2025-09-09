@@ -3,6 +3,12 @@
 
 package storageprovisioning
 
+import (
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storage"
+)
+
 // ApplicationResourceTagInfo represents storage tag information in the context
 // of an application.
 type ApplicationResourceTagInfo struct {
@@ -26,3 +32,20 @@ const (
 	// PlanDeviceTypeISCSI indicates an iscsi attachment.
 	PlanDeviceTypeISCSI
 )
+
+// StorageAttachmentInfo represents information about a storage attachment.
+type StorageAttachmentInfo struct {
+	StorageAttachmentUUID string
+	Owner                 *unit.Name
+	Kind                  storage.StorageKind
+	Life                  life.Life
+}
+
+// VolumeAttachmentInfo represents information about a volume attachment
+// with the related volume information.
+type VolumeAttachmentInfo struct {
+	HardwareID      string
+	WWN             string
+	BlockDeviceName string
+	BlockDeviceLink string
+}
