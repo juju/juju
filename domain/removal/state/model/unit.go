@@ -92,6 +92,15 @@ AND    life_id = 0`, unitUUID)
 	return cascaded, nil
 }
 
+func (st *State) ensureUnitStorageAttachmentsNotAlive(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) (error) {
+	unitUUID := entityUUID{UUID: uUUID}
+
+	
+
+}
+
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
 // machine are not alive. If this is the case, it marks the machine as dying.
 func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(

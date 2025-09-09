@@ -11,6 +11,10 @@ type CascadedUnitLives struct {
 	// machine is no longer alive.
 	MachineUUID *string
 
+	// StorageAttachmentUUIDs identify any of the unit's storage
+	// attachments that are not longer alive.
+	StorageAttachmentUUIDs []string
+
 	// StorageInstanceUUIDs identify any of the unit's storage
 	// instances that are not longer alive.
 	StorageInstanceUUIDs []string
@@ -19,5 +23,7 @@ type CascadedUnitLives struct {
 // IsEmpty returns true if the struct value indicates that no associated
 // entites were ensured to be "dying" along with a unit.
 func (c CascadedUnitLives) IsEmpty() bool {
-	return c.MachineUUID == nil && len(c.StorageInstanceUUIDs) == 0
+	return c.MachineUUID == nil && 
+		len(c.StorageAttachmentUUIDs) == 0 &&
+		len(c.StorageInstanceUUIDs) == 0
 }
