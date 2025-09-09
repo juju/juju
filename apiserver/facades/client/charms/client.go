@@ -50,7 +50,6 @@ type API struct {
 
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
-	machineService     MachineService
 }
 
 // CharmInfo returns information about the requested charm.
@@ -395,98 +394,14 @@ func (a *API) getCharmRepository(ctx context.Context) (corecharm.Repository, err
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
+//
+// Deprecated: Remove on next facade bump. These checks should be performed
+// when actually refreshing
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
-	if err := a.checkCanRead(ctx); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Placements)),
 	}
-	for i, placement := range args.Placements {
-		result, err := a.checkCharmPlacement(ctx, placement)
-		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
-		}
-		results.Results[i] = result
-	}
-
 	return results, nil
-}
-
-func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCharmPlacement) (params.ErrorResult, error) {
-	curl, err := charm.ParseURL(arg.CharmURL)
-	if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	// The placement logic below only cares about charmhub charms. Once we have
-	// multiple architecture support for charmhub, we can remove the placement
-	// check.
-	if !charm.CharmHub.Matches(curl.Schema) {
-		return params.ErrorResult{}, nil
-	}
-
-	// If the application it's not found, just return without an error as the
-	// charm can be placed in the application once it's created.
-	appID, err := a.applicationService.GetApplicationIDByName(ctx, arg.Application)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ErrorResult{}, nil
-	} else if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	isSubordinate, err := a.applicationService.IsSubordinateApplication(ctx, appID)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ErrorResult{}, nil
-	} else if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	// We don't care for subordinates here.
-	if isSubordinate {
-		return params.ErrorResult{}, nil
-	}
-
-	cons, err := a.applicationService.GetApplicationConstraints(ctx, appID)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ErrorResult{}, nil
-	} else if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	// If the application has an existing architecture constraint then we're
-	// happy that the constraint logic will prevent heterogenous application
-	// units.
-	if cons.HasArch() {
-		return params.ErrorResult{}, nil
-	}
-
-	arches, err := a.machineService.GetMachineArchesForApplication(ctx, appID)
-	if err != nil {
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	if len(arches) > 1 {
-		// It is expected that charmhub charms form a homogeneous workload,
-		// so that each unit is the same architecture.
-		err := errors.Errorf("charm can not be placed in a heterogeneous environment")
-		return params.ErrorResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
-
-	return params.ErrorResult{}, nil
 }
 
 // ListCharmResources returns a series of resources for a given charm.

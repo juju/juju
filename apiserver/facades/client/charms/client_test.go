@@ -14,10 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	applicationtesting "github.com/juju/juju/core/application/testing"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/constraints"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -36,7 +33,6 @@ type charmsMockSuite struct {
 
 	modelConfigService *MockModelConfigService
 	applicationService *MockApplicationService
-	machineService     *MockMachineService
 }
 
 func TestCharmsMockSuite(t *stdtesting.T) {
@@ -261,122 +257,11 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 	})
 }
 
-func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *tc.C) {
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
-	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(true, nil)
-
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.OneError(), tc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *tc.C) {
-	arch := arch.DefaultArchitecture
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
-	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{Arch: &arch}, nil)
-
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.OneError(), tc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementWithHomogeneous(c *tc.C) {
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
-	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)
-
-	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), appUUID).
-		Return([]arch.Arch{arch.AMD64}, nil)
-
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.OneError(), tc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *tc.C) {
-	appName := "winnie"
-
-	curl := "ch:poo"
-
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appUUID, nil)
-	s.applicationService.EXPECT().IsSubordinateApplication(gomock.Any(), appUUID).Return(false, nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Value{}, nil)
-
-	s.machineService.EXPECT().GetMachineArchesForApplication(gomock.Any(), appUUID).
-		Return([]arch.Arch{arch.AMD64, arch.ARM64}, nil)
-
-	api := s.api(c)
-
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: appName,
-			CharmURL:    curl,
-		}},
-	}
-
-	result, err := api.CheckCharmPlacement(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.OneError(), tc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
-}
-
 // NewCharmsAPI is only used for testing.
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
-	machineService MachineService,
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
 	repo corecharm.Repository,
@@ -386,7 +271,6 @@ func NewCharmsAPI(
 		authorizer:         authorizer,
 		modelConfigService: modelConfigService,
 		applicationService: applicationService,
-		machineService:     machineService,
 		controllerTag:      controllerTag,
 		modelTag:           modelTag,
 		requestRecorder:    noopRequestRecorder{},
@@ -402,7 +286,6 @@ func (s *charmsMockSuite) api(c *tc.C) *API {
 		s.authorizer,
 		s.modelConfigService,
 		s.applicationService,
-		s.machineService,
 		names.NewControllerTag("deadbeef-abcd-4fd2-967d-db9663db7bef"),
 		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
 		s.repository,
@@ -433,7 +316,6 @@ func (s *charmsMockSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.applicationService = NewMockApplicationService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }

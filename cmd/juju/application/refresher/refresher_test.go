@@ -546,7 +546,6 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
 	curl := charm.MustParseURL(ref)
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().CheckCharmPlacement(gomock.Any(), "winnie", curl).Return(nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
@@ -560,30 +559,6 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *tc.C) {
 	allowed, err := task.Allowed(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(allowed, tc.IsTrue)
-}
-
-func (s *charmHubCharmRefresherSuite) TestAllowedError(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ref := "ch:meshuggah"
-	curl := charm.MustParseURL(ref)
-
-	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().CheckCharmPlacement(gomock.Any(), "winnie", curl).Return(errors.Errorf("trap"))
-
-	charmResolver := NewMockCharmResolver(ctrl)
-
-	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
-	cfg.Switch = true
-
-	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
-	task, err := refresher(cfg)
-	c.Assert(err, tc.ErrorIsNil)
-
-	allowed, err := task.Allowed(c.Context(), cfg)
-	c.Assert(err, tc.ErrorMatches, "trap")
-	c.Assert(allowed, tc.IsFalse)
 }
 
 func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmpty(c *tc.C) {

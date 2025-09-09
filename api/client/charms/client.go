@@ -158,23 +158,6 @@ func (c *Client) AddCharm(ctx context.Context, curl *charm.URL, origin apicharm.
 	return apicharm.APICharmOrigin(result.Origin)
 }
 
-// CheckCharmPlacement checks to see if a charm can be placed into the
-// application. If the application doesn't exist then it is considered fine to
-// be placed there.
-func (c *Client) CheckCharmPlacement(ctx context.Context, applicationName string, curl *charm.URL) error {
-	args := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: applicationName,
-			CharmURL:    curl.String(),
-		}},
-	}
-	var result params.ErrorResults
-	if err := c.facade.FacadeCall(ctx, "CheckCharmPlacement", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	return result.OneError()
-}
-
 // ListCharmResources returns a list of associated resources for a given charm.
 func (c *Client) ListCharmResources(ctx context.Context, curl string, origin apicharm.Origin) ([]charmresource.Resource, error) {
 	args := params.CharmURLAndOrigins{

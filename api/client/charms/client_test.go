@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -203,50 +202,6 @@ func (s *addCharmSuite) TestAddCharm(c *tc.C) {
 	got, err := client.AddCharm(c.Context(), curl, origin, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, origin)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacement(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	facadeArgs := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: "winnie",
-			CharmURL:    "ch:poo",
-		}},
-	}
-
-	var result params.ErrorResults
-	actualResult := params.ErrorResults{
-		Results: make([]params.ErrorResult, 1),
-	}
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).SetArg(3, actualResult).Return(nil)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement(c.Context(), "winnie", charm.MustParseURL("poo"))
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *charmsMockSuite) TestCheckCharmPlacementError(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	facadeArgs := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: "winnie",
-			CharmURL:    "ch:poo",
-		}},
-	}
-
-	var result params.ErrorResults
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
-
-	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
-	err := client.CheckCharmPlacement(c.Context(), "winnie", charm.MustParseURL("poo"))
-	c.Assert(err, tc.ErrorMatches, "trap")
 }
 
 func (s *charmsMockSuite) TestListCharmResources(c *tc.C) {

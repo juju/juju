@@ -16,7 +16,6 @@ import (
 type CharmAdder interface {
 	AddLocalCharm(context.Context, *charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
 	AddCharm(context.Context, *charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
-	CheckCharmPlacement(context.Context, string, *charm.URL) error
 }
 
 // CharmsAPI is functionality needed by the CharmAdaptor from the Charms API.
