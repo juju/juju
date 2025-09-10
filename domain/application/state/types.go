@@ -903,7 +903,7 @@ type spaceUUID struct {
 type storageInstance struct {
 	StorageUUID      domainstorage.StorageInstanceUUID `db:"uuid"`
 	StorageID        corestorage.ID                    `db:"storage_id"`
-	CharmUUID        corecharm.ID                      `db:"charm_uuid"`
+	CharmName        string                            `db:"charm_name"`
 	StorageName      corestorage.Name                  `db:"storage_name"`
 	LifeID           life.Life                         `db:"life_id"`
 	StoragePoolUUID  string                            `db:"storage_pool_uuid"`

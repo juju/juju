@@ -125,7 +125,18 @@ func (st *State) CreateIAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if machineNames, err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if machineNames, err = st.insertIAASApplicationUnits(
+			ctx, tx, appUUID, charmUUID, units,
+		); err != nil {
 			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -179,7 +190,16 @@ func (st *State) CreateCAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, charmUUID, units); err != nil {
 			return errors.Errorf("inserting CAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -379,12 +399,12 @@ VALUES ($applicationDetails.uuid)
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddIAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, unit)
+		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -397,11 +417,11 @@ func (st *State) insertIAASApplicationUnits(
 func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddCAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddCAASUnitArg,
 ) error {
 	for i, unit := range units {
-		if _, err := st.insertCAASUnit(ctx, tx, appUUID, unit); err != nil {
+		if _, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, unit); err != nil {
 			return errors.Errorf(
 				"inserting CAAS unit %d for application: %w", i, err,
 			)

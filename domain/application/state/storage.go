@@ -382,6 +382,7 @@ func (st *State) insertUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
+	charmName string,
 	args []application.CreateUnitStorageDirectiveArg,
 ) ([]unitStorageDirective, error) {
 	if len(args) == 0 {
@@ -409,7 +410,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 		})
 
 		rval = append(rval, unitStorageDirective{
-			CharmUUID:       charmUUID.String(),
+			CharmName:       charmName,
 			Count:           arg.Count,
 			StorageName:     arg.Name.String(),
 			StoragePoolUUID: arg.PoolUUID.String(),
@@ -830,7 +831,7 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 		).String()
 
 		storageInstancesRval = append(storageInstancesRval, insertStorageInstance{
-			CharmUUID:       directive.CharmUUID,
+			CharmName:       directive.CharmName,
 			LifeID:          int(life.Alive),
 			RequestSizeMiB:  directive.SizeMiB,
 			StorageID:       storageID,

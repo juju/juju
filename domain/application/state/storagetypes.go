@@ -53,7 +53,7 @@ type insertStorageFilesystemStatus struct {
 // insertStorageInstance represents the set of values required for inserting a
 // new storage instance into the model.
 type insertStorageInstance struct {
-	CharmUUID       string `db:"charm_uuid"`
+	CharmName       string `db:"charm_name"`
 	LifeID          int    `db:"life_id"`
 	RequestSizeMiB  uint64 `db:"requested_size_mib"`
 	StorageID       string `db:"storage_id"`
@@ -120,7 +120,7 @@ type storageVolumeUUIDRef struct {
 // unit_storage_directive table representing the storage directives of
 // a unit.
 type unitStorageDirective struct {
-	CharmUUID       string `db:"charm_uuid"`
+	CharmName       string `db:"charm_name"`
 	Count           uint32 `db:"count"`
 	SizeMiB         uint64 `db:"size_mib"`
 	StorageName     string `db:"storage_name"`
