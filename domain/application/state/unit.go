@@ -1621,6 +1621,56 @@ func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit
 	}, nil
 }
 
+// GetMachineUUIDAndNetNodeForName is responsible for identifying the uuid
+// and net node for a machine by it's name.
+//
+// The following errors may be expected:
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+// machine exists for the supplied machine name.
+func (st *State) GetMachineUUIDAndNetNodeForName(
+	ctx context.Context, mName string,
+) (coremachine.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var (
+		nameInput = machineName{Name: mName}
+		dbVal     machineUUIDWithNetNode
+	)
+
+	q := `
+SELECT &machineUUIDWithNetNode.*
+FROM   machine
+WHERE  name = $machineName.name
+`
+
+	stmt, err := st.Prepare(q, nameInput, dbVal)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, nameInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"machine with name %q does not exist", mName,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		return err
+	})
+
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return coremachine.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
+}
+
 // GetModelConstraints returns the currently set constraints for the model.
 // The following error types can be expected:
 // - [modelerrors.NotFound]: when no model exists to set constraints for.

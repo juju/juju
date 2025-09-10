@@ -1143,9 +1143,22 @@ type setDeviceConstraintAttribute struct {
 	AttributeValue       string `db:"value"`
 }
 
+// machineName represents the name column from the machine table and can be used
+// to lookup machines based on this unique column.
+type machineName struct {
+	Name string `db:"name"`
+}
+
 type machineNameWithNetNode struct {
 	Name        coremachine.Name `db:"name"`
 	NetNodeUUID string           `db:"net_node_uuid"`
+}
+
+// machineUUIDWithNetNode represents the uuid and net node uuid columns from the
+// machine table.
+type machineUUIDWithNetNode struct {
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
 }
 
 type netNodeUUID struct {
