@@ -140,7 +140,7 @@ type ApplicationService interface {
 
 	// SetApplicationCharm sets a new charm for the application, validating that
 	// aspects such as storage are still viable with the new charm.
-	SetApplicationCharm(ctx context.Context, name string, params application.UpdateCharmParams) error
+	SetApplicationCharm(ctx context.Context, appName string, locator applicationcharm.CharmLocator, params application.SetCharmParams) error
 
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.

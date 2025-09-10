@@ -41,7 +41,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -1499,33 +1498,53 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 // Some validation needs to be transactional:
 // - relation compatibility needs to be transactional, since a new or removed
 // relation can change the validation result.
-func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
-	params application.UpdateCharmParams) error {
+func (st *State) SetApplicationCharm(
+	ctx context.Context,
+	appID coreapplication.ID,
+	chID corecharm.ID,
+	params application.SetCharmParams,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	charmIdent := charmID{UUID: chID}
+	appIdent := applicationID{ID: appID}
+
+	setAppCharmStmt, err := st.Prepare(`
+UPDATE application
+SET charm_uuid = $charmID.uuid
+WHERE uuid = $applicationID.uuid
+`, charmIdent, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		meta := params.Charm.Meta()
-		if meta == nil {
-			return errors.Errorf("charm doesn't have any valid metadata")
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.checkCharmExists(ctx, tx, charmIdent); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.precheckUpgradeRelation(ctx, tx, appIdent, charmIdent); err != nil {
+			return errors.Capture(err)
 		}
 
-		relations, err := st.getAllNonPeerRelationInfo(ctx, tx, id)
-		if err != nil {
-			return errors.Errorf("fetching all relation for application %q: %w", id, err)
-		}
-		if err := precheckUpgradeRelation(meta, relations); err != nil {
-			return err
-		}
-
-		//TODO(storage) - update charm and storage directive for app
+		//TODO(storage) - update storage directive for app
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()
 		})
-		return st.mergeApplicationEndpointBindings(ctx, tx, id.String(), bindings, false)
+		if err := st.mergeApplicationEndpointBindings(ctx, tx, appID.String(), bindings, false); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, setAppCharmStmt, charmIdent, appIdent).Run(); err != nil {
+			return errors.Errorf("setting application charm: %w", err)
+		}
+		return nil
 	}); err != nil {
 		return errors.Capture(err)
 	}
@@ -3416,33 +3435,35 @@ GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional
 // - the new charm implements existing relation given as a argument,
 // - the current count of established relations does not exceed
 // the new charm limit for each specified relation.
-func precheckUpgradeRelation(meta *internalcharm.Meta, relations []relationInfo) error {
-	relSpec := meta.CombinedRelations()
-	for _, rel := range relations {
-		charmRel := decodeRelation(rel)
-		if !charmRel.ImplementedBy(meta) {
-			return errors.Errorf("would break relation %s:%s", rel.ApplicationName, rel.Name)
-		}
-		// The relation will always be found. If not, it would have caused
-		// the previous check to fail.
-		if spec := relSpec[rel.Name]; rel.Count > spec.Limit {
-			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be"+
-				" satisfied by the number of already established relations (%d)", spec.Limit, rel.ApplicationName,
-				rel.Name, rel.Count)
+func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	charmRelations, err := st.getCharmRelations(ctx, tx, charmIdent)
+	if err != nil {
+		return errors.Errorf("fetching charm relations for charm %q: %w", charmIdent.UUID, err)
+	}
+	indexedCharmRelations := make(map[string]charmRelation)
+	for _, rel := range charmRelations {
+		indexedCharmRelations[rel.Name] = rel
+	}
+
+	appRelations, err := st.getAllNonPeerRelationInfo(ctx, tx, appIdent.ID)
+	if err != nil {
+		return errors.Errorf("fetching all relation for application %q: %w", appIdent.ID, err)
+	}
+
+	for _, appRelation := range appRelations {
+		if charmRelation, ok := indexedCharmRelations[appRelation.Name]; !ok {
+			return errors.Errorf("charm has no corresponding relation %q", appRelation.Name)
+		} else if charmRelation.Role != appRelation.Role {
+			return errors.Errorf("cannot change role of relation %q from %s to %s", appRelation.Name, appRelation.Role, charmRelation.Role)
+		} else if charmRelation.Interface != appRelation.Interface {
+			return errors.Errorf("cannot change interface of relation %q from %s to %s", appRelation.Name, appRelation.Interface, charmRelation.Interface)
+		} else if charmRelation.Scope == string(charm.ScopeContainer) && appRelation.Scope == string(charm.ScopeGlobal) {
+			return errors.Errorf("cannot change scope of relation %q from %s to %s", appRelation.Name, appRelation.Scope, charmRelation.Scope)
+		} else if appRelation.Count > charmRelation.Capacity {
+			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %q which cannot be"+
+				" satisfied by the number of already established relations (%d)", charmRelation.Capacity,
+				appRelation.Name, appRelation.Count)
 		}
 	}
 	return nil
-}
-
-// decodeRelation transforms the relationInfo data into an [internalcharm.Relation]
-// structure.
-func decodeRelation(ri relationInfo) internalcharm.Relation {
-	return internalcharm.Relation{
-		Name:      ri.Name,
-		Role:      internalcharm.RelationRole(ri.Role),
-		Interface: ri.Interface,
-		Optional:  ri.Optional,
-		Limit:     ri.Capacity,
-		Scope:     internalcharm.RelationScope(ri.Scope),
-	}
 }

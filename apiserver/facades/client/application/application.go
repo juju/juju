@@ -795,7 +795,31 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return err
 	}
 
-	return errors.NotImplemented
+	if !args.ForceUnits {
+		if err := api.check.ChangeAllowed(ctx); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if err := apiservercharms.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+		return err
+	}
+
+	newCharmLocator, err := apiservercharms.CharmLocatorFromURL(args.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{})
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application %q", args.ApplicationName)
+	} else if errors.Is(err, applicationerrors.CharmNotFound) {
+		return errors.NotFoundf("charm %q", args.CharmURL)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
