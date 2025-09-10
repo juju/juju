@@ -93,6 +93,7 @@ func (l *loggerWorker) setLogging() {
 		logger.Debugf("reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
 		context := l.config.Context
 		context.ResetLoggerLevels()
+
 		if err := context.ConfigureLoggers(loggingConfig); err != nil {
 			// This shouldn't occur as the loggingConfig should be
 			// validated by the original Config before it gets here.
