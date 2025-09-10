@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -227,6 +228,10 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
+	// MacaroonHTTPClient is the HTTP client used to make requests to
+	// third party macaroon services.
+	MacaroonHTTPClient facade.HTTPClient
+
 	// DomainServicesGetter provides access to the services.
 	DomainServicesGetter services.DomainServicesGetter
 
@@ -360,6 +365,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		cfg.ControllerUUID,
 		cfg.ControllerModelUUID,
 		controllerConfig,
+		cfg.MacaroonHTTPClient,
 		cfg.Clock,
 		logger,
 	)
@@ -1223,6 +1229,7 @@ func newOfferAuthContext(
 	controllerUUID string,
 	controllerModelUUID coremodel.UUID,
 	controllerConfig controller.Config,
+	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (*crossmodel.AuthContext, error) {
@@ -1231,7 +1238,15 @@ func newOfferAuthContext(
 		return nil, errors.Annotate(err, "getting offers third party key")
 	}
 
-	bakery, err := getMacaroonBakeryByURL(ctx, controllerConfig.LoginTokenRefreshURL(), macaroonService, controllerModelUUID, clock, logger)
+	bakery, err := getMacaroonBakeryByURL(
+		key,
+		controllerConfig.LoginTokenRefreshURL(),
+		macaroonService,
+		controllerModelUUID,
+		httpClient,
+		clock,
+		logger,
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting macaroon bakery")
 	}
@@ -1254,29 +1269,38 @@ func authContextLocation(modelUUID coremodel.UUID) string {
 }
 
 func getMacaroonBakeryByURL(
-	ctx context.Context,
-	urlStr string,
+	key *bakery.KeyPair,
+	endpoint string,
 	macaroonService MacaroonService,
 	controllerModelUUID coremodel.UUID,
+	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (crossmodel.OfferBakery, error) {
 	location := authContextLocation(controllerModelUUID)
 	checker := checkers.New(internalmacaroon.MacaroonNamespace)
+	authorizer := crossmodel.NewCMRAuthorizer(logger)
 
 	// Create a local bakery for validating macaroons.
-	if urlStr == "" {
-		authorizer := crossmodel.NewCMRAuthorizer(logger)
-		return crossmodelbakery.NewLocalOfferBakery(ctx, location, macaroonService, checker, authorizer, clock, logger)
+	if endpoint == "" {
+		return crossmodelbakery.NewLocalOfferBakery(key, location, macaroonService, checker, authorizer, clock, logger)
 	}
-
-	// TODO (stickupkid): Implement JAAS bakery client.
 
 	// We have a URL, it's intended to be used by JAAS, but it's possible
 	// that another service could be used here. It's a shame that we don't use
 	// a login token service kind here, that way we could ensure that we're
 	// creating the correct kind of bakery.
-	return nil, nil
+	return crossmodelbakery.NewJAASOfferBakery(
+		key,
+		location,
+		endpoint,
+		macaroonService,
+		checker,
+		authorizer,
+		httpClient,
+		clock,
+		logger,
+	)
 }
 
 func serverError(err error) error {

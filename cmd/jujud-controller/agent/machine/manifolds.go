@@ -41,6 +41,7 @@ import (
 	internalhttp "github.com/juju/juju/internal/http"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/macaroon"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/s3client"
@@ -835,6 +836,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				case corehttp.SSHImporterPurpose:
 					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
 					return sshimporter.DefaultHTTPClient(sshImporterLogger)
+
+				case corehttp.MacaroonPurpose:
+					macaroonLogger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
+					return macaroon.DefaultHTTPClient(macaroonLogger)
 
 				default:
 					return internalhttp.NewClient(opts...)

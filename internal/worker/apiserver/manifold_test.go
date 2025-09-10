@@ -60,6 +60,7 @@ type ManifoldSuite struct {
 	logSink                 corelogger.ModelLogger
 	httpClientGetter        *stubHTTPClientGetter
 	charmhubHTTPClient      *http.Client
+	macaroonHTTPClient      *http.Client
 	dbGetter                stubWatchableDBGetter
 	dbDeleter               stubDBDeleter
 	domainServicesGetter    *stubDomainServicesGetter
@@ -90,6 +91,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.macaroonHTTPClient = &http.Client{}
 	s.httpClientGetter = &stubHTTPClientGetter{
 		client: s.charmhubHTTPClient,
 	}
