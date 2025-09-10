@@ -112,7 +112,7 @@ WHEN
 	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[1]d, OLD.%[3]s, DATETIME('now'));
+    VALUES (2, %[1]d, NEW.%[3]s, DATETIME('now'));
 END;
 
 CREATE TRIGGER trg_log_custom_%[2]s_%[3]s_lifecycle_delete
