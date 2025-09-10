@@ -709,48 +709,44 @@ type PendingResourceUpload struct {
 	Type string
 }
 
-// ApplicationGetStorageConstraints holds the request parameters to get application storage.
-
-type AppStorageConsGet struct {
+// ApplicationStorageGetRequest represents the request parameters
+// to retrieve an application's storage constraints.
+type ApplicationStorageGetRequest struct {
 	ApplicationName string `json:"application"`
 }
 
-// StorageConstraint contains the information for an application's storage constraint
-type StorageConstraint struct {
-	// Pool is the name of the storage pool from which to provision the
-	// storage instances.
-	Pool string `json:"pool"`
+// // StorageConstraint describes the requirements for
+// // a specific storage within an application.
+// type StorageConstraint struct {
+// 	// Pool is the name of the storage pool from which to provision the
+// 	// storage instances.
+// 	Pool string `json:"pool"`
 
-	// Size is the required size of the storage instances, in MiB.
-	Size uint64 `json:"size"`
+// 	// Size is the required size of the storage instances, in MiB.
+// 	Size uint64 `json:"size"`
 
-	// Count is the required number of storage instances.
-	Count uint64 `json:"count"`
-}
+// 	// Count is the required number of storage instances.
+// 	Count uint64 `json:"count"`
+// }
 
-// ApplicationGetStorageConstraintsResult returns the application's current storage results.
-type ApplicationGetStorageConstraintsResult struct {
-	Result map[string]StorageConstraint
+// ApplicationStorageGetResponse contains the storage constraints
+// currently defined for an application.
+type ApplicationStorageGetResponse struct {
+	Result map[string]StorageConstraints
 	Error  *Error `json:"error,omitempty"`
 }
 
-type StorageDirective struct {
-	Provider string `json:"provider"`
-
-	Size uint64 `json:"size"`
-
-	Count uint64 `json:"count"`
-}
-
-// AppStorageConsUpsert holds the parameters for making the applicationStorageUpsert call.
-type AppStorageConsUpsert struct {
+// ApplicationStorageUpsertRequest holds the parameters for creating
+// or updating application storage constraints.
+type ApplicationStorageUpsertRequest struct {
 	ApplicationName string `json:"application"`
 
-	// Holds the application storage directives where the key is the storage name.
-	ApplicationStorageDirective map[string]StorageDirective `json:"application-storage-directive"`
+	// Holds the application storage constraints where the key is the storage name.
+	ApplicationStorageConstraints map[string]StorageConstraints `json:"application-storage-constraints"`
 }
 
-// ApplicationUpsertStorageConstraintsResult returns the application's current storage results.
-type ApplicationUpsertStorageConstraintsResult struct {
+// ApplicationStorageUpsertResponse contains the results for an
+// upsert request for application storage constraints.
+type ApplicationStorageUpsertResponse struct {
 	Errors []*Error `json:"errors,omitempty"`
 }

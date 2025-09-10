@@ -3646,7 +3646,7 @@ func (a *Application) UpsertStorageConstraints(cons map[string]StorageConstraint
 
 		var storageConstraintsOp txn.Op
 
-		_, err := readStorageConstraints(a.st, storageConstraintsKey)
+		oldCons, err := readStorageConstraints(a.st, storageConstraintsKey)
 		if errors.Is(err, errors.NotFound) {
 			storageConstraintsOp = createStorageConstraintsOp(
 				storageConstraintsKey, cons,
@@ -3654,8 +3654,16 @@ func (a *Application) UpsertStorageConstraints(cons map[string]StorageConstraint
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "setting storage constraints for app %q", a.doc.Name)
 		} else {
+			newCons := make(map[string]StorageConstraints)
+			for k, v := range oldCons {
+				newCons[k] = v
+			}
+			for k, v := range cons {
+				newCons[k] = v
+			}
+
 			storageConstraintsOp = replaceStorageConstraintsOp(
-				storageConstraintsKey, cons,
+				storageConstraintsKey, newCons,
 			)
 		}
 		return []txn.Op{storageConstraintsOp}, nil

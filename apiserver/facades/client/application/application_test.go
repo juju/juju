@@ -1678,120 +1678,126 @@ func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
 
 func (s *applicationSuite) TestGetApplicationStorageSuccess(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-
 	charmStore := "data"
-	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
-	sCons := map[string]state.StorageConstraints{
-		charmStore: sc,
+
+	// Creates an application with storage constraints.
+	sc := map[string]state.StorageConstraints{
+		charmStore: {Pool: "lxd", Size: 2048, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	storage, err := s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
-
+	// Asserts that the application has defined storage constraints.
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), jc.GreaterThan, 0)
-	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc.Pool)
-	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc.Count)
-	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc.Size)
+	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc[charmStore].Pool)
+	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc[charmStore].Count)
+	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc[charmStore].Size)
 }
 
 func (s *applicationSuite) TestGetApplicationStorageNotFound(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, nil)
+	// Creates an application with no storage constraints.
+	application := s.AddTestingApplication(c, "storage-block", ch)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	storage, err := s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
-
+	// Asserts that the application has no storage constraints.
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), gc.Equals, 0)
 }
 
 func (s *applicationSuite) TestUpsertApplicationStorageCreateSuccess(c *gc.C) {
-	ch := s.AddTestingCharm(c, "mysql")
-
+	ch := s.AddTestingCharm(c, "storage-block")
 	charmStore := "data"
-	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
-	sCons := map[string]state.StorageConstraints{
-		charmStore: sc,
-	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+
+	// Creates an application with no storage constraints.
+	application := s.AddTestingApplication(c, "storage-block", ch)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	storage, err := s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
-
+	// Asserts that the application has no storage constraints.
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(storage.Result), jc.GreaterThan, 0)
-	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc.Pool)
-	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc.Count)
-	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc.Size)
+	c.Assert(len(storage.Result), gc.Equals, 0)
 
-	s.applicationAPI.UpsertApplicationStorage(params.AppStorageConsUpsert{
-		ApplicationName: application.Name(),
-		ApplicationStorageDirective: map[string]params.StorageDirective{
-			charmStore: {
-				Provider: "filesystem",
-				Size:     4096,
-				Count:    2,
-			},
+	// Upserts the application with defined storage constraints.
+	size := uint64(4096)
+	count := uint64(2)
+	sc := map[string]params.StorageConstraints{
+		charmStore: {
+			Pool:  "lxd",
+			Size:  &size,
+			Count: &count,
 		},
+	}
+	s.applicationAPI.UpsertApplicationStorage(params.ApplicationStorageUpsertRequest{
+		ApplicationName:               application.Name(),
+		ApplicationStorageConstraints: sc,
 	})
 
-	storage, err = s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
+	// Asserts that the application has defined storage constraints.
+	storage, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), jc.GreaterThan, 0)
-	c.Assert(storage.Result[charmStore].Pool, gc.Equals, "filesystem")
-	c.Assert(storage.Result[charmStore].Count, gc.Equals, 2)
-	c.Assert(storage.Result[charmStore].Size, gc.Equals, 4096)
+	c.Assert(storage.Result[charmStore].Pool, gc.Equals, "block")
+	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc[charmStore].Count)
+	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc[charmStore].Size)
 }
 
 func (s *applicationSuite) TestUpsertApplicationStorageUpdateSuccess(c *gc.C) {
 	ch := s.AddTestingCharm(c, "mysql")
-
 	charmStore := "data"
-	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
-	sCons := map[string]state.StorageConstraints{
-		charmStore: sc,
+
+	// Creates an application with storage constraints.
+	sc := map[string]state.StorageConstraints{
+		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
-	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	storage, err := s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
-
+	// Asserts that the application has defined storage constraints.
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), jc.GreaterThan, 0)
-	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc.Pool)
-	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc.Count)
-	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc.Size)
+	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc[charmStore].Pool)
+	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc[charmStore].Count)
+	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc[charmStore].Size)
 
-	s.applicationAPI.UpsertApplicationStorage(params.AppStorageConsUpsert{
-		ApplicationName: application.Name(),
-		ApplicationStorageDirective: map[string]params.StorageDirective{
-			charmStore: {
-				Provider: "filesystem",
-				Size:     4096,
-				Count:    2,
-			},
+	// Upserts the application with newly defined storage constraints.
+	size := uint64(4096)
+	count := uint64(3)
+	newSc := map[string]params.StorageConstraints{
+		charmStore: {
+			Pool:  "lxd",
+			Size:  &size,
+			Count: &count,
 		},
+	}
+	s.applicationAPI.UpsertApplicationStorage(params.ApplicationStorageUpsertRequest{
+		ApplicationName:               application.Name(),
+		ApplicationStorageConstraints: newSc,
 	})
 
-	storage, err = s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
+	// Asserts that the application has newly defined storage constraints.
+	storage, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), jc.GreaterThan, 0)
-	c.Assert(storage.Result[charmStore].Pool, gc.Equals, "filesystem")
-	c.Assert(storage.Result[charmStore].Count, gc.Equals, 2)
-	c.Assert(storage.Result[charmStore].Size, gc.Equals, 4096)
+	c.Assert(storage.Result[charmStore].Pool, gc.Equals, "lxd")
+	c.Assert(storage.Result[charmStore].Count, gc.Equals, count)
+	c.Assert(storage.Result[charmStore].Size, gc.Equals, size)
 }
 
 func (s *applicationSuite) TestUpsertApplicationStorageNameNotSupported(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-
 	charmStore := "data"
+
+	// Creates an application with storage constraints.
 	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
 	sCons := map[string]state.StorageConstraints{
 		charmStore: sc,
@@ -1800,35 +1806,39 @@ func (s *applicationSuite) TestUpsertApplicationStorageNameNotSupported(c *gc.C)
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	storage, err := s.applicationAPI.GetApplicationStorage(params.AppStorageConsGet{ApplicationName: application.Name()})
-
+	// Asserts that the application has defined storage constraints.
+	storage, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{ApplicationName: application.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(storage.Result), gc.Equals, 1)
 	c.Assert(storage.Result[charmStore].Pool, gc.Equals, sc.Pool)
 	c.Assert(storage.Result[charmStore].Count, gc.Equals, sc.Count)
 	c.Assert(storage.Result[charmStore].Size, gc.Equals, sc.Size)
 
-	res, err := s.applicationAPI.UpsertApplicationStorage(params.AppStorageConsUpsert{
+	// Upserts the application with newly defined storage constraints that contains 2 unsupported storage names.
+	size := uint64(4096)
+	count := uint64(2)
+	res, err := s.applicationAPI.UpsertApplicationStorage(params.ApplicationStorageUpsertRequest{
 		ApplicationName: application.Name(),
-		ApplicationStorageDirective: map[string]params.StorageDirective{
+		ApplicationStorageConstraints: map[string]params.StorageConstraints{
 			charmStore: {
-				Provider: "filesystem",
-				Size:     4096,
-				Count:    2,
+				Pool:  "lxd",
+				Size:  &size,
+				Count: &count,
 			},
-			"not-charmstore1": {
-				Provider: "filesystem",
-				Size:     4096,
-				Count:    2,
+			"not-a-charmstore1": {
+				Pool:  "lxd",
+				Size:  &size,
+				Count: &count,
 			},
-			"not-charmstore2": {
-				Provider: "filesystem",
-				Size:     4096,
-				Count:    2,
+			"not-a-charmstore2": {
+				Pool:  "lxd",
+				Size:  &size,
+				Count: &count,
 			},
 		},
 	})
 
+	// Asserts that the application has 2 unsupported api server errors.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(res.Errors), gc.Equals, 2)
 	c.Assert(errors.Is(res.Errors[0], errors.NotSupported), jc.IsTrue)
