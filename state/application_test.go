@@ -4106,12 +4106,31 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 
 	// Initial event.
 	wc := testing.NewNotifyWatcherC(c, w)
+	wc.AssertOneChange()
 
 	// Make one change, check one event.
 	application, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	constraints := map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 1024, Pool: "mypool"},
+	}
+	err = application.UpdateStorageConstraints(constraints)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Upgrade the charm. It should still receive events despite the charm URL changed.
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta, 999)
+	cfg := state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
+
+	err = application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make another change, check one event.
+	constraints = map[string]state.StorageConstraints{
+		"data": {Count: 1, Size: 2048, Pool: "mypool"},
 	}
 	err = application.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)

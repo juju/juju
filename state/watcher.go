@@ -1989,7 +1989,23 @@ func (a *Application) Watch() NotifyWatcher {
 // WatchStorageConstraints returns a watcher for observing changes to an
 // application's storage constraints.
 func (a *Application) WatchStorageConstraints() NotifyWatcher {
-	return newEntityWatcher(a.st, storageConstraintsC, a.storageConstraintsKey())
+	filter := func(id interface{}) bool {
+		localID, err := a.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		parts := strings.Split(localID, "#")
+		if len(parts) != 3 {
+			return false
+		}
+
+		// Construct the key with just the application name.
+		// For e.g. `asc#postgresql` rather than `asc#postgresql#ch:<arch>/postgresql-<rev>`.
+		key := parts[0] + "#" + parts[1]
+		return strings.Contains(a.storageConstraintsKey(), key)
+	}
+
+	return newNotifyCollWatcher(a.st, storageConstraintsC, filter)
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to an application's

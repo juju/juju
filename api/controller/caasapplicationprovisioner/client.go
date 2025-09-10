@@ -134,6 +134,8 @@ func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWa
 	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
 
+// WatchStorageConstraints returns a NotifyWatcher that notifies of
+// changes to an application's storage constraints.
 func (c *Client) WatchStorageConstraints(applicationName string) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -147,7 +149,7 @@ func (c *Client) WatchStorageConstraints(applicationName string) (watcher.Notify
 	}
 
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result when watching storage constraintsfor application %q", applicationName)
+		return nil, fmt.Errorf("expected 1 result when watching storage constraints for application %q", applicationName)
 	}
 
 	result := results.Results[0]
