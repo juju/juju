@@ -16,21 +16,12 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 type localBakerySuite struct {
-	modelUUID model.UUID
-
-	clock      *MockClock
-	store      *MockBakeryStore
-	oven       *MockOven
-	authorizer *MockOpsAuthorizer
-
-	keyPair *bakery.KeyPair
+	baseBakerySuite
 }
 
 func TestLocalBakerySuite(t *testing.T) {
@@ -40,11 +31,9 @@ func TestLocalBakerySuite(t *testing.T) {
 func (s *localBakerySuite) TestNewLocalOfferBakery(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.store.EXPECT().GetOffersThirdPartyKey(gomock.Any()).Return(s.keyPair, nil)
-
 	checker := checkers.New(internalmacaroon.MacaroonNamespace)
 	bakery, err := NewLocalOfferBakery(
-		c.Context(),
+		s.keyPair,
 		"juju model",
 		s.store,
 		checker,
@@ -154,7 +143,7 @@ func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	}
 
 	mac, err := localBakery.CreateDischargeMacaroon(
-		context.Background(),
+		c.Context(),
 		"http://offer-access",
 		"mary",
 		map[string]string{
@@ -181,32 +170,6 @@ func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	})
 }
 
-func (s *localBakerySuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.clock = NewMockClock(ctrl)
-	s.store = NewMockBakeryStore(ctrl)
-	s.oven = NewMockOven(ctrl)
-	s.authorizer = NewMockOpsAuthorizer(ctrl)
-
-	s.modelUUID = modeltesting.GenModelUUID(c)
-
-	s.keyPair = bakery.MustGenerateKey()
-
-	c.Cleanup(func() {
-		s.clock = nil
-		s.store = nil
-		s.oven = nil
-		s.authorizer = nil
-
-		s.modelUUID = ""
-
-		s.keyPair = nil
-	})
-
-	return ctrl
-}
-
 func (s *localBakerySuite) caveats(now time.Time) []checkers.Caveat {
 	return []checkers.Caveat{
 		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
@@ -228,16 +191,4 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], modelUUID)
-}
-
-func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
-	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
-	c.Assert(err, tc.ErrorIsNil)
-	return mac
-}
-
-func newBakeryMacaroon(c *tc.C, id string) *bakery.Macaroon {
-	mac, err := bakery.NewLegacyMacaroon(newMacaroon(c, id))
-	c.Assert(err, tc.ErrorIsNil)
-	return mac
 }
