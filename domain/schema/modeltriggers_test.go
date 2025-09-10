@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	"github.com/juju/tc"
@@ -21,8 +20,6 @@ import (
 // storage provisioning triggers that exist in the model schema.
 type modelStorageSuite struct {
 	schemaBaseSuite
-
-	seq int64
 }
 
 // TestModelStorageSuite registers the tests for the [modelStorageSuite].
@@ -35,57 +32,6 @@ func TestModelStorageSuite(t *testing.T) {
 func (s *modelStorageSuite) SetUpTest(c *tc.C) {
 	s.schemaBaseSuite.SetUpTest(c)
 	s.applyDDL(c, ModelDDL())
-}
-
-func (s *modelStorageSuite) nextSeq() int64 {
-	// Currently tests are run sequentially, but just in case.
-	return atomic.AddInt64(&s.seq, 1)
-}
-
-func (s *modelStorageSuite) getNamespaceID(
-	c *tc.C, namespace string,
-) int {
-	row := s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT id FROM change_log_namespace WHERE namespace = ?",
-		namespace,
-	)
-	var nsID int
-	err := row.Scan(&nsID)
-	c.Assert(err, tc.ErrorIsNil)
-	return nsID
-}
-
-func (s *modelStorageSuite) clearChangeEvents(
-	c *tc.C, nsID int, changed string,
-) {
-	_, err := s.DB().Exec(
-		"DELETE FROM change_log WHERE namespace_id = ? AND changed = ?",
-		nsID, changed,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// assertChangeEvent asserts that a single change event exists for the provided
-// namespace and changed value. If successful the matching change event will be
-// deleted from the database so subsequent calls can be made to this func within
-// a single test.
-func (s *modelStorageSuite) assertChangeEvent(
-	c *tc.C, namespace string, changed string,
-) {
-	nsID := s.getNamespaceID(c, namespace)
-
-	row := s.DB().QueryRow(`
-SELECT COUNT(*)
-FROM   change_log
-WHERE  namespace_id = ?
-AND    changed = ?`, nsID, changed)
-	var count int
-	err := row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(count, tc.Equals, 1)
-
-	s.clearChangeEvents(c, nsID, changed)
 }
 
 func (s *modelStorageSuite) changeStorageAttachmentLife(
