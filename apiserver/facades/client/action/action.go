@@ -24,7 +24,6 @@ import (
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -53,13 +52,6 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
-	// GetAction returns the action identified by its UUID.
-	GetAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
-
-	// CancelAction attempts to cancel an enqueued action, identified by its
-	// UUID.
-	CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
-
 	// GetOperations returns a list of operations on specified entities, filtered by the
 	// given parameters.
 	GetOperations(ctx context.Context, args operation.QueryArgs) (operation.QueryResult, error)
@@ -79,6 +71,13 @@ type OperationService interface {
 	// units using the provided parameters.
 	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
 		args operation.TaskArgs) (operation.RunResult, error)
+
+	// GetTask returns the task identified by its ID.
+	GetTask(ctx context.Context, taskID string) (operation.Task, error)
+
+	// CancelTask attempts to cancel an enqueued task, identified by its
+	// ID.
+	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -155,12 +154,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
-		if err != nil {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		action, err := a.operationService.GetAction(ctx, actionUUID)
+		task, err := a.operationService.GetTask(ctx, actionTag.Id())
 		if err != nil {
 			// NOTE(nvinuesa): The returned error in this case is not correct
 			// (should be NotFound for ActionNotFound for example), but since
@@ -171,7 +165,12 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		response.Results[i] = makeActionResult(action)
+		receiverTag, err := names.ActionReceiverTag(task.Receiver)
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		response.Results[i] = makeActionResult(task, receiverTag)
 	}
 
 	return response, nil
@@ -192,13 +191,8 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		actionUUID, err := uuid.UUIDFromString(actionTag.Id())
-		if err != nil {
-			response.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
-			continue
-		}
-		cancelledAction, err := a.operationService.CancelAction(ctx, actionUUID)
-		if internalerrors.Is(err, operationerrors.ActionNotFound) {
+		cancelledAction, err := a.operationService.CancelTask(ctx, actionTag.Id())
+		if internalerrors.Is(err, operationerrors.TaskNotFound) {
 			response.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %s", actionTag.Id()))
 			continue
 		}
@@ -207,7 +201,13 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		response.Results[i] = makeActionResult(cancelledAction)
+		receiverTag, err := names.ActionReceiverTag(cancelledAction.Receiver)
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		response.Results[i] = makeActionResult(cancelledAction, receiverTag)
 	}
 	return response, nil
 }
@@ -276,9 +276,31 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-func makeActionResult(action operation.Action) params.ActionResult {
+func makeActionResult(task operation.Task, receiverTag names.Tag) params.ActionResult {
+	actionTag := names.NewActionTag(task.ID)
+	ac := &params.Action{
+		Tag:            actionTag.Id(),
+		Name:           task.ActionName,
+		Parameters:     task.Parameters,
+		Receiver:       receiverTag.String(),
+		Parallel:       &task.IsParallel,
+		ExecutionGroup: task.ExecutionGroup,
+	}
+
 	result := params.ActionResult{
-		Action: &params.Action{},
+		Action:    ac,
+		Enqueued:  task.Enqueued,
+		Status:    task.Status.String(),
+		Output:    task.Output,
+		Started:   task.Started,
+		Completed: task.Completed,
+		Message:   task.Message,
+	}
+	for _, log := range task.Log {
+		result.Log = append(result.Log, params.ActionMessage{
+			Message:   log.Message,
+			Timestamp: log.Timestamp,
+		})
 	}
 
 	return result
@@ -339,7 +361,7 @@ func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionRe
 			Name:           info.ActionName,
 			Parameters:     info.Parameters,
 			Parallel:       &info.IsParallel,
-			ExecutionGroup: &info.ExecutionGroup,
+			ExecutionGroup: info.ExecutionGroup,
 		},
 		Enqueued:  info.Enqueued,
 		Started:   info.Started,

@@ -9,16 +9,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/internal/uuid"
 )
-
-// Action represents a domain action.
-type Action struct {
-	// UUID is the action unique identifier.
-	UUID uuid.UUID
-	// Receiver is the action receiver (unit / machine).
-	Receiver string
-}
 
 // CompletedTaskResult holds the task ID and output used when recording
 // the result of an task.
@@ -111,12 +102,20 @@ type UnitTaskResult struct {
 	IsLeader     bool
 }
 
+// Task represents the task as returned to the apiserver (which will convert
+// the string to an actionReceiverTag and back to string).
+type Task struct {
+	TaskInfo
+
+	Receiver string
+}
+
 // TaskInfo represents the information about a task.
 type TaskInfo struct {
 	ID string
 
 	ActionName     string
-	ExecutionGroup string
+	ExecutionGroup *string
 	IsParallel     bool
 	Parameters     map[string]interface{}
 

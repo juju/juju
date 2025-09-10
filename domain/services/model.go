@@ -553,9 +553,10 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Watchabl
 // Operation returns the service for managing long-running operations.
 func (s *ModelServices) Operation() *operationservice.Service {
 	return operationservice.NewService(
-		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("operation")),
 		s.clock,
-		s.logger.Child("operation"))
+		s.logger.Child("operation"),
+		s.modelObjectStoreGetter)
 }
 
 // ControllerChangeStream returns the model change stream.

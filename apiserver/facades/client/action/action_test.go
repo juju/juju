@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corestatus "github.com/juju/juju/core/status"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	operation "github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -66,23 +66,39 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	resAction := operation.Action{}
-	actionUUID := uuid.MustNewUUID()
+	resAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID:             "42",
+			ActionName:     "charm-action-0",
+			ExecutionGroup: ptr("group-0"),
+			IsParallel:     true,
+			Parameters: map[string]any{
+				"arg-0": "value-0",
+			},
+			Status: corestatus.Completed,
+		},
+		Receiver: "app/0", // Unit receiver.
+	}
+	taskID := "42"
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
-		actionUUID,
+		taskID,
 	).Return(resAction, nil)
 
-	result, err := s.client.Actions(context.Background(), params.Entities{
+	result, err := s.client.Actions(c.Context(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Action.Tag, tc.Equals, "42")
+	c.Check(result.Results[0].Action.Receiver, tc.Equals, "unit-app-0") // ActionReceiverTag applies the conversion.
+	c.Check(result.Results[0].Action.Name, tc.Equals, "charm-action-0")
+	c.Check(*result.Results[0].Action.ExecutionGroup, tc.Equals, "group-0")
 }
 
 func (s *actionSuite) TestActionsPermissionDenied(c *tc.C) {
@@ -91,11 +107,11 @@ func (s *actionSuite) TestActionsPermissionDenied(c *tc.C) {
 	// Use a non-admin user tag to fail permission check.
 	nonAdminUser := names.NewUserTag("unauthorized")
 	s.setupAPI(c, nonAdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
 	_, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -123,16 +139,16 @@ func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
-		actionUUID,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+		taskID,
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -146,16 +162,16 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
-		actionUUID,
-	).Return(operation.Action{}, errors.New("boom"))
+		taskID,
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -169,23 +185,28 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID0 := uuid.MustNewUUID()
-	actionUUID1 := uuid.MustNewUUID()
-	resAction := operation.Action{}
+	taskID0 := "42"
+	taskID1 := "43"
+	resAction0 := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: "42",
+		},
+		Receiver: "3", // Machine receiver.
+	}
 
-	s.operationService.EXPECT().GetAction(
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
-		actionUUID0,
-	).Return(resAction, nil)
-	s.operationService.EXPECT().GetAction(
+		taskID0,
+	).Return(resAction0, nil)
+	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
-		actionUUID1,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+		taskID1,
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID0.String()).String()},
-			{Tag: names.NewActionTag(actionUUID1.String()).String()},
+			{Tag: names.NewActionTag(taskID0).String()},
+			{Tag: names.NewActionTag(taskID1).String()},
 		},
 	})
 
@@ -214,23 +235,30 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	cancelledAction := operation.Action{}
-	actionUUID := uuid.MustNewUUID()
+	cancelledAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: "42",
+		},
+		Receiver: "app/0", // Unit receiver.
+	}
+	taskID := "42"
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
-		actionUUID,
+		taskID,
 	).Return(cancelledAction, nil)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Action.Tag, tc.Equals, "42")
+	c.Check(result.Results[0].Action.Receiver, tc.Equals, "unit-app-0") // ActionReceiverTag applies the conversion.
 }
 
 func (s *actionSuite) TestCancelPermissionDenied(c *tc.C) {
@@ -239,11 +267,11 @@ func (s *actionSuite) TestCancelPermissionDenied(c *tc.C) {
 	// Use a non-admin user tag to fail permission check.
 	nonAdminUser := names.NewUserTag("unauthorized")
 	s.setupAPI(c, nonAdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
 	_, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -271,16 +299,16 @@ func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
-		actionUUID,
-	).Return(operation.Action{}, operationerrors.ActionNotFound)
+		taskID,
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -294,16 +322,16 @@ func (s *actionSuite) TestCancelServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c, jujutesting.AdminUser)
-	actionUUID := uuid.MustNewUUID()
+	taskID := "42"
 
-	s.operationService.EXPECT().CancelAction(
+	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
-		actionUUID,
-	).Return(operation.Action{}, errors.New("boom"))
+		taskID,
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{Tag: names.NewActionTag(actionUUID.String()).String()},
+			{Tag: names.NewActionTag(taskID).String()},
 		},
 	})
 
@@ -554,4 +582,8 @@ func (s *actionSuite) TestApplicationsCharmsActionsEmptyEntityList(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

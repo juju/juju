@@ -93,7 +93,7 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 					ActionName:     taskArgs.ActionName,
 					Parameters:     taskArgs.Parameters,
 					IsParallel:     taskArgs.IsParallel,
-					ExecutionGroup: taskArgs.ExecutionGroup,
+					ExecutionGroup: &taskArgs.ExecutionGroup,
 				}}}}, nil)
 
 	// Act
