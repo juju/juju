@@ -135,9 +135,10 @@ func OfficialDataSources(dataSourceFactory simplestreams.DataSourceFactory, stre
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
 	simplestreams.LookupParams
+	ImageID *string
 }
 
-func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
+func NewImageConstraint(params simplestreams.LookupParams, imageID *string) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
 		workloadVersions, err := corebase.AllWorkloadVersions()
 		if err != nil {
@@ -148,7 +149,7 @@ func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, er
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
 	}
-	return &ImageConstraint{LookupParams: params}, nil
+	return &ImageConstraint{LookupParams: params, ImageID: imageID}, nil
 }
 
 const (
@@ -244,9 +245,13 @@ func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, con
 	if err != nil {
 		return nil, resolveInfo, err
 	}
-	metadata := make([]*ImageMetadata, len(items))
-	for i, md := range items {
-		metadata[i] = md.(*ImageMetadata)
+	metadata := make([]*ImageMetadata, 0, len(items))
+	for _, md := range items {
+		imageMetadata := md.(*ImageMetadata)
+		if cons.ImageID != nil && *cons.ImageID != imageMetadata.Id {
+			continue
+		}
+		metadata = append(metadata, imageMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.

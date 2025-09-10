@@ -60,6 +60,12 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *gc.C) {
 		bson.D{{"root_storage_type", "rootstorage-value"}})
 }
 
+func (s *funcMetadataSuite) TestSearchCriteriaWithImageID(c *gc.C) {
+	s.assertSearchCriteriaBuilt(c,
+		cloudimagemetadata.MetadataFilter{ImageID: "image-id"},
+		bson.D{{"image_id", "image-id"}})
+}
+
 func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 	// There should not be any size mentioned in criteria.
 	s.assertSearchCriteriaBuilt(c,

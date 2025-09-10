@@ -244,7 +244,7 @@ func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsF
 		Releases:  release,
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
-	})
+	}, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}

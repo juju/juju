@@ -938,6 +938,8 @@ func bootstrapImageMetadata(
 		return nil, errors.Trace(err)
 	}
 
+	// TODO - here we take any supplied image id to use at face value, whereas later
+	// on when creating machines, we use image id as just another attribute to filter on.
 	if bootstrapImageId != "" {
 		if bootstrapBase == nil {
 			return nil, errors.NotValidf("no base specified with bootstrap image")
@@ -968,7 +970,7 @@ func bootstrapImageMetadata(
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Stream:    environ.Config().ImageStream(),
-	})
+	}, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1130,7 +1132,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	dataSource := fetcher.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
-	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{}, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

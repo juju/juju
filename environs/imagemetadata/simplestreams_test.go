@@ -80,7 +80,7 @@ func Test(t *stdtesting.T) {
 			CloudSpec: testData.validCloudSpec,
 			Releases:  []string{"12.10"},
 			Arches:    []string{"amd64"},
-		})
+		}, nil)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -98,7 +98,7 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 		},
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64", "arm"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -323,7 +323,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			CloudSpec: cloudSpec,
 			Releases:  []string{"12.04"},
 			Arches:    t.arches,
-		})
+		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
@@ -345,6 +345,62 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	}
 }
 
+func (s *simplestreamsSuite) TestFetchWithImageID(c *gc.C) {
+	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   "us-east-1",
+		Endpoint: "https://ec2.us-east-1.amazonaws.com",
+	}
+
+	imageID := "ami-442ea674"
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Releases:  []string{"12.04"},
+		Arches:    []string{"amd64"},
+	}, &imageID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	images, resolveInfo, err := imagemetadata.Fetch(ss,
+		[]simplestreams.DataSource{s.Source}, imageConstraint)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(images, gc.HasLen, 1)
+	imageMetadata := imagemetadata.ImageMetadata{
+		Id:         imageID,
+		VirtType:   "hvm",
+		Arch:       "amd64",
+		RegionName: "us-east-1",
+		Endpoint:   "https://ec2.us-east-1.amazonaws.com",
+		Storage:    "ebs",
+		Version:    "12.04",
+	}
+	c.Check(images[0], gc.DeepEquals, &imageMetadata)
+	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test roundtripper",
+		Signed:    s.RequireSigned,
+		IndexURL:  "test:/streams/v1/index.json",
+		MirrorURL: "",
+	})
+
+	imageID = "invalid"
+	imageConstraint, err = imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Releases:  []string{"12.04"},
+		Arches:    []string{"amd64"},
+	}, &imageID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	images, resolveInfo, err = imagemetadata.Fetch(ss,
+		[]simplestreams.DataSource{s.Source}, imageConstraint)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(images, gc.HasLen, 0)
+	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test roundtripper",
+		Signed:    s.RequireSigned,
+		IndexURL:  "test:/streams/v1/index.json",
+		MirrorURL: "",
+	})
+}
+
 type productSpecSuite struct{}
 
 var _ = gc.Suite(&productSpecSuite{})
@@ -353,7 +409,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, stream := range []string{"", "released"} {
 		imageConstraint.Stream = stream
@@ -368,7 +424,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
 		Stream:   "daily",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ids, err := imageConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,13 +436,24 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64", "arm64"},
 		Stream:   "daily",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ids, err := imageConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:arm64"})
+}
+
+func (s *productSpecSuite) TestImageID(c *gc.C) {
+	imageID := "ami-0a116fa7c861dd5f9"
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		Releases: []string{"12.04"},
+		Arches:   []string{"amd64"},
+		Stream:   "pro",
+	}, &imageID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*imageConstraint.ImageID, gc.Equals, imageID)
 }
 
 type signedSuite struct {
@@ -423,7 +490,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 		},
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	images, resolveInfo, err := imagemetadata.Fetch(ss, []simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, jc.ErrorIsNil)
@@ -453,7 +520,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 		},
 		Releases: []string{"12.04"},
 		Arches:   []string{"amd64"},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	imagemetadata.SetSigningPublicKey(s.origKey)
 	_, _, err = imagemetadata.Fetch(ss, []simplestreams.DataSource{signedSource}, imageConstraint)
