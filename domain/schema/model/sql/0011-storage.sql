@@ -110,7 +110,12 @@ ON unit_storage_directive (unit_uuid);
 
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
-    charm_uuid TEXT NOT NULL,
+    -- charm_name is the charm name that this storage instance serves. This
+    -- storage instance MUST never be used with any other charm that doesn't
+    -- match on charm and storage names.
+    -- When NULL then the storage instance has never been used. The first
+    -- attachment of this storage instance MUST make this association.
+    charm_name TEXT,
     storage_name TEXT NOT NULL,
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
@@ -124,8 +129,6 @@ CREATE TABLE storage_instance (
     FOREIGN KEY (storage_pool_uuid)
     REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_instance_charm_storage
-    FOREIGN KEY (charm_uuid, storage_name)
-    REFERENCES charm_storage (charm_uuid, name)
 );
 
 CREATE UNIQUE INDEX idx_storage_instance_id
