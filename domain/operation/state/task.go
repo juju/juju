@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-
 	"github.com/juju/collections/transform"
+
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
@@ -24,14 +24,14 @@ import (
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) GetTask(ctx context.Context, taskID string) (operation.TaskInfo, *string, error) {
+func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Capture(err)
+		return operation.Task{}, nil, errors.Capture(err)
 	}
 
 	var (
-		result     operation.TaskInfo
+		result     operation.Task
 		outputPath *string
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -41,7 +41,7 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.TaskInfo,
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Errorf("getting task %q: %w", taskID, err)
+		return operation.Task{}, nil, errors.Errorf("getting task %q: %w", taskID, err)
 	}
 
 	return result, outputPath, nil
@@ -52,13 +52,13 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.TaskInfo,
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error) {
+func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return operation.TaskInfo{}, errors.Capture(err)
+		return operation.Task{}, errors.Capture(err)
 	}
 
-	var result operation.TaskInfo
+	var result operation.Task
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Attempt to cancel the task.
 		err = s.cancelTask(ctx, tx, taskID)
@@ -70,7 +70,7 @@ func (s *State) CancelTask(ctx context.Context, taskID string) (operation.TaskIn
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.TaskInfo{}, errors.Errorf("cancelling task %q: %w", taskID, err)
+		return operation.Task{}, errors.Errorf("cancelling task %q: %w", taskID, err)
 	}
 
 	return result, nil
@@ -88,6 +88,9 @@ JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
 WHERE  ot.task_id = $taskIdent.task_id
 `
 	currentStatusStmt, err := s.Prepare(currentStatusQuery, taskStatus{}, taskIDParam)
+	if err != nil {
+		return errors.Errorf("preparing retrieve current status statement for task ID %q: %w", taskID, err)
+	}
 
 	var currentStatus taskStatus
 	err = tx.Query(ctx, currentStatusStmt, taskIDParam).Get(&currentStatus)
@@ -132,7 +135,7 @@ AND    ot.task_id = $taskIdent.task_id
 	} else if currentStatus.Status == corestatus.Running.String() {
 		// If the task is already in Running status, then we have to update its
 		// status to Aborting.
-		newStatus.Status = corestatus.Cancelled.String()
+		newStatus.Status = corestatus.Aborting.String()
 	}
 	err = tx.Query(ctx, updateStatusStmt, newStatus, taskIDParam).Run()
 	if err != nil {
@@ -142,25 +145,25 @@ AND    ot.task_id = $taskIdent.task_id
 	return nil
 }
 
-func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.TaskInfo, *string, error) {
+func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.Task, *string, error) {
 	result, err := s.getOperationTask(ctx, tx, taskID)
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Capture(err)
+		return operation.Task{}, nil, errors.Capture(err)
 	}
 
 	parameters, err := s.getOperationParameters(ctx, tx, result.OperationUUID)
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Capture(err)
+		return operation.Task{}, nil, errors.Capture(err)
 	}
 
 	logEntries, err := s.getTaskLog(ctx, tx, taskID)
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Capture(err)
+		return operation.Task{}, nil, errors.Capture(err)
 	}
 
 	task, err := encodeTask(result, parameters, logEntries)
 	if err != nil {
-		return operation.TaskInfo{}, nil, errors.Capture(err)
+		return operation.Task{}, nil, errors.Capture(err)
 	}
 
 	var outputPath *string
@@ -264,10 +267,12 @@ ORDER BY created_at ASC
 	return logEntries, nil
 }
 
-func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.TaskInfo, error) {
-	result := operation.TaskInfo{
-		Enqueued: task.EnqueuedAt,
-		Status:   corestatus.Status(task.Status),
+func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
+	result := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			Enqueued: task.EnqueuedAt,
+			Status:   corestatus.Status(task.Status),
+		},
 		Receiver: task.Receiver,
 	}
 

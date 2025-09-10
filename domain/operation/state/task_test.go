@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -28,7 +27,7 @@ func (s *taskSuite) SetUpTest(c *tc.C) {
 func (s *taskSuite) TestGetTaskNotFound(c *tc.C) {
 	taskID := "42"
 
-	_, _, err := s.state.GetTask(context.Background(), taskID)
+	_, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `getting task \"42\": task with ID \"42\" not found`)
 }
 
@@ -43,7 +42,7 @@ func (s *taskSuite) TestGetTask(c *tc.C) {
 	unitUUID := s.addUnit(c)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	task, outputPath, err := s.state.GetTask(context.Background(), taskID)
+	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(outputPath, tc.IsNil)
 	c.Check(task.ActionName, tc.Equals, "test-action")
@@ -62,7 +61,7 @@ func (s *taskSuite) TestGetTaskWithOutputPath(c *tc.C) {
 	storeMetadataUUID := s.addObjectStoreMetadata(c, "sha256hash", "sha384hash", 100, storePath)
 	s.addOperationTaskOutput(c, taskUUID, storeMetadataUUID)
 
-	_, outputPath, err := s.state.GetTask(context.Background(), taskID)
+	_, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*outputPath, tc.Equals, storePath)
 }
@@ -77,7 +76,7 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 	s.addOperationParameter(c, operationUUID, "param1", "value1")
 	s.addOperationParameter(c, operationUUID, "param2", "value2")
 
-	task, _, err := s.state.GetTask(context.Background(), taskID)
+	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(task.Parameters), tc.Equals, 2)
 	c.Check(task.Parameters["param1"], tc.Equals, "value1")
@@ -93,7 +92,7 @@ func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
 	s.addOperationLog(c, taskUUID, "log entry 1")
 	s.addOperationLog(c, taskUUID, "log entry 2")
 
-	task, outputPath, err := s.state.GetTask(context.Background(), taskID)
+	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(outputPath, tc.IsNil)
 	c.Check(len(task.Log), tc.Equals, 2)
@@ -110,7 +109,7 @@ func (s *taskSuite) TestGetTaskWithUnitReceiver(c *tc.C) {
 	unitUUID := s.addUnit(c)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	task, _, err := s.state.GetTask(context.Background(), taskID)
+	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 }
@@ -123,7 +122,7 @@ func (s *taskSuite) TestGetTaskWithMachineReceiver(c *tc.C) {
 	machineUUID := s.addMachine(c)
 	s.addOperationMachineTask(c, taskUUID, machineUUID)
 
-	task, _, err := s.state.GetTask(context.Background(), taskID)
+	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(task.Receiver, tc.Equals, "0")
 }
@@ -137,7 +136,7 @@ func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
 	operationUUID := s.addOperation(c)
 	s.addOperationTaskWithID(c, operationUUID, taskID, "1")
 
-	task, _, err := s.state.GetTask(context.Background(), taskID)
+	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(task.Receiver, tc.Equals, "")
 }
@@ -145,7 +144,7 @@ func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
 func (s *taskSuite) TestCancelTaskNotFound(c *tc.C) {
 	taskID := "42"
 
-	_, err := s.state.CancelTask(context.Background(), taskID)
+	_, err := s.state.CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `.*task with ID \"42\" not found`)
 }
 

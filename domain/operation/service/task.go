@@ -10,7 +10,6 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
-	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 )
@@ -32,23 +31,23 @@ func (s *Service) ReceiverFromTask(ctx context.Context, id string) (string, erro
 }
 
 // GetTask returns the task identified by its ID.
-func (s *Service) GetTask(ctx context.Context, taskID string) (operation.TaskInfo, error) {
+func (s *Service) GetTask(ctx context.Context, taskID string) (operation.Task, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
-		coretrace.WithAttributes(
+		trace.WithAttributes(
 			trace.StringAttr("task.id", taskID),
 		))
 	defer span.End()
 
 	task, outputPath, err := s.st.GetTask(ctx, taskID)
 	if err != nil {
-		return operation.TaskInfo{}, errors.Errorf("retrieving task %q: %w", taskID, err)
+		return operation.Task{}, errors.Errorf("retrieving task %q: %w", taskID, err)
 	}
 
 	if outputPath != nil {
 		// Read output from object store
 		output, err := s.readTaskOutput(ctx, *outputPath)
 		if err != nil {
-			return operation.TaskInfo{}, errors.Errorf("reading task output %q: %w", taskID, err)
+			return operation.Task{}, errors.Errorf("reading task output %q: %w", taskID, err)
 		}
 		task.Output = output
 	}
@@ -85,16 +84,16 @@ func (s *Service) readTaskOutput(ctx context.Context, path string) (map[string]a
 
 // CancelTask attempts to cancel an enqueued task, identified by its
 // ID.
-func (s *Service) CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error) {
+func (s *Service) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
-		coretrace.WithAttributes(
+		trace.WithAttributes(
 			trace.StringAttr("task.id", taskID),
 		))
 	defer span.End()
 
 	task, err := s.st.CancelTask(ctx, taskID)
 	if err != nil {
-		return operation.TaskInfo{}, errors.Errorf("cancelling task %q: %w", taskID, err)
+		return operation.Task{}, errors.Errorf("cancelling task %q: %w", taskID, err)
 	}
 
 	return task, nil

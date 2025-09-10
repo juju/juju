@@ -102,11 +102,18 @@ type UnitTaskResult struct {
 	IsLeader     bool
 }
 
+// Task represents the task as returned to the apiserver (which will convert
+// the string to an actionReceiverTag and back to string).
+type Task struct {
+	TaskInfo
+
+	Receiver string
+}
+
 // TaskInfo represents the information about a task.
 type TaskInfo struct {
 	ID string
 
-	Receiver       string
 	ActionName     string
 	ExecutionGroup *string
 	IsParallel     bool

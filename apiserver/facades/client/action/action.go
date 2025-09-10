@@ -73,11 +73,11 @@ type OperationService interface {
 		args operation.TaskArgs) (operation.RunResult, error)
 
 	// GetTask returns the task identified by its ID.
-	GetTask(ctx context.Context, taskID string) (operation.TaskInfo, error)
+	GetTask(ctx context.Context, taskID string) (operation.Task, error)
 
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
-	CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error)
+	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -154,7 +154,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		action, err := a.operationService.GetTask(ctx, actionTag.Id())
+		task, err := a.operationService.GetTask(ctx, actionTag.Id())
 		if err != nil {
 			// NOTE(nvinuesa): The returned error in this case is not correct
 			// (should be NotFound for ActionNotFound for example), but since
@@ -165,7 +165,12 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			continue
 		}
 
-		response.Results[i] = makeActionResult(action)
+		receiverTag, err := names.ActionReceiverTag(task.Receiver)
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		response.Results[i] = makeActionResult(task, receiverTag)
 	}
 
 	return response, nil
@@ -196,7 +201,13 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		response.Results[i] = makeActionResult(cancelledAction)
+		receiverTag, err := names.ActionReceiverTag(cancelledAction.Receiver)
+		if err != nil {
+			response.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		response.Results[i] = makeActionResult(cancelledAction, receiverTag)
 	}
 	return response, nil
 }
@@ -265,13 +276,13 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-func makeActionResult(task operation.TaskInfo) params.ActionResult {
+func makeActionResult(task operation.Task, receiverTag names.Tag) params.ActionResult {
 	actionTag := names.NewActionTag(task.ID)
 	ac := &params.Action{
 		Tag:            actionTag.Id(),
 		Name:           task.ActionName,
-		Receiver:       task.Receiver,
 		Parameters:     task.Parameters,
+		Receiver:       receiverTag.String(),
 		Parallel:       &task.IsParallel,
 		ExecutionGroup: task.ExecutionGroup,
 	}

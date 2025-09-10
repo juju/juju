@@ -207,10 +207,10 @@ func (m *MockOperationService) EXPECT() *MockOperationServiceMockRecorder {
 }
 
 // CancelTask mocks base method.
-func (m *MockOperationService) CancelTask(arg0 context.Context, arg1 string) (operation.TaskInfo, error) {
+func (m *MockOperationService) CancelTask(arg0 context.Context, arg1 string) (operation.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CancelTask", arg0, arg1)
-	ret0, _ := ret[0].(operation.TaskInfo)
+	ret0, _ := ret[0].(operation.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -228,58 +228,19 @@ type MockOperationServiceCancelTaskCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceCancelTaskCall) Return(arg0 operation.TaskInfo, arg1 error) *MockOperationServiceCancelTaskCall {
+func (c *MockOperationServiceCancelTaskCall) Return(arg0 operation.Task, arg1 error) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceCancelTaskCall) Do(f func(context.Context, string) (operation.TaskInfo, error)) *MockOperationServiceCancelTaskCall {
+func (c *MockOperationServiceCancelTaskCall) Do(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.TaskInfo, error)) *MockOperationServiceCancelTaskCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetTask mocks base method.
-func (m *MockOperationService) GetTask(arg0 context.Context, arg1 string) (operation.TaskInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTask", arg0, arg1)
-	ret0, _ := ret[0].(operation.TaskInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTask indicates an expected call of GetTask.
-func (mr *MockOperationServiceMockRecorder) GetTask(arg0, arg1 any) *MockOperationServiceGetTaskCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTask", reflect.TypeOf((*MockOperationService)(nil).GetTask), arg0, arg1)
-	return &MockOperationServiceGetTaskCall{Call: call}
-}
-
-// MockOperationServiceGetTaskCall wrap *gomock.Call
-type MockOperationServiceGetTaskCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockOperationServiceGetTaskCall) Return(arg0 operation.TaskInfo, arg1 error) *MockOperationServiceGetTaskCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockOperationServiceGetTaskCall) Do(f func(context.Context, string) (operation.TaskInfo, error)) *MockOperationServiceGetTaskCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationServiceGetTaskCall) DoAndReturn(f func(context.Context, string) (operation.TaskInfo, error)) *MockOperationServiceGetTaskCall {
+func (c *MockOperationServiceCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceCancelTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -358,6 +319,45 @@ func (c *MockOperationServiceGetOperationsCall) Do(f func(context.Context, opera
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOperationServiceGetOperationsCall) DoAndReturn(f func(context.Context, operation.QueryArgs) (operation.QueryResult, error)) *MockOperationServiceGetOperationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetTask mocks base method.
+func (m *MockOperationService) GetTask(arg0 context.Context, arg1 string) (operation.Task, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTask", arg0, arg1)
+	ret0, _ := ret[0].(operation.Task)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTask indicates an expected call of GetTask.
+func (mr *MockOperationServiceMockRecorder) GetTask(arg0, arg1 any) *MockOperationServiceGetTaskCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTask", reflect.TypeOf((*MockOperationService)(nil).GetTask), arg0, arg1)
+	return &MockOperationServiceGetTaskCall{Call: call}
+}
+
+// MockOperationServiceGetTaskCall wrap *gomock.Call
+type MockOperationServiceGetTaskCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceGetTaskCall) Return(arg0 operation.Task, arg1 error) *MockOperationServiceGetTaskCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceGetTaskCall) Do(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceGetTaskCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceGetTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockOperationServiceGetTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

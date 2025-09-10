@@ -45,8 +45,10 @@ func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	taskID := "42"
-	expectedAction := operation.TaskInfo{
-		ID:       taskID,
+	expectedAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: taskID,
+		},
 		Receiver: "test-app/0",
 	}
 
@@ -63,7 +65,7 @@ func (s *serviceSuite) TestGetTaskError(c *tc.C) {
 	taskID := "42"
 	expectedError := errors.New("task not found")
 
-	s.state.EXPECT().GetTask(gomock.Any(), gomock.Any()).Return(operation.TaskInfo{}, nil, expectedError)
+	s.state.EXPECT().GetTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, nil, expectedError)
 
 	_, err := s.service().GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `retrieving task ".*": task not found`)
@@ -73,8 +75,10 @@ func (s *serviceSuite) TestCancelTaskSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	taskID := "42"
-	expectedAction := operation.TaskInfo{
-		ID:       taskID,
+	expectedAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: taskID,
+		},
 		Receiver: "test-app/0",
 	}
 
@@ -91,7 +95,7 @@ func (s *serviceSuite) TestCancelTaskError(c *tc.C) {
 	taskID := "42"
 	expectedError := errors.New("task not found")
 
-	s.state.EXPECT().CancelTask(gomock.Any(), gomock.Any()).Return(operation.TaskInfo{}, expectedError)
+	s.state.EXPECT().CancelTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, expectedError)
 
 	_, err := s.service().CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `cancelling task ".*": task not found`)
@@ -101,8 +105,10 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	taskID := "42"
-	expectedAction := operation.TaskInfo{
-		ID:       taskID,
+	expectedAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: taskID,
+		},
 		Receiver: "test-app/0",
 	}
 

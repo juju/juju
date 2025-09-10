@@ -66,16 +66,18 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	resAction := operation.TaskInfo{
-		ID:             "42",
-		Receiver:       "3",
-		ActionName:     "charm-action-0",
-		ExecutionGroup: ptr("group-0"),
-		IsParallel:     true,
-		Parameters: map[string]any{
-			"arg-0": "value-0",
+	resAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID:             "42",
+			ActionName:     "charm-action-0",
+			ExecutionGroup: ptr("group-0"),
+			IsParallel:     true,
+			Parameters: map[string]any{
+				"arg-0": "value-0",
+			},
+			Status: corestatus.Completed,
 		},
-		Status: corestatus.Completed,
+		Receiver: "app/0", // Unit receiver.
 	}
 	taskID := "42"
 
@@ -84,7 +86,7 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 		taskID,
 	).Return(resAction, nil)
 
-	result, err := s.client.Actions(context.Background(), params.Entities{
+	result, err := s.client.Actions(c.Context(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewActionTag(taskID).String()},
 		},
@@ -94,7 +96,7 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 	c.Check(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.IsNil)
 	c.Check(result.Results[0].Action.Tag, tc.Equals, "42")
-	c.Check(result.Results[0].Action.Receiver, tc.Equals, "3")
+	c.Check(result.Results[0].Action.Receiver, tc.Equals, "unit-app-0") // ActionReceiverTag applies the conversion.
 	c.Check(result.Results[0].Action.Name, tc.Equals, "charm-action-0")
 	c.Check(*result.Results[0].Action.ExecutionGroup, tc.Equals, "group-0")
 }
@@ -142,7 +144,7 @@ func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		taskID,
-	).Return(operation.TaskInfo{}, operationerrors.TaskNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -165,7 +167,7 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		taskID,
-	).Return(operation.TaskInfo{}, errors.New("boom"))
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -185,8 +187,11 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	s.setupAPI(c, jujutesting.AdminUser)
 	taskID0 := "42"
 	taskID1 := "43"
-	resAction0 := operation.TaskInfo{
-		ID: "42",
+	resAction0 := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: "42",
+		},
+		Receiver: "3", // Machine receiver.
 	}
 
 	s.operationService.EXPECT().GetTask(
@@ -196,7 +201,7 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	s.operationService.EXPECT().GetTask(
 		gomock.Any(),
 		taskID1,
-	).Return(operation.TaskInfo{}, operationerrors.TaskNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -230,8 +235,11 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 
 	s.setupAPI(c, jujutesting.AdminUser)
 
-	cancelledAction := operation.TaskInfo{
-		ID: "42",
+	cancelledAction := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID: "42",
+		},
+		Receiver: "app/0", // Unit receiver.
 	}
 	taskID := "42"
 
@@ -247,8 +255,10 @@ func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 	})
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Action.Tag, tc.Equals, "42")
+	c.Check(result.Results[0].Action.Receiver, tc.Equals, "unit-app-0") // ActionReceiverTag applies the conversion.
 }
 
 func (s *actionSuite) TestCancelPermissionDenied(c *tc.C) {
@@ -294,7 +304,7 @@ func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
 		taskID,
-	).Return(operation.TaskInfo{}, operationerrors.TaskNotFound)
+	).Return(operation.Task{}, operationerrors.TaskNotFound)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -317,7 +327,7 @@ func (s *actionSuite) TestCancelServerError(c *tc.C) {
 	s.operationService.EXPECT().CancelTask(
 		gomock.Any(),
 		taskID,
-	).Return(operation.TaskInfo{}, errors.New("boom"))
+	).Return(operation.Task{}, errors.New("boom"))
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
