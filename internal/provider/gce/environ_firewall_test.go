@@ -91,6 +91,7 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix, &computepb.Firewall{
 		Name:         ptr(fwPrefix),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
@@ -276,6 +277,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, errors.NotFoundf(fwPrefix))
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-26"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
@@ -286,6 +288,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	})
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-11"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24"},
@@ -296,6 +299,7 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 	})
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"0.0.0.0/0"},
@@ -336,6 +340,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*computepb.Allowed{{
@@ -369,6 +374,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*computepb.Allowed{{
@@ -413,6 +419,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-8e65efabcd", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-8e65efabcd"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"172.0.0.0/24"},
 		Allowed: []*computepb.Allowed{{
@@ -425,6 +432,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 	})
 	s.MockService.EXPECT().AddFirewall(gomock.Any(), &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-11"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		Network:      ptr("/path/to/vpc"),
 		SourceRanges: []string{"10.0.0.0/24"},
@@ -435,6 +443,7 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 	})
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"192.168.1.0/24"},
 		Allowed: []*computepb.Allowed{{
@@ -496,6 +505,7 @@ func (s *environFirewallSuite) TestClosePortsUpdate(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
@@ -529,6 +539,7 @@ func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
@@ -562,6 +573,7 @@ func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *gc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwPrefix+"-d01a82", &computepb.Firewall{
 		Name:         ptr(fwPrefix + "-d01a82"),
+		Description:  ptr("created by Juju with target " + fwPrefix),
 		TargetTags:   []string{fwPrefix},
 		SourceRanges: []string{"10.0.0.0/24"},
 		Allowed: []*computepb.Allowed{{
@@ -614,6 +626,7 @@ func (s *environFirewallSuite) TestOpenModelPorts(c *gc.C) {
 		gomock.Any(),
 		&computepb.Firewall{
 			Name:         ptr(fwPrefix + "-14"),
+			Description:  ptr("created by Juju with target " + fwPrefix),
 			TargetTags:   []string{fwPrefix},
 			Network:      ptr("/path/to/vpc"),
 			SourceRanges: []string{"192.168.1.0/24"},

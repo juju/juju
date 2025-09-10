@@ -33,10 +33,8 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 		sourceCIDRs = []string{firewall.AllNetworksIPV4CIDR}
 	}
 	firewall := computepb.Firewall{
-		// Allowed is set below.
-		// Description is not set.
-		Name: &name,
-		// Network: (defaults to global)
+		Name:        &name,
+		Description: ptr(fmt.Sprintf("created by Juju with target %s", target)),
 		// SourceTags is not set.
 		TargetTags:   []string{target},
 		SourceRanges: sourceCIDRs,
