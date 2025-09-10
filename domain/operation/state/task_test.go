@@ -36,10 +36,10 @@ func (s *taskSuite) TestGetTask(c *tc.C) {
 
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
-	operationUUID := s.addOperation(c)
-	s.addOperationAction(c, operationUUID, charmUUID)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "1")
-	unitUUID := s.addUnit(c)
+	operationUUID := s.addOperationWithExecutionGroup(c, "test-group")
+	s.addOperationAction(c, operationUUID, charmUUID, "test-action")
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	unitUUID := s.addUnitWithName(c, charmUUID, "test-app/0")
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
 	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
@@ -55,11 +55,10 @@ func (s *taskSuite) TestGetTaskWithOutputPath(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "1")
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "running")
 
 	storePath := "task-output/test-output.json"
-	storeMetadataUUID := s.addObjectStoreMetadata(c, "sha256hash", "sha384hash", 100, storePath)
-	s.addOperationTaskOutput(c, taskUUID, storeMetadataUUID)
+	s.addOperationTaskOutputWithData(c, taskUUID, "sha256hash", "sha384hash", 100, storePath)
 
 	_, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -72,7 +71,7 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	s.addOperationTaskWithID(c, operationUUID, taskID, "1")
+	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
 	s.addOperationParameter(c, operationUUID, "param1", "value1")
 	s.addOperationParameter(c, operationUUID, "param2", "value2")
 
@@ -88,9 +87,9 @@ func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "1")
-	s.addOperationLog(c, taskUUID, "log entry 1")
-	s.addOperationLog(c, taskUUID, "log entry 2")
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	s.addOperationTaskLog(c, taskUUID, "log entry 1")
+	s.addOperationTaskLog(c, taskUUID, "log entry 2")
 
 	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -105,8 +104,8 @@ func (s *taskSuite) TestGetTaskWithUnitReceiver(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "1")
-	unitUUID := s.addUnit(c)
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	unitUUID := s.addUnitWithName(c, s.addCharm(c), "test-app/0")
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
 	task, _, err := s.state.GetTask(c.Context(), taskID)
@@ -118,8 +117,8 @@ func (s *taskSuite) TestGetTaskWithMachineReceiver(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "1")
-	machineUUID := s.addMachine(c)
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	machineUUID := s.addMachine(c, "0")
 	s.addOperationMachineTask(c, taskUUID, machineUUID)
 
 	task, _, err := s.state.GetTask(c.Context(), taskID)
@@ -134,7 +133,7 @@ func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
-	s.addOperationTaskWithID(c, operationUUID, taskID, "1")
+	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
 
 	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
