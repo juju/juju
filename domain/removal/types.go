@@ -4,7 +4,6 @@
 package removal
 
 import (
-	"strconv"
 	"time"
 )
 
@@ -28,23 +27,6 @@ const (
 	// attachment to a storage instance.
 	StorageAttachment
 )
-
-func (t JobType) String() string {
-	switch t {
-	case RelationJob:
-		return "relation"
-	case UnitJob:
-		return "unit"
-	case ApplicationJob:
-		return "application"
-	case MachineJob:
-		return "machine"
-	case ModelJob:
-		return "model"
-	default:
-		return strconv.FormatInt(int64(t), 10)
-	}
-}
 
 // Job is a removal job for a single entity.
 type Job struct {
