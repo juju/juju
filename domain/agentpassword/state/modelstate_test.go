@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -22,6 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	networktesting "github.com/juju/juju/domain/network/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -644,7 +646,12 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
-		Nonce: ptr("foo"),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: networktesting.GenNetNodeUUID(c),
+		},
+		Nonce:              ptr("foo"),
+		MachineNetNodeUUID: networktesting.GenNetNodeUUID(c),
+		MachineUUID:        machinetesting.GenUUID(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)

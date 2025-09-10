@@ -1257,7 +1257,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *tc.C) {
-	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, application.AddIAASUnitArg{})
+	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1270,7 +1270,7 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitUnitNotFound(c
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
-	expectedAppUUID := s.createIAASApplication(c, "foo", life.Alive, application.AddIAASUnitArg{})
+	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -258,7 +259,7 @@ func (s *State) addCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id core
 	// If the charmDownloadInfo has already been inserted, we don't need to do
 	// anything. We want to keep the original download information.
 	query := `
-INSERT INTO charm_download_info (*) 
+INSERT INTO charm_download_info (*)
 VALUES ($setCharmDownloadInfo.*)
 ON CONFLICT DO NOTHING;`
 	stmt, err := s.Prepare(query, downloadInfoState)
@@ -1274,23 +1275,25 @@ WHERE name = $unitName.name;
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
-func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
+func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) error {
 	query := `
 SELECT &lifeID.*
 FROM unit
 WHERE uuid = $unitUUID.uuid;
 `
-	stmt, err := st.Prepare(query, ident, lifeID{})
+
+	input := unitUUID{UnitUUID: uuid}
+	stmt, err := st.Prepare(query, input, lifeID{})
 	if err != nil {
-		return errors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
+		return errors.Errorf("preparing query for unit %q: %w", uuid, err)
 	}
 
 	var result lifeID
-	err = tx.Query(ctx, stmt, ident).Get(&result)
+	err = tx.Query(ctx, stmt, input).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
-		return errors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
+		return errors.Errorf("getting unit %q life: %w", uuid, err)
 	}
 
 	switch result.LifeID {

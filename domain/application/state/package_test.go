@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	networktesting "github.com/juju/juju/domain/network/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -225,6 +226,12 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 
 	ctx := c.Context()
 	units := make([]application.AddIAASUnitArg, unitCount)
+	for i := range units {
+		netNodeUUID := networktesting.GenNetNodeUUID(c)
+		units[i].MachineUUID = coremachinetesting.GenUUID(c)
+		units[i].MachineNetNodeUUID = netNodeUUID
+		units[i].NetNodeUUID = netNodeUUID
+	}
 
 	appUUID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
@@ -686,19 +693,19 @@ WHERE uuid = ?
 	return machineName, machineUUID
 }
 
-func (s *baseSuite) assertUnitPrincipal(c *tc.C, principalName, subordinateName coreunit.Name) {
-	var foundPrincipalName coreunit.Name
+func (s *baseSuite) assertUnitPrincipal(c *tc.C, principalUUID coreunit.UUID, subordinateName coreunit.Name) {
+	var foundPrincipalUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT u1.name
+SELECT u1.uuid
 FROM unit u1
 JOIN unit_principal up ON up.principal_uuid = u1.uuid
 JOIN unit u2 ON u2.uuid = up.unit_uuid
 WHERE u2.name = ?
-`, subordinateName).Scan(&foundPrincipalName)
+`, subordinateName).Scan(&foundPrincipalUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(foundPrincipalName, tc.Equals, principalName)
+	c.Assert(foundPrincipalUUID, tc.Equals, principalUUID.String())
 }
 
 func (s *baseSuite) setUnitLife(c *tc.C, uuid coreunit.UUID, life life.Life) {

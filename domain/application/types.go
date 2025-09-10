@@ -255,8 +255,13 @@ type UnitStatusArg struct {
 type SubordinateUnitArg struct {
 	CreateUnitStorageArg
 	UnitStatusArg
-	SubordinateAppID  application.ID
-	PrincipalUnitName coreunit.Name
+	SubordinateAppID application.ID
+	// NetNodeUUID describes the network node uuid for this subordinate unit.
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// PrincipalUnitUUID describes the unique id of the principal unit for this
+	// subordinate.
+	PrincipalUnitUUID coreunit.UUID
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
