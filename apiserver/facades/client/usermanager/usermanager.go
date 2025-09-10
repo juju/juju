@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -78,6 +79,16 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		}
 
 	}
+
+	securitylog.LogUser(
+		securitylog.UserSecurityEvent{
+			Actor:  api.apiUser.Id(),
+			Target: args.Users[0].Username,
+			Action: "created",
+			Access: string(permission.LoginAccess),
+		},
+	)
+
 	return result, nil
 }
 
@@ -134,6 +145,16 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 		}
 		deletions.Results[i].Error = nil
 	}
+
+	securitylog.LogUser(
+		securitylog.UserSecurityEvent{
+			Actor:  api.apiUser.Id(),
+			Target: fmt.Sprintf("%d users", len(entities.Entities)),
+			Action: "deleted",
+			Access: string(permission.NoAccess),
+		},
+	)
+
 	return deletions, nil
 }
 
