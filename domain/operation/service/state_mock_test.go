@@ -17,6 +17,7 @@ import (
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	operation "github.com/juju/juju/domain/operation"
 	internal "github.com/juju/juju/domain/operation/internal"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -78,6 +79,45 @@ func (c *MockStateCancelTaskCall) Do(f func(context.Context, string) (operation.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockStateCancelTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetIDsForAbortingTaskOfReceiver mocks base method.
+func (m *MockState) GetIDsForAbortingTaskOfReceiver(ctx context.Context, receiverUUID uuid.UUID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIDsForAbortingTaskOfReceiver", ctx, receiverUUID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIDsForAbortingTaskOfReceiver indicates an expected call of GetIDsForAbortingTaskOfReceiver.
+func (mr *MockStateMockRecorder) GetIDsForAbortingTaskOfReceiver(ctx, receiverUUID any) *MockStateGetIDsForAbortingTaskOfReceiverCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIDsForAbortingTaskOfReceiver", reflect.TypeOf((*MockState)(nil).GetIDsForAbortingTaskOfReceiver), ctx, receiverUUID)
+	return &MockStateGetIDsForAbortingTaskOfReceiverCall{Call: call}
+}
+
+// MockStateGetIDsForAbortingTaskOfReceiverCall wrap *gomock.Call
+type MockStateGetIDsForAbortingTaskOfReceiverCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) Return(arg0 []string, arg1 error) *MockStateGetIDsForAbortingTaskOfReceiverCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) Do(f func(context.Context, uuid.UUID) ([]string, error)) *MockStateGetIDsForAbortingTaskOfReceiverCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) DoAndReturn(f func(context.Context, uuid.UUID) ([]string, error)) *MockStateGetIDsForAbortingTaskOfReceiverCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -162,6 +202,45 @@ func (c *MockStateGetTaskCall) DoAndReturn(f func(context.Context, string) (oper
 	return c
 }
 
+// GetTaskIDsByUUIDsFilteredByReceiverUUID mocks base method.
+func (m *MockState) GetTaskIDsByUUIDsFilteredByReceiverUUID(ctx context.Context, receiverUUID uuid.UUID, taskUUIDs []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTaskIDsByUUIDsFilteredByReceiverUUID", ctx, receiverUUID, taskUUIDs)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTaskIDsByUUIDsFilteredByReceiverUUID indicates an expected call of GetTaskIDsByUUIDsFilteredByReceiverUUID.
+func (mr *MockStateMockRecorder) GetTaskIDsByUUIDsFilteredByReceiverUUID(ctx, receiverUUID, taskUUIDs any) *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskIDsByUUIDsFilteredByReceiverUUID", reflect.TypeOf((*MockState)(nil).GetTaskIDsByUUIDsFilteredByReceiverUUID), ctx, receiverUUID, taskUUIDs)
+	return &MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall{Call: call}
+}
+
+// MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall wrap *gomock.Call
+type MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall) Return(arg0 []string, arg1 error) *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall) Do(f func(context.Context, uuid.UUID, []string) ([]string, error)) *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall) DoAndReturn(f func(context.Context, uuid.UUID, []string) ([]string, error)) *MockStateGetTaskIDsByUUIDsFilteredByReceiverUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetTaskUUIDByID mocks base method.
 func (m *MockState) GetTaskUUIDByID(ctx context.Context, taskID string) (string, error) {
 	m.ctrl.T.Helper()
@@ -197,6 +276,44 @@ func (c *MockStateGetTaskUUIDByIDCall) Do(f func(context.Context, string) (strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetTaskUUIDByIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateGetTaskUUIDByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForTaskAbortingWatcher mocks base method.
+func (m *MockState) NamespaceForTaskAbortingWatcher() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForTaskAbortingWatcher")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForTaskAbortingWatcher indicates an expected call of NamespaceForTaskAbortingWatcher.
+func (mr *MockStateMockRecorder) NamespaceForTaskAbortingWatcher() *MockStateNamespaceForTaskAbortingWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForTaskAbortingWatcher", reflect.TypeOf((*MockState)(nil).NamespaceForTaskAbortingWatcher))
+	return &MockStateNamespaceForTaskAbortingWatcherCall{Call: call}
+}
+
+// MockStateNamespaceForTaskAbortingWatcherCall wrap *gomock.Call
+type MockStateNamespaceForTaskAbortingWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForTaskAbortingWatcherCall) Return(arg0 string) *MockStateNamespaceForTaskAbortingWatcherCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForTaskAbortingWatcherCall) Do(f func() string) *MockStateNamespaceForTaskAbortingWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForTaskAbortingWatcherCall) DoAndReturn(f func() string) *MockStateNamespaceForTaskAbortingWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

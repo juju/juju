@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/domain/operation/internal"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // State describes the methods that a state implementation must provide to manage
@@ -22,11 +23,24 @@ type State interface {
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+	// GetIDsForAbortingTaskOfReceiver returns a slice of task IDs for any
+	// task with the given receiver UUID and having a status of Aborting.
+	GetIDsForAbortingTaskOfReceiver(
+		ctx context.Context,
+		receiverUUID internaluuid.UUID,
+	) ([]string, error)
 	// GetTask returns the task identified by its ID.
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object
 	// store.
 	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
+	// GetTaskIDsByUUIDsFilteredByReceiverUUID returns task IDs of the tasks
+	// provided having the given receiverUUID.
+	GetTaskIDsByUUIDsFilteredByReceiverUUID(
+		ctx context.Context,
+		receiverUUID internaluuid.UUID,
+		taskUUIDs []string,
+	) ([]string, error)
 	// GetTaskUUIDByID returns the task UUID for the given task ID.
 	GetTaskUUIDByID(ctx context.Context, taskID string) (string, error)
 	// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
@@ -36,6 +50,9 @@ type State interface {
 		taskUUID string,
 		page int,
 	) ([]internal.TaskLogMessage, int, error)
+	// NamespaceForTaskAbortingWatcher returns the name space to be used
+	// for the TaskAbortingWatcher.
+	NamespaceForTaskAbortingWatcher() string
 	// NamespaceForTaskLogWatcher returns the name space for watching task
 	// log messages.
 	NamespaceForTaskLogWatcher() string
