@@ -71,7 +71,8 @@ func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 		macaroonstate.NewState(s.TxnRunnerFactory()),
 		s.clock,
 	)
-	s.macaroonService.InitialiseBakeryConfig(c.Context())
+	err := s.macaroonService.InitialiseBakeryConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *macaroonAuthSuite) setupMocks(c *tc.C) *gomock.Controller {

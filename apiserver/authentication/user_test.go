@@ -415,7 +415,7 @@ func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Vers
 	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
+func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.Bakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", t)
 	err := s.NextErr()
 	return s, err
