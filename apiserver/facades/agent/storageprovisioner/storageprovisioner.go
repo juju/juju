@@ -24,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -1184,7 +1185,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 			)
 		}
 
-		if va.BlockDeviceLink == "" {
+		if len(va.BlockDeviceLinks) == 0 {
 			// TODO: We think that a volume attachment with no device link is
 			// not provisioned. The property is set when the storage provisioner
 			// calls SetVolumeAttachmentInfo. This is a temporary workaround for
@@ -1201,7 +1202,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 			MachineTag: machineTag.String(),
 			Info: params.VolumeAttachmentInfo{
 				DeviceName: va.BlockDeviceName,
-				DeviceLink: va.BlockDeviceLink,
+				DeviceLink: domainblockdevice.IDLink(va.BlockDeviceLinks),
 				BusAddress: va.BlockDeviceBusAddress,
 				ReadOnly:   va.ReadOnly,
 				// PlanInfo is only used by a storage provisioner to set the

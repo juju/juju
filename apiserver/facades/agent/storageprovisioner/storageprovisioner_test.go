@@ -209,7 +209,7 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachine(c *tc.C) {
 		Return(storageprovisioning.VolumeAttachment{
 			VolumeID:              "123",
 			BlockDeviceName:       "blk",
-			BlockDeviceLink:       "/dev/blocky",
+			BlockDeviceLinks:      []string{"/dev/disk/by-id/blocky"},
 			BlockDeviceBusAddress: "blk:addr:f00",
 			ReadOnly:              true,
 		}, nil)
@@ -231,7 +231,7 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachine(c *tc.C) {
 					MachineTag: names.NewMachineTag(s.machineName.String()).String(),
 					Info: params.VolumeAttachmentInfo{
 						DeviceName: "blk",
-						DeviceLink: "/dev/blocky",
+						DeviceLink: "/dev/disk/by-id/blocky",
 						BusAddress: "blk:addr:f00",
 						ReadOnly:   true,
 						PlanInfo:   nil,

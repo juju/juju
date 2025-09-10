@@ -406,7 +406,7 @@ func (s *volumeSuite) TestGetVolumeAttachment(c *tc.C) {
 		VolumeID:              "123",
 		ReadOnly:              true,
 		BlockDeviceName:       "abc",
-		BlockDeviceLink:       "xyz",
+		BlockDeviceLinks:      []string{"xyz"},
 		BlockDeviceBusAddress: "addr",
 	}
 	s.state.EXPECT().GetVolumeAttachment(c.Context(), vaUUID).Return(va, nil)

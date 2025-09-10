@@ -111,5 +111,22 @@ func IsEmpty(dev blockdevice.BlockDevice) bool {
 		dev.MountPoint == "" &&
 		dev.SizeMiB == 0 &&
 		dev.FilesystemUUID == "" &&
-		dev.WWN == ""
+		dev.WWN == "" &&
+		dev.SerialId == ""
+}
+
+// IDLink takes a list of dev links and returns the shortest dev link with the
+// prefix `/dev/disk/by-id/` to follow the same logic as lsblk's ID-LINK.
+// If no ID link is found, returns an empty string.
+func IDLink(devLinks []string) string {
+	shortest := ""
+	for _, devLink := range devLinks {
+		if !strings.HasPrefix(devLink, DevLinkByID) {
+			continue
+		}
+		if shortest == "" || len(shortest) > len(devLink) {
+			shortest = devLink
+		}
+	}
+	return shortest
 }
