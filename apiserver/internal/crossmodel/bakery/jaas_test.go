@@ -113,6 +113,20 @@ func (s *jaasBakerySuite) TestGetConsumeOfferCaveatsWithRelation(c *tc.C) {
 	c.Check(caveats, tc.SameContents, s.caveats(now))
 }
 
+func (s *jaasBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().Truncate(time.Second)
+	s.clock.EXPECT().Now().Return(now)
+
+	bakery := JAASOfferBakery{
+		clock: s.clock,
+	}
+	caveats := bakery.GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
+
+	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+}
+
 func (s *jaasBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -195,6 +209,10 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], modelUUID)
+}
+
+func (s *jaasBakerySuite) caveatWithRelation(now time.Time) []checkers.Caveat {
+	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
 }
 
 var _ bakery.ThirdPartyLocator = (*externalPublicKeyLocator)(nil)

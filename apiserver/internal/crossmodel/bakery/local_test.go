@@ -105,6 +105,20 @@ func (s *localBakerySuite) TestGetConsumeOfferCaveatsWithRelation(c *tc.C) {
 	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
 }
 
+func (s *localBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().Truncate(time.Second)
+	s.clock.EXPECT().Now().Return(now)
+
+	bakery := LocalOfferBakery{
+		clock: s.clock,
+	}
+	caveats := bakery.GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
+
+	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+}
+
 func (s *localBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

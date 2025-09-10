@@ -38,9 +38,13 @@ type OfferBakery interface {
 	ParseCaveat(caveat string) (crossmodelbakery.OfferAccessDetails, error)
 	// GetConsumeOfferCaveats returns the caveats for consuming an offer.
 	GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
+	// GetRemoteRelationCaveats returns the caveats for accessing a remote relation.
+	GetRemoteRelationCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
 	// InferDeclared retrieves any declared information from
 	// the given macaroons and returns it as a key-value map.
 	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) map[string]string
+	// NewMacaroon creates a new macaroon for the given version, caveats and ops.
+	NewMacaroon(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)
 	// CreateDischargeMacaroon creates a discharge macaroon.
 	CreateDischargeMacaroon(
 		ctx context.Context,
@@ -129,6 +133,37 @@ func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details cross
 	return a.bakery.GetConsumeOfferCaveats(details.OfferUUID, details.SourceModelUUID, details.User, details.Relation), nil
 }
 
+// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
+// specified offer.
+func (a *AuthContext) CreateConsumeOfferMacaroon(
+	ctx context.Context,
+	modelUUID model.UUID,
+	offerUUID, username string,
+	version bakery.Version,
+) (*bakery.Macaroon, error) {
+	return a.bakery.NewMacaroon(
+		ctx, version,
+		a.bakery.GetConsumeOfferCaveats(offerUUID, modelUUID.String(), username, ""),
+		crossModelConsumeOp(offerUUID),
+	)
+}
+
+// CreateRemoteRelationMacaroon creates a macaroon that authorizes access to the
+// specified relation.
+func (a *AuthContext) CreateRemoteRelationMacaroon(
+	ctx context.Context,
+	modelUUID model.UUID,
+	offerUUID, username string,
+	rel names.RelationTag,
+	version bakery.Version,
+) (*bakery.Macaroon, error) {
+	return a.bakery.NewMacaroon(
+		ctx, version,
+		a.bakery.GetRemoteRelationCaveats(offerUUID, modelUUID.String(), username, rel.String()),
+		crossModelRelateOp(rel.String()),
+	)
+}
+
 func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
 	if target.ObjectType == permission.Cloud {
 		return "", errors.NotValidf("target %q", target.ObjectType)
@@ -195,4 +230,18 @@ func (a crossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bak
 		allowed[i] = queryOps[i].Action == consumeOp || queryOps[i].Action == relateOp
 	}
 	return allowed, nil, nil
+}
+
+func crossModelConsumeOp(offerUUID string) bakery.Op {
+	return bakery.Op{
+		Entity: offerUUID,
+		Action: consumeOp,
+	}
+}
+
+func crossModelRelateOp(relationID string) bakery.Op {
+	return bakery.Op{
+		Entity: relationID,
+		Action: relateOp,
+	}
 }

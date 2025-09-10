@@ -74,9 +74,25 @@ func (o *LocalOfferBakery) GetConsumeOfferCaveats(offerUUID, sourceModelUUID, us
 	return caveats
 }
 
+// GetRemoteRelationCaveats returns the caveats for accessing a remote relation.
+func (o *LocalOfferBakery) GetRemoteRelationCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat {
+	return []checkers.Caveat{
+		checkers.TimeBeforeCaveat(o.clock.Now().Add(offerPermissionExpiryTime)),
+		checkers.DeclaredCaveat(sourceModelKey, sourceModelUUID),
+		checkers.DeclaredCaveat(offerUUIDKey, offerUUID),
+		checkers.DeclaredCaveat(usernameKey, username),
+		checkers.DeclaredCaveat(relationKey, relation),
+	}
+}
+
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *LocalOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
 	return checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+}
+
+// NewMacaroon creates a new macaroon for the given version, caveats and ops.
+func (o *LocalOfferBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+	return o.oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
 // CreateDischargeMacaroon creates a discharge macaroon.
