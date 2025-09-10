@@ -895,7 +895,71 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementCIDR(c *gc.C) {
 	c.Assert(*subnets[0].Name, gc.Equals, "subnet3")
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceNoFound(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpaces(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		Placement:   "subnet=subnet2",
+		Constraints: constraints.MustParse("spaces=foo,bar"),
+		SubnetsToZones: []map[corenetwork.Id][]string{
+			{"subnet1": {"home-zone", "away-zone"}, "subnet2": {"home-zone", "away-zone"}},
+			{"subnet3": {"home-zone", "away-zone"}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vpcLink, gc.NotNil)
+	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(*subnets[0].Name, gc.Equals, "subnet2")
+}
+
+func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpacesNotFound(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			Name: ptr("subnet1"),
+		}, {
+			Name: ptr("subnet2"),
+		}, {
+			Name: ptr("subnet3"),
+		}, {
+			Name: ptr("subnet4"),
+		}}, nil)
+
+	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
+		// We ask for subnet4 but that's not in the subnets in any of those filtered by the space constraint.
+		Placement:   "subnet=subnet4",
+		Constraints: constraints.MustParse("spaces=foo,bar"),
+		SubnetsToZones: []map[corenetwork.Id][]string{
+			{"subnet1": {"home-zone", "away-zone"}, "subnet2": {"home-zone", "away-zone"}},
+			{"subnet3": {"home-zone", "away-zone"}},
+		},
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *environNetSuite) TestSubnetsForInstancePlacementNotFound(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
