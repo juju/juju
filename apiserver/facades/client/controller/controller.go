@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
@@ -722,23 +723,55 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 	for i, arg := range args.Changes {
 		if !hasPermission {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+			securitylog.LogAuthz(
+				securitylog.AuthzSecurityEvent{
+					Actor:  c.apiUser.Name(),
+					Target: arg.UserTag,
+					Action: securitylog.AuthzActionFailed,
+				},
+			)
 			continue
 		}
 
 		controllerAccess := permission.Access(arg.Access)
 		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
+			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+			securitylog.LogAuthz(
+				securitylog.AuthzSecurityEvent{
+					Actor:    c.apiUser.Name(),
+					Target:   arg.UserTag,
+					Action:   securitylog.AuthzActionFailed,
+					NewLevel: strings.ToLower(string(controllerAccess)),
+				})
 			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify controller access"))
+			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+			securitylog.LogAuthz(
+				securitylog.AuthzSecurityEvent{
+					Actor:  c.apiUser.Name(),
+					Target: arg.UserTag,
+					Action: securitylog.AuthzActionFailed,
+				},
+			)
 			continue
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(
 			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogAuthz(
+			securitylog.AuthzSecurityEvent{
+				Actor:    c.apiUser.Name(),
+				Target:   targetUserTag.Name(),
+				Action:   securitylog.ParseAuthzAction(string(arg.Action)),
+				NewLevel: strings.ToLower(string(controllerAccess)),
+			})
 	}
 	return result, nil
 }

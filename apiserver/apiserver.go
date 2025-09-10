@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
@@ -626,12 +627,22 @@ func (srv *Server) loop(ready chan struct{}) error {
 	close(ready)
 	srv.mu.Lock()
 	srv.healthStatus = "running"
+	// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+	securitylog.LogSystem(securitylog.SystemLifecycleSecurityEvent{
+		Event: securitylog.SystemLifecycleEventStartup,
+		Actor: securitylog.DefaultAdminName,
+	})
 	srv.mu.Unlock()
 
 	<-srv.tomb.Dying()
 
 	srv.mu.Lock()
 	srv.healthStatus = "stopping"
+	// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+	securitylog.LogSystem(securitylog.SystemLifecycleSecurityEvent{
+		Event: securitylog.SystemLifecycleEventShutdown,
+		Actor: securitylog.DefaultAdminName,
+	})
 	srv.mu.Unlock()
 
 	srv.wg.Wait() // wait for any outstanding requests to complete.
