@@ -50,6 +50,7 @@ type ModelDBState interface {
 	ApplicationState
 	MachineState
 	ModelState
+	StorageState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
