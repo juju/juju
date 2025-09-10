@@ -4,97 +4,46 @@
 package state
 
 import (
-	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/internal/errors"
+	"database/sql"
+
+	"github.com/juju/juju/domain/life"
 )
 
-// These structs represent the persistent block device entity schema in the database.
-
-type BlockDevice struct {
-	ID          string `db:"uuid"`
-	MachineUUID string `db:"machine_uuid"`
-
-	DeviceName     string `db:"name"`
-	Label          string `db:"label,omitempty"`
-	DeviceUUID     string `db:"device_uuid"`
-	HardwareId     string `db:"hardware_id"`
-	WWN            string `db:"wwn"`
-	BusAddress     string `db:"bus_address"`
-	SizeMiB        uint64 `db:"size_mib"`
-	FilesystemType int    `db:"filesystem_type_id"`
-	InUse          bool   `db:"in_use"`
-	MountPoint     string `db:"mount_point"`
-	SerialId       string `db:"serial_id"`
+type entityUUID struct {
+	UUID string `db:"uuid"`
 }
 
-type FilesystemType struct {
-	ID   int    `db:"id"`
+type blockDevice struct {
+	UUID        string `db:"uuid"`
+	MachineUUID string `db:"machine_uuid"`
+
+	Name sql.Null[string] `db:"name"`
+
+	HardwareId string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	BusAddress string `db:"bus_address"`
+	SerialId   string `db:"serial_id"`
+
+	SizeMiB         uint64 `db:"size_mib"`
+	FilesystemLabel string `db:"filesystem_label"`
+	FilesystemUUID  string `db:"filesystem_uuid"`
+	FilesystemType  string `db:"filesystem_type"`
+	InUse           bool   `db:"in_use"`
+	MountPoint      string `db:"mount_point"`
+}
+
+type deviceLink struct {
+	BlockDeviceUUID string `db:"block_device_uuid"`
+	MachineUUID     string `db:"machine_uuid"`
+	Name            string `db:"name"`
+}
+
+type entityLife struct {
+	UUID string    `db:"uuid"`
+	Life life.Life `db:"life_id"`
+}
+
+type entityName struct {
+	UUID string `db:"uuid"`
 	Name string `db:"name"`
-}
-
-type DeviceLink struct {
-	ParentUUID  string `db:"block_device_uuid"`
-	MachineUUID string `db:"machine_uuid"`
-	Name        string `db:"name"`
-}
-
-type BlockDeviceMachine struct {
-	MachineId string `db:"name"`
-}
-
-type BlockDevices []BlockDevice
-
-func (rows BlockDevices) toBlockDevicesAndMachines(deviceLinks []DeviceLink, filesystemTypes []FilesystemType, machines []BlockDeviceMachine) ([]blockdevice.BlockDevice, []string, error) {
-	if n := len(rows); n != len(filesystemTypes) || n != len(deviceLinks) || (machines != nil && n != len(machines)) {
-		// Should never happen.
-		return nil, nil, errors.New("row length mismatch composing block device results")
-	}
-
-	var (
-		resultBlockDevices []blockdevice.BlockDevice
-		resultMachines     []string
-	)
-	recordResult := func(row *BlockDevice, fsType string, deviceLinks []string, machineId string) {
-		resultBlockDevices = append(resultBlockDevices, blockdevice.BlockDevice{
-			DeviceName:     row.DeviceName,
-			DeviceLinks:    deviceLinks,
-			Label:          row.Label,
-			FilesystemType: fsType,
-			UUID:           row.DeviceUUID,
-			HardwareId:     row.HardwareId,
-			WWN:            row.WWN,
-			BusAddress:     row.BusAddress,
-			SizeMiB:        row.SizeMiB,
-			InUse:          row.InUse,
-			MountPoint:     row.MountPoint,
-			SerialId:       row.SerialId,
-		})
-		resultMachines = append(resultMachines, machineId)
-	}
-
-	var (
-		current   *BlockDevice
-		fsType    string
-		links     []string
-		machineId string
-	)
-	for i, row := range rows {
-		if current != nil && row.ID != current.ID {
-			recordResult(current, fsType, links, machineId)
-			links = []string(nil)
-		}
-		fsType = filesystemTypes[i].Name
-		if machines != nil {
-			machineId = machines[i].MachineId
-		}
-		if deviceLinks[i].Name != "" {
-			links = append(links, deviceLinks[i].Name)
-		}
-		rowCopy := row
-		current = &rowCopy
-	}
-	if current != nil {
-		recordResult(current, fsType, links, machineId)
-	}
-	return resultBlockDevices, resultMachines, nil
 }

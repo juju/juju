@@ -1050,8 +1050,8 @@ func (s *storageStatusSuite) newBlockDevice(
 	c.Assert(err, tc.ErrorIsNil)
 	for _, deviceLink := range deviceLinks {
 		_, err := s.DB().Exec(
-			`INSERT INTO block_device_link_device(block_device_uuid, name) VALUES(?, ?)`,
-			uuid, deviceLink)
+			`INSERT INTO block_device_link_device(block_device_uuid, machine_uuid, name) VALUES(?, ?, ?)`,
+			uuid, machineUUID, deviceLink)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	return uuid

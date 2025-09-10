@@ -381,7 +381,16 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 		if !canAccess(machineTag) {
 			return "", apiservererrors.ErrPerm
 		}
-		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineTag.Id())
+		machineUUID, err := s.machineService.GetMachineUUID(
+			ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return "", err
+		}
+		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineUUID)
 		if err != nil {
 			return "", err
 		}

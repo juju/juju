@@ -31,17 +31,17 @@ AFTER UPDATE ON block_device FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	NEW.machine_uuid != OLD.machine_uuid OR
-	NEW.name != OLD.name OR
-	(NEW.label != OLD.label OR (NEW.label IS NOT NULL AND OLD.label IS NULL) OR (NEW.label IS NULL AND OLD.label IS NOT NULL)) OR
-	(NEW.device_uuid != OLD.device_uuid OR (NEW.device_uuid IS NOT NULL AND OLD.device_uuid IS NULL) OR (NEW.device_uuid IS NULL AND OLD.device_uuid IS NOT NULL)) OR
+	(NEW.name != OLD.name OR (NEW.name IS NOT NULL AND OLD.name IS NULL) OR (NEW.name IS NULL AND OLD.name IS NOT NULL)) OR
 	(NEW.hardware_id != OLD.hardware_id OR (NEW.hardware_id IS NOT NULL AND OLD.hardware_id IS NULL) OR (NEW.hardware_id IS NULL AND OLD.hardware_id IS NOT NULL)) OR
 	(NEW.wwn != OLD.wwn OR (NEW.wwn IS NOT NULL AND OLD.wwn IS NULL) OR (NEW.wwn IS NULL AND OLD.wwn IS NOT NULL)) OR
-	(NEW.bus_address != OLD.bus_address OR (NEW.bus_address IS NOT NULL AND OLD.bus_address IS NULL) OR (NEW.bus_address IS NULL AND OLD.bus_address IS NOT NULL)) OR
 	(NEW.serial_id != OLD.serial_id OR (NEW.serial_id IS NOT NULL AND OLD.serial_id IS NULL) OR (NEW.serial_id IS NULL AND OLD.serial_id IS NOT NULL)) OR
-	(NEW.filesystem_type_id != OLD.filesystem_type_id OR (NEW.filesystem_type_id IS NOT NULL AND OLD.filesystem_type_id IS NULL) OR (NEW.filesystem_type_id IS NULL AND OLD.filesystem_type_id IS NOT NULL)) OR
+	(NEW.bus_address != OLD.bus_address OR (NEW.bus_address IS NOT NULL AND OLD.bus_address IS NULL) OR (NEW.bus_address IS NULL AND OLD.bus_address IS NOT NULL)) OR
 	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
 	(NEW.mount_point != OLD.mount_point OR (NEW.mount_point IS NOT NULL AND OLD.mount_point IS NULL) OR (NEW.mount_point IS NULL AND OLD.mount_point IS NOT NULL)) OR
-	(NEW.in_use != OLD.in_use OR (NEW.in_use IS NOT NULL AND OLD.in_use IS NULL) OR (NEW.in_use IS NULL AND OLD.in_use IS NOT NULL)) 
+	(NEW.in_use != OLD.in_use OR (NEW.in_use IS NOT NULL AND OLD.in_use IS NULL) OR (NEW.in_use IS NULL AND OLD.in_use IS NOT NULL)) OR
+	(NEW.filesystem_label != OLD.filesystem_label OR (NEW.filesystem_label IS NOT NULL AND OLD.filesystem_label IS NULL) OR (NEW.filesystem_label IS NULL AND OLD.filesystem_label IS NOT NULL)) OR
+	(NEW.filesystem_uuid != OLD.filesystem_uuid OR (NEW.filesystem_uuid IS NOT NULL AND OLD.filesystem_uuid IS NULL) OR (NEW.filesystem_uuid IS NULL AND OLD.filesystem_uuid IS NOT NULL)) OR
+	(NEW.filesystem_type != OLD.filesystem_type OR (NEW.filesystem_type IS NOT NULL AND OLD.filesystem_type IS NULL) OR (NEW.filesystem_type IS NULL AND OLD.filesystem_type IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
