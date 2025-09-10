@@ -22,22 +22,22 @@ import (
 // LocalOfferBakery provides a bakery for local offer access.
 type LocalOfferBakery struct {
 	baseBakery
-	oven   Oven
-	clock  clock.Clock
-	logger logger.Logger
+	oven     Oven
+	endpoint string
+	clock    clock.Clock
+	logger   logger.Logger
 }
 
 // NewLocalOfferBakery returns a new LocalOfferBakery.
 func NewLocalOfferBakery(
 	keyPair *bakery.KeyPair,
-	location string,
+	location, endpoint string,
 	backingStore BakeryStore,
 	checker bakery.FirstPartyCaveatChecker,
 	authorizer bakery.OpsAuthorizer,
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*LocalOfferBakery, error) {
-
 	store := internalmacaroon.NewExpirableStorage(backingStore, offerPermissionExpiryTime, clock)
 
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: keyPair.Public}
@@ -57,9 +57,10 @@ func NewLocalOfferBakery(
 	}
 
 	return &LocalOfferBakery{
-		oven:   bakery,
-		clock:  clock,
-		logger: logger,
+		oven:     bakery,
+		endpoint: endpoint,
+		clock:    clock,
+		logger:   logger,
 	}, nil
 }
 
@@ -102,7 +103,7 @@ func (o *LocalOfferBakery) NewMacaroon(ctx context.Context, version bakery.Versi
 
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *LocalOfferBakery) CreateDischargeMacaroon(
-	ctx context.Context, accessEndpoint, username string,
+	ctx context.Context, username string,
 	requiredValues, declaredValues map[string]string,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
@@ -132,7 +133,7 @@ func (o *LocalOfferBakery) CreateDischargeMacaroon(
 		[]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
-					Location:  accessEndpoint,
+					Location:  o.endpoint,
 					Condition: offerPermissionCaveat + " " + authYaml,
 				},
 				requiredKeys...,

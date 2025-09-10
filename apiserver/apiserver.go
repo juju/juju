@@ -1228,6 +1228,7 @@ func newOfferAuthContext(
 	macaroonService MacaroonService,
 	controllerUUID string,
 	controllerModelUUID coremodel.UUID,
+	serverHost string,
 	controllerConfig controller.Config,
 	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
@@ -1240,6 +1241,7 @@ func newOfferAuthContext(
 
 	bakery, err := getMacaroonBakeryByURL(
 		key,
+		serverHost,
 		controllerConfig.LoginTokenRefreshURL(),
 		macaroonService,
 		controllerModelUUID,
@@ -1268,8 +1270,13 @@ func authContextLocation(modelUUID coremodel.UUID) string {
 	return "juju model " + modelUUID.String()
 }
 
+const (
+	localOfferAccessLocationPath = "/offeraccess"
+)
+
 func getMacaroonBakeryByURL(
 	key *bakery.KeyPair,
+	serverHost string,
 	endpoint string,
 	macaroonService MacaroonService,
 	controllerModelUUID coremodel.UUID,
@@ -1283,7 +1290,13 @@ func getMacaroonBakeryByURL(
 
 	// Create a local bakery for validating macaroons.
 	if endpoint == "" {
-		return crossmodelbakery.NewLocalOfferBakery(key, location, macaroonService, checker, authorizer, clock, logger)
+		localEndpoint := &url.URL{
+			Scheme: "https",
+			Host:   serverHost,
+			Path:   localOfferAccessLocationPath,
+		}
+
+		return crossmodelbakery.NewLocalOfferBakery(key, location, localEndpoint.String(), macaroonService, checker, authorizer, clock, logger)
 	}
 
 	// We have a URL, it's intended to be used by JAAS, but it's possible
