@@ -3132,6 +3132,10 @@ func (api *APIBase) GetApplicationStorage(args params.AppStorageConsGet) (params
 		return res, errors.Trace(err)
 	}
 
+	if storageConstraints == nil {
+		return res, nil
+	}
+
 	sc := make(map[string]params.StorageConstraint)
 	for key, cons := range storageConstraints {
 		sc[key] = params.StorageConstraint{
@@ -3164,7 +3168,7 @@ func (api *APIBase) UpsertApplicationStorage(args params.AppStorageConsUpsert) (
 
 	errs := make([]*params.Error, 0, len(args.ApplicationStorageDirective))
 
-	for storageName, _ := range args.ApplicationStorageDirective {
+	for storageName := range args.ApplicationStorageDirective {
 		if _, exists := chMeta.Storage[storageName]; !exists {
 			errs = append(errs, apiservererrors.ServerError(errors.NotSupportedf("storage %s not supported by %s", storageName, args.ApplicationName)))
 		}
@@ -3186,5 +3190,6 @@ func (api *APIBase) UpsertApplicationStorage(args params.AppStorageConsUpsert) (
 		}
 	}
 
-	return res, nil
+	err = app.UpsertStorageConstraints(sc)
+	return res, errors.Trace(err)
 }
