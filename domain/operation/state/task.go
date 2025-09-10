@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/collections/transform"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -40,7 +41,7 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.Task{}, nil, errors.Errorf("getting action %q: %w", taskID, err)
+		return operation.Task{}, nil, errors.Errorf("getting task %q: %w", taskID, err)
 	}
 
 	return result, outputPath, nil
@@ -62,14 +63,14 @@ func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, 
 		// Attempt to cancel the task.
 		err = s.cancelTask(ctx, tx, taskID)
 		if err != nil {
-			return errors.Errorf("cancelling task %q: %w", taskID, err)
+			return errors.Capture(err)
 		}
 
 		result, _, err = s.getTask(ctx, tx, taskID)
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.Task{}, errors.Errorf("cancelling action %q: %w", taskID, err)
+		return operation.Task{}, errors.Errorf("cancelling task %q: %w", taskID, err)
 	}
 
 	return result, nil
@@ -80,9 +81,10 @@ func (s *State) cancelTask(ctx context.Context, tx *sqlair.TX, taskID string) er
 	taskIDParam := taskIdent{ID: taskID}
 
 	currentStatusQuery := `
-SELECT ots.status_id AS &taskStatus.status_id
-FROM   operation_task_status ots
-JOIN   operation_task ot ON ots.task_uuid = ot.uuid
+SELECT otsv.status AS &taskStatus.status
+FROM   operation_task AS ot
+JOIN   operation_task_status AS ots ON ots.task_uuid = ot.uuid
+JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
 WHERE  ot.task_id = $taskIdent.task_id
 `
 	currentStatusStmt, err := s.Prepare(currentStatusQuery, taskStatus{}, taskIDParam)
@@ -95,14 +97,45 @@ WHERE  ot.task_id = $taskIdent.task_id
 		return errors.Errorf("querying current status for task ID %q: %w", taskID, err)
 	}
 
-	// If the task is in Pending status, then we have to update its status to
-	// Cancelled.
-	// If the task is already in Running status, then we have to update its
-	// status to Aborting.
+	// This is the update query, which will update the status to Cancelled or Aborting.
+	updateStatusQuery := `
+UPDATE operation_task_status
+SET    status_id = $taskStatus.status_id,
+       updated_at = NOW()
+FROM   operation_task AS ot
+WHERE  operation_task_status.task_uuid = ot.uuid
+AND    ot.task_id = $taskIdent.task_id
+`
+	updateStatusStmt, err := s.Prepare(updateStatusQuery, taskStatus{}, taskIDParam)
+	if err != nil {
+		return errors.Errorf("preparing update status statement for task ID %q: %w", taskID, err)
+	}
+
 	// If the status is Completed, Cancelled, Failed, Aborted or Error then
 	// there's nothing to do.
+	if currentStatus.Status == corestatus.Completed.String() ||
+		currentStatus.Status == corestatus.Cancelled.String() ||
+		currentStatus.Status == corestatus.Failed.String() ||
+		currentStatus.Status == corestatus.Aborted.String() ||
+		currentStatus.Status == corestatus.Error.String() {
 
-	// TODO(nvinuesa): Implement this logic in a future patch.
+		return nil
+	}
+
+	newStatus := taskStatus{}
+	if currentStatus.Status == corestatus.Pending.String() {
+		// If the task is in Pending status, then we have to update its status to
+		// Cancelled.
+		newStatus = taskStatus{Status: corestatus.Cancelled.String()}
+	} else if currentStatus.Status == corestatus.Running.String() {
+		// If the task is already in Running status, then we have to update its
+		// status to Aborting.
+		newStatus = taskStatus{Status: corestatus.Cancelled.String()}
+	}
+	err = tx.Query(ctx, updateStatusStmt, newStatus, taskIDParam).Run()
+	if err != nil {
+		return errors.Errorf("updating status for cancelled task ID %q: %w", taskID, err)
+	}
 
 	return nil
 }
@@ -141,7 +174,7 @@ func (s *State) getOperationTask(ctx context.Context, tx *sqlair.TX, taskID stri
 
 	query := `
 SELECT o.uuid AS &taskResult.operation_uuid,
-       COALESCE(u.name, m.name) AS &taskResult.receiver,
+       COALESCE(u.name, m.name, "") AS &taskResult.receiver,
        oa.charm_action_key AS &taskResult.name,
        o.summary AS &taskResult.summary,
        o.parallel AS &taskResult.parallel,
@@ -151,30 +184,30 @@ SELECT o.uuid AS &taskResult.operation_uuid,
        ot.completed_at AS &taskResult.completed_at,
        osv.status AS &taskResult.status,
        os.path AS &taskResult.path
-FROM operation_task ot
-JOIN operation o ON ot.operation_uuid = o.uuid
-JOIN operation_task_status ots ON ot.uuid = ots.task_uuid
-JOIN operation_task_status_value osv ON ots.status_id = osv.id
-LEFT JOIN operation_action oa ON o.uuid = oa.operation_uuid
-LEFT JOIN operation_unit_task out ON ot.uuid = out.task_uuid
-LEFT JOIN unit u ON out.unit_uuid = u.uuid
-LEFT JOIN operation_machine_task omt ON ot.uuid = omt.task_uuid
-LEFT JOIN machine m ON omt.machine_uuid = m.uuid
-LEFT JOIN operation_task_output oto ON ot.uuid = oto.task_uuid
-LEFT JOIN v_object_store_metadata os ON oto.store_uuid = os.uuid
+FROM operation_task AS ot
+JOIN operation AS o ON ot.operation_uuid = o.uuid
+JOIN operation_task_status AS ots ON ot.uuid = ots.task_uuid
+JOIN operation_task_status_value AS osv ON ots.status_id = osv.id
+LEFT JOIN operation_action AS oa ON o.uuid = oa.operation_uuid
+LEFT JOIN operation_unit_task AS out ON ot.uuid = out.task_uuid
+LEFT JOIN unit AS u ON out.unit_uuid = u.uuid
+LEFT JOIN operation_machine_task AS omt ON ot.uuid = omt.task_uuid
+LEFT JOIN machine AS m ON omt.machine_uuid = m.uuid
+LEFT JOIN operation_task_output AS oto ON ot.uuid = oto.task_uuid
+LEFT JOIN v_object_store_metadata AS os ON oto.store_uuid = os.uuid
 WHERE ot.task_id = $taskIdent.task_id
 `
 	stmt, err := s.Prepare(query, taskResult{}, ident)
 	if err != nil {
-		return taskResult{}, errors.Errorf("preparing get action statement: %w", err)
+		return taskResult{}, errors.Errorf("preparing get task statement: %w", err)
 	}
 
 	var result taskResult
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
-		return taskResult{}, errors.Errorf("action with task ID %q not found", taskID).Add(operationerrors.TaskNotFound)
+		return taskResult{}, errors.Errorf("task with ID %q not found", taskID).Add(operationerrors.TaskNotFound)
 	} else if err != nil {
-		return taskResult{}, errors.Errorf("querying action with task ID %q: %w", taskID, err)
+		return taskResult{}, errors.Errorf("querying task with ID %q: %w", taskID, err)
 	}
 
 	return result, nil
@@ -184,9 +217,7 @@ func (s *State) getOperationParameters(ctx context.Context, tx *sqlair.TX, opera
 	opUUID := uuid{UUID: operationUUIDStr}
 
 	query := `
-SELECT operation_uuid AS &taskParameter.operation_uuid,
-       key AS &taskParameter.key,
-       value AS &taskParameter.value
+SELECT * AS &taskParameter.*
 FROM   operation_parameter
 WHERE  operation_uuid = $uuid.uuid
 `
@@ -199,7 +230,7 @@ WHERE  operation_uuid = $uuid.uuid
 	var parameters []taskParameter
 	err = tx.Query(ctx, stmt, opUUID).GetAll(&parameters)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Errorf("querying action parameters: %w", err)
+		return nil, errors.Errorf("querying task parameters: %w", err)
 	}
 
 	return parameters, nil
@@ -213,7 +244,7 @@ SELECT task_uuid AS &taskLogEntry.task_uuid,
        content AS &taskLogEntry.content,
        created_at AS &taskLogEntry.created_at
 FROM   operation_task_log
-JOIN   operation_task ot ON operation_task_log.task_uuid = ot.uuid
+JOIN   operation_task AS ot ON operation_task_log.task_uuid = ot.uuid
 WHERE  ot.task_id = $taskIdent.task_id
 ORDER BY created_at ASC
 `
@@ -232,20 +263,18 @@ ORDER BY created_at ASC
 }
 
 func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
-	actionUUID, err := internaluuid.UUIDFromString(task.OperationUUID)
+	operationUUID, err := internaluuid.UUIDFromString(task.OperationUUID)
 	if err != nil {
 		return operation.Task{}, err
 	}
 
 	result := operation.Task{
-		UUID:     actionUUID,
+		UUID:     operationUUID,
 		Enqueued: task.EnqueuedAt,
-		Status:   task.Status,
+		Status:   corestatus.Status(task.Status),
+		Receiver: task.Receiver,
 	}
 
-	if task.Receiver.Valid {
-		result.Receiver = task.Receiver.String
-	}
 	if task.Name.Valid {
 		result.Name = task.Name.String
 	}

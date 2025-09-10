@@ -24,7 +24,6 @@ import (
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -53,6 +52,7 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
+<<<<<<< HEAD
 	// GetAction returns the action identified by its ID.
 	GetAction(ctx context.Context, actionID coreoperation.ID) (operation.Action, error)
 

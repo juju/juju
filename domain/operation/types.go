@@ -12,11 +12,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// Action represents a domain action.
-type Action struct {
-	// UUID is the action unique identifier.
-	"github.com/juju/juju/internal/uuid"
-)
 
 // TaskLogMessage represents a logged message on an task.
 type TaskLogMessage struct {
@@ -34,7 +29,7 @@ type Task struct {
 	TaskID string
 	// Receiver is the task receiver (unit / machine).
 	Receiver string
-	// Name is the task name from the charm.
+	// Name is the task name.
 	Name string
 	// Parameters are the task parameters.
 	Parameters map[string]any
@@ -49,7 +44,7 @@ type Task struct {
 	// Completed is when the task completed execution.
 	Completed *time.Time
 	// Status is the current status of the task.
-	Status string
+	Status corestatus.Status
 	// Message is any status message.
 	Message *string
 	// Log contains the logged messages for the task.

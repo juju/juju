@@ -8,54 +8,11 @@ import (
 	"time"
 )
 
-// operationRow represents the struct for querying the operation table.
-type operationRow struct {
-	UUID           string     `db:"uuid"`
-	Summary        *string    `db:"summary"`
-	EnqueuedAt     time.Time  `db:"enqueued_at"`
-	StartedAt      *time.Time `db:"started_at"`
-	CompletedAt    *time.Time `db:"completed_at"`
-	Parallel       bool       `db:"parallel"`
-	ExecutionGroup *string    `db:"execution_group"`
-}
-
-// operationTaskRow represents the struct for querying the operation_task table.
-type operationTaskRow struct {
-	UUID          string     `db:"uuid"`
-	OperationUUID string     `db:"operation_uuid"`
-	EnqueuedAt    time.Time  `db:"enqueued_at"`
-	StartedAt     *time.Time `db:"started_at"`
-	CompletedAt   *time.Time `db:"completed_at"`
-}
-
-// operationUnitTaskRow represents the struct for querying operation_unit_task
-// table.
-type operationUnitTaskRow struct {
-	TaskUUID string `db:"task_uuid"`
-	UnitUUID string `db:"unit_uuid"`
-}
-
-// operationMachineTaskRow represents the struct for querying
-// operation_machine_task table.
-type operationMachineTaskRow struct {
-	TaskUUID    string `db:"task_uuid"`
-	MachineUUID string `db:"machine_uuid"`
-}
-
-// operationTaskStatusRow represents the struct for querying
-// operation_task_status table.
-type operationTaskStatusRow struct {
-	TaskUUID  string     `db:"task_uuid"`
-	StatusID  int        `db:"status_id"`
-	Message   *string    `db:"message"`
-	UpdatedAt *time.Time `db:"updated_at"`
-}
-
 // taskResult represents the result of joining operation with its tasks and
 // receivers.
 type taskResult struct {
 	OperationUUID  string         `db:"operation_uuid"`
-	Receiver       sql.NullString `db:"receiver"`
+	Receiver       string         `db:"receiver"`
 	Name           sql.NullString `db:"name"`
 	Summary        sql.NullString `db:"summary"`
 	Parallel       bool           `db:"parallel"`
@@ -93,8 +50,8 @@ type taskIdent struct {
 	ID string `db:"task_id"`
 }
 
-// taskStatus represents a task status ID for queries on the
+// taskStatus represents a task status for queries on the
 // operation_task_status table.
 type taskStatus struct {
-	StatusID int `db:"status_id"`
+	Status string `db:"status"`
 }

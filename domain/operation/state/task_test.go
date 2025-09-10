@@ -28,7 +28,7 @@ func (s *taskSuite) TestGetTaskNotFound(c *tc.C) {
 	taskID := "42"
 
 	_, _, err := s.state.GetTask(context.Background(), taskID)
-	c.Assert(err, tc.ErrorMatches, `getting action \"42\": action with task ID \"42\" not found`)
+	c.Assert(err, tc.ErrorMatches, `getting task \"42\": task with ID \"42\" not found`)
 }
 
 func (s *taskSuite) TestGetTaskWithOutputPath(c *tc.C) {
@@ -56,7 +56,7 @@ func (s *taskSuite) TestGetTaskWithOutputPath(c *tc.C) {
 	c.Check(action.UUID, tc.Equals, operationUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
 	c.Check(*outputPath, tc.Equals, storePath)
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithoutOutputPath(c *tc.C) {
@@ -79,7 +79,7 @@ func (s *taskSuite) TestGetTaskWithoutOutputPath(c *tc.C) {
 	c.Check(action.UUID, tc.Equals, operationUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app/0")
 	c.Check(outputPath, tc.IsNil)
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
@@ -109,7 +109,7 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 		"param1": "value1",
 		"param2": "value2",
 	})
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
@@ -137,7 +137,7 @@ func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
 	c.Check(action.Name, tc.Equals, "test-operation")
 	c.Check(action.Log[0].Message, tc.DeepEquals, "log entry 1")
 	c.Check(action.Log[1].Message, tc.DeepEquals, "log entry 2")
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithUnitReceiver(c *tc.C) {
@@ -161,7 +161,7 @@ func (s *taskSuite) TestGetTaskWithUnitReceiver(c *tc.C) {
 	c.Check(action.UUID, tc.Equals, operationUUID)
 	c.Check(action.Receiver, tc.Equals, "test-app-1/0")
 	c.Check(action.Name, tc.Equals, "test-operation")
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithMachineReceiver(c *tc.C) {
@@ -185,7 +185,7 @@ func (s *taskSuite) TestGetTaskWithMachineReceiver(c *tc.C) {
 	c.Check(action.UUID, tc.Equals, operationUUID)
 	c.Check(action.Receiver, tc.Equals, "0")
 	c.Check(action.Name, tc.Equals, "test-operation")
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
@@ -206,7 +206,7 @@ func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
 	c.Check(action.UUID, tc.Equals, operationUUID)
 	c.Check(action.Receiver, tc.Equals, "")
 	c.Check(action.Name, tc.Equals, "test-operation")
-	c.Check(action.Status, tc.Equals, "running")
+	c.Check(action.Status.String(), tc.Equals, "running")
 }
 
 func (s *taskSuite) TestCancelTaskNotFound(c *tc.C) {
