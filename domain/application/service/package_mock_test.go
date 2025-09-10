@@ -3808,6 +3808,46 @@ func (c *MockStateGetUnitSubordinatesCall) DoAndReturn(f func(context.Context, u
 	return c
 }
 
+// GetUnitUUIDAndNetNodeForName mocks base method.
+func (m *MockState) GetUnitUUIDAndNetNodeForName(arg0 context.Context, arg1 unit.Name) (unit.UUID, network0.NetNodeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUIDAndNetNodeForName", arg0, arg1)
+	ret0, _ := ret[0].(unit.UUID)
+	ret1, _ := ret[1].(network0.NetNodeUUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetUnitUUIDAndNetNodeForName indicates an expected call of GetUnitUUIDAndNetNodeForName.
+func (mr *MockStateMockRecorder) GetUnitUUIDAndNetNodeForName(arg0, arg1 any) *MockStateGetUnitUUIDAndNetNodeForNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDAndNetNodeForName", reflect.TypeOf((*MockState)(nil).GetUnitUUIDAndNetNodeForName), arg0, arg1)
+	return &MockStateGetUnitUUIDAndNetNodeForNameCall{Call: call}
+}
+
+// MockStateGetUnitUUIDAndNetNodeForNameCall wrap *gomock.Call
+type MockStateGetUnitUUIDAndNetNodeForNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitUUIDAndNetNodeForNameCall) Return(arg0 unit.UUID, arg1 network0.NetNodeUUID, arg2 error) *MockStateGetUnitUUIDAndNetNodeForNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitUUIDAndNetNodeForNameCall) Do(f func(context.Context, unit.Name) (unit.UUID, network0.NetNodeUUID, error)) *MockStateGetUnitUUIDAndNetNodeForNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitUUIDAndNetNodeForNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, network0.NetNodeUUID, error)) *MockStateGetUnitUUIDAndNetNodeForNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUIDByName mocks base method.
 func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
