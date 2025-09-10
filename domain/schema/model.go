@@ -236,9 +236,10 @@ func ModelDDL() *schema.Schema {
 		triggerEntityLifecycleByFieldForTable("model_life", "model_uuid", customNamespaceModelLifeRemovalLifecycle),
 		triggerEntityLifecycleByFieldForTable("storage_attachment", "unit_uuid", customNamespaceStorageAttachmentLifecycle),
 
-		// Action parameters are immutable, only insertions and deletions are
-		// allowed.
+		// Ensure that 3 tables related to operations are immutable.
 		triggersForUnmodifiableTable("operation_parameter", "operation_parameter table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("operation_machine_task", "operation_machine_task table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("operation_unit_task", "operation_unit_task table is unmodifiable, only insertions and deletions are allowed"),
 	)
 
 	patches = append(patches, func() schema.Patch {
@@ -311,6 +312,29 @@ BEGIN
         AND   ae_new.application_uuid <> ae_existing.application_uuid
     );
 END;	`)
+	})
+
+	// Ensure that an operation task can only be linked to a machine OR a unit.
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(`
+CREATE TRIGGER trg_insert_machine_task_if_not_unit_task
+BEFORE INSERT ON operation_machine_task
+WHEN EXISTS (
+    SELECT 1 FROM operation_unit_task WHERE task_uuid = NEW.task_uuid
+)
+BEGIN
+    SELECT RAISE(ABORT, 'Task is already linked to a unit, cannot be added for a machine');
+END;
+
+CREATE TRIGGER trg_insert_unit_task_if_not_machine_task
+BEFORE INSERT ON operation_unit_task
+WHEN EXISTS (
+    SELECT 1 FROM operation_machine_task WHERE task_uuid = NEW.task_uuid
+)
+BEGIN
+    SELECT RAISE(ABORT, 'Task is already linked to a machine, cannot be added for a unit');
+END;
+	`)
 	})
 
 	patches = append(patches, customModelTriggers()...)
