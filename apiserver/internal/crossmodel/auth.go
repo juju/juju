@@ -48,7 +48,7 @@ type OfferBakery interface {
 	// CreateDischargeMacaroon creates a discharge macaroon.
 	CreateDischargeMacaroon(
 		ctx context.Context,
-		accessEndpoint, username string,
+		username string,
 		requiredValues, declaredValues map[string]string,
 		op bakery.Op,
 		version bakery.Version,
@@ -164,6 +164,15 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 	)
 }
 
+// Authenticator returns an instance used to authenticate macaroons used to
+// access offers.
+func (a *AuthContext) Authenticator() *Authenticator {
+	return &Authenticator{
+		bakery: a.bakery,
+		logger: a.logger.Child("authenticator"),
+	}
+}
+
 func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
 	if target.ObjectType == permission.Cloud {
 		return "", errors.NotValidf("target %q", target.ObjectType)
@@ -244,4 +253,113 @@ func crossModelRelateOp(relationID string) bakery.Op {
 		Entity: relationID,
 		Action: relateOp,
 	}
+}
+
+// Authenticator is used to authenticate macaroons used to access
+// application offers.
+type Authenticator struct {
+	bakery OfferBakery
+	logger logger.Logger
+}
+
+// CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
+func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
+	requiredValues := map[string]string{
+		sourcemodelKey: sourceModelUUID,
+		offeruuidKey:   offerUUID,
+	}
+	return a.checkMacaroons(ctx, mac, version, requiredValues, crossModelConsumeOp(offerUUID))
+}
+
+// CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
+func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+	requiredValues := map[string]string{
+		sourcemodelKey: sourceModelUUID,
+		offeruuidKey:   offerUUID,
+		relationKey:    relationTag.Id(),
+	}
+	_, err := a.checkMacaroons(ctx, mac, version, requiredValues, crossModelRelateOp(relationTag.Id()))
+	return err
+}
+
+func (a *Authenticator) checkMacaroons(
+	ctx context.Context, mac macaroon.Slice, version bakery.Version, requiredValues map[string]string, op bakery.Op,
+) (map[string]string, error) {
+	a.logger.Debugf(ctx, "check %d macaroons with required attrs: %v", len(mac), requiredValues)
+	for _, m := range mac {
+		if m == nil {
+			continue
+		}
+		a.logger.Debugf(ctx, "- mac %s", m.Id())
+	}
+	declared := a.bakery.InferDeclaredFromMacaroon(mac, requiredValues)
+	a.logger.Debugf(ctx, "check macaroons with declared attrs: %v", declared)
+
+	username, ok := declared[usernameKey]
+	if !ok {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	relation := declared[relationKey]
+	sourceModelUUID := declared[sourcemodelKey]
+	offerUUID := declared[offeruuidKey]
+
+	ai, err := bakery.AllowMacaroonOp(ctx, mac, op)
+	if err == nil && len(ai.Conditions()) > 0 {
+		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
+			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
+			return declared, nil
+		}
+		if _, ok := err.(*bakery.VerificationError); !ok {
+			return nil, apiservererrors.ErrPerm
+		}
+	}
+
+	cause := err
+	if cause == nil {
+		cause = errors.New("invalid cmr macaroon")
+	}
+	a.logger.Debugf(ctx, "generating discharge macaroon because: %v", cause)
+
+	m, err := a.bakery.CreateDischargeMacaroon(ctx, a.bakery.OfferAccessEndpoint(), username, requiredValues, declared, op, version)
+	if err != nil {
+		err = errors.Annotate(err, "cannot create macaroon")
+		a.logger.Errorf(ctx, "cannot create cross model macaroon: %v", err)
+		return nil, err
+	}
+
+	return nil, &apiservererrors.DischargeRequiredError{
+		Cause:          cause,
+		Macaroon:       m,
+		LegacyMacaroon: m.M(),
+	}
+}
+
+func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceModelUUID, offerUUID string) error {
+	var entity string
+
+	switch op.Action {
+	case consumeOp:
+		if sourceModelUUID == "" {
+			return &bakery.VerificationError{Reason: errors.New("missing source model UUID")}
+		}
+		if offerUUID == "" {
+			return &bakery.VerificationError{Reason: errors.New("missing offer UUID")}
+		}
+		entity = offerUUID
+
+	case relateOp:
+		if relationId == "" {
+			return &bakery.VerificationError{Reason: errors.New("missing relation")}
+		}
+		entity = relationId
+
+	default:
+		return &bakery.VerificationError{Reason: errors.Errorf("invalid action %q", op.Action)}
+	}
+
+	if entity != op.Entity {
+		return errors.Unauthorizedf("cmr operation %v not allowed for %v", op.Action, entity)
+	}
+	return nil
 }

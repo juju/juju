@@ -29,9 +29,10 @@ type HTTPClient interface {
 // JAASOfferBakery is a bakery for JAAS offer access.
 type JAASOfferBakery struct {
 	baseBakery
-	oven   Oven
-	clock  clock.Clock
-	logger logger.Logger
+	oven     Oven
+	endpoint string
+	clock    clock.Clock
+	logger   logger.Logger
 }
 
 // NewJAASOfferBakery returns a new JAASOfferBakery.
@@ -59,9 +60,10 @@ func NewJAASOfferBakery(
 	}
 
 	return &JAASOfferBakery{
-		oven:   bakery,
-		clock:  clock,
-		logger: logger,
+		oven:     bakery,
+		endpoint: endpoint,
+		clock:    clock,
+		logger:   logger,
 	}, nil
 }
 
@@ -111,7 +113,7 @@ func (o *JAASOfferBakery) NewMacaroon(ctx context.Context, version bakery.Versio
 
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *JAASOfferBakery) CreateDischargeMacaroon(
-	ctx context.Context, accessEndpoint, username string,
+	ctx context.Context, username string,
 	requiredValues, declaredValues map[string]string,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
@@ -125,7 +127,7 @@ func (o *JAASOfferBakery) CreateDischargeMacaroon(
 	}
 
 	conditionCaveat := checkers.Caveat{
-		Location:  accessEndpoint,
+		Location:  o.endpoint,
 		Condition: strings.Join(conditionParts, " "),
 	}
 
