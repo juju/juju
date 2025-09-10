@@ -2008,8 +2008,8 @@ func (s *localServerSuite) TestGetSecurityGroupByName(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(group2.Id, tc.Equals, groupResult.Id)
 
-	groupResult, err = openstack.GetSecurityGroupByName(s.env, c.Context(), "juju-unknown-machine-name")
-	c.Assert(err, tc.ErrorMatches, "failed to find security group with name: juju-unknown-machine-name")
+	_, err = openstack.GetSecurityGroupByName(s.env, c.Context(), "juju-unknown-machine-name")
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *localServerSuite) TestPorts(c *tc.C) {
@@ -2297,6 +2297,58 @@ func (s *localServerSuite) TestGlobalPorts(c *tc.C) {
 
 	_, err = fwInst1.IngressRules(c.Context(), "1")
 	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
+}
+
+// TestOpenModelPorts checks that OpenModelPorts returns a nil error
+// when security groups are enabled and the security group exists.
+func (s *localServerSuite) TestOpenModelPorts(c *tc.C) {
+	// Security groups are created when bootstrapEnv is invoked.
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, tc.ErrorIsNil)
+	s.env.Config()
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := true
+	controllerUUID := coretesting.ControllerTag.Id()
+
+	err = openstack.OpenModelPorts(s.env, c.Context(), enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, tc.IsNil)
+}
+
+// TestOpenModelPortsSecurityGroupDisabled checks that OpenModelPorts
+// returns a nil error when security groups are disabled, because security
+// groups are not created when it is disabled.
+func (s *localServerSuite) TestOpenModelPortsSecurityGroupDisabled(c *tc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := false
+	controllerUUID := "unknown-uuid"
+
+	err = openstack.OpenModelPorts(s.env, c.Context(), enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, tc.IsNil)
+}
+
+// TestOpenModelPortsErrorNotFound checks that OpenModelPorts returns
+// an errors.NotFound when fetching a security group that does not exist and
+// security group is enabled.
+func (s *localServerSuite) TestOpenModelPortsErrorNotFound(c *tc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8000/tcp")),
+	}
+	enableSecurityGroup := true
+	controllerUUID := "unknown-uuid"
+
+	err = openstack.OpenModelPorts(s.env, c.Context(), enableSecurityGroup, controllerUUID, rules)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *localServerSuite) TestModelPorts(c *tc.C) {

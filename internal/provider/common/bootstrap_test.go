@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -252,6 +253,50 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Base.String(), tc.Equals, corebase.MakeDefaultBase("ubuntu", "16.04").String())
+}
+
+func (s *BootstrapSuite) TestBootstrapWithSubstrateNotSupportsIPV6CIDR(c *tc.C) {
+	s.testBootstrapWithSubstrateWithIPV6Support(c, false)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithSubstrateSupportsIPV6CIDR(c *tc.C) {
+	s.testBootstrapWithSubstrateWithIPV6Support(c, true)
+}
+
+func (s *BootstrapSuite) testBootstrapWithSubstrateWithIPV6Support(c *tc.C, supportsIPv6 bool) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+
+	env := &mockEnviron{
+		startInstance: fakeStartInstance,
+		config:        configGetter(c),
+		supportsIPv6:  supportsIPv6,
+	}
+	ctx := envtesting.BootstrapTestContext(c)
+	availableTools := fakeAvailableTools()
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var rules firewall.IngressRules
+	if supportsIPv6 {
+		rules = firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "0.0.0.0/0", "::/0"),
+			firewall.NewIngressRule(network.MustParsePortRange("17777/tcp"), "0.0.0.0/0", "::/0"),
+		}
+	} else {
+		rules = firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "0.0.0.0/0"),
+			firewall.NewIngressRule(network.MustParsePortRange("17777/tcp"), "0.0.0.0/0"),
+		}
+	}
+	c.Assert(env.modelRules.EqualTo(rules), tc.IsTrue)
+
+	c.Check(result.Arch, tc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Base.String(), tc.Equals, jujuversion.DefaultSupportedLTSBase().String())
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *tc.C) {

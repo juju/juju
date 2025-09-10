@@ -6,6 +6,7 @@ package gce
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -16,10 +17,10 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 type subnetMap map[string]corenetwork.SubnetInfo
-type networkMap map[string]*computepb.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
@@ -31,17 +32,59 @@ func (e *environ) Subnets(
 		return nil, errors.Trace(err)
 	}
 
-	ids := makeIncludeSet(subnetIds)
-	results, err := e.getMatchingSubnets(ctx, ids, zones)
+	wantIDs := set.NewStrings()
+	for _, id := range subnetIds {
+		wantIDs.Add(id.String())
+	}
+	results, err := e.getSubnets(ctx, wantIDs, zones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if missing := ids.Missing(); len(missing) != 0 {
-		return nil, errors.NotFoundf("subnets %v", formatMissing(missing))
+	missing := wantIDs.Difference(subnetIdsForSubnets(results))
+	if missing.Size() != 0 {
+		return nil, errors.NotFoundf("subnets %v", formatMissing(missing.SortedValues()))
 	}
 
 	return results, nil
+}
+
+func subnetIdsForSubnets(subnets []corenetwork.SubnetInfo) set.Strings {
+	result := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = subnet.ProviderId.String()
+	}
+	return set.NewStrings(result...)
+}
+
+// getInstanceSubnet returns the vpc network and optionally a subnet to use when
+// starting a new instance. The subnet will be empty if we are relying on the
+// auto create subnet mode of the network.
+func (env *environ) getInstanceSubnet(ctx context.Context) (string, *string, error) {
+	vpcLink, autosubnets, err := env.getVpcInfo(ctx)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	if vpcLink == nil {
+		// No VPC so just use default network.
+		return fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName), nil, nil
+	}
+
+	subnetworks, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	// Choose a subnet if there is one to choose from, or else rely on auto.
+	if !autosubnets && len(subnetworks) == 0 {
+		return "", nil, environs.ZoneIndependentError(
+			errors.New("VPC does not auto create subnets and has no subnets"))
+	}
+	// Until placement is implemented, just use the first subnet.
+	var subnetworkURL *string
+	if len(subnetworks) > 0 {
+		subnetworkURL = ptr(subnetworks[0].GetSelfLink())
+	}
+	return *vpcLink, subnetworkURL, nil
 }
 
 func (e *environ) zoneNames(ctx context.Context) ([]string, error) {
@@ -56,6 +99,8 @@ func (e *environ) zoneNames(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
+type networkMap map[string]*computepb.Network
+
 func (e *environ) networksByURL(ctx context.Context) (networkMap, error) {
 	networks, err := e.gce.Networks(ctx)
 	if err != nil {
@@ -68,39 +113,81 @@ func (e *environ) networksByURL(ctx context.Context) (networkMap, error) {
 	return results, nil
 }
 
-func (e *environ) getMatchingSubnets(
-	ctx context.Context, subnetIds IncludeSet, zones []string,
+func (e *environ) getSubnets(
+	ctx context.Context, subnetIds set.Strings, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
-	allSubnets, err := e.gce.Subnetworks(ctx, e.cloud.Region)
-	if err != nil {
-		return nil, e.HandleCredentialError(ctx, err)
+	// If subnets ids are specified, we'll load those, else fetch all subnets.
+	// In the latter case, if a VPC is defined, use that to filter subnets,
+	// else query for all networks; this is for compatibility when upgrading.
+	// In either case the supplied subnet ids are matched against the set of
+	// subnets for the relevant network(s).
+	var (
+		networks networkMap
+		err      error
+	)
+	vpcID, haveVPC := e.vpcID()
+	if haveVPC {
+		network, err := e.gce.Network(ctx, vpcID)
+		if err != nil {
+			return nil, e.HandleCredentialError(ctx, err)
+		}
+		networks = networkMap{
+			network.GetSelfLink(): network,
+		}
+	} else {
+		networks, err = e.networksByURL(ctx)
+		if err != nil {
+			return nil, e.HandleCredentialError(ctx, err)
+		}
 	}
-	networks, err := e.networksByURL(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	// Get the subnet urls to query based on the vpc network.
+	var urls []string
+	subnetURLsByName := make(map[string]string)
+	for _, network := range networks {
+		for _, subnetURL := range network.Subnetworks {
+			subnetName := path.Base(subnetURL)
+			if subnetIds.IsEmpty() || subnetIds.Contains(subnetName) {
+				subnetURLsByName[subnetName] = subnetURL
+				urls = append(urls, subnetURL)
+			}
+		}
 	}
+	// Report on any missing networks.
+	var notFoundSubnets []string
+	for _, subnet := range subnetIds.Values() {
+		if _, ok := subnetURLsByName[subnet]; !ok {
+			notFoundSubnets = append(notFoundSubnets, subnet)
+		}
+	}
+	if len(notFoundSubnets) > 0 {
+		return nil, errors.NotFoundf("subnets %q", notFoundSubnets)
+	}
+
+	var allSubnets []*computepb.Subnetwork
+	if len(urls) > 0 {
+		if allSubnets, err = e.gce.Subnetworks(ctx, e.cloud.Region, urls...); err != nil {
+			return nil, e.HandleCredentialError(ctx, err)
+		}
+	}
+
 	var results []corenetwork.SubnetInfo
 	for _, subnet := range allSubnets {
-		netwk, ok := networks[subnet.GetNetwork()]
-		if !ok {
-			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
-		}
-		if subnetIds.Include(subnet.GetName()) {
-			results = append(results, makeSubnetInfo(
-				corenetwork.Id(subnet.GetName()),
-				corenetwork.Id(netwk.GetName()),
-				subnet.GetIpCidrRange(),
-				zones,
-			))
-		}
+		results = append(results, makeSubnetInfo(
+			corenetwork.Id(subnet.GetName()),
+			corenetwork.Id(path.Base(subnet.GetNetwork())),
+			subnet.GetIpCidrRange(),
+			zones,
+		))
 	}
 	// We have to include networks in 'LEGACY' mode that do not have subnetworks.
-	for _, netwk := range networks {
-		if netwk.GetIPv4Range() != "" && subnetIds.Include(netwk.GetName()) {
+	for _, network := range networks {
+		if network.GetIPv4Range() != "" &&
+			(subnetIds.IsEmpty() || subnetIds.Contains(network.GetName())) {
 			results = append(results, makeSubnetInfo(
-				corenetwork.Id(netwk.GetName()),
-				corenetwork.Id(netwk.GetName()),
-				netwk.GetIPv4Range(),
+				corenetwork.Id(network.GetName()),
+				corenetwork.Id(network.GetName()),
+				network.GetIPv4Range(),
 				zones,
 			))
 		}
@@ -124,12 +211,11 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 		return nil, errors.Trace(err)
 	}
 
-	// In GCE all the subnets are in all AZs.
-	zones, err := e.zoneNames(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
+	vpcID, haveVPC := e.vpcID()
+	if !haveVPC {
+		vpcID = google.NetworkDefaultName
 	}
-	networks, err := e.networksByURL(ctx)
+	network, err := e.gce.Network(ctx, vpcID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,7 +227,12 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 		return nil, errors.Trace(err)
 	}
 
-	subnets, err := e.subnetsByURL(ctx, uniqueSubnetURLs.Values(), networks, zones)
+	// In GCE all the subnets are in all AZs.
+	zones, err := e.zoneNames(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnets, err := e.subnetsByURL(ctx, network, uniqueSubnetURLs.SortedValues(), zones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -156,7 +247,7 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]c
 		// to environInstance when we iterated the instance list to
 		// obtain the unique subnet URLs
 		for i, iface := range inst.(*environInstance).base.NetworkInterfaces {
-			details, err := findNetworkDetails(iface, subnets, networks)
+			details, err := findNetworkDetails(iface, subnets, network)
 			if err != nil {
 				return nil, errors.Annotatef(err, "instance %q", ids[idx])
 			}
@@ -237,17 +328,12 @@ type networkDetails struct {
 // populate an InterfaceInfo - if the interface is on a legacy network
 // we use information from the network because there'll be no subnet
 // linked.
-func findNetworkDetails(iface *computepb.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
+func findNetworkDetails(iface *computepb.NetworkInterface, subnets subnetMap, network *computepb.Network) (networkDetails, error) {
 	var result networkDetails
 	if iface.GetSubnetwork() == "" {
-		// This interface is on a legacy network.
-		netwk, ok := networks[iface.GetNetwork()]
-		if !ok {
-			return result, errors.NotFoundf("network %q", iface.Network)
-		}
-		result.cidr = netwk.GetIPv4Range()
+		result.cidr = network.GetIPv4Range()
 		result.subnet = ""
-		result.network = corenetwork.Id(netwk.GetName())
+		result.network = corenetwork.Id(network.GetName())
 	} else {
 		subnet, ok := subnets[iface.GetSubnetwork()]
 		if !ok {
@@ -260,32 +346,27 @@ func findNetworkDetails(iface *computepb.NetworkInterface, subnets subnetMap, ne
 	return result, nil
 }
 
-func (e *environ) subnetsByURL(ctx context.Context, urls []string, networks networkMap, zones []string) (subnetMap, error) {
+func (e *environ) subnetsByURL(ctx context.Context, network *computepb.Network, urls []string, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
 		return make(map[string]corenetwork.SubnetInfo), nil
 	}
-	urlSet := includeSet{items: set.NewStrings(urls...)}
-	allSubnets, err := e.gce.Subnetworks(ctx, e.cloud.Region)
+	urlSet := set.NewStrings(urls...)
+	allSubnets, err := e.gce.Subnetworks(ctx, e.cloud.Region, urls...)
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
 	}
 	results := make(map[string]corenetwork.SubnetInfo)
 	for _, subnet := range allSubnets {
-		netwk, ok := networks[subnet.GetNetwork()]
-		if !ok {
-			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
-		}
-		if urlSet.Include(subnet.GetSelfLink()) {
-			results[subnet.GetSelfLink()] = makeSubnetInfo(
-				corenetwork.Id(subnet.GetName()),
-				corenetwork.Id(netwk.GetName()),
-				subnet.GetIpCidrRange(),
-				zones,
-			)
-		}
+		urlSet.Remove(subnet.GetSelfLink())
+		results[subnet.GetSelfLink()] = makeSubnetInfo(
+			corenetwork.Id(subnet.GetName()),
+			corenetwork.Id(network.GetName()),
+			subnet.GetIpCidrRange(),
+			zones,
+		)
 	}
-	if missing := urlSet.Missing(); len(missing) != 0 {
-		return nil, errors.NotFoundf("subnets %v", formatMissing(missing))
+	if urlSet.Size() > 0 {
+		return nil, errors.NotFoundf("subnets %v", formatMissing(urlSet.Values()))
 	}
 	return results, nil
 }
@@ -314,57 +395,6 @@ func makeSubnetInfo(
 		AvailabilityZones: copyStrings(zones),
 		VLANTag:           0,
 	}
-}
-
-// IncludeSet represents a set of items that can be crossed off once,
-// and when you're finished crossing items off then you can see what's
-// left.
-type IncludeSet interface {
-	// Include returns whether this item should be included, and
-	// crosses it off.
-	Include(item string) bool
-	// Missing returns any items that haven't been crossed off (as a
-	// sorted slice).
-	Missing() []string
-}
-
-// includeAny allows any items and doesn't report any as missing.
-type includeAny struct{}
-
-// Include implements IncludeSet.
-func (includeAny) Include(string) bool { return true }
-
-// Missing implements IncludeSet.
-func (includeAny) Missing() []string { return nil }
-
-// includeSet is a set of items that we want to find in some results.
-type includeSet struct {
-	items set.Strings
-}
-
-// Include implements IncludeSet.
-func (s *includeSet) Include(item string) bool {
-	if s.items.Contains(item) {
-		s.items.Remove(item)
-		return true
-	}
-	return false
-}
-
-// Missing implements IncludeSet.
-func (s *includeSet) Missing() []string {
-	return s.items.SortedValues()
-}
-
-func makeIncludeSet(ids []corenetwork.Id) IncludeSet {
-	if len(ids) == 0 {
-		return &includeAny{}
-	}
-	str := set.NewStrings()
-	for _, id := range ids {
-		str.Add(string(id))
-	}
-	return &includeSet{items: str}
 }
 
 func formatMissing(items []string) string {

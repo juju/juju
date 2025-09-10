@@ -43,7 +43,7 @@ func (s *Service) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (s *Service) ID() ID {
 	return ID{"Service", s.Name, s.Namespace}
 }
@@ -94,11 +94,9 @@ func (s *Service) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s service for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.
@@ -107,4 +105,23 @@ func (s *Service) ComputeStatus(ctx context.Context, now time.Time) (string, sta
 		return "", status.Terminated, s.DeletionTimestamp.Time, nil
 	}
 	return "", status.Active, s.CreationTimestamp.Time, nil
+}
+
+// ListServices returns a list of services.
+func ListServices(ctx context.Context, client v1.ServiceInterface, namespace string, opts metav1.ListOptions) ([]Service, error) {
+	var items []Service
+	for {
+		res, err := client.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, item := range res.Items {
+			items = append(items, *NewService(client, namespace, item.Name, &item))
+		}
+		if res.Continue == "" {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }

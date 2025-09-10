@@ -30,27 +30,24 @@ juju-exec [options] [-u] [<unit-name>] <commands>
 -u (= "-")
     explicit unit-name, all other arguments are commands. if -u is passed an empty string, unit-name is inferred from state
 
-Details:
+```
+
+## Details
+
 Run the specified commands in the hook context for the unit.
 
-unit-name can be either the unit tag:
- i.e.  unit-ubuntu-0
-or the unit id:
- i.e.  ubuntu/0
+`<unit-name>` can be either the unit tag, i.e.  `unit-ubuntu-0`, or the unit id, i.e., `ubuntu/0`.
 
-unit-name can be specified by the -u argument.
-If -u is passed, unit-name cannot be passed as a positional argument.
+`<unit-name>` can be specified by the `-u` argument. If `-u` is passed, `unit-name` cannot be passed as a positional argument.
 
-If --no-context is specified, the <unit-name> positional
+If `--no-context` is specified, the `<unit-name>` positional
 argument or -u argument is not needed.
 
-If the there's one and only one unit on this host, <unit-name>
+If the there's one and only one unit on this host, `<unit-name>`
 is automatically inferred and the positional argument is not needed.
-If -u is passed an empty string, this behaviour is also observed.
-
+If `-u` is passed an empty string, this behaviour is also observed.
 
 ## Examples
-
 
 	juju-exec app/0 hostname -f
 	juju-exec --no-context -- hostname -f
@@ -59,4 +56,4 @@ If -u is passed an empty string, this behaviour is also observed.
 	juju-exec -u app/0 "hostname -f"
 	juju-exec -u app/0 -- hostname -f
 
-The commands are executed with '/bin/bash -s', and the output returned.
+The commands are executed with `/bin/bash -s`, and the output returned.

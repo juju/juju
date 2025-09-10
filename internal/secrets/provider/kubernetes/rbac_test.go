@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v3"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type rbacSuite struct {
@@ -31,10 +31,10 @@ func TestRBACSuite(t *testing.T) {
 func (s *rbacSuite) getFakeClient(c *tc.C) *kubernetesClient {
 	fakeClient := fake.NewSimpleClientset()
 
-	controllerUUID, err := utils.NewUUID()
+	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	broker := &kubernetesClient{

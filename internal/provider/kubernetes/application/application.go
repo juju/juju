@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -98,6 +99,7 @@ type app struct {
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	extendedClient apiextensionsclientset.Interface
+	dynamicClient  dynamic.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
@@ -125,6 +127,7 @@ func NewApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -139,6 +142,7 @@ func NewApplication(
 		deploymentType,
 		client,
 		extendedClient,
+		dynamicClient,
 		newWatcher,
 		clock,
 		randomPrefix,
@@ -156,6 +160,7 @@ func newApplication(
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	extendedClient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	randomPrefix utils.RandomPrefixFunc,
@@ -171,6 +176,7 @@ func newApplication(
 		deploymentType: deploymentType,
 		client:         client,
 		extendedClient: extendedClient,
+		dynamicClient:  dynamicClient,
 		newWatcher:     newWatcher,
 		clock:          clock,
 		randomPrefix:   randomPrefix,
@@ -254,7 +260,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		return handleVolume(vol, mountPath, readOnly)
 	}
-	storageClasses, err := resources.ListStorageClass(context.Background(), a.client, metav1.ListOptions{})
+	storageClasses, err := resources.ListStorageClass(context.TODO(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -425,7 +431,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		return errors.NotSupportedf("unknown deployment type")
 	}
 
-	return applier.Run(context.Background(), false)
+	return applier.Run(context.TODO(), false)
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
@@ -549,7 +555,7 @@ func (a *app) Upgrade(ver semversion.Number) error {
 		resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), nil),
 		resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil),
 	} {
-		if err := r.Get(context.Background()); err != nil {
+		if err := r.Get(context.TODO()); err != nil {
 			return errors.Trace(err)
 		}
 		existingAnnotations := annotations.New(r.GetAnnotations())
@@ -557,7 +563,7 @@ func (a *app) Upgrade(ver semversion.Number) error {
 		applier.Apply(r)
 	}
 
-	return applier.Run(context.Background(), false)
+	return applier.Run(context.TODO(), false)
 }
 
 type annotationUpdater interface {
@@ -568,7 +574,7 @@ type annotationUpdater interface {
 
 func (a *app) upgradeHeadlessService(applier resources.Applier, ver semversion.Number) error {
 	r := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(a.name), nil)
-	if err := r.Get(context.Background()); err != nil {
+	if err := r.Get(context.TODO()); err != nil {
 		return errors.Trace(err)
 	}
 	r.SetAnnotations(a.upgradeAnnotations(annotations.New(r.GetAnnotations()), ver))
@@ -584,7 +590,7 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver semversion.Numb
 		}
 
 		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
-		if err := ss.Get(context.Background()); err != nil {
+		if err := ss.Get(context.TODO()); err != nil {
 			return errors.Trace(err)
 		}
 		initContainers := ss.Spec.Template.Spec.InitContainers
@@ -682,7 +688,7 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 			PublishNotReadyAddresses: true,
 		},
 	})
-	return svc.Apply(context.Background())
+	return svc.Apply(context.TODO())
 }
 
 const (
@@ -707,7 +713,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			}},
 		},
 	})
-	return svc.Apply(context.Background())
+	return svc.Apply(context.TODO())
 }
 
 // UpdateService updates the default service with specific service type and port mappings.
@@ -731,7 +737,7 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 		return errors.Trace(err)
 	}
-	return applier.Run(context.Background(), false)
+	return applier.Run(context.TODO(), false)
 }
 
 func convertServicePort(port caas.ServicePort) (out corev1.ServicePort, err error) {
@@ -758,7 +764,7 @@ func convertServicePort(port caas.ServicePort) (out corev1.ServicePort, err erro
 
 func (a *app) getService() (*resources.Service, error) {
 	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil)
-	if err := svc.Get(context.Background()); err != nil {
+	if err := svc.Get(context.TODO()); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("service %q", a.name)
 		}
@@ -809,7 +815,7 @@ func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) e
 			return errors.Trace(err)
 		}
 	}
-	err = applier.Run(context.Background(), false)
+	err = applier.Run(context.TODO(), false)
 	return errors.Trace(err)
 }
 
@@ -839,7 +845,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
-		if err := ss.Get(context.Background()); err != nil {
+		if err := ss.Get(context.TODO()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -847,7 +853,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 		applier.Apply(ss)
 	case caas.DeploymentStateless:
 		d := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-		if err := d.Get(context.Background()); err != nil {
+		if err := d.Get(context.TODO()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -855,7 +861,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 		applier.Apply(d)
 	case caas.DeploymentDaemon:
 		d := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
-		if err := d.Get(context.Background()); err != nil {
+		if err := d.Get(context.TODO()); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -869,7 +875,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 	ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.Background()); err != nil {
+	if err := ss.Get(context.TODO()); err != nil {
 		return nil, err
 	}
 	return ss, nil
@@ -877,7 +883,7 @@ func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
 	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.Background()); err != nil {
+	if err := ss.Get(context.TODO()); err != nil {
 		return nil, err
 	}
 	return ss, nil
@@ -885,7 +891,7 @@ func (a *app) getDeployment() (*resources.Deployment, error) {
 
 func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
 	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.Background()); err != nil {
+	if err := ss.Get(context.TODO()); err != nil {
 		return nil, err
 	}
 	return ss, nil
@@ -893,7 +899,7 @@ func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
-	err = ss.Get(context.Background())
+	err = ss.Get(context.TODO())
 	if errors.IsNotFound(err) {
 		return false, false, nil
 	} else if err != nil {
@@ -904,7 +910,7 @@ func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 
 func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-	err = ss.Get(context.Background())
+	err = ss.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -915,7 +921,7 @@ func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 
 func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
-	err = ss.Get(context.Background())
+	err = ss.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -926,7 +932,7 @@ func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 
 func (a *app) secretExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), nil)
-	err = ss.Get(context.Background())
+	err = ss.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -937,7 +943,7 @@ func (a *app) secretExists() (exists bool, terminating bool, err error) {
 
 func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, nil)
-	err = ss.Get(context.Background())
+	err = ss.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -948,7 +954,7 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 
 func (a *app) roleExists() (exists bool, terminating bool, err error) {
 	r := resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), nil)
-	err = r.Get(context.Background())
+	err = r.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -959,7 +965,7 @@ func (a *app) roleExists() (exists bool, terminating bool, err error) {
 
 func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 	rb := resources.NewRoleBinding(a.client.RbacV1().RoleBindings(a.namespace), a.namespace, a.serviceAccountName(), nil)
-	err = rb.Get(context.Background())
+	err = rb.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -970,7 +976,7 @@ func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 
 func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
 	r := resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil)
-	err = r.Get(context.Background())
+	err = r.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -981,7 +987,7 @@ func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
 
 func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err error) {
 	rb := resources.NewClusterRoleBinding(a.client.RbacV1().ClusterRoleBindings(), a.qualifiedClusterName(), nil)
-	err = rb.Get(context.Background())
+	err = rb.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -992,7 +998,7 @@ func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err err
 
 func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) {
 	sa := resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), nil)
-	err = sa.Get(context.Background())
+	err = sa.Get(context.TODO())
 	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
@@ -1003,7 +1009,8 @@ func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) 
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
-	logger.Debugf(context.TODO(), "deleting %s application", a.name)
+	ctx := context.TODO()
+	logger.Debugf(ctx, "deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1024,43 +1031,200 @@ func (a *app) Delete() error {
 	applier.Delete(resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), nil))
 	applier.Delete(resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), nil))
 
-	// Cleanup lists of resources.
-	cleanup := []resources.Resource(nil)
+	resourcesToDelete := []resources.Resource(nil)
+
+	// Create selector labels.
+	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
+	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
+	resourceLabels := utils.LabelsMerge(appLabel, modelLabel)
+
+	// List statefulsets to be deleted.
+	statefulsets, err := resources.ListStatefulSets(ctx, a.client.AppsV1().StatefulSets(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list statefulsets for deletion")
+	}
+	for _, sts := range statefulsets {
+		resourcesToDelete = append(resourcesToDelete, &sts)
+	}
+
+	// List deployments to be deleted.
+	deployments, err := resources.ListDeployments(ctx, a.client.AppsV1().Deployments(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list deployments for deletion")
+	}
+	for _, d := range deployments {
+		resourcesToDelete = append(resourcesToDelete, &d)
+	}
+
+	// List services to be deleted.
+	services, err := resources.ListServices(ctx, a.client.CoreV1().Services(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list services for deletion")
+	}
+	for _, svc := range services {
+		resourcesToDelete = append(resourcesToDelete, &svc)
+	}
 
 	// List secrets to be deleted.
-	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(ctx, a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to list secrets for deletion")
 	}
 	for _, s := range secrets {
 		secret := s
 		if a.matchImagePullSecret(secret.Name) {
-			cleanup = append(cleanup, &secret)
+			resourcesToDelete = append(resourcesToDelete, &secret)
 		}
 	}
 
-	// List crds to be deleted.
-	appLabel := utils.SelectorLabelsForApp(a.name, a.labelVersion)
-	modelLabel := utils.LabelsForModel(a.modelName, a.modelUUID, a.controllerUUID, a.labelVersion)
-	mergedLabel := utils.LabelsMerge(appLabel, modelLabel)
-	crds, err := resources.ListCRDs(context.Background(), a.extendedClient, metav1.ListOptions{
-		LabelSelector: mergedLabel.String(),
-	},
-	)
+	// List configmaps to be deleted.
+	cms, err := resources.ListConfigMaps(ctx, a.client.CoreV1().ConfigMaps(a.namespace), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to list configmaps for deletion")
+	}
+	for _, cm := range cms {
+		resourcesToDelete = append(resourcesToDelete, &cm)
+	}
+
+	// List roles to be deleted.
+	roles, err := resources.ListRoles(ctx, a.client.RbacV1().Roles(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list roles for deletion")
+	}
+	for _, r := range roles {
+		resourcesToDelete = append(resourcesToDelete, &r)
+	}
+
+	// List role bindings to be deleted.
+	roleBindings, err := resources.ListRoleBindings(ctx, a.client.RbacV1().RoleBindings(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list role bindings for deletion")
+	}
+	for _, rb := range roleBindings {
+		resourcesToDelete = append(resourcesToDelete, &rb)
+	}
+
+	// List cluster role bindings to be deleted.
+	clusterRoleBindings, err := resources.ListClusterRoleBindings(ctx, a.client.RbacV1().ClusterRoleBindings(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list cluster role bindings for deletion")
+	}
+	for _, crb := range clusterRoleBindings {
+		resourcesToDelete = append(resourcesToDelete, &crb)
+	}
+
+	// List cluster roles to be deleted.
+	clusterRoles, err := resources.ListClusterRoles(ctx, a.client.RbacV1().ClusterRoles(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list cluster roles for deletion")
+	}
+	for _, cr := range clusterRoles {
+		resourcesToDelete = append(resourcesToDelete, &cr)
+	}
+
+	// List service accounts to be deleted.
+	serviceAccounts, err := resources.ListServiceAccounts(ctx, a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list service accounts for deletion")
+	}
+	for _, sa := range serviceAccounts {
+		resourcesToDelete = append(resourcesToDelete, &sa)
+	}
+
+	// List CRDs to be deleted.
+	crds, err := resources.ListCRDs(ctx, a.extendedClient, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list CRDs for deletion")
+	}
+	// List CRs for each CRD to be deleted.
+	var crs []resources.CustomResource
+	for _, crd := range crds {
+		res, err := resources.ListCRsForCRD(ctx, a.dynamicClient, a.namespace, &crd.CustomResourceDefinition, metav1.ListOptions{
+			LabelSelector: resourceLabels.String(),
+		})
+		if err != nil {
+			return errors.Annotatef(err, "failed to list CRs for CRD %q", crd.Name)
+		}
+		crs = append(crs, res...)
+	}
+	for _, cr := range crs {
+		resourcesToDelete = append(resourcesToDelete, &cr)
 	}
 	for _, crd := range crds {
-		cleanup = append(cleanup, crd)
+		resourcesToDelete = append(resourcesToDelete, &crd)
 	}
 
-	if len(cleanup) > 0 {
-		applier.Delete(cleanup...)
+	// List mutating webhook configurations to be deleted.
+	mws, err := resources.ListMutatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().MutatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list mutating webhook configurations for deletion")
+	}
+	for _, mw := range mws {
+		resourcesToDelete = append(resourcesToDelete, &mw)
 	}
 
-	return applier.Run(context.Background(), false)
+	// List validating webhook configurations to be deleted.
+	vws, err := resources.ListValidatingWebhookConfigs(ctx, a.client.AdmissionregistrationV1().ValidatingWebhookConfigurations(), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list validating webhook configurations for deletion")
+	}
+	for _, vw := range vws {
+		resourcesToDelete = append(resourcesToDelete, &vw)
+	}
+
+	// List ingress to be deleted.
+	igs, err := resources.ListIngresses(ctx, a.client.NetworkingV1().Ingresses(a.namespace), metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list ingresses for deletion")
+	}
+	for _, ig := range igs {
+		resourcesToDelete = append(resourcesToDelete, &ig)
+	}
+
+	// List daemonsets to be deleted.
+	daemonsets, err := resources.ListDaemonSets(ctx, a.client.AppsV1().DaemonSets(a.namespace), a.namespace, metav1.ListOptions{
+		LabelSelector: resourceLabels.String(),
+	})
+	if err != nil {
+		return errors.Annotatef(err, "failed to list daemonsets for deletion")
+	}
+	for _, ds := range daemonsets {
+		resourcesToDelete = append(resourcesToDelete, &ds)
+	}
+
+	if len(resourcesToDelete) > 0 {
+		applier.Delete(resourcesToDelete...)
+	}
+
+	return applier.Run(context.TODO(), false)
 }
 
 // Watch returns a watcher which notifies when there
@@ -1109,7 +1273,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		ss := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, nil)
-		err := ss.Get(context.Background())
+		err := ss.Get(context.TODO())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1119,7 +1283,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
 	case caas.DeploymentStateless:
 		d := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-		err := d.Get(context.Background())
+		err := d.Get(context.TODO())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1129,7 +1293,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 		state.DesiredReplicas = int(*d.Spec.Replicas)
 	case caas.DeploymentDaemon:
 		d := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
-		err := d.Get(context.Background())
+		err := d.Get(context.TODO())
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
@@ -1139,7 +1303,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 	}
 	next := ""
 	for {
-		res, err := a.client.CoreV1().Pods(a.namespace).List(context.Background(), metav1.ListOptions{
+		res, err := a.client.CoreV1().Pods(a.namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: a.labelSelector(),
 			Continue:      next,
 		})
@@ -1164,7 +1328,7 @@ func (a *app) Service() (*caas.Service, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := context.Background()
+	ctx := context.TODO()
 	now := a.clock.Now()
 	statusMessage, svcStatus, since, err := a.computeStatus(ctx, now)
 	if err != nil {
@@ -1218,7 +1382,7 @@ func (a *app) computeStatus(ctx context.Context, now time.Time) (string, status.
 
 // Units of the application fetched from kubernetes by matching pod labels.
 func (a *app) Units() ([]caas.Unit, error) {
-	ctx := context.Background()
+	ctx := context.TODO()
 	now := a.clock.Now()
 	var units []caas.Unit
 	pods, err := resources.ListPods(ctx, a.client, a.namespace, metav1.ListOptions{
@@ -1876,7 +2040,7 @@ func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.Appli
 		desired = append(desired, secret)
 	}
 
-	secrets, err := resources.ListSecrets(context.Background(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
+	secrets, err := resources.ListSecrets(context.TODO(), a.client.CoreV1().Secrets(a.namespace), a.namespace, metav1.ListOptions{
 		LabelSelector: a.labelSelector(),
 	})
 	if err != nil {
@@ -1989,7 +2153,7 @@ func (a *app) pvcNames(storagePrefix string) (map[string]string, error) {
 	opts := metav1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labelSelectors).String(),
 	}
-	pvcs, err := resources.ListPersistentVolumeClaims(context.Background(), a.client, a.namespace, opts)
+	pvcs, err := resources.ListPersistentVolumeClaims(context.TODO(), a.client, a.namespace, opts)
 	if err != nil {
 		return nil, errors.Annotate(err, "fetching persistent volume claims")
 	}

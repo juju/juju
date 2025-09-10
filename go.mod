@@ -38,7 +38,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-delve/delve v1.24.0
-	github.com/go-goose/goose/v5 v5.1.2
+	github.com/go-goose/goose/v5 v5.1.3
 	github.com/go-logr/logr v1.4.3
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
 	github.com/google/gnostic-models v0.6.8

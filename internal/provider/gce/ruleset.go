@@ -70,7 +70,7 @@ func (rs ruleSet) addFirewall(fw *computepb.Firewall) error {
 	}
 	sourceRanges := fw.GetSourceRanges()
 	if len(sourceRanges) == 0 {
-		sourceRanges = []string{"0.0.0.0/0"}
+		sourceRanges = []string{corefirewall.AllNetworksIPV4CIDR}
 	}
 	key := sourcecidrs(sourceRanges).key()
 	result := &firewallInfo{

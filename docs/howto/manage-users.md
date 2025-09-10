@@ -1,7 +1,9 @@
 (manage-users)=
 # How to manage users
 
-> See also: {ref}`user`
+```{ibnote}
+See also: {ref}`user`
+```
 
 (add-a-user)=
 ## Add a user
@@ -18,10 +20,11 @@ juju add-user alex
 
 This will create a user with username 'alex' and a controller `login` access level.
 
-> See more: {ref}`user-access-levels`
+```{ibnote}
+See more: {ref}`user-access-levels`
+```
 
 It will also print a line of code that you must give this user to run using their Juju client -- this will register the controller with their client and also prompt them to set up a password for the user.
-
 
 ````{dropdown} Example user setup
 
@@ -60,8 +63,9 @@ of a model to grant access to that model with "juju grant".
 Controller registration (and any other Juju operations that involves communication between a client and a controller) requires that the client be able to contact the controller over the network on TCP port 17070. In particular, if using a LXD-based cloud, network routes need to be in place (i.e. to contact the controller LXD container the client traffic must be routed through the LXD host).
 ```
 
-> See more: {ref}`command-juju-add-user`, {ref}`register-a-controller`
-
+```{ibnote}
+See more: {ref}`command-juju-add-user`, {ref}`register-a-controller`
+```
 
 ## View all the known users
 
@@ -74,7 +78,9 @@ juju users
 
 The command also has flags that will allow you to specify a different controller, an output file, an output format, whether to print the full timestamp for connection times, etc.
 
-> See more: {ref}`command-juju-users`
+```{ibnote}
+See more: {ref}`command-juju-users`
+```
 
 ## View details about a user
 
@@ -87,7 +93,7 @@ juju show-user alice
 This will display the user's username, display name (if available), access level, creation date, and last connection time, in a YAML format.
 
 
-````{dropdown} Expand to see a sample output for user 'admin'
+````{dropdown} Example output for user 'admin'
 
 ```text
 user-name: admin
@@ -99,8 +105,9 @@ last-connection: just now
 
 ````
 
-> See more: {ref}`command-juju-show-user`
-
+```{ibnote}
+See more: {ref}`command-juju-show-user`
+```
 
 ## View details about the current user
 
@@ -112,7 +119,6 @@ juju whoami
 
 This will print the current controller, model, and user username.
 
-
 ````{dropdown} Example output
 
 ```text
@@ -123,11 +129,15 @@ User:        admin
 
 ````
 
-> See more: {ref}`command-juju-whoami`
-
+```{ibnote}
+See more: {ref}`command-juju-whoami`
+```
 
 ## Manage a user's access level
-> See also: {ref}`user-access-levels`
+
+```{ibnote}
+See also: {ref}`user-access-levels`
+```
 
 The procedure for how to control a user's access level depends on whether you want to grant access at the level of the controller, model, application, or application offer or rather at the level of a cloud.
 
@@ -145,7 +155,9 @@ juju grant jim write mymodel
 
 The command also has a flag that allows you to specify a different controller to operate in.
 
-> See more: {ref}`command-juju-grant`
+```{ibnote}
+See more: {ref}`command-juju-grant`
+```
 
 **Revoke access.** To revoke a user's access at the controller, model, application, or offer level, run the `revoke` command, specifying the user, access level to be revoked, and the controller, model, application, or offer to be revoked from. For example:
 
@@ -155,8 +167,9 @@ juju revoke joe read mymodel
 
 The command also has a flag that allows you to specify a different controller to operate in.
 
-> See more: {ref}`command-juju-revoke`
-
+```{ibnote}
+See more: {ref}`command-juju-revoke`
+```
 
 ### Manage access at the cloud level
 
@@ -166,7 +179,9 @@ The command also has a flag that allows you to specify a different controller to
 juju grant-cloud joe add-model fluffy
 ```
 
-> See more: {ref}`command-juju-grant-cloud`
+```{ibnote}
+See more: {ref}`command-juju-grant-cloud`
+```
 
 **Revoke access.** To revoke a user's access at the cloud level, run the `revoke-cloud` command followed by the name of the user, the access level to be revoked, and the name of the cloud. For example:
 
@@ -174,7 +189,9 @@ juju grant-cloud joe add-model fluffy
 juju revoke-cloud joe add-model fluffy
 ```
 
-> See more: {ref}`command-juju-revoke-cloud`
+```{ibnote}
+See more: {ref}`command-juju-revoke-cloud`
+```
 
 (manage-a-users-login-details)=
 ## Manage a user's login details
@@ -189,12 +206,15 @@ juju change-user-password
 
 This will prompt you to type, and then re-type, your desired password.
 
-> See more: {ref}`command-juju-change-user-password`
-
+```{ibnote}
+See more: {ref}`command-juju-change-user-password`
+```
 
 - To set a password as a non-controller-creator user, follow the prompt you get when registering the controller via the `register` command.
 
-> See more: {ref}`register-a-controller`
+```{ibnote}
+See more: {ref}`register-a-controller`
+```
 
 **Change a password.** To change the current user's password, run the `change-user-password` command:
 
@@ -206,7 +226,9 @@ This will prompt you to type, and then re-type, your desired password.
 
 The command also allows an optional username argument, and flags, allowing an admin to change / reset the password for another user.
 
-> See more: {ref}`command-juju-change-user-password`
+```{ibnote}
+See more: {ref}`command-juju-change-user-password`
+```
 
 ## Manage a user's login status
 
@@ -218,7 +240,6 @@ The command also allows an optional username argument, and flags, allowing an ad
 
 ```{important}
 **If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username>` to view your user details.
-
 ```
 
 To log in as a user on the current controller, run the `login` command, using the `-u` flag to specify the user you want to log in as. For example:
@@ -231,7 +252,9 @@ This will prompt you to enter the password.
 
 The command also has flags that allow you to specify a controller, etc.
 
-> See more: {ref}`command-juju-login`
+```{ibnote}
+See more: {ref}`command-juju-login`
+```
 
 **Log out.**
 
@@ -245,7 +268,9 @@ To log a user out of the current controller, run the `logout` command:
 juju logout
 ```
 
-> See more: {ref}`command-juju-logout`
+```{ibnote}
+See more: {ref}`command-juju-logout`
+```
 
 ## Manage a user's enabled status
 
@@ -255,12 +280,12 @@ To disable a user on the current controller, run the `disable-user` command foll
 juju disable-user mike
 ```
 
-> See more: {ref}`command-juju-disable-user`
+```{ibnote}
+See more: {ref}`command-juju-disable-user`
+```
 
 ```{tip}
-
 **To view disabled users in the output of `juju users`:** Use the `--all` flag.
-
 ```
 
 To re-enable a disabled user on a controller, run the `enable-user` command followed by the name of the user. For example:
@@ -269,7 +294,9 @@ To re-enable a disabled user on a controller, run the `enable-user` command foll
 juju enable-user mike
 ```
 
-> See more: {ref}`command-juju-enable-user`
+```{ibnote}
+See more: {ref}`command-juju-enable-user`
+```
 
 ## Remove a user
 
@@ -283,5 +310,7 @@ This will prompt you to confirm, and then proceed to remove.
 
 The command also has flags that allow you to specify a different controller, skip the confirmation, etc.
 
-> See more: {ref}`command-juju-remove-user`
+```{ibnote}
+See more: {ref}`command-juju-remove-user`
+```
 

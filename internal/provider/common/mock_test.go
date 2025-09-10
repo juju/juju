@@ -38,6 +38,7 @@ type mockEnviron struct {
 	setConfig        setConfigFunc
 	storageProviders jujustorage.StaticProviderRegistry
 	modelRules       firewall.IngressRules
+	supportsIPv6     bool
 	environs.Environ // stub out other methods with panics
 }
 
@@ -111,6 +112,10 @@ func (env *mockEnviron) CloseModelPorts(_ context.Context, _ firewall.IngressRul
 
 func (env *mockEnviron) ModelIngressRules(_ context.Context) (firewall.IngressRules, error) {
 	return nil, fmt.Errorf("mock method not implemented")
+}
+
+func (env *mockEnviron) SupportsRulesWithIPV6CIDRs(ctx context.Context) (bool, error) {
+	return env.supportsIPv6, nil
 }
 
 type availabilityZonesFunc func(ctx context.Context) (network.AvailabilityZones, error)

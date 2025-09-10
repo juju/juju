@@ -1,6 +1,8 @@
 (cloud)=
 # Cloud (substrate)
-> See also: {ref}`manage-clouds`
+```{ibnote}
+See also: {ref}`manage-clouds`
+```
 
 ```{toctree}
 :hidden:
@@ -19,7 +21,7 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 
 ## Supported clouds
 
-> See: {ref}`list-of-supported-clouds`
+See {ref}`list-of-supported-clouds`.
 
 (cloud-differences)=
 ## Cloud differences
@@ -43,8 +45,6 @@ The Amazon EC2 cloud is a machine cloud, so you connect it to Juju via `add-clou
 
 Juju makes a fundamental distinction between **'machine' clouds** -- that is, clouds based on bare metal machines (BMs; e.g., MAAS), virtual machines (VMs; e.g., AWS EC2), or system containers (e.g., LXD) -- and **'Kubernetes' clouds** -- that is, based on containers (e.g., AWS EKS).
 
-> See more: {ref}`machine`
-
 While the user experience is still mostly the same -- bootstrap a Juju controller into the cloud, add a model, deploy charms, scale, upgrade, etc. -- this difference affects:
  - the required system requirements (e.g., for a Juju controller, 4GB vs. 6GB memory)
 - the way you connect the cloud to Juju (`add-cloud` + `add-credentials` vs. `add-k8s`)
@@ -54,9 +54,7 @@ and, occasionally
 
 - what operations you may perform, e.g.,
     - Highly Availability is currently supported just for machine controllers
-    - scaling an application is done via `add-unit` on machines and via `scale-application` on K8s).
-
-> See more:  {ref}`tutorial`, {ref}`how-to-guides`
+    - scaling an application is done via `add-unit` on machines and via `scale-application` on Kubernetes).
 
 Juju's vision is to eventually make this distinction irrelevant.
 
@@ -69,8 +67,6 @@ Juju differentiates slightly between **public** and **private** **local** / **re
 
 From the point of view of a user, this mostly just affects whether you can skip certain steps in the setup phase. For example, if your cloud is a public machine cloud / a local private machine or Kubernetes cloud, and you are a Juju controller `superuser` (the typical case), Juju knows where to retrieve the definition for your cloud / your cloud credentials, so you don't have to provide them to Juju manually.
 
-> See more:  {ref}`Tutorial <get-started-with-juju>`, {ref}`How-to guides <juju-how-to-guides>`
-
 -->
 
 (cloud-foo-vs-cloud-bar)=
@@ -80,11 +76,15 @@ As a Juju user you will sometimes also notice small differences tied to a cloud'
 
 This usually affects the setup phase (the information you have to supply to Juju to connect Juju to your cloud, and whether Juju can retrieve any of that automatically for you) and, later on, the customisations you can make to your deployment (e.g., small differences in configurations, constraints, placement directives, subnets, spaces, storage, etc., depending on the features available / supported for a given cloud).
 
-> See more: {ref}`list-of-supported-clouds` > `<cloud name>`
+```{ibnote}
+See more: {ref}`list-of-supported-clouds` > `<cloud name>`
+```
 
 However, note that all Kubernetes clouds are fundamentally the same.
 
-> See more: {ref}`kubernetes-clouds-and-juju`
+```{ibnote}
+See more: {ref}`kubernetes-clouds-and-juju`
+```
 
 (cloud-definition)=
 ## Cloud definition
@@ -144,7 +144,7 @@ This schema is the same across all clouds,
 
 (2) `config` -- while the generic model configuration keys are the same across clouds, the cloud-specific keys will naturally vary.
 
-> See more: {ref}`List of supported clouds > `<cloud name>` <list-of-supported-clouds>`
+See more: {ref}`List of supported clouds > `<cloud name>` <list-of-supported-clouds>`
 
 ```
 -->
@@ -213,7 +213,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 ### `clouds.<cloud>.endpoint`
 
-**Status:** {ref}`TO BE ADDED]
+**Status:** TBA
 
 **Purpose:** To define the default endpoint for the cloud regions. Note: It may be overridden by a region.
 
@@ -221,7 +221,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 ### `clouds.<cloud>.host-cloud-region`
 
-**Status:** [TO BE ADDED]
+**Status:** TBA
 
 **Purpose:** To define the Kubernetes host cloud region.
 
@@ -229,7 +229,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 ### `clouds.<cloud>.identity-endpoint`
 
-**Status:** [TO BE ADDED]
+**Status:** TBA
 
 **Purpose:** To define the default identity endpoint for the cloud regions. Note: It may be overridden by a region.
 
@@ -241,7 +241,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 **Purpose:**  To define a cloud-specific configuration to use when bootstrapping Juju in a specific cloud region. The configuration will be combined with Juju-generated and user supplied values;  user supplied values take precedence.
 
-**Value:** [TO BE ADDED]
+**Value:** TBA
 
 ### `clouds.<cloud>.regions`
 

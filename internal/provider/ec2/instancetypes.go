@@ -326,7 +326,7 @@ func (e *environ) InstanceTypes(ctx context.Context, c constraints.Value) (insta
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(e.HandleCredentialError(ctx, err))
 	}
-	iTypes, err = instances.MatchingInstanceTypes(iTypes, "", c)
+	iTypes, err = instances.MatchingInstanceTypes(iTypes, e.cloud.Region, c)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}

@@ -87,7 +87,7 @@ install: $(VENVDIR)
 run: install
 	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
-	 --pre-build "$(MAKE) -C ../ go-install" --pre-build "python3 scripts/autogenerate-docs.py" \
+	 --pre-build "python3 scripts/autogenerate-docs.py" \
 	 "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Does not depend on $(BUILDDIR) to rebuild properly at every run.

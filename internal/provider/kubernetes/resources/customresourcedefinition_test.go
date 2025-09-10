@@ -87,6 +87,9 @@ func (s *customresourcedefinitionSuite) TestDelete(c *tc.C) {
 	err = crdResource.Delete(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
+	err = crdResource.Delete(c.Context())
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+
 	err = crdResource.Get(c.Context())
 	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
@@ -126,6 +129,7 @@ func (s *customresourcedefinitionSuite) TestListCRDs(c *tc.C) {
 	_, err = s.extendedClient.ApiextensionsV1().CustomResourceDefinitions().Create(c.Context(), &crd2, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// List resources with correct labels.
 	crds, err := resources.ListCRDs(context.Background(), s.extendedClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
@@ -133,4 +137,16 @@ func (s *customresourcedefinitionSuite) TestListCRDs(c *tc.C) {
 	c.Assert(len(crds), tc.Equals, 2)
 	c.Assert(crds[0].GetName(), tc.Equals, crd1Name)
 	c.Assert(crds[1].GetName(), tc.Equals, crd2Name)
+
+	// List resources with no labels.
+	crds, err = resources.ListCRDs(context.Background(), s.extendedClient, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(crds), tc.Equals, 2)
+
+	// List resources with wrong labels.
+	crds, err = resources.ListCRDs(context.Background(), s.extendedClient, metav1.ListOptions{
+		LabelSelector: "foo=bar",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(crds), tc.Equals, 0)
 }

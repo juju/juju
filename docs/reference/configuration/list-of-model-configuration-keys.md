@@ -3,6 +3,20 @@
 
 
 This document gives a list of all the configuration keys that can be applied to a Juju model.
+
+```{important}
+
+Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-key`. Others are defined generally but may still only be available for some clouds; e.g., {ref}`model-config-container-inherit-properties`.
+
+```
+
+(model-config-cloud-specific-key)=
+## `<cloud-specific key>`
+
+```{ibnote}
+See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
+```
+
 (model-config-agent-metadata-url)=
 ## `agent-metadata-url`
 
@@ -19,6 +33,8 @@ URL of private stream.
 Version of Juju to use for deploy/upgrades.
 
 **Default value:** `""`
+
+**Valid values:** `released`, `devel`, `proposed`
 
 **Type:** string
 
@@ -676,7 +692,7 @@ The currently supported labels are:
 | `#cmr-auth` | Authentication for cross model relations |
 | `#secrets` | Juju secrets |
 
-and where <verbosity level> can be, in decreasing order of severity:
+and where `<verbosity level>` can be, in decreasing order of severity:
 
 | Level | Description |
 |-|-|

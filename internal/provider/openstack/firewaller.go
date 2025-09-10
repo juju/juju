@@ -121,7 +121,7 @@ type firewallerFactory struct{}
 
 // GetFirewaller implements FirewallerFactory
 func (f *firewallerFactory) GetFirewaller(env environs.Environ) Firewaller {
-	return &neutronFirewaller{firewallerBase{environ: env.(*Environ)}}
+	return &neutronFirewaller{firewallerBase: firewallerBase{environ: env.(*Environ)}}
 }
 
 type firewallerBase struct {
@@ -652,7 +652,9 @@ func (c *neutronFirewaller) getSecurityGroupByName(ctx context.Context, name str
 	}
 	retryStrategy.Func = func() error {
 		groups, err := neutronClient.SecurityGroupByNameV2(name)
-		if err != nil {
+		if gooseerrors.IsNotFound(err) {
+			return errors.NotFoundf("security group %q", name)
+		} else if err != nil {
 			return c.environ.HandleCredentialError(ctx, err)
 		}
 

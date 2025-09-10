@@ -32,12 +32,12 @@ server, connecting to the Juju database instance and generating a log
 file for each model that exists in the controller.
 
 Log files are written out to the current working directory by
-default. Use -d / --output-directory option to specify an alternate
+default. Use the `-d` / `--output-directory` option to specify an alternate
 target directory.
 
 In order to connect to the database, the local machine agent's
 configuration is needed. In most circumstances the configuration will
-be found automatically. The --data-dir and/or --machine-id options may
+be found automatically. The `--data-dir` and/or `--machine-id` options may
 be required if the agent configuration can't be found automatically.
 
 

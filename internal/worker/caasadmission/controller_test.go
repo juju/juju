@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v3"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
@@ -74,11 +74,11 @@ func (s *ControllerSuite) TestControllerStartup(c *tc.C) {
 		},
 	}
 
-	controllerUUID, err := utils.NewUUID()
+	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	s.controllerUUID = controllerUUID.String()
 
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	s.modelUUID = modelUUID.String()
 

@@ -1,15 +1,11 @@
 (manage-the-juju-dashboard)=
 # How to manage the Juju dashboard
 
-> See also: {ref}`juju-dashboard`, [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard)
+```{ibnote}
+See also: {ref}`juju-dashboard`
+```
 
 This document demonstrates how to use Juju Dashboard.
-
-```{caution}
-Starting with `juju v.3.0`,  Juju Dashboard needs to be set up via the `juju-dashboard` charm. (Previously it came automatically with every controller.)
-> See more: [Charmhub | `juju-dashboard`](https://charmhub.io/juju-dashboard)
-
-```
 
 (set-up-the-juju-dashboard)=
 ## Set up the Juju dashboard
@@ -71,11 +67,13 @@ username: admin
 password: 1d191f0ef257a3fc3af6be0814f6f1b0
 ```
 
-> See more: {ref}`command-juju-dashboard`
+```{ibnote}
+See more: {ref}`command-juju-dashboard`
+```
 
 Now copy-paste the URL into the browser to access the dashboard.
 
-```{important}
+```{tip}
 
 If you don't want to copy and paste the URL manually, typing `juju dashboard --browser` will open the link in your default browser automatically.
 
@@ -137,4 +135,6 @@ You can change channels by specifying the new channel e.g.:
 juju refresh [dashboard-app-name] --channel=latest/beta
 ```
 
-> See more: {ref}`command-juju-refresh`
+```{ibnote}
+See more: {ref}`command-juju-refresh`
+```

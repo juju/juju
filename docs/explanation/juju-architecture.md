@@ -32,7 +32,9 @@ A controller is needed to perform any further Juju operations, such as deploying
 ![JujuOnMachinesBootstrapProcess](juju-architecture-bootstrap-machines-process.png)
 <br> *Bootstrapping a controller on a machine cloud: The process.*<br>
 
-> See more: {ref}`bootstrap-a-controller`
+```{ibnote}
+See more: {ref}`bootstrap-a-controller`
+```
 
 #### The result
 
@@ -72,18 +74,17 @@ Note: This diagram assumes a typical scenario with a single workload container (
 
 <br> *Deploying an application on a machine cloud: The result. This diagram assumes a typical scenario where the unit is deployed on a new machine of its own. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*
 
-```{important}
+````{note}
 
 **If you're curious about deployments to a *system container* on a VM:**
 
 On most machine clouds, Juju makes it possible to deploy to a system container *inside* the machine rather to the machine directly. The result doesn't change much: In terms of the diagram above, the only difference would be another box in between the "Regular Model Machine" and its contents and another machine agent for this box, as Juju treats system containers as regular machines.
 
-> See more: {ref}`machine`Machine > Machines and system (LXD) containers <11285m>`
-
+```{ibnote}
+See more: {ref}`machines-and-system-containers`
 ```
 
-
-
+````
 
 (the-juju-execution-flow-for-a-charm)=
 ## The Juju execution flow for a charm

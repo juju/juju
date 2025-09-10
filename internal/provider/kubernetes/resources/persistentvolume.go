@@ -41,7 +41,7 @@ func (pv *PersistentVolume) Clone() Resource {
 	return &clone
 }
 
-// ID returns a comparable ID for the Resource
+// ID returns a comparable ID for the Resource.
 func (pv *PersistentVolume) ID() ID {
 	return ID{"PersistentVolume", pv.Name, pv.Namespace}
 }
@@ -89,11 +89,9 @@ func (pv *PersistentVolume) Delete(ctx context.Context) error {
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+		return errors.NewNotFound(err, "k8s persistent volume for deletion")
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 // ComputeStatus returns a juju status for the resource.

@@ -1,7 +1,9 @@
 (manage-juju)=
 # How to manage the `juju` CLI client
 
-> See also: {ref}`juju-cli`
+```{ibnote}
+See also: {ref}`juju-cli`
+```
 
 (install-juju)=
 ## Install `juju`
@@ -28,7 +30,6 @@ sudo snap install juju
 To select a particular version, run `snap info juju` to find out what versions are available, then `sudo snap install juju --channel=<track/risk[/branch]>` to install the version of your choice (e.g., `sudo snap install juju --channel=3.4/stable`).
 
 ````{dropdown} Example
-
 
 ```text
 $ snap info juju
@@ -125,7 +126,9 @@ $ sudo snap install juju --channel=3.4/stable
 
 To install multiple versions of `juju` via snap, enable `snap`'s experimental parallel-install feature, reboot, then install a different version with a different name.
 
-> See more: [Snap | Channels](https://snapcraft.io/docs/channels)
+```{ibnote}
+See more: [Snap | Channels](https://snapcraft.io/docs/channels)
+```
 
 ````{dropdown} Example
 
@@ -152,7 +155,9 @@ juju_33 status
 ```
 ````
 
-> See more: [Snap | Parallel installs](https://snapcraft.io/docs/parallel-installs)
+```{ibnote}
+See more: [Snap | Parallel installs](https://snapcraft.io/docs/parallel-installs)
+```
 
 **Install from binary.**
 
@@ -160,7 +165,7 @@ This method allows you to install the Juju client on systems that do not support
 
 1. Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the binary that matches your system's architecture and the version that you want to install.
 
-For example, to download the 2.9.38 client for amd64:
+For example, to download the `2.9.38` client for `amd64`:
 
 ```text
 curl -LO https://launchpad.net/juju/2.9/2.9.38/+download/juju-2.9.38-linux-amd64.tar.xz
@@ -168,13 +173,7 @@ curl -LO https://launchpad.net/juju/2.9/2.9.38/+download/juju-2.9.38-linux-amd64
 
 2. Validate the downloaded binary archive (optional)
 
-Download the md5 checksum that matches the binary you just downloaded:
-
-```{note}
-
-The link to the `md5` signature can be constructed by appending `/+md5` to the end of the link you just downloaded.
-
-```
+Download the `md5` checksum that matches the binary you just downloaded. The link to the `md5` signature can be constructed by appending `/+md5` to the end of the link you just downloaded, for example:
 
 ```text
 curl -L https://launchpad.net/juju/2.9/2.9.38/+download/juju-2.9.38-linux-amd64.tar.xz/+md5 -o juju.md5
@@ -240,39 +239,30 @@ Visit the project's [downloads](https://launchpad.net/juju/+download) page and s
 
 Use the `juju` CLI client reference and the Juju how-to guides to build up your deployment.
 
-> See more: {ref}`command-juju-help`, {ref}`List of juju CLI commands <list-of-juju-cli-commands>`, {ref}`how-to-guides`
-
-
-## Back up Juju
-
-```{note}
-A backup of the client enables one to regain management control of one's controllers and associated cloud environments.
+```{ibnote}
+See more: {ref}`command-juju-help`, {ref}`List of juju CLI commands <list-of-juju-cli-commands>`, {ref}`how-to-guides`
 ```
 
-**Create a backup of the `juju` client.** Making a copy of the client directory is sufficient for backing up the client. This is normally done with backup software that compresses the data into a single file (archive). On a Linux/Ubuntu system, the `tar` program is a common choice:
+
+## Back up `juju`
+
+
+Backing up your `juju` client enables you to regain management control of your controllers and associated cloud environments.
+
+**Create a backup of the `juju` client.** To create a backup of your `juju` client, make a copy of the client directory. This is normally done with backup software that compresses the data into a single file (archive). For example, on a Linux/Ubuntu system, you could use `tar`:
 
 ``` text
 cd ~
 tar -cpzf juju-client-$(date "+%Y%m%d-%H%M%S").tar.gz .local/share/juju
 ```
 
-```{note}
-
-For Microsoft Windows any native Windows backup tool will do.
-
-```
-
 The above invocation embeds a timestamp in the generated archive's filename, which is useful for knowing **when** a backup was made. You may, of course, call it whatever you wish.
 
-The archive should normally be transferred to another system (or at the very least to a different physical drive) for safe-keeping.
-
-```{important}
-Whoever has access to a client backup will have access to its associated environments. Appropriate steps should be taken to protect it (e.g. encryption).
-```
+Once the backup file is ready, remember: Whoever has access to a client backup will have access to its associated environments.  Thus, take measures to keep it safe (e.g., transfer it to another system, encrypt it, etc.).
 
 **Restore the `juju` client from a backup.** To restore your client from a backup, extract the backup created earlier. E.g., on Ubuntu:
 
-```{note}
+```{important}
 
 This command will extract the contents of the archive and overwrite any existing files in the Juju directory. Make sure that this is what you want.
 
@@ -286,17 +276,15 @@ tar -xzf juju-yymmdd-hhmmss.tar.gz
 (upgrade-juju)=
 ## Upgrade `juju`
 
-> See also: {ref}`upgrading-things`
+```{ibnote}
+See also: {ref}`upgrading-things`
+```
 
 ``````{tabs}
 
 `````{tab} Linux
 
 **If you've installed via `snap`.**
-
-```{note}
-Ensure you've created a backup of your `./local/share/juju` before starting the upgrade process for the client.
-```
 
 If the Juju client was installed via snap, the updates to the client should be handled automatically. Run `snap info juju` to view a list of releases and `juju version` to view the current release.
 
@@ -306,7 +294,9 @@ If there has been a new release but the `juju` snap hasn't been refreshed, you c
 sudo snap refresh juju --channel 3/stable
 ```
 
-> See more: [Snap | Managing updates](https://snapcraft.io/docs/managing-updates), [Snap | Channels](https://snapcraft.io/docs/channels)
+```{ibnote}
+See more: [Snap | Managing updates](https://snapcraft.io/docs/managing-updates), [Snap | Channels](https://snapcraft.io/docs/channels)
+```
 
 `````
 

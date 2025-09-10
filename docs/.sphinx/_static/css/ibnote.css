@@ -1,0 +1,30 @@
+/* Information backgrounding note */
+.ibnote {
+  display: block;
+  font-size: var(--font-size--small);
+  /* font-style: oblique; */  /* optional */
+  margin-left: 1em;
+  margin-top: 1em;
+  margin-bottom: 1.5em;
+  /* opacity: 0.7; */
+  line-height: 1.4;           /* adjust for readability */
+}
+
+/* Inline code inside ibnote */
+.ibnote code,
+.ibnote tt {
+  font-size: var(--font-size--small) !important;
+  background: rgba(0,0,0,0.05);  /* optional subtle highlight */
+  padding: 0 0.2em;               /* optional padding like default code style */
+  border-radius: 3px;             /* optional rounded edges */
+}
+
+/* Multi-line code blocks inside ibnote */
+.ibnote pre,
+.ibnote pre code {
+  font-size: var(--font-size--small) !important;
+  background: rgba(0,0,0,0.05);
+  padding: 0.5em;
+  border-radius: 4px;
+  overflow-x: auto;  /* allow horizontal scroll if code is wide */
+}

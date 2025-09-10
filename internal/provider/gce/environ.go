@@ -15,8 +15,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -51,6 +49,8 @@ type ComputeService interface {
 
 	// Firewalls returns the firewalls with the given prefix.
 	Firewalls(ctx context.Context, prefix string) ([]*computepb.Firewall, error)
+	// NetworkFirewalls returns the firewalls associated with the specified network.
+	NetworkFirewalls(ctx context.Context, networkURL string) ([]*computepb.Firewall, error)
 	// AddFirewall creates a new firewall.
 	AddFirewall(ctx context.Context, firewall *computepb.Firewall) error
 	// UpdateFirewall updates the firewall with the given name.
@@ -62,10 +62,14 @@ type ComputeService interface {
 	AvailabilityZones(ctx context.Context, region string) ([]*computepb.Zone, error)
 	// Subnetworks returns the subnetworks that machines can be
 	// assigned to in the given region.
-	Subnetworks(ctx context.Context, region string) ([]*computepb.Subnetwork, error)
+	Subnetworks(ctx context.Context, region string, urls ...string) ([]*computepb.Subnetwork, error)
+	// NetworkSubnetworks returns the subnets in the specified network.
+	NetworkSubnetworks(ctx context.Context, region string, networkURL string) ([]*computepb.Subnetwork, error)
 	// Networks returns the available networks that exist across
 	// regions.
 	Networks(ctx context.Context) ([]*computepb.Network, error)
+	// Network returns the network with the given id.
+	Network(ctx context.Context, id string) (*computepb.Network, error)
 
 	// CreateDisks will attempt to create the disks described by <disks> spec and
 	// return a slice of Disk representing the created disks or error if one of them failed.
@@ -103,6 +107,11 @@ type environ struct {
 	uuid  string
 	cloud environscloudspec.CloudSpec
 	gce   ComputeService
+
+	// vpcURL is the URL of the vpc network, if any, to use.
+	vpcURL *string
+	// autoSubnets is true if the vpc creates subnets automatically.
+	autoSubnets bool
 
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
@@ -148,6 +157,9 @@ func newEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *con
 	}
 	if err = e.SetCloudSpec(ctx, cloud); err != nil {
 		return nil, err
+	}
+	if err := e.SetConfig(ctx, cfg); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return e, nil
 }
@@ -230,11 +242,40 @@ func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
+// getVpcInfo returns the VPC URL (if set) and whether it auto creates subnets.
+func (env *environ) getVpcInfo(ctx context.Context) (*string, bool, error) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+
+	// vpc is immutable. See if it has already been fetched.
+	if env.vpcURL != nil {
+		return env.vpcURL, env.autoSubnets, nil
+	}
+
+	vpcID, ok := env.ecfg.vpcID()
+	if !ok {
+		return nil, false, nil
+	}
+	vpc, err := env.gce.Network(ctx, vpcID)
+	if err != nil {
+		return nil, false, errors.Annotatef(err, "getting vpc %q", vpcID)
+	}
+	env.vpcURL = ptr(vpc.GetSelfLink())
+	env.autoSubnets = autoCreateSubnets(vpc)
+	return env.vpcURL, env.autoSubnets, nil
+}
+
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	return env.ecfg.config
+}
+
+func (env *environ) vpcID() (string, bool) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	return env.ecfg.vpcID()
 }
 
 // PrepareForBootstrap implements environs.Environ.
@@ -244,6 +285,31 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 			return errors.Trace(err)
 		}
 	}
+	vpcID, ok := env.ecfg.vpcID()
+	if !ok {
+		return nil
+	}
+	if err := validateBootstrapVPC(ctx, env.gce, env.cloud.Region, vpcID, env.ecfg.forceVPCID()); err != nil {
+		return env.HandleCredentialError(ctx, errors.Trace(err))
+	}
+
+	return nil
+}
+
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (env *environ) ValidateProviderForNewModel(ctx context.Context) error {
+	vpcID, ok := env.vpcID()
+	if !ok {
+		return nil
+	}
+	if err := validateModelVPC(ctx, env.gce, env.cloud.Region, env.name, vpcID); err != nil {
+		return env.HandleCredentialError(ctx, errors.Trace(err))
+	}
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (e *environ) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
 	return nil
 }
 
@@ -252,26 +318,6 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// Ensure the API server port is open (globally for all instances
-	// on the network, not just for the specific node of the state
-	// server). See LP bug #1436191 for details.
-	rules := firewall.IngressRules{
-		firewall.NewIngressRule(
-			network.PortRange{
-				FromPort: params.ControllerConfig.APIPort(),
-				ToPort:   params.ControllerConfig.APIPort(),
-				Protocol: "tcp",
-			},
-		),
-	}
-	if params.ControllerConfig.AutocertDNSName() != "" {
-		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("80/tcp")))
-	}
-
-	if err := env.OpenPorts(ctx, env.globalFirewallName(), rules); err != nil {
-		return nil, env.HandleCredentialError(ctx, err)
-	}
 	return bootstrap(ctx, env, params)
 }
 

@@ -10,7 +10,6 @@ import (
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
@@ -104,7 +103,8 @@ func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string, hasGpuSupp
 			},
 		}},
 		NetworkInterfaces: []*computepb.NetworkInterface{{
-			Network: ptr("global/networks/default"),
+			Network:    ptr("/path/to/vpc"),
+			Subnetwork: ptr("/path/to/subnet1"),
 			AccessConfigs: []*computepb.AccessConfig{{
 				Name: ptr("ExternalNAT"),
 				Type: ptr("ONE_TO_ONE_NAT"),
@@ -150,6 +150,12 @@ func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	accelerators := []*computepb.Accelerators{}
@@ -218,6 +224,12 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	s.MockService.EXPECT().
@@ -438,8 +450,8 @@ func (s *environBrokerSuite) TestHasAccelerator(c *tc.C) {
 		}, nil)
 
 	hasGPU, err = gce.HasAccelerator(env, c.Context(), zone, instanceTypeNoGPU)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasGPU, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasGPU, tc.IsFalse)
 
 	// Instance type has GPU
 	instanceTypeGPU := "g2-standard-8"
@@ -456,6 +468,6 @@ func (s *environBrokerSuite) TestHasAccelerator(c *tc.C) {
 		}, nil)
 
 	hasGPU, err = gce.HasAccelerator(env, c.Context(), zone, instanceTypeGPU)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasGPU, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasGPU, tc.IsTrue)
 }

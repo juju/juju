@@ -8,14 +8,17 @@ in the addition of a stack trace for each pooled state showing the orign of
 that state's acquisition.
 
 ## Usage
+
 Must be run on a Juju controller machine.
-```code
+
+```text
 juju_statepool_report
 ```
 
 ## Example output
+
 ```text
-$ juju_statepool_report 
+$ juju_statepool_report
 State Pool Report:
 
 Model count: 1 models

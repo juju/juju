@@ -1,8 +1,9 @@
 (manage-subnets)=
 # How to manage subnets
 
-> See also: {ref}`subnet`
-
+```{ibnote}
+See also: {ref}`subnet`
+```
 
 ## List subnets
 
@@ -12,7 +13,7 @@ To view the subnets known to `juju`, run:
 juju subnets
 ```
 
-````{dropdown} Expand to see a sample output
+````{dropdown} Example output
 
 ```
 subnets:
@@ -37,11 +38,13 @@ subnets:
 
 ````
 
-> See more: {ref}`command-juju-subnets`
+```{ibnote}
+See more: {ref}`command-juju-subnets`
+```
 
 ## Move a subnet to another space
 
-For all providers other than MAAS, all subnets are initially in a default `alpha` space. 
+For all providers other than MAAS, all subnets are initially in a default `alpha` space.
 To move a subnet `172.31.16.0/20` to a different space, `db-space`, execute:
 
 ```text
@@ -56,4 +59,6 @@ Subnet 172.31.16.0/20 moved from alpha to db-space
 ```
 ````
 
-> See more: {ref}`command-juju-move-to-space`
+```{ibnote}
+See more: {ref}`command-juju-move-to-space`
+```

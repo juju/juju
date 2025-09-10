@@ -1,9 +1,12 @@
 (high-availability)=
 # High availability (HA)
 
- > See also: 
-> - {ref}`make-a-controller-highly-available`
-> - {ref}`make-an-application-highly-available`
+```{ibnote}
+See also:
+
+- {ref}`make-a-controller-highly-available`
+- {ref}`make-an-application-highly-available`
+```
 
 In the context of a cloud deployment in general, **high availability (HA)** is the concept of making software resilient to failures by means of running multiple replicas with shared and synchronised software context -- something usually achieved through coordinated {ref}`scaling (horizontally and up) <scaling>`. In Juju, it is supported for controllers on machine clouds and for regular applications on both machine and Kubernetes clouds
 

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -435,7 +434,7 @@ func (l *LabelSuite) TestDetectModelMetaLabelVersion(c *tc.C) {
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
@@ -478,7 +477,7 @@ func (l *LabelSuite) TestDetectOperatorMetaLabelVersion(c *tc.C) {
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
@@ -517,7 +516,7 @@ func (l *LabelSuite) TestDetectApplicationMetaLabelVersion(c *tc.C) {
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}
@@ -568,7 +567,7 @@ func (l *LabelSuite) TestMatchStorageMetaLabelVersion(c *tc.C) {
 		if test.ErrorString != "" {
 			c.Assert(err, tc.ErrorMatches, test.ErrorString, tc.Commentf("test %d", t))
 		} else {
-			c.Assert(err, jc.ErrorIsNil, tc.Commentf("test %d", t))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", t))
 		}
 		c.Check(labelVersion, tc.Equals, test.LabelVersion, tc.Commentf("test %d", t))
 	}

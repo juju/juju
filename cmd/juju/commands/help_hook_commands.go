@@ -6,7 +6,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -23,9 +22,6 @@ import (
 // as expected by hooks.NewCommand.
 type dummyHookContext struct{ jujuc.Context }
 
-func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
-	return nil
-}
 func (dummyHookContext) UnitName() string {
 	return ""
 }

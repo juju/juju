@@ -4,14 +4,17 @@
 
 This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
-> See more: [VMware vSphere](https://docs.vmware.com/)
+```{ibnote}
+See more: [VMware vSphere](https://docs.vmware.com/)
+```
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
-> See more: {ref}`cloud-differences`
+```{ibnote}
+See more: {ref}`cloud-differences`
+```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Requirements
 
@@ -108,7 +111,7 @@ An external network that VMs will be connected to. The resulting IP address for 
 | conflicting:                           |                                                                                                                                                                                                                                                                                                                                      |
 | supported?                             |                                                                                                                                                                                                                                                                                                                                      |
 | - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                                                                                                                                                                                                                                             |
-| - {ref}`constraint-arch`               | &#10003; <br> Valid values: `{ref}`amd64]`.                                                                                                                                                                                                                                                                                |
+| - {ref}`constraint-arch`               | &#10003; <br> Valid values: `[amd64]`.                                                                                                                                                                                                                                                                                |
 | - {ref}`constraint-container`          | &#10003;                                                                                                                                                                                                                                                                                                                    |
 | - {ref}`constraint-cores`              | &#10003;                                                                                                                                                                                                                                                                                                                    |
 | - {ref}`constraint-cpu-power`          | &#10003;                                                                                                                                                                                                                                                                                                                    |
