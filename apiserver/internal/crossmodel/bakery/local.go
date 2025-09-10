@@ -52,6 +52,12 @@ type BakeryStore interface {
 	GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
 }
 
+// Oven bakes new macaroons.
+type Oven interface {
+	// NewMacaroon creates a new macaroon.
+	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
+}
+
 // OfferAccessDetails represents the details encoded in an offer permission
 // caveat.
 type OfferAccessDetails struct {
@@ -64,7 +70,7 @@ type OfferAccessDetails struct {
 
 // LocalOfferBakery provides a bakery for local offer access.
 type LocalOfferBakery struct {
-	bakery *bakeryutil.ExpirableStorageBakery
+	oven   Oven
 	clock  clock.Clock
 	logger logger.Logger
 }
@@ -103,7 +109,7 @@ func NewLocalOfferBakery(
 	}
 
 	return &LocalOfferBakery{
-		bakery: bakery,
+		oven:   bakery,
 		clock:  clock,
 		logger: logger,
 	}, nil
@@ -176,7 +182,7 @@ func (o *LocalOfferBakery) CreateDischargeMacaroon(
 	}
 	sort.Strings(requiredKeys)
 
-	return o.bakery.NewMacaroon(
+	return o.oven.NewMacaroon(
 		ctx,
 		version,
 		[]checkers.Caveat{

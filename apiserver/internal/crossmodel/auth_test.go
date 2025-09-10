@@ -283,19 +283,6 @@ func (s *authSuite) newAuthContext(c *tc.C) *AuthContext {
 	)
 }
 
-func (s *authSuite) caveats(now time.Time) []checkers.Caveat {
-	return []checkers.Caveat{
-		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
-		checkers.DeclaredCaveat(offerUUIDKey, "mysql-uuid"),
-		checkers.DeclaredCaveat(usernameKey, "mary"),
-		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
-	}
-}
-
-func (s *authSuite) caveatWithRelation(now time.Time) []checkers.Caveat {
-	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
-}
-
 func (s *authSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
