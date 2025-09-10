@@ -11,7 +11,14 @@ INSERT INTO removal_type VALUES
 (1, 'unit'),
 (2, 'application'),
 (3, 'machine'),
-(4, 'model');
+(4, 'model'),
+(5, 'storage instance'),
+(6, 'storage attachment'),
+(7, 'storage volume'),
+(8, 'storage filesystem'),
+(9, 'storage volume attachment'),
+(10, 'storage volume attachment plan'),
+(11, 'storage filesystem attachment');
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,

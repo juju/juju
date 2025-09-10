@@ -22,6 +22,11 @@ const (
 	MachineJob
 	// ModelJob indicates a job to remove a model.
 	ModelJob
+	// StorageInstance idicates a job to remove a storage instance.
+	StorageInstance
+	// StorageAttachment indicates a job to remove a unit's
+	// attachment to a storage instance.
+	StorageAttachment
 )
 
 func (t JobType) String() string {
