@@ -1124,7 +1124,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_[_]._`, tc.Ignore)
-	mc.AddExpr(`_[_].Message`, tc.Equals)
+	mc.AddExpr(`_[_].Message`, tc.Matches, tc.ExpectedValue)
 	c.Assert(logWriter.Log()[:3], mc, []loggo.Entry{
 		{Message: "successful, transferring logs to target controller \\(0 sent\\)"},
 		// This is a bit of a punt, but without accepting a range
