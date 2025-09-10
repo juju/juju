@@ -3118,8 +3118,9 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-// GetApplicationStorage returns the current storage constraints defined for
-// the given application using the application name.
+// GetApplicationStorage retrieves the storage constraints currently
+// defined for the specified application.
+// If no storage constraints exist, Result will be nil.
 func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetRequest) (params.ApplicationStorageGetResponse, error) {
 	res := params.ApplicationStorageGetResponse{}
 	app, err := api.backend.Application(args.ApplicationName)
@@ -3148,8 +3149,13 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetReque
 	return res, nil
 }
 
-func (api *APIBase) UpsertApplicationStorage(args params.ApplicationStorageUpsertRequest) (params.ApplicationStorageUpsertResponse, error) {
-	res := params.ApplicationStorageUpsertResponse{}
+// UpdateApplicationStorage updates the storage constraints for an existing application.
+// We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
+// application deployment. The storage constraints passed are validated against the charm's declared storage meta.
+// The following apiserver codes can be returned:
+//   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ApplicationStorageUpdateResponse, error) {
+	res := params.ApplicationStorageUpdateResponse{}
 
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
@@ -3169,29 +3175,31 @@ func (api *APIBase) UpsertApplicationStorage(args params.ApplicationStorageUpser
 
 	for storageName := range args.ApplicationStorageConstraints {
 		if _, exists := chMeta.Storage[storageName]; !exists {
-			errs = append(errs, apiservererrors.ServerError(errors.NotSupportedf("storage %s not supported by %s", storageName, args.ApplicationName)))
+			errs = append(errs, apiservererrors.ServerError(
+				errors.NotSupportedf("storage %s with application name %s", storageName, args.ApplicationName)))
 			continue
 		}
 	}
+	// Return early before application storage update for user errors.
 	res.Errors = errs
 	if len(errs) > 0 {
 		return res, nil
 	}
 
 	sCons := make(map[string]state.StorageConstraints)
-	for storageName, directive := range args.ApplicationStorageConstraints {
+	for storageName, con := range args.ApplicationStorageConstraints {
 		sc := state.StorageConstraints{
-			Pool: directive.Pool,
+			Pool: con.Pool,
 		}
-		if directive.Size == nil {
-			sc.Size = *directive.Size
+		if con.Size != nil {
+			sc.Size = *con.Size
 		}
-		if directive.Count == nil {
-			sc.Count = *directive.Count
+		if con.Count != nil {
+			sc.Count = *con.Count
 		}
 		sCons[storageName] = sc
 	}
 
-	err = app.UpsertStorageConstraints(sCons)
+	err = app.UpdateStorageConstraints(sCons)
 	return res, errors.Trace(err)
 }

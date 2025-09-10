@@ -715,20 +715,6 @@ type ApplicationStorageGetRequest struct {
 	ApplicationName string `json:"application"`
 }
 
-// // StorageConstraint describes the requirements for
-// // a specific storage within an application.
-// type StorageConstraint struct {
-// 	// Pool is the name of the storage pool from which to provision the
-// 	// storage instances.
-// 	Pool string `json:"pool"`
-
-// 	// Size is the required size of the storage instances, in MiB.
-// 	Size uint64 `json:"size"`
-
-// 	// Count is the required number of storage instances.
-// 	Count uint64 `json:"count"`
-// }
-
 // ApplicationStorageGetResponse contains the storage constraints
 // currently defined for an application.
 type ApplicationStorageGetResponse struct {
@@ -736,17 +722,17 @@ type ApplicationStorageGetResponse struct {
 	Error  *Error `json:"error,omitempty"`
 }
 
-// ApplicationStorageUpsertRequest holds the parameters for creating
-// or updating application storage constraints.
-type ApplicationStorageUpsertRequest struct {
+// ApplicationStorageUpdateRequest holds the parameters for updating
+// application storage constraints.
+type ApplicationStorageUpdateRequest struct {
 	ApplicationName string `json:"application"`
 
 	// Holds the application storage constraints where the key is the storage name.
 	ApplicationStorageConstraints map[string]StorageConstraints `json:"application-storage-constraints"`
 }
 
-// ApplicationStorageUpsertResponse contains the results for an
-// upsert request for application storage constraints.
-type ApplicationStorageUpsertResponse struct {
+// ApplicationStorageUpdateResponse contains the results for an
+// update request for application storage constraints.
+type ApplicationStorageUpdateResponse struct {
 	Errors []*Error `json:"errors,omitempty"`
 }

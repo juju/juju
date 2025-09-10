@@ -3629,9 +3629,8 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
-// UpsertStorageConstraints upserts the storage constraints for the application.
-func (a *Application) UpsertStorageConstraints(cons map[string]StorageConstraints) error {
-
+// UpdateStorageConstraints updates the storage constraints for the application.
+func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
 	storageConstraintsKey := a.storageConstraintsKey()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -3644,28 +3643,9 @@ func (a *Application) UpsertStorageConstraints(cons map[string]StorageConstraint
 			}
 		}
 
-		var storageConstraintsOp txn.Op
-
-		oldCons, err := readStorageConstraints(a.st, storageConstraintsKey)
-		if errors.Is(err, errors.NotFound) {
-			storageConstraintsOp = createStorageConstraintsOp(
-				storageConstraintsKey, cons,
-			)
-		} else if err != nil {
-			return nil, errors.Annotatef(err, "setting storage constraints for app %q", a.doc.Name)
-		} else {
-			newCons := make(map[string]StorageConstraints)
-			for k, v := range oldCons {
-				newCons[k] = v
-			}
-			for k, v := range cons {
-				newCons[k] = v
-			}
-
-			storageConstraintsOp = replaceStorageConstraintsOp(
-				storageConstraintsKey, newCons,
-			)
-		}
+		storageConstraintsOp := replaceStorageConstraintsOp(
+			storageConstraintsKey, cons,
+		)
 		return []txn.Op{storageConstraintsOp}, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
