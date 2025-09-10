@@ -164,31 +164,36 @@ func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+func (env *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
+	env.lock.Lock()
+	defer env.lock.Unlock()
 
-	e.cloud = spec
+	env.cloud = spec
 	credAttrs := spec.Credential.Attributes()
-	if spec.Credential.AuthType() == jujucloud.JSONFileAuthType {
+	switch spec.Credential.AuthType() {
+	case jujucloud.JSONFileAuthType:
 		contents := credAttrs[credAttrFile]
 		credential, err := parseJSONAuthFile(strings.NewReader(contents))
 		if err != nil {
 			return errors.Trace(err)
 		}
 		credAttrs = credential.Attributes()
+	case jujucloud.ServiceAccountAuthType:
+		if serviceAccount := credAttrs[credServiceAccount]; serviceAccount == "" {
+			return errors.NotValidf("credential with missing service account")
+		}
 	}
 
 	credential := &google.Credentials{
-		ClientID:    credAttrs[credAttrClientID],
-		ProjectID:   credAttrs[credAttrProjectID],
-		ClientEmail: credAttrs[credAttrClientEmail],
-		PrivateKey:  []byte(credAttrs[credAttrPrivateKey]),
+		ClientID:       credAttrs[credAttrClientID],
+		ProjectID:      credAttrs[credAttrProjectID],
+		ClientEmail:    credAttrs[credAttrClientEmail],
+		PrivateKey:     []byte(credAttrs[credAttrPrivateKey]),
+		ServiceAccount: credAttrs[credServiceAccount],
 	}
 
 	connectionConfig := google.ConnectionConfig{
-		Region:    spec.Region,
-		ProjectID: credential.ProjectID,
+		Region: spec.Region,
 
 		// TODO (Stickupkid): Pass the http.Client through on the construction
 		// of the environ.
@@ -198,12 +203,9 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 		),
 	}
 
-	// TODO (stickupkid): Pass the context through the method call.
-	ctx := stdcontext.Background()
-
 	// Connect and authenticate.
 	var err error
-	e.gce, err = newConnection(ctx, connectionConfig, credential)
+	env.gce, err = newConnection(ctx, connectionConfig, credential)
 	if err != nil {
 		return errors.Trace(err)
 	}

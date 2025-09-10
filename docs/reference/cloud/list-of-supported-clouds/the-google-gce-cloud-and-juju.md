@@ -41,9 +41,24 @@ Attributes:
 - `file`: path to the `.json` file containing a service account key for your project
 Path (required)
 
+```{ibnote}
+See more:
+- {ref}`gce-appendix-workflow-2`
+```
+
 ### If you want to use environment variables:
 
 `CLOUDSDK_COMPUTE_REGION` <p> - `GOOGLE_APPLICATION_CREDENTIALS=<link to JSON credentials file>`
+
+#### `service-account`
+> *Requirements:*
+> - Juju 3.6+.
+> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
+> - The `add-credential` steps must be run from a jump host running in Google Cloud in order to allow the cloud metadata endpoint to be reached.
+
+```{ibnote}
+See more: {ref}`gce-appendix-workflow-1`
+```
 
 <!--
 ## Notes on `juju bootstrap`
@@ -128,3 +143,44 @@ See first: {ref}`storage-provider`
 Configuration options:
 
 - `type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).
+
+(gce-appendix-example-authentication-workflows)=
+## Appendix: Example authentication workflows
+
+(gce-appendix-workflow-1)=
+### Workflow 1 -- Service account only (recommended)
+> *Requirements:*
+> - Juju 3.6+.
+> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
+> - The `add-credential` steps must be run from a jump host running in Google Cloud in order to allow the cloud metadata endpoint to be reached.
+
+1. Run `juju add-credential google`; choose `service-account`; supply the service account email.
+2. Bootstrap as usual.
+
+```{tip}
+**Did you know?** With this workflow where you provide the service account during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
+```
+```{tip}
+To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non controller) machines in the model.
+```
+
+(gce-appendix-workflow-2)=
+### Workflow 2 -- Bootstrap using normal credential; use service account thereafter
+> *Requirements:*
+> - Juju 3.6+.
+> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
+
+1. Bootstrap with the arg `--bootstrap-constraints="instance-role=auto"`
+2. The controller machines will be created and attached to the project's default service account. 
+3. Alternatively you can specify a different service account instead of `auto`.
+
+```{tip}
+To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non controller) machines in the model.
+```
+
+(gce-appendix-service-account)=
+## Appendix: Service account requirements
+
+To enlist a service account to provide the privileges required by Juju, the following scopes must be assigned:
+- `https://www.googleapis.com/auth/compute`
+- `https://www.googleapis.com/auth/devstorage.full_control`

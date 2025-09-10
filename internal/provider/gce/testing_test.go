@@ -238,3 +238,7 @@ func (s *BaseSuite) GoogleInstance(c *gc.C, inst instances.Instance) *computepb.
 	c.Assert(ok, jc.IsTrue)
 	return envInst.base
 }
+
+func (s *BaseSuite) SetCredential(env *environ, cred cloud.Credential) {
+	env.cloud.Credential = &cred
+}

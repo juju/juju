@@ -13,9 +13,11 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
@@ -126,6 +128,10 @@ func (s *environBrokerSuite) startInstanceArg(c *gc.C, prefix string, hasGpuSupp
 		Tags: &computepb.Tags{Items: []string{"juju-" + s.ModelUUID, instName}},
 		ServiceAccounts: []*computepb.ServiceAccount{{
 			Email: ptr("fred@google.com"),
+			Scopes: []string{
+				"https://www.googleapis.com/auth/compute",
+				"https://www.googleapis.com/auth/devstorage.full_control",
+			},
 		}},
 		Scheduling: scheduling,
 	}
@@ -258,6 +264,91 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZones[0])
+}
+
+func (s *environBrokerSuite) TestStartInstanceServiceAccount(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	s.SetCredential(env, jujucloud.NewCredential(
+		jujucloud.ServiceAccountAuthType, map[string]string{
+			"service-account": "foo@googledev.com",
+		}))
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
+
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
+		Return(&computepb.MachineType{
+			Name:         ptr(s.spec.InstanceType.Name),
+			Accelerators: nil,
+		}, nil)
+
+	instArg := s.startInstanceArg(c, s.Prefix(env), false)
+	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	// Can't copy instArg as it contains a mutex.
+	instResult := s.startInstanceArg(c, s.Prefix(env), false)
+	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Disks = []*computepb.AttachedDisk{{
+		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+	}}
+
+	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
+
+	s.StartInstArgs.AvailabilityZone = "home-zone"
+	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+}
+
+func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
+
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
+		Return(&computepb.MachineType{
+			Name:         ptr(s.spec.InstanceType.Name),
+			Accelerators: nil,
+		}, nil)
+
+	instArg := s.startInstanceArg(c, s.Prefix(env), false)
+	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	// Can't copy instArg as it contains a mutex.
+	instResult := s.startInstanceArg(c, s.Prefix(env), false)
+	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Disks = []*computepb.AttachedDisk{{
+		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+	}}
+
+	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
+
+	s.StartInstArgs.AvailabilityZone = "home-zone"
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-role=foo@googledev.com")
+	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
 }
 
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {

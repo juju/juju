@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
@@ -55,7 +56,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(spec, envInst)
-	logger.Infof("started instance %q in zone %q", inst.Name, *hwc.AvailabilityZone)
+	logger.Infof("started instance %q in zone %q", inst.GetName(), *hwc.AvailabilityZone)
 	result := environs.StartInstanceResult{
 		Instance: envInst,
 		Hardware: hwc,
@@ -85,8 +86,8 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec, err := findInstanceSpec(
-		env, &instances.InstanceConstraint{
+	spec, err := env.findInstanceSpec(
+		&instances.InstanceConstraint{
 			Region:      env.cloud.Region,
 			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
@@ -96,15 +97,6 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 		instTypesAndCosts.InstanceTypes,
 	)
 	return spec, errors.Trace(err)
-}
-
-var findInstanceSpec = func(
-	env *environ,
-	ic *instances.InstanceConstraint,
-	imageMetadata []*imagemetadata.ImageMetadata,
-	allInstanceTypes []instances.InstanceType,
-) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(ic, imageMetadata, allInstanceTypes)
 }
 
 // findInstanceSpec initializes a new instance spec for the given
@@ -166,6 +158,48 @@ func formatMachineType(zone, name string) string {
 	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
 }
 
+func (env *environ) serviceAccount(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+	var serviceAccount string
+
+	// For controllers, the service account can come from the credential.
+	if args.InstanceConfig.IsController() {
+		if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
+			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
+			if serviceAccount != "" {
+				logger.Debugf("using credential service account: %s", serviceAccount)
+			}
+		} else if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+			serviceAccount = *args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
+			if serviceAccount != "" {
+				logger.Debugf("using bootstrap service account: %s", serviceAccount)
+			}
+		}
+	}
+	if serviceAccount != "" {
+		return serviceAccount, nil
+	}
+
+	// Next use the constraint value if supplied.
+	if args.Constraints.HasInstanceRole() {
+		serviceAccount = *args.Constraints.InstanceRole
+		if serviceAccount != "" {
+			logger.Debugf("using constraints service account: %s", serviceAccount)
+		}
+	}
+	if serviceAccount != "" {
+		return serviceAccount, nil
+	}
+
+	// Fallback to the project default.
+	var err error
+	serviceAccount, err = env.gce.DefaultServiceAccount(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	logger.Debugf("using project service account: %s", serviceAccount)
+	return serviceAccount, nil
+}
+
 // startInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
@@ -219,11 +253,10 @@ func (env *environ) startInstance(
 		}}
 	}
 
-	serviceAccount, err := env.gce.DefaultServiceAccount(ctx)
+	serviceAccount, err := env.serviceAccount(ctx, args)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	logger.Debugf("using project service account: %s", serviceAccount)
 
 	hasAccelerator, err := env.hasAccelerator(ctx, args.AvailabilityZone, instanceTypeName)
 	if err != nil {
@@ -243,7 +276,8 @@ func (env *environ) startInstance(
 	}
 	if serviceAccount != "" {
 		instArg.ServiceAccounts = []*computepb.ServiceAccount{{
-			Email: &serviceAccount,
+			Email:  &serviceAccount,
+			Scopes: google.Scopes,
 		}}
 	}
 
@@ -386,13 +420,13 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 		google.StatusUp,
 	}
 	filters := append(instStatuses, nonLiveStatuses...)
-	instances, err := getInstances(env, ctx, filters...)
+	instances, err := env.instances(ctx, filters...)
 	return instances, errors.Trace(err)
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
 func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	instances, err := getInstances(env, ctx)
+	instances, err := env.instances(ctx)
 	return instances, errors.Trace(err)
 }
 

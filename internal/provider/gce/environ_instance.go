@@ -37,7 +37,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		return nil, environs.ErrNoInstances
 	}
 
-	all, err := getInstances(env, ctx)
+	all, err := env.instances(ctx)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -66,10 +66,6 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		err = environs.ErrPartialInstances
 	}
 	return results, err
-}
-
-var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
-	return env.instances(ctx, statusFilters...)
 }
 
 func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]*computepb.Instance, error) {
