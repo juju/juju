@@ -530,6 +530,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
 		facade.EXPECT().Life("test/2").Return(life.Dead, nil),  // >= target and dead
 		facade.EXPECT().Life("test/3").Return(life.Dead, nil),  // >= target and dead
 		// All excess units (2,3) are dead - scaling should proceed
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
 		app.EXPECT().Scale(2).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
 		facade.EXPECT().RemoveUnit("test/2").Return(nil),
@@ -662,6 +664,87 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+
+	// Test scenario where we need to scale up and have attached storage
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 2,
+	}
+
+	// Current units (less than scale target)
+	units := []params.CAASUnit{{
+		Tag: names.NewUnitTag("test/0"),
+	}}
+
+	// FilesystemProvisioningInfo with filesystem attachments
+	provisioningInfo := api.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    storage.ProviderType("kubernetes"),
+		}},
+	}
+
+	gomock.InOrder(
+		unitFacade.EXPECT().ApplicationScale("test").Return(2, nil),
+		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
+		app.EXPECT().Scale(2).Return(nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{}).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
+
+	ps := params.CAASApplicationProvisioningState{
+		Scaling:     true,
+		ScaleTarget: 2,
+	}
+
+	units := []params.CAASUnit{{
+		Tag: names.NewUnitTag("test/0"),
+	}}
+
+	provisioningInfo := api.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    storage.ProviderType("kubernetes"),
+		}},
+	}
+
+	gomock.InOrder(
+		unitFacade.EXPECT().ApplicationScale("test").Return(2, nil),
+		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(errors.New("PVC creation failed")),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	c.Assert(err, gc.ErrorMatches, "PVC creation failed")
+}
+
 func (s *OpsSuite) TestAppAlive(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -773,7 +856,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		}},
 		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
-		InitialScale: 10,
+		InitialScale: 0,
 		CharmUser:    caas.RunAsDefault,
 	}
 	gomock.InOrder(
@@ -800,17 +883,14 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
-	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 0,
-	}
-	newPs := params.CAASApplicationProvisioningState{}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 0}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
-		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: false, ScaleTarget: 0}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 	)

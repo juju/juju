@@ -10,6 +10,7 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -120,6 +121,48 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			CharmURL:             "ch:gitlab",
 			CharmModifiedVersion: 10,
 			Scale:                3,
+			Trust:                true,
+		}},
+	})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *gc.C) {
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url:  "ch:gitlab",
+		},
+		charmModifiedVersion: 10,
+		scale:                1,
+		config: config.ConfigAttributes{
+			"trust": true,
+		},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{
+			{
+				Unit:      "gitlab/0",
+				VolumeId:  "pvc-foo-bar",
+				StorageId: "gitlab-storage/0",
+			},
+		},
+	}
+	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
+		Results: []params.CAASApplicationProvisioningInfo{{
+			ImageRepo:    params.DockerImageInfo{RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666"},
+			Version:      version.MustParse("2.6-beta3.666"),
+			APIAddresses: []string{"10.0.0.1:1"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			},
+			CharmURL:             "ch:gitlab",
+			CharmModifiedVersion: 10,
+			Scale:                1,
 			Trust:                true,
 		}},
 	})
@@ -680,4 +723,89 @@ func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.ProvisionerConfig, gc.NotNil)
 	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:  names.NewApplicationTag("gitlab"),
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{
+				Storage: map[string]charm.Storage{
+					"data": {
+						Name:        "data",
+						Type:        charm.StorageFilesystem,
+						Location:    "/var/lib/data",
+						MinimumSize: 1024,
+					},
+				},
+			},
+			url: "ch:gitlab",
+		},
+		storageConstraints: map[string]state.StorageConstraints{
+			"data": {
+				Pool:  "kubernetes",
+				Size:  1024,
+				Count: 1,
+			},
+		},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{
+			{
+				Unit:      "gitlab/0",
+				StorageId: "data/0",
+				VolumeId:  "pvc-data-0",
+			},
+			{
+				Unit:      "gitlab/1",
+				StorageId: "data/1",
+				VolumeId:  "pvc-data-1",
+			},
+		},
+	}
+
+	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-gitlab",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Filesystems, gc.HasLen, 1)
+
+	fs := result.Filesystems[0]
+	c.Assert(fs.StorageName, gc.Equals, "data")
+	c.Assert(fs.Provider, gc.Equals, "kubernetes")
+	c.Assert(fs.Size, gc.Equals, uint64(1024))
+
+	c.Assert(result.FilesystemUnitAttachments, gc.HasLen, 1)
+	c.Assert(result.FilesystemUnitAttachments["data"], gc.HasLen, 2)
+	c.Assert(result.FilesystemUnitAttachments["data"][0].UnitTag, gc.Equals, "unit-gitlab-0")
+	c.Assert(result.FilesystemUnitAttachments["data"][0].VolumeId, gc.Equals, "pvc-data-0")
+	c.Assert(result.FilesystemUnitAttachments["data"][1].UnitTag, gc.Equals, "unit-gitlab-1")
+	c.Assert(result.FilesystemUnitAttachments["data"][1].VolumeId, gc.Equals, "pvc-data-1")
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:                 names.NewApplicationTag("gitlab"),
+		life:                state.Alive,
+		charm:               &mockCharm{meta: &charm.Meta{}, url: "ch:gitlab"},
+		storageConstraints:  map[string]state.StorageConstraints{},
+		unitAttachmentInfos: []state.UnitAttachmentInfo{},
+	}
+
+	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-gitlab",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Filesystems, gc.HasLen, 0)
+	c.Assert(result.FilesystemUnitAttachments, gc.IsNil)
+}
+
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoAppNotFound(c *gc.C) {
+	s.st.SetErrors(errors.NotFoundf("application"))
+
+	_, err := s.api.FilesystemProvisioningInfo(params.Entity{
+		Tag: "application-foo",
+	})
+	c.Assert(err, gc.ErrorMatches, "app foo not found")
 }

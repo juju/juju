@@ -63,9 +63,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv21 provides the Application API facade for version 21.
+type APIv21 struct {
+	*APIBase
+}
+
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
-	*APIBase
+	*APIv21
 }
 
 // APIv19 provides the Application API facade for version 19.
@@ -299,6 +304,20 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
+func (api *APIv20) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
+	// APIv20 does not support attach storage.
+	for _, appArgs := range args.Applications {
+		if len(appArgs.AttachStorage) > 0 {
+			return params.ErrorResults{}, errors.Errorf(
+				"AttachStorage may not be specified for container models",
+			)
+		}
+	}
+	return api.APIv21.Deploy(args)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
 func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -457,11 +476,6 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(c.attachStorage) > 0 {
-		return errors.Errorf(
-			"AttachStorage may not be specified for container models",
-		)
-	}
 	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
@@ -1856,7 +1870,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 }
 
 // ScaleApplications scales the specified application to the requested number of units.
-func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParamsV2) (params.ScaleApplicationResults, error) {
 	if api.modelType != state.ModelTypeCAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
@@ -1866,7 +1880,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
-	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
+	scaleApplication := func(arg params.ScaleApplicationParamsV2) (*params.ScaleApplicationInfo, error) {
 		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
 		} else if arg.Scale != 0 && arg.ScaleChange != 0 {
@@ -1897,9 +1911,18 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 		}
 
+		storageTags, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, arg.ScaleChange)
+		if len(attachStorageErrs) > 0 {
+			var errStrings []string
+			for _, err := range attachStorageErrs {
+				errStrings = append(errStrings, err.Error())
+			}
+			return nil, errors.Errorf("failed to scale a application: %s", strings.Join(errStrings, ", "))
+		}
+
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
-			newScale, err := app.ChangeScale(arg.ScaleChange)
+			newScale, err := app.ChangeScale(arg.ScaleChange, storageTags)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1924,6 +1947,24 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	return params.ScaleApplicationResults{
 		Results: results,
 	}, nil
+}
+
+// ScaleApplications scales the specified application to the requested number of units.
+func (api *APIv20) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+	v2Args := params.ScaleApplicationsParamsV2{
+		Applications: make([]params.ScaleApplicationParamsV2, len(args.Applications)),
+	}
+	for i, app := range args.Applications {
+		v2Args.Applications[i] = params.ScaleApplicationParamsV2{
+			ApplicationTag: app.ApplicationTag,
+			Scale:          app.Scale,
+			ScaleChange:    app.ScaleChange,
+			Force:          app.Force,
+			// APIv20 does not support attage storage.
+			AttachStorage: nil,
+		}
+	}
+	return api.APIv21.ScaleApplications(v2Args)
 }
 
 // GetConstraints returns the constraints for a given application.

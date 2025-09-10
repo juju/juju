@@ -210,7 +210,10 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
-		InitialScale:         provisionInfo.Scale,
+		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
+		// The provisionInfo.Scale is no longer used, so in theory we
+		// could delete this field. Should investigate refactoring.
+		InitialScale: 0,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -646,8 +649,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		return nil
 	}
 
-	logger.Infof("scaling application %q to desired scale %d", appName, desiredScale)
-	if err := app.Scale(desiredScale); err != nil && !errors.Is(err, errors.NotFound) {
+	if err := ensureScaleWithFsAttachments(appName, app, desiredScale, facade, logger); err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
 			appName,
@@ -715,9 +717,10 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return err
 	}
+
 	if ps.ScaleTarget >= len(units) {
-		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
-		err = app.Scale(ps.ScaleTarget)
+		err := ensureScaleWithFsAttachments(appName, app, ps.ScaleTarget, facade, logger)
+
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
 		} else if err != nil {
@@ -746,7 +749,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		logger.Debugf("application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
-
 	return nil
 }
 
@@ -769,4 +771,23 @@ func updateProvisioningState(appName string, scaling bool, scaleTarget int,
 		return errors.Annotatef(err, "setting provisiong state for application %q", appName)
 	}
 	return nil
+}
+
+// ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
+func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTarget int,
+	facade CAASProvisionerFacade, logger Logger,
+) error {
+	logger.Infof("scaling application %q to desired scale %d", appName, scaleTarget)
+
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Ensure PVCs exist.
+	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+		return err
+	}
+	return app.Scale(scaleTarget)
 }
