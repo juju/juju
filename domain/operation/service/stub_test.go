@@ -1,7 +1,7 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package action_test
+package service
 
 import (
 	"testing"
@@ -9,14 +9,18 @@ import (
 	"github.com/juju/tc"
 )
 
-type operationSuite struct {
+type stubSuite struct {
 }
 
-func TestOperationSuite(t *testing.T) {
-	tc.Run(t, &operationSuite{})
+func TestStubSuite(t *testing.T) {
+	// Keep legacy runner but now we populate with real tests
+	tc.Run(t, &stubSuite{})
 }
 
-func (s *operationSuite) TestStub(c *tc.C) {
+// TestStub lists all tests that were done in the facade, which should be done here
+// once implemented, are in the state layer (depending on the implementation)
+// They are no longer needed in the facade.
+func (s *stubSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 - ListOperations querying by status.
 - ListOperations querying by action names.

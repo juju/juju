@@ -5,6 +5,7 @@ package action
 
 import (
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -27,9 +28,27 @@ type MockBaseSuite struct {
 	OperationService    *MockOperationService
 }
 
+func (s *MockBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.BlockCommandService = NewMockBlockCommandService(ctrl)
+	s.ApplicationService = NewMockApplicationService(ctrl)
+	s.ModelInfoService = NewMockModelInfoService(ctrl)
+	s.OperationService = NewMockOperationService(ctrl)
+	s.Leadership = NewMockReader(ctrl)
+	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
+
+	return ctrl
+}
+
 func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	modelUUID := modeltesting.GenModelUUID(c)
-	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, s.OperationService, modelUUID)
+
+	s.Authorizer.EXPECT().AuthClient().Return(true)
+	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService,
+		s.ModelInfoService, s.OperationService, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
@@ -44,7 +63,8 @@ func NewActionAPI(
 	operationService OperationService,
 	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
-	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, operationService, modelUUID)
+	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService,
+		modelInfoService, operationService, modelUUID)
 }
 
 type FakeLeadership struct {

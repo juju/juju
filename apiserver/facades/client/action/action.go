@@ -6,6 +6,7 @@ package action
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -13,12 +14,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	operation "github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -41,15 +43,6 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmActions(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Actions, error)
-
-	// GetAllUnitNames returns a slice of all unit names in the model.
-	GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error)
-
-	// GetUnitNamesForApplication returns a slice of the unit names for the given application
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationIsDead] if the application is dead
-	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetUnitNamesForApplication(ctx context.Context, name string) ([]coreunit.Name, error)
 }
 
 // ModelInfoService provides access to information about the model.
@@ -66,17 +59,37 @@ type OperationService interface {
 	// CancelAction attempts to cancel an enqueued action, identified by its
 	// UUID.
 	CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
+
+	// GetOperations returns a list of operations on specified entities, filtered by the
+	// given parameters.
+	GetOperations(ctx context.Context, args operation.QueryArgs) (operation.QueryResult, error)
+
+	// GetOperationByID returns an operation by its ID.
+	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
+
+	// StartExecOperation creates an exec operation with tasks for various
+	// machines and units, using the provided parameters.
+	StartExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
+
+	// StartExecOperationOnAllMachines creates an exec operation
+	// based on the provided parameters on all machines.
+	StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
+
+	// StartActionOperation creates an action operation with tasks for various
+	// units using the provided parameters.
+	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
+		args operation.TaskArgs) (operation.RunResult, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	modelTag           names.ModelTag
-	applicationService ApplicationService
-	modelInfoService   ModelInfoService
-	operationService   OperationService
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
 	leadership         leadership.Reader
+	applicationService ApplicationService
+	modelInfoService   ModelInfoService
+	operationService   OperationService
 }
 
 // APIv7 provides the Action API facade for version 7.
@@ -106,11 +119,11 @@ func newActionAPI(
 
 	return &ActionAPI{
 		modelTag:           modelTag,
-		modelInfoService:   modelInfoService,
 		authorizer:         authorizer,
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,
 		applicationService: applicationService,
+		modelInfoService:   modelInfoService,
 		operationService:   operationService,
 	}, nil
 }
@@ -269,4 +282,86 @@ func makeActionResult(action operation.Action) params.ActionResult {
 	}
 
 	return result
+}
+
+// makeOperationReceivers creates a Receivers from the given application names, machine names and unit names.
+func makeOperationReceivers(applicationNames []string, machineNames []string, unitNames []string) operation.Receivers {
+	return operation.Receivers{
+		Applications: applicationNames,
+		Machines:     transform.Slice(machineNames, as[machine.Name]),
+		Units:        transform.Slice(unitNames, as[unit.Name]),
+	}
+}
+
+// toOperationResults converts an operation.QueryResult to a params.OperationResults.
+func toOperationResults(result operation.QueryResult) params.OperationResults {
+	return params.OperationResults{
+		Results:   transform.Slice(result.Operations, toOperationResult),
+		Truncated: result.Truncated,
+	}
+}
+
+// toOperationResult converts an operation.OperationInfo to a params.OperationResult.
+func toOperationResult(op operation.OperationInfo) params.OperationResult {
+	machineResult := transform.Slice(op.Machines, func(f operation.MachineTaskResult) params.ActionResult {
+		result := toActionResult(names.NewMachineTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+	unitResults := transform.Slice(op.Units, func(f operation.UnitTaskResult) params.ActionResult {
+		result := toActionResult(names.NewUnitTag(f.ReceiverName.String()), f.TaskInfo)
+		return result
+	})
+	return params.OperationResult{
+		OperationTag: names.NewOperationTag(op.OperationID).String(),
+		Summary:      op.Summary,
+		Fail:         op.Fail,
+		Enqueued:     op.Enqueued,
+		Started:      op.Started,
+		Completed:    op.Completed,
+		Status:       op.Status.String(),
+		Actions:      append(machineResult, unitResults...),
+		Error:        apiservererrors.ServerError(op.Error),
+	}
+}
+
+// toActionResult converts an operation.TaskInfo to a params.ActionResult.
+func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionResult {
+	var logs []params.ActionMessage
+	if len(info.Log) > 0 {
+		logs = transform.Slice(info.Log, func(l operation.TaskLog) params.ActionMessage {
+			return params.ActionMessage{Timestamp: l.Timestamp, Message: l.Message}
+		})
+	}
+	return params.ActionResult{
+		Action: &params.Action{
+			Receiver:       receiver.String(),
+			Tag:            names.NewActionTag(info.ID).String(),
+			Name:           info.ActionName,
+			Parameters:     info.Parameters,
+			Parallel:       &info.IsParallel,
+			ExecutionGroup: &info.ExecutionGroup,
+		},
+		Enqueued:  info.Enqueued,
+		Started:   info.Started,
+		Completed: info.Completed,
+		Status:    info.Status.String(),
+		Message:   info.Message,
+		Log:       logs,
+		Output:    info.Output,
+		Error:     apiservererrors.ServerError(info.Error),
+	}
+}
+
+// as casts a string to a type T.
+func as[T ~string](s string) T {
+	return T(s)
+}
+
+// zeroNilPtr returns the zero value of T if v is nil, otherwise returns *v.
+func zeroNilPtr[T comparable](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
 }
