@@ -1285,6 +1285,17 @@
                         }
                     }
                 },
+                "GetApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationStorageGetRequest"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationStorageGetResponse"
+                        }
+                    }
+                },
                 "GetCharmURLOrigin": {
                     "type": "object",
                     "properties": {
@@ -1449,6 +1460,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "UpdateApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationStorageUpdateRequest"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationStorageUpdateResponse"
                         }
                     }
                 }
@@ -2096,6 +2118,71 @@
                         "force-units",
                         "force-base"
                     ]
+                },
+                "ApplicationStorageGetRequest": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application"
+                    ]
+                },
+                "ApplicationStorageGetResponse": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Result"
+                    ]
+                },
+                "ApplicationStorageUpdateRequest": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "application-storage-constraints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "application-storage-constraints"
+                    ]
+                },
+                "ApplicationStorageUpdateResponse": {
+                    "type": "object",
+                    "properties": {
+                        "errors": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Error"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "ApplicationUnexpose": {
                     "type": "object",
