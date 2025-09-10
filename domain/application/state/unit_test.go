@@ -1273,6 +1273,49 @@ func (s *unitStateSuite) TestGetUnitNetNodesMachine(c *tc.C) {
 	c.Assert(netNodeUUID, tc.SameContents, []string{"machine-net-node-uuid"})
 }
 
+// TestGetMachineUUIDAndNetNodeForNonExistentMachineName tests that if no
+// machine exists by the supplied name then the caller gets back a
+// [machineerrors.MachineNotFound] error.
+func (s *unitStateSuite) TestGetMachineUUIDAndNetNodeForNonExistentMachineName(c *tc.C) {
+	_, _, err := s.state.GetMachineUUIDAndNetNodeForName(c.Context(), "no-exist")
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineUUIDAndNetNodeForName checks that the correct machine uuid and
+// net node is returned for a machine matching the supplied name.
+func (s *unitStateSuite) TestGetMachineUUIDAndNetNodeForName(c *tc.C) {
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := networktesting.GenNetNodeUUID(c)
+
+	err := s.TxnRunner().StdTxn(
+		c.Context(),
+		func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(
+				ctx, "INSERT INTO net_node (UUID) VALUES (?)", netNodeUUID.String(),
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(
+				ctx,
+				`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+VALUES (?, ?, ?, 1)
+			`,
+				machineUUID.String(), "10", netNodeUUID.String(),
+			)
+			return err
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotMachineUUID, gotNetNodeUUID, err := s.state.GetMachineUUIDAndNetNodeForName(c.Context(), "10")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotMachineUUID, tc.Equals, machineUUID)
+	c.Check(gotNetNodeUUID, tc.Equals, netNodeUUID)
+}
+
 func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
 	appID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
 		CloudContainer: &application.CloudContainer{
