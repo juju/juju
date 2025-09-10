@@ -365,9 +365,9 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
-func (a *mockApplication) WatchStorageConstraints() state.NotifyWatcher {
+func (a *mockApplication) WatchStorageConstraints() (state.NotifyWatcher, error) {
 	a.MethodCall(a, "WatchStorageConstraints")
-	return a.storageConstraintsWatcher
+	return a.storageConstraintsWatcher, a.NextErr()
 }
 
 func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningState) error {

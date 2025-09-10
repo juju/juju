@@ -286,7 +286,10 @@ func (a *API) watchStorageConstraints(appName names.ApplicationTag) (params.Noti
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	w := app.WatchStorageConstraints()
+	w, err := app.WatchStorageConstraints()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 
 	if _, ok := <-w.Changes(); ok {
 		result.NotifyWatcherId = a.resources.Register(w)

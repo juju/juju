@@ -2628,16 +2628,6 @@ func (st *State) allUnits() ([]*Unit, error) {
 	return units, nil
 }
 
-func (st *State) UpdateStorageConstraints(key string, cons map[string]StorageConstraints) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return []txn.Op{replaceStorageConstraintsOp(key, cons)}, nil
-	}
-	if err := st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",

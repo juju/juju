@@ -4101,7 +4101,8 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
-	w := s.mysql.WatchStorageConstraints()
+	w, err := s.mysql.WatchStorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
@@ -4109,12 +4110,10 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make one change, check one event.
-	application, err := s.State.Application(s.mysql.Name())
-	c.Assert(err, jc.ErrorIsNil)
 	constraints := map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 1024, Pool: "mypool"},
 	}
-	err = application.UpdateStorageConstraints(constraints)
+	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -4125,16 +4124,21 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
 
-	err = application.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make another change, check one event.
 	constraints = map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 2048, Pool: "mypool"},
 	}
-	err = application.UpdateStorageConstraints(constraints)
+	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
+
+	// Check the watcher does not react when the content remains the same.
+	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 
 	// Stop, check closed.
 	testing.AssertStop(c, w)

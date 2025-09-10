@@ -4174,15 +4174,6 @@ func (a *Application) CharmPendingToBeDownloaded() bool {
 	return !ch.IsPlaceholder() && !ch.IsUploaded() || notReady
 }
 
-// UpdateStorageConstraints updates an application's storage constraints.
-// TODO(adisazhar123): I am using this to test WatchStorageConstraints. I will replace
-// this with Alvin's implementation once it lands.
-func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
-	key := a.storageConstraintsKey()
-	err := a.st.UpdateStorageConstraints(key, cons)
-	return errors.Trace(err)
-}
-
 func appUnitNames(st *State, appName string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()

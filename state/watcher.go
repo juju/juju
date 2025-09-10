@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"maps"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1988,8 +1989,16 @@ func (a *Application) Watch() NotifyWatcher {
 
 // WatchStorageConstraints returns a watcher for observing changes to an
 // application's storage constraints.
-func (a *Application) WatchStorageConstraints() NotifyWatcher {
+func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
+	current, err := a.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	filter := func(id interface{}) bool {
+		id, ok := id.(string)
+		if !ok {
+			return false
+		}
 		localID, err := a.st.strictLocalID(id.(string))
 		if err != nil {
 			return false
@@ -1998,14 +2007,21 @@ func (a *Application) WatchStorageConstraints() NotifyWatcher {
 		if len(parts) != 3 {
 			return false
 		}
+		storageCons, err := a.StorageConstraints()
+		if err != nil {
+			return false
+		}
+
+		contentChanged := !maps.Equal(current, storageCons)
+		current = storageCons
 
 		// Construct the key with just the application name.
 		// For e.g. `asc#postgresql` rather than `asc#postgresql#ch:<arch>/postgresql-<rev>`.
-		key := parts[0] + "#" + parts[1]
-		return strings.Contains(a.storageConstraintsKey(), key)
+		key := parts[0] + "#" + parts[1] + "#"
+		return contentChanged && strings.HasPrefix(a.storageConstraintsKey(), key)
 	}
 
-	return newNotifyCollWatcher(a.st, storageConstraintsC, filter)
+	return newNotifyCollWatcher(a.st, storageConstraintsC, filter), nil
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to an application's
