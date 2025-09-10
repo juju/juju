@@ -10,11 +10,10 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation"
-	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/domain/operation/internal"
 )
 
 // State describes the methods that a state implementation must provide to manage
@@ -23,30 +22,23 @@ type State interface {
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
-	// GetIDAndStatusIfReceiversTask returns the task ID and status of
-	// the given task UUID if the receiver UUID matches. Returns TaskNotFound
-	// if the task does not belong to the provided receiver.
-	GetIDAndStatusIfReceiversTask(
-		ctx context.Context,
-		receiverUUID, taskUUID string,
-	) (string, corestatus.Status, error)
 	// GetTask returns the task identified by its ID.
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object
 	// store.
 	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
-	// NamespaceForTaskAbortingWatcher returns the name space (table) to be
-	// for the TaskAbortingWatcher.
-	// GetUUIDsAndIDsForAbortingTaskOfReceiver returns a map of task UUID to
-	// task ID for any task with the given receiver UUID and has a status of
-	// Aborting
-	GetUUIDsAndIDsForAbortingTaskOfReceiver(
+	// GetTaskUUIDByID returns the task UUID for the given task ID.
+	GetTaskUUIDByID(ctx context.Context, taskID string) (string, error)
+	// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
+	// the page number.
+	GetPaginatedTaskLogsByUUID(
 		ctx context.Context,
-		receiverUUID uuid.UUID,
-	) (map[string]string, error)
-	NamespaceForTaskAbortingWatcher() string
-	// TaskStatus returns the status of the given task.
-	TaskStatus(ctx context.Context, taskUUID string) (corestatus.Status, error)
+		taskUUID string,
+		page int,
+	) ([]internal.TaskLogMessage, int, error)
+	// NamespaceForTaskLogWatcher returns the name space for watching task
+	// log messages.
+	NamespaceForTaskLogWatcher() string
 }
 
 // Service provides the API for managing operation
