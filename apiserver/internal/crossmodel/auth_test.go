@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -273,6 +274,48 @@ func (s *authSuite) TestCheckLocalAccessRequestOfferConsumeError(c *tc.C) {
 	authContext := s.newAuthContext(c)
 	_, err := authContext.CheckLocalAccessRequest(c.Context(), s.newOfferAccessDetails())
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *authSuite) TestCreateConsumeMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().Truncate(time.Second)
+
+	expected := &bakery.Macaroon{}
+
+	s.bakery.EXPECT().GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "").Return(s.caveats(now))
+	s.bakery.EXPECT().NewMacaroon(
+		gomock.Any(),
+		bakery.LatestVersion,
+		s.caveats(now),
+		crossModelConsumeOp("mysql-uuid"),
+	).Return(expected, nil)
+
+	authContext := s.newAuthContext(c)
+	mac, err := authContext.CreateConsumeOfferMacaroon(c.Context(), s.modelUUID, "mysql-uuid", "mary", bakery.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mac, tc.Equals, expected)
+}
+
+func (s *authSuite) TestCreateRemoteRelationMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().Truncate(time.Second)
+
+	expected := &bakery.Macaroon{}
+
+	s.bakery.EXPECT().GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "relation-mediawiki.db#mysql.server").Return(s.caveatWithRelation(now))
+	s.bakery.EXPECT().NewMacaroon(
+		gomock.Any(),
+		bakery.LatestVersion,
+		s.caveatWithRelation(now),
+		crossModelRelateOp("relation-mediawiki.db#mysql.server"),
+	).Return(expected, nil)
+
+	authContext := s.newAuthContext(c)
+	mac, err := authContext.CreateRemoteRelationMacaroon(c.Context(), s.modelUUID, "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"), bakery.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mac, tc.Equals, expected)
 }
 
 func (s *authSuite) newAccessCaveat(modelUUID string) string {

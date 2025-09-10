@@ -184,6 +184,44 @@ func (c *MockOfferBakeryGetConsumeOfferCaveatsCall) DoAndReturn(f func(string, s
 	return c
 }
 
+// GetRemoteRelationCaveats mocks base method.
+func (m *MockOfferBakery) GetRemoteRelationCaveats(arg0, arg1, arg2, arg3 string) []checkers.Caveat {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteRelationCaveats", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]checkers.Caveat)
+	return ret0
+}
+
+// GetRemoteRelationCaveats indicates an expected call of GetRemoteRelationCaveats.
+func (mr *MockOfferBakeryMockRecorder) GetRemoteRelationCaveats(arg0, arg1, arg2, arg3 any) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteRelationCaveats", reflect.TypeOf((*MockOfferBakery)(nil).GetRemoteRelationCaveats), arg0, arg1, arg2, arg3)
+	return &MockOfferBakeryGetRemoteRelationCaveatsCall{Call: call}
+}
+
+// MockOfferBakeryGetRemoteRelationCaveatsCall wrap *gomock.Call
+type MockOfferBakeryGetRemoteRelationCaveatsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) Return(arg0 []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) Do(f func(string, string, string, string) []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) DoAndReturn(f func(string, string, string, string) []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InferDeclaredFromMacaroon mocks base method.
 func (m *MockOfferBakery) InferDeclaredFromMacaroon(arg0 macaroon.Slice, arg1 map[string]string) map[string]string {
 	m.ctrl.T.Helper()
@@ -218,6 +256,50 @@ func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) Do(f func(macaroon.Slice,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) DoAndReturn(f func(macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInferDeclaredFromMacaroonCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewMacaroon mocks base method.
+func (m *MockOfferBakery) NewMacaroon(arg0 context.Context, arg1 bakery.Version, arg2 []checkers.Caveat, arg3 ...bakery.Op) (*bakery.Macaroon, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewMacaroon", varargs...)
+	ret0, _ := ret[0].(*bakery.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewMacaroon indicates an expected call of NewMacaroon.
+func (mr *MockOfferBakeryMockRecorder) NewMacaroon(arg0, arg1, arg2 any, arg3 ...any) *MockOfferBakeryNewMacaroonCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewMacaroon", reflect.TypeOf((*MockOfferBakery)(nil).NewMacaroon), varargs...)
+	return &MockOfferBakeryNewMacaroonCall{Call: call}
+}
+
+// MockOfferBakeryNewMacaroonCall wrap *gomock.Call
+type MockOfferBakeryNewMacaroonCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryNewMacaroonCall) Return(arg0 *bakery.Macaroon, arg1 error) *MockOfferBakeryNewMacaroonCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryNewMacaroonCall) Do(f func(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)) *MockOfferBakeryNewMacaroonCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryNewMacaroonCall) DoAndReturn(f func(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)) *MockOfferBakeryNewMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
