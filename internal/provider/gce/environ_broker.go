@@ -86,8 +86,8 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec, err := findInstanceSpec(
-		env, &instances.InstanceConstraint{
+	spec, err := env.findInstanceSpec(
+		&instances.InstanceConstraint{
 			Region:      env.cloud.Region,
 			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
@@ -97,15 +97,6 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 		instTypesAndCosts.InstanceTypes,
 	)
 	return spec, errors.Trace(err)
-}
-
-var findInstanceSpec = func(
-	env *environ,
-	ic *instances.InstanceConstraint,
-	imageMetadata []*imagemetadata.ImageMetadata,
-	allInstanceTypes []instances.InstanceType,
-) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(ic, imageMetadata, allInstanceTypes)
 }
 
 // findInstanceSpec initializes a new instance spec for the given

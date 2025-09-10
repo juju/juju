@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2/jwt"
 )
 
-// Scopes are define the permissions needed by the instance service account.
+// Scopes define the permissions needed by the instance service account.
 var Scopes = []string{
 	"https://www.googleapis.com/auth/compute",
 	"https://www.googleapis.com/auth/devstorage.full_control",

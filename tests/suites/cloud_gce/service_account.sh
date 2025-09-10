@@ -42,7 +42,7 @@ test_serviceaccount_credential() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju gcloud
 
-		cd .. || exit
+	cd .. || exit
 
-		run "run_serviceaccount_credential" "$@"
+	run "run_serviceaccount_credential" "$@"
 }
