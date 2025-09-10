@@ -52,14 +52,6 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
-<<<<<<< HEAD
-	// GetAction returns the action identified by its ID.
-	GetAction(ctx context.Context, actionID coreoperation.ID) (operation.Action, error)
-
-	// CancelAction attempts to cancel an enqueued action, identified by its
-	// UUID.
-	CancelAction(ctx context.Context, actionUUID uuid.UUID) (operation.Action, error)
-
 	// GetOperations returns a list of operations on specified entities, filtered by the
 	// given parameters.
 	GetOperations(ctx context.Context, args operation.QueryArgs) (operation.QueryResult, error)
@@ -79,11 +71,13 @@ type OperationService interface {
 	// units using the provided parameters.
 	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
 		args operation.TaskArgs) (operation.RunResult, error)
+
 	// GetTask returns the task identified by its ID.
-	GetTask(ctx context.Context, taskID string) (operation.Task, error)
+	GetTask(ctx context.Context, taskID string) (operation.TaskInfo, error)
+
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
-	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+	CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -271,31 +265,25 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 	return results, nil
 }
 
-func makeActionResult(task operation.Task) params.ActionResult {
-	actionTag := names.NewActionTag(task.TaskID)
+func makeActionResult(task operation.TaskInfo) params.ActionResult {
+	actionTag := names.NewActionTag(task.ID)
 	ac := &params.Action{
 		Tag:            actionTag.Id(),
-		Name:           task.Name,
+		Name:           task.ActionName,
 		Receiver:       task.Receiver,
 		Parameters:     task.Parameters,
-		Parallel:       &task.Parallel,
+		Parallel:       &task.IsParallel,
 		ExecutionGroup: task.ExecutionGroup,
 	}
 
 	result := params.ActionResult{
-		Action:   ac,
-		Enqueued: task.Enqueued,
-		Status:   task.Status,
-		Output:   task.Output,
-	}
-	if task.Started != nil {
-		result.Started = *task.Started
-	}
-	if task.Completed != nil {
-		result.Completed = *task.Completed
-	}
-	if task.Message != nil {
-		result.Message = *task.Message
+		Action:    ac,
+		Enqueued:  task.Enqueued,
+		Status:    task.Status.String(),
+		Output:    task.Output,
+		Started:   task.Started,
+		Completed: task.Completed,
+		Message:   task.Message,
 	}
 	for _, log := range task.Log {
 		result.Log = append(result.Log, params.ActionMessage{
@@ -362,7 +350,7 @@ func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionRe
 			Name:           info.ActionName,
 			Parameters:     info.Parameters,
 			Parallel:       &info.IsParallel,
-			ExecutionGroup: &info.ExecutionGroup,
+			ExecutionGroup: info.ExecutionGroup,
 		},
 		Enqueued:  info.Enqueued,
 		Started:   info.Started,

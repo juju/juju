@@ -20,10 +20,10 @@ type State interface {
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object
 	// store.
-	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
+	GetTask(ctx context.Context, taskID string) (operation.TaskInfo, *string, error)
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
-	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+	CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error)
 }
 
 // Service provides the API for managing operation

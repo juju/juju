@@ -41,10 +41,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // CancelTask mocks base method.
-func (m *MockState) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
+func (m *MockState) CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CancelTask", ctx, taskID)
-	ret0, _ := ret[0].(operation.Task)
+	ret0, _ := ret[0].(operation.TaskInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -62,28 +62,28 @@ type MockStateCancelTaskCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCancelTaskCall) Return(arg0 operation.Task, arg1 error) *MockStateCancelTaskCall {
+func (c *MockStateCancelTaskCall) Return(arg0 operation.TaskInfo, arg1 error) *MockStateCancelTaskCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCancelTaskCall) Do(f func(context.Context, string) (operation.Task, error)) *MockStateCancelTaskCall {
+func (c *MockStateCancelTaskCall) Do(f func(context.Context, string) (operation.TaskInfo, error)) *MockStateCancelTaskCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockStateCancelTaskCall {
+func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.TaskInfo, error)) *MockStateCancelTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetTask mocks base method.
-func (m *MockState) GetTask(ctx context.Context, taskID string) (operation.Task, *string, error) {
+func (m *MockState) GetTask(ctx context.Context, taskID string) (operation.TaskInfo, *string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTask", ctx, taskID)
-	ret0, _ := ret[0].(operation.Task)
+	ret0, _ := ret[0].(operation.TaskInfo)
 	ret1, _ := ret[1].(*string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -102,19 +102,19 @@ type MockStateGetTaskCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetTaskCall) Return(arg0 operation.Task, arg1 *string, arg2 error) *MockStateGetTaskCall {
+func (c *MockStateGetTaskCall) Return(arg0 operation.TaskInfo, arg1 *string, arg2 error) *MockStateGetTaskCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetTaskCall) Do(f func(context.Context, string) (operation.Task, *string, error)) *MockStateGetTaskCall {
+func (c *MockStateGetTaskCall) Do(f func(context.Context, string) (operation.TaskInfo, *string, error)) *MockStateGetTaskCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, *string, error)) *MockStateGetTaskCall {
+func (c *MockStateGetTaskCall) DoAndReturn(f func(context.Context, string) (operation.TaskInfo, *string, error)) *MockStateGetTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

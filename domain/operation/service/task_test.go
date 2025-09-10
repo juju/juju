@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -45,11 +44,9 @@ func (s *serviceSuite) service() *Service {
 func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	actionUUID := uuid.MustNewUUID()
 	taskID := "42"
-	expectedAction := operation.Task{
-		TaskID:   taskID,
-		UUID:     actionUUID,
+	expectedAction := operation.TaskInfo{
+		ID:       taskID,
 		Receiver: "test-app/0",
 	}
 
@@ -57,7 +54,6 @@ func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {
 
 	task, err := s.service().GetTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
-	c.Check(task.UUID, tc.Equals, actionUUID)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 }
 
@@ -67,20 +63,18 @@ func (s *serviceSuite) TestGetTaskError(c *tc.C) {
 	taskID := "42"
 	expectedError := errors.New("task not found")
 
-	s.state.EXPECT().GetTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, nil, expectedError)
+	s.state.EXPECT().GetTask(gomock.Any(), gomock.Any()).Return(operation.TaskInfo{}, nil, expectedError)
 
 	_, err := s.service().GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `retrieving task ".*": task not found`)
 }
 
-func (s *serviceSuite) TestCancelActionSuccess(c *tc.C) {
+func (s *serviceSuite) TestCancelTaskSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	actionUUID := uuid.MustNewUUID()
 	taskID := "42"
-	expectedAction := operation.Task{
-		TaskID:   taskID,
-		UUID:     actionUUID,
+	expectedAction := operation.TaskInfo{
+		ID:       taskID,
 		Receiver: "test-app/0",
 	}
 
@@ -88,17 +82,16 @@ func (s *serviceSuite) TestCancelActionSuccess(c *tc.C) {
 
 	task, err := s.service().CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
-	c.Check(task.UUID, tc.Equals, actionUUID)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 }
 
-func (s *serviceSuite) TestCancelActionError(c *tc.C) {
+func (s *serviceSuite) TestCancelTaskError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	taskID := "42"
 	expectedError := errors.New("task not found")
 
-	s.state.EXPECT().CancelTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, expectedError)
+	s.state.EXPECT().CancelTask(gomock.Any(), gomock.Any()).Return(operation.TaskInfo{}, expectedError)
 
 	_, err := s.service().CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `cancelling task ".*": task not found`)
@@ -107,11 +100,9 @@ func (s *serviceSuite) TestCancelActionError(c *tc.C) {
 func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	actionUUID := uuid.MustNewUUID()
 	taskID := "42"
-	expectedAction := operation.Task{
-		TaskID:   taskID,
-		UUID:     actionUUID,
+	expectedAction := operation.TaskInfo{
+		ID:       taskID,
 		Receiver: "test-app/0",
 	}
 
@@ -125,7 +116,6 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 
 	task, err := s.service().GetTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
-	c.Check(task.UUID, tc.Equals, actionUUID)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 	c.Assert(task.Output, tc.HasLen, 2)
 	c.Check(task.Output["result"], tc.Equals, "success")

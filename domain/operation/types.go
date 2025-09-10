@@ -9,49 +9,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/internal/uuid"
 )
-
-
-// TaskLogMessage represents a logged message on an task.
-type TaskLogMessage struct {
-	// Timestamp is when the message was logged.
-	Timestamp time.Time
-	// Message is the content of the logged message.
-	Message string
-}
-
-// Task represents a domain task.
-type Task struct {
-	// UUID is the task unique identifier.
-	UUID uuid.UUID
-	// TaskID is the task (unique, numeric, sequence) identifier.
-	TaskID string
-	// Receiver is the task receiver (unit / machine).
-	Receiver string
-	// Name is the task name.
-	Name string
-	// Parameters are the task parameters.
-	Parameters map[string]any
-	// Parallel indicates if the task can run in parallel.
-	Parallel bool
-	// ExecutionGroup groups actions for execution.
-	ExecutionGroup *string
-	// Enqueued is when the task was enqueued.
-	Enqueued time.Time
-	// Started is when the task started execution.
-	Started *time.Time
-	// Completed is when the task completed execution.
-	Completed *time.Time
-	// Status is the current status of the task.
-	Status corestatus.Status
-	// Message is any status message.
-	Message *string
-	// Log contains the logged messages for the task.
-	Log []TaskLogMessage
-	// Output contains the task output results.
-	Output map[string]any
-}
 
 // CompletedTaskResult holds the task ID and output used when recording
 // the result of an task.
@@ -148,8 +106,9 @@ type UnitTaskResult struct {
 type TaskInfo struct {
 	ID string
 
+	Receiver       string
 	ActionName     string
-	ExecutionGroup string
+	ExecutionGroup *string
 	IsParallel     bool
 	Parameters     map[string]interface{}
 

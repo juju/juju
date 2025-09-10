@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/internal/errors"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // GetTask returns the task identified by its ID.
@@ -24,14 +24,14 @@ import (
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *string, error) {
+func (s *State) GetTask(ctx context.Context, taskID string) (operation.TaskInfo, *string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return operation.Task{}, nil, errors.Capture(err)
+		return operation.TaskInfo{}, nil, errors.Capture(err)
 	}
 
 	var (
-		result     operation.Task
+		result     operation.TaskInfo
 		outputPath *string
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -41,7 +41,7 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.Task{}, nil, errors.Errorf("getting task %q: %w", taskID, err)
+		return operation.TaskInfo{}, nil, errors.Errorf("getting task %q: %w", taskID, err)
 	}
 
 	return result, outputPath, nil
@@ -52,13 +52,13 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
+func (s *State) CancelTask(ctx context.Context, taskID string) (operation.TaskInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return operation.Task{}, errors.Capture(err)
+		return operation.TaskInfo{}, errors.Capture(err)
 	}
 
-	var result operation.Task
+	var result operation.TaskInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Attempt to cancel the task.
 		err = s.cancelTask(ctx, tx, taskID)
@@ -70,7 +70,7 @@ func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, 
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.Task{}, errors.Errorf("cancelling task %q: %w", taskID, err)
+		return operation.TaskInfo{}, errors.Errorf("cancelling task %q: %w", taskID, err)
 	}
 
 	return result, nil
@@ -101,7 +101,7 @@ WHERE  ot.task_id = $taskIdent.task_id
 	updateStatusQuery := `
 UPDATE operation_task_status
 SET    status_id = $taskStatus.status_id,
-       updated_at = NOW()
+       updated_at = $taskStatus.updated_at
 FROM   operation_task AS ot
 WHERE  operation_task_status.task_uuid = ot.uuid
 AND    ot.task_id = $taskIdent.task_id
@@ -122,15 +122,17 @@ AND    ot.task_id = $taskIdent.task_id
 		return nil
 	}
 
-	newStatus := taskStatus{}
+	newStatus := taskStatus{
+		UpdatedAt: time.Now().UTC(),
+	}
 	if currentStatus.Status == corestatus.Pending.String() {
 		// If the task is in Pending status, then we have to update its status to
 		// Cancelled.
-		newStatus = taskStatus{Status: corestatus.Cancelled.String()}
+		newStatus.Status = corestatus.Cancelled.String()
 	} else if currentStatus.Status == corestatus.Running.String() {
 		// If the task is already in Running status, then we have to update its
 		// status to Aborting.
-		newStatus = taskStatus{Status: corestatus.Cancelled.String()}
+		newStatus.Status = corestatus.Cancelled.String()
 	}
 	err = tx.Query(ctx, updateStatusStmt, newStatus, taskIDParam).Run()
 	if err != nil {
@@ -140,25 +142,25 @@ AND    ot.task_id = $taskIdent.task_id
 	return nil
 }
 
-func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.Task, *string, error) {
+func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.TaskInfo, *string, error) {
 	result, err := s.getOperationTask(ctx, tx, taskID)
 	if err != nil {
-		return operation.Task{}, nil, errors.Capture(err)
+		return operation.TaskInfo{}, nil, errors.Capture(err)
 	}
 
 	parameters, err := s.getOperationParameters(ctx, tx, result.OperationUUID)
 	if err != nil {
-		return operation.Task{}, nil, errors.Capture(err)
+		return operation.TaskInfo{}, nil, errors.Capture(err)
 	}
 
 	logEntries, err := s.getTaskLog(ctx, tx, taskID)
 	if err != nil {
-		return operation.Task{}, nil, errors.Capture(err)
+		return operation.TaskInfo{}, nil, errors.Capture(err)
 	}
 
 	task, err := encodeTask(result, parameters, logEntries)
 	if err != nil {
-		return operation.Task{}, nil, errors.Capture(err)
+		return operation.TaskInfo{}, nil, errors.Capture(err)
 	}
 
 	var outputPath *string
@@ -262,42 +264,33 @@ ORDER BY created_at ASC
 	return logEntries, nil
 }
 
-func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
-	operationUUID, err := internaluuid.UUIDFromString(task.OperationUUID)
-	if err != nil {
-		return operation.Task{}, err
-	}
-
-	result := operation.Task{
-		UUID:     operationUUID,
+func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.TaskInfo, error) {
+	result := operation.TaskInfo{
 		Enqueued: task.EnqueuedAt,
 		Status:   corestatus.Status(task.Status),
 		Receiver: task.Receiver,
 	}
 
 	if task.Name.Valid {
-		result.Name = task.Name.String
-	}
-	if task.Summary.Valid {
-		result.Name = task.Summary.String
+		result.ActionName = task.Name.String
 	}
 	if task.ExecutionGroup.Valid {
 		result.ExecutionGroup = &task.ExecutionGroup.String
 	}
 	if task.StartedAt.Valid {
-		result.Started = &task.StartedAt.Time
+		result.Started = task.StartedAt.Time
 	}
 	if task.CompletedAt.Valid {
-		result.Completed = &task.CompletedAt.Time
+		result.Completed = task.CompletedAt.Time
 	}
 
 	result.Parameters = transform.SliceToMap(parameters, func(p taskParameter) (string, any) {
 		return p.Key, p.Value
 	})
 
-	result.Log = make([]operation.TaskLogMessage, len(logs))
+	result.Log = make([]operation.TaskLog, len(logs))
 	for i, logEntry := range logs {
-		result.Log[i] = operation.TaskLogMessage{
+		result.Log[i] = operation.TaskLog{
 			Timestamp: logEntry.CreatedAt,
 			Message:   logEntry.Content,
 		}

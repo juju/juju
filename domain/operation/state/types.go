@@ -53,5 +53,6 @@ type taskIdent struct {
 // taskStatus represents a task status for queries on the
 // operation_task_status table.
 type taskStatus struct {
-	Status string `db:"status"`
+	Status    string    `db:"status"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
