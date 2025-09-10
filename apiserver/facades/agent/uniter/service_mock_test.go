@@ -2980,6 +2980,84 @@ func (c *MockOperationServiceStartTaskCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// WatchMachineTaskNotifications mocks base method.
+func (m *MockOperationService) WatchMachineTaskNotifications(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineTaskNotifications", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineTaskNotifications indicates an expected call of WatchMachineTaskNotifications.
+func (mr *MockOperationServiceMockRecorder) WatchMachineTaskNotifications(arg0, arg1 any) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineTaskNotifications", reflect.TypeOf((*MockOperationService)(nil).WatchMachineTaskNotifications), arg0, arg1)
+	return &MockOperationServiceWatchMachineTaskNotificationsCall{Call: call}
+}
+
+// MockOperationServiceWatchMachineTaskNotificationsCall wrap *gomock.Call
+type MockOperationServiceWatchMachineTaskNotificationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchUnitTaskNotifications mocks base method.
+func (m *MockOperationService) WatchUnitTaskNotifications(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitTaskNotifications", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitTaskNotifications indicates an expected call of WatchUnitTaskNotifications.
+func (mr *MockOperationServiceMockRecorder) WatchUnitTaskNotifications(arg0, arg1 any) *MockOperationServiceWatchUnitTaskNotificationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitTaskNotifications", reflect.TypeOf((*MockOperationService)(nil).WatchUnitTaskNotifications), arg0, arg1)
+	return &MockOperationServiceWatchUnitTaskNotificationsCall{Call: call}
+}
+
+// MockOperationServiceWatchUnitTaskNotificationsCall wrap *gomock.Call
+type MockOperationServiceWatchUnitTaskNotificationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceWatchUnitTaskNotificationsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockOperationServiceWatchUnitTaskNotificationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceWatchUnitTaskNotificationsCall) Do(f func(context.Context, unit.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchUnitTaskNotificationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceWatchUnitTaskNotificationsCall) DoAndReturn(f func(context.Context, unit.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchUnitTaskNotificationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {
 	ctrl     *gomock.Controller

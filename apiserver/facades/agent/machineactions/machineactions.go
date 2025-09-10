@@ -7,13 +7,16 @@ package machineactions
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/rpc/params"
 )
@@ -29,6 +32,11 @@ type OperationService interface {
 	// ReceiverFromTask return a receiver string for the task identified.
 	// The string should satisfy the ActionReceiverTag type.
 	ReceiverFromTask(ctx context.Context, id string) (string, error)
+
+	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
+	// ids for tasks targeted at the provided machine.
+	// This watcher emits all tasks no matter their status.
+	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
 }
 
 // Facade implements the machineactions interface and is the concrete
@@ -132,19 +140,32 @@ func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionR
 func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entities) params.StringsWatchResults {
 	results := make([]params.StringsWatchResult, len(args.Entities))
 
-	for i := range args.Entities {
+	for i, entity := range args.Entities {
 		result := &results[i]
 
-		// We need a notify watcher for each item, otherwise during a migration
-		// a 3.x agent will bounce and will not be able to continue. By
-		// providing a watcher which does nothing, we can ensure that the 3.x
-		// agent will continue to work.
-		watcher := watcher.TODO[[]string]()
+		machineTag := names.NewMachineTag(entity.Tag)
+		if !f.accessMachine(machineTag) {
+			result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := machineTag.Id()
+
+		watcher, err := f.operationService.WatchMachineTaskNotifications(ctx, coremachine.Name(machineName))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		id, _, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, watcher)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		result.StringsWatcherId = id
 	}
 	return params.StringsWatchResults{Results: results}
