@@ -10,7 +10,9 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation"
@@ -24,17 +26,20 @@ type State interface {
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+
 	// GetIDsForAbortingTaskOfReceiver returns a slice of task IDs for any
 	// task with the given receiver UUID and having a status of Aborting.
 	GetIDsForAbortingTaskOfReceiver(
 		ctx context.Context,
 		receiverUUID internaluuid.UUID,
 	) ([]string, error)
+
 	// GetTask returns the task identified by its ID.
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object
 	// store.
 	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
+
 	// GetTaskIDsByUUIDsFilteredByReceiverUUID returns task IDs of the tasks
 	// provided having the given receiverUUID.
 	GetTaskIDsByUUIDsFilteredByReceiverUUID(
@@ -42,8 +47,10 @@ type State interface {
 		receiverUUID internaluuid.UUID,
 		taskUUIDs []string,
 	) ([]string, error)
+
 	// GetTaskUUIDByID returns the task UUID for the given task ID.
 	GetTaskUUIDByID(ctx context.Context, taskID string) (string, error)
+
 	// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
 	// the page number.
 	GetPaginatedTaskLogsByUUID(
@@ -51,14 +58,41 @@ type State interface {
 		taskUUID string,
 		page int,
 	) ([]internal.TaskLogMessage, int, error)
+
 	// NamespaceForTaskAbortingWatcher returns the name space to be used
 	// for the TaskAbortingWatcher.
 	NamespaceForTaskAbortingWatcher() string
+
 	// NamespaceForTaskLogWatcher returns the name space for watching task
 	// log messages.
 	NamespaceForTaskLogWatcher() string
 	// PruneOperations deletes operations that are older than maxAge and larger than maxSizeMB (in megabytes).
 	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error
+
+	// GetUnitUUIDByName returns the unit UUID for the given unit name.
+	GetUnitUUIDByName(ctx context.Context, n coreunit.Name) (string, error)
+
+	// GetMachineUUIDByName returns the machine UUID for the given machine name.
+	GetMachineUUIDByName(ctx context.Context, n coremachine.Name) (string, error)
+
+	// InitialWatchStatementUnitTask returns the namespace (table) and an
+	// initial query function which returns the list of non-pending task ids for
+	// the given unit.
+	InitialWatchStatementUnitTask() (string, string)
+
+	// InitialWatchStatementMachineTask returns the namespace and an initial
+	// query function which returns the list of task ids for the given machine.
+	InitialWatchStatementMachineTask() (string, string)
+
+	// FiltertTaskUUIDsForUnit returns a list of task IDs that corresponds to the
+	// filtered list of task UUIDs from the provided list that target the given
+	// unit uuid and are not in pending status.
+	FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error)
+
+	// FilterTaskUUIDsForMachine returns a list of task IDs that corresponds to the
+	// filtered list of task UUIDs from the provided list that target the given
+	// machine uuid, including the ones in pending status.
+	FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error)
 }
 
 // Service provides the API for managing operation

@@ -56,3 +56,7 @@ type taskStatus struct {
 	Status    string    `db:"status"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
+
+type nameArg struct {
+	Name string `db:"name"`
+}
