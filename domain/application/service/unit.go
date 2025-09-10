@@ -72,6 +72,16 @@ type UnitState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
+	// GetUnitUUIDAndNetNodeForName returns the uuid net node uuid for a unit
+	// matching the supplied name.
+	//
+	// The following errors may be expected:
+	// - [applicationerrors.UnitNotFound] if no unit exists for the supplied
+	// name.
+	GetUnitUUIDAndNetNodeForName(
+		context.Context, coreunit.Name,
+	) (coreunit.UUID, network.NetNodeUUID, error)
+
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
@@ -338,10 +348,11 @@ func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitSta
 // unit then this is a no-op.
 //
 // The following error types can be expected:
-//   - [applicationerrors.MachineNotFound] when the model type is IAAS and the
-//     principal unit does not have a machine.
-//   - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
-//     already has a subordinate from this application
+// - [applicationerrors.MachineNotFound] when the model type is IAAS and the
+// principal unit does not have a machine.
+// - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
+// already has a subordinate from this application
+// - [applicationerrors.UnitNotFound] when the principal unit does not exist.
 func (s *Service) AddIAASSubordinateUnit(
 	ctx context.Context,
 	subordinateAppID coreapplication.ID,
@@ -364,12 +375,21 @@ func (s *Service) AddIAASSubordinateUnit(
 		return applicationerrors.ApplicationNotSubordinate
 	}
 
+	princiaplUnitUUID, principalNetNodeUUID, err :=
+		s.st.GetUnitUUIDAndNetNodeForName(ctx, principalUnitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf(
+			"principal unit for name %q does not exist", principalUnitName,
+		).Add(applicationerrors.UnitNotFound)
+	}
+
 	statusArg := s.makeIAASUnitStatusArgs()
 	unitName, machineNames, err := s.st.AddIAASSubordinateUnit(
 		ctx,
 		application.SubordinateUnitArg{
 			SubordinateAppID:  subordinateAppID,
-			PrincipalUnitName: principalUnitName,
+			NetNodeUUID:       principalNetNodeUUID,
+			PrincipalUnitUUID: princiaplUnitUUID,
 			UnitStatusArg:     statusArg,
 		},
 	)
