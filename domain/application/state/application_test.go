@@ -641,7 +641,7 @@ AND state = 'potential'`, appUUID)
 }
 
 // TestCreateApplicationWithResolvedResources tests creation of an application with
-// pending resources, where SetCharm has been called first.
+// pending resources, where AddCharm has been called first.
 // It verifies that the charm_resource table is populated, alongside the
 // resource and application_resource table with data from charm and arguments.
 // The pending_application_resource table should have no entries with the appName.
@@ -666,7 +666,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *tc.
 	args := s.addApplicationArgForResources(c, appName,
 		charmResources, nil)
 
-	charmID, _, err := s.state.SetCharm(ctx, args.Charm, nil, false)
+	charmID, _, err := s.state.AddCharm(ctx, args.Charm, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addResources := []resource.AddResourceDetails{
@@ -1596,7 +1596,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *tc.C) {
 
 	s.createIAASApplication(c, "foo", life.Alive)
 
-	_, _, err := s.state.SetCharm(c.Context(), charm.Charm{
+	_, _, err := s.state.AddCharm(c.Context(), charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,

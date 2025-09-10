@@ -96,66 +96,66 @@ AND revision = $charmReferenceNameRevisionSource.revision
 	return result.UUID, applicationerrors.CharmAlreadyExists
 }
 
-func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, ch charm.Charm, downloadInfo *charm.DownloadInfo) error {
-	if err := s.setCharmState(ctx, tx, uuid, ch); err != nil {
+func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, ch charm.Charm, downloadInfo *charm.DownloadInfo) error {
+	if err := s.addCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmMetadata(ctx, tx, uuid, ch.Metadata); err != nil {
+	if err := s.addCharmMetadata(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmTags(ctx, tx, uuid, ch.Metadata.Tags); err != nil {
+	if err := s.addCharmTags(ctx, tx, uuid, ch.Metadata.Tags); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmCategories(ctx, tx, uuid, ch.Metadata.Categories); err != nil {
+	if err := s.addCharmCategories(ctx, tx, uuid, ch.Metadata.Categories); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmTerms(ctx, tx, uuid, ch.Metadata.Terms); err != nil {
+	if err := s.addCharmTerms(ctx, tx, uuid, ch.Metadata.Terms); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmRelations(ctx, tx, uuid, ch.Metadata); err != nil {
+	if err := s.addCharmRelations(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmExtraBindings(ctx, tx, uuid, ch.Metadata.ExtraBindings); err != nil {
+	if err := s.addCharmExtraBindings(ctx, tx, uuid, ch.Metadata.ExtraBindings); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmStorage(ctx, tx, uuid, ch.Metadata.Storage); err != nil {
+	if err := s.addCharmStorage(ctx, tx, uuid, ch.Metadata.Storage); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmDevices(ctx, tx, uuid, ch.Metadata.Devices); err != nil {
+	if err := s.addCharmDevices(ctx, tx, uuid, ch.Metadata.Devices); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmResources(ctx, tx, uuid, ch.Metadata.Resources); err != nil {
+	if err := s.addCharmResources(ctx, tx, uuid, ch.Metadata.Resources); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmContainers(ctx, tx, uuid, ch.Metadata.Containers); err != nil {
+	if err := s.addCharmContainers(ctx, tx, uuid, ch.Metadata.Containers); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmActions(ctx, tx, uuid, ch.Actions); err != nil {
+	if err := s.addCharmActions(ctx, tx, uuid, ch.Actions); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmConfig(ctx, tx, uuid, ch.Config); err != nil {
+	if err := s.addCharmConfig(ctx, tx, uuid, ch.Config); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.setCharmManifest(ctx, tx, uuid, ch.Manifest); err != nil {
+	if err := s.addCharmManifest(ctx, tx, uuid, ch.Manifest); err != nil {
 		return errors.Capture(err)
 	}
 
 	// Insert the download info if the charm is from CharmHub.
 	if ch.Source == charm.CharmHubSource {
-		if err := s.setCharmDownloadInfo(ctx, tx, uuid, downloadInfo); err != nil {
+		if err := s.addCharmDownloadInfo(ctx, tx, uuid, downloadInfo); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -163,7 +163,7 @@ func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 	return nil
 }
 
-func (s *State) setCharmState(
+func (s *State) addCharmState(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
@@ -237,7 +237,7 @@ func (s *State) setCharmState(
 	return nil
 }
 
-func (s *State) setCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id corecharm.ID, downloadInfo *charm.DownloadInfo) error {
+func (s *State) addCharmDownloadInfo(ctx context.Context, tx *sqlair.TX, id corecharm.ID, downloadInfo *charm.DownloadInfo) error {
 	if downloadInfo == nil {
 		return nil
 	}
@@ -273,7 +273,7 @@ ON CONFLICT DO NOTHING;`
 	return nil
 }
 
-func (s *State) setCharmMetadata(
+func (s *State) addCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
@@ -297,7 +297,7 @@ func (s *State) setCharmMetadata(
 	return nil
 }
 
-func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
+func (s *State) addCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
 	// If there are no tags, we don't need to do anything.
 	if len(tags) == 0 {
 		return nil
@@ -316,7 +316,7 @@ func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 	return nil
 }
 
-func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
+func (s *State) addCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
 	// If there are no categories, we don't need to do anything.
 	if len(categories) == 0 {
 		return nil
@@ -335,7 +335,7 @@ func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
-func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
+func (s *State) addCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
 	// If there are no terms, we don't need to do anything.
 	if len(terms) == 0 {
 		return nil
@@ -354,7 +354,7 @@ func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.I
 	return nil
 }
 
-func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
+func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
 	encodedRelations, err := encodeRelations(id, metadata)
 	if err != nil {
 		return errors.Errorf("encoding charm relations: %w", err)
@@ -390,7 +390,7 @@ func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecha
 	return nil
 }
 
-func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
+func (s *State) addCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
 	// If there is no extraBindings, we don't need to do anything.
 	if len(extraBindings) == 0 {
 		return nil
@@ -413,7 +413,7 @@ func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id cor
 	return nil
 }
 
-func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
+func (s *State) addCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
 	// If there is no storage, we don't need to do anything.
 	if len(storage) == 0 {
 		return nil
@@ -449,7 +449,7 @@ func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
+func (s *State) addCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
 	// If there are no devices, we don't need to do anything.
 	if len(devices) == 0 {
 		return nil
@@ -468,7 +468,7 @@ func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
+func (s *State) addCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
 	// If there are no resources, we don't need to do anything.
 	if len(resources) == 0 {
 		return nil
@@ -492,7 +492,7 @@ func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecha
 	return nil
 }
 
-func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
+func (s *State) addCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
 	// If there are no containers, we don't need to do anything.
 	if len(containers) == 0 {
 		return nil
@@ -529,7 +529,7 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
-func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
+func (s *State) addCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
 	// If there are no resources, we don't need to do anything.
 	if len(actions.Actions) == 0 {
 		return nil
@@ -548,7 +548,7 @@ func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
+func (s *State) addCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
 	// If there are no resources, we don't need to do anything.
 	if len(config.Options) == 0 {
 		return nil
@@ -572,7 +572,7 @@ func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.
 	return nil
 }
 
-func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
+func (s *State) addCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
 	if len(manifest.Bases) == 0 {
 		return applicationerrors.CharmManifestNotFound
 	}

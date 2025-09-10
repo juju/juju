@@ -56,8 +56,8 @@ func ParseCharmSchema(source internalcharm.Schema) (CharmSource, error) {
 	}
 }
 
-// SetCharmArgs holds the arguments for the SetCharm method.
-type SetCharmArgs struct {
+// AddCharmArgs holds the arguments for the SetCharm method.
+type AddCharmArgs struct {
 	// Charm is the charm to set.
 	Charm internalcharm.Charm
 	// Source is the source of the charm.

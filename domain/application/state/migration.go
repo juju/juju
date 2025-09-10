@@ -263,7 +263,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 			// If the controllers do not have the same charmhub url, then
 			// all bets are off.
 			downloadInfo := &charm.DownloadInfo{Provenance: charm.ProvenanceMigration}
-			if err := st.setCharm(ctx, tx, charmID, args.Charm, downloadInfo); err != nil {
+			if err := st.addCharm(ctx, tx, charmID, args.Charm, downloadInfo); err != nil {
 				return errors.Errorf("setting charm: %w", err)
 			}
 		}

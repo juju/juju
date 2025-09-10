@@ -22,11 +22,11 @@ type ModelConfigService interface {
 // ApplicationService provides access to application related operations, this
 // includes charms, units and resources.
 type ApplicationService interface {
-	// SetCharm persists the charm metadata, actions, config and manifest to
+	// AddCharm persists the charm metadata, actions, config and manifest to
 	// state.
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
-	SetCharm(context.Context, charm.SetCharmArgs) (corecharm.ID, []string, error)
+	AddCharm(context.Context, charm.AddCharmArgs) (corecharm.ID, []string, error)
 
 	// ListCharmLocators returns a list of charms with the specified
 	// locator by the name. If no names are provided, all charms are returned.

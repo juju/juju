@@ -286,7 +286,7 @@ func (st *State) insertApplication(
 	}
 
 	if shouldInsertCharm {
-		if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
+		if err := st.addCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
 			return errors.Errorf("setting charm: %w", err)
 		}
 	}
@@ -1781,7 +1781,7 @@ WHERE uuid = $charmID.uuid;`
 
 		// Write the charm actions.yaml, this will actually disappear once the
 		// charmhub store provides this information.
-		if err = st.setCharmActions(ctx, tx, id, info.Actions); err != nil {
+		if err = st.addCharmActions(ctx, tx, id, info.Actions); err != nil {
 			return errors.Errorf("setting charm actions for %q: %w", id, err)
 		}
 

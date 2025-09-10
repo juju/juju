@@ -621,9 +621,9 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 	return ch, di, nil
 }
 
-// SetCharm persists the charm metadata, actions, config and manifest to
+// AddCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
+func (s *State) AddCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
 	// This check is defensive, as the service layer should not allow this to
 	// happen, but it causes confusion if it does happen.
 	if ch.Revision >= 0 && requiresSequencing {
@@ -672,7 +672,7 @@ WHERE uuid = $charmID.uuid;
 			ch.Revision = int(rev)
 		}
 
-		if err := s.setCharm(ctx, tx, id, ch, downloadInfo); err != nil {
+		if err := s.addCharm(ctx, tx, id, ch, downloadInfo); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -946,7 +946,7 @@ WHERE uuid = $charmID.uuid;
 		}
 
 		// Insert the charm download info.
-		if err := s.setCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
+		if err := s.addCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
 			return errors.Errorf("setting charm download info: %w", err)
 		}
 

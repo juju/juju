@@ -746,7 +746,7 @@ func (s *charmServiceSuite) TestSetCharmAvailableCharmNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *charmServiceSuite) TestSetCharm(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -765,7 +765,7 @@ func (s *charmServiceSuite) TestSetCharm(c *tc.C) {
 
 	var downloadInfo *charm.DownloadInfo
 
-	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
+	s.state.EXPECT().AddCharm(gomock.Any(), charm.Charm{
 		Metadata: charm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
@@ -782,7 +782,7 @@ func (s *charmServiceSuite) TestSetCharm(c *tc.C) {
 		Architecture: architecture.AMD64,
 	}, nil)
 
-	got, warnings, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "baz",
@@ -795,7 +795,7 @@ func (s *charmServiceSuite) TestSetCharm(c *tc.C) {
 	c.Check(got, tc.DeepEquals, id)
 }
 
-func (s *charmServiceSuite) TestSetCharmCharmhubWithNoDownloadInfo(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmCharmhubWithNoDownloadInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -809,7 +809,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhubWithNoDownloadInfo(c *tc.C) {
 
 	var downloadInfo *charm.DownloadInfo
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.CharmHub,
 		ReferenceName: "baz",
@@ -820,7 +820,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhubWithNoDownloadInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmDownloadInfoNotFound)
 }
 
-func (s *charmServiceSuite) TestSetCharmCharmhub(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmCharmhub(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -844,7 +844,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *tc.C) {
 		DownloadSize:       42,
 	}
 
-	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
+	s.state.EXPECT().AddCharm(gomock.Any(), charm.Charm{
 		Metadata: charm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
@@ -861,7 +861,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *tc.C) {
 		Architecture: architecture.AMD64,
 	}, nil)
 
-	got, warnings, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.CharmHub,
 		ReferenceName: "baz",
@@ -874,12 +874,12 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *tc.C) {
 	c.Check(got, tc.DeepEquals, id)
 }
 
-func (s *charmServiceSuite) TestSetCharmNoName(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmNoName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:        s.charm,
 		Source:       corecharm.Local,
 		Revision:     1,
@@ -888,7 +888,7 @@ func (s *charmServiceSuite) TestSetCharmNoName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *charmServiceSuite) TestSetCharmInvalidSource(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmInvalidSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -900,7 +900,7 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        "charmstore",
 		ReferenceName: "foo",
@@ -910,7 +910,7 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationNameConflict(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -936,7 +936,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -946,7 +946,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameConflict(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationNameConflict)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationUnknownRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -965,7 +965,7 @@ func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -975,7 +975,7 @@ func (s *charmServiceSuite) TestSetCharmRelationUnknownRole(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationRoleNotValid)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationRoleMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -994,7 +994,7 @@ func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1004,7 +1004,7 @@ func (s *charmServiceSuite) TestSetCharmRelationRoleMismatch(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationRoleNotValid)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationToReservedNameJuju(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1024,7 +1024,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1034,7 +1034,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJuju(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationToReservedNameJujuBlah(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1054,7 +1054,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *tc.C) 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1064,7 +1064,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameJujuBlah(c *tc.C) 
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationNameToReservedNameJuju(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1084,7 +1084,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *tc.C) 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1094,7 +1094,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJuju(c *tc.C) 
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationNameToReservedNameJujuBlah(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1114,7 +1114,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *tc
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1124,7 +1124,7 @@ func (s *charmServiceSuite) TestSetCharmRelationNameToReservedNameJujuBlah(c *tc
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRequireRelationToReservedNameSucceeds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -1149,14 +1149,14 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
 		Architecture: architecture.AMD64,
 	}, nil)
 
-	got, warnings, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1168,7 +1168,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationToReservedNameSucceeds(c 
 	c.Check(got, tc.DeepEquals, id)
 }
 
-func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRequireRelationNameToReservedName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1188,7 +1188,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *tc.
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1198,7 +1198,7 @@ func (s *charmServiceSuite) TestSetCharmRequireRelationNameToReservedName(c *tc.
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmRelationReservedNameMisuse)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationToReservedNameWithSpecialCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -1223,14 +1223,14 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
 		Architecture: architecture.AMD64,
 	}, nil)
 
-	got, warnings, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1242,7 +1242,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameWithSpecialCharm(c
 	c.Check(got, tc.DeepEquals, id)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationToReservedNameOnRequiresValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -1268,14 +1268,14 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), nil, false).Return(id, charm.CharmLocator{
 		Name:         "foo",
 		Revision:     1,
 		Source:       charm.LocalSource,
 		Architecture: architecture.AMD64,
 	}, nil)
 
-	got, warnings, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1287,7 +1287,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresValid(c 
 	c.Check(got, tc.DeepEquals, id)
 }
 
-func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(c *tc.C) {
+func (s *charmServiceSuite) TestAddCharmRelationToReservedNameOnRequiresInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -1307,7 +1307,7 @@ func (s *charmServiceSuite) TestSetCharmRelationToReservedNameOnRequiresInvalid(
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 
-	_, _, err := s.service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         s.charm,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1424,7 +1424,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmCharmhubNotDuringNotImport(c *
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// SetCharm is tested in tests elsewhere, so we can just return a valid
+	// AddCharm is tested in tests elsewhere, so we can just return a valid
 	// charm ID here.
 
 	dst := c.MkDir()
@@ -1457,7 +1457,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C
 					Size:   stat.Size(),
 				}, nil
 		})
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		c.Check(ch.Metadata.Name, tc.Equals, "dummy")
 		return charmID, charm.CharmLocator{
 			Name:         "test",
@@ -1510,7 +1510,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSetCharm(c *tc.C) {
+func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedAddCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := c.MkDir()
@@ -1543,7 +1543,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 					Size:   stat.Size(),
 				}, nil
 		})
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		return charmID, charm.CharmLocator{}, errors.Errorf("failed to set charm %w", coreerrors.NotValid)
 	})
 
@@ -1561,7 +1561,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// SetCharm is tested in tests elsewhere, so we can just return a valid
+	// AddCharm is tested in tests elsewhere, so we can just return a valid
 	// charm ID here.
 
 	dst := c.MkDir()
@@ -1775,7 +1775,7 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *tc.C) {
 	ch.Hash = "hash"
 	ch.Architecture = architecture.AMD64
 
-	s.state.EXPECT().SetCharm(gomock.Any(), ch, downloadInfo, false).Return(corecharm.ID("id"), charm.CharmLocator{}, nil)
+	s.state.EXPECT().AddCharm(gomock.Any(), ch, downloadInfo, false).Return(corecharm.ID("id"), charm.CharmLocator{}, nil)
 
 	_, _, err = s.service.ReserveCharmRevision(c.Context(), charm.ReserveCharmRevisionArgs{
 		Charm:         charmBase,
@@ -1808,12 +1808,12 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExists(c *tc.C) {
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 
 	// We don't check the expected, we only care about the result
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
 		applicationerrors.CharmAlreadyExists)
 	s.state.EXPECT().GetCharmID(gomock.Any(), charmBase.Meta().Name, 42, charm.LocalSource).Return("id", nil)
 
 	id, _, err := s.service.ReserveCharmRevision(c.Context(), charm.ReserveCharmRevisionArgs{
-		// We only define required fields to pass code before SetCharm call
+		// We only define required fields to pass code before AddCharm call
 		Charm:         charmBase,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -1843,12 +1843,12 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExistsGetCharmIdError
 	expectedError := errors.New("boom")
 
 	// We don't check the expected, we only care about the result
-	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
 		applicationerrors.CharmAlreadyExists)
 	s.state.EXPECT().GetCharmID(gomock.Any(), charmBase.Meta().Name, 42, charm.LocalSource).Return("", expectedError)
 
 	_, _, err := s.service.ReserveCharmRevision(c.Context(), charm.ReserveCharmRevisionArgs{
-		// We only define required fields to pass code before SetCharm call
+		// We only define required fields to pass code before AddCharm call
 		Charm:         charmBase,
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
