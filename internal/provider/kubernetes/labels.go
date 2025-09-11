@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package kubernetes
 
 import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
