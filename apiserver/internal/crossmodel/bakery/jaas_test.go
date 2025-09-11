@@ -124,7 +124,7 @@ func (s *jaasBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
 	}
 	caveats := bakery.GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
 
-	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+	c.Check(caveats, tc.SameContents, s.remoteCaveatsWithRelation(now))
 }
 
 func (s *jaasBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
@@ -141,14 +141,6 @@ func (s *jaasBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 	c.Check(m, tc.DeepEquals, map[string]string{
 		relationKey: "mediawiki:db mysql:server",
 	})
-}
-
-func (s *jaasBakerySuite) caveats(now time.Time) []checkers.Caveat {
-	return []checkers.Caveat{
-		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
-		checkers.DeclaredCaveat(usernameKey, "mary"),
-		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
-	}
 }
 
 func (s *jaasBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
@@ -172,13 +164,13 @@ func (s *jaasBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	})
 
 	localBakery := JAASOfferBakery{
-		oven:  s.oven,
-		clock: s.clock,
+		oven:     s.oven,
+		endpoint: "http://offer-access",
+		clock:    s.clock,
 	}
 
 	mac, err := localBakery.CreateDischargeMacaroon(
 		c.Context(),
-		"http://offer-access",
 		"mary",
 		map[string]string{
 			sourceModelKey: s.modelUUID.String(),
@@ -211,8 +203,22 @@ permission: consume
 `[1:], modelUUID)
 }
 
-func (s *jaasBakerySuite) caveatWithRelation(now time.Time) []checkers.Caveat {
-	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
+func (s *jaasBakerySuite) caveats(now time.Time) []checkers.Caveat {
+	return []checkers.Caveat{
+		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
+		checkers.DeclaredCaveat(usernameKey, "mary"),
+		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
+	}
+}
+
+func (s *jaasBakerySuite) remoteCaveatsWithRelation(now time.Time) []checkers.Caveat {
+	return []checkers.Caveat{
+		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
+		checkers.DeclaredCaveat(offerUUIDKey, "mysql-uuid"),
+		checkers.DeclaredCaveat(usernameKey, "mary"),
+		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
+		checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"),
+	}
 }
 
 var _ bakery.ThirdPartyLocator = (*externalPublicKeyLocator)(nil)
