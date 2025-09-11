@@ -712,27 +712,37 @@ type PendingResourceUpload struct {
 // ApplicationStorageGetRequest represents the request parameters
 // to retrieve an application's storage constraints.
 type ApplicationStorageGetRequest struct {
-	ApplicationName string `json:"application"`
+	Entities []Entity `json:"entities"`
 }
 
-// ApplicationStorageGetResponse contains the storage constraints
+// ApplicationStorageGetResult contains the storage constraints
 // currently defined for an application.
-type ApplicationStorageGetResponse struct {
-	Result map[string]StorageConstraints
-	Error  *Error `json:"error,omitempty"`
+type ApplicationStorageGetResult struct {
+	StorageConstraints map[string]StorageConstraints `json:"storage-constraints"`
+	ErrorResult        ErrorResult                   `json:"error"`
+}
+
+// ApplicationStorageGetResult contains the storage constraints
+// currently defined for an application.
+type ApplicationStorageGetResults struct {
+	ApplicationStorageGetResults []ApplicationStorageGetResult `json:"results"`
 }
 
 // ApplicationStorageUpdateRequest holds the parameters for updating
 // application storage constraints.
 type ApplicationStorageUpdateRequest struct {
-	ApplicationName string `json:"application"`
-
-	// Holds the application storage constraints where the key is the storage name.
-	ApplicationStorageConstraints map[string]StorageConstraints `json:"application-storage-constraints"`
+	ApplicationStorageUpdates []ApplicationStorageUpdate `json:"storage-updates"`
 }
 
-// ApplicationStorageUpdateResponse contains the results for an
+type ApplicationStorageUpdate struct {
+	Entity Entity `json:"entity"`
+
+	// Holds the application storage constraints where the key is the storage name.
+	StorageConstraints map[string]StorageConstraints `json:"storage-constraints"`
+}
+
+// ApplicationStorageUpdateResult contains the results for an
 // update request for application storage constraints.
-type ApplicationStorageUpdateResponse struct {
-	Errors []*Error `json:"errors,omitempty"`
+type ApplicationStorageUpdateResult struct {
+	Errors []ErrorResults `json:"errors"`
 }

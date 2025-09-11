@@ -3118,88 +3118,131 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-// GetApplicationStorage retrieves the storage constraints currently
-// defined for the specified application.
-// If no storage constraints exist, Result will be nil.
-func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetRequest) (params.ApplicationStorageGetResponse, error) {
-	res := params.ApplicationStorageGetResponse{}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return res, errors.Trace(err)
+// GetApplicationStorage retrieves the storage constraints currently defined for the specified applications in bulk.
+func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetRequest) (params.ApplicationStorageGetResults, error) {
+	resp := params.ApplicationStorageGetResults{}
+	if err := api.checkCanRead(); err != nil {
+		return resp, errors.Trace(err)
 	}
+	res := make([]params.ApplicationStorageGetResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		res[i] = params.ApplicationStorageGetResult{}
 
-	storageConstraints, err := app.StorageConstraints()
-	if err != nil {
-		return res, errors.Trace(err)
-	}
-
-	if storageConstraints == nil {
-		return res, nil
-	}
-
-	sc := make(map[string]params.StorageConstraints)
-	for key, cons := range storageConstraints {
-		sc[key] = params.StorageConstraints{
-			Pool:  cons.Pool,
-			Size:  &cons.Size,
-			Count: &cons.Count,
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res[i].ErrorResult.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
+
+		app, err := api.backend.Application(tag.Name)
+		if err != nil {
+			res[i].ErrorResult.Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		storageConstraints, err := app.StorageConstraints()
+		if err != nil {
+			return resp, errors.Trace(err)
+		}
+
+		if storageConstraints == nil {
+			return resp, nil
+		}
+
+		sc := make(map[string]params.StorageConstraints)
+		for key, cons := range storageConstraints {
+			sc[key] = params.StorageConstraints{
+				Pool:  cons.Pool,
+				Size:  &cons.Size,
+				Count: &cons.Count,
+			}
+		}
+		res[i].StorageConstraints = sc
 	}
-	res.Result = sc
-	return res, nil
+	resp.ApplicationStorageGetResults = res
+
+	return resp, nil
 }
 
-// UpdateApplicationStorage updates the storage constraints for an existing application.
+// UpdateApplicationStorage updates the storage constraints for existing applications in bulk.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned:
 //   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
-func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ApplicationStorageUpdateResponse, error) {
-	res := params.ApplicationStorageUpdateResponse{}
-
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return res, errors.Trace(err)
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ApplicationStorageUpdateResult, error) {
+	resp := params.ApplicationStorageUpdateResult{}
+	if err := api.checkCanWrite(); err != nil {
+		return resp, errors.Trace(err)
 	}
 
-	// Validate that the charm supports the storage name that was passed in by the client.
-	ch, _, err := app.Charm()
-	if err != nil {
-		return res, errors.Trace(err)
-	}
-	chMeta := ch.Meta()
-	if chMeta == nil || chMeta.Storage == nil {
-		return res, errors.NotFoundf("charm meta storage for %s", args.ApplicationName)
-	}
-	errs := make([]*params.Error, 0, len(args.ApplicationStorageConstraints))
+	res := make([]params.ErrorResults, len(args.ApplicationStorageUpdates))
+	resp.Errors = res
 
-	for storageName := range args.ApplicationStorageConstraints {
-		if _, exists := chMeta.Storage[storageName]; !exists {
-			errs = append(errs, apiservererrors.ServerError(
-				errors.NotSupportedf("storage %s with application name %s", storageName, args.ApplicationName)))
+	for i, storageUpdate := range args.ApplicationStorageUpdates {
+		errResults := make([]params.ErrorResult, 0, len(storageUpdate.StorageConstraints))
+		res[i] = params.ErrorResults{
+			Results: errResults,
+		}
+
+		tag, err := names.ParseApplicationTag(storageUpdate.Entity.Tag)
+
+		if err != nil {
+			errResults = append(errResults, params.ErrorResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)})
 			continue
 		}
-	}
-	// Return early before application storage update for user errors.
-	res.Errors = errs
-	if len(errs) > 0 {
-		return res, nil
+
+		app, err := api.backend.Application(tag.Name)
+		if err != nil {
+			errResults = append(errResults, params.ErrorResult{Error: apiservererrors.ServerError(err)})
+			continue
+		}
+
+		// Validate that the charm supports the storage name that was passed in by the client.
+		ch, _, err := app.Charm()
+		if err != nil {
+			return resp, errors.Trace(err)
+		}
+		chMeta := ch.Meta()
+		if chMeta == nil || chMeta.Storage == nil {
+			return resp, errors.NotFoundf("charm meta storage for %s", tag.Name)
+		}
+
+		for storageName := range storageUpdate.StorageConstraints {
+			if _, exists := chMeta.Storage[storageName]; !exists {
+				serverErr := apiservererrors.ServerError(
+					errors.NotSupportedf("storage %s with application name %s", storageName, tag.Name),
+				)
+				errResults = append(errResults, params.ErrorResult{Error: serverErr})
+				continue
+			}
+		}
+
+		// Do not process application storage update for user errors for a particular application's storage update.
+		if len(errResults) > 0 {
+			res[i] = params.ErrorResults{
+				Results: errResults,
+			}
+			continue
+		}
+
+		sCons := make(map[string]state.StorageConstraints)
+		for storageName, con := range storageUpdate.StorageConstraints {
+			sc := state.StorageConstraints{
+				Pool: con.Pool,
+			}
+			if con.Size != nil {
+				sc.Size = *con.Size
+			}
+			if con.Count != nil {
+				sc.Count = *con.Count
+			}
+			sCons[storageName] = sc
+		}
+
+		if err = app.UpdateStorageConstraints(sCons); err != nil {
+			return resp, errors.Trace(err)
+		}
 	}
 
-	sCons := make(map[string]state.StorageConstraints)
-	for storageName, con := range args.ApplicationStorageConstraints {
-		sc := state.StorageConstraints{
-			Pool: con.Pool,
-		}
-		if con.Size != nil {
-			sc.Size = *con.Size
-		}
-		if con.Count != nil {
-			sc.Count = *con.Count
-		}
-		sCons[storageName] = sc
-	}
-
-	err = app.UpdateStorageConstraints(sCons)
-	return res, errors.Trace(err)
+	return resp, nil
 }
