@@ -450,6 +450,30 @@ func (s *provisionerSuite) TestWatchUnits(c *gc.C) {
 	c.Check(called, jc.IsTrue)
 }
 
+func (s *provisionerSuite) TestWatchStorageConstraints(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "WatchStorageConstraints")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "application-foo"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	worker, err := client.WatchStorageConstraints("foo")
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(worker, gc.IsNil)
+	c.Check(called, jc.IsTrue)
+}
+
 func (s *provisionerSuite) TestRemoveUnit(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {

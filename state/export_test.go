@@ -1321,3 +1321,14 @@ func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
 	err := st.db().RunTransaction(op)
 	c.Assert(err, gc.IsNil)
 }
+
+// UpdateStorageConstraints updates an application's storage constraints.
+// TODO(adisazhar123): I am using this to test WatchStorageConstraints. I will replace
+// this with Alvin's implementation once it lands.
+func UpdateStorageConstraints(st *State, application *Application, cons map[string]StorageConstraints) error {
+	key := application.storageConstraintsKey()
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return []txn.Op{replaceStorageConstraintsOp(key, cons)}, nil
+	}
+	return st.db().Run(buildTxn)
+}
