@@ -116,15 +116,22 @@ type storageVolumeUUIDRef struct {
 	UUID string `db:"storage_volume_uuid"`
 }
 
-// unitStorageDirective is used to represent the values held in the
-// unit_storage_directive table representing the storage directives of
-// a unit.
-type unitStorageDirective struct {
-	CharmName       string `db:"charm_name"`
+type storageDirective struct {
 	Count           uint32 `db:"count"`
 	SizeMiB         uint64 `db:"size_mib"`
 	StorageName     string `db:"storage_name"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
+}
+
+// unitStorageDirective is used to represent the values held in the
+// unit_storage_directive table representing the storage directives of
+// a unit.
+type unitStorageDirective struct {
+	CharmName       string
+	Count           uint32
+	SizeMiB         uint64
+	StorageName     string
+	StoragePoolUUID string
 }
 
 // unitOwnedStorage is represents a storage instance that is owned by a unit.

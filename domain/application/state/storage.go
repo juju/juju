@@ -13,7 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
+	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -178,17 +178,17 @@ func (st *State) GetUnitStorageDirectives(
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
-SELECT &unitStorageDirective.*
+SELECT &storageDirective.*
 FROM   unit_storage_directive
 WHERE  unit_uuid = $entityUUID.uuid
 		`,
-		unitUUIDInput, unitStorageDirective{},
+		unitUUIDInput, storageDirective{},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	dbVals := []unitStorageDirective{}
+	dbVals := []storageDirective{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID)
 		if err != nil {
@@ -1290,55 +1290,59 @@ func (st *State) attachStorage(
 	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
 	charmStorage charmStorage,
 ) error {
-	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
-	updateStorageInstanceQuery, err := st.Prepare(`
-UPDATE storage_instance
-SET    charm_uuid = (SELECT charm_uuid FROM unit where uuid = $storageUnit.unit_uuid)
-WHERE  uuid = $storageUnit.storage_instance_uuid
-`, su)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = st.attachStorageToUnit(ctx, tx, inst.StorageUUID, unitUUID)
-	if err != nil {
-		return errors.Errorf("attaching storage %q to unit %q: %w", inst.StorageUUID, unitUUID, err)
-	}
-
-	// TODO(storage) - insert data for the unit's assigned machine when that is implemented
-
-	// Attach volumes and filesystems for reattached storage on CAAS.
-	// This only occurs in corner cases where a new pod appears with storage
-	// that needs to be reconciled with the Juju model. It is part of the
-	// UnitIntroduction workflow when a pod appears with volumes already attached.
-	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
-	modelType, err := st.getModelType(ctx, tx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
-	}
-	if modelType == model.CAAS {
-		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
-		if err != nil {
-			return errors.Errorf("creating storage attachment parameters: %w", err)
-		}
-		if filesystem != nil {
-			if err := st.attachFilesystemToNode(ctx, tx, netNodeUUID, *filesystem); err != nil {
-				return errors.Errorf("attaching filesystem %q to unit %q: %w", filesystem.filesystemUUID, unitUUID, err)
-			}
-		}
-		if volume != nil {
-			if err := st.attachVolumeToNode(ctx, tx, netNodeUUID, *volume); err != nil {
-				return errors.Errorf("attaching volume %q to unit %q: %w", volume.volumeUUID, unitUUID, err)
-			}
-		}
-	}
-
-	// Update the charm of the storage instance to match the unit to which it is being attached.
-	err = tx.Query(ctx, updateStorageInstanceQuery, su).Run()
-	if err != nil {
-		return errors.Errorf("updating storage instance %q charm: %w", inst.StorageUUID, err)
-	}
-	return nil
+	// TODO (tlm) reimplement when we understand what attach storage looks like.
+	return coreerrors.NotImplemented
+	//	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
+	//	updateStorageInstanceQuery, err := st.Prepare(`
+	//
+	// UPDATE storage_instance
+	// SET    charm_uuid = (SELECT charm_uuid FROM unit where uuid = $storageUnit.unit_uuid)
+	// WHERE  uuid = $storageUnit.storage_instance_uuid
+	// `, su)
+	//
+	//	if err != nil {
+	//		return errors.Capture(err)
+	//	}
+	//
+	//	err = st.attachStorageToUnit(ctx, tx, inst.StorageUUID, unitUUID)
+	//	if err != nil {
+	//		return errors.Errorf("attaching storage %q to unit %q: %w", inst.StorageUUID, unitUUID, err)
+	//	}
+	//
+	//	// TODO(storage) - insert data for the unit's assigned machine when that is implemented
+	//
+	//	// Attach volumes and filesystems for reattached storage on CAAS.
+	//	// This only occurs in corner cases where a new pod appears with storage
+	//	// that needs to be reconciled with the Juju model. It is part of the
+	//	// UnitIntroduction workflow when a pod appears with volumes already attached.
+	//	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
+	//	modelType, err := st.getModelType(ctx, tx)
+	//	if err != nil {
+	//		return errors.Errorf("getting model type: %w", err)
+	//	}
+	//	if modelType == model.CAAS {
+	//		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
+	//		if err != nil {
+	//			return errors.Errorf("creating storage attachment parameters: %w", err)
+	//		}
+	//		if filesystem != nil {
+	//			if err := st.attachFilesystemToNode(ctx, tx, netNodeUUID, *filesystem); err != nil {
+	//				return errors.Errorf("attaching filesystem %q to unit %q: %w", filesystem.filesystemUUID, unitUUID, err)
+	//			}
+	//		}
+	//		if volume != nil {
+	//			if err := st.attachVolumeToNode(ctx, tx, netNodeUUID, *volume); err != nil {
+	//				return errors.Errorf("attaching volume %q to unit %q: %w", volume.volumeUUID, unitUUID, err)
+	//			}
+	//		}
+	//	}
+	//
+	//	// Update the charm of the storage instance to match the unit to which it is being attached.
+	//	err = tx.Query(ctx, updateStorageInstanceQuery, su).Run()
+	//	if err != nil {
+	//		return errors.Errorf("updating storage instance %q charm: %w", inst.StorageUUID, err)
+	//	}
+	//	return nil
 }
 
 type volumeAttachmentParams struct {
