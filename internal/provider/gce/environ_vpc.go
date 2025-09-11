@@ -70,10 +70,6 @@ but will be used anyway because vpc-id-force=true is also specified.
 )
 
 func validateBootstrapVPC(ctx environs.BootstrapContext, conn ComputeService, region, vpcID string, force bool) error {
-	if vpcID == google.NetworkDefaultName {
-		ctx.Infof("Using GCE default VPC in region %q", region)
-	}
-
 	err := validateVPC(ctx.Context(), conn, region, vpcID, true)
 	switch {
 	case errors.Is(err, errorVPCNotUsable):

@@ -35,7 +35,8 @@ func (env *environ) FinaliseBootstrapCredential(
 	args environs.BootstrapParams,
 	cred *jujucloud.Credential,
 ) (*jujucloud.Credential, error) {
-	if !args.BootstrapConstraints.HasInstanceRole() || cred == nil {
+	if !args.BootstrapConstraints.HasInstanceRole() ||
+		cred == nil || cred.AuthType() == jujucloud.ServiceAccountAuthType {
 		return cred, nil
 	}
 

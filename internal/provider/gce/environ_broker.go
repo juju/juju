@@ -154,15 +154,15 @@ func (env *environ) serviceAccount(ctx context.ProviderCallContext, args environ
 
 	// For controllers, the service account can come from the credential.
 	if args.InstanceConfig.IsController() {
-		if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
-			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
-			if serviceAccount != "" {
-				logger.Debugf("using credential service account: %s", serviceAccount)
-			}
-		} else if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+		if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
 			serviceAccount = *args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
 			if serviceAccount != "" {
 				logger.Debugf("using bootstrap service account: %s", serviceAccount)
+			}
+		} else if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
+			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
+			if serviceAccount != "" {
+				logger.Debugf("using credential service account: %s", serviceAccount)
 			}
 		}
 	}
