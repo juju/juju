@@ -1383,7 +1383,7 @@ type applicationWatcherServiceSuite struct {
 	state            *MockState
 	charm            *MockCharm
 	clock            *testclock.Clock
-	storageValidator *MockStorageProviderValidator
+	storageValidator *MockStoragePoolProvider
 	watcherFactory   *MockWatcherFactory
 }
 
@@ -1569,7 +1569,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
-	s.storageValidator = NewMockStorageProviderValidator(ctrl)
+	s.storageValidator = NewMockStoragePoolProvider(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})

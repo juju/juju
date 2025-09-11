@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/domain/network"
 )
 
 const ManualInstancePrefix = "manual:"
@@ -39,6 +40,25 @@ type AddMachineArgs struct {
 	Directive   deployment.Placement
 	Platform    deployment.Platform
 	Nonce       *string
+}
+
+type PlaceMachineArgs struct {
+	Constraints constraints.Constraints
+	Directive   deployment.Placement
+	Platform    deployment.Platform
+
+	// MachineUUID represents the uuid to use for any new machine that is
+	// created as part of this placement.
+	MachineUUID machine.UUID
+
+	// NetNodeUUID represents either the netnode uuid of an existing machine in
+	// the model or a new netnode uuid to assign to a new machine being created
+	// in the model.
+	// NetNodeUUID represents the uuid of the new machines net node that is
+	// created as part of this placement.
+	NetNodeUUID network.NetNodeUUID
+
+	Nonce *string
 }
 
 // PollingInfo contains information about a machine that is being polled.

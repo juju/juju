@@ -11,10 +11,11 @@ import (
 // application_storage_directive table representing the storage directives of
 // an application.
 type applicationStorageDirective struct {
-	Count           uint32 `db:"count"`
-	SizeMiB         uint64 `db:"size_mib"`
-	StorageName     string `db:"storage_name"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+	Count            uint32 `db:"count"`
+	CharmStorageKind string `db:"kind"`
+	SizeMiB          uint64 `db:"size_mib"`
+	StorageName      string `db:"storage_name"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
 }
 
 // insertStorageFilesystem represents the set of values required for inserting a
@@ -57,6 +58,7 @@ type insertStorageInstance struct {
 	LifeID          int    `db:"life_id"`
 	RequestSizeMiB  uint64 `db:"requested_size_mib"`
 	StorageID       string `db:"storage_id"`
+	StorageKindID   int    `db:"storage_kind_id"`
 	StorageName     string `db:"storage_name"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
 	UUID            string `db:"uuid"`
@@ -120,11 +122,12 @@ type storageVolumeUUIDRef struct {
 // unit_storage_directive table representing the storage directives of
 // a unit.
 type unitStorageDirective struct {
-	CharmUUID       string `db:"charm_uuid"`
-	Count           uint32 `db:"count"`
-	SizeMiB         uint64 `db:"size_mib"`
-	StorageName     string `db:"storage_name"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+	CharmUUID        string `db:"charm_uuid"`
+	Count            uint32 `db:"count"`
+	CharmStorageKind string `db:"kind"`
+	SizeMiB          uint64 `db:"size_mib"`
+	StorageName      string `db:"storage_name"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
 }
 
 // unitOwnedStorage is represents a storage instance that is owned by a unit.

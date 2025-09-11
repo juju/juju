@@ -559,8 +559,10 @@ VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)`,
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_kind_id,
+                             storage_id, life_id, requested_size_mib,
+                             storage_pool_uuid)
+VALUES (?, ?, ?, 1, ?, 0, 100, ?)`,
 		storageInstanceUUID.String(),
 		charmUUID,
 		storageName,

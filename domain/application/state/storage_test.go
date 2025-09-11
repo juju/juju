@@ -172,8 +172,13 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		poolUUID, "rootfs", "rootfs")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool_uuid, requested_size_mib)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid.String(), charmUUID, "pgdata", "pgdata/0", 0, poolUUID, 666)
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_kind_id,
+                             storage_id, life_id, storage_pool_uuid,
+                             requested_size_mib)
+VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+`,
+		uuid.String(), charmUUID, "pgdata", "pgdata/0", 0, poolUUID, 666,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
@@ -209,6 +214,7 @@ func (s *baseStorageSuite) createStorageInstance(c *tc.C, storageName, charmUUID
 
 	poolUUID := uuid.MustNewUUID().String()
 	storageUUID := storagetesting.GenStorageInstanceUUID(c)
+
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_pool(uuid, name, type)
@@ -218,8 +224,20 @@ ON CONFLICT DO NOTHING`, poolUUID, "pool", "rootfs")
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-SELECT ?, ?, ?, ?, ?, ?, uuid FROM storage_pool WHERE name = ?`, storageUUID.String(), charmUUID, storageName, fmt.Sprintf("%s/%d", storageName, s.storageInstCount), life.Alive, 100, "pool")
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_kind_id,
+                             storage_id, life_id, requested_size_mib,
+                             storage_pool_uuid)
+SELECT ?, ?, ?, 1, ?, ?, ?, uuid FROM storage_pool WHERE name = ?
+`,
+			storageUUID.String(),
+			charmUUID,
+			storageName,
+			fmt.Sprintf("%s/%d", storageName, s.storageInstCount),
+			life.Alive,
+			100,
+			"pool",
+		)
+
 		if err != nil || ownerUUID == nil {
 			return err
 		}
@@ -1084,29 +1102,29 @@ func (s *iaasStorageSuite) TestAttachStorageVolumeBackedFilesystem(c *tc.C) {
 	//})
 }
 
-// TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
+// TestGetProviderTypeForPoolNotFound tests that trying to get the provider type
 // for a pool that doesn't exist returns the caller an error satisfying
 // [storageerrors.PoolNotFoundError].
-func (s *storageSuite) TestGetProviderTypeOfPoolNotFound(c *tc.C) {
+func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
 
-	_, err = st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	_, err = st.GetProviderTypeForPool(c.Context(), poolUUID)
 	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool
 // is correctly returned.
-func (s *storageSuite) TestGetProviderTypeOfPool(c *tc.C) {
+func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
 
-	pType, err := st.GetProviderTypeOfPool(c.Context(), poolUUID)
+	pType, err := st.GetProviderTypeForPool(c.Context(), poolUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(pType, tc.Equals, "ptype")
 }

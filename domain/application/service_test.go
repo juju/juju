@@ -400,7 +400,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func(ctx context.Context) (service.CAASProvider, error) {
 			return s.caasProvider, nil
 		},
-		service.NewStorageProviderValidator(registryGetter, state),
+		service.NewStoragePoolProvider(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

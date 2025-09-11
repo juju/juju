@@ -16,6 +16,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -25,8 +26,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	domainnetworktesting "github.com/juju/juju/domain/network/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -525,11 +526,13 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := machinestate.CreateMachine(c.Context(), tx, s.state, clock.WallClock, domainmachine.CreateMachineArgs{
+		_, err := machinestate.CreateMachine(c.Context(), tx, s.state, clock.WallClock, machinestate.CreateMachineArgs{
 			Platform: deployment.Platform{
 				OSType:       deployment.Ubuntu,
 				Architecture: architecture.ARM64,
 			},
+			MachineUUID: machinetesting.GenUUID(c).String(),
+			NetNodeUUID: domainnetworktesting.GenNetNodeUUID(c).String(),
 		})
 		return err
 	})
@@ -570,7 +573,7 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnitsSubordinate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, subAppID)
-	s.assertUnitPrincipal(c, principal, sub)
+	s.assertUnitPrincipal(c, unitUUIDs[0], sub)
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
@@ -589,7 +592,7 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, subAppID)
-	s.assertUnitPrincipal(c, principal, sub)
+	s.assertUnitPrincipal(c, unitUUIDs[0], sub)
 }
 
 func (s *unitStateSuite) assertInsertMigratingUnits(c *tc.C, appID coreapplication.ID) {

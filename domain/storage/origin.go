@@ -11,9 +11,9 @@ type StoragePoolOrigin int
 const (
 	// StoragePoolOriginUser indicates that the storage pool was created by a
 	// user.
-	StoragePoolOriginUser = 1
+	StoragePoolOriginUser StoragePoolOrigin = iota
 
 	// StoragePoolOriginProviderDefault indicates that the storage pool is a
 	// default offered by the storage provider.
-	StoragePoolOriginProviderDefault = 2
+	StoragePoolOriginProviderDefault
 )
