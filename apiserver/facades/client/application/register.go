@@ -21,6 +21,9 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 20, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV20(stdCtx, ctx) // Remove remote space, rename storage constraint to storage directive
 	}, reflect.TypeOf((*APIv20)(nil)))
+	registry.MustRegister("Application", 21, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newFacadeV21(stdCtx, ctx) // Added ScaleApplication attach storage support
+	}, reflect.TypeOf((*APIv21)(nil)))
 }
 
 func newFacadeV19(stdCtx context.Context, ctx facade.ModelContext) (*APIv19, error) {
@@ -32,9 +35,17 @@ func newFacadeV19(stdCtx context.Context, ctx facade.ModelContext) (*APIv19, err
 }
 
 func newFacadeV20(stdCtx context.Context, ctx facade.ModelContext) (*APIv20, error) {
+	api, err := newFacadeV21(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv20{APIv21: api}, nil
+}
+
+func newFacadeV21(stdCtx context.Context, ctx facade.ModelContext) (*APIv21, error) {
 	api, err := newFacadeBase(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv20{APIBase: api}, nil
+	return &APIv21{api}, nil
 }

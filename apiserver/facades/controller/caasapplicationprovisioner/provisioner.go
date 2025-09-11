@@ -444,6 +444,12 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	}, nil
 }
 
+// FilesystemProvisioningInfo returns the filesystem info needed to provision a caas application.
+func (a *API) FilesystemProvisioningInfo(ctx context.Context, args params.Entity) (params.CAASApplicationFilesystemProvisioningInfo, error) {
+	// TODO(storage) - implement and test
+	return params.CAASApplicationFilesystemProvisioningInfo{}, nil
+}
+
 func (a *API) devicesParams(ctx context.Context, appName string) ([]params.KubernetesDeviceParams, error) {
 	devices, err := a.applicationService.GetDeviceConstraints(ctx, appName)
 	if err != nil {

@@ -38,18 +38,21 @@ func (s *authSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *authSuite) TestNewRESTClient(c *tc.C) {
-	_, err := newRESTClient(context.TODO(), s.Credentials, jujuhttp.NewClient(), compute.NewNetworksRESTClient)
+	cfg, err := newJWTConfig(s.Credentials)
+	c.Assert(err, tc.ErrorIsNil)
+	ctx := context.Background()
+	_, err = newRESTClient(ctx, cfg.TokenSource(ctx), jujuhttp.NewClient(), compute.NewNetworksRESTClient)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *authSuite) TestCreateJWTConfig(c *tc.C) {
 	cfg, err := newJWTConfig(s.Credentials)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.Scopes, tc.DeepEquals, scopes)
+	c.Assert(cfg.Scopes, tc.DeepEquals, Scopes)
 }
 
 func (s *authSuite) TestCreateJWTConfigWithNoJSONKey(c *tc.C) {
 	cfg, err := newJWTConfig(&Credentials{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.Scopes, tc.DeepEquals, scopes)
+	c.Assert(cfg.Scopes, tc.DeepEquals, Scopes)
 }

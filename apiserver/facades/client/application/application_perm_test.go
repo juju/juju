@@ -644,7 +644,7 @@ func (s *permSuiteIAAS) TestScaleApplicationsInvalidForIAAS(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParamsV2{})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
@@ -692,7 +692,7 @@ func (s *permSuiteCAAS) TestScaleApplicationsPermission(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParamsV2{})
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -705,6 +705,6 @@ func (s *permSuiteCAAS) TestScaleApplicationsBlocked(c *tc.C) {
 
 	s.newAPI(c)
 
-	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParams{})
+	_, err := s.api.ScaleApplications(c.Context(), params.ScaleApplicationsParamsV2{})
 	c.Assert(err, tc.ErrorMatches, "blocked")
 }

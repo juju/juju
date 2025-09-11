@@ -76,6 +76,12 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *tc.C) {
 	s.testOpenError(c, s.spec, `validating cloud spec: "userpass" auth-type not supported`)
 }
 
+func (s *providerSuite) TestMissingServiceAccount(c *tc.C) {
+	credential := cloud.NewCredential(cloud.ServiceAccountAuthType, map[string]string{})
+	s.spec.Credential = &credential
+	s.testOpenError(c, s.spec, `validating cloud spec: missing service account name not valid`)
+}
+
 func (s *providerSuite) testOpenError(c *tc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(c.Context(), s.provider, environs.OpenParams{
 		Cloud:  spec,

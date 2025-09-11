@@ -79,6 +79,45 @@ func (c *MockCAASProvisionerFacadeDestroyUnitsCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// FilesystemProvisioningInfo mocks base method.
+func (m *MockCAASProvisionerFacade) FilesystemProvisioningInfo(arg0 context.Context, arg1 string) (caasapplicationprovisioner.FilesystemProvisioningInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilesystemProvisioningInfo", arg0, arg1)
+	ret0, _ := ret[0].(caasapplicationprovisioner.FilesystemProvisioningInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilesystemProvisioningInfo indicates an expected call of FilesystemProvisioningInfo.
+func (mr *MockCAASProvisionerFacadeMockRecorder) FilesystemProvisioningInfo(arg0, arg1 any) *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilesystemProvisioningInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).FilesystemProvisioningInfo), arg0, arg1)
+	return &MockCAASProvisionerFacadeFilesystemProvisioningInfoCall{Call: call}
+}
+
+// MockCAASProvisionerFacadeFilesystemProvisioningInfoCall wrap *gomock.Call
+type MockCAASProvisionerFacadeFilesystemProvisioningInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall) Return(arg0 caasapplicationprovisioner.FilesystemProvisioningInfo, arg1 error) *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall) Do(f func(context.Context, string) (caasapplicationprovisioner.FilesystemProvisioningInfo, error)) *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall) DoAndReturn(f func(context.Context, string) (caasapplicationprovisioner.FilesystemProvisioningInfo, error)) *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ProvisioningInfo mocks base method.
 func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 context.Context, arg1 string) (caasapplicationprovisioner.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()

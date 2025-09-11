@@ -97,7 +97,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "(Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines).")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "(Machine models only) Specify an existing storage volume to attach to the deployed unit.")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Specify an existing storage volume to attach to the deployed unit.")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -187,10 +187,8 @@ func (c *addUnitCommand) validateArgsByModelType(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if modelType == model.CAAS {
-		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
-			return errors.New("k8s models only support --num-units")
-		}
+	if modelType == model.CAAS && c.PlacementSpec != "" {
+		return errors.New("k8s models do not support placement directives")
 	}
 	return nil
 }
@@ -239,6 +237,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		_, err = apiclient.ScaleApplication(ctx, application.ScaleApplicationParams{
 			ApplicationName: c.ApplicationName,
 			ScaleChange:     c.NumUnits,
+			AttachStorage:   c.AttachStorage,
 		})
 		if err == nil {
 			return nil
