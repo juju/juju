@@ -15,7 +15,7 @@ import (
 
 	bakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	checkers "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	crossmodel "github.com/juju/juju/apiserver/internal/crossmodel"
+	bakery0 "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,7 +43,7 @@ func (m *MockOfferAuthContext) EXPECT() *MockOfferAuthContextMockRecorder {
 }
 
 // CheckLocalAccessRequest mocks base method.
-func (m *MockOfferAuthContext) CheckLocalAccessRequest(arg0 context.Context, arg1 crossmodel.OfferAccessDetails) ([]checkers.Caveat, error) {
+func (m *MockOfferAuthContext) CheckLocalAccessRequest(arg0 context.Context, arg1 bakery0.OfferAccessDetails) ([]checkers.Caveat, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckLocalAccessRequest", arg0, arg1)
 	ret0, _ := ret[0].([]checkers.Caveat)
@@ -70,22 +70,22 @@ func (c *MockOfferAuthContextCheckLocalAccessRequestCall) Return(arg0 []checkers
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOfferAuthContextCheckLocalAccessRequestCall) Do(f func(context.Context, crossmodel.OfferAccessDetails) ([]checkers.Caveat, error)) *MockOfferAuthContextCheckLocalAccessRequestCall {
+func (c *MockOfferAuthContextCheckLocalAccessRequestCall) Do(f func(context.Context, bakery0.OfferAccessDetails) ([]checkers.Caveat, error)) *MockOfferAuthContextCheckLocalAccessRequestCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOfferAuthContextCheckLocalAccessRequestCall) DoAndReturn(f func(context.Context, crossmodel.OfferAccessDetails) ([]checkers.Caveat, error)) *MockOfferAuthContextCheckLocalAccessRequestCall {
+func (c *MockOfferAuthContextCheckLocalAccessRequestCall) DoAndReturn(f func(context.Context, bakery0.OfferAccessDetails) ([]checkers.Caveat, error)) *MockOfferAuthContextCheckLocalAccessRequestCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CheckOfferAccessCaveat mocks base method.
-func (m *MockOfferAuthContext) CheckOfferAccessCaveat(arg0 context.Context, arg1 string) (crossmodel.OfferAccessDetails, error) {
+func (m *MockOfferAuthContext) CheckOfferAccessCaveat(arg0 context.Context, arg1 string) (bakery0.OfferAccessDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckOfferAccessCaveat", arg0, arg1)
-	ret0, _ := ret[0].(crossmodel.OfferAccessDetails)
+	ret0, _ := ret[0].(bakery0.OfferAccessDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,19 +103,19 @@ type MockOfferAuthContextCheckOfferAccessCaveatCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) Return(arg0 crossmodel.OfferAccessDetails, arg1 error) *MockOfferAuthContextCheckOfferAccessCaveatCall {
+func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) Return(arg0 bakery0.OfferAccessDetails, arg1 error) *MockOfferAuthContextCheckOfferAccessCaveatCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) Do(f func(context.Context, string) (crossmodel.OfferAccessDetails, error)) *MockOfferAuthContextCheckOfferAccessCaveatCall {
+func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) Do(f func(context.Context, string) (bakery0.OfferAccessDetails, error)) *MockOfferAuthContextCheckOfferAccessCaveatCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) DoAndReturn(f func(context.Context, string) (crossmodel.OfferAccessDetails, error)) *MockOfferAuthContextCheckOfferAccessCaveatCall {
+func (c *MockOfferAuthContextCheckOfferAccessCaveatCall) DoAndReturn(f func(context.Context, string) (bakery0.OfferAccessDetails, error)) *MockOfferAuthContextCheckOfferAccessCaveatCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

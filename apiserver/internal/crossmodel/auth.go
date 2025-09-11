@@ -5,42 +5,22 @@ package crossmodel
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreerrors "github.com/juju/juju/core/errors"
+	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	internalerrors "github.com/juju/juju/internal/errors"
-)
-
-const (
-	usernameKey    = "username"
-	offerUUIDKey   = "offer-uuid"
-	sourceModelKey = "source-model-uuid"
-	relationKey    = "relation-key"
-)
-
-const (
-	offerPermissionCaveat = "has-offer-permission"
-
-	// offerPermissionExpiryTime is used to expire offer macaroons.
-	// It should be long enough to allow machines hosting workloads to
-	// be provisioned so that the macaroon is still valid when the macaroon
-	// is next used. If a machine takes longer, that's ok, a new discharge
-	// will be obtained.
-	offerPermissionExpiryTime = 3 * time.Minute
 )
 
 // AccessService validates access for user permissions.
@@ -50,20 +30,32 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 }
 
-// OfferAccessDetails represents the details encoded in an offer permission
-// caveat.
-type OfferAccessDetails struct {
-	SourceModelUUID string
-	User            string
-	OfferUUID       string
-	Relation        string
-	Permission      string
+// OfferBakery is used to create and inspect macaroons used to access
+// application offers.
+type OfferBakery interface {
+	// ParseCaveat parses the specified caveat and returns the offer access details
+	// it contains.
+	ParseCaveat(caveat string) (crossmodelbakery.OfferAccessDetails, error)
+	// GetConsumeOfferCaveats returns the caveats for consuming an offer.
+	GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
+	// InferDeclared retrieves any declared information from
+	// the given macaroons and returns it as a key-value map.
+	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) map[string]string
+	// CreateDischargeMacaroon creates a discharge macaroon.
+	CreateDischargeMacaroon(
+		ctx context.Context,
+		accessEndpoint, username string,
+		requiredValues, declaredValues map[string]string,
+		op bakery.Op,
+		version bakery.Version,
+	) (*bakery.Macaroon, error)
 }
 
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
 	accessService AccessService
+	bakery        OfferBakery
 
 	offerThirdPartyKey *bakery.KeyPair
 
@@ -78,6 +70,7 @@ type AuthContext struct {
 // macaroons used with application offer requests.
 func NewAuthContext(
 	accessService AccessService,
+	bakery OfferBakery,
 	offerThirdPartyKey *bakery.KeyPair,
 	controllerUUID string,
 	modelUUID model.UUID,
@@ -86,6 +79,7 @@ func NewAuthContext(
 ) *AuthContext {
 	return &AuthContext{
 		accessService:      accessService,
+		bakery:             bakery,
 		offerThirdPartyKey: offerThirdPartyKey,
 		controllerTag:      names.NewControllerTag(controllerUUID),
 		modelTag:           names.NewModelTag(modelUUID.String()),
@@ -102,40 +96,23 @@ func (a *AuthContext) OfferThirdPartyKey() *bakery.KeyPair {
 // CheckOfferAccessCaveat checks that the specified caveat required to be satisfied
 // to gain access to an offer is valid, and returns the attributes return to check
 // that the caveat is satisfied.
-func (a *AuthContext) CheckOfferAccessCaveat(ctx context.Context, caveat string) (OfferAccessDetails, error) {
-	op, rest, err := checkers.ParseCaveat(caveat)
+func (a *AuthContext) CheckOfferAccessCaveat(ctx context.Context, caveat string) (crossmodelbakery.OfferAccessDetails, error) {
+	details, err := a.bakery.ParseCaveat(caveat)
 	if err != nil {
-		return OfferAccessDetails{}, errors.Annotatef(err, "cannot parse caveat %q", caveat)
-	}
-	if op != offerPermissionCaveat {
-		return OfferAccessDetails{}, checkers.ErrCaveatNotRecognized
-	}
-
-	type offerAccessDetails struct {
-		SourceModelUUID string `yaml:"source-model-uuid"`
-		User            string `yaml:"username"`
-		OfferUUID       string `yaml:"offer-uuid"`
-		Relation        string `yaml:"relation-key"`
-		Permission      string `yaml:"permission"`
-	}
-
-	var details offerAccessDetails
-	err = yaml.Unmarshal([]byte(rest), &details)
-	if err != nil {
-		return OfferAccessDetails{}, internalerrors.Errorf("unmarshalling offer access caveat details: %w", err).Add(coreerrors.NotValid)
+		return crossmodelbakery.OfferAccessDetails{}, errors.Annotatef(err, "parsing caveat %q", caveat)
 	}
 
 	a.logger.Debugf(ctx, "offer access caveat details: %+v", details)
 	if !names.IsValidModel(details.SourceModelUUID) {
-		return OfferAccessDetails{}, errors.NotValidf("source-model-uuid %q", details.SourceModelUUID)
+		return crossmodelbakery.OfferAccessDetails{}, errors.NotValidf("source-model-uuid %q", details.SourceModelUUID)
 	}
 	if !names.IsValidUser(details.User) {
-		return OfferAccessDetails{}, errors.NotValidf("username %q", details.User)
+		return crossmodelbakery.OfferAccessDetails{}, errors.NotValidf("username %q", details.User)
 	}
 	if err := permission.ValidateOfferAccess(permission.Access(details.Permission)); err != nil {
-		return OfferAccessDetails{}, errors.NotValidf("permission %q", details.Permission)
+		return crossmodelbakery.OfferAccessDetails{}, errors.NotValidf("permission %q", details.Permission)
 	}
-	return OfferAccessDetails(details), nil
+	return details, nil
 }
 
 // CheckLocalAccessRequest checks that the user in the specified permission
@@ -143,22 +120,13 @@ func (a *AuthContext) CheckOfferAccessCaveat(ctx context.Context, caveat string)
 // It returns an error with a *bakery.VerificationError cause if the macaroon
 // verification failed. If the macaroon is valid, CheckLocalAccessRequest
 // returns a list of caveats to add to the discharge macaroon.
-func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details OfferAccessDetails) ([]checkers.Caveat, error) {
+func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details crossmodelbakery.OfferAccessDetails) ([]checkers.Caveat, error) {
 	a.logger.Debugf(ctx, "authenticate local offer access: %+v", details)
 	if err := a.checkOfferAccess(ctx, a.hasUserOfferPermission, details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	firstPartyCaveats := []checkers.Caveat{
-		checkers.DeclaredCaveat(sourceModelKey, details.SourceModelUUID),
-		checkers.DeclaredCaveat(offerUUIDKey, details.OfferUUID),
-		checkers.DeclaredCaveat(usernameKey, details.User),
-		checkers.TimeBeforeCaveat(a.clock.Now().Add(offerPermissionExpiryTime)),
-	}
-	if details.Relation != "" {
-		firstPartyCaveats = append(firstPartyCaveats, checkers.DeclaredCaveat(relationKey, details.Relation))
-	}
-	return firstPartyCaveats, nil
+	return a.bakery.GetConsumeOfferCaveats(details.OfferUUID, details.SourceModelUUID, details.User, details.Relation), nil
 }
 
 func (a *AuthContext) hasUserOfferPermission(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
@@ -202,4 +170,29 @@ func hasAccess(ctx context.Context, userAccess common.UserAccessFunc, userTag na
 		return false, nil
 	}
 	return has, err
+}
+
+const (
+	consumeOp = "consume"
+	relateOp  = "relate"
+)
+
+// NewCMRAuthorizer returns a bakery.OpsAuthorizer that authorizes
+// cross model related operations.
+func NewCMRAuthorizer(logger logger.Logger) bakery.OpsAuthorizer {
+	return crossModelAuthorizer{logger: logger}
+}
+
+type crossModelAuthorizer struct {
+	logger logger.Logger
+}
+
+// AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
+func (a crossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
+	a.logger.Debugf(ctx, "authorize cmr query ops check for %#v: %#v", authorizedOp, queryOps)
+	allowed := make([]bool, len(queryOps))
+	for i := range allowed {
+		allowed[i] = queryOps[i].Action == consumeOp || queryOps[i].Action == relateOp
+	}
+	return allowed, nil, nil
 }

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -28,6 +29,7 @@ type authSuite struct {
 	clock         *MockClock
 	accessService *MockAccessService
 	keyPair       *bakery.KeyPair
+	bakery        *MockOfferBakery
 
 	controllerUUID string
 	modelUUID      model.UUID
@@ -47,55 +49,91 @@ func (s *authSuite) TestOfferThirdPartyKey(c *tc.C) {
 func (s *authSuite) TestCheckOfferAccessCaveatNotOfferPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.bakery.EXPECT().ParseCaveat("other-caveat").Return(crossmodelbakery.OfferAccessDetails{}, checkers.ErrCaveatNotRecognized)
+
 	authContext := s.newAuthContext(c)
 	_, err := authContext.CheckOfferAccessCaveat(c.Context(), "other-caveat")
 	c.Assert(err, tc.ErrorIs, checkers.ErrCaveatNotRecognized)
 }
 
-func (s *authSuite) TestCheckOfferAccessCaveatInvalidYAML(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	authContext := s.newAuthContext(c)
-	_, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission invalid-yaml")
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-}
-
 func (s *authSuite) TestCheckOfferAccessCaveat(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	authContext := s.newAuthContext(c)
-	details, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission "+s.newAccessCaveat(s.modelUUID.String()))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(details, tc.DeepEquals, OfferAccessDetails{
+	details := crossmodelbakery.OfferAccessDetails{
 		SourceModelUUID: s.modelUUID.String(),
 		User:            "mary",
 		OfferUUID:       "mysql-uuid",
 		Relation:        "mediawiki:db mysql:server",
 		Permission:      "consume",
-	})
+	}
+	caveat := s.newAccessCaveat(s.modelUUID.String())
+	permissionCaveat := "has-offer-permission " + caveat
+
+	s.bakery.EXPECT().ParseCaveat(permissionCaveat).Return(details, nil)
+
+	authContext := s.newAuthContext(c)
+	result, err := authContext.CheckOfferAccessCaveat(c.Context(), permissionCaveat)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, details)
 }
 
 func (s *authSuite) TestCheckOfferAccessCaveatInvalidSourceModelUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	details := crossmodelbakery.OfferAccessDetails{
+		SourceModelUUID: "blah",
+		User:            "mary",
+		OfferUUID:       "mysql-uuid",
+		Relation:        "mediawiki:db mysql:server",
+		Permission:      "consume",
+	}
+	caveat := s.newAccessCaveat("blah")
+	permissionCaveat := "has-offer-permission " + caveat
+
+	s.bakery.EXPECT().ParseCaveat(permissionCaveat).Return(details, nil)
+
 	authContext := s.newAuthContext(c)
-	_, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission "+s.newAccessCaveat("blah"))
+	_, err := authContext.CheckOfferAccessCaveat(c.Context(), permissionCaveat)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *authSuite) TestCheckOfferAccessCaveatInvalidUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	details := crossmodelbakery.OfferAccessDetails{
+		SourceModelUUID: s.modelUUID.String(),
+		User:            "!not-a-user",
+		OfferUUID:       "mysql-uuid",
+		Relation:        "mediawiki:db mysql:server",
+		Permission:      "consume",
+	}
+	caveat := s.newAccessCaveatWithUser("!not-a-user")
+	permissionCaveat := "has-offer-permission " + caveat
+
+	s.bakery.EXPECT().ParseCaveat(permissionCaveat).Return(details, nil)
+
 	authContext := s.newAuthContext(c)
-	_, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission "+s.newAccessCaveatWithUser("!not-a-user"))
+	_, err := authContext.CheckOfferAccessCaveat(c.Context(), permissionCaveat)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *authSuite) TestCheckOfferAccessCaveatInvalidPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	details := crossmodelbakery.OfferAccessDetails{
+		SourceModelUUID: s.modelUUID.String(),
+		User:            "mary",
+		OfferUUID:       "mysql-uuid",
+		Relation:        "mediawiki:db mysql:server",
+		Permission:      "blah",
+	}
+	caveat := s.newAccessCaveatWithPermission("blah")
+	permissionCaveat := "has-offer-permission " + caveat
+
+	s.bakery.EXPECT().ParseCaveat(permissionCaveat).Return(details, nil)
+
 	authContext := s.newAuthContext(c)
-	_, err := authContext.CheckOfferAccessCaveat(c.Context(), "has-offer-permission "+s.newAccessCaveatWithPermission("blah"))
+	_, err := authContext.CheckOfferAccessCaveat(c.Context(), permissionCaveat)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -103,7 +141,9 @@ func (s *authSuite) TestCheckLocalAccessRequestControllerSuperuserAccess(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now().Truncate(time.Second)
-	s.clock.EXPECT().Now().Return(now)
+
+	s.bakery.EXPECT().GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server").Return(s.caveatWithRelation(now))
+
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.controllerUUID,
@@ -132,7 +172,9 @@ func (s *authSuite) TestCheckLocalAccessRequestModelAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now().Truncate(time.Second)
-	s.clock.EXPECT().Now().Return(now)
+
+	s.bakery.EXPECT().GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server").Return(s.caveatWithRelation(now))
+
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.controllerUUID,
@@ -169,7 +211,9 @@ func (s *authSuite) TestCheckLocalAccessRequestOfferConsume(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now().Truncate(time.Second)
-	s.clock.EXPECT().Now().Return(now)
+
+	s.bakery.EXPECT().GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server").Return(s.caveatWithRelation(now))
+
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        s.controllerUUID,
@@ -261,8 +305,8 @@ permission: %s
 `[1:], s.modelUUID.String(), permission)
 }
 
-func (s *authSuite) newOfferAccessDetails() OfferAccessDetails {
-	return OfferAccessDetails{
+func (s *authSuite) newOfferAccessDetails() crossmodelbakery.OfferAccessDetails {
+	return crossmodelbakery.OfferAccessDetails{
 		SourceModelUUID: s.modelUUID.String(),
 		User:            "mary",
 		OfferUUID:       "mysql-uuid",
@@ -274,6 +318,7 @@ func (s *authSuite) newOfferAccessDetails() OfferAccessDetails {
 func (s *authSuite) newAuthContext(c *tc.C) *AuthContext {
 	return NewAuthContext(
 		s.accessService,
+		s.bakery,
 		s.keyPair,
 		s.controllerUUID,
 		s.modelUUID,
@@ -284,15 +329,15 @@ func (s *authSuite) newAuthContext(c *tc.C) *AuthContext {
 
 func (s *authSuite) caveats(now time.Time) []checkers.Caveat {
 	return []checkers.Caveat{
-		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
-		checkers.DeclaredCaveat(offerUUIDKey, "mysql-uuid"),
-		checkers.DeclaredCaveat(usernameKey, "mary"),
-		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
+		checkers.DeclaredCaveat("source-model-uuid", s.modelUUID.String()),
+		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
+		checkers.DeclaredCaveat("username", "mary"),
+		checkers.TimeBeforeCaveat(now.Add(time.Minute * 3)),
 	}
 }
 
 func (s *authSuite) caveatWithRelation(now time.Time) []checkers.Caveat {
-	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
+	return append(s.caveats(now), checkers.DeclaredCaveat("relation-key", "mediawiki:db mysql:server"))
 }
 
 func (s *authSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -300,6 +345,7 @@ func (s *authSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.accessService = NewMockAccessService(ctrl)
+	s.bakery = NewMockOfferBakery(ctrl)
 
 	s.keyPair = bakery.MustGenerateKey()
 
@@ -309,7 +355,11 @@ func (s *authSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.clock = nil
 		s.accessService = nil
+		s.bakery = nil
 		s.keyPair = nil
+
+		s.controllerUUID = ""
+		s.modelUUID = ""
 	})
 
 	return ctrl
