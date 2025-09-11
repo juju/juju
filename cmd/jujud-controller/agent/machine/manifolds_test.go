@@ -10,8 +10,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -366,7 +366,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"audit-config-updater",
 		"bootstrap",
 		"control-socket",
-		"log-sink",
 		"object-store",
 		"object-store-s3-caller",
 	)
@@ -499,7 +498,7 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	w, err := manifold.Start(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
-	defer worker.Stop(w)
+	defer workertest.DirtyKill(c, w)
 
 	var waiter gate.Waiter
 	err = manifold.Output(w, &waiter)
@@ -1028,6 +1027,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"log-sink",
 		"provider-services",
 		"query-logger",
 		"state-config-watcher",
@@ -1131,13 +1131,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"log-sink": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
+	"log-sink": {},
 
 	"machine-action-runner": {
 		"agent",
@@ -1502,6 +1496,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"log-sink",
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
@@ -2080,6 +2075,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"log-sink",
 		"provider-services",
 		"query-logger",
 		"state-config-watcher",
@@ -2157,13 +2153,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace",
 	},
 
-	"log-sink": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
+	"log-sink": {},
 
 	"logging-config-updater": {
 		"agent",
@@ -2453,6 +2443,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
+		"log-sink",
 		"provider-services",
 		"provider-tracker",
 		"query-logger",

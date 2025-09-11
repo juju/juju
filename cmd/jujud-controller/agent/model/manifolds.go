@@ -16,11 +16,13 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/agent"
@@ -197,6 +199,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		},
 
+		logSinkName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(&singularLogSink{context: config.LoggingContext})
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
 		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
@@ -332,6 +341,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
+			LogSinkName:                  logSinkName,
 			NewWorker:                    providertracker.NewWorker,
 			NewTrackerWorker:             providertracker.NewTrackerWorker,
 			NewEphemeralProvider:         providertracker.NewEphemeralProvider,
@@ -519,6 +529,18 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return result
 }
 
+type singularLogSink struct {
+	context corelogger.LoggerContext
+}
+
+func (s *singularLogSink) GetLogWriter(_ context.Context, _ model.UUID) (corelogger.LogWriter, error) {
+	return nil, internalerrors.Errorf("singularLogSink does not support GetLogWriter").Add(errors.NotSupported)
+}
+
+func (s *singularLogSink) GetLoggerContext(_ context.Context, _ model.UUID) (corelogger.LoggerContext, error) {
+	return s.context, nil
+}
+
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
@@ -613,6 +635,7 @@ const (
 	removalName                  = "removal"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"
+	logSinkName                  = "log-sink"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

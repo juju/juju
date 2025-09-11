@@ -53,6 +53,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"is-responsible-flag",
 		"lease-manager",
 		"logging-config-updater",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
@@ -99,6 +100,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"is-responsible-flag",
 		"lease-manager",
 		"logging-config-updater",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
@@ -129,6 +131,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 		// controller agents, "responsible" or not.
 		"domain-services",
 		"lease-manager",
+		"log-sink",
 		"http-client",
 		"valid-credential-flag",
 	)
@@ -227,6 +230,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"provider-service-factories",
 		"valid-credential-flag",
 	},
@@ -236,6 +240,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"provider-service-factories",
 		"provider-tracker",
 		"valid-credential-flag",
@@ -247,6 +252,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
@@ -258,10 +264,11 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"caas-model-operator": {
 		"agent",
 		"api-caller",
-		"provider-service-factories",
-		"provider-tracker",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
+		"provider-service-factories",
+		"provider-tracker",
 		"valid-credential-flag",
 	},
 
@@ -272,6 +279,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
@@ -323,6 +331,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
+
+	"log-sink": {},
 
 	"migration-fortress": {
 		"agent",
@@ -475,6 +485,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
@@ -489,6 +500,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"provider-service-factories",
 		"valid-credential-flag",
 	},
@@ -499,6 +511,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
@@ -513,6 +526,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
@@ -535,6 +549,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
+
+	"log-sink": {},
 
 	"migration-fortress": {
 		"agent",
@@ -624,6 +640,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"not-dead-flag",
