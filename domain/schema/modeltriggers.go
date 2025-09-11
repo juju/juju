@@ -85,6 +85,11 @@ func customModelTriggers() []func() schema.Patch {
 		storageAttachmentRelatedEntitiesTrigger(
 			customNamespaceStorageAttachmentRelatedEntities,
 		),
+
+		// Setup trigger for operation task status set to aborting.
+		operationTaskStatusAbortingTrigger(
+			customNamespaceOperatingTaskStatusAborting,
+		),
 	}
 }
 
@@ -465,5 +470,28 @@ BEGIN
 	WHERE sva.block_device_uuid = OLD.block_device_uuid;
 END;
 `[1:], namespace)
+	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+// operationTaskStatusAbortingTrigger creates a trigger for operation task's status
+// values changing to ABORTING.
+func operationTaskStatusAbortingTrigger(namespace int) func() schema.Patch {
+	stmt := fmt.Sprintf(`
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_operation_task_status_aborting',
+        'Operation task status changes to ABORTING');
+
+CREATE TRIGGER trg_log_custom_operation_task_status_aborting
+AFTER UPDATE ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE otsv.status = 'aborting';
+END;
+`,
+		namespace)
 	return func() schema.Patch { return schema.MakePatch(stmt) }
 }
