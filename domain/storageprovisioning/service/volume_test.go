@@ -425,6 +425,85 @@ func (s *volumeSuite) TestGetVolumeAttachmentNotValid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return(vapUUID, nil)
+
+	rval, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
+			c.Context(), "666", machineUUID,
+		)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(rval, tc.Equals, vapUUID)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachineWithNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlanUUIDForVolumeIDMachine(c.Context(), "", coremachine.UUID(""))
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachineWithMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(
+		"", machineerrors.MachineNotFound,
+	)
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlanUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachineWithVolumeNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return("", storageprovisioningerrors.VolumeNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlanUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachineWithVolumeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	volumeUUID := domaintesting.GenVolumeUUID(c)
+
+	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
+	s.state.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+		c.Context(), volumeUUID, netNodeUUID,
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	_, err = NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlanUUIDForVolumeIDMachine(c.Context(), "666", machineUUID)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
 func (s *volumeSuite) TestGetVolumeAttachmentUUIDForVolumeIDMachine(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
