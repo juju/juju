@@ -266,12 +266,20 @@ func (s *baseSuite) newStorageInstanceForCharmWithPool(
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID,
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
 VALUES (?, ?, ?, ?, 0, 100, ?)
 `,
 		storageInstanceUUID.String(),
-		charmUUID,
+		charmName,
 		storageName,
 		storageID,
 		poolUUID,
