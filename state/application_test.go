@@ -67,6 +67,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
+
 	// Before we get into the tests, ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
@@ -4101,13 +4102,13 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
-	w, err := s.mysql.WatchStorageConstraints()
+	mysqlWatcher, err := s.mysql.WatchStorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, w)
+	defer testing.AssertStop(c, mysqlWatcher)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
+	mysqlWc := testing.NewNotifyWatcherC(c, mysqlWatcher)
+	mysqlWc.AssertOneChange()
 
 	// Make one change, check one event.
 	constraints := map[string]state.StorageConstraints{
@@ -4115,7 +4116,7 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	}
 	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	mysqlWc.AssertOneChange()
 
 	// Upgrade the charm. It should still receive events despite the charm URL changed.
 	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta, 999)
@@ -4133,16 +4134,48 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	}
 	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	mysqlWc.AssertOneChange()
 
 	// Check the watcher does not react when the content remains the same.
 	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
+	mysqlWc.AssertNoChange()
 
 	// Stop, check closed.
-	testing.AssertStop(c, w)
-	wc.AssertClosed()
+	testing.AssertStop(c, mysqlWatcher)
+	mysqlWc.AssertClosed()
+}
+
+func (s *ApplicationSuite) TestWatchStorageConstraintsDoesNotCrossApplications(c *gc.C) {
+	mysqlWatcher, err := s.mysql.WatchStorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, mysqlWatcher)
+
+	mariadbApp := s.AddTestingApplication(c, "mariadb", s.AddTestingCharm(c, "mariadb"))
+
+	mariadbWatcher, err := mariadbApp.WatchStorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, mysqlWatcher)
+
+	// Initial event.
+	mysqlWc := testing.NewNotifyWatcherC(c, mysqlWatcher)
+	mysqlWc.AssertOneChange()
+	mariadbWc := testing.NewNotifyWatcherC(c, mariadbWatcher)
+	mariadbWc.AssertOneChange()
+
+	// Check mysql watcher does not react when mariadb is updated.
+	constraints := map[string]state.StorageConstraints{
+		"data": {Count: 1, Size: 1024, Pool: "mypool"},
+	}
+	err = state.UpdateStorageConstraints(s.State, mariadbApp, constraints)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlWc.AssertNoChange()
+
+	// Stop, check closed.
+	testing.AssertStop(c, mysqlWatcher)
+	mysqlWc.AssertClosed()
+	testing.AssertStop(c, mariadbWatcher)
+	mariadbWc.AssertClosed()
 }
 
 func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {

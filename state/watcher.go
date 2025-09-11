@@ -2007,18 +2007,22 @@ func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
 		if len(parts) != 3 {
 			return false
 		}
-		storageCons, err := a.StorageConstraints()
-		if err != nil {
-			return false
-		}
-
-		contentChanged := !maps.Equal(current, storageCons)
-		current = storageCons
 
 		// Construct the key with just the application name.
 		// For e.g. `asc#postgresql` rather than `asc#postgresql#ch:<arch>/postgresql-<rev>`.
 		key := parts[0] + "#" + parts[1] + "#"
-		return contentChanged && strings.HasPrefix(a.storageConstraintsKey(), key)
+		appMatched := strings.HasPrefix(a.storageConstraintsKey(), key)
+		if !appMatched {
+			return false
+		}
+
+		storageCons, err := a.StorageConstraints()
+		if err != nil {
+			return false
+		}
+		contentChanged := !maps.Equal(current, storageCons)
+		current = storageCons
+		return contentChanged
 	}
 
 	return newNotifyCollWatcher(a.st, storageConstraintsC, filter), nil
