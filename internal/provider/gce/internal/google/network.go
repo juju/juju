@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	NetworkDefaultName = "default"
-	NetworkPathRoot    = "global/networks/"
+	NetworkDefaultName  = "default"
+	NetworkPathRoot     = "global/networks/"
+	ExternalNetworkName = "External NAT"
 )
 
 // NetworkStatus defines the status of a network.
@@ -94,6 +95,11 @@ func (c *Connection) RemoveFirewall(ctx context.Context, fwname string) (err err
 	return errors.Annotatef(err, "deleting firewall %q", fwname)
 }
 
+var allowedSubnetPurposes = set.NewStrings(
+	"",
+	"PURPOSE_PRIVATE",
+)
+
 // Subnetworks returns the subnets available in this region.
 func (c *Connection) Subnetworks(ctx context.Context, region string, urls ...string) ([]*computepb.Subnetwork, error) {
 	req := &computepb.ListSubnetworksRequest{
@@ -106,7 +112,7 @@ func (c *Connection) Subnetworks(ctx context.Context, region string, urls ...str
 	return fetchResults[computepb.Subnetwork](iter.All(), "subnetworks", func(subnet *computepb.Subnetwork) bool {
 		// Filter out special purpose subnets.
 		if wantAll {
-			return subnet.Purpose == nil
+			return allowedSubnetPurposes.Contains(subnet.GetPurpose())
 		}
 		// Unfortunately, we can't filter on self link URl so need to do it client side.
 		return urlSet.Contains(subnet.GetSelfLink())
@@ -122,7 +128,7 @@ func (c *Connection) NetworkSubnetworks(ctx context.Context, region string, netw
 	iter := c.subnetworks.List(ctx, req)
 	return fetchResults[computepb.Subnetwork](iter.All(), "subnetworks", func(subnet *computepb.Subnetwork) bool {
 		// Unfortunately, we can't filter on network URl so need to do it client side.
-		return subnet.GetName() == networkURL
+		return subnet.GetNetwork() == networkURL
 	})
 }
 

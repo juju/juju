@@ -204,6 +204,14 @@ func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C
 
 	env := s.SetupEnv(c, s.MockService)
 
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{}}, nil)
 
@@ -249,14 +257,6 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
-	}, {
-		Name:   ptr("away-zone"),
-		Status: ptr("UP"),
-	}}, nil)
-
 	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base:      version.DefaultSupportedLTSBase(),
 		Placement: "zone=away-zone",
@@ -265,7 +265,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 		}},
 	})
 
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceNoSubnets(c *gc.C) {

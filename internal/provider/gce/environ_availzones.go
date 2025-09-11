@@ -70,11 +70,28 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
-	zone, err := env.deriveAvailabilityZones(ctx, args.Placement, args.VolumeAttachments)
-	if zone != "" {
-		return []string{zone}, errors.Trace(err)
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil, errors.Trace(err)
+
+	placementZone, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if placementZone == "" {
+		placementZone = args.AvailabilityZone
+	}
+	if placementZone == "" {
+		return nil, nil
+	}
+
+	// Validate and check state of the AvailabilityZone
+	zone, err := env.availZoneUp(ctx, placementZone)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []string{zone.GetName()}, nil
 }
 
 func (env *environ) availZone(ctx context.ProviderCallContext, name string) (*computepb.Zone, error) {
@@ -123,52 +140,20 @@ func volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (
 	return zone, nil
 }
 
-func (env *environ) instancePlacementZone(ctx context.ProviderCallContext, placement string, volumeAttachmentsZone string) (string, error) {
-	if placement == "" {
-		return volumeAttachmentsZone, nil
-	}
-	// placement will always be a zone name or empty.
-	zone, err := env.parsePlacement(ctx, placement)
+func (env *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (string, error) {
+	instPlacement, err := env.parsePlacement(placement)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if volumeAttachmentsZone != "" && zone.GetName() != volumeAttachmentsZone {
+	if instPlacement.zone == "" {
+		return volumeAttachmentsZone, nil
+	}
+	zoneName := instPlacement.zone
+	if volumeAttachmentsZone != "" && volumeAttachmentsZone != zoneName {
 		return "", errors.Errorf(
-			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
-			placement, volumeAttachmentsZone,
-		)
-	}
-	return zone.GetName(), nil
-}
-
-func (e *environ) deriveAvailabilityZones(
-	ctx context.ProviderCallContext,
-	placement string,
-	volumeAttachments []storage.VolumeAttachmentParams,
-) (string, error) {
-	volumeAttachmentsZone, err := volumeAttachmentsZone(volumeAttachments)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if placement == "" {
-		return volumeAttachmentsZone, nil
-	}
-	zone, err := e.parsePlacement(ctx, placement)
-	if err != nil {
-		return "", err
-	}
-	if err := validateAvailabilityZoneConsistency(zone.GetName(), volumeAttachmentsZone); err != nil {
-		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
-	}
-	return zone.GetName(), nil
-}
-
-func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {
-	if volumeAttachmentsZone != "" && instanceZone != volumeAttachmentsZone {
-		return errors.Errorf(
 			"cannot create instance in zone %q, as this will prevent attaching the requested disks in zone %q",
-			instanceZone, volumeAttachmentsZone,
+			zoneName, volumeAttachmentsZone,
 		)
 	}
-	return nil
+	return zoneName, nil
 }

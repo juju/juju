@@ -4,21 +4,31 @@
 package gce
 
 import (
-	stdcontext "context"
 	"fmt"
+	"math/rand"
 	"path"
+	"slices"
 	"strings"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/internal/google"
+)
+
+const (
+	// ErrNoSubnets indicates there are no subnets to use when creating an instance.
+	ErrNoSubnets = errors.ConstError("VPC does not auto create subnets and has no subnets")
+	// ErrAutoSubnetsInvalid indicates auto subnets cannot be used with placement or spaces.
+	ErrAutoSubnetsInvalid = errors.ConstError("cannot use auto subnets")
 )
 
 type subnetMap map[string]corenetwork.SubnetInfo
@@ -63,34 +73,192 @@ func subnetIdsForSubnets(subnets []corenetwork.SubnetInfo) set.Strings {
 	return set.NewStrings(result...)
 }
 
-// getInstanceSubnet returns the vpc network and optionally a subnet to use when
-// starting a new instance. The subnet will be empty if we are relying on the
-// auto create subnet mode of the network.
-func (env *environ) getInstanceSubnet(ctx stdcontext.Context) (string, *string, error) {
+// placementSubnet finds a subnet matching the supplied spec.
+// The match is done on subnet name or ipv4 cidr range.
+func placementSubnet(spec string, subnets []*computepb.Subnetwork) *computepb.Subnetwork {
+	for _, s := range subnets {
+		if s.GetName() == spec {
+			return s
+		}
+		if s.GetIpCidrRange() == spec {
+			return s
+		}
+	}
+	return nil
+}
+
+func (env *environ) maybeUseAutoSubnets(requireAutoSubnets bool, cons constraints.Value, instPlacement gcePlacement) (bool, error) {
+	if requireAutoSubnets {
+		if spec := instPlacement.subnetSpec; spec != "" {
+			return false, environs.ZoneIndependentError(
+				errors.Wrap(ErrAutoSubnetsInvalid,
+					errors.Errorf("cannot use placement subnet %q when using autosubnets", spec)),
+			)
+		}
+		if cons.HasSpaces() {
+			return false, environs.ZoneIndependentError(
+				errors.Wrap(ErrAutoSubnetsInvalid,
+					errors.New("cannot use space constraints when using autosubnets")),
+			)
+		}
+		// Use of auto subnets is ok.
+		return true, nil
+	}
+	return false, nil
+}
+
+func (env *environ) getPossibleInstanceSubnets(args environs.StartInstanceParams, allSubnets []*computepb.Subnetwork) ([][]corenetwork.Id, error) {
+	// Right now, we only return a single set of subnets to choose from,
+	// but we allow for it to change in the future if we support multi-nic vms.
+	// So the return result is [][]corenetwork.Id.
+	if args.Constraints.HasSpaces() {
+		validSubnets, err := common.GetValidSubnetZoneMap(args)
+		if err != nil {
+			return nil, environs.ZoneIndependentError(err)
+		}
+		var subnetIDs []corenetwork.Id
+		for subnetID := range validSubnets {
+			subnetIDs = append(subnetIDs, subnetID)
+		}
+		return [][]corenetwork.Id{subnetIDs}, nil
+	}
+	// No spaces, just use the whole lot.
+	var allSubnetIDs = make([]corenetwork.Id, len(allSubnets))
+	for i, subnet := range allSubnets {
+		allSubnetIDs[i] = corenetwork.Id(subnet.GetName())
+	}
+	return [][]corenetwork.Id{allSubnetIDs}, nil
+}
+
+func (env *environ) getSubnetIDsFromPossible(allSubnets []*computepb.Subnetwork, possibleSubnets [][]corenetwork.Id, placementSubnetSpec string) ([]corenetwork.Id, error) {
+	// For each list of subnet IDs that have been previously filtered to satisfy
+	// space constraints, use the placement subnet if specified, else choose
+	// a single one at random.
+	var (
+		subnetIDsForZone  []corenetwork.Id
+		placementSubnetID corenetwork.Id
+	)
+	for _, zoneSubnetIDs := range possibleSubnets {
+		// Use placement to select a single subnet if needed.
+		var subnetIDs []corenetwork.Id
+		if placementSubnetSpec == "" {
+			// No placement so we can select from all subnets.
+			subnetIDs = zoneSubnetIDs
+		} else {
+			if subnet := placementSubnet(placementSubnetSpec, allSubnets); subnet != nil {
+				// Record the placement subnet id so it can be added first down below.
+				// (But only if it is in this round of subnet ids).
+				if slices.Contains(zoneSubnetIDs, corenetwork.Id(subnet.GetName())) {
+					placementSubnetID = corenetwork.Id(subnet.GetName())
+					subnetIDs = []corenetwork.Id{corenetwork.Id(subnet.GetName())}
+				}
+			}
+		}
+		// subnetIDsForZone will just contain one subnet
+		if len(subnetIDs) == 1 {
+			subnetIDsForZone = append(subnetIDsForZone, subnetIDs[0])
+		} else if len(subnetIDs) > 0 {
+			// Right now, gce provider just supports ipv4.
+			// Later, we want to prefer dual stack subnets etc.
+			subnetIDsForZone = append(subnetIDsForZone, subnetIDs[rand.Intn(len(subnetIDs))])
+		}
+	}
+	if len(subnetIDsForZone) == 0 {
+		return nil, ErrNoSubnets
+	}
+
+	var subnetIds []corenetwork.Id
+	// Put any placement subnet first in the list
+	// so it ia allocated to the primary NIC.
+	if placementSubnetID != "" {
+		subnetIds = append(subnetIds, placementSubnetID)
+	}
+	for _, id := range subnetIDsForZone {
+		if id != placementSubnetID {
+			subnetIds = append(subnetIds, id)
+		}
+	}
+	return subnetIds, nil
+}
+
+func (env *environ) subnetsForInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*string, []*computepb.Subnetwork, error) {
 	vpcLink, autosubnets, err := env.getVpcInfo(ctx)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if vpcLink == nil {
 		// No VPC so just use default network.
-		return fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName), nil, nil
+		vpcLink = ptr(fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName))
 	}
 
-	subnetworks, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)
+	allSubnets, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return nil, nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	// Choose a subnet if there is one to choose from, or else rely on auto.
-	if !autosubnets && len(subnetworks) == 0 {
-		return "", nil, environs.ZoneIndependentError(
-			errors.New("VPC does not auto create subnets and has no subnets"))
+
+	instPlacement, err := env.parsePlacement(args.Placement)
+	if err != nil {
+		return nil, nil, environs.ZoneIndependentError(err)
 	}
-	// Until placement is implemented, just use the first subnet.
-	var subnetworkURL *string
-	if len(subnetworks) > 0 {
-		subnetworkURL = ptr(subnetworks[0].GetSelfLink())
+
+	// If there are no subnets in the VPC being used, perhaps auto subnets is possible.
+	wantAutoSubnets := autosubnets && len(allSubnets) == 0
+	useAutoSubnets, err := env.maybeUseAutoSubnets(wantAutoSubnets, args.Constraints, instPlacement)
+	if err != nil {
+		return nil, nil, environs.ZoneIndependentError(err)
 	}
-	return *vpcLink, subnetworkURL, nil
+	if useAutoSubnets {
+		return vpcLink, nil, nil
+	}
+
+	// If we're not using auto subnets and there are no subnets, that's an error.
+	if len(allSubnets) == 0 {
+		return nil, nil, environs.ZoneIndependentError(ErrNoSubnets)
+	}
+
+	logger.Debugf("got %d subnets for vpc %q in region %q: %s", len(allSubnets), *vpcLink, env.cloud.Region)
+
+	// If no space constraints, just use placement subnet if specified.
+	if !args.Constraints.HasSpaces() && instPlacement.subnetSpec != "" {
+		subnet := placementSubnet(instPlacement.subnetSpec, allSubnets)
+		if subnet == nil {
+			return nil, nil, environs.ZoneIndependentError(
+				errors.NotFoundf("placement subnet %q", instPlacement.subnetSpec))
+		}
+		return vpcLink, []*computepb.Subnetwork{subnet}, nil
+	}
+
+	// Gather the viable subnets from the superset for the VPC being used.
+	possibleSubnets, err := env.getPossibleInstanceSubnets(args, allSubnets)
+	if err != nil {
+		return nil, nil, environs.ZoneIndependentError(err)
+	}
+
+	// Compose a single slice of subnets to use based on any placement and those
+	// satisfying any space constraints.
+	subnetIds, err := env.getSubnetIDsFromPossible(allSubnets, possibleSubnets, instPlacement.subnetSpec)
+	if err != nil {
+		if errors.Is(err, ErrNoSubnets) {
+			err = errors.NotFoundf("subnets for constraint %q", args.Constraints)
+		}
+		return nil, nil, environs.ZoneIndependentError(err)
+	}
+
+	// Collate the results.
+	subnetsByID := make(map[corenetwork.Id]*computepb.Subnetwork)
+	for _, subnet := range allSubnets {
+		subnetsByID[corenetwork.Id(subnet.GetName())] = subnet
+	}
+	result := make([]*computepb.Subnetwork, len(subnetIds))
+	for i, subnetId := range subnetIds {
+		subnet, ok := subnetsByID[subnetId]
+		if !ok {
+			return nil, nil, environs.ZoneIndependentError(
+				errors.NotFoundf("subnet %q not found", subnetId))
+		}
+		result[i] = subnet
+	}
+	return vpcLink, result, nil
 }
 
 func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
@@ -403,7 +571,7 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, network *compute
 
 // SupportsSpaces implements environs.NetworkingEnviron.
 func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 // AreSpacesRoutable implements environs.NetworkingEnviron.
