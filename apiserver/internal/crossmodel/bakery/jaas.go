@@ -60,10 +60,11 @@ func NewJAASOfferBakery(
 	}
 
 	return &JAASOfferBakery{
-		oven:     bakery,
-		endpoint: endpoint,
-		clock:    clock,
-		logger:   logger,
+		baseBakery: baseBakery{checker: bakery.Checker},
+		oven:       bakery,
+		endpoint:   endpoint,
+		clock:      clock,
+		logger:     logger,
 	}, nil
 }
 

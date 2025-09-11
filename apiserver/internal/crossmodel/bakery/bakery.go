@@ -10,6 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -49,6 +50,12 @@ type BakeryStore interface {
 type Oven interface {
 	// NewMacaroon creates a new macaroon.
 	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
+}
+
+// MacaroonChecker exposes the methods needed from bakery.Checker.
+type MacaroonChecker interface {
+	// Auth returns an AuthChecker for the specified macaroons.
+	Auth(mss ...macaroon.Slice) *bakery.AuthChecker
 }
 
 // DeclaredValues represents the declared values encoded in a macaroon.
@@ -140,7 +147,9 @@ type offerAccessDetails struct {
 }
 
 // baseBakery provides common functionality for offer bakeries.
-type baseBakery struct{}
+type baseBakery struct {
+	checker MacaroonChecker
+}
 
 // ParseCaveat parses the specified caveat and returns the offer access details
 // it contains.
@@ -195,6 +204,16 @@ func (o *baseBakery) GetRelationRequiredValues(sourceModelUUID, offerUUID, relat
 		offerUUIDKey:   offerUUID,
 		relationKey:    relationKey,
 	}, nil
+}
+
+// AllowedMacaroonAuth checks the specified macaroon is valid for the operation
+// and returns the associated AuthInfo.
+func (o *baseBakery) AllowedAuth(ctx context.Context, op bakery.Op, mac macaroon.Slice) ([]string, error) {
+	authInfo, err := o.checker.Auth(mac).Allow(ctx, op)
+	if err != nil {
+		return nil, err
+	}
+	return authInfo.Conditions(), nil
 }
 
 func ptr[T any](v T) *T {

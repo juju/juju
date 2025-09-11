@@ -61,6 +61,9 @@ type OfferBakery interface {
 	// GetRelationRequiredValues returns the required values for the specified
 	// relation access.
 	GetRelationRequiredValues(sourceModelUUID, offerUUID, relation string) (map[string]string, error)
+	// AllowedMacaroonAuth checks the specified macaroon is valid for the operation
+	// and returns the associated AuthInfo.
+	AllowedAuth(ctx context.Context, op bakery.Op, mac macaroon.Slice) ([]string, error)
 }
 
 // AuthContext is used to validate macaroons used to access
@@ -313,10 +316,10 @@ func (a *Authenticator) checkMacaroons(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	ai, err := bakery.AllowMacaroonOp(ctx, mac, op)
-	if err == nil && len(ai.Conditions()) > 0 {
+	conditions, err := a.bakery.AllowedAuth(ctx, op, mac)
+	if err == nil && len(conditions) > 0 {
 		if err = a.checkMacaroonCaveats(op, declared); err == nil {
-			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
+			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, conditions)
 			return declared.AsMap(), nil
 		}
 		if _, ok := err.(*bakery.VerificationError); !ok {

@@ -318,6 +318,14 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *tc.C) {
 	c.Check(mac, tc.Equals, expected)
 }
 
+func (s *authSuite) TestAuthenticator(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	authContext := s.newAuthContext(c)
+	authenticator := authContext.Authenticator()
+	c.Assert(authenticator, tc.Not(tc.IsNil))
+}
+
 func (s *authSuite) newAccessCaveat(modelUUID string) string {
 	return fmt.Sprintf(`
 source-model-uuid: %s
