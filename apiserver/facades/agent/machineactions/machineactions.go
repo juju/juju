@@ -7,7 +7,6 @@ package machineactions
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,11 +17,19 @@ import (
 	"github.com/juju/juju/core/watcher"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // OperationService provides access to operations and tasks.
 type OperationService interface {
+	// GetPendingTaskByTaskID return a struct containing the data required to
+	// run a task. The task must have a status of pending.
+	// Returns TaskNotPending if the task exists but does not have
+	// a pending status.
+	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
+
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
 
@@ -66,9 +73,35 @@ func NewFacade(
 }
 
 // Actions returns the Actions by Tags passed and ensures that the machine asking
-// for them is the machine that has the actions
+// for them is the machine that has the actions.
 func (f *Facade) Actions(ctx context.Context, args params.Entities) params.ActionResults {
-	return params.ActionResults{}
+	results := params.ActionResults{
+		Results: make([]params.ActionResult, len(args.Entities)),
+	}
+
+	for i, arg := range args.Entities {
+		taskID, err := f.authTaskID(ctx, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		task, err := f.operationService.GetPendingTaskByTaskID(ctx, taskID)
+		if errors.Is(err, operationerrors.TaskNotPending) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Action = &params.Action{
+			Name:           task.ActionName,
+			Parameters:     task.Parameters,
+			Parallel:       ptr(task.IsParallel),
+			ExecutionGroup: nilZeroPtr(task.ExecutionGroup),
+		}
+	}
+
+	return results
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
@@ -185,4 +218,16 @@ func (f *Facade) RunningActions(ctx context.Context, args params.Entities) param
 	return params.ActionsByReceivers{
 		Actions: make([]params.ActionsByReceiver, len(args.Entities)),
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
