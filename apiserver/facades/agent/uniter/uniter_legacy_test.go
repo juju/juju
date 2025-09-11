@@ -22,7 +22,6 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -288,33 +287,6 @@ func (s *uniterLegacySuite) TestCurrentModel(c *tc.C) {
 		Type: "iaas",
 	}
 	c.Assert(result, tc.DeepEquals, expected)
-}
-
-func (s *uniterLegacySuite) TestActions(c *tc.C) {
-}
-
-func (s *uniterLegacySuite) TestActionsNotPresent(c *tc.C) {
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: names.NewActionTag(uuid.String()).String(),
-		}},
-	}
-	results, err := s.uniter.Actions(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(results.Results, tc.HasLen, 1)
-	actionsQueryResult := results.Results[0]
-	c.Assert(actionsQueryResult.Error, tc.NotNil)
-	c.Assert(actionsQueryResult.Error, tc.ErrorMatches, `action "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
-}
-
-func (s *uniterLegacySuite) TestActionsWrongUnit(c *tc.C) {
-	// Action doesn't match unit.
-}
-
-func (s *uniterLegacySuite) TestActionsPermissionDenied(c *tc.C) {
 }
 
 func (s *uniterLegacySuite) TestProviderType(c *tc.C) {
