@@ -87,7 +87,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	}
 	s.params = []storage.VolumeParams{{
 		Tag:        names.NewVolumeTag("0"),
-		Size:       1024,
+		Size:       20 * 1024,
 		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
@@ -128,7 +128,7 @@ func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *gc.C) {
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	expected := &computepb.Disk{
 		Name:   ptr("zone"),
-		SizeGb: ptr(int64(1024)),
+		SizeGb: ptr(int64(20)),
 		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
@@ -158,6 +158,14 @@ func (s *volumeSourceSuite) TestCreateVolumesInvalidCredentialError(c *gc.C) {
 }
 
 func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
+	s.testCreateVolumes(c, "")
+}
+
+func (s *volumeSourceSuite) TestCreateVolumesWithDiskType(c *gc.C) {
+	s.testCreateVolumes(c, "pd-ssd")
+}
+
+func (s *volumeSourceSuite) testCreateVolumes(c *gc.C, diskType string) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -168,10 +176,18 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 
 	expected := &computepb.Disk{
 		Name:   ptr("zone"),
-		SizeGb: ptr(int64(1024)),
+		SizeGb: ptr(int64(20)),
 		Type:   ptr("pd-standard"),
 		Labels: map[string]string{},
 	}
+
+	if diskType != "" {
+		expected.Type = ptr(diskType)
+		s.params[0].Attributes = map[string]interface{}{
+			"disk-type": diskType,
+		}
+	}
+
 	s.MockService.EXPECT().CreateDisks(gomock.Any(), "zone", gomock.Any()).
 		DoAndReturn(func(ctx context.Context, zone string, disks []*computepb.Disk) error {
 			c.Assert(disks, gc.HasLen, 1)
@@ -212,6 +228,26 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 	c.Assert(res[0].VolumeAttachment.Machine.String(), gc.Equals, "machine-0")
 	c.Assert(res[0].VolumeAttachment.ReadOnly, jc.IsFalse)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), gc.Equals, "volume-0")
+}
+
+func (s *volumeSourceSuite) TestCreateVolumesWithLocalSSD(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name: ptr("inst-0"),
+		Zone: ptr("path/to/zone"),
+	}}, nil)
+
+	s.params[0].Attributes = map[string]interface{}{
+		"disk-type": "local-ssd",
+	}
+	source := s.setUpSource(c)
+	res, err := source.CreateVolumes(s.CallCtx, s.params)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	expectedErr := "local SSD disk storage not valid"
+	c.Assert(res[0].Error, gc.ErrorMatches, expectedErr)
 }
 
 func (s *volumeSourceSuite) TestDestroyVolumesInvalidCredentialError(c *gc.C) {
@@ -302,7 +338,7 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 		Return(&computepb.Disk{
 			Name:             ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
 			Status:           ptr("READY"),
-			SizeGb:           ptr(int64(1)),
+			SizeGb:           ptr(int64(10)),
 			Users:            []string(nil),
 			LabelFingerprint: ptr("fingerprint"),
 			Labels:           map[string]string{"foo": "bar"},
@@ -329,7 +365,7 @@ func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
 		VolumeId:   "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Size:       1024,
+		Size:       10 * 1024,
 		Persistent: true,
 	})
 }
@@ -455,7 +491,7 @@ func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	s.MockService.EXPECT().Disk(gomock.Any(), "zone", "zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4").
 		Return(&computepb.Disk{
 			Name:   ptr("zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"),
-			SizeGb: ptr(int64(1)),
+			SizeGb: ptr(int64(10)),
 		}, nil)
 
 	source := s.setUpSource(c)
@@ -464,7 +500,7 @@ func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].Error, jc.ErrorIsNil)
-	c.Assert(res[0].VolumeInfo.Size, gc.Equals, uint64(1024))
+	c.Assert(res[0].VolumeInfo.Size, gc.Equals, uint64(10*1024))
 	c.Assert(res[0].VolumeInfo.VolumeId, gc.Equals, volName)
 }
 

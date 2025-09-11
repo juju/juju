@@ -101,6 +101,14 @@ func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
 }
 
+func (s *PoolCreateSuite) TestPoolCreateWithDisallowedAttrs(c *gc.C) {
+	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "name=too"})
+	c.Assert(err.Error(), gc.Equals, "attribute \"name\" not valid")
+
+	_, err = s.runPoolCreate(c, []string{"sunshine", "lollypop", "type=pd-ssd"})
+	c.Assert(err.Error(), gc.Equals, "attribute \"type\" not valid")
+}
+
 func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProvider(c *gc.C) {
 	m := s.store.Models["testing"].Models["admin/controller"]
 	m.ModelType = model.CAAS

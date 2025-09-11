@@ -22,6 +22,7 @@ import (
 
 const (
 	storageProviderType = storage.ProviderType("gce")
+	diskTypeAttribute   = "disk-type"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -178,6 +179,11 @@ func gibToMib(g int64) uint64 {
 	return uint64(g) * 1024
 }
 
+// mibToGib converts mebibytes to gibibytes.
+func mibToGib(m uint64) int64 {
+	return int64(m / 1024)
+}
+
 func nameVolume(zone string) (string, error) {
 	volumeUUID, err := utils.NewUUID()
 	if err != nil {
@@ -209,17 +215,23 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 		// because we need to know what its AZ is.
 		return nil, nil, errors.Annotatef(err, "cannot obtain %q from instance cache", instId)
 	}
-	persistentType, ok := p.Attributes["type"].(google.DiskType)
-	if !ok {
-		persistentType = google.DiskPersistentStandard
-	}
-	if persistentType == google.DiskLocalSSD {
-		return nil, nil, errors.New("cannot create local ssd disks")
+
+	diskType := google.DiskPersistentStandard
+	if val, ok := p.Attributes[diskTypeAttribute].(string); ok {
+		dt := google.DiskType(val)
+		switch dt {
+		case google.DiskPersistentSSD, google.DiskPersistentStandard:
+			diskType = dt
+		case google.DiskLocalSSD:
+			return nil, nil, errors.NotValidf("local SSD disk storage")
+		default:
+		}
 	}
 
-	size := p.Size
-	if p.Size < google.MinDiskSizeGB {
-		p.Size = google.MinDiskSizeGB
+	// volume.Size is expressed in MiB, but GCE only accepts sizes in GiB.
+	size := mibToGib(p.Size)
+	if size < google.MinDiskSizeGB {
+		size = google.MinDiskSizeGB
 	}
 	zone = path.Base(inst.GetZone())
 	volumeName, err = nameVolume(zone)
@@ -230,8 +242,8 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	// way to help solve the need to have zone all over the place.
 	disk := &computepb.Disk{
 		Name:   &volumeName,
-		SizeGb: ptr(int64(size)),
-		Type:   ptr(string(persistentType)),
+		SizeGb: ptr(size),
+		Type:   ptr(string(diskType)),
 		Labels: resourceTagsToDiskLabels(p.ResourceTags),
 	}
 	err = v.gce.CreateDisks(ctx, zone, []*computepb.Disk{disk})
@@ -245,8 +257,8 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	}
 
 	volume = &storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
+		Tag: p.Tag,
+		VolumeInfo: storage.VolumeInfo{
 			VolumeId:   disk.GetName(),
 			Size:       gibToMib(disk.GetSizeGb()),
 			Persistent: true,
@@ -254,9 +266,9 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	}
 
 	volumeAttachment = &storage.VolumeAttachment{
-		p.Tag,
-		p.Attachment.Machine,
-		storage.VolumeAttachmentInfo{
+		Volume:  p.Tag,
+		Machine: p.Attachment.Machine,
+		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 			DeviceLink: fmt.Sprintf(
 				"/dev/disk/by-id/google-%s",
 				attachedDisk.GetDeviceName(),
@@ -422,11 +434,11 @@ func (v *volumeSource) describeOneVolume(ctx context.ProviderCallContext, volNam
 		return storage.DescribeVolumesResult{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
 	}
 	desc := storage.DescribeVolumesResult{
-		&storage.VolumeInfo{
+		VolumeInfo: &storage.VolumeInfo{
 			Size:     gibToMib(disk.GetSizeGb()),
 			VolumeId: disk.GetName(),
 		},
-		nil,
+		Error: nil,
 	}
 	return desc, nil
 }
@@ -457,9 +469,9 @@ func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachPara
 			continue
 		}
 		results[i].VolumeAttachment = &storage.VolumeAttachment{
-			attachment.Volume,
-			attachment.Machine,
-			storage.VolumeAttachmentInfo{
+			Volume:  attachment.Volume,
+			Machine: attachment.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 				DeviceLink: fmt.Sprintf(
 					"/dev/disk/by-id/google-%s",
 					attached.GetDeviceName(),
