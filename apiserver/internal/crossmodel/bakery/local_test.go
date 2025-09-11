@@ -35,6 +35,7 @@ func (s *localBakerySuite) TestNewLocalOfferBakery(c *tc.C) {
 	bakery, err := NewLocalOfferBakery(
 		s.keyPair,
 		"juju model",
+		"http://offer-access",
 		s.store,
 		checker,
 		s.authorizer,
@@ -102,7 +103,7 @@ func (s *localBakerySuite) TestGetConsumeOfferCaveatsWithRelation(c *tc.C) {
 	}
 	caveats := bakery.GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
 
-	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+	c.Check(caveats, tc.SameContents, s.caveatsWithRelation(now))
 }
 
 func (s *localBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
@@ -116,7 +117,7 @@ func (s *localBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
 	}
 	caveats := bakery.GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
 
-	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+	c.Check(caveats, tc.SameContents, s.caveatsWithRelation(now))
 }
 
 func (s *localBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
@@ -152,13 +153,13 @@ func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	})
 
 	localBakery := LocalOfferBakery{
-		oven:  s.oven,
-		clock: s.clock,
+		oven:     s.oven,
+		endpoint: "http://offer-access",
+		clock:    s.clock,
 	}
 
 	mac, err := localBakery.CreateDischargeMacaroon(
 		c.Context(),
-		"http://offer-access",
 		"mary",
 		map[string]string{
 			sourceModelKey: s.modelUUID.String(),
@@ -193,7 +194,7 @@ func (s *localBakerySuite) caveats(now time.Time) []checkers.Caveat {
 	}
 }
 
-func (s *localBakerySuite) caveatWithRelation(now time.Time) []checkers.Caveat {
+func (s *localBakerySuite) caveatsWithRelation(now time.Time) []checkers.Caveat {
 	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
 }
 
