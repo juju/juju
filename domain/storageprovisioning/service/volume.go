@@ -47,13 +47,15 @@ type VolumeState interface {
 	//
 	// All returned values will have either the machine name or unit name value
 	// filled out in the [storageprovisioning.VolumeAttachmentID] struct.
-	GetVolumeAttachmentIDs(ctx context.Context, uuids []string) (map[string]storageprovisioning.VolumeAttachmentID, error)
+	GetVolumeAttachmentIDs(
+		ctx context.Context, uuids []string,
+	) (map[string]storageprovisioning.VolumeAttachmentID, error)
 
 	// GetVolumeAttachmentLife returns the current life value for a
 	// volume attachment uuid.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound]
 	// when no volume attachment exists for the provided uuid.
 	GetVolumeAttachmentLife(
 		context.Context,
@@ -65,7 +67,7 @@ type VolumeState interface {
 	// volume attachment that is to be provisioned by the machine owning the
 	// supplied net node.
 	GetVolumeAttachmentLifeForNetNode(
-		ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID,
+		context.Context, domainnetwork.NetNodeUUID,
 	) (map[string]domainlife.Life, error)
 
 	// GetVolumeAttachmentPlanLifeForNetNode returns a mapping of volume
@@ -73,16 +75,18 @@ type VolumeState interface {
 	// attachment plan. The volume ID of attachment plans is returned instead of
 	// the uuid because the caller for the watcher works off of this
 	// information.
-	GetVolumeAttachmentPlanLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetVolumeAttachmentPlanLifeForNetNode(
+		context.Context, domainnetwork.NetNodeUUID,
+	) (map[string]domainlife.Life, error)
 
 	// GetVolumeAttachmentUUIDForVolumeNetNode returns the volume attachment uuid
 	// for the supplied volume uuid which is attached to the given net node
 	// uuid.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// - [storageprovisioningerrors.VolumeNotFound]
 	// when no volume exists for the supplied volume uuid.
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound]
 	// when no volume attachment exists for the supplied values.
 	// - [networkerrors.NetNodeNotFound] when no net node exists for the
 	// supplied uuid.
@@ -102,7 +106,7 @@ type VolumeState interface {
 	// GetVolumeLife returns the current life value for a volume uuid.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// - [storageprovisioningerrors.VolumeNotFound]
 	// when no volume exists for the provided volume uuid.
 	GetVolumeLife(
 		context.Context, storageprovisioning.VolumeUUID,
@@ -111,15 +115,19 @@ type VolumeState interface {
 	// GetVolumeLifeForNetNode returns a mapping of volume ID to current
 	// life value for each machine provisioned volume that is to be
 	// provisioned by the machine owning the supplied net node.
-	GetVolumeLifeForNetNode(ctx context.Context, netNodeUUID domainnetwork.NetNodeUUID) (map[string]domainlife.Life, error)
+	GetVolumeLifeForNetNode(
+		context.Context, domainnetwork.NetNodeUUID,
+	) (map[string]domainlife.Life, error)
 
 	// GetVolumeUUIDForID returns the uuid for a volume with the supplied
 	// id.
 	//
 	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
+	// - [storageprovisioningerrors.VolumeNotFound]
 	// when no volume exists for the provided volume uuid.
-	GetVolumeUUIDForID(context.Context, string) (storageprovisioning.VolumeUUID, error)
+	GetVolumeUUIDForID(
+		context.Context, string,
+	) (storageprovisioning.VolumeUUID, error)
 
 	// GetVolumeParams returns the volume params for the supplied uuid.
 	//
@@ -154,7 +162,9 @@ type VolumeState interface {
 	//
 	// Only volumes that can be provisioned by the machine connected to the
 	// supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumes(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedVolumes(
+		domainnetwork.NetNodeUUID,
+	) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
@@ -170,7 +180,9 @@ type VolumeState interface {
 	//
 	// Only volume attachments that can be provisioned by the machine
 	// connected to the supplied net node will be emitted.
-	InitialWatchStatementMachineProvisionedVolumeAttachments(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementMachineProvisionedVolumeAttachments(
+		domainnetwork.NetNodeUUID,
+	) (string, eventsource.Query[map[string]domainlife.Life])
 
 	// InitialWatchStatementModelProvisionedVolumeAttachments returns both
 	// the namespace for watching volume attachment life changes where the
@@ -182,7 +194,9 @@ type VolumeState interface {
 	// watching volume attachment plan life changes and the initial query for
 	// getting the set of volume attachment plans in the model that are
 	// provisioned by the supplied machine in the model.
-	InitialWatchStatementVolumeAttachmentPlans(netNodeUUID domainnetwork.NetNodeUUID) (string, eventsource.Query[map[string]domainlife.Life])
+	InitialWatchStatementVolumeAttachmentPlans(
+		domainnetwork.NetNodeUUID,
+	) (string, eventsource.Query[map[string]domainlife.Life])
 }
 
 // GetVolumeAttachmentIDs returns the
@@ -259,7 +273,7 @@ func (s *Service) GetVolumeAttachmentParams(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the volume attachment uuid is not valid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+// - [storageprovisioningerrors.VolumeAttachmentNotFound]
 // when no volume attachment exists for the provided uuid.
 func (s *Service) GetVolumeAttachmentLife(
 	ctx context.Context,
@@ -285,7 +299,7 @@ func (s *Service) GetVolumeAttachmentLife(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the volume attachment uuid is not valid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
+// - [storageprovisioningerrors.VolumeAttachmentNotFound]
 // when no volume attachment exists for the provided uuid.
 func (s *Service) GetVolumeAttachment(
 	ctx context.Context,
@@ -446,8 +460,8 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDUnit(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the volume uuid is not valid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
-// when no volume exists for the provided volume uuid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume uuid.
 func (s *Service) GetVolumeLife(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeUUID,
@@ -472,8 +486,8 @@ func (s *Service) GetVolumeLife(
 // id.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
-// when no volume exists for the provided volume uuid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume uuid.
 func (s *Service) GetVolumeUUIDForID(
 	ctx context.Context, volumeID string,
 ) (storageprovisioning.VolumeUUID, error) {
@@ -492,8 +506,8 @@ func (s *Service) GetVolumeUUIDForID(
 // volume ID.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeNotFound]
-// when no volume exists for the provided volume uuid.
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// provided volume uuid.
 func (s *Service) GetVolumeByID(
 	ctx context.Context, volumeID string,
 ) (storageprovisioning.Volume, error) {
@@ -518,10 +532,10 @@ func (s *Service) GetVolumeByID(
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the volume attachment uuid is not valid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentNotFound]
-// when no volume attachment exists for the provided uuid.
-// - [github.com/juju/juju/domain/storageprovisioning/errors.VolumeAttachmentWithoutBlockDevice]
-// when the volume attachment does not yet have a block device.
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice] when the
+// volume attachment does not yet have a block device.
 func (s *Service) GetBlockDeviceForVolumeAttachment(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
 ) (blockdevice.BlockDevice, error) {
@@ -548,10 +562,9 @@ func (s *Service) WatchModelProvisionedVolumes(
 // whenever the given machine's provisioned volume life changes.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-// is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-// machine exists for the provided machine UUUID.
+// - [coreerrors.NotValid] when the provided machine uuid is not valid.
+// - [machineerrors.MachineNotFound] when no machine exists for the provided
+// machine UUUID.
 func (s *Service) WatchMachineProvisionedVolumes(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
@@ -611,10 +624,9 @@ func (s *Service) WatchModelProvisionedVolumeAttachments(
 // attachment's life changes.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-// is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-// machine exists for the provided machine UUUID.
+// - [coreerrors.NotValid] when the provided machine uuid is not valid.
+// - [machineerrors.MachineNotFound] when no machine exists for the provided
+// machine UUUID.
 func (s *Service) WatchMachineProvisionedVolumeAttachments(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
@@ -656,10 +668,9 @@ func (s *Service) WatchMachineProvisionedVolumeAttachments(
 // changes.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/core/errors.NotValid] when the provided machine uuid
-// is not valid.
-// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
-// machine exists for the provided machine UUUID.
+// - [coreerrors.NotValid] when the provided machine uuid is not valid.
+// - [machineerrors.MachineNotFound] when no machine exists for the provided
+// machine UUUID.
 func (s *Service) WatchVolumeAttachmentPlans(
 	ctx context.Context, machineUUID coremachine.UUID,
 ) (watcher.StringsWatcher, error) {
@@ -724,6 +735,7 @@ func (s *Service) SetVolumeProvisionedInfo(
 
 // SetVolumeAttachmentProvisionedInfo sets on the provided volume the information
 // about the provisioned volume attachment.
+//
 // The following errors may be returned:
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachmentexists for the provided volume attachment id.
