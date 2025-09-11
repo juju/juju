@@ -222,6 +222,14 @@ func (s *baseSuite) addOperationMachineTask(c *tc.C, taskUUID, machineUUID strin
 	s.query(c, `INSERT INTO operation_machine_task (task_uuid, machine_uuid) VALUES (?, ?)`, taskUUID, machineUUID)
 }
 
+func (s *baseSuite) addFakeMetadataStore(c *tc.C, size int) string {
+	storeUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)`, storeUUID, storeUUID, storeUUID, size)
+	return storeUUID
+}
+
 // addOperationTaskOutputWithData adds object store metadata to the database with a path
 func (s *baseSuite) addOperationTaskOutputWithData(c *tc.C, taskUUID, sha256, sha384 string, size int,
 	path string) string {
@@ -239,10 +247,7 @@ VALUES (?, ?)`, path, storeUUID)
 // addOperationTaskOutput links a task to an object store metadata, return the
 // store metadata uuid
 func (s *baseSuite) addOperationTaskOutput(c *tc.C, taskUUID string) string {
-	storeUUID := internaluuid.MustNewUUID().String()
-	// Minimal valid object_store_metadata requires all uuid, sha_256 and sha_384 are unique
-	s.query(c, `INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, ?, ?, 42)`,
-		storeUUID, storeUUID, storeUUID)
+	storeUUID := s.addFakeMetadataStore(c, 42)
 	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
 	return storeUUID
 }
