@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
@@ -47,13 +48,15 @@ func NewJAASOfferBakery(
 	store := internalmacaroon.NewRootKeyStore(backingStore, offerPermissionExpiryTime, clock)
 
 	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
-	bakery := bakery.New(bakery.BakeryParams{
-		Location:      location,
-		Locator:       externalKeyLocator,
-		RootKeyStore:  store,
-		Checker:       checker,
-		OpsAuthorizer: authorizer,
-	})
+	bakery := &bakeryutil.StorageBakery{
+		Bakery: bakery.New(bakery.BakeryParams{
+			Location:      location,
+			Locator:       externalKeyLocator,
+			RootKeyStore:  store,
+			Checker:       checker,
+			OpsAuthorizer: authorizer,
+		}),
+	}
 
 	return &JAASOfferBakery{
 		oven:   bakery,
