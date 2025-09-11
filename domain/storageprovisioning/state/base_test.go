@@ -249,13 +249,12 @@ func (s *baseSuite) newStorageAttachment(
 	c *tc.C,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-	life domainlife.Life,
 ) string {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
-`, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
+`, saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), domainlife.Alive)
 	c.Assert(err, tc.ErrorIsNil)
 	return saUUID.String()
 }
@@ -332,7 +331,7 @@ VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
 // application uuid. The new unit will use the supplied net node. Returned is
 // the new uuid of the unit and the name that was used.
 func (s *baseSuite) newUnitWithNetNode(
-	c *tc.C, name, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
+	c *tc.C, unitName, appUUID string, netNodeUUID domainnetwork.NetNodeUUID,
 ) (coreunit.UUID, coreunit.Name) {
 	var charmUUID string
 	err := s.DB().QueryRowContext(
@@ -349,11 +348,11 @@ func (s *baseSuite) newUnitWithNetNode(
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
 VALUES (?, ?, ?, ?, ?, 0)
 `,
-		unitUUID.String(), name, appUUID, charmUUID, netNodeUUID.String(),
+		unitUUID.String(), unitName, appUUID, charmUUID, netNodeUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unitUUID, coreunit.Name(name)
+	return unitUUID, coreunit.Name(unitName)
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment
