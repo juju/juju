@@ -217,7 +217,7 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 		// Configure the default client to skip verification.
 		tlsConfig := jujuhttp.SecureTLSConfig()
 		tlsConfig.InsecureSkipVerify = true
-		bclient.Client.Transport = jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
+		bclient.Transport = jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
 			TLSConfig: tlsConfig,
 		})
 	}

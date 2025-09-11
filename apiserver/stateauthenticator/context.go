@@ -159,11 +159,16 @@ func newAuthContext(
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
 
+	locator := bakeryutil.BakeryThirdPartyLocator{
+		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
+	}
+
 	ctxt.localUserThirdPartyBakery = bakery.New(bakery.BakeryParams{
 		Checker:       checker,
 		Key:           ctxt.localUserThirdPartyBakeryKey,
 		OpsAuthorizer: OpenLoginAuthorizer{},
 		Location:      location,
+		Locator:       locator,
 	})
 
 	// Create a bakery service for local user authentication. This service
@@ -179,6 +184,7 @@ func newAuthContext(
 		Key:           localUserBakeryKey,
 		OpsAuthorizer: OpenLoginAuthorizer{},
 		Location:      location,
+		Locator:       locator,
 	})
 
 	ctxt.localUserBakery = &bakeryutil.StorageBakery{
