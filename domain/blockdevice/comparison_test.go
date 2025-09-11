@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/core/blockdevice"
 )
 
 type comparisonSuite struct{}
