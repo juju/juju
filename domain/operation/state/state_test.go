@@ -236,3 +236,39 @@ func (s *deleteOperationSuite) TestGetTaskUUIDsByOperationUUIDsNilInput(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(taskUUIDs, tc.HasLen, 0)
 }
+
+// TestCountFewItems verifies that count returns the number of rows when there are a few items in the operation table.
+func (s *deleteOperationSuite) TestCountFewItems(c *tc.C) {
+	// Arrange: insert a few operations
+	s.addOperation(c)
+	s.addOperation(c)
+
+	// Act
+	var got int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		got, err = s.state.count(ctx, tx, "operation")
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, 2)
+}
+
+// TestCountNoItems verifies that count returns zero when the operation table has no rows.
+func (s *deleteOperationSuite) TestCountNoItems(c *tc.C) {
+	// Arrange: no operations are added
+
+	// Act
+	var got int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		got, err = s.state.count(ctx, tx, "operation")
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, 0)
+}
