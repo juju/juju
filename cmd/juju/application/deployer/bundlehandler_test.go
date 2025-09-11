@@ -129,9 +129,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *tc.C) {
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for base ubuntu@20.04/stable with revision 42 with architecture=amd64\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@20.04/stable with revision 42\n"+
 		"- deploy application mysql from charm-hub on ubuntu@20.04/stable with stable\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@20.04/stable with revision 47 with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@20.04/stable with revision 47\n"+
 		"- deploy application wordpress from charm-hub on ubuntu@20.04/stable with stable\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
@@ -287,9 +287,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *tc.C)
 		"Located charm \"gitlab-k8s\" in charm-hub\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-hub with architecture=amd64\n"+
+		"- upload charm gitlab-k8s from charm-hub\n"+
 		"- deploy application gitlab from charm-hub with 1 unit using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-hub with architecture=amd64\n"+
+		"- upload charm mariadb-k8s from charm-hub\n"+
 		"- deploy application mariadb from charm-hub with 2 units using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
@@ -333,9 +333,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
 		"Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"+
 		"Executing changes:\n"+
-		"- upload charm gitlab-k8s from charm-hub from channel new/edge with architecture=amd64\n"+
+		"- upload charm gitlab-k8s from charm-hub from channel new/edge\n"+
 		"- deploy application gitlab from charm-hub with 1 unit with new/edge using gitlab-k8s\n"+
-		"- upload charm mariadb-k8s from charm-hub from channel old/stable with architecture=amd64\n"+
+		"- upload charm mariadb-k8s from charm-hub from channel old/stable\n"+
 		"- deploy application mariadb from charm-hub with 2 units with old/stable using mariadb-k8s\n"+
 		"- add relation gitlab:mysql - mariadb:server\n"+
 		"Deploy of bundle completed.\n")
@@ -444,7 +444,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	str := s.output.String()
 	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), tc.IsTrue)
 	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), tc.IsTrue)
-	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 4 with architecture=amd64\n"), tc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 4\n"), tc.IsTrue)
 }
 
 func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, rev int) *charm.URL {
@@ -529,9 +529,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *tc.C) {
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42\n"+
 		"- deploy application mysql from charm-hub on ubuntu@22.04/stable with stable\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47 with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47\n"+
 		"- deploy application wordpress from charm-hub on ubuntu@22.04/stable with stable\n"+
 		"- add new machine 0\n"+
 		"- add new machine 1\n"+
@@ -598,9 +598,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *tc.C) {
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
 		"Located charm \"dashboard4miner\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-hub with architecture=amd64\n"+
+		"- upload charm bitcoin-miner from charm-hub\n"+
 		"- deploy application bitcoin-miner from charm-hub\n"+
-		"- upload charm dashboard4miner from charm-hub with architecture=amd64\n"+
+		"- upload charm dashboard4miner from charm-hub\n"+
 		"- deploy application dashboard4miner from charm-hub\n"+
 		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
 		"- add unit bitcoin-miner/0 to new machine 0\n"+
@@ -689,9 +689,9 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *tc.C) {
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
 		"Located charm \"dashboard4miner\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-hub for base ubuntu@20.04/stable with architecture=amd64\n"+
+		"- upload charm bitcoin-miner from charm-hub for base ubuntu@20.04/stable\n"+
 		"- deploy application bitcoin-miner from charm-hub with 1 unit on ubuntu@20.04/stable\n"+
-		"- upload charm dashboard4miner from charm-hub for base ubuntu@20.04/stable with architecture=amd64\n"+
+		"- upload charm dashboard4miner from charm-hub for base ubuntu@20.04/stable\n"+
 		"- deploy application dashboard4miner from charm-hub with 1 unit on ubuntu@20.04/stable\n"+
 		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
 		"Deploy of bundle completed.\n")
@@ -762,9 +762,9 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *tc.C, dryRun bool) {
 		"Located charm \"mysql\" in charm-hub, channel stable\n" +
 		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Executing changes:\n" +
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n" +
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42\n" +
 		"- deploy application mysql from charm-hub on ubuntu@22.04/stable with stable\n" +
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47 with architecture=amd64\n" +
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47\n" +
 		"- deploy application wordpress from charm-hub on ubuntu@22.04/stable with stable\n" +
 		"- add new machine 0\n" +
 		"- add new machine 1\n" +
@@ -777,9 +777,9 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *tc.C, dryRun bool) {
 		"Located charm \"mysql\" in charm-hub, channel stable\n" +
 		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Executing changes:\n" +
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n" +
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42\n" +
 		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable from channel stable\n" +
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47 with architecture=amd64\n" +
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47\n" +
 		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable from channel stable\n" +
 		"Deploy of bundle completed.\n"
 
@@ -787,9 +787,9 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *tc.C, dryRun bool) {
 		"Located charm \"mysql\" in charm-hub, channel stable\n" +
 		"Located charm \"wordpress\" in charm-hub, channel stable\n" +
 		"Changes to deploy bundle:\n" +
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n" +
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42\n" +
 		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable from channel stable\n" +
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47 with architecture=amd64\n" +
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 47\n" +
 		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable from channel stable\n"
 	c.Check(s.output.String(), tc.Equals, expectedOutput)
 
@@ -976,9 +976,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *tc.C
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
 		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42\n"+
 		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable from channel stable\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 52 with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 52\n"+
 		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable from channel stable\n"+
 		"- set application options for wordpress\n"+
 		"- set constraints for wordpress to \"spaces=new cores=8\"\n"+
@@ -1042,11 +1042,11 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *tc.C) {
 		"Located charm \"varnish\" in charm-hub\n"+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable\n"+
 		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable\n"+
-		"- upload charm varnish from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm varnish from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application varnish from charm-hub on ubuntu@22.04/stable\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable\n"+
 		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable\n"+
 		"- add new machine 2\n"+
 		"- add relation varnish:webcache - wordpress:cache\n"+
@@ -1686,7 +1686,7 @@ machines:
 	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application wp from charm-hub on ubuntu@22.04/stable using wordpress\n"+
 		"- add new machine 0 (bundle machine 4)\n"+
 		"- add new machine 1 (bundle machine 8)\n"+
@@ -1733,7 +1733,7 @@ applications:
 	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm wordpress from charm-hub with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub\n"+
 		"- deploy application wordpress from charm-hub\n"+
 		"- expose all endpoints of wordpress and allow access from CIDRs 0.0.0.0/0 and ::/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
@@ -1800,13 +1800,13 @@ relations:
 		"Located charm \"varnish\" in charm-hub\n"+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
-		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application mysql from charm-hub on ubuntu@22.04/stable\n"+
-		"- upload charm postgres from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm postgres from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application postgres from charm-hub on ubuntu@22.04/stable\n"+
-		"- upload charm varnish from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm varnish from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application varnish from charm-hub on ubuntu@22.04/stable\n"+
-		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with architecture=amd64\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable\n"+
 		"- deploy application wordpress from charm-hub on ubuntu@22.04/stable\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add relation varnish:webcache - wordpress:cache\n"+
@@ -1873,9 +1873,9 @@ relations:
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	expectedOutput := "" +
 		"Executing changes:\n" +
-		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- upload charm %s for base ubuntu@20.04/stable\n" +
 		"- deploy application mysql on ubuntu@20.04/stable\n" +
-		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- upload charm %s for base ubuntu@20.04/stable\n" +
 		"- deploy application wordpress on ubuntu@20.04/stable\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
@@ -1952,9 +1952,9 @@ relations:
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	expectedOutput := "" +
 		"Executing changes:\n" +
-		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- upload charm %s for base ubuntu@20.04/stable\n" +
 		"- deploy application mysql on ubuntu@20.04/stable\n" +
-		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- upload charm %s for base ubuntu@20.04/stable\n" +
 		"- deploy application wordpress on ubuntu@20.04/stable\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
@@ -2571,24 +2571,6 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *tc.C) {
 		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "arm64",
-	})
-}
-
-func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallback(c *tc.C) {
-	handler := &bundleHandler{}
-
-	base := corebase.MustParseBaseFromString("ubuntu@20.04")
-	channel := "stable"
-	cons := constraints.Value{}
-
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
-	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
-		Source:       "charm-hub",
-		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
-		Risk:         "stable",
-		Architecture: "amd64",
 	})
 }
 

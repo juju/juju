@@ -53,4 +53,8 @@ const (
 	// provided space constraints do not exist or the container type is not
 	// supported.
 	InvalidMachineConstraints = errors.ConstError("invalid machine constraints")
+
+	// MachineCloudInstanceNotFound describes an error that occurs when
+	// a machine cloud instance does not satisfy some given constraints.
+	MachineConstraintViolation = errors.ConstError("machine constraint violation")
 )

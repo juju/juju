@@ -1492,6 +1492,8 @@ func (task *provisionerTask) setupToStartMachine(
 	}
 
 	// We default to amd64 unless otherwise specified.
+	// TODO: Use the machine platform to determine the architecture. We don't
+	// necessarily know we want amd64 if no constraint is specified.
 	agentArch := arch.DefaultArchitecture
 	if pInfo.Constraints.Arch != nil {
 		agentArch = *pInfo.Constraints.Arch

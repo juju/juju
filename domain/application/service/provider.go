@@ -540,8 +540,7 @@ func (s *ProviderService) RegisterCAASUnit(
 }
 
 // ResolveApplicationConstraints resolves given application constraints, taking
-// into account the model constraints, and any hard-coded default constraint values
-// that exist.
+// into account the model constraints.
 func (s *ProviderService) ResolveApplicationConstraints(
 	ctx context.Context, appCons coreconstraints.Value,
 ) (coreconstraints.Value, error) {
@@ -750,11 +749,17 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		// is passed in through constraints instead (or at least, after resolve we
 		// will have a value). Ensure we these two params don't contradict each other,
 		// and ensure they are set to the same value.
-		if origin.Platform.Architecture != "" && origin.Platform.Architecture != *cons.Arch {
+		if origin.Platform.Architecture != "" && cons.Arch != nil && origin.Platform.Architecture != *cons.Arch {
 			return "", application.AddIAASApplicationArg{}, nil,
 				errors.Errorf("arch in platform and constraints for application do not match")
 		}
-		origin.Platform.Architecture = *cons.Arch
+		if origin.Platform.Architecture == "" {
+			if cons.Arch != nil {
+				origin.Platform.Architecture = *cons.Arch
+			} else {
+				origin.Platform.Architecture = arch.DefaultArchitecture
+			}
+		}
 	}
 
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
@@ -800,11 +805,17 @@ func (s *ProviderService) makeCAASApplicationArg(
 	// is passed in through constraints instead (or at least, after resolve we
 	// will have a value). Ensure we these two params don't contradict each other,
 	// and ensure they are set to the same value.
-	if origin.Platform.Architecture != "" && origin.Platform.Architecture != *cons.Arch {
+	if origin.Platform.Architecture != "" && cons.Arch != nil && origin.Platform.Architecture != *cons.Arch {
 		return "", application.AddCAASApplicationArg{}, nil,
 			errors.Errorf("arch in platform and constraints for application do not match")
 	}
-	origin.Platform.Architecture = *cons.Arch
+	if origin.Platform.Architecture == "" {
+		if cons.Arch != nil {
+			origin.Platform.Architecture = *cons.Arch
+		} else {
+			origin.Platform.Architecture = arch.DefaultArchitecture
+		}
+	}
 
 	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, args)
 	if err != nil {
@@ -967,10 +978,6 @@ func (s *ProviderService) resolveApplicationConstraints(
 	mergedCons, err := validator.Merge(constraints.EncodeConstraints(modelCons), appCons)
 	if err != nil {
 		return coreconstraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
-	}
-
-	if !mergedCons.HasArch() {
-		mergedCons.Arch = ptr(arch.DefaultArchitecture)
 	}
 
 	return mergedCons, nil

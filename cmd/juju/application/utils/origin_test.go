@@ -53,7 +53,7 @@ func (*originSuite) TestMakePlatformWithNoArch(c *tc.C) {
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, tc.DeepEquals, corecharm.Platform{
-		Architecture: "amd64",
+		Architecture: "",
 		OS:           "ubuntu",
 		Channel:      "20.04",
 	})
@@ -66,7 +66,7 @@ func (*originSuite) TestMakePlatformWithEmptyBase(c *tc.C) {
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, tc.DeepEquals, corecharm.Platform{
-		Architecture: "amd64",
+		Architecture: "",
 		OS:           "",
 		Channel:      "",
 	})

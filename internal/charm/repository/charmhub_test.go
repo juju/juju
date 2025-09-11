@@ -367,6 +367,58 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *tc.C)
 	c.Check(foundResource.Path, tc.Equals, "wal-e.snap")
 	c.Check(foundResource.Revision, tc.Equals, 5)
 }
+
+func (s *charmHubRepositorySuite) TestResolveCorrectlySetsPlatformArchitecture(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectCharmRefreshArmArchitectureInstallOneFromChannel(c)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	rev := 16
+	expected := s.expectedCURL(curl, rev, arch.ARM64)
+
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Revision: &rev,
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+	}
+	arg := corecharm.CharmID{URL: curl, Origin: origin}
+
+	obtainedData, err := s.newClient(c).ResolveForDeploy(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(obtainedData.URL, tc.DeepEquals, expected)
+	c.Check(obtainedData.EssentialMetadata.ResolvedOrigin.Platform.Architecture, tc.Equals, "arm64")
+}
+
+func (s *charmHubRepositorySuite) TestResolveFailsIfRequestedArchIsNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectCharmRefreshArmArchitectureInstallOneFromChannel(c)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	rev := 16
+
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Revision: &rev,
+		Channel: &charm.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+		},
+	}
+	arg := corecharm.CharmID{URL: curl, Origin: origin}
+
+	_, err := s.newClient(c).ResolveForDeploy(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `requested architecture "amd64" not found in available architectures \[arm64\]`)
+}
+
 func (s *charmHubRepositorySuite) TestResolveWithBundles(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectBundleRefresh(c)
@@ -756,6 +808,55 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *tc.C, cfg charmhub.Refre
 					{
 						Name:         "ubuntu",
 						Architecture: "amd64",
+						Channel:      "20.04",
+					},
+				},
+				MetadataYAML: `
+name: wordpress
+summary: Blog engine
+description: Blog engine
+`[1:],
+				ConfigYAML: `
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+`[1:],
+			},
+			EffectiveChannel: "latest/stable",
+		}}, nil
+	})
+}
+
+func (s *charmHubRepositorySuite) expectCharmRefreshArmArchitectureInstallOneFromChannel(c *tc.C) {
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(),
+		"wordpress", "latest/stable", charmhub.RefreshBase{
+			Architecture: arch.DefaultArchitecture,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	s.expectCharmRefreshArmArchitecture(c, cfg)
+}
+
+func (s *charmHubRepositorySuite) expectCharmRefreshArmArchitecture(c *tc.C, cfg charmhub.RefreshConfig) {
+	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+		id := charmhub.ExtractConfigInstanceKey(cfg)
+		return []transport.RefreshResponse{{
+			ID:          "charmCHARMcharmCHARMcharmCHARM01",
+			InstanceKey: id,
+			Entity: transport.RefreshEntity{
+				Type:     transport.CharmType,
+				ID:       "charmCHARMcharmCHARMcharmCHARM01",
+				Name:     "wordpress",
+				Revision: 16,
+				Download: transport.Download{
+					HashSHA256: "SHA256 hash",
+					HashSHA384: "SHA384 hash",
+					Size:       42,
+					URL:        "http://example.com/wordpress-42",
+				},
+				//
+				Bases: []transport.Base{
+					{
+						Name:         "ubuntu",
+						Architecture: "arm64",
 						Channel:      "20.04",
 					},
 				},

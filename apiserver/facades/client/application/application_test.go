@@ -1321,7 +1321,12 @@ options:
 		Name:      "foo",
 		Resources: resources,
 	}
-	charm := internalcharm.NewCharmBase(metadata, nil, cfg, nil, nil)
+	b, err := internalcharm.ParseBase("ubuntu@20.04", corearch.DefaultArchitecture)
+	c.Assert(err, tc.ErrorIsNil)
+	manifest := &internalcharm.Manifest{
+		Bases: []internalcharm.Base{b},
+	}
+	charm := internalcharm.NewCharmBase(metadata, manifest, cfg, nil, nil)
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(charm, locator, true, nil)
 
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)

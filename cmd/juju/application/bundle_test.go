@@ -556,9 +556,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *tc.C) {
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    wordpressURL.String(),
-			Origin: commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
+			Origin: commoncharm.Origin{Source: "charm-hub", Base: base, Risk: "stable"},
 		},
-		CharmOrigin:     commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
+		CharmOrigin:     commoncharm.Origin{Source: "charm-hub", Base: base, Risk: "stable"},
 		ApplicationName: "wordpress",
 		NumUnits:        0,
 	}
@@ -676,9 +676,8 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *tc.C) {
 	)
 
 	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmHub,
-		Architecture: arch.DefaultArchitecture,
-		Base:         base.MakeDefaultBase("ubuntu", "22.04"),
+		Source: commoncharm.OriginCharmHub,
+		Base:   base.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	deployURL := *inURL
