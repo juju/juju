@@ -3118,13 +3118,17 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-// GetApplicationStorage retrieves the storage constraints currently defined for the specified applications in bulk.
+// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+// The length of ApplicationStorageGetResults always matches the length of Entities.
+// For example, the Nth result corresponds to the Nth entity in the request.
 func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetRequest) (params.ApplicationStorageGetResults, error) {
 	resp := params.ApplicationStorageGetResults{}
 	if err := api.checkCanRead(); err != nil {
 		return resp, errors.Trace(err)
 	}
 	res := make([]params.ApplicationStorageGetResult, len(args.Entities))
+	resp.ApplicationStorageGetResults = res
+
 	for i, entity := range args.Entities {
 		res[i] = params.ApplicationStorageGetResult{}
 
@@ -3145,10 +3149,6 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetReque
 			return resp, errors.Trace(err)
 		}
 
-		if storageConstraints == nil {
-			return resp, nil
-		}
-
 		sc := make(map[string]params.StorageConstraints)
 		for key, cons := range storageConstraints {
 			sc[key] = params.StorageConstraints{
@@ -3159,12 +3159,12 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetReque
 		}
 		res[i].StorageConstraints = sc
 	}
-	resp.ApplicationStorageGetResults = res
-
 	return resp, nil
 }
 
-// UpdateApplicationStorage updates the storage constraints for existing applications in bulk.
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// The length of ErrorResults always matches the length of Entities.
+// For example, the Nth result corresponds to the Nth entity in the request.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned:

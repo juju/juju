@@ -504,7 +504,7 @@ var addApplicationUnitTests = []struct {
 	}, {
 		about:      "direct machine assignment placement directive",
 		expected:   []string{"dummy/1", "dummy/2"},
-		placement:  []*instance.Placement{{Scope: "#", Directive: "1"}, {Scope: "loop", Directive: "1"}},
+		placement:  []*instance.Placement{{Scope: "#", Directive: "1"}, {Scope: "lxd", Directive: "1"}},
 		machineIds: []string{"1", "1/lxd/0"},
 	}, {
 		about:     "invalid placement directive",

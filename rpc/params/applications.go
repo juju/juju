@@ -709,31 +709,34 @@ type PendingResourceUpload struct {
 	Type string
 }
 
-// ApplicationStorageGetRequest represents the request parameters
-// to retrieve an application's storage constraints.
+// ApplicationStorageGetRequest defines the request parameters for
+// retrieving storage constraints for one or more applications.
 type ApplicationStorageGetRequest struct {
 	Entities []Entity `json:"entities"`
 }
 
-// ApplicationStorageGetResult contains the storage constraints
-// currently defined for an application.
+// ApplicationStorageGetResult holds the storage constraints and any
+// error information for a single application.
 type ApplicationStorageGetResult struct {
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints"`
 	ErrorResult        ErrorResult                   `json:"error"`
 }
 
-// ApplicationStorageGetResult contains the storage constraints
-// currently defined for an application.
+// ApplicationStorageGetResults aggregates the per-application results
+// for a bulk storage get request. The number and order of results should match
+// the number and order of input entities.
 type ApplicationStorageGetResults struct {
 	ApplicationStorageGetResults []ApplicationStorageGetResult `json:"results"`
 }
 
-// ApplicationStorageUpdateRequest holds the parameters for updating
-// application storage constraints.
+// ApplicationStorageUpdateRequest defines the parameters for updating
+// storage constraints on one or more applications in bulk.
 type ApplicationStorageUpdateRequest struct {
 	ApplicationStorageUpdates []ApplicationStorageUpdate `json:"storage-updates"`
 }
 
+// ApplicationStorageUpdate holds the desired storage constraint
+// updates for a single application.
 type ApplicationStorageUpdate struct {
 	Entity Entity `json:"entity"`
 
@@ -741,8 +744,9 @@ type ApplicationStorageUpdate struct {
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints"`
 }
 
-// ApplicationStorageUpdateResult contains the results for an
-// update request for application storage constraints.
+// ApplicationStorageUpdateResult aggregates the per-application errors
+// for a bulk storage update request. The number and order of elements
+// in Errors match the number and order of input ApplicationStorageUpdates.
 type ApplicationStorageUpdateResult struct {
 	Errors []ErrorResults `json:"errors"`
 }
