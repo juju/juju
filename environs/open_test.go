@@ -134,7 +134,7 @@ func (*OpenSuite) TestNewKubernetes(c *gc.C) {
 			Type: k8sconstants.CAASProviderType,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cloud environ provider provider.kubernetesEnvironProvider not valid")
+	c.Assert(err, gc.ErrorMatches, "cloud environ provider kubernetes.kubernetesEnvironProvider not valid")
 	c.Assert(env, gc.IsNil)
 }
 

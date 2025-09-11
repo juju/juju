@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package kubernetes
 
 import (
 	jujuclock "github.com/juju/clock"

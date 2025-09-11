@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package kubernetes
 
 import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
