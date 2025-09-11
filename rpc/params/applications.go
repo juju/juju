@@ -748,5 +748,5 @@ type ApplicationStorageUpdate struct {
 // for a bulk storage update request. The number and order of elements
 // in Errors match the number and order of input ApplicationStorageUpdates.
 type ApplicationStorageUpdateResult struct {
-	Errors []ErrorResults `json:"errors"`
+	Errors ErrorResults `json:"errors"`
 }

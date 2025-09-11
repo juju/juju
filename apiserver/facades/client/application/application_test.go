@@ -1805,7 +1805,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 			Count: &count,
 		},
 	}
-	s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
+	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				Entity: params.Entity{
@@ -1815,6 +1815,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 			},
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the application has newly defined storage constraints.
 	resp, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
@@ -1898,7 +1899,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 			Count: &count,
 		},
 	}
-	s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
+	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 
@@ -1915,6 +1916,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 			},
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the applications have newly defined storage constraints.
 	resp, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
@@ -2000,11 +2002,8 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameNotSupported(c *gc.C)
 		},
 	})
 
-	// Asserts that the application has 2 unsupported api server errors.
+	// Asserts that the application has 1 unsupported api server error.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(res.Errors), gc.Equals, 1)
-	firstAppErrResults := res.Errors[0].Results
-	c.Assert(len(firstAppErrResults), gc.Equals, 2)
-	c.Assert(firstAppErrResults[0].Error.Code, gc.Equals, params.CodeNotSupported)
-	c.Assert(firstAppErrResults[1].Error.Code, gc.Equals, params.CodeNotSupported)
+	c.Assert(len(res.Errors.Results), gc.Equals, 1)
+	c.Assert(res.Errors.Results[0].Error.Code, gc.Equals, params.CodeNotSupported)
 }

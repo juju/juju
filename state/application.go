@@ -3633,6 +3633,28 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
 	storageConstraintsKey := a.storageConstraintsKey()
 
+	// Validate that the charm supports the storage name that was passed in by the client.
+	ch, _, err := a.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	chMeta := ch.Meta()
+	if chMeta == nil || chMeta.Storage == nil {
+		return errors.NotFoundf("charm meta storage for %s", a.Name())
+	}
+
+	unsupportedStorageNames := make([]string, 0, len(cons))
+	for storageName := range cons {
+		if _, exists := chMeta.Storage[storageName]; !exists {
+			unsupportedStorageNames = append(unsupportedStorageNames, storageName)
+			continue
+		}
+	}
+
+	if len(unsupportedStorageNames) > 0 {
+		return errors.NotSupportedf("storage names %v with application name %s", unsupportedStorageNames, a.Name())
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)

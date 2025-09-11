@@ -2210,10 +2210,7 @@
                     "type": "object",
                     "properties": {
                         "errors": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResults"
-                            }
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     },
                     "additionalProperties": false,

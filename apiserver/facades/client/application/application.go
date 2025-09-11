@@ -3118,6 +3118,35 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
+func (api *APIBase) getOneApplicationStorage(entity params.Entity) (params.ApplicationStorageGetResult, error) {
+	res := params.ApplicationStorageGetResult{}
+	tag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	app, err := api.backend.Application(tag.Name)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+	storageConstraints, err := app.StorageConstraints()
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	sc := make(map[string]params.StorageConstraints)
+	for key, cons := range storageConstraints {
+		sc[key] = params.StorageConstraints{
+			Pool:  cons.Pool,
+			Size:  &cons.Size,
+			Count: &cons.Count,
+		}
+	}
+	res.StorageConstraints = sc
+
+	return res, nil
+}
+
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
 // The length of ApplicationStorageGetResults always matches the length of Entities.
 // For example, the Nth result corresponds to the Nth entity in the request.
@@ -3130,36 +3159,42 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetReque
 	resp.ApplicationStorageGetResults = res
 
 	for i, entity := range args.Entities {
-		res[i] = params.ApplicationStorageGetResult{}
-
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			res[i].ErrorResult.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		app, err := api.backend.Application(tag.Name)
+		appStorage, err := api.getOneApplicationStorage(entity)
 		if err != nil {
 			res[i].ErrorResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-
-		storageConstraints, err := app.StorageConstraints()
-		if err != nil {
-			return resp, errors.Trace(err)
-		}
-
-		sc := make(map[string]params.StorageConstraints)
-		for key, cons := range storageConstraints {
-			sc[key] = params.StorageConstraints{
-				Pool:  cons.Pool,
-				Size:  &cons.Size,
-				Count: &cons.Count,
-			}
-		}
-		res[i].StorageConstraints = sc
+		res[i] = appStorage
 	}
 	return resp, nil
+}
+
+func (api *APIBase) updateOneApplicationStorage(entity params.Entity, storageConstraints map[string]params.StorageConstraints) error {
+	tag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	app, err := api.backend.Application(tag.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	sCons := make(map[string]state.StorageConstraints)
+	for storageName, con := range storageConstraints {
+		sc := state.StorageConstraints{
+			Pool: con.Pool,
+		}
+		if con.Size != nil {
+			sc.Size = *con.Size
+		}
+		if con.Count != nil {
+			sc.Count = *con.Count
+		}
+		sCons[storageName] = sc
+	}
+
+	return app.UpdateStorageConstraints(sCons)
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
@@ -3167,7 +3202,7 @@ func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetReque
 // For example, the Nth result corresponds to the Nth entity in the request.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
-// The following apiserver codes can be returned:
+// The following apiserver codes can be returned in each ErrorResult:
 //   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
 func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ApplicationStorageUpdateResult, error) {
 	resp := params.ApplicationStorageUpdateResult{}
@@ -3175,73 +3210,14 @@ func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdat
 		return resp, errors.Trace(err)
 	}
 
-	res := make([]params.ErrorResults, len(args.ApplicationStorageUpdates))
-	resp.Errors = res
+	res := make([]params.ErrorResult, len(args.ApplicationStorageUpdates))
+	resp.Errors = params.ErrorResults{
+		Results: res,
+	}
 
 	for i, storageUpdate := range args.ApplicationStorageUpdates {
-		errResults := make([]params.ErrorResult, 0, len(storageUpdate.StorageConstraints))
-		res[i] = params.ErrorResults{
-			Results: errResults,
-		}
-
-		tag, err := names.ParseApplicationTag(storageUpdate.Entity.Tag)
-
-		if err != nil {
-			errResults = append(errResults, params.ErrorResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)})
-			continue
-		}
-
-		app, err := api.backend.Application(tag.Name)
-		if err != nil {
-			errResults = append(errResults, params.ErrorResult{Error: apiservererrors.ServerError(err)})
-			continue
-		}
-
-		// Validate that the charm supports the storage name that was passed in by the client.
-		ch, _, err := app.Charm()
-		if err != nil {
-			return resp, errors.Trace(err)
-		}
-		chMeta := ch.Meta()
-		if chMeta == nil || chMeta.Storage == nil {
-			return resp, errors.NotFoundf("charm meta storage for %s", tag.Name)
-		}
-
-		for storageName := range storageUpdate.StorageConstraints {
-			if _, exists := chMeta.Storage[storageName]; !exists {
-				serverErr := apiservererrors.ServerError(
-					errors.NotSupportedf("storage %s with application name %s", storageName, tag.Name),
-				)
-				errResults = append(errResults, params.ErrorResult{Error: serverErr})
-				continue
-			}
-		}
-
-		// Do not process application storage update for user errors for a particular application's storage update.
-		if len(errResults) > 0 {
-			res[i] = params.ErrorResults{
-				Results: errResults,
-			}
-			continue
-		}
-
-		sCons := make(map[string]state.StorageConstraints)
-		for storageName, con := range storageUpdate.StorageConstraints {
-			sc := state.StorageConstraints{
-				Pool: con.Pool,
-			}
-			if con.Size != nil {
-				sc.Size = *con.Size
-			}
-			if con.Count != nil {
-				sc.Count = *con.Count
-			}
-			sCons[storageName] = sc
-		}
-
-		if err = app.UpdateStorageConstraints(sCons); err != nil {
-			return resp, errors.Trace(err)
-		}
+		err := api.updateOneApplicationStorage(storageUpdate.Entity, storageUpdate.StorageConstraints)
+		res[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return resp, nil
