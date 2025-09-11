@@ -1047,7 +1047,7 @@ func (s *RunSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		go func() {
 			encodedLogs := make([]string, len(expectedLogs))
 			for n, log := range expectedLogs {
-				msg := coreoperation.ActionMessage{
+				msg := coreoperation.TaskLogMessage{
 					Message:   log,
 					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				}

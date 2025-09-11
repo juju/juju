@@ -10,20 +10,35 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 )
 
 // State describes the methods that a state implementation must provide to manage
 // operation for a model.
 type State interface {
+	// CancelTask attempts to cancel an enqueued task, identified by its
+	// ID.
+	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
 	// GetTask returns the task identified by its ID.
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object
 	// store.
 	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
-	// CancelTask attempts to cancel an enqueued task, identified by its
-	// ID.
-	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+	// GetTaskUUIDByID returns the task UUID for the given task ID.
+	GetTaskUUIDByID(ctx context.Context, taskID string) (string, error)
+	// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
+	// the page number.
+	GetPaginatedTaskLogsByUUID(
+		ctx context.Context,
+		taskUUID string,
+		page int,
+	) ([]internal.TaskLogMessage, int, error)
+	// NamespaceForTaskLogWatcher returns the name space for watching task
+	// log messages.
+	NamespaceForTaskLogWatcher() string
 }
 
 // Service provides the API for managing operation
@@ -35,11 +50,56 @@ type Service struct {
 }
 
 // NewService returns a new Service for managing operation
-func NewService(st State, clock clock.Clock, logger logger.Logger, objectStoreGetter objectstore.ModelObjectStoreGetter) *Service {
+func NewService(
+	st State,
+	clock clock.Clock,
+	logger logger.Logger,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
+) *Service {
 	return &Service{
 		st:                st,
 		clock:             clock,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
+	}
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue.
+	NewNamespaceMapperWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+}
+
+// WatchableService defines a service for interacting with the underlying state
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new Service for interacting with the
+// underlying state and the ability to create watchers.
+func NewWatchableService(
+	st State,
+	clock clock.Clock,
+	logger logger.Logger,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	wf WatcherFactory,
+) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st:                st,
+			clock:             clock,
+			objectStoreGetter: objectStoreGetter,
+			logger:            logger,
+		},
+		watcherFactory: wf,
 	}
 }

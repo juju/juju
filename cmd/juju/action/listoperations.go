@@ -372,7 +372,7 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 		if len(task.Log) > 0 {
 			logs := make([]string, len(task.Log))
 			for i, msg := range task.Log {
-				logs[i] = formatLogMessage(coreoperation.ActionMessage{
+				logs[i] = formatLogMessage(coreoperation.TaskLogMessage{
 					Timestamp: msg.Timestamp,
 					Message:   msg.Message,
 				}, false, utc, false)

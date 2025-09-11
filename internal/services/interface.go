@@ -147,7 +147,7 @@ type ModelDomainServices interface {
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 	// Operation returns the operation service.
-	Operation() *operationservice.Service
+	Operation() *operationservice.WatchableService
 	// Proxy returns the proxy service.
 	Proxy() *proxyservice.Service
 	// UnitState returns the service for persisting and retrieving remote unit
