@@ -129,7 +129,7 @@ func (s *localBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 
 	bakery := LocalOfferBakery{}
 	m := bakery.InferDeclaredFromMacaroon(macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"})
-	c.Check(m, tc.DeepEquals, map[string]string{})
+	c.Check(m, tc.DeepEquals, DeclaredValues{})
 }
 
 func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
@@ -166,7 +166,7 @@ func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 			relationKey:    "mediawiki:db mysql:server",
 			offerUUIDKey:   "mysql-uuid",
 		},
-		map[string]string{},
+		DeclaredValues{},
 		op,
 		bakery.LatestVersion,
 	)

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // AccessService validates access for user permissions.
@@ -42,17 +43,24 @@ type OfferBakery interface {
 	GetRemoteRelationCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat
 	// InferDeclared retrieves any declared information from
 	// the given macaroons and returns it as a key-value map.
-	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) map[string]string
+	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) crossmodelbakery.DeclaredValues
 	// NewMacaroon creates a new macaroon for the given version, caveats and ops.
 	NewMacaroon(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)
 	// CreateDischargeMacaroon creates a discharge macaroon.
 	CreateDischargeMacaroon(
 		ctx context.Context,
 		username string,
-		requiredValues, declaredValues map[string]string,
+		requiredValues map[string]string,
+		declaredValues crossmodelbakery.DeclaredValues,
 		op bakery.Op,
 		version bakery.Version,
 	) (*bakery.Macaroon, error)
+	// GetOfferRequiredValues returns the required values for the specified
+	// offer access.
+	GetOfferRequiredValues(sourceModelUUID, offerUUID string) (map[string]string, error)
+	// GetRelationRequiredValues returns the required values for the specified
+	// relation access.
+	GetRelationRequiredValues(sourceModelUUID, offerUUID, relation string) (map[string]string, error)
 }
 
 // AuthContext is used to validate macaroons used to access
@@ -217,8 +225,11 @@ func hasAccess(ctx context.Context, userAccess common.UserAccessFunc, userTag na
 }
 
 const (
+	// consumeOp is the action used to consume an offer.
 	consumeOp = "consume"
-	relateOp  = "relate"
+
+	// relateOp is the action used to relate to a remote relation.
+	relateOp = "relate"
 )
 
 // NewCMRAuthorizer returns a bakery.OpsAuthorizer that authorizes
@@ -264,26 +275,28 @@ type Authenticator struct {
 
 // CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
 func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
-	requiredValues := map[string]string{
-		sourcemodelKey: sourceModelUUID,
-		offeruuidKey:   offerUUID,
+	requiredValues, err := a.bakery.GetOfferRequiredValues(sourceModelUUID, offerUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting required values for offer access: %w", err)
 	}
-	return a.checkMacaroons(ctx, mac, version, requiredValues, crossModelConsumeOp(offerUUID))
+	return a.checkMacaroons(ctx, mac, version, crossModelConsumeOp(offerUUID), requiredValues)
 }
 
 // CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
 func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
-	requiredValues := map[string]string{
-		sourcemodelKey: sourceModelUUID,
-		offeruuidKey:   offerUUID,
-		relationKey:    relationTag.Id(),
+	requiredValues, err := a.bakery.GetRelationRequiredValues(sourceModelUUID, offerUUID, relationTag.Id())
+	if err != nil {
+		return internalerrors.Errorf("getting required values for relation access: %w", err)
 	}
-	_, err := a.checkMacaroons(ctx, mac, version, requiredValues, crossModelRelateOp(relationTag.Id()))
+	_, err = a.checkMacaroons(ctx, mac, version, crossModelRelateOp(relationTag.Id()), requiredValues)
 	return err
 }
 
 func (a *Authenticator) checkMacaroons(
-	ctx context.Context, mac macaroon.Slice, version bakery.Version, requiredValues map[string]string, op bakery.Op,
+	ctx context.Context,
+	mac macaroon.Slice,
+	version bakery.Version, op bakery.Op,
+	requiredValues map[string]string,
 ) (map[string]string, error) {
 	a.logger.Debugf(ctx, "check %d macaroons with required attrs: %v", len(mac), requiredValues)
 	for _, m := range mac {
@@ -295,20 +308,16 @@ func (a *Authenticator) checkMacaroons(
 	declared := a.bakery.InferDeclaredFromMacaroon(mac, requiredValues)
 	a.logger.Debugf(ctx, "check macaroons with declared attrs: %v", declared)
 
-	username, ok := declared[usernameKey]
+	username, ok := declared.UserName()
 	if !ok {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	relation := declared[relationKey]
-	sourceModelUUID := declared[sourcemodelKey]
-	offerUUID := declared[offeruuidKey]
-
 	ai, err := bakery.AllowMacaroonOp(ctx, mac, op)
 	if err == nil && len(ai.Conditions()) > 0 {
-		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
+		if err = a.checkMacaroonCaveats(op, declared); err == nil {
 			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
-			return declared, nil
+			return declared.AsMap(), nil
 		}
 		if _, ok := err.(*bakery.VerificationError); !ok {
 			return nil, apiservererrors.ErrPerm
@@ -321,7 +330,7 @@ func (a *Authenticator) checkMacaroons(
 	}
 	a.logger.Debugf(ctx, "generating discharge macaroon because: %v", cause)
 
-	m, err := a.bakery.CreateDischargeMacaroon(ctx, a.bakery.OfferAccessEndpoint(), username, requiredValues, declared, op, version)
+	m, err := a.bakery.CreateDischargeMacaroon(ctx, username, requiredValues, declared, op, version)
 	if err != nil {
 		err = errors.Annotate(err, "cannot create macaroon")
 		a.logger.Errorf(ctx, "cannot create cross model macaroon: %v", err)
@@ -335,24 +344,26 @@ func (a *Authenticator) checkMacaroons(
 	}
 }
 
-func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceModelUUID, offerUUID string) error {
+func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, declared crossmodelbakery.DeclaredValues) error {
 	var entity string
 
 	switch op.Action {
 	case consumeOp:
-		if sourceModelUUID == "" {
+		if declared.SourceModelUUID() == "" {
 			return &bakery.VerificationError{Reason: errors.New("missing source model UUID")}
 		}
+		offerUUID := declared.OfferUUID()
 		if offerUUID == "" {
 			return &bakery.VerificationError{Reason: errors.New("missing offer UUID")}
 		}
 		entity = offerUUID
 
 	case relateOp:
-		if relationId == "" {
+		relationKey := declared.RelationKey()
+		if relationKey == "" {
 			return &bakery.VerificationError{Reason: errors.New("missing relation")}
 		}
-		entity = relationId
+		entity = relationKey
 
 	default:
 		return &bakery.VerificationError{Reason: errors.Errorf("invalid action %q", op.Action)}

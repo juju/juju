@@ -51,6 +51,62 @@ type Oven interface {
 	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
 }
 
+// DeclaredValues represents the declared values encoded in a macaroon.
+type DeclaredValues struct {
+	userName        *string
+	sourceModelUUID string
+	offerUUID       string
+	relationKey     string
+	additional      map[string]string
+}
+
+// User returns the user if set.
+func (d DeclaredValues) UserName() (string, bool) {
+	if d.userName == nil {
+		return "", false
+	}
+	return *d.userName, true
+}
+
+// SourceModelUUID returns the source model UUID.
+func (d DeclaredValues) SourceModelUUID() string {
+	return d.sourceModelUUID
+}
+
+// OfferUUID returns the offer UUID.
+func (d DeclaredValues) OfferUUID() string {
+	return d.offerUUID
+}
+
+// RelationKey returns the relation key.
+func (d DeclaredValues) RelationKey() string {
+	return d.relationKey
+}
+
+// Additional returns any additional declared values.
+func (d DeclaredValues) AsMap() map[string]string {
+	out := make(map[string]string)
+	if d.userName != nil {
+		out[usernameKey] = *d.userName
+	}
+	if d.sourceModelUUID != "" {
+		out[sourceModelKey] = d.sourceModelUUID
+	}
+	if d.offerUUID != "" {
+		out[offerUUIDKey] = d.offerUUID
+	}
+	if d.relationKey != "" {
+		out[relationKey] = d.relationKey
+	}
+	for k, v := range d.additional {
+		if v == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
 // OfferAccessDetails represents the details encoded in an offer permission
 // caveat.
 type OfferAccessDetails struct {
@@ -104,4 +160,43 @@ func (o *baseBakery) ParseCaveat(caveat string) (OfferAccessDetails, error) {
 	}
 
 	return OfferAccessDetails(details), nil
+}
+
+// GetOfferRequiredValues returns the required values for the specified
+// offer access.
+func (o *baseBakery) GetOfferRequiredValues(sourceModelUUID, offerUUID string) (map[string]string, error) {
+	if sourceModelUUID == "" {
+		return nil, internalerrors.New("source model uuid is required").Add(coreerrors.NotValid)
+	}
+	if offerUUID == "" {
+		return nil, internalerrors.New("offer uuid is required").Add(coreerrors.NotValid)
+	}
+	return map[string]string{
+		sourceModelKey: sourceModelUUID,
+		offerUUIDKey:   offerUUID,
+	}, nil
+}
+
+// GetRelationRequiredValues returns the required values for the specified
+// relation access.
+func (o *baseBakery) GetRelationRequiredValues(sourceModelUUID, offerUUID, relationKey string) (map[string]string, error) {
+	if sourceModelUUID == "" {
+		return nil, internalerrors.New("source model uuid is required").Add(coreerrors.NotValid)
+	}
+	if offerUUID == "" {
+		return nil, internalerrors.New("offer uuid is required").Add(coreerrors.NotValid)
+	}
+	if relationKey == "" {
+		return nil, internalerrors.New("relation key is required").Add(coreerrors.NotValid)
+	}
+
+	return map[string]string{
+		sourceModelKey: sourceModelUUID,
+		offerUUIDKey:   offerUUID,
+		relationKey:    relationKey,
+	}, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

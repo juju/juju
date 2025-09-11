@@ -31,7 +31,7 @@ func TestJAASBakerySuite(t *testing.T) {
 	tc.Run(t, &jaasBakerySuite{})
 }
 
-func (s *localBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
+func (s *jaasBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	checker := checkers.New(internalmacaroon.MacaroonNamespace)
@@ -138,7 +138,7 @@ func (s *jaasBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 		logger: loggertesting.WrapCheckLog(c),
 	}
 	m := bakery.InferDeclaredFromMacaroon(macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"})
-	c.Check(m, tc.DeepEquals, map[string]string{
+	c.Check(m, tc.DeepEquals, DeclaredValues{
 		relationKey: "mediawiki:db mysql:server",
 	})
 }
@@ -163,32 +163,40 @@ func (s *jaasBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 		return expectedMac, nil
 	})
 
-	localBakery := JAASOfferBakery{
+	jaasBakery := JAASOfferBakery{
 		oven:     s.oven,
 		endpoint: "http://offer-access",
 		clock:    s.clock,
 	}
 
-	mac, err := localBakery.CreateDischargeMacaroon(
+	mac, err := jaasBakery.CreateDischargeMacaroon(
 		c.Context(),
 		"mary",
 		map[string]string{
+			usernameKey:    "mary",
 			sourceModelKey: s.modelUUID.String(),
 			relationKey:    "mediawiki:db mysql:server",
 			offerUUIDKey:   "mysql-uuid",
 		},
-		map[string]string{},
+		DeclaredValues{
+			userName:        ptr("mary"),
+			sourceModelUUID: s.modelUUID.String(),
+			relationKey:     "mediawiki:db mysql:server",
+		},
 		op,
 		bakery.LatestVersion,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mac, tc.Equals, expectedMac)
 
-	c.Check(caveats, tc.DeepEquals, []checkers.Caveat{
+	c.Check(caveats, tc.SameContents, []checkers.Caveat{
 		{
 			Location:  "http://offer-access",
 			Condition: "is-consumer user-mary mysql-uuid",
 		},
+		checkers.DeclaredCaveat(sourceModelKey, s.modelUUID.String()),
+		checkers.DeclaredCaveat(usernameKey, "mary"),
+		checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"),
 		checkers.TimeBeforeCaveat(now.Add(offerPermissionExpiryTime)),
 	})
 }

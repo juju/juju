@@ -90,7 +90,7 @@ func (o *JAASOfferBakery) GetRemoteRelationCaveats(offerUUID, sourceModelUUID, u
 }
 
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
-func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
+func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) DeclaredValues {
 	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
 
 	o.logger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
@@ -103,7 +103,30 @@ func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, required
 			declared[relationKey] = relation
 		}
 	}
-	return declared
+
+	additional := make(map[string]string)
+
+	for k, v := range declared {
+		switch k {
+		case sourceModelKey, usernameKey, offerUUIDKey, relationKey:
+			// These are handled below.
+		default:
+			additional[k] = v
+		}
+	}
+
+	var userName *string
+	if user, ok := declared[usernameKey]; ok {
+		userName = &user
+	}
+
+	return DeclaredValues{
+		userName:        userName,
+		sourceModelUUID: declared[sourceModelKey],
+		offerUUID:       declared[offerUUIDKey],
+		relationKey:     declared[relationKey],
+		additional:      additional,
+	}
 }
 
 // NewMacaroon creates a new macaroon for the given version, caveats and ops.
@@ -114,7 +137,8 @@ func (o *JAASOfferBakery) NewMacaroon(ctx context.Context, version bakery.Versio
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *JAASOfferBakery) CreateDischargeMacaroon(
 	ctx context.Context, username string,
-	requiredValues, declaredValues map[string]string,
+	requiredValues map[string]string,
+	declaredValues DeclaredValues,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
 	// TODO (stickupkid): If these are required values we should check that
@@ -131,8 +155,9 @@ func (o *JAASOfferBakery) CreateDischargeMacaroon(
 		Condition: strings.Join(conditionParts, " "),
 	}
 
-	declaredCaveats := make([]checkers.Caveat, 0, len(declaredValues))
-	for k, v := range declaredValues {
+	values := declaredValues.AsMap()
+	declaredCaveats := make([]checkers.Caveat, 0, len(values))
+	for k, v := range values {
 		declaredCaveats = append(declaredCaveats, checkers.DeclaredCaveat(k, v))
 	}
 
