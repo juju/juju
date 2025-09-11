@@ -164,8 +164,11 @@ CREATE TABLE storage_attachment (
     REFERENCES life (id)
 );
 
+-- Order of columns is important for this index. The storage_instance_uuid MUST
+-- come first so that an index exists for this column. A seperate index
+-- idx_storage_attachment_unit already exists for the unit_uuid.
 CREATE UNIQUE INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid
-ON storage_attachment (unit_uuid, storage_instance_uuid);
+ON storage_attachment (storage_instance_uuid, unit_uuid);
 
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_storage_attachment_unit
