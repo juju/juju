@@ -401,6 +401,86 @@ AND    net_node_uuid = $netNodeUUID.uuid
 	return domainstorageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
 }
 
+// GetVolumeAttachmentPlanUUIDForVolumeNetNode returns the volume attachment
+// uuid for the supplied volume uuid which is attached to the given net node
+// uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// supplied uuid.
+// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
+// net node uuid.
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the supplied values.
+func (st *State) GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+	ctx context.Context,
+	vUUID domainstorageprovisioning.VolumeUUID,
+	nodeUUID domainnetwork.NetNodeUUID,
+) (domainstorageprovisioning.VolumeAttachmentPlanUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		vUUIDInput   = entityUUID{UUID: vUUID.String()}
+		netNodeInput = netNodeUUID{UUID: nodeUUID.String()}
+		dbVal        entityUUID
+	)
+
+	uuidQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume_attachment_plan
+WHERE  storage_volume_uuid = $entityUUID.uuid
+AND    net_node_uuid = $netNodeUUID.uuid
+	`,
+		vUUIDInput, netNodeInput,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeExists(ctx, tx, vUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if volume %q exists: %w", vUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"volume %q does not exist", vUUID,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+
+		exists, err = st.checkNetNodeExists(ctx, tx, nodeUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking net node uuid %q exists: %w", nodeUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", nodeUUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		err = tx.Query(ctx, uuidQuery, vUUIDInput, netNodeInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment plan does not exist",
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return domainstorageprovisioning.VolumeAttachmentPlanUUID(dbVal.UUID), nil
+}
+
 // GetVolumeAttachment returns the volume attachment for the supplied volume
 // attachment uuid.
 //

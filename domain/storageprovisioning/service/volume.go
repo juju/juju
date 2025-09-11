@@ -96,6 +96,15 @@ type VolumeState interface {
 		domainnetwork.NetNodeUUID,
 	) (storageprovisioning.VolumeAttachmentUUID, error)
 
+	// GetVolumeAttachmentPlanUUIDForVolumeNetNode returns the volume attachment
+	// uuid for the supplied volume uuid which is attached to the given net node
+	// uuid.
+	GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+		context.Context,
+		storageprovisioning.VolumeUUID,
+		domainnetwork.NetNodeUUID,
+	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+
 	// GetVolumeAttachment returns the volume attachment for the supplied volume
 	// attachment uuid.
 	GetVolumeAttachment(
@@ -337,17 +346,38 @@ func (s *Service) GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 	volumeID string,
 	machineUUID coremachine.UUID,
 ) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineUUID.Validate(); err != nil {
-		return "", err
+		return "", errors.Capture(err)
 	}
 
-	_, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
+	netNodeUUID, err := s.st.GetMachineNetNodeUUID(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	// TODO (tlm): finish implementing the rest of this func.
-	return "", storageprovisioningerrors.VolumeAttachmentPlanNotFound
+	volumeUUID, err := s.st.GetVolumeUUIDForID(ctx, volumeID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	vapUUID, err := s.st.GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+		ctx, volumeUUID, netNodeUUID)
+	if errors.Is(err, networkerrors.NetNodeNotFound) {
+		return "", errors.Errorf(
+			"machine %q does not exist", machineUUID.String(),
+		).Add(machineerrors.MachineNotFound)
+	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+		return "", errors.Errorf(
+			"volume %q does not exist", volumeID,
+		).Add(storageprovisioningerrors.VolumeNotFound)
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return vapUUID, nil
 }
 
 // GetVolumeAttachmentUUIDForVolumeIDMachine returns the volume attachment
