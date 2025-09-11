@@ -87,7 +87,6 @@ func PlaceMachine(
 		if err != nil {
 			return "", nil, errors.Capture(err)
 		}
-
 		childMachineUUID, err := coremachine.NewUUID()
 		if err != nil {
 			return "", nil, errors.Capture(err)
@@ -671,6 +670,10 @@ func acquireParentMachineForContainer(
 		machineUUID, err := getMachineUUIDFromName(ctx, tx, preparer, machineName)
 		if err != nil {
 			return "", "", errors.Capture(err)
+		}
+		err = validateMachineSatisfiesConstraints(ctx, tx, preparer, machineUUID.String(), args.constraints)
+		if err != nil {
+			return "", "", errors.Errorf("validating machine placement: %w", err)
 		}
 		return machineUUID, machineName, nil
 	}

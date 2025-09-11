@@ -362,7 +362,8 @@ func (s *placementSuite) TestPlaceMachineExistingMachineInvalidArch(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Arrange: Mark the machine hw characteristics as arm64.
+	// Arrange: Mark the machine hw characteristics as arm64. This is needed
+	// since this is only filled in when the instance is created.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = "arm64"`)
 		return err
@@ -465,6 +466,49 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 		machine.Name("0"),
 		machine.Name("0/lxd/0"),
 	})
+}
+
+func (s *placementSuite) TestPlaceNetNodeMachinesContainerInvalidArch(c *tc.C) {
+	// Arrange: create a machine with an arch of arm64.
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04",
+				Architecture: architecture.ARM64,
+			},
+		})
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Arrange: Mark the machine hw characteristics as arm64. This is needed
+	// since this is only filled in when the instance is created.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = "arm64"`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: place something in a container on the machine, with a constrained arch of amd64.
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+				Directive: "0",
+			},
+			Constraints: constraints.Constraints{
+				Arch: ptr(arch.AMD64),
+			},
+		})
+		return err
+	})
+	// Assert: the placement fails with an error.
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineConstraintViolation)
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNotFound(c *tc.C) {
