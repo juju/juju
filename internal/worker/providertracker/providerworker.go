@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -338,7 +337,7 @@ func (w *providerWorker) initTrackerWorker(ctx context.Context, namespace string
 		// LoggerContext for the provider worker, this is then used for all
 		// logging.
 		var logger logger.Logger
-		modelUUID := model.UUID(namespace)
+		modelUUID := coremodel.UUID(namespace)
 		if err := modelUUID.Validate(); err == nil {
 			loggerContext, err := w.config.LogSinkGetter.GetLoggerContext(ctx, modelUUID)
 			if err != nil {
