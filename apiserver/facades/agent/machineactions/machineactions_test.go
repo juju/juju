@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -45,7 +46,7 @@ func (s *facadeSuite) TestBeginActions(c *tc.C) {
 	s.operationService.EXPECT().StartTask(gomock.Any(), "47").Return(nil)
 
 	// Act
-	results := s.getFacade(c).BeginActions(c.Context(), params.Entities{Entities: []params.Entity{
+	results := s.getFacade().BeginActions(c.Context(), params.Entities{Entities: []params.Entity{
 		{Tag: "action-42"},
 		{Tag: "action-47"},
 	}})
@@ -72,7 +73,7 @@ func (s *facadeSuite) TestFinishActions(c *tc.C) {
 	s.operationService.EXPECT().FinishTask(gomock.Any(), taskTwo).Return(nil)
 
 	// Act
-	results := s.getFacade(c).FinishActions(c.Context(), params.ActionExecutionResults{Results: []params.ActionExecutionResult{
+	results := s.getFacade().FinishActions(c.Context(), params.ActionExecutionResults{Results: []params.ActionExecutionResult{
 		{ActionTag: "action-42", Status: status.Completed.String()},
 		{ActionTag: "action-47", Status: status.Cancelled.String()},
 	}})
@@ -88,7 +89,7 @@ func (s *facadeSuite) TestAuthTaskID(c *tc.C) {
 	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return(s.authTag.Id(), nil)
 
 	// Act
-	id, err := s.getFacade(c).authTaskID(c.Context(), "action-42")
+	id, err := s.getFacade().authTaskID(c.Context(), "action-42")
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -102,7 +103,7 @@ func (s *facadeSuite) TestAuthTaskIDWrongMachineErrPerm(c *tc.C) {
 	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("16", nil)
 
 	// Act
-	_, err := s.getFacade(c).authTaskID(c.Context(), "action-42")
+	_, err := s.getFacade().authTaskID(c.Context(), "action-42")
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -115,13 +116,70 @@ func (s *facadeSuite) TestAuthTaskIDUnitErrPerm(c *tc.C) {
 	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("ubuntu/7", nil)
 
 	// Act
-	_, err := s.getFacade(c).authTaskID(c.Context(), "action-42")
+	_, err := s.getFacade().authTaskID(c.Context(), "action-42")
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *facadeSuite) getFacade(c *tc.C) *Facade {
+func (s *facadeSuite) TestActions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	tagOne := names.NewActionTag("42")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
+	taskOne := operation.TaskArgs{
+		ActionName: "one",
+		Parameters: map[string]interface{}{"foo": "bar"},
+	}
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(taskOne, nil)
+
+	tagTwo := names.NewActionTag("47")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagTwo.Id()).Return(s.authTag.Id(), nil)
+	taskTwo := operation.TaskArgs{
+		ActionName: "two",
+		Parameters: map[string]interface{}{"baz": "bar"},
+	}
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagTwo.Id()).Return(taskTwo, nil)
+
+	// Act
+	results := s.getFacade().Actions(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: tagOne.String()},
+		{Tag: tagTwo.String()},
+	}})
+
+	// Assert
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Check(results.Results[0].Action, tc.DeepEquals, &params.Action{
+		Name:       "one",
+		Parameters: map[string]interface{}{"foo": "bar"},
+	})
+	c.Check(results.Results[1].Action, tc.DeepEquals, &params.Action{
+		Name:       "two",
+		Parameters: map[string]interface{}{"baz": "bar"},
+	})
+}
+
+func (s *facadeSuite) TestActionsTaskNotPending(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	tagOne := names.NewActionTag("42")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
+
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(operation.TaskArgs{}, operationerrors.TaskNotPending)
+
+	// Act
+	results := s.getFacade().Actions(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: tagOne.String()},
+	}})
+
+	// Assert
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "action no longer available")
+}
+
+func (s *facadeSuite) getFacade() *Facade {
 	return &Facade{
 		operationService: s.operationService,
 		accessMachine: func(tag names.Tag) bool {
