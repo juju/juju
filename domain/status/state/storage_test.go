@@ -54,14 +54,6 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.modelState = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-type charmStorageArg struct {
-	name     string
-	kind     storage.StorageKind
-	min, max int
-	readOnly bool
-	location string
-}
-
 func (s *storageSuite) assertFilesystemStatus(
 	c *tc.C,
 	filesystemUUID storageprovisioning.FilesystemUUID,
