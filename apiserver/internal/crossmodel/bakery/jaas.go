@@ -1,0 +1,173 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package bakery
+
+import (
+	"context"
+	"net/http"
+	"strings"
+
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/clock"
+	"github.com/juju/names/v6"
+	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/juju/apiserver/bakeryutil"
+	"github.com/juju/juju/core/logger"
+	internalerrors "github.com/juju/juju/internal/errors"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
+)
+
+// HTTPClient is implemented by HTTP client packages to make an HTTP request.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// JAASOfferBakery is a bakery for JAAS offer access.
+type JAASOfferBakery struct {
+	baseBakery
+	oven   Oven
+	clock  clock.Clock
+	logger logger.Logger
+}
+
+// NewJAASOfferBakery returns a new JAASOfferBakery.
+func NewJAASOfferBakery(
+	keyPair *bakery.KeyPair,
+	location, endpoint string,
+	backingStore BakeryStore,
+	checker bakery.FirstPartyCaveatChecker,
+	authorizer bakery.OpsAuthorizer,
+	httpClient HTTPClient,
+	clock clock.Clock,
+	logger logger.Logger,
+) (*JAASOfferBakery, error) {
+	store := internalmacaroon.NewExpirableStorage(backingStore, offerPermissionExpiryTime, clock)
+
+	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
+	jaasOfferBakery := bakery.New(bakery.BakeryParams{
+		Location:      location,
+		Locator:       externalKeyLocator,
+		RootKeyStore:  store,
+		Checker:       checker,
+		OpsAuthorizer: authorizer,
+	})
+
+	bakery := &bakeryutil.ExpirableStorageBakery{
+		Bakery:   jaasOfferBakery,
+		Location: location,
+		Locator:  externalKeyLocator,
+		Store:    store,
+		Key:      keyPair,
+	}
+
+	return &JAASOfferBakery{
+		oven:   bakery,
+		clock:  clock,
+		logger: logger,
+	}, nil
+}
+
+// GetConsumeOfferCaveats returns the caveats for consuming an offer.
+func (o *JAASOfferBakery) GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat {
+	// We do not declare the offer UUID here since we will discharge the
+	// macaroon to JAAS to verify the offer access for JAAS flow.
+	return []checkers.Caveat{
+		checkers.TimeBeforeCaveat(o.clock.Now().Add(offerPermissionExpiryTime)),
+		checkers.DeclaredCaveat(sourceModelKey, sourceModelUUID),
+		checkers.DeclaredCaveat(usernameKey, username),
+	}
+}
+
+// InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
+func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
+	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+
+	o.logger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
+
+	// We only need to inject relationKey for JAAS flow because the relation key
+	// injected in juju discharge process will not be injected in JAAS discharge
+	// endpoint.
+	if _, ok := declared[relationKey]; !ok {
+		if relation, ok := requiredValues[relationKey]; ok {
+			declared[relationKey] = relation
+		}
+	}
+	return declared
+}
+
+// CreateDischargeMacaroon creates a discharge macaroon.
+func (o *JAASOfferBakery) CreateDischargeMacaroon(
+	ctx context.Context, accessEndpoint, username string,
+	requiredValues, declaredValues map[string]string,
+	op bakery.Op, version bakery.Version,
+) (*bakery.Macaroon, error) {
+	// TODO (stickupkid): If these are required values we should check that
+	// they're not empty.
+	requiredOffer := requiredValues[offerUUIDKey]
+	conditionParts := []string{
+		"is-consumer",
+		names.NewUserTag(username).String(),
+		requiredOffer,
+	}
+
+	conditionCaveat := checkers.Caveat{
+		Location:  accessEndpoint,
+		Condition: strings.Join(conditionParts, " "),
+	}
+
+	declaredCaveats := make([]checkers.Caveat, 0, len(declaredValues))
+	for k, v := range declaredValues {
+		declaredCaveats = append(declaredCaveats, checkers.DeclaredCaveat(k, v))
+	}
+
+	return o.oven.NewMacaroon(
+		ctx,
+		version,
+		append(
+			[]checkers.Caveat{
+				conditionCaveat,
+				checkers.TimeBeforeCaveat(o.clock.Now().Add(offerPermissionExpiryTime)),
+			},
+			declaredCaveats...,
+		), op,
+	)
+}
+
+type externalPublicKeyLocator struct {
+	store          *bakery.ThirdPartyStore
+	accessEndpoint string
+	httpClient     HTTPClient
+	logger         logger.Logger
+}
+
+func newExternalPublicKeyLocator(accessEndpoint string, httpClient HTTPClient, logger logger.Logger) *externalPublicKeyLocator {
+	return &externalPublicKeyLocator{
+		store:          bakery.NewThirdPartyStore(),
+		accessEndpoint: accessEndpoint,
+		httpClient:     httpClient,
+		logger:         logger,
+	}
+}
+
+// ThirdPartyInfo implements bakery.PublicKeyLocator.
+// It first checks the local store for the public key, and if not found,
+// it fetches the public key from the access endpoint and caches it.
+func (e *externalPublicKeyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+	if info, err := e.store.ThirdPartyInfo(ctx, e.accessEndpoint); err == nil {
+		return info, nil
+	}
+
+	info, err := httpbakery.ThirdPartyInfoForLocation(ctx, e.httpClient, e.accessEndpoint)
+	if err != nil {
+		return info, internalerrors.Capture(err)
+	}
+
+	e.logger.Tracef(ctx, "got third party info %#v from %q", info, e.accessEndpoint)
+
+	e.store.AddInfo(e.accessEndpoint, info)
+	return info, nil
+}

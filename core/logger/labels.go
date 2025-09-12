@@ -41,4 +41,7 @@ const (
 
 	// STATUS_HISTORY defines a common tag for dealing with status history.
 	STATUS_HISTORY Tag = "status-history"
+
+	// MACAROON defines a common tag for dealing with macaroons.
+	MACAROON Tag = "macaroon"
 )
