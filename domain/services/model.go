@@ -554,7 +554,10 @@ func (s *ModelServices) CrossModelRelation() *crossmodelrelationservice.Watchabl
 // tasks for the current model.
 func (s *ModelServices) Operation() *operationservice.WatchableService {
 	return operationservice.NewWatchableService(
-		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("operation")),
+		operationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
+			s.clock,
+			s.logger.Child("operation.state"),
+		),
 		s.clock,
 		s.logger.Child("operation"),
 		s.modelObjectStoreGetter,
