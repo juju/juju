@@ -3629,6 +3629,68 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
+// UpdateStorageConstraints updates the storage constraints for the application.
+func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
+	if len(cons) == 0 {
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+		}
+
+		storageConstraintsKey := a.storageConstraintsKey()
+
+		// Validate that the charm supports the storage name that was passed in by the client.
+		ch, _, err := a.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Accumulate unsupported storage names passed in by the client and reflect back to client for all unsupported storage names.
+		unsupportedStorageNames := make([]string, 0, len(cons))
+		for storageName := range cons {
+			if _, exists := ch.Meta().Storage[storageName]; !exists {
+				unsupportedStorageNames = append(unsupportedStorageNames, storageName)
+				continue
+			}
+		}
+
+		if len(unsupportedStorageNames) > 0 {
+			return nil, errors.NotSupportedf("storage names %v with application name %s", unsupportedStorageNames, a.Name())
+		}
+
+		// Ensure storage constraints have all the necessary fields and validate them.
+		sb, err := NewStorageBackend(a.st)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := addDefaultStorageConstraints(sb, cons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "adding default storage constraints")
+		}
+		if err := validateStorageConstraints(sb, cons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "validating storage constraints")
+		}
+
+		storageConstraintsOp := replaceStorageConstraintsOp(
+			storageConstraintsKey, cons,
+		)
+		return []txn.Op{storageConstraintsOp}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot update storage constraints")
+	}
+
+	return nil
+}
+
 // DeviceConstraints returns the device constraints for the application.
 func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())

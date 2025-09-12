@@ -1285,6 +1285,17 @@
                         }
                     }
                 },
+                "GetApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationStorageGetResults"
+                        }
+                    }
+                },
                 "GetCharmURLOrigin": {
                     "type": "object",
                     "properties": {
@@ -1446,6 +1457,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/UpdateChannelArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "UpdateApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationStorageUpdateRequest"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -2095,6 +2117,78 @@
                         "force",
                         "force-units",
                         "force-base"
+                    ]
+                },
+                "ApplicationStorageGetResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/ErrorResult"
+                        },
+                        "storage-constraints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-constraints",
+                        "error"
+                    ]
+                },
+                "ApplicationStorageGetResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationStorageGetResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ApplicationStorageUpdate": {
+                    "type": "object",
+                    "properties": {
+                        "application-tag": {
+                            "type": "string"
+                        },
+                        "storage-constraints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-tag",
+                        "storage-constraints"
+                    ]
+                },
+                "ApplicationStorageUpdateRequest": {
+                    "type": "object",
+                    "properties": {
+                        "storage-updates": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationStorageUpdate"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-updates"
                     ]
                 },
                 "ApplicationUnexpose": {
