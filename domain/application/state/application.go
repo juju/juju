@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -74,25 +72,6 @@ WHERE  uuid = $entityUUID.uuid
 		return false, errors.Capture(err)
 	}
 	return true, nil
-}
-
-// Deprecated: This method will be removed, as there should be no need to
-// determine the model type from the state or service. That's an artifact of
-// the caller to call the correct methods.
-func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
-	var result modelInfo
-	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
-		return "", modelerrors.NotFound
-	} else if err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
-	}
-
-	return coremodel.ModelType(result.ModelType), nil
 }
 
 // CreateIAASApplication creates an IAAS application, returning an error

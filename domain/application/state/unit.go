@@ -624,6 +624,12 @@ func (st *State) AddIAASSubordinateUnit(
 			return errors.Errorf("checking if subordinate already exists: %w", err)
 		}
 		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, arg.SubordinateAppID)
+		if err != nil {
+			return errors.Errorf(
+				"getting subordinate application %q charm uuid: %w",
+				arg.SubordinateAppID, err,
+			)
+		}
 
 		// Place the subordinate on the same machine as the principal unit.
 		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)

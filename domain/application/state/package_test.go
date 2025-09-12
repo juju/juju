@@ -176,52 +176,6 @@ func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	return args
 }
 
-func (s *baseSuite) addCAASApplicationArgForStorage(c *tc.C,
-	name string,
-	charmStorage []charm.Storage,
-	directives []application.CreateApplicationStorageDirectiveArg,
-) application.AddCAASApplicationArg {
-	platform := deployment.Platform{
-		Channel:      "666",
-		OSType:       deployment.Ubuntu,
-		Architecture: architecture.ARM64,
-	}
-	channel := &deployment.Channel{
-		Track:  "track",
-		Risk:   "risk",
-		Branch: "branch",
-	}
-
-	metadata := s.minimalMetadata(c, name)
-	metadata.Storage = make(map[string]charm.Storage)
-	for _, stor := range charmStorage {
-		metadata.Storage[stor.Name] = stor
-	}
-	args := application.AddCAASApplicationArg{
-		BaseAddApplicationArg: application.BaseAddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata:      metadata,
-				Manifest:      s.minimalManifest(c),
-				Source:        charm.CharmHubSource,
-				ReferenceName: name,
-				Revision:      42,
-				Architecture:  architecture.ARM64,
-			},
-			CharmDownloadInfo: &charm.DownloadInfo{
-				Provenance:         charm.ProvenanceDownload,
-				CharmhubIdentifier: "ident-1",
-				DownloadURL:        "http://example.com/charm",
-				DownloadSize:       666,
-			},
-			Channel:           channel,
-			StorageDirectives: directives,
-		},
-		Scale: 1,
-	}
-	return args
-}
-
 func (s *baseSuite) createNamedIAASUnit(c *tc.C) (coreunit.Name, coreunit.UUID) {
 	n, u := s.createNNamedIAASUnit(c, 1)
 	return n[0], u[0]

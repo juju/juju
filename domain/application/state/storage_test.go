@@ -11,12 +11,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -30,9 +27,6 @@ type baseStorageSuite struct {
 	baseSuite
 
 	state *State
-
-	storageInstCount int
-	filesystemCount  int
 }
 
 type caasStorageSuite struct {
@@ -81,78 +75,6 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 	return poolUUID
 }
 
-func (s *baseStorageSuite) createStoragePool(c *tc.C,
-	name, providerType string,
-) domainstorage.StoragePoolUUID {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
-	_, err := s.DB().Exec(`
-INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
-`,
-		poolUUID, name, providerType,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return poolUUID
-}
-
-type charmStorageArg struct {
-	name     string
-	kind     domainstorage.StorageKind
-	min, max int
-	readOnly bool
-	location string
-}
-
-func (s *baseStorageSuite) insertCharmWithStorage(c *tc.C, stor ...charmStorageArg) string {
-	uuid := charmtesting.GenCharmID(c).String()
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		if _, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Capture(err)
-		}
-
-		for _, arg := range stor {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_storage (
-    charm_uuid,
-    name,
-    storage_kind_id,
-    read_only,
-    count_min,
-    count_max,
-    location
-) VALUES
-    (?, ?, ?, ?, ?, ?, ?);`,
-				uuid, arg.name, arg.kind, arg.readOnly, arg.min, arg.max, arg.location)
-			if err != nil {
-				return errors.Capture(err)
-			}
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return uuid
-}
-
-var (
-	filesystemStorage = charmStorageArg{
-		name:     "pgdata",
-		kind:     domainstorage.StorageKindFilesystem,
-		min:      1,
-		max:      2,
-		readOnly: true,
-		location: "/tmp",
-	}
-	blockStorage = charmStorageArg{
-		name:     "pgblock",
-		kind:     domainstorage.StorageKindBlock,
-		min:      1,
-		max:      2,
-		readOnly: true,
-		location: "/dev/block",
-	}
-)
-
 func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
@@ -178,22 +100,6 @@ func (s *baseStorageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 
 	_, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageNotFound)
-}
-
-func (s *baseStorageSuite) createUnitWithCharm(c *tc.C, stor ...charmStorageArg) (coreunit.UUID, string) {
-	ctx := c.Context()
-
-	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
-
-	charmUUID := s.insertCharmWithStorage(c, stor...)
-
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE unit SET charm_uuid = ? WHERE uuid = ?`, charmUUID, unitUUIDs[0].String())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return unitUUIDs[0], charmUUID
 }
 
 func (s *applicationStateSuite) createStoragePool(
