@@ -127,8 +127,7 @@ CREATE TABLE storage_instance (
     REFERENCES life (id),
     CONSTRAINT fk_storage_instance_storage_pool
     FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
-    CONSTRAINT fk_storage_instance_charm_storage
+    REFERENCES storage_pool (uuid)
 );
 
 CREATE UNIQUE INDEX idx_storage_instance_id
