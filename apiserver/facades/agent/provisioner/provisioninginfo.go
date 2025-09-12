@@ -618,7 +618,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		lookup.CloudSpec = spec
 	}
 
-	return imagemetadata.NewImageConstraint(lookup)
+	return imagemetadata.NewImageConstraint(lookup, cons.ImageID)
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.
@@ -661,6 +661,9 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 		Arches:   constraint.Arches,
 		Region:   constraint.Region,
 		Stream:   constraint.Stream,
+	}
+	if constraint.ImageID != nil {
+		filter.ImageID = *constraint.ImageID
 	}
 	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {

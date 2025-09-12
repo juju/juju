@@ -376,6 +376,10 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
 	}
 
+	if criteria.ImageID != "" {
+		all = append(all, bson.DocElem{"image_id", criteria.ImageID})
+	}
+
 	if len(all.Map()) == 0 {
 		return nil
 	}
@@ -405,6 +409,9 @@ type MetadataFilter struct {
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
+
+	// ImageID stores the image id.
+	ImageID string `json:"image-id,omitempty"`
 }
 
 // SupportedArchitectures implements Storage.SupportedArchitectures.
