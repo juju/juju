@@ -9,11 +9,14 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/description/v10"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 
+	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -94,6 +97,10 @@ type ModelContext interface {
 	// with apiservererrors.ErrPerm for any targets for which the client is
 	// not *known* to have a responsibility or requirement.
 	Auth() Authorizer
+
+	// CrossModelAuthContext provides methods to create and authorize macaroons
+	// for cross model operations.
+	CrossModelAuthContext() CrossModelAuthContext
 
 	// Dispose disposes the context and any resources related to
 	// the API server facade object. Normally the context will not
@@ -261,6 +268,34 @@ type Authorizer interface {
 	// EntityHasPermission reports whether the given access is allowed for the given
 	// target by the given entity.
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
+}
+
+// CrossModelAuthContext provides methods to create macaroons for cross model
+// operations.
+type CrossModelAuthContext interface {
+	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
+	// specified offer.
+	CreateConsumeOfferMacaroon(
+		ctx context.Context,
+		modelUUID model.UUID,
+		offerUUID, username string,
+		version bakery.Version,
+	) (*bakery.Macaroon, error)
+
+	// CheckLocalAccessRequest checks that the user in the specified permission
+	// check details has consume access to the offer in the details.
+	// It returns an error with a *bakery.VerificationError cause if the macaroon
+	// verification failed. If the macaroon is valid, CheckLocalAccessRequest
+	// returns a list of caveats to add to the discharge macaroon.
+	CheckLocalAccessRequest(ctx context.Context, details crossmodelbakery.OfferAccessDetails) ([]checkers.Caveat, error)
+
+	// CheckOfferAccessCaveat checks that the specified caveat required to be satisfied
+	// to gain access to an offer is valid, and returns the attributes return to check
+	// that the caveat is satisfied.
+	CheckOfferAccessCaveat(ctx context.Context, caveat string) (crossmodelbakery.OfferAccessDetails, error)
+
+	// OfferThirdPartyKey returns the key used to discharge offer macaroons.
+	OfferThirdPartyKey() *bakery.KeyPair
 }
 
 // Hub represents the central hub that the API server has.

@@ -12,11 +12,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal/charms"
@@ -38,6 +38,19 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// CrossModelAuthContext provides methods to create macaroons for cross model
+// operations.
+type CrossModelAuthContext interface {
+	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
+	// specified offer.
+	CreateConsumeOfferMacaroon(
+		ctx context.Context,
+		modelUUID model.UUID,
+		offerUUID, username string,
+		version bakery.Version,
+	) (*bakery.Macaroon, error)
+}
+
 // OffersAPIv5 implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPIv5 struct {
@@ -47,8 +60,8 @@ type OffersAPIv5 struct {
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPI struct {
-	authorizer  facade.Authorizer
-	authContext *commoncrossmodel.AuthContext
+	authorizer            facade.Authorizer
+	crossModelAuthContext CrossModelAuthContext
 
 	controllerUUID string
 	modelUUID      model.UUID
@@ -65,6 +78,7 @@ type OffersAPI struct {
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	authorizer facade.Authorizer,
+	crossModelAuthContext CrossModelAuthContext,
 	controllerUUID string,
 	modelUUID model.UUID,
 	accessService AccessService,
@@ -80,6 +94,7 @@ func createOffersAPI(
 
 	api := &OffersAPI{
 		authorizer:                      authorizer,
+		crossModelAuthContext:           crossModelAuthContext,
 		controllerUUID:                  controllerUUID,
 		modelUUID:                       modelUUID,
 		accessService:                   accessService,
@@ -854,7 +869,17 @@ func (api *OffersAPI) getConsumeDetails(
 
 		offerDetails := offerResult.Result.ApplicationOfferDetailsV5
 
-		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(ctx, offerDetails, apiUser.Id(), urls.BakeryVersion)
+		modelTag, err := names.ParseModelTag(offerDetails.SourceModelTag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// TODO (stickupkid): Validate that user has permission to consume this
+		// offer.
+
+		modelUUID := model.UUID(modelTag.Id())
+		offerMacaroon, err := api.crossModelAuthContext.CreateConsumeOfferMacaroon(ctx, modelUUID, offerDetails.OfferUUID, apiUser.Id(), urls.BakeryVersion)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -33,6 +33,10 @@ import (
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
+	// crossModelAuthContext provides methods to create and authorize macaroons
+	// for cross model operations.
+	crossModelAuthContext facade.CrossModelAuthContext
+
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
 	charmhubHTTPClient facade.HTTPClient
@@ -77,12 +81,13 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	leaseManager        lease.Manager
-	controllerUUID      string
-	controllerModelUUID model.UUID
-	controllerConfig    controller.Config
-	logger              corelogger.Logger
-	charmhubHTTPClient  facade.HTTPClient
+	crossModelAuthContext facade.CrossModelAuthContext
+	leaseManager          lease.Manager
+	controllerUUID        string
+	controllerModelUUID   model.UUID
+	controllerConfig      controller.Config
+	logger                corelogger.Logger
+	charmhubHTTPClient    facade.HTTPClient
 
 	dbGetter                changestream.WatchableDBGetter
 	dbDeleter               database.DBDeleter
@@ -97,6 +102,9 @@ type sharedServerConfig struct {
 }
 
 func (c *sharedServerConfig) validate() error {
+	if c.crossModelAuthContext == nil {
+		return errors.NotValidf("nil crossModelAuthContext")
+	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
 	}
@@ -138,6 +146,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	return &sharedServerContext{
+		crossModelAuthContext:   config.crossModelAuthContext,
 		leaseManager:            config.leaseManager,
 		logger:                  config.logger,
 		controllerUUID:          config.controllerUUID,
