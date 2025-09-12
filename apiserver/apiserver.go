@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -227,6 +228,10 @@ type ServerConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
 
+	// MacaroonHTTPClient is the HTTP client used to make requests to
+	// third party macaroon services.
+	MacaroonHTTPClient facade.HTTPClient
+
 	// DomainServicesGetter provides access to the services.
 	DomainServicesGetter services.DomainServicesGetter
 
@@ -360,6 +365,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		cfg.ControllerUUID,
 		cfg.ControllerModelUUID,
 		controllerConfig,
+		cfg.MacaroonHTTPClient,
 		cfg.Clock,
 		logger,
 	)
@@ -1223,6 +1229,7 @@ func newOfferAuthContext(
 	controllerUUID string,
 	controllerModelUUID coremodel.UUID,
 	controllerConfig controller.Config,
+	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (*crossmodel.AuthContext, error) {
@@ -1231,13 +1238,21 @@ func newOfferAuthContext(
 		return nil, errors.Annotate(err, "getting offers third party key")
 	}
 
-	bakery, err := getMacaroonBakeryByURL(ctx, controllerConfig.LoginTokenRefreshURL(), macaroonService, controllerModelUUID, clock, logger)
+	bakery, err := getMacaroonBakeryByURL(
+		controllerConfig.LoginTokenRefreshURL(),
+		macaroonService,
+		key,
+		controllerUUID,
+		controllerModelUUID,
+		httpClient,
+		clock,
+		logger,
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting macaroon bakery")
 	}
 
 	// Create a auth context for offer authentication.
-	// TODO (stickupkid): Use a bakery to cook the macaroons for the offers.
 	return crossmodel.NewAuthContext(
 		accessService,
 		bakery,
@@ -1253,30 +1268,74 @@ func authContextLocation(modelUUID coremodel.UUID) string {
 	return "juju model " + modelUUID.String()
 }
 
+const (
+	localOfferAccessLocationPath = "/offeraccess"
+)
+
 func getMacaroonBakeryByURL(
-	ctx context.Context,
-	urlStr string,
+	endpoint string,
 	macaroonService MacaroonService,
+	key *bakery.KeyPair,
+	controllerUUD string,
 	controllerModelUUID coremodel.UUID,
+	httpClient crossmodelbakery.HTTPClient,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (crossmodel.OfferBakery, error) {
 	location := authContextLocation(controllerModelUUID)
 	checker := checkers.New(internalmacaroon.MacaroonNamespace)
+	authorizer := crossmodel.NewCMRAuthorizer(logger)
 
 	// Create a local bakery for validating macaroons.
-	if urlStr == "" {
-		authorizer := crossmodel.NewCMRAuthorizer(logger)
-		return crossmodelbakery.NewLocalOfferBakery(ctx, location, macaroonService, checker, authorizer, clock, logger)
+	if endpoint == "" {
+		// Create an endpoint that will be used for third-party caveats
+		// that require discharge from the local controller.
+		endpoint := localEndpointURL(controllerUUD)
+		return crossmodelbakery.NewLocalOfferBakery(
+			key,
+			location, endpoint,
+			macaroonService,
+			checker, authorizer,
+			clock, logger,
+		)
 	}
-
-	// TODO (stickupkid): Implement JAAS bakery client.
 
 	// We have a URL, it's intended to be used by JAAS, but it's possible
 	// that another service could be used here. It's a shame that we don't use
 	// a login token service kind here, that way we could ensure that we're
 	// creating the correct kind of bakery.
-	return nil, nil
+	return crossmodelbakery.NewJAASOfferBakery(
+		key,
+		location, endpoint,
+		macaroonService,
+		checker, authorizer,
+		httpClient,
+		clock, logger,
+	)
+}
+
+func localEndpointURL(controllerUUID string) string {
+	// The controllerUUID is a facsimile of the server hostname, for the
+	// purposes of macaroon validation. This is for two reasons:
+	//
+	//  1. We don't have a DNS name for the controllers when in HA, so if a
+	//     connection is made to one node in the cluster, and the connection
+	//     is reestablished to another node, the macaroon will fail to validate
+	//     if the other node has a different hostname. The underlying data
+	//     store for a macaroon is across the cluster, so there is no reason
+	//     why you can't validate a macaroon on a different node to the one
+	//     that created it.
+	//  2. The controllerUUID is unique across other controllers, so it should
+	//     be safe enough to prevent collisions.
+	//
+	// Based on this change above, we could increase the expiry time of a
+	// macaroon to be longer than 3 minutes, as we don't have to worry about
+	// a node in the cluster being unavailable for a short period of time.
+	return (&url.URL{
+		Scheme: "https",
+		Host:   controllerUUID,
+		Path:   localOfferAccessLocationPath,
+	}).String()
 }
 
 func serverError(err error) error {
