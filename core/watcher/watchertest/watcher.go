@@ -54,7 +54,7 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 func TimedSliceAssert[T any](timeFieldNames ...string) func(expect ...T) WatcherAssert[[]T] {
 	mc := tc.NewMultiChecker()
 	for _, field := range timeFieldNames {
-		mc.AddExpr(fmt.Sprintf(`_[_].%s`, field), tc.Almost, tc.ExpectedValue)
+		mc.AddExpr(fmt.Sprintf(`_.%s`, field), tc.Almost, tc.ExpectedValue)
 	}
 	return func(expect ...T) WatcherAssert[[]T] {
 		return func(c *tc.C, changes [][]T) bool {
