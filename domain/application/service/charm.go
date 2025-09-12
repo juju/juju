@@ -114,12 +114,12 @@ type CharmState interface {
 	// GetCharm returns the charm using the charm ID.
 	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *charm.DownloadInfo, error)
 
-	// SetCharm persists the charm metadata, actions, config and manifest to
+	// AddCharm persists the charm metadata, actions, config and manifest to
 	// state. If the charm requires sequencing, the revision must be set to
 	// -1 and the requiredSequencing flag must be set to true. If the charm
 	// does not require sequencing, the revision must be set to the desired
 	// revision and the requiredSequencing flag must be set to false.
-	SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
+	AddCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
 
 	// ListCharmLocators returns a list of charm locators. The locator allows
 	// the reconstruction of the charm URL for the client response.
@@ -690,15 +690,15 @@ func (s *Service) SetCharmAvailable(ctx context.Context, locator charm.CharmLoca
 	return errors.Capture(s.st.SetCharmAvailable(ctx, id))
 }
 
-// SetCharm persists the charm metadata, actions, config and manifest to
+// AddCharm persists the charm metadata, actions, config and manifest to
 // state.
 // If there are any non-blocking issues with the charm metadata, actions,
 // config or manifest, a set of warnings will be returned.
-func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
+func (s *Service) AddCharm(ctx context.Context, args charm.AddCharmArgs) (corecharm.ID, []string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	result, warnings, err := s.setCharm(ctx, args)
+	result, warnings, err := s.addCharm(ctx, args)
 	if err != nil {
 		return "", nil, errors.Capture(err)
 	}
@@ -820,7 +820,7 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	}
 
 	// This is a full blown upload, we need to set everything up.
-	resolved, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
+	resolved, warnings, err := s.addCharm(ctx, charm.AddCharmArgs{
 		Charm:           ch,
 		Source:          args.Source,
 		ReferenceName:   args.Name,
@@ -918,50 +918,50 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	})
 }
 
-func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCharmResult, []string, error) {
+func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCharmResult, []string, error) {
 	// We require a valid charm metadata.
 	if meta := args.Charm.Meta(); meta == nil {
-		return setCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
+		return addCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
 	} else if !isValidCharmName(meta.Name) {
-		return setCharmResult{}, nil, applicationerrors.CharmNameNotValid
+		return addCharmResult{}, nil, applicationerrors.CharmNameNotValid
 	}
 
 	// We require a valid charm manifest.
 	if manifest := args.Charm.Manifest(); manifest == nil {
-		return setCharmResult{}, nil, applicationerrors.CharmManifestNotFound
+		return addCharmResult{}, nil, applicationerrors.CharmManifestNotFound
 	} else if len(manifest.Bases) == 0 {
-		return setCharmResult{}, nil, applicationerrors.CharmManifestNotValid
+		return addCharmResult{}, nil, applicationerrors.CharmManifestNotValid
 	}
 
 	// If the reference name is provided, it must be valid.
 	if !isValidReferenceName(args.ReferenceName) {
-		return setCharmResult{}, nil, errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+		return addCharmResult{}, nil, errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
 	// If the origin is from charmhub, then we require the download info.
 	if args.Source == corecharm.CharmHub {
 		if args.DownloadInfo == nil {
-			return setCharmResult{}, nil, applicationerrors.CharmDownloadInfoNotFound
+			return addCharmResult{}, nil, applicationerrors.CharmDownloadInfoNotFound
 		}
 		if err := args.DownloadInfo.Validate(); err != nil {
-			return setCharmResult{}, nil, errors.Errorf("download info: %w", err)
+			return addCharmResult{}, nil, errors.Errorf("download info: %w", err)
 		}
 	}
 
 	// Charm sequence validation.
 	if args.RequiresSequencing && args.Revision != -1 {
-		return setCharmResult{}, nil, applicationerrors.CharmRevisionNotValid
+		return addCharmResult{}, nil, applicationerrors.CharmRevisionNotValid
 	}
 
 	source, err := encodeCharmSource(args.Source)
 	if err != nil {
-		return setCharmResult{}, nil, errors.Errorf("encoding charm source: %w", err)
+		return addCharmResult{}, nil, errors.Errorf("encoding charm source: %w", err)
 	}
 
 	architecture := encodeArchitecture(args.Architecture)
 	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
-		return setCharmResult{}, warnings, errors.Errorf("encoding charm: %w", err)
+		return addCharmResult{}, warnings, errors.Errorf("encoding charm: %w", err)
 	}
 
 	ch.Source = source
@@ -973,8 +973,8 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 	ch.Available = args.ArchivePath != ""
 	ch.Architecture = architecture
 
-	charmID, locator, err := s.st.SetCharm(ctx, ch, args.DownloadInfo, args.RequiresSequencing)
-	return setCharmResult{
+	charmID, locator, err := s.st.AddCharm(ctx, ch, args.DownloadInfo, args.RequiresSequencing)
+	return addCharmResult{
 		ID:      charmID,
 		Locator: locator,
 	}, warnings, errors.Capture(err)
@@ -996,7 +996,7 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	result, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
+	result, warnings, err := s.addCharm(ctx, charm.AddCharmArgs{
 		Charm:         args.Charm,
 		Source:        args.Source,
 		ReferenceName: args.ReferenceName,
@@ -1050,7 +1050,7 @@ func (s *WatchableService) WatchCharms(ctx context.Context) (watcher.StringsWatc
 	)
 }
 
-type setCharmResult struct {
+type addCharmResult struct {
 	ID      corecharm.ID
 	Locator charm.CharmLocator
 }

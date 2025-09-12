@@ -146,7 +146,7 @@ type ApplicationState interface {
 
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
-	SetApplicationCharm(ctx context.Context, id coreapplication.ID, params application.UpdateCharmParams) error
+	SetApplicationCharm(ctx context.Context, appID coreapplication.ID, charmID corecharm.ID, params application.SetCharmParams) error
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -942,7 +942,7 @@ func makeApplicationStorageDirectiveArg(
 
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
-func (s *Service) SetApplicationCharm(ctx context.Context, appName string, params application.UpdateCharmParams) error {
+func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -950,7 +950,11 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 	if err != nil {
 		return errors.Errorf("getting application ID: %w", err)
 	}
-	err = s.st.SetApplicationCharm(ctx, appID, params)
+	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
+	if err != nil {
+		return errors.Errorf("getting charm ID: %w", err)
+	}
+	err = s.st.SetApplicationCharm(ctx, appID, charmID, params)
 	if err != nil {
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}

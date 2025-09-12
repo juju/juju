@@ -705,7 +705,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
 func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	unitName, _ := s.createNamedIAASUnit(c)
 
-	id, _, err := s.state.SetCharm(c.Context(), charm.Charm{
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
 		Metadata: charm.Metadata{
 			Name: "bar",
 		},

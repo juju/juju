@@ -32,7 +32,7 @@ func TestCharmSuite(t *testing.T) {
 	tc.Run(t, &charmSuite{})
 }
 
-func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
+func (s *charmSuite) TestAddCharmWithArchitecture(c *tc.C) {
 	service := s.setupService(c)
 
 	// We can't use the architecture from the manifest, as there may not be one.
@@ -51,7 +51,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 		}},
 	}
 
-	_, _, err := service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -73,7 +73,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *tc.C) {
 	c.Assert(locator.Architecture, tc.Equals, architecture.ARM64)
 }
 
-func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
+func (s *charmSuite) TestAddCharmWithoutArchitecture(c *tc.C) {
 	service := s.setupService(c)
 
 	// We can't use the architecture from the manifest, as there may not be one.
@@ -92,7 +92,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *tc.C) {
 		}},
 	}
 
-	_, _, err := service.SetCharm(c.Context(), charm.SetCharmArgs{
+	_, _, err := service.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",

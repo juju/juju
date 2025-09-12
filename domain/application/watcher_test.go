@@ -89,7 +89,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 
 	var id corecharm.ID
 	harness.AddTest(c, func(c *tc.C) {
-		id, _, err = svc.SetCharm(c.Context(), charm.SetCharmArgs{
+		id, _, err = svc.AddCharm(c.Context(), charm.AddCharmArgs{
 			Charm:         &stubCharm{},
 			Source:        corecharm.CharmHub,
 			ReferenceName: "test",
@@ -1457,7 +1457,7 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	resolveState := resolvestate.NewState(modelDB)
 	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
-	alternateCharmID, _, err := svc.SetCharm(c.Context(), charm.SetCharmArgs{
+	alternateCharmID, _, err := svc.AddCharm(c.Context(), charm.AddCharmArgs{
 		Charm:         &stubCharm{},
 		Source:        corecharm.CharmHub,
 		ReferenceName: "alternate",
