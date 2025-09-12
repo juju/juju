@@ -875,10 +875,33 @@ func (api *OffersAPI) getConsumeDetails(
 			continue
 		}
 
-		// TODO (stickupkid): Validate that user has permission to consume this
-		// offer.
-
 		modelUUID := model.UUID(modelTag.Id())
+		err = api.checkAPIUserAdmin(ctx, modelUUID)
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if err != nil {
+			// The user isn't admin on the model, so they must be allowed to
+			// consume the offer.
+			appOffer := names.NewApplicationOfferTag(offerDetails.OfferUUID)
+			err = api.authorizer.EntityHasPermission(ctx, apiUser, permission.ConsumeAccess, appOffer)
+			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			} else if err != nil {
+				// This logic is purely for JAAS.
+				//
+				// JAAS has already checked permissions of args.UserTag in their
+				// side, so we don't need to check it again. But as a TODO, we
+				// need to set the ConsumeOfferMacaroon's expiry time to 0 to
+				// force go to discharge flow once they got the macaroon.
+				if err := api.checkAPIUserControllerAdmin(ctx); err != nil {
+					results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+			}
+		}
+
 		offerMacaroon, err := api.crossModelAuthContext.CreateConsumeOfferMacaroon(ctx, modelUUID, offerDetails.OfferUUID, apiUser.Id(), urls.BakeryVersion)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
