@@ -16,7 +16,7 @@ type taskSuite struct {
 	baseSuite
 }
 
-func TestTestSuite(t *testing.T) {
+func TestTaskSuite(t *testing.T) {
 	tc.Run(t, &taskSuite{})
 }
 

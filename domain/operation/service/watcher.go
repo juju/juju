@@ -11,7 +11,9 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation/internal"
@@ -120,6 +122,101 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 		mapper,
 		eventsource.PredicateFilter(w.st.NamespaceForTaskLogWatcher(), changestream.Changed, eventsource.EqualsPredicate(taskUUID)),
 	)
+}
+
+// WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
+// for tasks targeted at the provided unit.
+// Since this watcher is intended for units, it will not emit changes if the
+// task is in Pending state.
+func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	table, query := s.st.InitialWatchStatementUnitTask()
+
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		ctx, span := trace.Start(ctx, "WatchUnitTaskNotifications.mapper")
+		defer span.End()
+
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		taskUUIDs := make([]string, len(changes))
+		for i, change := range changes {
+			taskUUIDs[i] = change.Changed()
+		}
+		taskIDs, err := s.st.FilterTaskUUIDsForUnit(ctx, taskUUIDs, unitUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		return taskIDs, nil
+	}
+
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(query, unitUUID),
+		fmt.Sprintf("unit tasks watcher for %q", unitName),
+		mapper,
+		eventsource.NamespaceFilter(table, changestream.Changed),
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return w, nil
+}
+
+// WatchMachineTaskNotifications returns a StringsWatcher that emits task
+// ids for tasks targeted at the provided machine.
+// This watcher emits all tasks no matter their status.
+func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineUUID, err := s.st.GetMachineUUIDByName(ctx, machineName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	table, query := s.st.InitialWatchStatementMachineTask()
+
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		ctx, span := trace.Start(ctx, "WatchMachineTaskNotifications.mapper")
+		defer span.End()
+
+		if len(changes) == 0 {
+			return nil, nil
+		}
+
+		taskUUIDs := make([]string, len(changes))
+		for i, change := range changes {
+			taskUUIDs[i] = change.Changed()
+		}
+		taskIDs, err := s.st.FilterTaskUUIDsForMachine(ctx, taskUUIDs, machineUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		return taskIDs, nil
+	}
+
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(query, machineUUID),
+		fmt.Sprintf("machine tasks watcher for %q", machineName),
+		mapper,
+		eventsource.NamespaceFilter(table, changestream.Changed),
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return w, nil
 }
 
 func transformLogsToSlice(msgs []internal.TaskLogMessage) ([]string, error) {
