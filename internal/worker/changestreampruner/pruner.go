@@ -105,7 +105,7 @@ func (w *Pruner) loop() error {
 			return tomb.ErrDying
 
 		case <-timer.Chan():
-			w.logger.Debugf(ctx, "running changestream pruner")
+			w.logger.Tracef(ctx, "running changestream pruner")
 
 			newWindow, pruned, err := w.changeStreamService.Prune(ctx, window)
 			if errors.Is(err, context.Canceled) {
@@ -115,7 +115,7 @@ func (w *Pruner) loop() error {
 			}
 
 			if pruned > 0 {
-				w.logger.Infof(ctx, "pruned %d rows from change log", pruned)
+				w.logger.Debugf(ctx, "pruned %d rows from change log", pruned)
 			}
 
 			window = newWindow
