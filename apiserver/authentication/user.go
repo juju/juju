@@ -60,22 +60,11 @@ type MacaroonMinter interface {
 	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
 }
 
-// ExpirableStorageBakery extends Bakery
-// with the ExpireStorageAfter method so that root keys are
-// removed from storage at that time.
-type ExpirableStorageBakery interface {
-	Bakery
-
-	// ExpireStorageAfter returns a new ExpirableStorageBakery with
-	// a store that will expire items added to it at the specified time.
-	ExpireStorageAfter(time.Duration) (ExpirableStorageBakery, error)
-}
-
 // LocalUserAuthenticator performs authentication for local users. If a password
 type LocalUserAuthenticator struct {
 	UserService UserService
 	// Bakery holds the bakery that is used to mint and verify macaroons.
-	Bakery ExpirableStorageBakery
+	Bakery Bakery
 
 	// Clock is used to calculate the expiry time for macaroons.
 	Clock clock.Clock
@@ -198,13 +187,9 @@ func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Contex
 	// The root keys for these macaroons are stored in MongoDB.
 	// Expire the documents after a set amount of time.
 	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
-	bakery, err := u.Bakery.ExpireStorageAfter(localLoginExpiryTime)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Make a new macaroon with a caveat for login operation.
-	macaroon, err := bakery.NewMacaroon(
+	macaroon, err := u.Bakery.NewMacaroon(
 		ctx,
 		bakeryVersion,
 		[]checkers.Caveat{

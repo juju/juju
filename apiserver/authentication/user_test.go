@@ -375,12 +375,14 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 	)
 	c.Assert(err, tc.FitsTypeOf, &apiservererrors.DischargeRequiredError{})
 
-	service.CheckCallNames(c, "Auth", "ExpireStorageAfter", "NewMacaroon")
+	service.CheckCallNames(c, "Auth", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[1].Args, tc.DeepEquals, []interface{}{24 * time.Hour})
-	c.Assert(calls[2].Args, tc.DeepEquals, []interface{}{
+	c.Assert(calls, tc.HasLen, 2)
+	c.Check(calls[1].Args, tc.SameContents, []interface{}{
 		[]checkers.Caveat{
-			{Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std"},
+			{
+				Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std",
+			},
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  "https://testing.invalid:1234/auth",
@@ -415,7 +417,7 @@ func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Vers
 	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
+func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.Bakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", t)
 	err := s.NextErr()
 	return s, err

@@ -90,22 +90,18 @@ func NewLocalOfferBakery(
 		return nil, errors.Annotate(err, "getting offers third party key")
 	}
 
-	store := internalmacaroon.NewExpirableStorage(backingStore, offerPermissionExpiryTime, clock)
+	store := internalmacaroon.NewRootKeyStore(backingStore, offerPermissionExpiryTime, clock)
 
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: key.Public}
-	localOfferBakery := bakery.New(bakery.BakeryParams{
-		Location:      location,
-		Locator:       locator,
-		RootKeyStore:  store,
-		Checker:       checker,
-		OpsAuthorizer: authorizer,
-	})
-	bakery := &bakeryutil.ExpirableStorageBakery{
-		Location: location,
-		Locator:  locator,
-		Store:    store,
-		Bakery:   localOfferBakery,
-		Key:      key,
+
+	bakery := &bakeryutil.StorageBakery{
+		Bakery: bakery.New(bakery.BakeryParams{
+			Location:      location,
+			Locator:       locator,
+			RootKeyStore:  store,
+			Checker:       checker,
+			OpsAuthorizer: authorizer,
+		}),
 	}
 
 	return &LocalOfferBakery{

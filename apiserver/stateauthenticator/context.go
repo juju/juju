@@ -91,7 +91,7 @@ type authContext struct {
 	// for authenticating local users. In time, we may want to use this for
 	// both local and external users. Note that this service does not
 	// discharge the third-party caveats.
-	localUserBakery *bakeryutil.ExpirableStorageBakery
+	localUserBakery *bakeryutil.StorageBakery
 
 	// localUserThirdPartyBakery is the bakery.Bakery used by the
 	// controller for discharging third-party caveats for local users.
@@ -159,19 +159,22 @@ func newAuthContext(
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
 
+	locator := bakeryutil.BakeryThirdPartyLocator{
+		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
+	}
+
 	ctxt.localUserThirdPartyBakery = bakery.New(bakery.BakeryParams{
 		Checker:       checker,
 		Key:           ctxt.localUserThirdPartyBakeryKey,
 		OpsAuthorizer: OpenLoginAuthorizer{},
 		Location:      location,
+		Locator:       locator,
 	})
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, ctxClock)
-	locator := bakeryutil.BakeryThirdPartyLocator{
-		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
-	}
+	store := internalmacaroon.NewRootKeyStore(macaroonService, internalmacaroon.DefaultExpiration, ctxClock)
+
 	localUserBakeryKey, err := macaroonService.GetLocalUsersKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user bakery key")
@@ -181,14 +184,11 @@ func newAuthContext(
 		Key:           localUserBakeryKey,
 		OpsAuthorizer: OpenLoginAuthorizer{},
 		Location:      location,
+		Locator:       locator,
 	})
 
-	ctxt.localUserBakery = &bakeryutil.ExpirableStorageBakery{
-		Bakery:   localUserBakery,
-		Location: location,
-		Key:      localUserBakeryKey,
-		Store:    store,
-		Locator:  locator,
+	ctxt.localUserBakery = &bakeryutil.StorageBakery{
+		Bakery: localUserBakery,
 	}
 	return ctxt, nil
 }
@@ -374,7 +374,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-	store := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, cfg.clock)
+	store := internalmacaroon.NewRootKeyStore(cfg.macaroonService, cfg.expiryTime, cfg.clock)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}

@@ -60,10 +60,7 @@ func NewAgentAuthenticatorGetter(agentPasswordService AgentPasswordService, logg
 
 // Authenticator returns an authenticator using the factory's controller model.
 func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
-	return agentAuthenticator{
-		agentPasswordService: f.agentPasswordService,
-		logger:               f.logger,
-	}
+	return agentAuthenticator(f)
 }
 
 // AuthenticatorForModel returns an authenticator for the given model.
