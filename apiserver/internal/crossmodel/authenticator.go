@@ -14,9 +14,13 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
+
+// ErrInvalidMacaroon is returned when a macaroon is invalid.
+const ErrInvalidMacaroon = internalerrors.ConstError("invalid CMR macaroon")
 
 // Authenticator is used to authenticate macaroons used to access
 // application offers.
@@ -35,7 +39,7 @@ func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID
 }
 
 // CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
-func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.RelationTag, mac macaroon.Slice, version bakery.Version) error {
 	requiredValues, err := a.bakery.GetRelationRequiredValues(sourceModelUUID, offerUUID, relationTag.Id())
 	if err != nil {
 		return internalerrors.Errorf("getting required values for relation access: %w", err)
@@ -68,16 +72,14 @@ func (a *Authenticator) checkMacaroons(
 		if err = a.checkMacaroonCaveats(op, declared); err == nil {
 			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, conditions)
 			return declared.AsMap(), nil
-		}
-		var target *bakery.VerificationError
-		if errors.As(err, &target) {
-			a.logger.Tracef(ctx, "macaroon verification error: %v", target)
+		} else if errors.Is(err, coreerrors.NotValid) {
+			a.logger.Tracef(ctx, "macaroon verification error: %v", err)
 			return nil, apiservererrors.ErrPerm
 		}
 	} else if err == nil {
 		// There are no conditions, so the macaroon is not valid.
-		a.logger.Tracef(ctx, "no macaroon conditions")
-		err = errors.New("invalid cmd macaroon")
+		a.logger.Tracef(ctx, "no macaroon conditions, expected at least one")
+		err = ErrInvalidMacaroon
 	}
 
 	cause := err
@@ -102,27 +104,27 @@ func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, declared crossmodelba
 	switch op.Action {
 	case consumeOp:
 		if declared.SourceModelUUID() == "" {
-			return &bakery.VerificationError{Reason: errors.New("missing source model UUID")}
+			return internalerrors.New("missing source model UUID").Add(coreerrors.NotValid)
 		}
 		offerUUID := declared.OfferUUID()
 		if offerUUID == "" {
-			return &bakery.VerificationError{Reason: errors.New("missing offer UUID")}
+			return internalerrors.New("missing offer UUID").Add(coreerrors.NotValid)
 		}
 		entity = offerUUID
 
 	case relateOp:
 		relationKey := declared.RelationKey()
 		if relationKey == "" {
-			return &bakery.VerificationError{Reason: errors.New("missing relation")}
+			return internalerrors.New("missing relation").Add(coreerrors.NotValid)
 		}
 		entity = relationKey
 
 	default:
-		return &bakery.VerificationError{Reason: errors.Errorf("invalid action %q", op.Action)}
+		return internalerrors.Errorf("invalid action %q", op.Action).Add(coreerrors.NotValid)
 	}
 
 	if entity != op.Entity {
-		return errors.Unauthorizedf("cmr operation %v not allowed for %v", op.Action, entity)
+		return internalerrors.Errorf("cmr operation %q not allowed for %q", op.Action, entity).Add(coreerrors.Unauthorized)
 	}
 	return nil
 }
