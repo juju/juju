@@ -52,13 +52,15 @@ type Facade struct {
 func NewFacade(
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
+	operationService OperationService,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		watcherRegistry: watcherRegistry,
-		accessMachine:   authorizer.AuthOwner,
+		watcherRegistry:  watcherRegistry,
+		accessMachine:    authorizer.AuthOwner,
+		operationService: operationService,
 	}, nil
 }
 
@@ -143,7 +145,11 @@ func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entit
 	for i, entity := range args.Entities {
 		result := &results[i]
 
-		machineTag := names.NewMachineTag(entity.Tag)
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
 		if !f.accessMachine(machineTag) {
 			result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
