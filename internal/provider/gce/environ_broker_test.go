@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -498,6 +499,51 @@ func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *gc.C) {
 
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	s.StartInstArgs.Constraints = constraints.MustParse("instance-role=foo@googledev.com")
+	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+}
+
+func (s *environBrokerSuite) TestStartInstanceBootstrapInstanceRoleCredential(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
+		Return([]*computepb.Subnetwork{{
+			SelfLink: ptr("/path/to/subnet1"),
+		}, {
+			SelfLink: ptr("/path/to/subnet2"),
+		}}, nil)
+
+	s.MockService.EXPECT().
+		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
+		Return(&computepb.MachineType{
+			Name:         ptr(s.spec.InstanceType.Name),
+			Accelerators: nil,
+		}, nil)
+
+	instArg := s.startInstanceArg(c, s.Prefix(env), false)
+	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	// Can't copy instArg as it contains a mutex.
+	instResult := s.startInstanceArg(c, s.Prefix(env), false)
+	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Disks = []*computepb.AttachedDisk{{
+		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+	}}
+
+	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
+
+	s.StartInstArgs.AvailabilityZone = "home-zone"
+	s.StartInstArgs.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{
+		StateInitializationParams: instancecfg.StateInitializationParams{
+			BootstrapMachineConstraints: constraints.MustParse("instance-role=foo@googledev.com"),
+		},
+	}
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
