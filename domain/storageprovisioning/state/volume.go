@@ -422,18 +422,16 @@ func (st *State) GetVolumeAttachment(
 
 	stmt, err := st.Prepare(`
 SELECT &volumeAttachment.* FROM (
-    SELECT DISTINCT sv.volume_id,
-                    sva.life_id,
-                    sva.read_only,
-                    bd.name AS block_device_name,
-                    bd.bus_address AS block_device_bus_address,
-                    first_value(bdld.name) OVER bdld_first AS block_device_link
-    FROM            storage_volume_attachment sva
-    JOIN            storage_volume sv ON sv.uuid=sva.storage_volume_uuid
-    LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
-    LEFT JOIN       block_device_link_device bdld ON bd.uuid=bdld.block_device_uuid
-    WHERE           sva.uuid = $volumeAttachmentUUID.uuid
-    WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+    SELECT     sv.volume_id,
+               sva.life_id,
+               sva.read_only,
+               bd.name AS block_device_name,
+               bd.bus_address AS block_device_bus_address,
+               bd.uuid AS block_device_uuid
+    FROM       storage_volume_attachment sva
+    JOIN       storage_volume sv ON sv.uuid=sva.storage_volume_uuid
+    LEFT JOIN  block_device bd ON bd.uuid=sva.block_device_uuid
+    WHERE      sva.uuid = $volumeAttachmentUUID.uuid
 )
 `,
 		uuidInput, volumeAttachment{},
@@ -442,15 +440,37 @@ SELECT &volumeAttachment.* FROM (
 		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
+	devLinksStmt, err := st.Prepare(`
+SELECT &entityName.*
+FROM   block_device_link_device
+WHERE  block_device_uuid = $entityUUID.uuid
+`, entityName{}, entityUUID{})
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+
 	var va volumeAttachment
+	var devLinks []entityName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, uuidInput).Get(&va)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"volume attachment does not exist",
 			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		} else if err != nil {
+			return err
 		}
-		return err
+		if va.BlockDeviceUUID == "" {
+			return nil
+		}
+		blockDeviceUUID := entityUUID{
+			UUID: va.BlockDeviceUUID,
+		}
+		err = tx.Query(ctx, devLinksStmt, blockDeviceUUID).GetAll(&devLinks)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
@@ -460,8 +480,11 @@ SELECT &volumeAttachment.* FROM (
 		VolumeID:              va.VolumeID,
 		ReadOnly:              va.ReadOnly,
 		BlockDeviceName:       va.BlockDeviceName,
-		BlockDeviceLink:       va.BlockDeviceLink,
 		BlockDeviceBusAddress: va.BlockDeviceBusAddress,
+	}
+	retVal.BlockDeviceLinks = make([]string, 0, len(devLinks))
+	for _, v := range devLinks {
+		retVal.BlockDeviceLinks = append(retVal.BlockDeviceLinks, v.Name)
 	}
 	return retVal, nil
 }

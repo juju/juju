@@ -226,7 +226,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Block device
 		"block_device_link_device",
 		"block_device",
-		"filesystem_type",
 
 		// Storage
 		"application_storage_directive",

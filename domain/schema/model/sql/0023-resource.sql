@@ -228,4 +228,4 @@ SELECT
 FROM v_resource AS r
 JOIN unit_resource AS ur ON r.uuid = ur.resource_uuid
 JOIN unit AS u ON ur.unit_uuid = u.uuid
-JOIN application AS a ON u.application_uuid = a.uuid
+JOIN application AS a ON u.application_uuid = a.uuid;

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -55,8 +56,6 @@ func (s *importSuite) TestNoBlockDevices(c *tc.C) {
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
-	// No import executed.
-	s.service.EXPECT().UpdateBlockDevices(gomock.All(), gomock.Any(), gomock.Any()).Times(0)
 }
 
 func (s *importSuite) TestImport(c *tc.C) {
@@ -68,7 +67,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	})
 	// And also a machine with no block devices.
 	model.AddMachine(description.MachineArgs{
-		Id: "666",
+		Id: "667",
 	})
 	err := model.AddBlockDevice("666", description.BlockDeviceArgs{
 		Name:           "foo",
@@ -85,20 +84,23 @@ func (s *importSuite) TestImport(c *tc.C) {
 		MountPoint:     "/path/to/here",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.service.EXPECT().UpdateBlockDevices(gomock.Any(), "666", blockdevice.BlockDevice{
-		DeviceName:     "foo",
-		DeviceLinks:    []string{"a-link"},
-		Label:          "label",
-		UUID:           "device-uuid",
-		HardwareId:     "hardware-id",
-		WWN:            "wwn",
-		BusAddress:     "bus-address",
-		SerialId:       "serial-id",
-		SizeMiB:        100,
-		FilesystemType: "ext4",
-		InUse:          true,
-		MountPoint:     "/path/to/here",
-	}).Times(1)
+
+	expectedBlockDevices := []blockdevice.BlockDevice{{
+		DeviceName:      "foo",
+		DeviceLinks:     []string{"a-link"},
+		FilesystemLabel: "label",
+		FilesystemUUID:  "device-uuid",
+		HardwareId:      "hardware-id",
+		WWN:             "wwn",
+		BusAddress:      "bus-address",
+		SerialId:        "serial-id",
+		SizeMiB:         100,
+		FilesystemType:  "ext4",
+		InUse:           true,
+		MountPoint:      "/path/to/here",
+	}}
+	s.service.EXPECT().SetBlockDevices(
+		gomock.Any(), machine.Name("666"), expectedBlockDevices).Return(nil)
 
 	op := s.newImportOperation()
 	err = op.Execute(c.Context(), model)

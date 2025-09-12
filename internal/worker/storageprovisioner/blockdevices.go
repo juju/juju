@@ -171,7 +171,7 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 	for i, result := range results {
 		if result.Error == nil {
 			existing, ok := deps.volumeBlockDevices[volumeTags[i]]
-			if ok && existing.UUID == "" && result.Result.UUID != "" {
+			if ok && existing.FilesystemUUID == "" && result.Result.UUID != "" {
 				volumesWithUpdatedUUID = append(volumesWithUpdatedUUID, volumeTags[i])
 			}
 			deps.volumeBlockDevices[volumeTags[i]] = blockDeviceFromParams(result.Result)
@@ -207,17 +207,17 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 
 func blockDeviceFromParams(in params.BlockDevice) blockdevice.BlockDevice {
 	return blockdevice.BlockDevice{
-		DeviceName:     in.DeviceName,
-		DeviceLinks:    in.DeviceLinks,
-		Label:          in.Label,
-		UUID:           in.UUID,
-		HardwareId:     in.HardwareId,
-		WWN:            in.WWN,
-		BusAddress:     in.BusAddress,
-		SizeMiB:        in.SizeMiB,
-		FilesystemType: in.FilesystemType,
-		InUse:          in.InUse,
-		MountPoint:     in.MountPoint,
-		SerialId:       in.SerialId,
+		DeviceName:      in.DeviceName,
+		DeviceLinks:     in.DeviceLinks,
+		FilesystemLabel: in.Label,
+		FilesystemUUID:  in.UUID,
+		HardwareId:      in.HardwareId,
+		WWN:             in.WWN,
+		BusAddress:      in.BusAddress,
+		SizeMiB:         in.SizeMiB,
+		FilesystemType:  in.FilesystemType,
+		InUse:           in.InUse,
+		MountPoint:      in.MountPoint,
+		SerialId:        in.SerialId,
 	}
 }

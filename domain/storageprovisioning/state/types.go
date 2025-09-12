@@ -57,6 +57,10 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type entityName struct {
+	Name string `db:"name"`
+}
+
 // filesystemAttachmentIDs represents the ids of attachment points to a
 // filesystem attachment. This information includes the filesystem ID the
 // attachment is for. As well as this either the machine or unit name the
@@ -203,7 +207,7 @@ type volumeAttachment struct {
 	Life                  life.Life `db:"life_id"`
 	ReadOnly              bool      `db:"read_only"`
 	BlockDeviceName       string    `db:"block_device_name"`
-	BlockDeviceLink       string    `db:"block_device_link"`
+	BlockDeviceUUID       string    `db:"block_device_uuid"`
 	BlockDeviceBusAddress string    `db:"block_device_bus_address"`
 }
 

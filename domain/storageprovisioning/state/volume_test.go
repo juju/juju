@@ -246,7 +246,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentWithBlockDevice(c *tc.C) {
 		VolumeID:              vsID,
 		ReadOnly:              true,
 		BlockDeviceName:       "blocky",
-		BlockDeviceLink:       "/dev/a",
+		BlockDeviceLinks:      []string{"/dev/a", "/dev/b"},
 		BlockDeviceBusAddress: "blocky:addr",
 	})
 }

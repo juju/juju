@@ -209,7 +209,7 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachine(c *tc.C) {
 		Return(storageprovisioning.VolumeAttachment{
 			VolumeID:              "123",
 			BlockDeviceName:       "blk",
-			BlockDeviceLink:       "/dev/blocky",
+			BlockDeviceLinks:      []string{"/dev/disk/by-id/blocky"},
 			BlockDeviceBusAddress: "blk:addr:f00",
 			ReadOnly:              true,
 		}, nil)
@@ -231,7 +231,7 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachine(c *tc.C) {
 					MachineTag: names.NewMachineTag(s.machineName.String()).String(),
 					Info: params.VolumeAttachmentInfo{
 						DeviceName: "blk",
-						DeviceLink: "/dev/blocky",
+						DeviceLink: "/dev/disk/by-id/blocky",
 						BusAddress: "blk:addr:f00",
 						ReadOnly:   true,
 						PlanInfo:   nil,
@@ -385,16 +385,16 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 				"/dev/blocky",
 				"/dev/sda",
 			},
-			Label:          "lbl",
-			UUID:           "the devices uuid",
-			HardwareId:     "hwid",
-			WWN:            "wwn",
-			BusAddress:     "blk:addr:foo",
-			SizeMiB:        123,
-			FilesystemType: "ext4",
-			InUse:          true,
-			MountPoint:     "/mnt/blocky",
-			SerialId:       "bl0cky",
+			FilesystemLabel: "lbl",
+			FilesystemUUID:  "the devices uuid",
+			HardwareId:      "hwid",
+			WWN:             "wwn",
+			BusAddress:      "blk:addr:foo",
+			SizeMiB:         123,
+			FilesystemType:  "ext4",
+			InUse:           true,
+			MountPoint:      "/mnt/blocky",
+			SerialId:        "bl0cky",
 		}, nil)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
@@ -3204,18 +3204,18 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 	volumeAttachPlanUUID := storageprovisioningtesting.GenVolumeAttachmentPlanUUID(c)
 
 	blockDeviceInfo := blockdevice.BlockDevice{
-		DeviceName:     "a",
-		DeviceLinks:    []string{"b"},
-		Label:          "c",
-		UUID:           "d",
-		HardwareId:     "e",
-		SizeMiB:        0xf,
-		WWN:            "h",
-		BusAddress:     "i",
-		FilesystemType: "j",
-		InUse:          true,
-		MountPoint:     "k",
-		SerialId:       "l",
+		DeviceName:      "a",
+		DeviceLinks:     []string{"b"},
+		FilesystemLabel: "c",
+		FilesystemUUID:  "d",
+		HardwareId:      "e",
+		SizeMiB:         0xf,
+		WWN:             "h",
+		BusAddress:      "i",
+		FilesystemType:  "j",
+		InUse:           true,
+		MountPoint:      "k",
+		SerialId:        "l",
 	}
 	svc := s.mockStorageProvisioningService
 	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(

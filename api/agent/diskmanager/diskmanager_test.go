@@ -31,8 +31,8 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 		DeviceName: "sda",
 		SizeMiB:    123,
 	}, {
-		DeviceName: "sdb",
-		UUID:       "asdadasdasdas",
+		DeviceName:     "sdb",
+		FilesystemUUID: "asdadasdasdas",
 	}}
 
 	var callCount int

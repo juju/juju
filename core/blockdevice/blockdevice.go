@@ -14,20 +14,20 @@ type BlockDevice struct {
 	// they know ahead of time how the OS will name them.
 	DeviceLinks []string
 
-	// Label is the label for the filesystem on the block device.
+	// FilesystemLabel is the label for the filesystem on the block device.
 	//
 	// This will be empty if the block device does not have a filesystem,
 	// or if the filesystem is not yet known to Juju.
-	Label string
+	FilesystemLabel string
 
-	// UUID is a unique identifier for the filesystem on the block device.
+	// FilesystemUUID is a unique identifier for the filesystem on the block device.
 	//
 	// This will be empty if the block device does not have a filesystem,
 	// or if the filesystem is not yet known to Juju.
 	//
-	// The UUID format is not necessarily uniform; for example, LVM UUIDs
+	// The FilesystemUUID format is not necessarily uniform; for example, LVM UUIDs
 	// differ in format to the standard v4 UUIDs.
-	UUID string
+	FilesystemUUID string
 
 	// HardwareId is the block device's hardware ID, which is composed of
 	// a serial number, vendor and model name. Not all block devices have
@@ -66,12 +66,4 @@ type BlockDevice struct {
 
 	// SerialId is the block device's serial id used for matching.
 	SerialId string
-}
-
-// MachineBlockDevice represents a block device on a machine.
-type MachineBlockDevice struct {
-	// MachineId is the id of the machine.
-	MachineId string
-	// BlockDevice is the block device.
-	BlockDevice BlockDevice
 }

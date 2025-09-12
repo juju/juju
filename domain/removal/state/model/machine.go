@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
@@ -486,13 +485,6 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("removing basic machine data: %w", err)
 		}
 
-		// Remove block devices for the machine.
-		// TODO (stickupkid): This is wrong! Just dump the block devices
-		// removal logic into this package.
-		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
-			return errors.Errorf("deleting block devices: %w", err)
-		}
-
 		// Remove the machine entry
 		if err := tx.Query(ctx, deleteMachineStmt, machineUUIDParam).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
@@ -575,6 +567,8 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM block_device_link_device WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM block_device WHERE machine_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {

@@ -82,9 +82,9 @@ func listBlockDevices(ctx context.Context) ([]blockdevice.BlockDevice, error) {
 					dev.SizeMiB = size / bytesInMiB
 				}
 			case "LABEL":
-				dev.Label = pair[2]
+				dev.FilesystemLabel = pair[2]
 			case "UUID":
-				dev.UUID = pair[2]
+				dev.FilesystemUUID = pair[2]
 			case "FSTYPE":
 				dev.FilesystemType = pair[2]
 			case "TYPE":
@@ -97,6 +97,9 @@ func listBlockDevices(ctx context.Context) ([]blockdevice.BlockDevice, error) {
 				logger.Debugf(ctx, "unexpected field from lsblk: %q", pair[1])
 			}
 		}
+
+		// TODO(storage): store the type of the block device and the parent
+		// device if once exists to allow for reliable matching.
 
 		// We may later want to expand this, e.g. to handle lvm,
 		// dmraid, crypt, etc., but this is enough to cover bases
@@ -230,6 +233,8 @@ func addHardwareInfo(ctx context.Context, dev *blockdevice.BlockDevice) error {
 		dev.WWN = wwnWithExtension
 	}
 	if idBus != "" && idSerial != "" {
+		// TODO(storage): remove this as it is completely useless.
+
 		// ID_BUS will be something like "scsi" or "ata";
 		// ID_SERIAL will be something like ${MODEL}_${SERIALNO};
 		// and together they make up the symlink in /dev/disk/by-id.

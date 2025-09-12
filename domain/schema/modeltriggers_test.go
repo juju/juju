@@ -572,10 +572,11 @@ VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUU
 func (s *modelStorageSuite) newBlockDeviceLinkDevice(
 	c *tc.C,
 	blockDeviceUUID string,
+	machineUUID string,
 ) {
 	_, err := s.DB().Exec(`
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (?, ?)`, blockDeviceUUID, blockDeviceUUID)
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)`, blockDeviceUUID, machineUUID, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1470,7 +1471,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceInse
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)
 
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 	s.assertChangeEvent(
 		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
 	)
@@ -1488,7 +1489,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceUpda
 	machineUUID := s.newMachine(c, netNodeUUID)
 	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
 	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)
@@ -1511,7 +1512,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceDele
 	machineUUID := s.newMachine(c, netNodeUUID)
 	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
 	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)

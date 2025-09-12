@@ -84,7 +84,7 @@ type VolumeAttachment struct {
 	ReadOnly bool
 
 	BlockDeviceName       string
-	BlockDeviceLink       string
+	BlockDeviceLinks      []string
 	BlockDeviceBusAddress string
 }
 

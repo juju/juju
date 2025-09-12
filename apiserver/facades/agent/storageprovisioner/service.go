@@ -57,11 +57,16 @@ type MachineService interface {
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.
 type BlockDeviceService interface {
-	// BlockDevices returns the block devices for a specified machine.
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-	// WatchBlockDevices returns a new NotifyWatcher watching for
-	// changes to block devices associated with the specified machine.
-	WatchBlockDevices(ctx context.Context, machineId string) (watcher.NotifyWatcher, error)
+	// BlockDevices returns the BlockDevices for the specified machine.
+	BlockDevices(
+		ctx context.Context, machineUUID machine.UUID,
+	) ([]blockdevice.BlockDevice, error)
+
+	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
+	// devices associated with the specified machine.
+	WatchBlockDevices(
+		ctx context.Context, machineUUID machine.UUID,
+	) (watcher.NotifyWatcher, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.
