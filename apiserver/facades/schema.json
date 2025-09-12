@@ -1289,7 +1289,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ApplicationStorageGetRequest"
+                            "$ref": "#/definitions/Entities"
                         },
                         "Result": {
                             "$ref": "#/definitions/ApplicationStorageGetResults"
@@ -1470,7 +1470,7 @@
                             "$ref": "#/definitions/ApplicationStorageUpdateRequest"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ApplicationStorageUpdateResult"
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     }
                 }
@@ -2119,21 +2119,6 @@
                         "force-base"
                     ]
                 },
-                "ApplicationStorageGetRequest": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
                 "ApplicationStorageGetResult": {
                     "type": "object",
                     "properties": {
@@ -2173,8 +2158,8 @@
                 "ApplicationStorageUpdate": {
                     "type": "object",
                     "properties": {
-                        "entity": {
-                            "$ref": "#/definitions/Entity"
+                        "application-tag": {
+                            "type": "string"
                         },
                         "storage-constraints": {
                             "type": "object",
@@ -2187,7 +2172,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "entity",
+                        "application-tag",
                         "storage-constraints"
                     ]
                 },
@@ -2204,18 +2189,6 @@
                     "additionalProperties": false,
                     "required": [
                         "storage-updates"
-                    ]
-                },
-                "ApplicationStorageUpdateResult": {
-                    "type": "object",
-                    "properties": {
-                        "errors": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "errors"
                     ]
                 },
                 "ApplicationUnexpose": {

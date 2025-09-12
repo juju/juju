@@ -3631,6 +3631,10 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 
 // UpdateStorageConstraints updates the storage constraints for the application.
 func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
+	if len(cons) == 0 {
+		return nil
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
