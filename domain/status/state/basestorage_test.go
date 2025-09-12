@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/tc"
+
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,7 +21,6 @@ import (
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
-	"github.com/juju/tc"
 )
 
 // baseStorageSuite defines a set of common test suite fixtures for common
