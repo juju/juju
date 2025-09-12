@@ -45,6 +45,8 @@ const (
 	S3Purpose Purpose = "s3"
 	// SSHImporterPurpose is the namespace for the ssh importer http client.
 	SSHImporterPurpose Purpose = "ssh-importer"
+	// MacaroonPurpose is the namespace for the macaroon http client.
+	MacaroonPurpose Purpose = "macaroon"
 )
 
 func (n Purpose) String() string {

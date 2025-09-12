@@ -532,6 +532,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		UpgradeComplete:            func() bool { return true },
 		LogSink:                    noopLogSink{},
 		CharmhubHTTPClient:         &http.Client{},
+		MacaroonHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		DomainServicesGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},

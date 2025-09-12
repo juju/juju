@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	domaincontroller "github.com/juju/juju/domain/controller"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -75,7 +76,8 @@ func (s *Service) GetCACert(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetCACert(ctx)
+	cert, err := s.st.GetCACert(ctx)
+	return cert, errors.Capture(err)
 }
 
 // GetControllerInfo returns information about the current controller.
@@ -83,5 +85,6 @@ func (s *Service) GetControllerInfo(ctx context.Context) (domaincontroller.Contr
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.GetControllerInfo(ctx)
+	info, err := s.st.GetControllerInfo(ctx)
+	return info, errors.Capture(err)
 }

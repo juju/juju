@@ -59,12 +59,17 @@ func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
 		}
 		return svc.Removal(), nil
 	}
+
+	domainServices := ctx.DomainServices()
+
 	return createOffersAPI(
 		ctx.Auth(),
+		ctx.CrossModelAuthContext(),
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		ctx.DomainServices().Access(),
-		ctx.DomainServices().Model(),
+		domainServices.Access(),
+		domainServices.Controller(),
+		domainServices.Model(),
 		crossModelRelationServiceGetter,
 		removalServiceGetter,
 		ctx.Logger().Child("applicationoffers"),

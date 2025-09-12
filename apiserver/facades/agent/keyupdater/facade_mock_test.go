@@ -240,6 +240,44 @@ func (c *MockModelContextControllerUUIDCall) DoAndReturn(f func() string) *MockM
 	return c
 }
 
+// CrossModelAuthContext mocks base method.
+func (m *MockModelContext) CrossModelAuthContext() facade.CrossModelAuthContext {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CrossModelAuthContext")
+	ret0, _ := ret[0].(facade.CrossModelAuthContext)
+	return ret0
+}
+
+// CrossModelAuthContext indicates an expected call of CrossModelAuthContext.
+func (mr *MockModelContextMockRecorder) CrossModelAuthContext() *MockModelContextCrossModelAuthContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CrossModelAuthContext", reflect.TypeOf((*MockModelContext)(nil).CrossModelAuthContext))
+	return &MockModelContextCrossModelAuthContextCall{Call: call}
+}
+
+// MockModelContextCrossModelAuthContextCall wrap *gomock.Call
+type MockModelContextCrossModelAuthContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextCrossModelAuthContextCall) Return(arg0 facade.CrossModelAuthContext) *MockModelContextCrossModelAuthContextCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextCrossModelAuthContextCall) Do(f func() facade.CrossModelAuthContext) *MockModelContextCrossModelAuthContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextCrossModelAuthContextCall) DoAndReturn(f func() facade.CrossModelAuthContext) *MockModelContextCrossModelAuthContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DataDir mocks base method.
 func (m *MockModelContext) DataDir() string {
 	m.ctrl.T.Helper()
