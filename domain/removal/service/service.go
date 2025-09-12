@@ -50,6 +50,7 @@ type ModelDBState interface {
 	ApplicationState
 	MachineState
 	ModelState
+	StorageState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -57,6 +58,15 @@ type ModelDBState interface {
 	// DeleteJob deletes a removal record under the assumption
 	// that it was executed successfully.
 	DeleteJob(ctx context.Context, jUUID string) error
+
+	// NamespaceForWatchRemovals returns the table name whose UUIDs we
+	// are watching in order to be notified of new removal jobs.
+	NamespaceForWatchRemovals() string
+
+	// NamespaceForWatchEntityRemovals returns the table name whose UUIDs we
+	// are watching in order to be notified of new removal jobs for specific
+	// entities.
+	NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string)
 }
 
 // WatcherFactory describes methods for creating watchers.
