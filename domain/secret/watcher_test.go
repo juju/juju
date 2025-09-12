@@ -712,7 +712,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretTriggerChange]("NextTriggerTime")(
 				corewatcher.SecretTriggerChange{
 					URI:             uri1,
 					Revision:        1,
@@ -748,7 +748,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 
 	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretTriggerChange]("NextTriggerTime")(
 				corewatcher.SecretTriggerChange{
 					URI:             uri1,
 					Revision:        1,
@@ -825,7 +825,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretTriggerChange]("NextTriggerTime")(
 				corewatcher.SecretTriggerChange{
 					URI:             uri1,
 					Revision:        1,
@@ -860,7 +860,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness1 := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w1))
 	harness1.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretTriggerChange]("NextTriggerTime")(
 				corewatcher.SecretTriggerChange{
 					URI:             uri1,
 					Revision:        1,

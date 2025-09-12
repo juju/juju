@@ -36,7 +36,6 @@ func TestWatcherSuite(t *testing.T) {
 }
 
 func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
-	// c.Skip("FIXME: rename of secret is firing secretbackend_rotation_changes")
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secretbackend_rotation_changes")
 
 	logger := loggertesting.WrapCheckLog(c)
@@ -95,7 +94,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 		c.Assert(result, tc.Equals, backendID2)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretBackendRotateChange]) {
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretBackendRotateChange]("NextTriggerTime")(
 				corewatcher.SecretBackendRotateChange{
 					ID:              backendID1,
 					Name:            "my-backend1",
@@ -146,7 +145,7 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretBackendRotateChange]) {
 		// Triggered - updated the rotation time.
 		w.Check(
-			watchertest.TimedSliceAssert(
+			watchertest.TimedSliceAssert[corewatcher.SecretBackendRotateChange]("NextTriggerTime")(
 				corewatcher.SecretBackendRotateChange{
 					ID:              backendID2,
 					Name:            "my-backend2",
