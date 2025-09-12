@@ -709,12 +709,6 @@ type PendingResourceUpload struct {
 	Type string
 }
 
-// ApplicationStorageGetRequest defines the request parameters for
-// retrieving storage constraints for one or more applications.
-type ApplicationStorageGetRequest struct {
-	Entities []Entity `json:"entities"`
-}
-
 // ApplicationStorageGetResult holds the storage constraints and any
 // error information for a single application.
 type ApplicationStorageGetResult struct {
@@ -726,7 +720,7 @@ type ApplicationStorageGetResult struct {
 // for a bulk storage get request. The number and order of results should match
 // the number and order of input entities.
 type ApplicationStorageGetResults struct {
-	ApplicationStorageGetResults []ApplicationStorageGetResult `json:"results"`
+	Results []ApplicationStorageGetResult `json:"results"`
 }
 
 // ApplicationStorageUpdateRequest defines the parameters for updating
@@ -738,15 +732,8 @@ type ApplicationStorageUpdateRequest struct {
 // ApplicationStorageUpdate holds the desired storage constraint
 // updates for a single application.
 type ApplicationStorageUpdate struct {
-	Entity Entity `json:"entity"`
+	ApplicationTag string `json:"application-tag"`
 
 	// Holds the application storage constraints where the key is the storage name.
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints"`
-}
-
-// ApplicationStorageUpdateResult aggregates the per-application errors
-// for a bulk storage update request. The number and order of elements
-// in Errors match the number and order of input ApplicationStorageUpdates.
-type ApplicationStorageUpdateResult struct {
-	Errors ErrorResults `json:"errors"`
 }

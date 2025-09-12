@@ -3120,12 +3120,11 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 
 func (api *APIBase) getOneApplicationStorage(entity params.Entity) (params.ApplicationStorageGetResult, error) {
 	res := params.ApplicationStorageGetResult{}
-	tag, err := names.ParseApplicationTag(entity.Tag)
+	appTag, err := names.ParseTag(entity.Tag)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
-
-	app, err := api.backend.Application(tag.Name)
+	app, err := api.backend.Application(appTag.Id())
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -3148,34 +3147,30 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (params.Appli
 }
 
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
-// The length of ApplicationStorageGetResults always matches the length of Entities.
-// For example, the Nth result corresponds to the Nth entity in the request.
-func (api *APIBase) GetApplicationStorage(args params.ApplicationStorageGetRequest) (params.ApplicationStorageGetResults, error) {
-	resp := params.ApplicationStorageGetResults{}
+func (api *APIBase) GetApplicationStorage(args params.Entities) (params.ApplicationStorageGetResults, error) {
+	resp := params.ApplicationStorageGetResults{
+		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
+	}
 	if err := api.checkCanRead(); err != nil {
 		return resp, errors.Trace(err)
 	}
-	res := make([]params.ApplicationStorageGetResult, len(args.Entities))
-	resp.ApplicationStorageGetResults = res
-
 	for i, entity := range args.Entities {
 		appStorage, err := api.getOneApplicationStorage(entity)
 		if err != nil {
-			res[i].ErrorResult.Error = apiservererrors.ServerError(err)
+			resp.Results[i].ErrorResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		res[i] = appStorage
+		resp.Results[i] = appStorage
 	}
 	return resp, nil
 }
 
-func (api *APIBase) updateOneApplicationStorage(entity params.Entity, storageConstraints map[string]params.StorageConstraints) error {
-	tag, err := names.ParseApplicationTag(entity.Tag)
+func (api *APIBase) updateOneApplicationStorage(applicationTag string, storageConstraints map[string]params.StorageConstraints) error {
+	appTag, err := names.ParseTag(applicationTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	app, err := api.backend.Application(tag.Name)
+	app, err := api.backend.Application(appTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3198,25 +3193,21 @@ func (api *APIBase) updateOneApplicationStorage(entity params.Entity, storageCon
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
-// The length of ErrorResults always matches the length of Entities.
-// For example, the Nth result corresponds to the Nth entity in the request.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned in each ErrorResult:
 //   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
-func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ApplicationStorageUpdateResult, error) {
-	resp := params.ApplicationStorageUpdateResult{}
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+	resp := params.ErrorResults{}
 	if err := api.checkCanWrite(); err != nil {
 		return resp, errors.Trace(err)
 	}
 
 	res := make([]params.ErrorResult, len(args.ApplicationStorageUpdates))
-	resp.Errors = params.ErrorResults{
-		Results: res,
-	}
+	resp.Results = res
 
 	for i, storageUpdate := range args.ApplicationStorageUpdates {
-		err := api.updateOneApplicationStorage(storageUpdate.Entity, storageUpdate.StorageConstraints)
+		err := api.updateOneApplicationStorage(storageUpdate.ApplicationTag, storageUpdate.StorageConstraints)
 		res[i].Error = apiservererrors.ServerError(err)
 	}
 

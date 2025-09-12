@@ -1702,6 +1702,7 @@ func createStorageConstraintsOp(key string, cons map[string]StorageConstraints) 
 }
 
 func replaceStorageConstraintsOp(key string, cons map[string]StorageConstraints) txn.Op {
+	fmt.Println("replaced")
 	return txn.Op{
 		C:      storageConstraintsC,
 		Id:     key,

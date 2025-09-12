@@ -6016,6 +6016,65 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 1,
+		},
+	}
+	charm := s.AddTestingCharm(c, "cockroachdb")
+	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["database"].Pool, gc.Equals, "loop")
+	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+
+	newSC := map[string]state.StorageConstraints{
+		"database": makeStorageCons("loop", 4096, 1),
+	}
+
+	yml := `name: cockroachdb
+summary: cockroachdb
+description: cockroachdb
+containers:
+  cockroachdb:
+    resource: cockroachdb-image
+    mounts:
+      - storage: database
+        location: /cockroach/cockroach-data
+storage:
+  database:
+    type: filesystem
+provides:
+  db:
+    interface: roach
+resources:
+  cockroachdb-image:
+    type: oci-image
+    description: OCI image used for cockroachdb
+assumes:
+  - k8s-api`
+	defer state.SetBeforeHooks(c, s.State, func() {
+		mc := s.AddMetaCharm(c, "cockroachdb", yml, 2)
+		c.Assert(mc, gc.NotNil)
+	}).Check()
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["database"].Pool, gc.Equals, "loop")
+	c.Assert(cons["database"].Count, gc.Equals, uint64(1))
+	c.Assert(cons["database"].Size, gc.Equals, uint64(4096))
+}
+
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	registry := &storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{

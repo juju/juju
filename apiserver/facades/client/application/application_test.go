@@ -1689,14 +1689,14 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 1)
-	resultSC := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore]
+	c.Assert(len(resp.Results), gc.Equals, 1)
+	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
 	c.Assert(resultSC.Pool, gc.Equals, sc[charmStore].Pool)
 	c.Assert(*resultSC.Count, gc.Equals, sc[charmStore].Count)
@@ -1725,7 +1725,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application2.Name(), gc.Equals, "cockroachdb")
 
 	// Retrieves info for both applications
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1734,17 +1734,17 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 2)
+	c.Assert(len(resp.Results), gc.Equals, 2)
 
 	// Asserts that the storage-block application has defined resp constraints.
-	resultSC1 := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore1]
+	resultSC1 := resp.Results[0].StorageConstraints[charmStore1]
 	c.Assert(resultSC1, gc.NotNil)
 	c.Assert(resultSC1.Pool, gc.Equals, sc1[charmStore1].Pool)
 	c.Assert(*resultSC1.Count, gc.Equals, sc1[charmStore1].Count)
 	c.Assert(*resultSC1.Size, gc.Equals, sc1[charmStore1].Size)
 
 	// Asserts that the cockroachdb application has defined resp constraints.
-	resultSC2 := resp.ApplicationStorageGetResults[1].StorageConstraints[charmStore2]
+	resultSC2 := resp.Results[1].StorageConstraints[charmStore2]
 	c.Assert(resultSC2, gc.NotNil)
 	c.Assert(resultSC2.Pool, gc.Equals, sc2[charmStore2].Pool)
 	c.Assert(*resultSC2.Count, gc.Equals, sc2[charmStore2].Count)
@@ -1760,13 +1760,13 @@ func (s *applicationSuite) TestGetApplicationStorageDefaultExists(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has default storage constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults[0].StorageConstraints), jc.GreaterThan, 0)
+	c.Assert(len(resp.Results[0].StorageConstraints), jc.GreaterThan, 0)
 }
 
 func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
@@ -1782,14 +1782,14 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 1)
-	resultSC := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore]
+	c.Assert(len(resp.Results), gc.Equals, 1)
+	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
 	c.Assert(resultSC.Pool, gc.Equals, sc[charmStore].Pool)
 	c.Assert(*resultSC.Count, gc.Equals, sc[charmStore].Count)
@@ -1808,9 +1808,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				Entity: params.Entity{
-					Tag: application.Tag().String(),
-				},
+				ApplicationTag:     application.Tag().String(),
 				StorageConstraints: newSC,
 			},
 		},
@@ -1818,14 +1816,14 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the application has newly defined storage constraints.
-	resp, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err = s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 1)
-	newResultSC := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore]
+	c.Assert(len(resp.Results), gc.Equals, 1)
+	newResultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(newResultSC, gc.NotNil)
 	c.Assert(newResultSC.Pool, gc.Equals, newSC[charmStore].Pool)
 	c.Assert(*newResultSC.Count, gc.Equals, *newSC[charmStore].Count)
@@ -1854,7 +1852,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	c.Assert(application2.Name(), gc.Equals, "cockroachdb")
 
 	// Asserts that both the applications have defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1863,17 +1861,17 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 2)
+	c.Assert(len(resp.Results), gc.Equals, 2)
 
 	// Asserts that the storage-block application has defined resp constraints.
-	resultSC1 := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore1]
+	resultSC1 := resp.Results[0].StorageConstraints[charmStore1]
 	c.Assert(resultSC1, gc.NotNil)
 	c.Assert(resultSC1.Pool, gc.Equals, sc1[charmStore1].Pool)
 	c.Assert(*resultSC1.Count, gc.Equals, sc1[charmStore1].Count)
 	c.Assert(*resultSC1.Size, gc.Equals, sc1[charmStore1].Size)
 
 	// Asserts that the cockroachdb application has defined resp constraints.
-	resultSC2 := resp.ApplicationStorageGetResults[1].StorageConstraints[charmStore2]
+	resultSC2 := resp.Results[1].StorageConstraints[charmStore2]
 	c.Assert(resultSC2, gc.NotNil)
 	c.Assert(resultSC2.Pool, gc.Equals, sc2[charmStore2].Pool)
 	c.Assert(*resultSC2.Count, gc.Equals, sc2[charmStore2].Count)
@@ -1902,16 +1900,11 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-
-				Entity: params.Entity{
-					Tag: application1.Tag().String(),
-				},
+				ApplicationTag:     application1.Tag().String(),
 				StorageConstraints: newSC1,
 			},
 			{
-				Entity: params.Entity{
-					Tag: application2.Tag().String(),
-				},
+				ApplicationTag:     application2.Tag().String(),
 				StorageConstraints: newSC2,
 			},
 		},
@@ -1919,7 +1912,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Asserts that the applications have newly defined storage constraints.
-	resp, err = s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err = s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application1.Tag().String(),
 		},
@@ -1928,17 +1921,17 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 2)
+	c.Assert(len(resp.Results), gc.Equals, 2)
 
 	// Asserts that the storage-block application has newly-defined resp constraints.
-	newResultSC1 := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore1]
+	newResultSC1 := resp.Results[0].StorageConstraints[charmStore1]
 	c.Assert(newResultSC1, gc.NotNil)
 	c.Assert(newResultSC1.Pool, gc.Equals, newSC1[charmStore1].Pool)
 	c.Assert(*newResultSC1.Count, gc.Equals, *newSC1[charmStore1].Count)
 	c.Assert(*newResultSC1.Size, gc.Equals, *newSC1[charmStore1].Size)
 
 	// Asserts that the cockroachdb application has newly-defined resp constraints.
-	newResultSC2 := resp.ApplicationStorageGetResults[1].StorageConstraints[charmStore2]
+	newResultSC2 := resp.Results[1].StorageConstraints[charmStore2]
 	c.Assert(newResultSC2, gc.NotNil)
 	c.Assert(newResultSC2.Pool, gc.Equals, newSC2[charmStore2].Pool)
 	c.Assert(*newResultSC2.Count, gc.Equals, *newSC2[charmStore2].Count)
@@ -1959,14 +1952,14 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameNotSupported(c *gc.C)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
 	// Asserts that the application has defined resp constraints.
-	resp, err := s.applicationAPI.GetApplicationStorage(params.ApplicationStorageGetRequest{Entities: []params.Entity{
+	resp, err := s.applicationAPI.GetApplicationStorage(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(resp.ApplicationStorageGetResults), gc.Equals, 1)
-	resultSC := resp.ApplicationStorageGetResults[0].StorageConstraints[charmStore]
+	c.Assert(len(resp.Results), gc.Equals, 1)
+	resultSC := resp.Results[0].StorageConstraints[charmStore]
 	c.Assert(resultSC, gc.NotNil)
 	c.Assert(resultSC.Pool, gc.Equals, sCons[charmStore].Pool)
 	c.Assert(*resultSC.Count, gc.Equals, sCons[charmStore].Count)
@@ -1978,9 +1971,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameNotSupported(c *gc.C)
 	res, err := s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				Entity: params.Entity{
-					Tag: application.Tag().String(),
-				},
+				ApplicationTag: application.Tag().String(),
 				StorageConstraints: map[string]params.StorageConstraints{
 					charmStore: {
 						Pool:  "loop",
@@ -2004,6 +1995,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameNotSupported(c *gc.C)
 
 	// Asserts that the application has 1 unsupported api server error.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(res.Errors.Results), gc.Equals, 1)
-	c.Assert(res.Errors.Results[0].Error.Code, gc.Equals, params.CodeNotSupported)
+	c.Assert(len(res.Results), gc.Equals, 1)
+	c.Assert(res.Results[0].Error.Code, gc.Equals, params.CodeNotSupported)
 }
