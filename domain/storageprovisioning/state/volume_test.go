@@ -830,21 +830,30 @@ func (s *volumeSuite) TestGetVolumeAttachmentParamsNotFound(c *tc.C) {
 }
 
 func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	// Construct the app, unit and machine
 	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "testapp")
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
 	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
+
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	charmUUID := s.newCharm(c)
-	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
+	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct storage instance, volume, volume attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	volUUID, _ := s.newMachineVolume(c)
 	s.setVolumeProviderID(c, volUUID, "provider-id")
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
 
+	// Attach the storage instance to the unit. This is what draws in all the
+	// information for the attachment params.
+	_ = s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
 	params, err := st.GetVolumeAttachmentParams(c.Context(), vaUUID)
 
 	c.Check(err, tc.ErrorIsNil)

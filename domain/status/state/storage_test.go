@@ -7,48 +7,41 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
-	schematesting "github.com/juju/juju/domain/schema/testing"
-	domainsequence "github.com/juju/juju/domain/sequence"
-	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
+type storageStatusSuite struct {
+	baseStorageSuite
+}
+
 type storageSuite struct {
-	schematesting.ModelSuite
-
+	baseStorageSuite
 	modelState *ModelState
+}
 
-	storageInstCount int
-	filesystemCount  int
-	volumeCount      int
+func TestStorageStatusSuite(t *testing.T) {
+	tc.Run(t, &storageStatusSuite{})
 }
 
 func TestStorageSuite(t *testing.T) {
@@ -59,202 +52,6 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.modelState = NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-type charmStorageArg struct {
-	name     string
-	kind     storage.StorageKind
-	min, max int
-	readOnly bool
-	location string
-}
-
-var (
-	filesystemStorage = charmStorageArg{
-		name:     "pgdata",
-		kind:     storage.StorageKindFilesystem,
-		min:      1,
-		max:      2,
-		readOnly: true,
-		location: "/tmp",
-	}
-	blockStorage = charmStorageArg{
-		name:     "pgblock",
-		kind:     storage.StorageKindBlock,
-		min:      1,
-		max:      2,
-		readOnly: true,
-		location: "/dev/block",
-	}
-)
-
-func (s *storageSuite) createFilesystem(c *tc.C) storageprovisioning.FilesystemUUID {
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
-VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem_status(filesystem_uuid, status_id)
-VALUES (?, ?)`, filesystemUUID, 0)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount++
-	return filesystemUUID
-}
-
-func (s *storageSuite) createFilesystemNoStatus(c *tc.C) storageprovisioning.FilesystemUUID {
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_filesystem(uuid, life_id, filesystem_id)
-VALUES (?, ?, ?)`, filesystemUUID, life.Alive, s.filesystemCount)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.filesystemCount++
-	return filesystemUUID
-}
-
-func insertCharmState(c *tc.C, tx *sql.Tx, uuid corecharm.ID) error {
-	return insertCharmStateWithRevision(c, tx, uuid, 42)
-}
-
-func insertCharmStateWithRevision(c *tc.C, tx *sql.Tx, uuid corecharm.ID, revision int) error {
-	_, err := tx.ExecContext(c.Context(), `
-INSERT INTO charm (uuid, archive_path, available, reference_name, revision, version, architecture_id)
-VALUES (?, 'archive', false, 'ubuntu', ?, 'deadbeef', 0)
-`, uuid, revision)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	_, err = tx.ExecContext(c.Context(), `
-INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes)
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
-func insertCharmMetadata(c *tc.C, tx *sql.Tx, uuid corecharm.ID) (charm.Metadata, error) {
-	if err := insertCharmState(c, tx, uuid); err != nil {
-		return charm.Metadata{}, errors.Capture(err)
-	}
-
-	return charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: semversion.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-	}, nil
-}
-
-func (s *storageSuite) insertCharmWithStorage(c *tc.C, stor ...charmStorageArg) corecharm.ID {
-	uuid := charmtesting.GenCharmID(c)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		if _, err = insertCharmMetadata(c, tx, uuid); err != nil {
-			return errors.Capture(err)
-		}
-
-		for _, arg := range stor {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_storage (
-    charm_uuid,
-    name,
-    storage_kind_id,
-    read_only,
-    count_min,
-    count_max,
-    location
-) VALUES
-    (?, ?, ?, ?, ?, ?, ?);`,
-				uuid, arg.name, arg.kind, arg.readOnly, arg.min, arg.max, arg.location)
-			if err != nil {
-				return errors.Capture(err)
-			}
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return uuid
-}
-
-func (s *storageSuite) createStorageInstance(c *tc.C, storageName, charmUUID corecharm.ID, poolUUID storage.StoragePoolUUID) storage.StorageInstanceUUID {
-	storageUUID := storagetesting.GenStorageInstanceUUID(c)
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance (
-    uuid, charm_uuid, storage_name, storage_id,
-    life_id, requested_size_mib, storage_pool_uuid
-) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		storageUUID, charmUUID, storageName,
-		fmt.Sprintf("%s/%d", storageName, s.storageInstCount),
-		life.Alive, 100, poolUUID,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.storageInstCount++
-	return storageUUID
-}
-
-// newStoragePool creates a new storage pool with name, provider type and attrs.
-// It returns the UUID of the new storage pool.
-func (s *storageSuite) newStoragePool(c *tc.C, name string, providerType string, attrs map[string]string) storage.StoragePoolUUID {
-	spUUID := storagetesting.GenStoragePoolUUID(c)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_pool (uuid, name, type)
-VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
-		if err != nil {
-			return err
-		}
-
-		for k, v := range attrs {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
-VALUES (?, ?, ?)`, spUUID.String(), k, v)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return spUUID
-}
-
-func (s *storageSuite) createFilesystemInstance(
-	c *tc.C,
-	filesystemUUID storageprovisioning.FilesystemUUID,
-) {
-	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
-	poolUUID := s.newStoragePool(c, "pool", "pool", nil)
-	storageUUID := s.createStorageInstance(c, "pgdata", charmUUID, poolUUID)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance_filesystem(storage_filesystem_uuid, storage_instance_uuid)
-VALUES (?, ?)`, filesystemUUID, storageUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *storageSuite) assertFilesystemStatus(
@@ -280,55 +77,6 @@ WHERE filesystem_uuid=?`, filesystemUUID).Scan(
 	c.Check(got, tc.DeepEquals, expected)
 }
 
-func (s *storageSuite) createVolume(c *tc.C) storageprovisioning.VolumeUUID {
-	ctx := c.Context()
-
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
-
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_volume(uuid, life_id, volume_id)
-VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_volume_status(volume_uuid, status_id)
-VALUES (?, ?)`, volumeUUID, 0)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.volumeCount++
-	return volumeUUID
-}
-
-func (s *storageSuite) createVolumeNoStatus(c *tc.C) storageprovisioning.VolumeUUID {
-	ctx := c.Context()
-
-	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
-
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_volume(uuid, life_id, volume_id)
-VALUES (?, ?, ?)`, volumeUUID, life.Alive, s.volumeCount)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.volumeCount++
-	return volumeUUID
-}
-
-func (s *storageSuite) createVolumeInstance(c *tc.C, volumeUUID storageprovisioning.VolumeUUID) {
-	charmUUID := s.insertCharmWithStorage(c, blockStorage)
-	poolUUID := s.newStoragePool(c, "blockpool", "blockpool", nil)
-	storageUUID := s.createStorageInstance(c, "pgblock", charmUUID, poolUUID)
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance_volume(storage_volume_uuid, storage_instance_uuid)
-VALUES (?, ?)`, volumeUUID, storageUUID)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *storageSuite) assertVolumeStatus(
 	c *tc.C,
 	volumeUUID storageprovisioning.VolumeUUID,
@@ -352,7 +100,9 @@ WHERE volume_uuid=?`, volumeUUID).Scan(
 }
 
 func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
+	filesystemUUID, _ := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -367,7 +117,7 @@ func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
-	filesystemUUID := s.createFilesystemNoStatus(c)
+	filesystemUUID, _ := s.newFilesystem(c)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -382,7 +132,9 @@ func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetFilesystemStatusMultipleTimes(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
+	filesystemUUID, _ := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
 
 	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttaching,
@@ -418,7 +170,9 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetFilesystemStatusInvalidStatus(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
+	filesystemUUID, _ := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
 
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusType(99),
@@ -428,33 +182,51 @@ func (s *storageSuite) TestSetFilesystemStatusInvalidStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*unknown status.*`)
 }
 
-func (s *storageSuite) TestSetFilesystemStatusInvalidTransition(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
-	now := time.Now().UTC()
-	s.createFilesystemInstance(c, filesystemUUID)
+// TestSetFilesystemStatusPendingWhenProvisioned ensures that a filesystem
+// status cannot be transitionted to pending when the filesystem is considered
+// to have been provisioned within the model.
+//
+// TODO (tlm): This is testing logic that is broken. The code that this is
+// testing assumes a filesystem is provisioned when it is associated with a
+// storage instance. This is always the case and a filesystem
+// is currnetly considered provisioned when the provisioning information has
+// been set by the storage provisioning worker.
+//
+// What most likely needs to happen in a follow up fix is that the filesystem
+// needs to carry a "provisioned" flag that is set or the state machine that is
+// status should consider this a valid status.
+func (s *storageSuite) TestSetFilesystemStatusPendingWhenProvisioned(c *tc.C) {
+	ch0 := s.newCharm(c)
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	fsUUID, _ := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
+	s.newStorageInstanceFilesystem(c, s0, fsUUID)
 
+	now := time.Now().UTC()
 	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypeAttached,
 		Since:  ptr(now),
 	}
-	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
+	err := s.modelState.SetFilesystemStatus(c.Context(), fsUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypePending,
 		Since:  ptr(now),
 	}
-	err = s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, sts)
+	err = s.modelState.SetFilesystemStatus(c.Context(), fsUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
 
 func (s *storageSuite) TestGetFilesystemUUIDByID(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
+	filesystemUUID, fsID := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
 
-	id := strconv.Itoa(s.filesystemCount - 1)
-	gotUUID, err := s.modelState.GetFilesystemUUIDByID(c.Context(), id)
+	gotUUID, err := s.modelState.GetFilesystemUUIDByID(c.Context(), fsID)
 	c.Assert(err, tc.ErrorIsNil)
-
 	c.Assert(gotUUID, tc.Equals, filesystemUUID)
 }
 
@@ -464,7 +236,9 @@ func (s *storageSuite) TestGetFilesystemUUIDByIDNotFound(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
-	filesystemUUID := s.createFilesystem(c)
+	filesystemUUID, _ := s.newFilesystemWithStatus(
+		c, status.StorageFilesystemStatusTypePending,
+	)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -479,7 +253,7 @@ func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetVolumeStatus(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+	volumeUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
@@ -494,7 +268,7 @@ func (s *storageSuite) TestSetVolumeStatus(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
-	volumeUUID := s.createVolumeNoStatus(c)
+	volumeUUID, _ := s.newVolume(c)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
@@ -509,7 +283,7 @@ func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetVolumeStatusMultipleTimes(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+	volumeUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 
 	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttaching,
@@ -545,7 +319,7 @@ func (s *storageSuite) TestSetVolumeStatusVolumeNotFound(c *tc.C) {
 }
 
 func (s *storageSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+	volumeUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusType(99),
@@ -555,31 +329,46 @@ func (s *storageSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*unknown status.*`)
 }
 
-func (s *storageSuite) TestSetVolumeStatusInvalidTransition(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+// TestSetVolumeStatusPendingWhenProvisioned ensures that a volume
+// status cannot be transitionted to pending when the volume is considered
+// to have been provisioned within the model.
+//
+// TODO (tlm): This is testing logic that is broken. The code that this is
+// testing assumes a volume is provisioned when it is associated with a
+// storage instance. This is always the case and a volume
+// is currnetly considered provisioned when the provisioning information has
+// been set by the storage provisioning worker.
+//
+// What most likely needs to happen in a follow up fix is that the volume
+// needs to carry a "provisioned" flag that is set or the state machine that is
+// status should consider this a valid status.
+func (s *storageSuite) TestSetVolumeStatusPendingWhenProvisioned(c *tc.C) {
+	ch0 := s.newCharm(c)
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	vUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
+	s.newStorageInstanceVolume(c, s0, vUUID)
 	now := time.Now().UTC()
-	s.createVolumeInstance(c, volumeUUID)
 
 	sts := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypeAttached,
 		Since:  ptr(now),
 	}
-	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, sts)
+	err := s.modelState.SetVolumeStatus(c.Context(), vUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypePending,
 		Since:  ptr(now),
 	}
-	err = s.modelState.SetVolumeStatus(c.Context(), volumeUUID, sts)
+	err = s.modelState.SetVolumeStatus(c.Context(), vUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
 }
 
 func (s *storageSuite) TestGetVolumeUUIDByID(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+	volumeUUID, vsID := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 
-	id := strconv.Itoa(s.volumeCount - 1)
-	gotUUID, err := s.modelState.GetVolumeUUIDByID(c.Context(), id)
+	gotUUID, err := s.modelState.GetVolumeUUIDByID(c.Context(), vsID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(gotUUID, tc.Equals, volumeUUID)
@@ -591,7 +380,7 @@ func (s *storageSuite) TestGetVolumeUUIDByIDNotFound(c *tc.C) {
 }
 
 func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
-	volumeUUID := s.createVolume(c)
+	volumeUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
@@ -603,14 +392,6 @@ func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
 	err := s.modelState.ImportVolumeStatus(c.Context(), volumeUUID, expected)
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertVolumeStatus(c, volumeUUID, expected)
-}
-
-type storageStatusSuite struct {
-	schematesting.ModelSuite
-}
-
-func TestStorageStatusSuite(t *testing.T) {
-	tc.Run(t, &storageStatusSuite{})
 }
 
 func (s *storageStatusSuite) NewModelState(c *tc.C) *ModelState {
@@ -650,13 +431,11 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 		{
 			UUID: s0,
 			ID:   "blk/0",
-			Kind: storage.StorageKindBlock,
 			Life: life.Dying,
 		},
 		{
 			UUID:  s1,
 			ID:    "fs/1",
-			Kind:  storage.StorageKindFilesystem,
 			Life:  life.Alive,
 			Owner: &u0n,
 		},
@@ -1110,22 +889,6 @@ func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 
 // newFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
-func (s *storageStatusSuite) newFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
-) {
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
-
-	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		fsUUID.String(), fsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return fsUUID, fsID
-}
 
 // newFilesystemAttachment creates a new filesystem attachment that has
 // model provision scope. The attachment is associated with the provided
@@ -1167,37 +930,16 @@ WHERE  uuid=?
 
 // newApplication creates a new application in the model returning the uuid of
 // the new application.
-func (s *storageStatusSuite) newApplication(c *tc.C, name string, charmUUID string) string {
+func (s *storageStatusSuite) newApplication(c *tc.C, name string, charmUUID corecharm.ID) string {
 	appUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
+VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID.String(), name, network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appUUID.String()
-}
-
-// newCharm creates a new charm in the model and returns the uuid for it.
-func (s *storageStatusSuite) newCharm(c *tc.C) string {
-	charmUUID := charmtesting.GenCharmID(c)
-	_, err := s.DB().Exec(`
-INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
-VALUES (?, 0, ?, 1, 0)
-`,
-		charmUUID.String(), "foo-"+charmUUID[:4],
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().Exec(`
-INSERT INTO charm_metadata (charm_uuid, name)
-VALUES (?, 'myapp')
-`,
-		charmUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return charmUUID.String()
 }
 
 // newMachineWithNetNode creates a new machine in the model attached to the
@@ -1218,23 +960,6 @@ func (s *storageStatusSuite) newMachineWithNetNode(
 	c.Assert(err, tc.ErrorIsNil)
 
 	return machineUUID, machine.Name(name)
-}
-
-// newVolume creates a new volume in the model with model
-// provision scope. Return is the uuid and volume id of the entity.
-func (s *storageStatusSuite) newVolume(c *tc.C) (storageprovisioning.VolumeUUID, string) {
-	vsUUID := storageprovisioningtesting.GenVolumeUUID(c)
-
-	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 0)
-	`,
-		vsUUID.String(), vsID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return vsUUID, vsID
 }
 
 // newVolumeAttachment creates a new volume attachment that has
@@ -1274,35 +999,6 @@ func (s *storageStatusSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
 	c.Assert(err, tc.ErrorIsNil)
 
 	return nodeUUID
-}
-
-func (s *storageStatusSuite) newCharmStorage(c *tc.C, charmUUID string, storageName string, kind storage.StorageKind) {
-	_, err := s.DB().Exec(`
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, ?, 0, 1)
-`,
-		charmUUID, storageName, kind,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageStatusSuite) newStorageInstance(c *tc.C, charmUUID string, storageName string, poolUUID storage.StoragePoolUUID) (storage.StorageInstanceUUID, string) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
-	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
-
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)
-`,
-		storageInstanceUUID.String(),
-		charmUUID,
-		storageName,
-		storageID,
-		poolUUID,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return storageInstanceUUID, storageID
 }
 
 func (s *storageStatusSuite) newStorageUnitOwner(c *tc.C, storageInstanceUUID storage.StorageInstanceUUID, unitUUID unit.UUID) {
@@ -1351,79 +1047,4 @@ VALUES (?, ?, ?, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID, unit.Name(unitID)
-}
-
-// nextStorageSequenceNumber retrieves the next sequence number in the storage
-// namespace.
-func (s *storageStatusSuite) nextSequenceNumber(
-	c *tc.C, namespace string,
-) uint64 {
-	var id uint64
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		id, err = sequencestate.NextValue(
-			ctx, preparer{}, tx, domainsequence.StaticNamespace(namespace),
-		)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return id
-}
-
-func (s *storageStatusSuite) newStorageInstanceVolume(
-	c *tc.C, instanceUUID storage.StorageInstanceUUID,
-	volumeUUID storageprovisioning.VolumeUUID,
-) {
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
-VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *storageStatusSuite) newStorageInstanceFilesystem(
-	c *tc.C, instanceUUID storage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
-) {
-	_, err := s.DB().Exec(`
-INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
-VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// newStoragePool creates a new storage pool with name, provider type and attrs.
-// It returns the UUID of the new storage pool.
-func (s *storageStatusSuite) newStoragePool(c *tc.C,
-	name string, providerType string,
-	attrs map[string]string,
-) storage.StoragePoolUUID {
-	spUUID := storagetesting.GenStoragePoolUUID(c)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_pool (uuid, name, type)
-VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
-		if err != nil {
-			return err
-		}
-
-		for k, v := range attrs {
-			_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_pool_attribute (storage_pool_uuid, key, value)
-VALUES (?, ?, ?)`, spUUID.String(), k, v)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	return spUUID
-}
-
-type preparer struct{}
-
-func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
-	return sqlair.Prepare(query, typeSamples...)
 }

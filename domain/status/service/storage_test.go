@@ -240,7 +240,6 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 			UUID:  storageInstanceUUID,
 			ID:    "12",
 			Owner: ptr(unit.Name("foo/10")),
-			Kind:  storage.StorageKindBlock,
 			Life:  life.Alive,
 		},
 	}
@@ -261,7 +260,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 		{
 			ID:    "12",
 			Owner: ptr(unit.Name("foo/10")),
-			Kind:  storage.StorageKindBlock,
+			Kind:  storage.StorageKindFilesystem,
 			Life:  corelife.Alive,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/10": {
@@ -320,6 +319,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 		{
 			ID:   "0",
 			Life: corelife.Alive,
+			Kind: storage.StorageKindFilesystem,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/0": {
 					Unit:    "foo/0",
@@ -331,6 +331,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 		{
 			ID:   "1",
 			Life: corelife.Dying,
+			Kind: storage.StorageKindFilesystem,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/1": {
 					Unit:    "foo/1",

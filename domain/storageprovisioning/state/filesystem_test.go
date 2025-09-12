@@ -897,22 +897,40 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndMachine(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+// TestGetFilesystemAttachmentParamsMachineAttached is testing that when a
+// filesystem attachment is attached to a machine the correct params are
+// returned.
+//
+// Specifically we want to see that the provider is correctly provided from the
+// storage pool and the mount and read only values are taken from the charm
+// storage. We also want to see that the machine instance id is set to the value
+// in the machine's cloud instance data.
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc.C) {
+	// Construct the app, unit and machine
 	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "testapp")
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
 	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
+
+	// Construct storage pool and charm storage
 	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
 		"foo": "bar",
 	})
-	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct storage instance, filesystem, filesystem attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	fsUUID, _ := s.newMachineFilesystemWithSize(c, 100)
+	fsUUID, _ := s.newMachineFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
-	fsaUUID := s.newMachineFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "/var/foo", true)
+	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
+	// Attach the storage instance to the unit. This is what draws in all the
+	// information for the attachment params.
+	_ = s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
 	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 
 	c.Check(err, tc.ErrorIsNil)
@@ -925,25 +943,44 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndMachine(c
 	})
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUsingPoolAndUnit(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+// TestGetFilesystemAttachmentParamsUnitAttached is testing that when a
+// filesystem attachment is attached to only a unit (no machine for the netnode)
+// the correct values are returned.
+//
+// Specifically we want to see that the provider is correctly provided from the
+// storage pool and the mount and read only values are taken from the charm
+// storage. We expect the machine instance id information to not be set in this
+// case.
+func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C) {
+	// Construct the app and unit
 	netNodeUUID := s.newNetNode(c)
-	appUUID, charmUUID := s.newApplication(c, "myapp")
-	s.newUnitWithNetNode(c, "myapp/0", appUUID, netNodeUUID)
-	poolUUID := s.newStoragePool(c, "mybigstoragepool", "poolprovider", nil)
+	appUUID, charmUUID := s.newApplication(c, "testapp")
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID, netNodeUUID)
+
+	// Construct storage pool and charm storage
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
+
+	// Construct storage instance, filesystem, filesystem attachment
 	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	fsUUID, _ := s.newModelFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
-	fsaUUID := s.newModelFilesystemAttachmentWithMount(c, fsUUID, netNodeUUID, "", false)
+	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
+	// Attach the storage instance to the unit. This is what draws in all the
+	// information for the attachment params.
+	_ = s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
 	params, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(params, tc.DeepEquals, storageprovisioning.FilesystemAttachmentParams{
 		MachineInstanceID: "",
-		Provider:          "poolprovider",
+		Provider:          "canonical",
 		ProviderID:        "provider-id",
 		MountPoint:        "/var/foo",
 		ReadOnly:          true,
