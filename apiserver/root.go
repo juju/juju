@@ -682,6 +682,12 @@ func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
 }
 
+// CrossModelAuthContext provides methods to create and authorize macaroons
+// for cross model operations.
+func (ctx *facadeContext) CrossModelAuthContext() facade.CrossModelAuthContext {
+	return ctx.r.shared.crossModelAuthContext
+}
+
 // Dispose is part of the facade.ModelContext interface.
 func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)

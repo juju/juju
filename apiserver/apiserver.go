@@ -110,8 +110,6 @@ type Server struct {
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
 
-	offerAuthContext *crossmodel.AuthContext
-
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	logSink                corelogger.ModelLogger
 	getAuditConfig         func() auditlog.Config
@@ -358,7 +356,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	// macaroons for offers, and to validate incoming macaroons.
 	// TODO (stickupkid): This should be done in a worker and passed as a
 	// dependency. It operates independently of the API server.
-	offerAuthContext, err := newOfferAuthContext(
+	crossModelAuthContext, err := newOfferAuthContext(
 		ctx,
 		controllerDomainServices.Access(),
 		controllerDomainServices.Macaroon(),
@@ -377,6 +375,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator, cfg.JWTAuthenticator}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
+		crossModelAuthContext:   crossModelAuthContext,
 		leaseManager:            cfg.LeaseManager,
 		controllerUUID:          cfg.ControllerUUID,
 		controllerModelUUID:     cfg.ControllerModelUUID,
@@ -410,7 +409,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
 		localMacaroonAuthenticator:    cfg.LocalMacaroonAuthenticator,
-		offerAuthContext:              offerAuthContext,
 		jwtAuthenticator:              cfg.JWTAuthenticator,
 		httpAuthenticators:            httpAuthenticators,
 		loginAuthenticators:           loginAuthenticators,
@@ -889,7 +887,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "register")
 
 	// HTTP handler for application offer macaroon authentication.
-	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.offerAuthContext, srv.mux); err != nil {
+	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared.crossModelAuthContext, srv.mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
