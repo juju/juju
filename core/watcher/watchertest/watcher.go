@@ -5,7 +5,6 @@ package watchertest
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/tc"
@@ -47,42 +46,28 @@ func StringSliceAssert[T string](expect ...T) WatcherAssert[[]T] {
 	}
 }
 
-// getTimeFieldNames returns the names of all time.Time fields in the struct type T.
-func getTimeFieldNames[T any]() []string {
-	var (
-		t          T
-		fieldNames []string
-	)
-	val := reflect.TypeOf(t)
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		if field.Type == reflect.TypeOf(time.Time{}) {
-			fieldNames = append(fieldNames, field.Name)
-		}
-	}
-	return fieldNames
-}
-
 // TimedSliceAssert returns a WatcherAssert that checks that the watcher has
 // received at least the given []T changes. The changes are concatenated before
 // the assertion, and the time fields are checked to be within a certain
 // tolerance of the expected values. The order of the changes does not matter
 // during the assertion.
-func TimedSliceAssert[T any](expect ...T) WatcherAssert[[]T] {
+func TimedSliceAssert[T any](timeFieldNames ...string) func(expect ...T) WatcherAssert[[]T] {
 	mc := tc.NewMultiChecker()
-	for _, field := range getTimeFieldNames[T]() {
+	for _, field := range timeFieldNames {
 		mc.AddExpr(fmt.Sprintf(`_[_].%s`, field), tc.Almost, tc.ExpectedValue)
 	}
-	return func(c *tc.C, changes [][]T) bool {
-		var received []T
-		for _, change := range changes {
-			received = append(received, change...)
+	return func(expect ...T) WatcherAssert[[]T] {
+		return func(c *tc.C, changes [][]T) bool {
+			var received []T
+			for _, change := range changes {
+				received = append(received, change...)
+			}
+			if len(received) >= len(expect) {
+				c.Assert(received, tc.UnorderedMatch[[]T](mc), expect)
+				return true
+			}
+			return false
 		}
-		if len(received) >= len(expect) {
-			c.Assert(received, tc.UnorderedMatch[[]T](mc), expect)
-			return true
-		}
-		return false
 	}
 }
 
