@@ -1,11 +1,10 @@
 (juju-architecture)=
 # Juju architecture
 
-
 (bootstrapping)=
 ## Bootstrapping
 
-In Juju, **bootstrapping** refers to the process whereby a Juju client creates a {ref}`controller <controller>` on a specific {ref}`cloud <cloud>`.
+In Juju, **bootstrapping** refers to the process whereby a Juju {ref}`client <client>` creates a {ref}`controller <controller>` on a specific {ref}`cloud <cloud>`.
 
 A controller is needed to perform any further Juju operations, such as deploying an application.
 
