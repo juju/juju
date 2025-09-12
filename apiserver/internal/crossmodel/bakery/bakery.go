@@ -67,6 +67,21 @@ type DeclaredValues struct {
 	additional      map[string]string
 }
 
+// NewDeclaredValues creates a new DeclaredValues instance.
+func NewDeclaredValues(userName, sourceModelUUID, offerUUID, relationKey string) DeclaredValues {
+	var p *string
+	if userName != "" {
+		p = ptr(userName)
+	}
+	return DeclaredValues{
+		userName:        p,
+		sourceModelUUID: sourceModelUUID,
+		offerUUID:       offerUUID,
+		relationKey:     relationKey,
+		additional:      make(map[string]string),
+	}
+}
+
 // User returns the user if set.
 func (d DeclaredValues) UserName() (string, bool) {
 	if d.userName == nil {
