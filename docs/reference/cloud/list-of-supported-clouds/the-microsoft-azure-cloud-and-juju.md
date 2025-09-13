@@ -167,7 +167,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 ## Appendix: Example authentication workflows
 
 (azure-appendix-workflow-1)=
-### Worflow 1 -- Managed identity only (recommended)
+### Workflow 1 -- Managed identity only (recommended)
 > *Requirements:*
 > - Juju 3.6+.
 > - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
@@ -175,7 +175,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 > - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
 1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the `managed-identity-path` must be of the form `<resourcegroup>/<identityname>`).
-1. Bootstrap as usual.
+2. Bootstrap as usual.
 
 ```{tip}
 **Did you know?** With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
@@ -192,7 +192,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
         - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
          - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
     - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
-1. During bootstrap, provide the managed identity to the controller by using the `instance-role` constraint.
+2. During bootstrap, provide the managed identity to the controller by using the `instance-role` constraint.
 
 ```{tip}
 
@@ -208,7 +208,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
         - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
          - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
     - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
-1. Bootstrap as usual.
+2. Bootstrap as usual.
 
 
 (azure-appendix-create-a-managed-identity)=

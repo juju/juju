@@ -20,7 +20,6 @@ type KubernetesFilesystemParams struct {
 // KubernetesFilesystemAttachmentParams holds the parameters for
 // creating a filesystem attachment.
 type KubernetesFilesystemAttachmentParams struct {
-	Provider   string `json:"provider"`
 	MountPoint string `json:"mount-point,omitempty"`
 	ReadOnly   bool   `json:"read-only,omitempty"`
 }

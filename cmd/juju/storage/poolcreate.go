@@ -5,6 +5,7 @@ package storage
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,6 +23,10 @@ type PoolCreateAPI interface {
 	Close() error
 	CreatePool(ctx context.Context, pname, ptype string, pconfig map[string]interface{}) error
 }
+
+// disallowedAttrKeys defines storage attribute keys that users are not allowed to set
+// as these keys are reserved for internal use.
+var disallowedAttrKeys = []string{"name", "type"}
 
 const poolCreateCommandDoc = `
 Further reading:
@@ -101,6 +106,9 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 		return nil
 	}
 	for key, value := range options {
+		if slices.Contains(disallowedAttrKeys, key) {
+			return errors.NotValidf("attribute %q", key)
+		}
 		c.attrs[key] = value
 	}
 	return nil

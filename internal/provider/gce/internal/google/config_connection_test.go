@@ -24,7 +24,6 @@ func TestConnConfigSuite(t *stdtesting.T) {
 func (*connConfigSuite) TestValidateValid(c *tc.C) {
 	cfg := google.ConnectionConfig{
 		Region:     "spam",
-		ProjectID:  "eggs",
 		HTTPClient: jujuhttp.NewClient(),
 	}
 	err := cfg.Validate()
@@ -33,21 +32,9 @@ func (*connConfigSuite) TestValidateValid(c *tc.C) {
 }
 
 func (*connConfigSuite) TestValidateMissingRegion(c *tc.C) {
-	cfg := google.ConnectionConfig{
-		ProjectID: "eggs",
-	}
+	cfg := google.ConnectionConfig{}
 	err := cfg.Validate()
 
 	c.Assert(err, tc.FitsTypeOf, &google.InvalidConfigValueError{})
 	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_REGION")
-}
-
-func (*connConfigSuite) TestValidateMissingProjectID(c *tc.C) {
-	cfg := google.ConnectionConfig{
-		Region: "spam",
-	}
-	err := cfg.Validate()
-
-	c.Assert(err, tc.FitsTypeOf, &google.InvalidConfigValueError{})
-	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_PROJECT_ID")
 }

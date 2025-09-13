@@ -41,6 +41,7 @@ import (
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
+	FilesystemProvisioningInfo(context.Context, string) (api.FilesystemProvisioningInfo, error)
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error

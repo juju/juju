@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -166,4 +167,134 @@ func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *tc.C) {
 	c.Assert(err, tc.NotNil)
 	c.Assert(err.Error(), tc.Equals, "expected 1 results got 2")
 	c.Assert(called, tc.IsTrue)
+}
+
+func (s *provisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, tc.FitsTypeOf, &params.CAASApplicationFilesystemProvisioningInfo{})
+		*(result.(*params.CAASApplicationFilesystemProvisioningInfo)) = params.CAASApplicationFilesystemProvisioningInfo{
+			Filesystems: []params.KubernetesFilesystemParams{
+				{
+					StorageName: "data",
+					Provider:    "kubernetes",
+					Size:        1024,
+					Attributes:  map[string]interface{}{"storage-class": "fast"},
+					Tags:        map[string]string{"env": "prod"},
+					Attachment: &params.KubernetesFilesystemAttachmentParams{
+						MountPoint: "/data",
+						ReadOnly:   false,
+					},
+				},
+			},
+			FilesystemUnitAttachments: map[string][]params.KubernetesFilesystemUnitAttachmentParams{
+				"data": {
+					{
+						UnitTag:  "unit-gitlab-0",
+						VolumeId: "pvc-data-0",
+					},
+					{
+						UnitTag:  "unit-gitlab-1",
+						VolumeId: "pvc-data-1",
+					},
+				},
+			},
+		}
+		return nil
+	})
+	info, err := client.FilesystemProvisioningInfo(c.Context(), "gitlab")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, caasapplicationprovisioner.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{
+			{
+				StorageName:  "data",
+				Provider:     storage.ProviderType("kubernetes"),
+				Size:         1024,
+				Attributes:   map[string]interface{}{"storage-class": "fast"},
+				ResourceTags: map[string]string{"env": "prod"},
+				Attachment: &storage.KubernetesFilesystemAttachmentParams{
+					ReadOnly: false,
+					Path:     "/data",
+				},
+			},
+		},
+		FilesystemUnitAttachments: map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+			"data": {
+				{UnitName: "gitlab/0", VolumeId: "pvc-data-0"},
+				{UnitName: "gitlab/1", VolumeId: "pvc-data-1"},
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestFilesystemProvisioningInfoEmpty(c *tc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, tc.FitsTypeOf, &params.CAASApplicationFilesystemProvisioningInfo{})
+		*(result.(*params.CAASApplicationFilesystemProvisioningInfo)) = params.CAASApplicationFilesystemProvisioningInfo{}
+		return nil
+	})
+	info, err := client.FilesystemProvisioningInfo(c.Context(), "gitlab")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, caasapplicationprovisioner.FilesystemProvisioningInfo{})
+}
+
+func (s *provisionerSuite) TestFilesystemProvisioningInfoWithoutAttachment(c *tc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, tc.FitsTypeOf, &params.CAASApplicationFilesystemProvisioningInfo{})
+		*(result.(*params.CAASApplicationFilesystemProvisioningInfo)) = params.CAASApplicationFilesystemProvisioningInfo{
+			Filesystems: []params.KubernetesFilesystemParams{
+				{
+					StorageName: "logs",
+					Provider:    "local",
+					Size:        512,
+				},
+			},
+		}
+		return nil
+	})
+	info, err := client.FilesystemProvisioningInfo(c.Context(), "gitlab")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, caasapplicationprovisioner.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{
+			{
+				StorageName: "logs",
+				Provider:    storage.ProviderType("local"),
+				Size:        512,
+			},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestFilesystemProvisioningInfoInvalidUnitTag(c *tc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, tc.FitsTypeOf, &params.CAASApplicationFilesystemProvisioningInfo{})
+		*(result.(*params.CAASApplicationFilesystemProvisioningInfo)) = params.CAASApplicationFilesystemProvisioningInfo{
+			FilesystemUnitAttachments: map[string][]params.KubernetesFilesystemUnitAttachmentParams{
+				"data": {
+					{
+						UnitTag:  "invalid-tag",
+						VolumeId: "pvc-data-0",
+					},
+				},
+			},
+		}
+		return nil
+	})
+	_, err := client.FilesystemProvisioningInfo(c.Context(), "gitlab")
+	c.Assert(err, tc.ErrorMatches, `"invalid-tag" is not a valid tag`)
 }

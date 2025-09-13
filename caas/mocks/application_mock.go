@@ -15,6 +15,7 @@ import (
 
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
+	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -153,6 +154,44 @@ func (c *MockApplicationEnsureCall) Do(f func(caas.ApplicationConfig) error) *Mo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationEnsureCall) DoAndReturn(f func(caas.ApplicationConfig) error) *MockApplicationEnsureCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// EnsurePVCs mocks base method.
+func (m *MockApplication) EnsurePVCs(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsurePVCs", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsurePVCs indicates an expected call of EnsurePVCs.
+func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1 any) *MockApplicationEnsurePVCsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVCs", reflect.TypeOf((*MockApplication)(nil).EnsurePVCs), arg0, arg1)
+	return &MockApplicationEnsurePVCsCall{Call: call}
+}
+
+// MockApplicationEnsurePVCsCall wrap *gomock.Call
+type MockApplicationEnsurePVCsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationEnsurePVCsCall) Return(arg0 error) *MockApplicationEnsurePVCsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationEnsurePVCsCall) Do(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error) *MockApplicationEnsurePVCsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationEnsurePVCsCall) DoAndReturn(f func([]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams) error) *MockApplicationEnsurePVCsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

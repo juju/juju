@@ -25,6 +25,9 @@ const (
 
 	// The contents of the file for "jsonfile" auth-type.
 	credAttrFile = "file"
+
+	// The service account for getting an in-cluster token.
+	credServiceAccount = "service-account"
 )
 
 type environProviderCredentials struct{}
@@ -54,6 +57,10 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				Description: "path to the .json file containing a service account key for your project\nPath",
 				FilePath:    true,
 			},
+		}},
+		cloud.ServiceAccountAuthType: {{
+			Name:           credServiceAccount,
+			CredentialAttr: cloud.CredentialAttr{Description: "service account name"},
 		}},
 	}
 }

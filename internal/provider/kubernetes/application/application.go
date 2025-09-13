@@ -2226,13 +2226,7 @@ func (a *app) configureStorage(
 		}
 
 		name := a.volumeName(fs.StorageName)
-		pvcNameGetter := func(volName string) string {
-			if n, ok := pvcNames[volName]; ok {
-				logger.Debugf(context.TODO(), "using existing persistent volume claim %q (volume %q)", n, volName)
-				return n
-			}
-			return fmt.Sprintf("%s-%s", volName, storageUniqueID)
-		}
+		pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
 
 		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
 		if err != nil {
@@ -2336,4 +2330,64 @@ func (a *app) filesystemToVolumeInfo(
 		Spec: *pvcSpec,
 	}
 	return nil, pvc, newStorageClass, nil
+}
+
+// handleVolumeAttachment processes volume attachments for a given storage by creating
+// or validating PVCs for each unit attachment. It generates PVC names following the
+// StatefulSet volumeClaimTemplates naming convention to ensure proper binding. Returns
+// a slice of applied PVC resources and any error encountered during processing.
+func (a *app) handleVolumeAttachment(
+	applier resources.Applier,
+	filesystemUnitAttachments map[string][]jujustorage.KubernetesFilesystemUnitAttachmentParams,
+	pvc corev1.PersistentVolumeClaim,
+	storageName string,
+) error {
+	unitAttachments, ok := filesystemUnitAttachments[storageName]
+	if !ok {
+		return nil
+	}
+
+	for _, attachment := range unitAttachments {
+		// Convert {appName}/{unitNumber} to {appName}-{storageName}-{uniqueId}-{appName}-{unitNumber}.
+		// The resulting pvcName will follow the naming convention used by StatefulSet volumeClaimTemplates,
+		// ensuring the created PVC is correctly bound to the application's StatefulSet.
+		pvcName := strings.Replace(attachment.UnitName, "/", "-", 1)
+		pvcName = pvc.ObjectMeta.Name + "-" + pvcName
+
+		// Create the PVC if not found; otherwise, validate the existing volumeName.
+		persistentVolumeClaim := resources.NewPersistentVolumeClaim(
+			a.client.CoreV1().PersistentVolumeClaims(a.namespace),
+			a.namespace,
+			pvcName,
+			&pvc,
+		)
+
+		err := persistentVolumeClaim.Get(context.Background())
+		if errors.Is(err, errors.NotFound) {
+			logger.Debugf(context.TODO(), "pvc %s not found, create pvc with VolumeName %s", pvcName, attachment.VolumeId)
+			persistentVolumeClaim.Spec.VolumeName = attachment.VolumeId
+			applier.Apply(persistentVolumeClaim)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		if persistentVolumeClaim.Spec.VolumeName != attachment.VolumeId {
+			return errors.AlreadyExistsf("PVC %q with volumeName %q", pvcName, pvc.Spec.VolumeName)
+		}
+		if _, err := utils.MatchStorageMetaLabelVersion(persistentVolumeClaim.ObjectMeta, storageName); err != nil {
+			return errors.Annotatef(
+				err, "ensuring PersistentVolumeClaim %q with labels %v", pvcName, persistentVolumeClaim.ObjectMeta.Labels)
+		}
+	}
+	return nil
+}
+
+func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) func(string) string {
+	return func(volName string) string {
+		if n, ok := pvcNames[volName]; ok {
+			logger.Debugf(context.TODO(), "using existing persistent volume claim %q (volume %q)", n, volName)
+			return n
+		}
+		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
+	}
 }

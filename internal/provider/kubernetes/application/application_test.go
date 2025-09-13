@@ -596,6 +596,10 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 					ServiceName:         "gitlab-endpoints",
 				},
 			})
+
+			// No pvc is created.
+			_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(c.Context(), "gitlab-database-appuuid-gitlab-0", metav1.GetOptions{})
+			c.Assert(err, tc.ErrorMatches, "persistentvolumeclaims \"gitlab-database-appuuid-gitlab-0\" not found")
 		},
 	)
 	s.assertDelete(c, app)

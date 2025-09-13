@@ -35,6 +35,9 @@ type Credentials struct {
 	// JSONKey is the content of the JSON key file for these credentials.
 	JSONKey []byte
 
+	// ServiceAccount is the service account to use for the in-cluster access token.
+	ServiceAccount string
+
 	// ClientID is the GCE account's OAuth ID. It is part of the OAuth
 	// config used in the OAuth-wrapping network transport.
 	ClientID string
@@ -186,10 +189,6 @@ type ConnectionConfig struct {
 	// Region is the GCE region in which to operate for the connection.
 	Region string
 
-	// ProjectID is the project ID to use in all GCE API requests for
-	// the connection.
-	ProjectID string
-
 	// HTTPClient is the client to use for all GCE connections.
 	HTTPClient *jujuhttp.Client
 }
@@ -204,9 +203,6 @@ type ConnectionConfig struct {
 func (gc ConnectionConfig) Validate() error {
 	if gc.Region == "" {
 		return NewMissingConfigValue(OSEnvRegion, "Region")
-	}
-	if gc.ProjectID == "" {
-		return NewMissingConfigValue(OSEnvProjectID, "ProjectID")
 	}
 	if gc.HTTPClient == nil {
 		return errors.NotFoundf("connection config http.Client")

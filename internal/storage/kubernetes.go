@@ -58,3 +58,12 @@ type KubernetesFilesystemInfo struct {
 	// Size is the size of the filesystem in MiB.
 	Size uint64
 }
+
+// KubernetesFilesystemUnitAttachmentParams describes a unit filesystem attachment.
+type KubernetesFilesystemUnitAttachmentParams struct {
+	// UnitName is the name of the unit which the volume is attached to.
+	UnitName string
+
+	// VolumeId is the storage provider's unique identifier for the volume.
+	VolumeId string
+}

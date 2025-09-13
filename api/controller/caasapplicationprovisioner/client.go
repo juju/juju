@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -184,4 +185,90 @@ func (c *Client) DestroyUnits(ctx context.Context, unitNames []string) error {
 	}
 
 	return nil
+}
+
+// FilesystemProvisioningInfo holds the filesystem info needed to provision an operator for an application.
+type FilesystemProvisioningInfo struct {
+	Filesystems               []storage.KubernetesFilesystemParams
+	FilesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams
+}
+
+// FilesystemProvisioningInfo returns the filesystem info needed to provision an operator for an application.
+func (c *Client) FilesystemProvisioningInfo(ctx context.Context, applicationName string) (FilesystemProvisioningInfo, error) {
+	args := params.Entity{Tag: names.NewApplicationTag(applicationName).String()}
+	var result params.CAASApplicationFilesystemProvisioningInfo
+	if err := c.facade.FacadeCall(ctx, "FilesystemProvisioningInfo", args, &result); err != nil {
+		return FilesystemProvisioningInfo{}, err
+	}
+	return filesystemProvisioningInfoFromParams(result)
+}
+
+// filesystemProvisioningInfoFromParams converts params.CAASApplicationFilesystemProvisioningInfo to FilesystemProvisioningInfo.
+func filesystemProvisioningInfoFromParams(in params.CAASApplicationFilesystemProvisioningInfo) (FilesystemProvisioningInfo, error) {
+	info := FilesystemProvisioningInfo{}
+
+	for _, fs := range in.Filesystems {
+		f, err := filesystemFromParams(fs)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *f)
+	}
+
+	fsUnitAttachments, err := filesystemUnitAttachmentsFromParams(in.FilesystemUnitAttachments)
+	if err != nil {
+		return info, errors.Trace(err)
+	}
+	info.FilesystemUnitAttachments = fsUnitAttachments
+	return info, nil
+}
+
+func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
+	var attachment *storage.KubernetesFilesystemAttachmentParams
+	if in.Attachment != nil {
+		var err error
+		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+		Attachment:   attachment,
+	}, nil
+}
+
+func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+	return &storage.KubernetesFilesystemAttachmentParams{
+		ReadOnly: in.ReadOnly,
+		Path:     in.MountPoint,
+	}, nil
+}
+
+func filesystemUnitAttachmentsFromParams(in map[string][]params.KubernetesFilesystemUnitAttachmentParams) (map[string][]storage.KubernetesFilesystemUnitAttachmentParams, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	k8sFsUnitAttachmentParams := make(map[string][]storage.KubernetesFilesystemUnitAttachmentParams)
+	for storageName, params := range in {
+		for _, p := range params {
+			unitTag, err := names.ParseTag(p.UnitTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			k8sFsUnitAttachmentParams[storageName] = append(
+				k8sFsUnitAttachmentParams[storageName],
+				storage.KubernetesFilesystemUnitAttachmentParams{
+					UnitName: unitTag.Id(),
+					VolumeId: p.VolumeId,
+				},
+			)
+		}
+	}
+	return k8sFsUnitAttachmentParams, nil
 }

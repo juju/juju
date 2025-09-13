@@ -1,4 +1,9 @@
 test_import_filesystem() {
+	if [ "$(skip 'test_import_filesystem')" ]; then
+		echo "==> TEST SKIPPED: test_import_filesystem"
+		return
+	fi
+
 	# Echo out to ensure nice output to the test suite.
 	echo
 

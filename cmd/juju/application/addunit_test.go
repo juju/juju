@@ -134,7 +134,7 @@ func (s *AddUnitSuite) TestInitErrorsForCAAS(c *tc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
 	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "lxd:1"})
-	c.Check(err, tc.ErrorMatches, "k8s models only support --num-units")
+	c.Check(err, tc.ErrorMatches, "k8s models do not support placement directives")
 }
 
 func (s *AddUnitSuite) runAddUnit(c *tc.C, args ...string) error {
@@ -239,8 +239,8 @@ func (s *AddUnitSuite) TestNameChecks(c *tc.C) {
 	assertMachineOrNewContainer("0/kvm/4", true)
 }
 
-func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
-	expectedError := "k8s models only support --num-units"
+func (s *AddUnitSuite) TestCAASArgs(c *tc.C) {
+	expectedError := "k8s models do not support placement directives"
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
@@ -251,14 +251,11 @@ func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *tc.C) {
 	err = s.runAddUnit(c, "some-application-name", "--to", "lxd:1", "-n", "2")
 	c.Assert(err, tc.ErrorMatches, expectedError)
 
-	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
 	c.Assert(err, tc.ErrorMatches, expectedError)
 
 	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2")
-	c.Assert(err, tc.ErrorMatches, expectedError)
-
-	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
-	c.Assert(err, tc.ErrorMatches, expectedError)
+	c.Assert(err, tc.ErrorMatches, "--attach-storage cannot be used with -n")
 
 	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
 	c.Assert(err, tc.ErrorIsNil)
@@ -283,4 +280,13 @@ func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
 	c.Check(called, tc.IsTrue)
 	c.Assert(err, tc.ErrorMatches, "model arthur:king/nope not found")
+}
+
+func (s *AddUnitSuite) TestCAASAddUnitAttachStorage(c *tc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	err := s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Check(err, tc.ErrorIsNil)
 }
