@@ -59,18 +59,17 @@ type OperationService interface {
 	// GetOperationByID returns an operation by its ID.
 	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
 
-	// StartExecOperation creates an exec operation with tasks for various
-	// machines and units, using the provided parameters.
-	StartExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
+	// AddExecOperation creates an exec operation with tasks for various machines
+	// and units, using the provided parameters.
+	AddExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
 
-	// StartExecOperationOnAllMachines creates an exec operation
-	// based on the provided parameters on all machines.
-	StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
+	// AddExecOperationOnAllMachines creates an exec operation with tasks based on
+	// the provided parameters on all machines.
+	AddExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
 
-	// StartActionOperation creates an action operation with tasks for various
-	// units using the provided parameters.
-	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
-		args operation.TaskArgs) (operation.RunResult, error)
+	// AddActionOperation creates an action operation with tasks for various units
+	// using the provided parameters.
+	AddActionOperation(ctx context.Context, target []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error)
 
 	// GetTask returns the task identified by its ID.
 	GetTask(ctx context.Context, taskID string) (operation.Task, error)
