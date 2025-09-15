@@ -104,7 +104,7 @@ FROM   %q`, table),
 
 	var count result
 	if err := tx.Query(ctx, stmt).Get(&count); err != nil {
-		return 0, errors.Capture(err)
+		return 0, errors.Errorf("counting element from table %q", err)
 	}
 	return count.Count, nil
 

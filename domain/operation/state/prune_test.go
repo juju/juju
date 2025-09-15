@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -220,19 +221,20 @@ func (s *pruneBySizeSuite) TestComputeObjectStoreSizeSumsOnlyReferenced(c *tc.C)
 	task1 := s.addOperationTask(c, opUUID)
 	task2 := s.addOperationTask(c, opUUID)
 	// Referenced outputs
-	s.addOperationTaskOutputWithData(c, task1, "sha1", "shaA", 1000, "/path/a")
-	s.addOperationTaskOutputWithData(c, task2, "sha2", "shaB", 3000, "/path/b")
+	s.addOperationTaskOutputWithData(c, task1, "sha1", "shaA", 1*humanize.KiByte, "/path/a")
+	s.addOperationTaskOutputWithData(c, task2, "sha2", "shaB", 3*humanize.KiByte, "/path/b")
 	// Unreferenced object store metadata, should be ignored by computeObjectStoreSize
 	s.addFakeMetadataStore(c, 999999)
 
 	var size int
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		size, err = s.state.computeObjectStoreSize(ctx, tx, 1)
+		// Expect: size = 1KiB + 3KiB + (data from other fields) -> 5 KiB (roundedUp)
+		size, err = s.state.computeObjectStoreSize(ctx, tx, humanize.KiByte)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(size, tc.Equals, 4000)
+	c.Check(size, tc.Equals, 5)
 }
 
 // TestComputeObjectStoreSizeConvertsToKiB verifies conversion using humanize.KiByte.
@@ -283,9 +285,9 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithData(c *tc.C) {
 	s.addOperationTaskLog(c, t2, "log3")
 	s.addOperationTaskLog(c, t3, "log4")
 	s.addOperationTaskLog(c, t3, "log5")
-	// Object store referenced by two outputs: 1000 + 3000 bytes = 4000 bytes -> 4 KiB
-	s.addOperationTaskOutputWithData(c, t1, "shaA", "shaA3", 1000, "/a")
-	s.addOperationTaskOutputWithData(c, t2, "shaB", "shaB3", 3000, "/b")
+	// Object store referenced by two outputs: 1KiB + 3KiB = 4KiB
+	s.addOperationTaskOutputWithData(c, t1, "shaA", "shaA3", 1*humanize.KiByte, "/a")
+	s.addOperationTaskOutputWithData(c, t2, "shaB", "shaB3", 3*humanize.KiByte, "/b")
 
 	var total, avg int
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
@@ -294,9 +296,70 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithData(c *tc.C) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Expect: total = op(2)*1 + task(3)*1 + log(5)*1 + object(4) = 14 KiB; avg = total/opCount = 7.
-	c.Check(total, tc.Equals, 2+3+5+4)
-	c.Check(avg, tc.Equals, (2+3+5+4)/2)
+	// Expect: At this point data other than stored one are negligible, so we
+	// got 5KiB total and 2KiB avg (4KiB + neglictable data), rounded up to 5KiB.
+	c.Check(total, tc.Equals, 5)
+	c.Check(avg, tc.Equals, 5/2)
+}
+
+// TestEstimateOperationSizeWithDataSmallTasks verifies that row counts and object store
+// sizes are combined using the row size factors and KiB rounding for object store.
+// This test is similar to TestEstimateOperationSizeWithData, but with only 2 tasks.
+// The difference is that the first task has no outputs, so it is not counted in the
+// object store size.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeWithDataSmallTasks(c *tc.C) {
+	// Arrange: 2 operations, 3 tasks, object store total 0 bytes -> 1 KiB.
+	op1 := s.addOperation(c)
+	op2 := s.addOperation(c)
+	// Tasks
+	t1 := s.addOperationTask(c, op1)
+	t2 := s.addOperationTask(c, op1)
+	s.addOperationTask(c, op2)
+	// Object store referenced by two outputs: 1KiB + 3KiB = 4KiB
+	s.addOperationTaskOutputWithData(c, t1, "shaA", "shaA3", 0, "/a")
+	s.addOperationTaskOutputWithData(c, t2, "shaB", "shaB3", 0, "/b")
+
+	var total, avg int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, avg, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Expect: size of data is zero, so we rely on the actual value in the database.
+	// There is no logs, so it is less that 1 KiB for 2 operations.
+	c.Check(total, tc.Equals, 1)
+	c.Check(avg, tc.Equals, 1) // rounder up to 1
+}
+
+func (s *pruneBySizeSuite) TestEstimateOperationSizeWithDataBigLog(c *tc.C) {
+	// Arrange:
+	op1 := s.addOperation(c)
+	op2 := s.addOperation(c)
+	// Tasks
+	t1 := s.addOperationTask(c, op1)
+	t2 := s.addOperationTask(c, op1)
+	t3 := s.addOperationTask(c, op2)
+	// Logs (5 entries total)
+	s.addOperationTaskLog(c, t1, s.generateLongString(c, humanize.KiByte/2))
+	s.addOperationTaskLog(c, t1, s.generateLongString(c, humanize.KiByte/3))
+	s.addOperationTaskLog(c, t2, s.generateLongString(c, humanize.KiByte/4))
+	s.addOperationTaskLog(c, t3, s.generateLongString(c, 1*humanize.KiByte))
+	s.addOperationTaskLog(c, t3, s.generateLongString(c, 2*humanize.KiByte))
+	// Object store referenced by two outputs: 1KiB + 3KiB = 4KiB
+	s.addOperationTaskOutputWithData(c, t1, "shaA", "shaA3", 1*humanize.KiByte, "/a")
+	s.addOperationTaskOutputWithData(c, t2, "shaB", "shaB3", 3*humanize.KiByte, "/b")
+
+	var total, avg int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		total, avg, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// Expect: At this point we have about 5KiB of logs and 4KiB of object store
+	c.Check(total, tc.Equals, 9)
+	c.Check(avg, tc.Equals, 9/2)
 }
 
 // TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive ensures no pruning occurs when size limit is zero or negative.
@@ -351,4 +414,11 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBPrunesExpected(c
 	// Assert: exactly one operation should remain: the newer one (opNew). The older completed opOld is deleted first.
 	c.Check(storeUUIDs, tc.SameContents, []string{"/big"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{opNew})
+}
+
+// generateLongString creates and returns a long string containing the given
+// number of characters.
+// This is used to generate long strings for logs and object store.
+func (s *pruneBySizeSuite) generateLongString(c *tc.C, size int) string {
+	return strings.Repeat("a", size)
 }

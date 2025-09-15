@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -16,16 +18,8 @@ import (
 )
 
 const (
-	// operationRowSizeFactorKiB is a reasonable value for average operation size,
-	// actually it is probably very large (I got ~310 bytes while estimating)
-	operationRowSizeFactorKiB = 1
-
-	// taskRowSizeFactorKiB is a reasonable value for average operation size,
-	// actually it is probably very large (I got ~375 bytes while estimating)
-	taskRowSizeFactorKiB = 1
-
-	// taskLogRowSizeFactorKiB, 1024 bytes is a generous value for average log size.
-	taskLogRowSizeFactorKiB = 1
+	// UUID are stored in the database as 36 characters long strings.
+	uuidSizeInB = 36
 )
 
 // PruneOperations deletes operations older than maxAge and larger than maxSizeMB.
@@ -165,41 +159,84 @@ func (st *State) pruneOperationsToKeepUnderSizeMiB(ctx context.Context, maxSizeM
 // of operations in the database.
 // It calculates size based on row counts and associated object store sizes
 // for operations, tasks, and logs.
+// The total size is rounded up to the next multiple of humanize.KiByte.
+// The average size is rounded down to the next multiple of humanize.KiByte,
+// but returns at least 1.
 func (st *State) estimateOperationSizeInKiB(ctx context.Context, tx *sqlair.TX) (int, int, error) {
+	// Get total number of operations
 	opCount, err := st.count(ctx, tx, "operation")
 	if err != nil {
-		return 0, -1, errors.Errorf("counting operation: %w", err)
+		return 0, -1, errors.Capture(err)
 	}
 	if opCount == 0 {
 		return 0, -1, nil
 	}
-	taskCount, err := st.count(ctx, tx, "operation_task")
+
+	// Table with variable content
+	opSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation",
+		"uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group")
 	if err != nil {
-		return 0, -1, errors.Errorf("counting operation task: %w", err)
+		return 0, -1, errors.Capture(err)
 	}
-	taskLogCount, err := st.count(ctx, tx, "operation_task_log")
+	taskSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task",
+		"uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at")
 	if err != nil {
-		return 0, -1, errors.Errorf("counting operation task log: %w", err)
+		return 0, -1, errors.Capture(err)
 	}
-	objectStoreSizeKiB, err := st.computeObjectStoreSize(ctx, tx, humanize.KiByte)
+	logSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_log",
+		"task_uuid", "content", "created_at")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+	actionSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_action",
+		"operation_uuid", "charm_uuid", "charm_action_key")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+	parameterSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_parameter",
+		"operation_uuid", "key", "value")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+	statusSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_status",
+		"task_uuid", "status_id", "message", "updated_at")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+
+	// association table (uuid only)
+	machineTaskCount, err := st.count(ctx, tx, "operation_machine_task")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+	unitTaskCount, err := st.count(ctx, tx, "operation_unit_task")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+	outputTaskCount, err := st.count(ctx, tx, "operation_task_output")
+	if err != nil {
+		return 0, -1, errors.Capture(err)
+	}
+
+	// Object store size
+	objectStoreSizeKiB, err := st.computeObjectStoreSize(ctx, tx, humanize.Byte)
 	if err != nil {
 		return 0, -1, errors.Errorf("computing object store size: %w", err)
 	}
 
-	// Get total size of operation datas
-	//  - number of operation row * size factor (estimated on the column of the table)
-	//  - number of task row * size factor (estimated on the column of the related table)
-	//  - sum of object_data_store(operation_task_output.store_uuid).size
-	//  - number of task_log row * size factor (estimated on the column of the related table)
-	totalSizeKiB := opCount*operationRowSizeFactorKiB +
-		taskCount*taskRowSizeFactorKiB +
-		taskLogCount*taskLogRowSizeFactorKiB +
-		objectStoreSizeKiB
+	// Get total size of operation datas (in B)
+	totalSizeB :=
+		// precise size of operation
+		opSizeB + taskSizeB + logSizeB + actionSizeB + parameterSizeB + statusSizeB +
+			// association table
+			machineTaskCount*2*uuidSizeInB +
+			unitTaskCount*2*uuidSizeInB +
+			outputTaskCount*2*uuidSizeInB +
+			// object store size
+			objectStoreSizeKiB
 
-	// Estimate the average size of an operation
-	averageOperationSizeKiB := totalSizeKiB / opCount
-
-	return totalSizeKiB, averageOperationSizeKiB, nil
+	return roundUp(totalSizeB, humanize.KiByte),
+		roundDownNonZero(totalSizeB/opCount, humanize.KiByte), nil
 }
 
 // computeObjectStoreSize computes the size of the content related to tasks in
@@ -215,8 +252,16 @@ uuids AS (
     SELECT store_uuid 
     FROM operation_task_output
 )
-SELECT SUM(size) AS &result.size
-FROM   object_store_metadata
+SELECT COALESCE(SUM(
+    size +
+    octet_length(osm.uuid) +
+    octet_length(osm.sha_256) +
+    octet_length(osm.sha_384) +
+    octet_length(osm.size) +
+    octet_length(osp.path) +
+    octet_length(osp.metadata_uuid)), 0) AS &result.size
+FROM   object_store_metadata AS osm
+LEFT JOIN   object_store_metadata_path AS osp ON osm.uuid = osp.metadata_uuid 
 WHERE  uuid IN uuids`, result{})
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -226,6 +271,49 @@ WHERE  uuid IN uuids`, result{})
 		return 0, errors.Errorf("querying object store size for task content: %w", err)
 	}
 
+	return roundUp(res.Size, sizeFactor), nil
+}
+
+// roundUp rounds up the size to the next multiple of sizeFactor.
+func roundUp(size int, sizeFactor int) int {
+	return (size + sizeFactor - 1) / sizeFactor
+}
+
+// roundDownNonZero rounds down the size to the next multiple of sizeFactor,
+// but returns at least 1.
+func roundDownNonZero(size int, sizeFactor int) int {
+	res := size / sizeFactor
+	if res > 0 {
+		return res
+	}
+	return 1
+}
+
+// computeTableSize computes the size of the table in the database.
+// The sizeFactor allows to convert the size in bytes to the size in another ratio.
+func (st *State) computeTableSize(ctx context.Context, tx *sqlair.TX, sizeFactor int, table string,
+	columns ...string) (int, error) {
+	type result struct {
+		Size int `db:"size"`
+	}
+	octetLengths := transform.Slice(columns, func(col string) string {
+		return fmt.Sprintf("octet_length(%q)", col)
+	})
+	sums := strings.Join(octetLengths, "+")
+	query := fmt.Sprintf(`
+SELECT COALESCE(SUM(
+	%s
+	), 0) AS &result.size
+FROM %q
+`, sums, table)
+	stmt, err := st.Prepare(query, result{})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	var res result
+	if err := tx.Query(ctx, stmt).Get(&res); err != nil {
+		return 0, errors.Errorf("compute table %q size with colums %v: %w", table, columns, err)
+	}
 	return (res.Size + sizeFactor - 1) / sizeFactor, nil
 }
 
