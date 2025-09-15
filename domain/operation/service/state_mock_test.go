@@ -594,11 +594,12 @@ func (c *MockStateNamespaceForTaskLogWatcherCall) DoAndReturn(f func() string) *
 }
 
 // PruneOperations mocks base method.
-func (m *MockState) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error {
+func (m *MockState) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PruneOperations", ctx, maxAge, maxSizeMB)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PruneOperations indicates an expected call of PruneOperations.
@@ -614,19 +615,19 @@ type MockStatePruneOperationsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStatePruneOperationsCall) Return(arg0 error) *MockStatePruneOperationsCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStatePruneOperationsCall) Return(arg0 []string, arg1 error) *MockStatePruneOperationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStatePruneOperationsCall) Do(f func(context.Context, time.Duration, int) error) *MockStatePruneOperationsCall {
+func (c *MockStatePruneOperationsCall) Do(f func(context.Context, time.Duration, int) ([]string, error)) *MockStatePruneOperationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePruneOperationsCall) DoAndReturn(f func(context.Context, time.Duration, int) error) *MockStatePruneOperationsCall {
+func (c *MockStatePruneOperationsCall) DoAndReturn(f func(context.Context, time.Duration, int) ([]string, error)) *MockStatePruneOperationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

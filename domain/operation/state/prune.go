@@ -29,51 +29,51 @@ const (
 )
 
 // PruneOperations deletes operations older than maxAge and larger than maxSizeMB.
-func (st *State) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error {
+// It returns the paths from objectStore that should be freed
+func (st *State) PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error) {
 
 	// Prune by age, completed only
-	err := st.pruneCompletedOperationsOlderThan(ctx, maxAge)
+	ageStorePath, err := st.pruneCompletedOperationsOlderThan(ctx, maxAge)
 	if err != nil {
-		return errors.Errorf("pruning completed operation by age: %w", err)
+		return nil, errors.Errorf("pruning completed operation by age: %w", err)
 	}
 
 	// Prune by size
-	err = st.pruneOperationsToKeepUnderSizeMiB(ctx, maxSizeMB)
+	sizeStorePath, err := st.pruneOperationsToKeepUnderSizeMiB(ctx, maxSizeMB)
 	if err != nil {
-		return errors.Errorf("pruning operation to keep size under the limit: %w", err)
+		return nil, errors.Errorf("pruning operation to keep size under the limit: %w", err)
 	}
 
-	// TODO(gfouillet): In a followup PR, we should return the storeUUIDs
-	//   freed by the state prune operation.
+	storePaths, err := st.deleteStoreEntryByUUIDs(ctx, append(ageStorePath, sizeStorePath...))
+	if err != nil {
+		return nil, errors.Errorf("deleting store entry: %w", err)
+	}
 
-	return nil
+	return storePaths, nil
 }
 
 // pruneCompletedOperationsOlderThan deletes operations which have completed at
 // a time older than age.
-func (st *State) pruneCompletedOperationsOlderThan(ctx context.Context, age time.Duration) error {
+func (st *State) pruneCompletedOperationsOlderThan(ctx context.Context, age time.Duration) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
+	var toDeleteStorePaths []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		toDelete, err := st.getCompletedOperationUUIDsOlderThan(ctx, tx, age)
 		if err != nil {
 			return errors.Errorf("getting operation UUIDs older than %s: %w", age, err)
 		}
 
-		err = st.deleteOperationByUUIDs(ctx, tx, toDelete)
+		toDeleteStorePaths, err = st.deleteOperationByUUIDs(ctx, tx, toDelete)
 		if err != nil {
 			return errors.Errorf("deleting operations with UUIDs %v: %w", toDelete, err)
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
+	return toDeleteStorePaths, errors.Capture(err)
 }
 
 // getCompletedOperationUUIDsOlderThan returns the UUIDs of operations older than age.
@@ -117,22 +117,22 @@ func (st *State) getCompletedOperationUUIDsOlderThan(ctx context.Context, tx *sq
 // It retrieves the database and calculates the total size and average size of
 // operations. If pruning is required, it deletes a calculated number of
 // operations to meet the size constraint.
-// Returns an error if any issues occur during pruning.
-func (st *State) pruneOperationsToKeepUnderSizeMiB(ctx context.Context, maxSizeMiB int) error {
+// Returns the list of storeUUID to delete or an error if any issues occur during pruning.
+func (st *State) pruneOperationsToKeepUnderSizeMiB(ctx context.Context, maxSizeMiB int) ([]string, error) {
 	if maxSizeMiB <= 0 {
 		// size shouldn't be negative, but zero size is valid. In any case, we ignore
 		// the prune by size as done in 3.6
 		st.logger.Warningf(ctx, "Ignoring pruning by age ignored: zero or negative size (size(MB): %s)", maxSizeMiB)
-		return nil
+		return nil, nil
 	}
 
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	maxSizeKiB := maxSizeMiB * humanize.KiByte
-
+	var toDeleteStorePaths []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		totalSizeKiB, averageOperationSizeKiB, err := st.estimateOperationSizeInKiB(ctx, tx)
 		if err != nil {
@@ -155,14 +155,10 @@ func (st *State) pruneOperationsToKeepUnderSizeMiB(ctx context.Context, maxSizeM
 		if err != nil {
 			return errors.Errorf("getting operation UUIDs to delete: %w", err)
 		}
-		return errors.Capture(st.deleteOperationByUUIDs(ctx, tx, toDeleteUUIDs))
-	})
-
-	if err != nil {
+		toDeleteStorePaths, err = st.deleteOperationByUUIDs(ctx, tx, toDeleteUUIDs)
 		return errors.Capture(err)
-	}
-
-	return nil
+	})
+	return toDeleteStorePaths, errors.Capture(err)
 }
 
 // estimateOperationSizeInKiB estimates the total size and average size (in KiB)

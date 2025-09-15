@@ -19,8 +19,24 @@ func (s *Service) PruneOperations(ctx context.Context, maxAge time.Duration, max
 			maxSizeMB).Add(coreerrors.NotValid)
 	}
 
-	// todo(gfouillet): In a followup PR, we should prune the freed data from the object store.
-	//   this will be done by returning the storeUUID freed by the state prune operation.
-	//   and calling another state method to prune them specifically.
-	return errors.Capture(s.st.PruneOperations(ctx, maxAge, maxSizeMB))
+	storePaths, err := s.st.PruneOperations(ctx, maxAge, maxSizeMB)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if len(storePaths) == 0 {
+		return nil
+	}
+
+	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var errs []error
+	for _, path := range storePaths {
+		// We accumulate errors to allow a maximum of remove, even if we get
+		// some errors.
+		errs = append(errs, objectStore.Remove(ctx, path))
+	}
+	return errors.Capture(errors.Join(errs...))
 }

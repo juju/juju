@@ -34,15 +34,17 @@ func TestPruneBySizeSuite(t *testing.T) {
 func (s *pruneByAgeSuite) TestPruneCompletedOperationsOlderThan(c *tc.C) {
 	// Arrange: three operation, on is not completed, one is recently completed,
 	// on need to be deleted by the prune.
-	s.addCompletedOperation(c, time.Minute)
+	toDeleteOperation := s.addCompletedOperation(c, time.Minute)
 	controlCompleted := s.addCompletedOperation(c, time.Second)
 	controlNotCompleted := s.addOperation(c)
+	s.addOperationTaskOutputWithPath(c, s.addOperationTask(c, toDeleteOperation), "path/to/test")
 
 	// Act: prune all completed operation older than 30 sec.
-	err := s.state.pruneCompletedOperationsOlderThan(c.Context(), 30*time.Second)
+	storeUUIDs, err := s.state.pruneCompletedOperationsOlderThan(c.Context(), 30*time.Second)
 
 	// Assert: the operation is deleted.
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storeUUIDs, tc.SameContents, []string{"path/to/test"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{controlNotCompleted, controlCompleted})
 }
 
@@ -304,9 +306,9 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositi
 	op2 := s.addOperation(c)
 
 	// Act: call with zero and negative; both should be no-ops and return nil.
-	err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 0)
+	_, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 0)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), -5)
+	_, err = s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), -5)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: operations unchanged
@@ -320,7 +322,7 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBNoPruneWhenUnder
 	op2 := s.addOperation(c)
 
 	// Act
-	err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
+	_, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: nothing deleted
@@ -343,9 +345,10 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBPrunesExpected(c
 	// For max=1 MiB (1024 KiB), deletion count should be 1 based on average size.
 
 	// Act
-	err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
+	storeUUIDs, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: exactly one operation should remain: the newer one (opNew). The older completed opOld is deleted first.
+	c.Check(storeUUIDs, tc.SameContents, []string{"/big"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{opNew})
 }

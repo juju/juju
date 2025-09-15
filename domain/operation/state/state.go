@@ -111,16 +111,18 @@ FROM   %q`, table),
 }
 
 // deleteOperationByUUIDs deletes the operations and their associated tasks.
-func (st *State) deleteOperationByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) error {
+// It returns the storeUUIDs that used to be linked with the deleted tasks
+func (st *State) deleteOperationByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) ([]string, error) {
 	// Get all tasks associated with the operations to delete.
 	taskUUIDs, err := st.getTaskUUIDsByOperationUUIDs(ctx, tx, toDelete)
 	if err != nil {
-		return errors.Errorf("getting task UUIDs: %w", err)
+		return nil, errors.Errorf("getting task UUIDs: %w", err)
 	}
 
 	// Delete the tasks.
-	if err := st.deleteTaskByUUIDs(ctx, tx, taskUUIDs); err != nil {
-		return errors.Errorf("deleting task UUIDs: %w", err)
+	storePaths, err := st.deleteTaskByUUIDs(ctx, tx, taskUUIDs)
+	if err != nil {
+		return nil, errors.Errorf("deleting task UUIDs: %w", err)
 	}
 
 	// Delete the operations dependencies.
@@ -129,21 +131,39 @@ func (st *State) deleteOperationByUUIDs(ctx context.Context, tx *sqlair.TX, toDe
 		"operation_parameter",
 	} {
 		if err := st.removeByUUIDs(ctx, tx, table, "operation_uuid", toDelete); err != nil {
-			return errors.Errorf("deleting %s by operation UUIDs: %w", table, err)
+			return nil, errors.Errorf("deleting %s by operation UUIDs: %w", table, err)
 		}
 	}
 
 	// Delete the operations.
 	if err := st.removeByUUIDs(ctx, tx, "operation", "uuid", toDelete); err != nil {
-		return errors.Errorf("deleting operation by UUIDs: %w", err)
+		return nil, errors.Errorf("deleting operation by UUIDs: %w", err)
 	}
 
-	return nil
+	return storePaths, nil
 }
 
 // deleteTaskByUUIDs deletes the tasks and their associated dependencies by
-// their UUIDs
-func (st *State) deleteTaskByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) error {
+// their UUIDs.
+// It returns the storeUUIDs of operation_task_output to allow cleanup
+// of the object datastore in the service layer.
+func (st *State) deleteTaskByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) ([]string, error) {
+	// get store paths
+	type store path
+	tasks := uuids(toDelete)
+	stmt, err := st.Prepare(`
+SELECT &store.path
+FROM object_store_metadata_path AS osp
+JOIN operation_task_output AS oto ON osp.metadata_uuid = oto.store_uuid
+WHERE task_uuid IN ($uuids[:])`, tasks, store{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var stores []store
+	if err := tx.Query(ctx, stmt, tasks).GetAll(&stores); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting task store uuids: %w", err)
+	}
+
 	// Delete the tasks dependencies.
 	for _, table := range []string{
 		"operation_unit_task",
@@ -153,24 +173,24 @@ func (st *State) deleteTaskByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete 
 		"operation_task_log",
 	} {
 		if err := st.removeByUUIDs(ctx, tx, table, "task_uuid", toDelete); err != nil {
-			return errors.Errorf("deleting %s by task UUIDs: %w", table, err)
+			return nil, errors.Errorf("deleting %s by task UUIDs: %w", table, err)
 		}
 	}
 
 	// delete the tasks
 	if err := st.removeByUUIDs(ctx, tx, "operation_task", "uuid", toDelete); err != nil {
-		return errors.Errorf("deleting task by UUIDs: %w", err)
+		return nil, errors.Errorf("deleting task by UUIDs: %w", err)
 	}
 
-	return nil
+	return transform.Slice(stores, func(v store) string {
+		return v.Path
+	}), nil
 }
 
 // getTaskUUIDsByOperationUUIDs returns the UUIDs of the tasks associated with
 // the operations in the input list.
 func (st *State) getTaskUUIDsByOperationUUIDs(ctx context.Context, tx *sqlair.TX,
 	operationUUIDs []string) ([]string, error) {
-	type uuids []string
-
 	type task uuid
 
 	toGet := uuids(operationUUIDs)
@@ -194,7 +214,6 @@ WHERE  operation_uuid IN ($uuids[:])`, toGet, task{})
 // specified field matches the input list of UUIDs.
 func (st *State) removeByUUIDs(ctx context.Context, tx *sqlair.TX, table, field string,
 	toDelete []string) error {
-	type uuids []string
 	uuidToDelete := uuids(toDelete)
 	stmt, err := st.Prepare(fmt.Sprintf(`
 DELETE FROM %q
@@ -395,4 +414,44 @@ AND    mt.machine_uuid = $uuid.uuid`
 		return res.ID
 	})
 	return ids, nil
+}
+
+// deleteStoreEntryByUUIDs deletes all entries from the object store metadata
+// tables that match the provided UUIDs and returns the list of paths that were
+// associated with those UUIDs.
+func (st *State) deleteStoreEntryByUUIDs(ctx context.Context, toDeleteUUIDs []string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	toDelete := uuids(toDeleteUUIDs)
+
+	selectPathsStmt, err := st.Prepare(`
+SELECT &path.path
+FROM   object_store_metadata_path
+WHERE  metadata_uuid IN ($uuids[:])`, path{}, toDelete)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var paths []path
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Read all paths first so we can return them after deletion.
+		if err := tx.Query(ctx, selectPathsStmt, toDelete).GetAll(&paths); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting paths for store UUIDs: %w", err)
+		}
+
+		if err := st.removeByUUIDs(ctx, tx, "object_store_metadata_path", "metadata_uuid", toDeleteUUIDs); err != nil {
+			return errors.Errorf("deleting object_store_metadata_path by UUIDs: %w", err)
+		}
+		if err := st.removeByUUIDs(ctx, tx, "object_store_metadata", "uuid", toDeleteUUIDs); err != nil {
+			return errors.Errorf("deleting object_store_metadata by UUIDs: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(paths, func(r path) string { return r.Path }), nil
 }

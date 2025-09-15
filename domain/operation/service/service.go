@@ -92,7 +92,8 @@ type State interface {
 	// log messages.
 	NamespaceForTaskLogWatcher() string
 	// PruneOperations deletes operations that are older than maxAge and larger than maxSizeMB (in megabytes).
-	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) error
+	// It returns the paths from objectStore that should be freed
+	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error)
 }
 
 // Service provides the API for managing operation
