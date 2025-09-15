@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
-	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -127,11 +126,6 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("removing basic machine data for machine %q: %w", mName, err)
 		}
 
-		// Remove block devices for the machine.
-		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
-			return errors.Errorf("deleting block devices for machine %q: %w", mName, err)
-		}
-
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
 			return errors.Errorf("deleting machine %q: %w", mName, err)
 		}
@@ -151,6 +145,8 @@ DELETE FROM net_node WHERE uuid IN
 
 func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, machineUUID entityUUID) error {
 	tables := []string{
+		"block_device_link_device",
+		"block_device",
 		"machine_status",
 		"machine_cloud_instance_status",
 		"machine_cloud_instance",

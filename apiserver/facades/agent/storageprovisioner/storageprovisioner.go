@@ -24,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -381,7 +382,16 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 		if !canAccess(machineTag) {
 			return "", apiservererrors.ErrPerm
 		}
-		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineTag.Id())
+		machineUUID, err := s.machineService.GetMachineUUID(
+			ctx, machine.Name(machineTag.Id()))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return "", errors.Errorf(
+				"machine %q not found", machineTag.Id(),
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return "", err
+		}
+		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineUUID)
 		if err != nil {
 			return "", err
 		}
@@ -1175,7 +1185,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 			)
 		}
 
-		if va.BlockDeviceLink == "" {
+		if len(va.BlockDeviceLinks) == 0 {
 			// TODO: We think that a volume attachment with no device link is
 			// not provisioned. The property is set when the storage provisioner
 			// calls SetVolumeAttachmentInfo. This is a temporary workaround for
@@ -1192,7 +1202,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 			MachineTag: machineTag.String(),
 			Info: params.VolumeAttachmentInfo{
 				DeviceName: va.BlockDeviceName,
-				DeviceLink: va.BlockDeviceLink,
+				DeviceLink: domainblockdevice.IDLink(va.BlockDeviceLinks),
 				BusAddress: va.BlockDeviceBusAddress,
 				ReadOnly:   va.ReadOnly,
 				// PlanInfo is only used by a storage provisioner to set the
@@ -1313,8 +1323,8 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 		result := params.BlockDevice{
 			DeviceName:     bd.DeviceName,
 			DeviceLinks:    bd.DeviceLinks,
-			Label:          bd.Label,
-			UUID:           bd.UUID,
+			Label:          bd.FilesystemLabel,
+			UUID:           bd.FilesystemUUID,
 			HardwareId:     bd.HardwareId,
 			WWN:            bd.WWN,
 			BusAddress:     bd.BusAddress,
@@ -1978,18 +1988,18 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 		}
 
 		blockDeviceInfo := blockdevice.BlockDevice{
-			DeviceName:     vp.BlockDevice.DeviceName,
-			DeviceLinks:    vp.BlockDevice.DeviceLinks,
-			Label:          vp.BlockDevice.Label,
-			UUID:           vp.BlockDevice.UUID,
-			HardwareId:     vp.BlockDevice.HardwareId,
-			WWN:            vp.BlockDevice.WWN,
-			BusAddress:     vp.BlockDevice.BusAddress,
-			SizeMiB:        vp.BlockDevice.SizeMiB,
-			FilesystemType: vp.BlockDevice.FilesystemType,
-			InUse:          vp.BlockDevice.InUse,
-			MountPoint:     vp.BlockDevice.MountPoint,
-			SerialId:       vp.BlockDevice.SerialId,
+			DeviceName:      vp.BlockDevice.DeviceName,
+			DeviceLinks:     vp.BlockDevice.DeviceLinks,
+			FilesystemLabel: vp.BlockDevice.Label,
+			FilesystemUUID:  vp.BlockDevice.UUID,
+			HardwareId:      vp.BlockDevice.HardwareId,
+			WWN:             vp.BlockDevice.WWN,
+			BusAddress:      vp.BlockDevice.BusAddress,
+			SizeMiB:         vp.BlockDevice.SizeMiB,
+			FilesystemType:  vp.BlockDevice.FilesystemType,
+			InUse:           vp.BlockDevice.InUse,
+			MountPoint:      vp.BlockDevice.MountPoint,
+			SerialId:        vp.BlockDevice.SerialId,
 		}
 
 		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(

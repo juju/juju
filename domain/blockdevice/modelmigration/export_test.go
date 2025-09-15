@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 )
 
 type exportSuite struct {
@@ -49,24 +50,23 @@ func (s *exportSuite) TestExport(c *tc.C) {
 	c.Assert(m, tc.HasLen, 1)
 	c.Assert(m[0].BlockDevices(), tc.HasLen, 0)
 
-	s.service.EXPECT().AllBlockDevices(gomock.Any()).
-		Times(1).
-		Return(map[string]blockdevice.BlockDevice{
-			"666": {
-				DeviceName:     "foo",
-				DeviceLinks:    []string{"a-link"},
-				Label:          "label",
-				UUID:           "device-uuid",
-				HardwareId:     "hardware-id",
-				WWN:            "wwn",
-				BusAddress:     "bus-address",
-				SerialId:       "serial-id",
-				SizeMiB:        100,
-				FilesystemType: "ext4",
-				InUse:          true,
-				MountPoint:     "/path/to/here",
-			},
-		}, nil)
+	blockDevices := map[machine.Name][]blockdevice.BlockDevice{
+		"666": {{
+			DeviceName:      "foo",
+			DeviceLinks:     []string{"a-link"},
+			FilesystemLabel: "label",
+			FilesystemUUID:  "device-uuid",
+			HardwareId:      "hardware-id",
+			WWN:             "wwn",
+			BusAddress:      "bus-address",
+			SerialId:        "serial-id",
+			SizeMiB:         100,
+			FilesystemType:  "ext4",
+			InUse:           true,
+			MountPoint:      "/path/to/here",
+		}},
+	}
+	s.service.EXPECT().AllBlockDevices(gomock.Any()).Return(blockDevices, nil)
 
 	op := s.newExportOperation()
 	err := op.Execute(c.Context(), dst)
@@ -95,11 +95,11 @@ func (s *exportSuite) TestExportMachineNotFound(c *tc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 
+	blockDevices := map[machine.Name][]blockdevice.BlockDevice{
+		"666": {{DeviceName: "foo"}},
+	}
 	s.service.EXPECT().AllBlockDevices(gomock.Any()).
-		Times(1).
-		Return(map[string]blockdevice.BlockDevice{
-			"666": {DeviceName: "foo"},
-		}, nil)
+		Return(blockDevices, nil)
 
 	op := s.newExportOperation()
 	err := op.Execute(c.Context(), dst)

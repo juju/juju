@@ -590,8 +590,16 @@ type RemovalService interface {
 
 // BlockDeviceService provides methods to watch and manage block devices.
 type BlockDeviceService interface {
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-	WatchBlockDevices(ctx context.Context, machineId string) (watcher.NotifyWatcher, error)
+	// BlockDevices returns the block devices for the specified machine.
+	BlockDevices(
+		ctx context.Context, machineUUID coremachine.UUID,
+	) ([]blockdevice.BlockDevice, error)
+
+	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
+	// devices associated with the specified machine.
+	WatchBlockDevices(
+		ctx context.Context, machineUUID coremachine.UUID,
+	) (watcher.NotifyWatcher, error)
 }
 
 // StorageProvisioningService provides methods to watch and manage storage

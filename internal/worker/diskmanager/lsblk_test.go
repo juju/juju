@@ -57,24 +57,24 @@ EOF`)
 		DeviceName: "sda",
 		SizeMiB:    228936,
 	}, {
-		DeviceName: "sda1",
-		SizeMiB:    243,
-		UUID:       "7a62bd85-a350-4c09-8944-5b99bf2080c6",
-		MountPoint: "/tmp",
+		DeviceName:     "sda1",
+		SizeMiB:        243,
+		FilesystemUUID: "7a62bd85-a350-4c09-8944-5b99bf2080c6",
+		MountPoint:     "/tmp",
 	}, {
-		DeviceName: "sda2",
-		SizeMiB:    0, // truncated
-		Label:      "boot",
+		DeviceName:      "sda2",
+		SizeMiB:         0, // truncated
+		FilesystemLabel: "boot",
 	}, {
 		DeviceName: "sdb",
 		SizeMiB:    30533,
 		InUse:      true,
 	}, {
-		DeviceName:     "sdb1",
-		SizeMiB:        30532,
-		Label:          "media",
-		UUID:           "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
-		FilesystemType: "ext4",
+		DeviceName:      "sdb1",
+		SizeMiB:         30532,
+		FilesystemLabel: "media",
+		FilesystemUUID:  "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
+		FilesystemType:  "ext4",
 	}})
 }
 

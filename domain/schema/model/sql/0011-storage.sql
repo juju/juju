@@ -278,6 +278,9 @@ CREATE TABLE storage_volume_attachment (
 CREATE INDEX idx_storage_volume_attachment_net_node_uuid
 ON storage_volume_attachment (net_node_uuid);
 
+CREATE INDEX idx_storage_volume_attachment_block_device_uuid
+ON storage_volume_attachment (block_device_uuid);
+
 CREATE TABLE storage_filesystem_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL

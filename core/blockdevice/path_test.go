@@ -34,8 +34,8 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathWWN(c *tc.C) {
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathUUID(c *tc.C) {
 	testBlockDevicePath(c, blockdevice.BlockDevice{
-		UUID:       "deadbeaf",
-		DeviceName: "name",
+		FilesystemUUID: "deadbeaf",
+		DeviceName:     "name",
 	}, "/dev/disk/by-uuid/deadbeaf")
 }
 

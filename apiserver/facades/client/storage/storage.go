@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -22,6 +23,12 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
+
+type BlockDeviceService interface {
+	BlockDevices(
+		ctx context.Context, machineUUID machine.UUID,
+	) ([]blockdevice.BlockDevice, error)
+}
 
 // StorageService defines apis on the storage service.
 type StorageService interface {
@@ -91,7 +98,7 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
-	blockDeviceGetter     blockDeviceGetter
+	blockDeviceService    BlockDeviceService
 	storageService        StorageService
 	applicationService    ApplicationService
 	storageRegistryGetter storageRegistryGetter
@@ -105,7 +112,7 @@ type StorageAPI struct {
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
-	blockDeviceGetter blockDeviceGetter,
+	blockDeviceService BlockDeviceService,
 	storageService StorageService,
 	applicationService ApplicationService,
 	storageRegistryGetter storageRegistryGetter,
@@ -115,7 +122,7 @@ func NewStorageAPI(
 	return &StorageAPI{
 		controllerUUID:        controllerUUID,
 		modelUUID:             modelUUID,
-		blockDeviceGetter:     blockDeviceGetter,
+		blockDeviceService:    blockDeviceService,
 		storageService:        storageService,
 		applicationService:    applicationService,
 		storageRegistryGetter: storageRegistryGetter,

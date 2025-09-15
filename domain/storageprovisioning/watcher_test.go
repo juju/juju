@@ -722,8 +722,9 @@ func (s *watcherSuite) TestWatchStorageAttachmentForVolume(c *tc.C) {
 	})
 
 	var blockDeviceUUID string
+	var machineUUID string
 	harness.AddTest(c, func(c *tc.C) {
-		machineUUID := s.newMachineWithNetNode(c, netNodeUUID.String())
+		machineUUID = s.newMachineWithNetNode(c, netNodeUUID.String())
 		blockDeviceUUID = s.newBlockDevice(c, machineUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -760,7 +761,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentForVolume(c *tc.C) {
 
 	// block device link device creation should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+		s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -1772,10 +1773,11 @@ WHERE  uuid = ?`, blockDeviceUUID, attachmentUUID)
 func (s *watcherSuite) newBlockDeviceLinkDevice(
 	c *tc.C,
 	blockDeviceUUID string,
+	machineUUID string,
 ) {
 	_, err := s.DB().Exec(`
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (?, ?)`, blockDeviceUUID, blockDeviceUUID)
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)`, blockDeviceUUID, machineUUID, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

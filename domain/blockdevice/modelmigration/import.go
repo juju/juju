@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
@@ -32,7 +33,11 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // ImportService provides a subset of the block device domain
 // service methods needed for block device import.
 type ImportService interface {
-	UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error
+	// SetBlockDevices overrides all current block devices on the named machine.
+	SetBlockDevices(
+		ctx context.Context, machineName machine.Name,
+		devices []blockdevice.BlockDevice,
+	) error
 }
 
 type importOperation struct {
@@ -65,25 +70,32 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		if len(modelBlockDevices) == 0 {
 			continue
 		}
+
 		machineBlockDevices := make([]blockdevice.BlockDevice, len(modelBlockDevices))
 		for n, bd := range modelBlockDevices {
 			machineBlockDevices[n] = blockdevice.BlockDevice{
-				DeviceName:     bd.Name(),
-				DeviceLinks:    bd.Links(),
-				Label:          bd.Label(),
-				UUID:           bd.UUID(),
-				HardwareId:     bd.HardwareID(),
-				SerialId:       bd.SerialID(),
-				WWN:            bd.WWN(),
-				BusAddress:     bd.BusAddress(),
-				SizeMiB:        bd.Size(),
-				FilesystemType: bd.FilesystemType(),
-				InUse:          bd.InUse(),
-				MountPoint:     bd.MountPoint(),
+				DeviceName:      bd.Name(),
+				DeviceLinks:     bd.Links(),
+				FilesystemLabel: bd.Label(),
+				FilesystemUUID:  bd.UUID(),
+				HardwareId:      bd.HardwareID(),
+				SerialId:        bd.SerialID(),
+				WWN:             bd.WWN(),
+				BusAddress:      bd.BusAddress(),
+				SizeMiB:         bd.Size(),
+				FilesystemType:  bd.FilesystemType(),
+				InUse:           bd.InUse(),
+				MountPoint:      bd.MountPoint(),
 			}
 		}
-		if err := i.service.UpdateBlockDevices(ctx, m.Id(), machineBlockDevices...); err != nil {
-			return errors.Errorf("importing block devices for machine %q: %w", m.Id(), err)
+
+		err := i.service.SetBlockDevices(
+			ctx, machine.Name(m.Id()), machineBlockDevices)
+		if err != nil {
+			return errors.Errorf(
+				"importing block devices for machine %q: %w",
+				m.Id(), err,
+			)
 		}
 	}
 	return nil
