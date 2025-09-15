@@ -678,14 +678,17 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 // - [coreerrors.NotValid] when ownerName is not valid.
 func (api *OffersAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
 	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
+
 	m, err := api.modelService.GetModelByNameAndQualifier(ctx, modelName, qualifier)
 	if errors.Is(err, modelerrors.NotFound) {
 		return model.Model{}, errors.Errorf(`model "%s/%s": %w`, ownerName, modelName, coreerrors.NotFound)
 	} else if errors.Is(err, accesserrors.UserNameNotValid) {
 		return model.Model{}, errors.Errorf("user name %q: %w", ownerName, coreerrors.NotValid)
+	} else if err != nil {
+		return model.Model{}, errors.Capture(err)
 	}
 
-	return m, errors.Capture(err)
+	return m, nil
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
@@ -716,7 +719,7 @@ func (api *OffersAPI) getApplicationOffers(ctx context.Context, apiUser names.Us
 	fullURLs := make(map[string]int)
 
 	for i, urlStr := range urls.OfferURLs {
-		url, filter, err := applicationOfferURLAndFilter(urlStr, apiUser.Id())
+		url, filter, err := applicationOfferURLAndFilter(urlStr, apiUser)
 		if err != nil {
 			results[i].Error = err
 			continue
@@ -758,13 +761,13 @@ func (api *OffersAPI) getApplicationOffers(ctx context.Context, apiUser names.Us
 	return results, nil
 }
 
-func applicationOfferURLAndFilter(in, apiUserID string) (string, params.OfferFilter, *params.Error) {
+func applicationOfferURLAndFilter(in string, apiUserTag names.UserTag) (string, params.OfferFilter, *params.Error) {
 	url, err := corecrossmodel.ParseOfferURL(in)
 	if err != nil {
 		return "", params.OfferFilter{}, apiservererrors.ServerError(err)
 	}
 	if url.ModelQualifier == "" {
-		url.ModelQualifier = apiUserID
+		url.ModelQualifier = apiUserTag.Id()
 	}
 	if url.HasEndpoint() {
 		return "", params.OfferFilter{}, &params.Error{
@@ -825,6 +828,9 @@ func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.Consume
 		if err != nil {
 			return params.ConsumeOfferDetailsResults{}, apiservererrors.ServerError(err)
 		}
+	} else {
+		// If no user was specified, the API user is the user.
+		user = api.authorizer.GetAuthTag().(names.UserTag)
 	}
 
 	// We require the current controller info to build the consume details.
