@@ -95,8 +95,8 @@ run_deploy_lxd_profile_charm() {
 	echo
 
 	file="${TEST_DIR}/test-deploy-lxd-profile.log"
-
-	ensure "test-deploy-lxd-profile" "${file}"
+	model_name="test-deploy-lxd-profile"
+	ensure "${model_name}" "${file}"
 
 	# This charm deploys to Xenial by default, which doesn't
 	# always result in a machine which becomes fully deployed
@@ -104,7 +104,11 @@ run_deploy_lxd_profile_charm() {
 	juju deploy juju-qa-lxd-profile-without-devices --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
-	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
+
+	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile"
 }
@@ -113,8 +117,9 @@ run_deploy_lxd_profile_charm_container() {
 	echo
 
 	file="${TEST_DIR}/test-deploy-lxd-profile.log"
+	model_name="test-deploy-lxd-profile-container"
 
-	ensure "test-deploy-lxd-profile-container" "${file}"
+	ensure "${model_name}" "${file}"
 
 	# This charm deploys to Xenial by default, which doesn't
 	# always result in a machine which becomes fully deployed
@@ -122,8 +127,12 @@ run_deploy_lxd_profile_charm_container() {
 	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	lxd_profile="juju-test-deploy-lxd-profile-container-${short_uuid}-lxd-profile"
+
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
-		check "juju-test-deploy-lxd-profile-container-lxd-profile"
+		check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile-container"
 }
@@ -150,8 +159,9 @@ run_deploy_local_lxd_profile_charm() {
 	echo
 
 	file="${TEST_DIR}/test-deploy-local-lxd-profile.log"
+	model_name="test-deploy-local-lxd-profile"
 
-	ensure "test-deploy-local-lxd-profile" "${file}"
+	ensure "${model_name}" "${file}"
 
 	juju deploy ./testcharms/charms/lxd-profile
 	juju deploy ./testcharms/charms/lxd-profile-subordinate
@@ -160,8 +170,11 @@ run_deploy_local_lxd_profile_charm() {
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
 
-	lxd_profile_name="juju-test-deploy-local-lxd-profile-lxd-profile"
-	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-lxd-profile-subordinate"
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+
+	lxd_profile_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile"
+	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile-subordinate"
 
 	# subordinates take longer to show, so use wait_for
 	machine_0="$(machine_path 0)"
@@ -201,7 +214,15 @@ run_deploy_lxd_to_machine() {
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-	lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" |
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+
+	lxd_profile_0="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-0"
+	lxd_profile_1="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-1"
+
+	echo "looking for profile: ${lxd_profile_0}..."
+
+	lxc profile show "${lxd_profile_0}" |
 		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
 	juju refresh "lxd-profile-alt" --path "${charm}"
@@ -213,11 +234,11 @@ run_deploy_lxd_to_machine() {
 
 	attempt=0
 	while true; do
-		OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
+		OUT=$(lxc profile show "${lxd_profile_1}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
 		if [ "${OUT}" != "NOT FOUND" ]; then
 			break
 		fi
-		lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1"
+		lxc profile show "${lxd_profile_1}"
 		attempt=$((attempt + 1))
 		if [ $attempt -eq 10 ]; then
 			# shellcheck disable=SC2046
@@ -230,7 +251,7 @@ run_deploy_lxd_to_machine() {
 	# Ensure that the old one is removed
 	attempt=0
 	while true; do
-		OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
+		OUT=$(lxc profile show "${lxd_profile_0}" || echo 'NOT FOUND')
 		if [[ ${OUT} == "NOT FOUND" ]]; then
 			break
 		fi
@@ -268,13 +289,19 @@ run_deploy_lxd_to_container() {
 	machine_0="$(machine_container_path 0 0/lxd/0)"
 	wait_for "lxd-profile-subordinate" "${machine_0}"
 
-	lxd_profile_name="juju-test-deploy-lxd-container-lxd-profile-alt"
-	lxd_profile_sub_name="juju-test-deploy-lxd-container-lxd-profile-subordinate"
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+
+	lxd_profile_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt"
+	lxd_profile_sub_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-subordinate"
 
 	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
 	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
 
-	OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
+	lxd_profile_0="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-0"
+	lxd_profile_1="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-1"
+
+	OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_0}\"")
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
 	juju refresh "lxd-profile-alt" --path "${charm}"
@@ -286,7 +313,7 @@ run_deploy_lxd_to_container() {
 
 	attempt=0
 	while true; do
-		OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-1"' || echo 'NOT FOUND')
+		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_1}\"" || echo 'NOT FOUND')
 		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
 			break
 		fi
@@ -303,7 +330,7 @@ run_deploy_lxd_to_container() {
 	attempt=0
 	while true; do
 		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
-		if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
+		if echo "${OUT}" | grep -v "${lxd_profile_0}"; then
 			break
 		fi
 		attempt=$((attempt + 1))
