@@ -561,6 +561,7 @@ func (s *ModelServices) Operation() *operationservice.WatchableService {
 		s.clock,
 		s.logger.Child("operation"),
 		s.modelObjectStoreGetter,
+		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("operation"),
 	)
 }

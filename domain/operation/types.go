@@ -143,6 +143,13 @@ type Receivers struct {
 	LeaderUnit   []string
 }
 
+// ReceiversWithoutLeader represents receivers without leader units.
+type ReceiversWithoutLeader struct {
+	Applications []string
+	Machines     []machine.Name
+	Units        []unit.Name
+}
+
 // ActionReceiver allows running an action on a specific unit or a leader unit of an application
 // only one of both fields should be set.
 type ActionReceiver struct {
