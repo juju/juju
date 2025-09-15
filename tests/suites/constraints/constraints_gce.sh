@@ -49,6 +49,9 @@ test_gce_pro_image() {
 
 run_constraints_gce() {
 	echo
+
+  setup_gcloudcli_credential
+  echo "==> Checking for dependencies"
 	check_dependencies gcloud
 
 	name="constraints-gce"
