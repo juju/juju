@@ -54,6 +54,18 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
+	// AddExecOperation creates an exec operation with tasks for various machines
+	// and units, using the provided parameters.
+	AddExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddExecOperationOnAllMachines creates an exec operation with tasks based on
+	// the provided parameters on all machines.
+	AddExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddActionOperation creates an action operation with tasks for various units
+	// using the provided parameters.
+	AddActionOperation(ctx context.Context, target []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error)
+
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
@@ -67,23 +79,6 @@ type OperationService interface {
 
 	// GetTask returns the task identified by its ID.
 	GetTask(ctx context.Context, taskID string) (operation.Task, error)
-
-	// StartExecOperation creates an exec operation with tasks for various
-	// machines and units, using the provided parameters.
-	StartExecOperation(
-		ctx context.Context,
-		target operation.Receivers,
-		args operation.ExecArgs,
-	) (operation.RunResult, error)
-
-	// StartExecOperationOnAllMachines creates an exec operation
-	// based on the provided parameters on all machines.
-	StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
-
-	// StartActionOperation creates an action operation with tasks for various
-	// units using the provided parameters.
-	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
-		args operation.TaskArgs) (operation.RunResult, error)
 
 	// WatchTaskLogs starts and returns a StringsWatcher that notifies on new log
 	// messages for a specified action being added. The strings are json encoded

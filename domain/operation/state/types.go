@@ -94,3 +94,44 @@ type outputStore struct {
 	TaskUUID  string `db:"task_uuid"`
 	StoreUUID string `db:"store_uuid"`
 }
+
+type insertOperation struct {
+	UUID           string    `db:"uuid"`
+	OperationID    string    `db:"operation_id"`
+	Summary        string    `db:"summary"`
+	EnqueuedAt     time.Time `db:"enqueued_at"`
+	Parallel       bool      `db:"parallel"`
+	ExecutionGroup string    `db:"execution_group"`
+}
+
+type insertOperationAction struct {
+	OperationUUID  string `db:"operation_uuid"`
+	CharmUUID      string `db:"charm_uuid"`
+	CharmActionKey string `db:"charm_action_key"`
+}
+
+type insertOperationTask struct {
+	UUID          string    `db:"uuid"`
+	OperationUUID string    `db:"operation_uuid"`
+	TaskID        string    `db:"task_id"`
+	EnqueuedAt    time.Time `db:"enqueued_at"`
+}
+
+type insertTaskStatus struct {
+	TaskUUID string `db:"task_uuid"`
+	Status   string `db:"status"`
+}
+
+type insertUnitTask struct {
+	TaskUUID string `db:"task_uuid"`
+	UnitUUID string `db:"unit_uuid"`
+}
+
+type insertMachineTask struct {
+	TaskUUID    string `db:"task_uuid"`
+	MachineUUID string `db:"machine_uuid"`
+}
+
+type charmUUIDResult struct {
+	CharmUUID string `db:"charm_uuid"`
+}

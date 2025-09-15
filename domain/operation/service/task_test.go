@@ -27,6 +27,7 @@ type serviceSuite struct {
 	clock                 clock.Clock
 	mockObjectStoreGetter *MockModelObjectStoreGetter
 	mockObjectStore       *MockObjectStore
+	mockLeadershipService *MockLeadershipService
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -39,11 +40,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock = clock.WallClock
 	s.mockObjectStore = NewMockObjectStore(ctrl)
 	s.mockObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
+	s.mockLeadershipService = NewMockLeadershipService(ctrl)
 	return ctrl
 }
 
 func (s *serviceSuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter)
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, s.mockLeadershipService)
 }
 
 func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {

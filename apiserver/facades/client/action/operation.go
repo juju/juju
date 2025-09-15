@@ -71,7 +71,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{Actions: actionResults}, nil
 	}
 
-	result, err := a.operationService.StartActionOperation(ctx, receivers, taskParams)
+	result, err := a.operationService.AddActionOperation(ctx, receivers, taskParams)
 	if err != nil {
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
@@ -211,7 +211,7 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.StartExecOperation(ctx, target, args)
+	result, err := a.operationService.AddExecOperation(ctx, target, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
@@ -243,7 +243,7 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.StartExecOperationOnAllMachines(ctx, args)
+	result, err := a.operationService.AddExecOperationOnAllMachines(ctx, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}

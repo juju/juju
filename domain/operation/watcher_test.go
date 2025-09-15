@@ -53,6 +53,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 		nil, // object store not needed for these tests.
+		nil, // leadership service not needed for these tests.
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 	)
 }
