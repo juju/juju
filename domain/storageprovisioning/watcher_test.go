@@ -654,32 +654,42 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	storageInstanceUUID1, storageID1 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID2, storageID2 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID3, storageID3 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
 	harness.AddTest(c, func(c *tc.C) {
 		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
+		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)
+		s.newStorageAttachment(c, storageInstanceUUID3, unitUUID, domainlife.Alive)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				storageID1,
+				storageID2,
+				storageID3,
 			),
 		)
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dying)
+		s.changeStorageAttachmentLife(c, storageInstanceUUID2.String(), domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				storageID1,
+				storageID2,
 			),
 		)
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeStorageAttachmentLife(c, storageInstanceUUID1.String(), domainlife.Dead)
+		s.changeStorageAttachmentLife(c, storageInstanceUUID3.String(), domainlife.Dying)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
 				storageID1,
+				storageID3,
 			),
 		)
 	})
