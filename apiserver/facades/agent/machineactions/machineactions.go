@@ -35,7 +35,8 @@ type OperationService interface {
 
 	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
 	// ids for tasks targeted at the provided machine.
-	// This watcher emits all tasks no matter their status.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING only.
 	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
 }
 

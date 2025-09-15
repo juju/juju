@@ -50,7 +50,8 @@ const (
 	customNamespaceModelLifeRemovalLifecycle
 	customNamespaceStorageAttachmentRelatedEntities
 	customNamespaceStorageAttachmentLifecycle
-	customNamespaceOperatingTaskStatusAborting
+	customNamespaceOperatingTaskStatusPending
+	customNamespaceOperatingTaskStatusPendingOrAborting
 )
 
 const (

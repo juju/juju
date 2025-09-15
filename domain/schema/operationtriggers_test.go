@@ -30,43 +30,88 @@ func (s *operationSuite) SetUpTest(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 }
 
-// TestOperationTaskStatusAborting Trigger tests that changing the status to
-// ABORTING, triggers a change log event.
-func (s *operationSuite) TestOperationTaskStatusAbortingTrigger(c *tc.C) {
+// TestOperationTaskStatusPending Trigger tests that changing the status to
+// PENDING, triggers a change log event.
+func (s *operationSuite) TestOperationTaskStatusPendingTrigger(c *tc.C) {
 	// Arrange
-	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Pending)
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
 
 	// Act
 	s.updateOperationTaskStatus(c, taskUUID, "second", corestatus.Aborting)
+	// NOTE: As commented on the operationTaskStatusPendingTrigger, our
+	// implementation does not support changing the status (back) to PENDING,
+	// so this test only asserts that our trigger behaves as expected, but this
+	// type of updates is not expected to happen in practice.
+	s.updateOperationTaskStatus(c, taskUUID, "third", corestatus.Pending)
 
 	// Assert
-	s.assertChangeEvent(c, "custom_operation_task_status_aborting", taskUUID)
+	s.assertChangeEvent(c, "custom_operation_task_status_pending", taskUUID)
 }
 
-// TestOperationTaskStatusAbortingNotTriggered tests that changing the status to
-// a value other than ABORTING, does not trigger a change log event.
-func (s *operationSuite) TestOperationTaskStatusAbortingNotTriggered(c *tc.C) {
+// TestOperationTaskStatusPendingNotTriggered tests that changing the status to
+// a value other than PENDING, does not trigger a change log event.
+func (s *operationSuite) TestOperationTaskStatusPendingNotTriggered(c *tc.C) {
 	// Arrange
-	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Pending)
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
 
 	// Act
 	s.updateOperationTaskStatus(c, taskUUID, "second", corestatus.Completed)
 
 	// Assert
-	s.assertChangeEventCountNoType(c, "custom_operation_task_status_aborting", taskUUID, 0)
+	s.assertChangeEventCountNoType(c, "custom_operation_task_status_pending", taskUUID, 0)
 }
 
-// TestOperationTaskStatusAbortingNotTriggered tests deleting the status row,
+// TestOperationTaskStatusPendingNotTriggered tests deleting the status row,
 // does not trigger a change log event.
-func (s *operationSuite) TestOperationTaskStatusAbortingTriggeredStatusDeleted(c *tc.C) {
+func (s *operationSuite) TestOperationTaskStatusNotPendingTriggeredStatusDeleted(c *tc.C) {
 	// Arrange
-	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Pending)
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
 
 	// Act
 	s.deleteOperationTaskStatus(c, taskUUID)
 
 	// Assert
-	s.assertChangeEventCountNoType(c, "custom_operation_task_status_aborting", taskUUID, 0)
+	s.assertChangeEventCountNoType(c, "custom_operation_task_status_pending", taskUUID, 0)
+}
+
+// TestOperationTaskStatusAbortingTriggered test that changing the status to
+// ABORTING, triggers a change log event, using the
+// custom_operation_task_status_or_aborting namespace.
+func (s *operationSuite) TestOperationTaskStatusAbortingTriggered(c *tc.C) {
+	// Arrange
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
+
+	// Act
+	s.updateOperationTaskStatus(c, taskUUID, "second", corestatus.Aborting)
+
+	// Assert
+	s.assertChangeEvent(c, "custom_operation_task_status_pending_or_aborting", taskUUID)
+}
+
+// TestOperationTaskStatusAbortingNotTriggered tests that changing the status to
+// a value other than ABORTING or PENDING, does not trigger a change log event.
+func (s *operationSuite) TestOperationTaskStatusPendingOrAbortingNotTriggered(c *tc.C) {
+	// Arrange
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
+
+	// Act
+	s.updateOperationTaskStatus(c, taskUUID, "second", corestatus.Completed)
+
+	// Assert
+	s.assertChangeEventCountNoType(c, "custom_operation_task_status_pending_or_aborting", taskUUID, 0)
+}
+
+// TestOperationTaskStatusPendingOrAbortingNotTriggered tests deleting the
+// status row, does not trigger a change log event.
+func (s *operationSuite) TestOperationTaskStatusPendingOrAbortingNotTriggeredStatusDeleted(c *tc.C) {
+	// Arrange
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Running)
+
+	// Act
+	s.deleteOperationTaskStatus(c, taskUUID)
+
+	// Assert
+	s.assertChangeEventCountNoType(c, "custom_operation_task_status_pending_or_aborting", taskUUID, 0)
 }
 
 func (s *operationSuite) newOperationTaskStatus(c *tc.C, msg string, status corestatus.Status) string {

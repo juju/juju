@@ -377,18 +377,17 @@ type OperationService interface {
 	// The string should satisfy the ActionReceiverTag type.
 	ReceiverFromTask(ctx context.Context, id string) (string, error)
 
-	// WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
-	// for actions targeted at the provided unit.
-	// Since this watcher is intended for units, it will not emit changes if the
-	// task is in Pending state.
-	WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
-
 	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
 	// ids for tasks targeted at the provided machine.
-	//
-	// Behaviour mirrors WatchUnitTaskNotifications but operates on machine-level
-	// pending tasks.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING only.
 	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
+
+	// WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
+	// for tasks targeted at the provided unit.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING or ABORTING only.
+	WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

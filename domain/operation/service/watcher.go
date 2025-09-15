@@ -18,57 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
-
-// WatchTaskAbortingForReceiver watches for any task for the receiverUUID to
-// have a status of aborting. TaskIDs are sent on via the returned strings
-// watcher.
-func (w *WatchableService) WatchTaskAbortingForReceiver(
-	ctx context.Context,
-	receiverUUID uuid.UUID,
-) (watcher.StringsWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	initialQuery := func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
-		ctx, span := trace.Start(ctx, "WatchTaskAbortingForReceiver.initialQuery")
-		defer span.End()
-
-		ids, err := w.st.GetIDsForAbortingTaskOfReceiver(ctx, receiverUUID)
-		if err != nil {
-			return nil, errors.Errorf("%q: %w", receiverUUID, err)
-		}
-
-		return ids, err
-	}
-
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-		ctx, span := trace.Start(ctx, "WatchTaskAbortingForReceiver.mapper")
-		defer span.End()
-
-		taskUUIDs := transform.Slice(changes, func(in changestream.ChangeEvent) string {
-			return in.Changed()
-		})
-
-		// The namespace watched, only triggers when a task status is
-		// set to ABORTING. Find which tasks are for the receiver
-		// provided to the watcher.
-		taskIDs, err := w.st.GetTaskIDsByUUIDsFilteredByReceiverUUID(ctx, receiverUUID, taskUUIDs)
-		if err != nil {
-			return nil, errors.Errorf("task aborted watcher mapper %q: %w", receiverUUID, err)
-		}
-		return taskIDs, nil
-	}
-
-	return w.watcherFactory.NewNamespaceMapperWatcher(
-		ctx,
-		initialQuery,
-		fmt.Sprintf("aborting status task watcher for %q", receiverUUID),
-		mapper,
-		eventsource.NamespaceFilter(w.st.NamespaceForTaskAbortingWatcher(), changestream.Changed),
-	)
-}
 
 // WatchTaskLogs starts and returns a StringsWatcher that notifies on new log
 // messages for a specified action being added. The strings are json encoded
@@ -88,7 +38,7 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 	)
 
 	initialQuery := func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
-		ctx, span := trace.Start(ctx, "WatchTaskLogs initial query")
+		ctx, span := trace.Start(ctx, "WatchTaskLogs.initialQuery")
 		defer span.End()
 
 		logs, page, err = w.st.GetPaginatedTaskLogsByUUID(ctx, taskUUID, 0)
@@ -100,7 +50,7 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 	}
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-		ctx, span := trace.Start(ctx, "WatchTaskLogs mapper")
+		ctx, span := trace.Start(ctx, "WatchTaskLogs.mapper")
 		defer span.End()
 
 		logs, page, err = w.st.GetPaginatedTaskLogsByUUID(ctx, taskUUID, page)
@@ -126,8 +76,8 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 
 // WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
 // for tasks targeted at the provided unit.
-// Since this watcher is intended for units, it will not emit changes if the
-// task is in Pending state.
+// NOTE: This watcher will emit events for tasks changing their statuses to
+// PENDING or ABORTING only.
 func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -137,7 +87,7 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 		return nil, errors.Capture(err)
 	}
 
-	table, query := s.st.InitialWatchStatementUnitTask()
+	table, initialQuery := s.st.InitialWatchStatementUnitTask()
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, "WatchUnitTaskNotifications.mapper")
@@ -161,7 +111,7 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
-		eventsource.InitialNamespaceChanges(query, unitUUID),
+		eventsource.InitialNamespaceChanges(initialQuery, unitUUID),
 		fmt.Sprintf("unit tasks watcher for %q", unitName),
 		mapper,
 		eventsource.NamespaceFilter(table, changestream.Changed),
@@ -174,7 +124,8 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 
 // WatchMachineTaskNotifications returns a StringsWatcher that emits task
 // ids for tasks targeted at the provided machine.
-// This watcher emits all tasks no matter their status.
+// NOTE: This watcher will emit events for tasks changing their statuses to
+// PENDING only.
 func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -184,7 +135,7 @@ func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, ma
 		return nil, errors.Capture(err)
 	}
 
-	table, query := s.st.InitialWatchStatementMachineTask()
+	table, initialQuery := s.st.InitialWatchStatementMachineTask()
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, "WatchMachineTaskNotifications.mapper")
@@ -208,7 +159,7 @@ func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, ma
 
 	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
-		eventsource.InitialNamespaceChanges(query, machineUUID),
+		eventsource.InitialNamespaceChanges(initialQuery, machineUUID),
 		fmt.Sprintf("machine tasks watcher for %q", machineName),
 		mapper,
 		eventsource.NamespaceFilter(table, changestream.Changed),

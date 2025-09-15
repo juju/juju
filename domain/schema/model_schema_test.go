@@ -693,7 +693,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_operation_parameter_immutable_update",
 		"trg_operation_machine_task_immutable_update",
 		"trg_operation_unit_task_immutable_update",
-		"trg_log_custom_operation_task_status_aborting",
+		"trg_log_custom_operation_task_status_pending_insert",
+		"trg_log_custom_operation_task_status_pending_update",
+		"trg_log_custom_operation_task_status_pending_or_aborting_insert",
+		"trg_log_custom_operation_task_status_pending_or_aborting_update",
 
 		"trg_log_operation_task_status_delete",
 		"trg_log_operation_task_status_insert",
