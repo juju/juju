@@ -32,6 +32,11 @@ type CreateUnitStorageFilesystemArg struct {
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
 // storage instance on behalf of a unit.
 type CreateUnitStorageInstanceArg struct {
+	// CharmName is the name of the charm that this storage instance is being
+	// provisioned for. This value helps Juju later identify what charm this
+	// storage can be re-attached back to.
+	CharmName string
+
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
@@ -43,6 +48,15 @@ type CreateUnitStorageInstanceArg struct {
 	// Name is the name of the storage and must correspond to the storage name
 	// defined in the charm the unit is running.
 	Name domainstorage.Name
+
+	// RequestSizeMiB defines the requested size of this storage instance in
+	// MiB. What ends up being allocated for the storage instance will be at
+	// least this value.
+	RequestSizeMiB uint64
+
+	// StoragePoolUUID is the pool for which this storage instance is to be
+	// provisioned from.
+	StoragePoolUUID domainstorage.StoragePoolUUID
 
 	// Volume describes the properties of a new volume to be created alongside
 	// the storage instance. If this value is not nil a new volume will be
@@ -129,20 +143,21 @@ type RegisterUnitStorageArg struct {
 // StorageDirective defines a storage directive that already exists for either
 // an application or unit.
 type StorageDirective struct {
+	// CharmMetadataName is the metadata name of the charm the directive exists for.
+	CharmMetadataName string
+
 	// Count represents the number of storage instances that should be made for
 	// this directive.
 	Count uint32
 
-	// Type represents the storage type of the charm that the directive relates
+	// CharmStorageType represents the storage type of the charm that the directive relates
 	// to.
-	Type charm.StorageType
+	CharmStorageType charm.StorageType
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name
 
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	// PoolUUID defines the storage pool uuid to use for the directive.
 	PoolUUID domainstorage.StoragePoolUUID
 
 	// Size defines the size of the storage directive in MiB.
