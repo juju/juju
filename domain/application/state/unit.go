@@ -532,8 +532,13 @@ func (st *State) AddIAASUnits(
 			return errors.Capture(err)
 		}
 
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
+		}
+
 		for i, arg := range args {
-			uName, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, arg)
+			uName, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -565,8 +570,13 @@ func (st *State) AddCAASUnits(
 
 	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
+		}
+
 		for _, arg := range args {
-			unitName, err := st.insertCAASUnit(ctx, tx, appUUID, arg)
+			unitName, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %q: %w ", unitName, err)
 			}
@@ -613,6 +623,13 @@ func (st *State) AddIAASSubordinateUnit(
 		if err := st.checkNoSubordinateExists(ctx, tx, arg.SubordinateAppID, arg.PrincipalUnitName); err != nil {
 			return errors.Errorf("checking if subordinate already exists: %w", err)
 		}
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, arg.SubordinateAppID)
+		if err != nil {
+			return errors.Errorf(
+				"getting subordinate application %q charm uuid: %w",
+				arg.SubordinateAppID, err,
+			)
+		}
 
 		// Place the subordinate on the same machine as the principal unit.
 		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
@@ -630,7 +647,9 @@ func (st *State) AddIAASSubordinateUnit(
 			},
 		}
 
-		unitName, machineNames, err = st.insertIAASUnit(ctx, tx, arg.SubordinateAppID, addUnitArg)
+		unitName, machineNames, err = st.insertIAASUnit(
+			ctx, tx, arg.SubordinateAppID, charmUUID, addUnitArg,
+		)
 		if err != nil {
 			return errors.Errorf("inserting new IAAS subordinate unitq: %w", err)
 		}
@@ -1140,7 +1159,9 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 
-			uuid, err := st.insertCAASUnitWithName(ctx, tx, appUUID, arg.UnitName, addUnitArg)
+			uuid, err := st.insertCAASUnitWithName(
+				ctx, tx, appUUID, appDetails.CharmUUID, arg.UnitName, addUnitArg,
+			)
 			if err != nil {
 				return errors.Errorf("inserting new caas application %s: %w", arg.UnitName, err)
 			}
@@ -1213,6 +1234,7 @@ func (st *State) insertCAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
 	args application.AddCAASUnitArg,
 ) (coreunit.Name, error) {
 	unitName, err := st.newUnitName(ctx, tx, appUUID)
@@ -1220,7 +1242,7 @@ func (st *State) insertCAASUnit(
 		return "", errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
 
-	_, err = st.insertCAASUnitWithName(ctx, tx, appUUID, unitName, args)
+	_, err = st.insertCAASUnitWithName(ctx, tx, appUUID, charmUUID, unitName, args)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1234,6 +1256,7 @@ func (st *State) insertCAASUnitWithName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
 	unitName coreunit.Name,
 	args application.AddCAASUnitArg,
 ) (coreunit.UUID, error) {
@@ -1247,9 +1270,9 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
 	if err != nil {
-		return "", errors.Errorf("getting charm for application %q: %w", appUUID, err)
+		return "", errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
 	}
 
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
@@ -1263,7 +1286,7 @@ func (st *State) insertCAASUnitWithName(
 	}
 
 	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1307,6 +1330,7 @@ func (st *State) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
 	args application.AddIAASUnitArg,
 ) (coreunit.Name, []coremachine.Name, error) {
 	unitName, err := st.newUnitName(ctx, tx, appUUID)
@@ -1331,9 +1355,9 @@ func (st *State) insertIAASUnit(
 		return "", nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
 	if err != nil {
-		return "", nil, errors.Errorf("getting charm for application %q: %w", appUUID, err)
+		return "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
 	}
 
 	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
@@ -1346,7 +1370,7 @@ func (st *State) insertIAASUnit(
 	}
 
 	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
+		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", nil, errors.Errorf(
@@ -1931,7 +1955,7 @@ func (st *State) GetAllUnitCloudContainerIDsForApplication(
 	input := applicationID{ID: appUUID}
 	query := `
 SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
-FROM unit u 
+FROM unit u
 JOIN k8s_pod kp ON u.uuid = kp.unit_uuid
 WHERE u.application_uuid = $applicationID.uuid
 `

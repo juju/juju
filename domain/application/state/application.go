@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -75,25 +73,6 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
-// Deprecated: This method will be removed, as there should be no need to
-// determine the model type from the state or service. That's an artifact of
-// the caller to call the correct methods.
-func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
-	var result modelInfo
-	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
-		return "", modelerrors.NotFound
-	} else if err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
-	}
-
-	return coremodel.ModelType(result.ModelType), nil
-}
-
 // CreateIAASApplication creates an IAAS application, returning an error
 // satisfying [applicationerrors.ApplicationAlreadyExists] if the application
 // already exists. It returns as error satisfying
@@ -124,7 +103,18 @@ func (st *State) CreateIAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if machineNames, err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if machineNames, err = st.insertIAASApplicationUnits(
+			ctx, tx, appUUID, charmUUID, units,
+		); err != nil {
 			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -178,7 +168,16 @@ func (st *State) CreateCAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, charmUUID, units); err != nil {
 			return errors.Errorf("inserting CAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -378,12 +377,12 @@ VALUES ($applicationDetails.uuid)
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddIAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, unit)
+		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -396,11 +395,11 @@ func (st *State) insertIAASApplicationUnits(
 func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddCAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddCAASUnitArg,
 ) error {
 	for i, unit := range units {
-		if _, err := st.insertCAASUnit(ctx, tx, appUUID, unit); err != nil {
+		if _, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, unit); err != nil {
 			return errors.Errorf(
 				"inserting CAAS unit %d for application: %w", i, err,
 			)

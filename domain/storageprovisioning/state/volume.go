@@ -864,6 +864,20 @@ func (st *State) GetVolumeAttachmentParams(
 		dbVal       volumeAttachmentParams
 	)
 
+	/*
+			   id      parent  notused detail
+			   20      0       0       SEARCH sva USING INDEX sqlite_autoindex_storage_volume_attachment_1 (uuid=?)
+		       25      0       0       SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?)
+		       30      0       0       SEARCH siv USING INDEX idx_storage_instance_volume (storage_volume_uuid=?)
+		       38      0       0       SEARCH si USING INDEX sqlite_autoindex_storage_instance_1 (uuid=?)
+		       43      0       0       SEARCH sp USING INDEX sqlite_autoindex_storage_pool_1 (uuid=?)
+		       48      0       0       SEARCH sa USING COVERING INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid (storage_instance_uuid=?)
+		           	                   LEFT-JOIN
+		       54      0       0       SEARCH u USING INDEX sqlite_autoindex_unit_1 (uuid=?) LEFT-JOIN
+		       62      0       0       SEARCH cs USING INDEX sqlite_autoindex_charm_storage_1 (charm_uuid=? AND name=?) LEFT-JOIN
+		       71      0       0       SEARCH m USING INDEX idx_machine_net_node (net_node_uuid=?) LEFT-JOIN
+		       78      0       0       SEARCH mci USING INDEX sqlite_autoindex_machine_cloud_instance_1 (machine_uuid=?) LEFT-JOIN
+	*/
 	stmt, err := st.Prepare(`
 SELECT &volumeAttachmentParams.* FROM (
     SELECT    sv.provider_id,
@@ -875,7 +889,9 @@ SELECT &volumeAttachmentParams.* FROM (
     JOIN      storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
     JOIN 	  storage_instance si ON siv.storage_instance_uuid = si.uuid
     JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
-    LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
+    LEFT JOIN storage_attachment sa ON si.uuid = sa.storage_instance_uuid
+    LEFT JOIN unit u ON sa.unit_uuid = u.uuid
+    LEFT JOIN charm_storage cs ON u.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
     LEFT JOIN machine m ON sva.net_node_uuid = m.net_node_uuid
     LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
     WHERE     sva.uuid = $volumeAttachmentUUID.uuid
