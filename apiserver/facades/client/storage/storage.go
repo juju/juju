@@ -25,7 +25,7 @@ import (
 )
 
 type BlockDeviceService interface {
-	BlockDevices(
+	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 }
