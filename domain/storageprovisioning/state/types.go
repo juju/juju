@@ -211,6 +211,12 @@ type volumeAttachment struct {
 	BlockDeviceBusAddress string    `db:"block_device_bus_address"`
 }
 
+type volumeAttachmentProvisionedInfo struct {
+	UUID            string           `db:"uuid"`
+	ReadOnly        bool             `db:"read_only"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+}
+
 // volumeID represents the volume id value for a storage volume instance.
 type volumeID struct {
 	ID string `db:"volume_id"`

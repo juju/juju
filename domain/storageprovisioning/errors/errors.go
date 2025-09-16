@@ -35,4 +35,8 @@ const (
 
 	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
 	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
+
+	// BlockDeviceNotFound is used when a block device cannot be found when an
+	// association is being made to a volume attachment.
+	BlockDeviceNotFound = errors.ConstError("block device not found")
 )

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/blockdevice"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -162,6 +163,14 @@ type VolumeState interface {
 	SetVolumeProvisionedInfo(
 		context.Context, storageprovisioning.VolumeUUID,
 		storageprovisioning.VolumeProvisionedInfo,
+	) error
+
+	// SetVolumeAttachmentProvisionedInfo sets on the provided volume the
+	// information about the provisioned volume attachment.
+	SetVolumeAttachmentProvisionedInfo(
+		context.Context,
+		storageprovisioning.VolumeAttachmentUUID,
+		storageprovisioning.VolumeAttachmentProvisionedInfo,
 	) error
 
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
@@ -568,8 +577,8 @@ func (s *Service) GetVolumeByID(
 // volume attachment does not yet have a block device.
 func (s *Service) GetBlockDeviceForVolumeAttachment(
 	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
-) (blockdevice.BlockDevice, error) {
-	return blockdevice.BlockDevice{}, nil
+) (coreblockdevice.BlockDevice, error) {
+	return coreblockdevice.BlockDevice{}, nil
 }
 
 // WatchModelProvisionedVolumes returns a watcher that emits volume IDs,
@@ -767,14 +776,43 @@ func (s *Service) SetVolumeProvisionedInfo(
 // about the provisioned volume attachment.
 //
 // The following errors may be returned:
+// - [coreerrors.NotValid] when the provided volume attachment uuid or block
+// device uuid is not valid.
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-// attachmentexists for the provided volume attachment id.
+// attachment exists for the provided volume attachment uuid.
+// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
+// for a given block device uuid.
 func (s *Service) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
 	volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
 	info storageprovisioning.VolumeAttachmentProvisionedInfo,
 ) error {
-	return errors.New("SetVolumeAttachmentProvisionedInfo not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := volumeAttachmentUUID.Validate()
+	if err != nil {
+		return errors.Errorf(
+			"validating volume attachment uuid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	if info.BlockDeviceUUID != nil {
+		err = info.BlockDeviceUUID.Validate()
+		if err != nil {
+			return errors.Errorf(
+				"validating block device uuid: %w", err,
+			).Add(coreerrors.NotValid)
+		}
+	}
+
+	err = s.st.SetVolumeAttachmentProvisionedInfo(
+		ctx, volumeAttachmentUUID, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // GetVolumeAttachmentPlan gets the volume attachment plan for the provided

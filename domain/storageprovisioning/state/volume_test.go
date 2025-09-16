@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -991,6 +992,82 @@ func (s *volumeSuite) TestSetVolumeProvisionedInfoNotFound(c *tc.C) {
 	info := domainstorageprovisioning.VolumeProvisionedInfo{}
 	err := st.SetVolumeProvisionedInfo(c.Context(), volUUID, info)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
+}
+
+func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfo(c *tc.C) {
+	nnUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, nnUUID)
+	bdUUID := s.newBlockDevice(c, machineUUID,
+		"sda", "", "busaddr", []string{"/dev/disk/by-id/mysda"})
+	volUUID, volID := s.newMachineVolume(c)
+	vaUUID := s.newModelVolumeAttachment(c, volUUID, nnUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	blockDeviceUUID := blockdevice.BlockDeviceUUID(bdUUID)
+	info := domainstorageprovisioning.VolumeAttachmentProvisionedInfo{
+		ReadOnly:        true,
+		BlockDeviceUUID: &blockDeviceUUID,
+	}
+	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vol, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID:              volID,
+		ReadOnly:              true,
+		BlockDeviceName:       "sda",
+		BlockDeviceLinks:      []string{"/dev/disk/by-id/mysda"},
+		BlockDeviceBusAddress: "busaddr",
+	})
+}
+
+func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoNoBlockDevice(c *tc.C) {
+	nnUUID := s.newNetNode(c)
+	volUUID, volID := s.newMachineVolume(c)
+	vaUUID := s.newModelVolumeAttachment(c, volUUID, nnUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeAttachmentProvisionedInfo{
+		ReadOnly: true,
+	}
+	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vol, err := st.GetVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(vol, tc.DeepEquals, domainstorageprovisioning.VolumeAttachment{
+		VolumeID: volID,
+		ReadOnly: true,
+	})
+}
+
+func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoBlockDeviceNotFound(c *tc.C) {
+	nnUUID := s.newNetNode(c)
+	volUUID, _ := s.newMachineVolume(c)
+	vaUUID := s.newModelVolumeAttachment(c, volUUID, nnUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	info := domainstorageprovisioning.VolumeAttachmentProvisionedInfo{
+		ReadOnly:        true,
+		BlockDeviceUUID: &blockDeviceUUID,
+	}
+	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.BlockDeviceNotFound)
+}
+
+func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoNotFound(c *tc.C) {
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	info := domainstorageprovisioning.VolumeAttachmentProvisionedInfo{}
+	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
 
 // changeVolumeLife is a utility function for updating the life value of a
