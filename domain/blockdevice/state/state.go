@@ -112,7 +112,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 		retVal[uuid] = coreblockdevice.BlockDevice{
 			DeviceName:      bd.Name.V,
 			FilesystemLabel: bd.FilesystemLabel,
-			FilesystemUUID:  bd.FilesystemUUID,
+			FilesystemUUID:  bd.HostFilesystemUUID,
 			HardwareId:      bd.HardwareId,
 			WWN:             bd.WWN,
 			BusAddress:      bd.BusAddress,
@@ -372,7 +372,7 @@ SET    name = $blockDevice.name,
        mount_point = $blockDevice.mount_point,
        in_use = $blockDevice.in_use,
        filesystem_label = $blockDevice.filesystem_label,
-       filesystem_uuid = $blockDevice.filesystem_uuid,
+       host_filesystem_uuid = $blockDevice.host_filesystem_uuid,
        filesystem_type = $blockDevice.filesystem_type
 WHERE  uuid = $blockDevice.uuid
 `, blockDevice{})
@@ -410,18 +410,18 @@ WHERE  uuid = $blockDevice.uuid
 
 	for blockDeviceUUID, bd := range devices {
 		val := blockDevice{
-			UUID:            blockDeviceUUID.String(),
-			MachineUUID:     machineUUID.String(),
-			HardwareId:      bd.HardwareId,
-			WWN:             bd.WWN,
-			BusAddress:      bd.BusAddress,
-			SerialId:        bd.SerialId,
-			SizeMiB:         bd.SizeMiB,
-			FilesystemLabel: bd.FilesystemLabel,
-			FilesystemUUID:  bd.FilesystemUUID,
-			FilesystemType:  bd.FilesystemType,
-			InUse:           bd.InUse,
-			MountPoint:      bd.MountPoint,
+			UUID:               blockDeviceUUID.String(),
+			MachineUUID:        machineUUID.String(),
+			HardwareId:         bd.HardwareId,
+			WWN:                bd.WWN,
+			BusAddress:         bd.BusAddress,
+			SerialId:           bd.SerialId,
+			SizeMiB:            bd.SizeMiB,
+			FilesystemLabel:    bd.FilesystemLabel,
+			HostFilesystemUUID: bd.FilesystemUUID,
+			FilesystemType:     bd.FilesystemType,
+			InUse:              bd.InUse,
+			MountPoint:         bd.MountPoint,
 		}
 		if bd.DeviceName != "" {
 			val.Name = sql.Null[string]{
@@ -463,18 +463,18 @@ VALUES ($deviceLink.*)
 	numLinks := 0
 	for uuid, bd := range devices {
 		inputBlockDevice := blockDevice{
-			UUID:            uuid.String(),
-			MachineUUID:     machineUUID.String(),
-			FilesystemLabel: bd.FilesystemLabel,
-			FilesystemUUID:  bd.FilesystemUUID,
-			HardwareId:      bd.HardwareId,
-			WWN:             bd.WWN,
-			BusAddress:      bd.BusAddress,
-			SerialId:        bd.SerialId,
-			MountPoint:      bd.MountPoint,
-			SizeMiB:         bd.SizeMiB,
-			FilesystemType:  bd.FilesystemType,
-			InUse:           bd.InUse,
+			UUID:               uuid.String(),
+			MachineUUID:        machineUUID.String(),
+			FilesystemLabel:    bd.FilesystemLabel,
+			HostFilesystemUUID: bd.FilesystemUUID,
+			HardwareId:         bd.HardwareId,
+			WWN:                bd.WWN,
+			BusAddress:         bd.BusAddress,
+			SerialId:           bd.SerialId,
+			MountPoint:         bd.MountPoint,
+			SizeMiB:            bd.SizeMiB,
+			FilesystemType:     bd.FilesystemType,
+			InUse:              bd.InUse,
 		}
 		if bd.DeviceName != "" {
 			inputBlockDevice.Name = sql.Null[string]{
@@ -590,7 +590,7 @@ FROM   machine
 		res[machineName] = append(res[machineName], coreblockdevice.BlockDevice{
 			DeviceName:      bd.Name.V,
 			DeviceLinks:     devLinkMap[bd.UUID],
-			FilesystemUUID:  bd.FilesystemUUID,
+			FilesystemUUID:  bd.HostFilesystemUUID,
 			FilesystemLabel: bd.FilesystemLabel,
 			FilesystemType:  bd.FilesystemType,
 			HardwareId:      bd.HardwareId,

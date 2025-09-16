@@ -89,7 +89,7 @@ func (s *stateSuite) insertBlockDevice(c *tc.C, bd blockdevice.BlockDevice, bloc
 		inUse = 1
 	}
 	_, err := db.ExecContext(c.Context(), `
-INSERT INTO block_device (uuid, name, filesystem_label, filesystem_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type, size_mib, in_use, machine_uuid)
+INSERT INTO block_device (uuid, name, filesystem_label, host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type, size_mib, in_use, machine_uuid)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT uuid FROM machine WHERE name=?))
 `, blockDeviceUUID, bd.DeviceName, bd.FilesystemLabel, bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse, machineName)
 	c.Assert(err, tc.ErrorIsNil)
