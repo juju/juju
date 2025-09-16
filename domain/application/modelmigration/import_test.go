@@ -318,7 +318,7 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
-	c.Check(importArgs.ApplicationConfig, tc.DeepEquals, internalcharm.Settings{
+	c.Check(importArgs.ApplicationConfig, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
 	})
 	c.Check(importArgs.ApplicationSettings, tc.DeepEquals, application.ApplicationSettings{

@@ -11,10 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -48,8 +46,8 @@ type DeployApplicationParams struct {
 	ApplicationName   string
 	Charm             *domainCharm
 	CharmOrigin       corecharm.Origin
-	ApplicationConfig *config.Config
-	CharmConfig       charm.Settings
+	Trust             bool
+	ApplicationConfig charm.Config
 	Constraints       constraints.Value
 	NumUnits          int
 	// Placement is a list of placement directives which may be used
@@ -78,10 +76,6 @@ func DeployApplication(
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) error {
-	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
 		return errors.NotSupportedf("manual deploy of the controller charm")
 	}
@@ -111,6 +105,7 @@ func DeployApplication(
 
 	var downloadInfo *applicationcharm.DownloadInfo
 	if args.CharmOrigin.Source == corecharm.CharmHub {
+		var err error
 		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, args.Charm.locator)
 		if err != nil {
 			return errors.Trace(err)
@@ -121,9 +116,6 @@ func DeployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	attrs := args.ApplicationConfig.Attributes()
-	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
 
 	sdo, err := storageDirectives(ctx, storageService, args.Storage)
 	if err != nil {
@@ -140,9 +132,9 @@ func DeployApplication(
 			Status: status.Unset,
 			Since:  ptr(clock.Now()),
 		},
-		ApplicationConfig: charmConfig,
+		ApplicationConfig: args.ApplicationConfig,
 		ApplicationSettings: application.ApplicationSettings{
-			Trust: trust,
+			Trust: args.Trust,
 		},
 		Constraints:               args.Constraints,
 		StorageDirectiveOverrides: sdo,

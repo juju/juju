@@ -321,10 +321,10 @@ func (c *MockContextCloudSpecCall) DoAndReturn(f func(context.Context) (*params.
 }
 
 // ConfigSettings mocks base method.
-func (m *MockContext) ConfigSettings(arg0 context.Context) (charm.Settings, error) {
+func (m *MockContext) ConfigSettings(arg0 context.Context) (charm.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings", arg0)
-	ret0, _ := ret[0].(charm.Settings)
+	ret0, _ := ret[0].(charm.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -342,19 +342,19 @@ type MockContextConfigSettingsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockContextConfigSettingsCall) Return(arg0 charm.Settings, arg1 error) *MockContextConfigSettingsCall {
+func (c *MockContextConfigSettingsCall) Return(arg0 charm.Config, arg1 error) *MockContextConfigSettingsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextConfigSettingsCall) Do(f func(context.Context) (charm.Settings, error)) *MockContextConfigSettingsCall {
+func (c *MockContextConfigSettingsCall) Do(f func(context.Context) (charm.Config, error)) *MockContextConfigSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextConfigSettingsCall) DoAndReturn(f func(context.Context) (charm.Settings, error)) *MockContextConfigSettingsCall {
+func (c *MockContextConfigSettingsCall) DoAndReturn(f func(context.Context) (charm.Config, error)) *MockContextConfigSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

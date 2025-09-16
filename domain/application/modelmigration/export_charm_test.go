@@ -292,7 +292,7 @@ func (s *exportCharmSuite) TestExportCharmManifest(c *tc.C) {
 func (s *exportCharmSuite) TestExportCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := &internalcharm.Config{
+	config := &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{
 			"foo": {
 				Type:        "string",

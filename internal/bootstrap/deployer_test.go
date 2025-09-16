@@ -266,7 +266,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			},
 			CharmStoragePath:     "path",
 			CharmObjectStoreUUID: "1234",
-			ApplicationConfig: charm.Settings{
+			ApplicationConfig: charm.Config{
 				"is-juju":               true,
 				"identity-provider-url": "https://inferi.com",
 				"controller-url":        "wss://obscura.com:1234/api",

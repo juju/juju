@@ -62,7 +62,7 @@ func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(ctx context.Context, a
 type CharmInfo struct {
 	Revision   int
 	URL        string
-	Config     *charm.Config
+	Config     *charm.ConfigSpec
 	Meta       *charm.Meta
 	Actions    *charm.Actions
 	Manifest   *charm.Manifest
@@ -305,7 +305,7 @@ func (c *charmImpl) Meta() *charm.Meta {
 	return c.info.Meta
 }
 
-func (c *charmImpl) Config() *charm.Config {
+func (c *charmImpl) Config() *charm.ConfigSpec {
 	return c.info.Config
 }
 

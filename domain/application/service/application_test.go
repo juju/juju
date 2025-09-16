@@ -471,7 +471,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 
 	results, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, internalcharm.Settings{
+	c.Check(results, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
 	})
 }
@@ -842,10 +842,10 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	results, err := s.service.GetApplicationAndCharmConfig(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, ApplicationConfig{
-		ApplicationConfig: internalcharm.Settings{
+		ApplicationConfig: internalcharm.Config{
 			"foo": "bar",
 		},
-		CharmConfig: internalcharm.Config{
+		CharmConfig: internalcharm.ConfigSpec{
 			Options: map[string]internalcharm.Option{
 				"foo": {
 					Type:    "string",

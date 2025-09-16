@@ -158,7 +158,7 @@ func (e *exportOperation) exportCharmManifest(manifest *internalcharm.Manifest) 
 	}, nil
 }
 
-func (e *exportOperation) exportCharmConfig(config *internalcharm.Config) (description.CharmConfigsArgs, error) {
+func (e *exportOperation) exportCharmConfig(config *internalcharm.ConfigSpec) (description.CharmConfigsArgs, error) {
 	if config == nil {
 		return description.CharmConfigsArgs{}, nil
 	}

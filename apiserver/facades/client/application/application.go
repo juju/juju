@@ -6,6 +6,8 @@ package application
 import (
 	"context"
 	"fmt"
+	"maps"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
@@ -20,9 +22,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
+	coreapplication "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
@@ -34,7 +36,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
-	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
@@ -329,74 +329,59 @@ func ConfigSchema() (configschema.Fields, schema.Defaults, error) {
 	return trustFields, trustDefaults, nil
 }
 
-func splitApplicationAndCharmConfig(inConfig map[string]string) (
-	appCfg map[string]interface{},
-	charmCfg map[string]string,
-	_ error,
-) {
-
-	providerSchema, _, err := ConfigSchema()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	appConfigKeys := config.KnownConfigKeys(providerSchema)
-
-	appConfigAttrs := make(map[string]interface{})
-	charmConfig := make(map[string]string)
-	for k, v := range inConfig {
-		if appConfigKeys.Contains(k) {
-			appConfigAttrs[k] = v
-		} else {
-			charmConfig[k] = v
+func splitTrustFromApplicationConfig(cfg charm.Config) (bool, charm.Config) {
+	if trust, ok := cfg[coreapplication.TrustConfigOptionName]; ok {
+		delete(cfg, coreapplication.TrustConfigOptionName)
+		switch t := trust.(type) {
+		case bool:
+			return t, cfg
+		case string:
+			trustBool, err := strconv.ParseBool(t)
+			if err != nil {
+				return false, cfg
+			}
+			return trustBool, cfg
+		default:
+			return false, cfg
 		}
+	} else {
+		return false, cfg
 	}
-	return appConfigAttrs, charmConfig, nil
 }
 
-// splitApplicationAndCharmConfigFromYAML extracts app specific settings from a charm config YAML
-// and returns those app settings plus a YAML with just the charm settings left behind.
-func splitApplicationAndCharmConfigFromYAML(inYaml, appName string) (
-	appCfg map[string]interface{},
-	outYaml string,
+// splitTrustFromApplicationConfigFromYAML splits the trust flag from the application config
+// from the YAML string.
+//
+// The YAML config can be formatted in two ways:
+//  1. The YAML config is a set of key-value pairs corresponding to application
+//     config/settings (i.e. can include trust).
+//  2. The YAML config is a set of key-value pairs corresponding to application
+//     config/settings, indexed under the application name.
+func splitTrustFromApplicationConfigFromYAML(inYaml, appName string) (
+	trust bool,
+	applicationConfig charm.Config,
 	_ error,
 ) {
 	var allSettings map[string]interface{}
 	if err := goyaml.Unmarshal([]byte(inYaml), &allSettings); err != nil {
-		return nil, "", errors.Annotate(err, "cannot parse settings data")
+		return false, nil, errors.Annotate(err, "cannot parse settings data")
 	}
-	settings, ok := allSettings[appName].(map[interface{}]interface{})
-	if !ok {
-		// Application key not present; it might be 'juju get' output.
-		if _, err := charmConfigFromConfigValues(allSettings); err != nil {
-			return nil, "", errors.Errorf("no settings found for %q", appName)
+
+	if val, ok := allSettings[appName].(map[interface{}]interface{}); ok {
+		subSettings := make(map[string]interface{})
+		for k, v := range val {
+			strK, ok := k.(string)
+			if !ok {
+				return false, nil, errors.Errorf("config key %q has invalid type %T", k, k)
+			}
+			subSettings[strK] = v
 		}
-
-		return nil, inYaml, nil
+		trust, applicationConfig = splitTrustFromApplicationConfig(subSettings)
+		return trust, applicationConfig, nil
 	}
 
-	providerSchema, _, err := ConfigSchema()
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	appConfigKeys := config.KnownConfigKeys(providerSchema)
-
-	appConfigAttrs := make(map[string]interface{})
-	for k, v := range settings {
-		if key, ok := k.(string); ok && appConfigKeys.Contains(key) {
-			appConfigAttrs[key] = v
-			delete(settings, k)
-		}
-	}
-	if len(settings) == 0 {
-		return appConfigAttrs, "", nil
-	}
-
-	allSettings[appName] = settings
-	charmConfig, err := goyaml.Marshal(allSettings)
-	if err != nil {
-		return nil, "", errors.Annotate(err, "cannot marshall charm settings")
-	}
-	return appConfigAttrs, string(charmConfig), nil
+	trust, applicationConfig = splitTrustFromApplicationConfig(allSettings)
+	return trust, applicationConfig, nil
 }
 
 // caasDeployParams contains deploy configuration requiring prechecks
@@ -405,7 +390,6 @@ type caasDeployParams struct {
 	applicationName string
 	attachStorage   []string
 	charm           CharmMeta
-	config          map[string]string
 	placement       []*instance.Placement
 }
 
@@ -503,7 +487,6 @@ func (api *APIBase) deployApplication(
 			applicationName: args.ApplicationName,
 			attachStorage:   args.AttachStorage,
 			charm:           ch,
-			config:          args.Config,
 			placement:       args.Placement,
 		}
 		if err := caas.precheck(ctx, api.modelConfigService, api.storageService, api.registry, api.caasBroker); err != nil {
@@ -511,7 +494,7 @@ func (api *APIBase) deployApplication(
 		}
 	}
 
-	appConfig, _, charmSettings, _, err := parseCharmSettings(ch.Config(), args.ApplicationName, args.Config, args.ConfigYAML, environsconfig.UseDefaults)
+	trust, applicationConfig, err := parseApplicationConfig(args.ApplicationName, args.Config, args.ConfigYAML)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -539,8 +522,8 @@ func (api *APIBase) deployApplication(
 		Charm:             ch,
 		CharmOrigin:       origin,
 		NumUnits:          args.NumUnits,
-		ApplicationConfig: appConfig,
-		CharmConfig:       charmSettings,
+		Trust:             trust,
+		ApplicationConfig: applicationConfig,
 		Constraints:       cons,
 		Placement:         args.Placement,
 		Storage:           args.Storage,
@@ -604,123 +587,35 @@ func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
 	}, nil
 }
 
-func validateSecretConfig(chCfg *charm.Config, cfg charm.Settings) error {
-	for name, value := range cfg {
-		option, ok := chCfg.Options[name]
-		if !ok {
-			// This should never happen.
-			return errors.NotValidf("unknown option %q", name)
-		}
-		if option.Type == "secret" {
-			uriStr, ok := value.(string)
-			if !ok {
-				return errors.NotValidf("secret value should be a string, got %T instead", name)
-			}
-			if uriStr == "" {
-				return nil
-			}
-			_, err := secrets.ParseURI(uriStr)
-			return errors.Annotatef(err, "invalid secret URI for option %q", name)
-		}
-	}
-	return nil
-}
-
-// parseCharmSettings parses, verifies and combines the config settings for a
-// charm as specified by the provided config map and config yaml payload. Any
+// parseApplicationConfig parses and combines the config settings for a charm as
+// specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(
-	chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting,
-) (_ *config.Config, _ configschema.Fields, chOut charm.Settings, _ schema.Defaults, err error) {
-	defer func() {
-		if chOut != nil {
-			err = validateSecretConfig(chCfg, chOut)
-		}
-	}()
+func parseApplicationConfig(
+	appName string, cfg map[string]string, configYaml string,
+) (trust bool, applicationConfig charm.Config, err error) {
+	if cfg == nil && configYaml == "" {
+		return false, nil, nil
+	}
 
-	// Split out the app config from the charm config for any config
-	// passed in as a map as opposed to YAML.
-	var (
-		applicationConfig map[string]interface{}
-		charmConfig       map[string]string
+	trustFromMap, applicationConfigFromMap := splitTrustFromApplicationConfig(transform.Map(
+		cfg,
+		func(k string, v string) (string, interface{}) { return k, v }),
 	)
-	if len(cfg) > 0 {
-		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(cfg); err != nil {
-			return nil, nil, nil, nil, errors.Trace(err)
-		}
-	}
 
-	// Split out the app config from the charm config for any config
-	// passed in as YAML.
-	var (
-		charmYamlConfig string
-		appSettings     = make(map[string]interface{})
-	)
-	if len(configYaml) != 0 {
-		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(configYaml, appName); err != nil {
-			return nil, nil, nil, nil, errors.Trace(err)
-		}
-	}
-
-	// Entries from the string-based config map always override any entries
-	// provided via the YAML payload.
-	for k, v := range applicationConfig {
-		appSettings[k] = v
-	}
-
-	appCfgSchema, schemaDefaults, err := ConfigSchema()
+	trustFromYAML, applicationConfigFromYAML, err := splitTrustFromApplicationConfigFromYAML(configYaml, appName)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Trace(err)
-	}
-	getDefaults := func() schema.Defaults {
-		// If defaults is UseDefaults, defaults are baked into the app config.
-		if defaults == environsconfig.UseDefaults {
-			return schemaDefaults
-		}
-		return nil
-	}
-	appConfig, err := config.NewConfig(appSettings, appCfgSchema, getDefaults())
-	if err != nil {
-		return nil, nil, nil, nil, errors.Trace(err)
+		return false, nil, internalerrors.Errorf("parsing config: %w", err)
 	}
 
-	// If there isn't a charm YAML, then we can just return the charmConfig as
-	// the settings and no need to attempt to parse an empty yaml.
-	if len(charmYamlConfig) == 0 {
-		settings, err := chCfg.ParseSettingsStrings(charmConfig)
-		if err != nil {
-			return nil, nil, nil, nil, errors.Trace(err)
-		}
-		return appConfig, appCfgSchema, settings, schemaDefaults, nil
-	}
+	trust = trustFromMap || trustFromYAML
 
-	var charmSettings charm.Settings
-	// Parse the charm YAML and check the yaml against the charm config.
-	if charmSettings, err = chCfg.ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
-		// Check if this is 'juju get' output and parse it as such
-		jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
-		if pErr != nil {
-			// Not 'juju output' either; return original error
-			return nil, nil, nil, nil, errors.Trace(err)
-		}
-		charmSettings = jujuGetSettings
-	}
+	// Entries from the config map take precedence over entries from the YAML file.
+	applicationConfig = make(charm.Config)
+	maps.Copy(applicationConfig, applicationConfigFromYAML)
+	maps.Copy(applicationConfig, applicationConfigFromMap)
 
-	// Entries from the string-based config map always override any entries
-	// provided via the YAML payload.
-	if len(charmConfig) != 0 {
-		// Parse config in a compatible way (see function comment).
-		overrideSettings, err := parseSettingsCompatible(chCfg, charmConfig)
-		if err != nil {
-			return nil, nil, nil, nil, errors.Trace(err)
-		}
-		for k, v := range overrideSettings {
-			charmSettings[k] = v
-		}
-	}
-
-	return appConfig, appCfgSchema, charmSettings, schemaDefaults, nil
+	return trust, applicationConfig, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied
@@ -746,39 +641,6 @@ func checkMachinePlacement(modelID model.UUID, app string, placement []*instance
 	}
 
 	return nil
-}
-
-// parseSettingsCompatible parses setting strings in a way that is
-// compatible with the behavior before this CL based on the issue
-// http://pad.lv/1194945. Until then setting an option to an empty
-// string caused it to reset to the default value. We now allow
-// empty strings as actual values, but we want to preserve the API
-// behavior.
-func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]string) (charm.Settings, error) {
-	setSettings := map[string]string{}
-	unsetSettings := charm.Settings{}
-	// Split settings into those which set and those which unset a value.
-	for name, value := range settings {
-		if value == "" {
-			unsetSettings[name] = nil
-			continue
-		}
-		setSettings[name] = value
-	}
-	// Validate the settings.
-	changes, err := charmConfig.ParseSettingsStrings(setSettings)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Validate the unsettings and merge them into the changes.
-	unsetSettings, err = charmConfig.ValidateSettings(unsetSettings)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for name := range unsetSettings {
-		changes[name] = nil
-	}
-	return changes, nil
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -820,44 +682,6 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	}
 
 	return nil
-}
-
-// charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
-// generate charm.Settings from it that can then be sent to the application.
-func charmConfigFromYamlConfigValues(yamlContents string) (charm.Settings, error) {
-	var allSettings map[string]interface{}
-	if err := goyaml.Unmarshal([]byte(yamlContents), &allSettings); err != nil {
-		return nil, errors.Annotate(err, "cannot parse settings data")
-	}
-	return charmConfigFromConfigValues(allSettings)
-}
-
-// charmConfigFromConfigValues will parse a yaml produced by juju get and
-// generate charm.Settings from it that can then be sent to the application.
-func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Settings, error) {
-	onlySettings := charm.Settings{}
-	settingsMap, ok := yamlContents["settings"].(map[interface{}]interface{})
-	if !ok {
-		return nil, errors.New("unknown format for settings")
-	}
-
-	for setting, content := range settingsMap {
-		s, ok := content.(map[interface{}]interface{})
-		if !ok {
-			return nil, errors.Errorf("unknown format for settings section %v", setting)
-		}
-		// some keys might not have a value, we don't care about those.
-		v, ok := s["value"]
-		if !ok {
-			continue
-		}
-		stringSetting, ok := setting.(string)
-		if !ok {
-			return nil, errors.Errorf("unexpected setting key, expected string got %T", setting)
-		}
-		onlySettings[stringSetting] = v
-	}
-	return onlySettings, nil
 }
 
 // GetCharmURLOrigin returns the charm URL and charm origin the given

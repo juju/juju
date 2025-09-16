@@ -63,7 +63,7 @@ type AddApplicationArgs struct {
 	PendingResources []resource.UUID
 
 	// ApplicationConfig contains the application config.
-	ApplicationConfig internalcharm.Settings
+	ApplicationConfig internalcharm.Config
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
@@ -231,7 +231,7 @@ type ImportApplicationArgs struct {
 	ReferenceName string
 
 	// ApplicationConfig contains the application config.
-	ApplicationConfig internalcharm.Settings
+	ApplicationConfig internalcharm.Config
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
@@ -268,8 +268,8 @@ type ImportApplicationArgs struct {
 // application ID.
 type ApplicationConfig struct {
 	CharmOrigin       corecharm.Origin
-	CharmConfig       internalcharm.Config
-	ApplicationConfig internalcharm.Settings
+	CharmConfig       internalcharm.ConfigSpec
+	ApplicationConfig internalcharm.Config
 	Trust             bool
 	CharmName         string
 	Principal         bool

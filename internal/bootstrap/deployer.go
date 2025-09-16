@@ -415,8 +415,8 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	return sha256, sha384, nil
 }
 
-func (b *baseDeployer) createCharmSettings() (charm.Settings, error) {
-	cfg := charm.Settings{
+func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
+	cfg := charm.Config{
 		"is-juju": true,
 	}
 	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()

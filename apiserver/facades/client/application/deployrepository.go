@@ -16,11 +16,9 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/apiserver/facade"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
@@ -36,7 +34,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
-	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
@@ -124,9 +121,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		}
 	}
 
-	attrs := dt.applicationConfig.Attributes()
-	trust := attrs.GetBool(coreapplication.TrustConfigOptionName, false)
-
 	applicationArg := applicationservice.AddApplicationArgs{
 		ReferenceName: dt.charmURL.Name,
 		// We always have download info for a charm from the charmhub store.
@@ -143,9 +137,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			Status: status.Unset,
 			Since:  ptr(api.clock.Now()),
 		},
-		ApplicationConfig: dt.charmSettings,
+		ApplicationConfig: dt.applicationConfig,
 		ApplicationSettings: application.ApplicationSettings{
-			Trust: trust,
+			Trust: dt.trust,
 		},
 		Constraints:               dt.constraints,
 		StorageDirectiveOverrides: dt.storage,
@@ -237,11 +231,11 @@ func (v *deployFromRepositoryValidator) resolveResources(
 }
 
 type deployTemplate struct {
-	applicationConfig *config.Config
+	trust             bool
 	applicationName   string
 	attachStorage     []names.StorageTag
 	charm             charm.Charm
-	charmSettings     charm.Settings
+	applicationConfig charm.Config
 	charmURL          *charm.URL
 	constraints       constraints.Value
 	endpoints         map[string]network.SpaceName
@@ -297,7 +291,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					applicationName: dt.applicationName,
 					attachStorage:   attachStorage,
 					charm:           dt.charm,
-					config:          nil,
 					placement:       dt.placement,
 				}
 				return cdp.precheck(ctx, v.modelConfigService, cfg.storageService, cfg.registry, cfg.caasBroker)
@@ -473,7 +466,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 	if arg.ApplicationName != "" {
 		appNameForConfig = arg.ApplicationName
 	}
-	appConfig, settings, err := v.appCharmSettings(appNameForConfig, arg.Trust, resolvedCharm.Config(), arg.ConfigYAML)
+	trustFromYAML, applicationConfig, err := parseApplicationConfig(appNameForConfig, nil, arg.ConfigYAML)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -499,10 +492,10 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 	}
 
 	dt := deployTemplate{
-		applicationConfig: appConfig,
+		trust:             arg.Trust || trustFromYAML,
 		applicationName:   appName,
 		charm:             resolvedCharm,
-		charmSettings:     settings,
+		applicationConfig: applicationConfig,
 		constraints:       cons,
 		numUnits:          numUnits,
 		resources:         arg.Resources,
@@ -937,24 +930,6 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		DownloadInfo: essentialMetadata.DownloadInfo,
 	}, nil
 
-}
-
-func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust bool, chCfg *charm.Config, configYAML string) (*config.Config, charm.Settings, error) {
-	if !trust && configYAML == "" {
-		return nil, nil, nil
-	}
-	// Cheat with trust. Trust is passed to DeployFromRepository as a flag, however
-	// it's handled internally to juju as an application config. As DFR only
-	// has charm config via yaml, stick trust into the config via map to enable
-	// reuse of current parseCharmSettings as used with the old deploy and
-	// setConfig.
-	// At deploy time, there's no need to include "trust=false" as missing is the same thing.
-	var cfg map[string]string
-	if trust {
-		cfg = map[string]string{"trust": "true"}
-	}
-	appConfig, _, charmSettings, _, err := parseCharmSettings(chCfg, appName, cfg, configYAML, environsconfig.NoDefaults)
-	return appConfig, charmSettings, err
 }
 
 func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context) (corecharm.Repository, error) {

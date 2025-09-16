@@ -9,21 +9,21 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-func decodeConfig(options charm.Config) (internalcharm.Config, error) {
+func decodeConfig(options charm.Config) (internalcharm.ConfigSpec, error) {
 	if len(options.Options) == 0 {
-		return internalcharm.Config{}, nil
+		return internalcharm.ConfigSpec{}, nil
 	}
 
 	result := make(map[string]internalcharm.Option)
 	for name, option := range options.Options {
 		opt, err := decodeConfigOption(option)
 		if err != nil {
-			return internalcharm.Config{}, errors.Errorf("decode config option: %w", err)
+			return internalcharm.ConfigSpec{}, errors.Errorf("decode config option: %w", err)
 		}
 
 		result[name] = opt
 	}
-	return internalcharm.Config{
+	return internalcharm.ConfigSpec{
 		Options: result,
 	}, nil
 }
@@ -58,7 +58,7 @@ func decodeOptionType(t charm.OptionType) (string, error) {
 	}
 }
 
-func encodeConfig(config *internalcharm.Config) (charm.Config, error) {
+func encodeConfig(config *internalcharm.ConfigSpec) (charm.Config, error) {
 	if config == nil || len(config.Options) == 0 {
 		return charm.Config{}, nil
 	}

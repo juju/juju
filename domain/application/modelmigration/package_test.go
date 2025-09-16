@@ -91,7 +91,7 @@ func (s *exportSuite) expectMinimalCharmFor(name string) {
 	meta := &internalcharm.Meta{
 		Name: name,
 	}
-	cfg := &internalcharm.Config{
+	cfg := &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{
 			"foo": {
 				Type:    "string",
@@ -111,7 +111,7 @@ func (s *exportSuite) expectApplicationConfig() {
 }
 
 func (s *exportSuite) expectApplicationConfigFor(name string) {
-	config := internalcharm.Settings{
+	config := internalcharm.Config{
 		"foo": "bar",
 	}
 	settings := application.ApplicationSettings{

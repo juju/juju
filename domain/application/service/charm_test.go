@@ -612,7 +612,7 @@ func (s *charmServiceSuite) TestGetCharmConfig(c *tc.C) {
 
 	config, err := s.service.GetCharmConfig(c.Context(), locator)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(config, tc.DeepEquals, internalcharm.Config{
+	c.Check(config, tc.DeepEquals, internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{
 			"foo": {
 				Type: "string",
@@ -752,7 +752,7 @@ func (s *charmServiceSuite) TestAddCharm(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "foo",
@@ -826,7 +826,7 @@ func (s *charmServiceSuite) TestAddCharmCharmhub(c *tc.C) {
 	id := charmtesting.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "foo",
@@ -1130,7 +1130,7 @@ func (s *charmServiceSuite) TestAddCharmRequireRelationToReservedNameSucceeds(c 
 	id := charmtesting.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "foo",
@@ -1204,7 +1204,7 @@ func (s *charmServiceSuite) TestAddCharmRelationToReservedNameWithSpecialCharm(c
 	id := charmtesting.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name: "juju-foo",
@@ -1248,7 +1248,7 @@ func (s *charmServiceSuite) TestAddCharmRelationToReservedNameOnRequiresValid(c 
 	id := charmtesting.GenCharmID(c)
 
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
-	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name:        "foo",
@@ -1754,7 +1754,7 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *tc.C) {
 			Architectures: []string{"arm64"},
 		}},
 	}
-	config := &internalcharm.Config{}
+	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
 	lxdProfile := &internalcharm.LXDProfile{}
 
@@ -1801,7 +1801,7 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExists(c *tc.C) {
 			Architectures: []string{"arm64"},
 		}},
 	}
-	config := &internalcharm.Config{}
+	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
 	lxdProfile := &internalcharm.LXDProfile{}
 
@@ -1835,7 +1835,7 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExistsGetCharmIdError
 			Architectures: []string{"arm64"},
 		}},
 	}
-	config := &internalcharm.Config{}
+	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
 	lxdProfile := &internalcharm.LXDProfile{}
 

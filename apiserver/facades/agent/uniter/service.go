@@ -195,7 +195,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (internalcharm.Settings, error)
+	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (internalcharm.Config, error)
 
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.

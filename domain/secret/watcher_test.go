@@ -1085,8 +1085,8 @@ func (m *stubCharm) Manifest() *charm.Manifest {
 	}
 }
 
-func (m *stubCharm) Config() *charm.Config {
-	return &charm.Config{}
+func (m *stubCharm) Config() *charm.ConfigSpec {
+	return &charm.ConfigSpec{}
 }
 
 func (m *stubCharm) Actions() *charm.Actions {

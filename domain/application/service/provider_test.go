@@ -160,7 +160,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -247,7 +247,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -344,7 +344,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -440,7 +440,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -578,7 +578,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -731,7 +731,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *t
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -817,7 +817,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	}).Return(errors.Errorf("boom"))
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -921,7 +921,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
 		Bases: []charm.Base{
 			{
@@ -1070,7 +1070,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithNoArchitecture(c *tc
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
-func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllResourcesResolved(c *tc.C) {
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNotAllResourcesResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
@@ -1202,6 +1202,89 @@ func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *t
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigMissingOption(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Risk: charm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}).MinTimes(1)
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{
+		Options: map[string]charm.Option{
+			"foo": {
+				Type:        "string",
+				Description: "a foo",
+				Default:     "bar",
+			},
+			"bar": {
+				Type:        "string",
+				Description: "a bar",
+				Default:     "baz",
+			},
+		},
+	}).MinTimes(1)
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	},
+		AddApplicationArgs{
+			ReferenceName: "foo",
+			ApplicationConfig: charm.Config{
+				"foo": "bar",
+				"baz": "qux",
+			},
+		})
+	c.Assert(err, tc.ErrorMatches, `.*validating application config: unknown option "baz"`)
+}
+
+func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigWrongType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo"}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Risk: charm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}).MinTimes(1)
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{
+		Options: map[string]charm.Option{
+			"foo": {
+				Type:        "int",
+				Description: "a foo",
+				Default:     "bar",
+			},
+			"bar": {
+				Type:        "string",
+				Description: "a bar",
+				Default:     "baz",
+			},
+		},
+	}).MinTimes(1)
+
+	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+		Source:   corecharm.Local,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+	},
+		AddApplicationArgs{
+			ReferenceName: "foo",
+			ApplicationConfig: charm.Config{
+				"foo": "bar",
+			},
+		})
+	c.Assert(err, tc.ErrorMatches, `.*validating application config: option "foo" expected int, got "bar"`)
+}
+
 func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1225,7 +1308,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 		Architectures: []string{"arm64"},
 	}}}).MinTimes(1)
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
@@ -1361,7 +1444,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
 		Storage: map[string]charm.Storage{
@@ -1532,7 +1615,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
 		Storage: map[string]charm.Storage{
@@ -1687,7 +1770,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
 		Storage: map[string]charm.Storage{
@@ -1854,7 +1937,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
 		Storage: map[string]charm.Storage{
@@ -1980,7 +2063,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
 		Storage: map[string]charm.Storage{
@@ -2035,6 +2118,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 		Channel:       charm.Channel{Risk: charm.Stable},
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
+	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,

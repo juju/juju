@@ -571,8 +571,8 @@ func (s *stubCharm) Manifest() *internalcharm.Manifest {
 	}
 }
 
-func (s *stubCharm) Config() *internalcharm.Config {
-	return &internalcharm.Config{
+func (s *stubCharm) Config() *internalcharm.ConfigSpec {
+	return &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{
 			"foo": {
 				Type:    "string",

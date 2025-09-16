@@ -24,7 +24,7 @@ import (
 func (api *APIBase) getConfig(
 	ctx context.Context,
 	args params.ApplicationGet,
-	describe func(applicationConfig charm.Settings, charmConfig charm.Config) map[string]interface{},
+	describe func(applicationConfig charm.Config, charmConfig charm.ConfigSpec) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// There is no reason to split all these calls into multiple DB calls.
@@ -225,7 +225,7 @@ func describeAppSettings(
 	return results
 }
 
-func describe(settings charm.Settings, config charm.Config) map[string]interface{} {
+func describe(settings charm.Config, config charm.ConfigSpec) map[string]interface{} {
 	results := make(map[string]interface{})
 	for name, option := range config.Options {
 		info := map[string]interface{}{
@@ -265,7 +265,7 @@ func (c *domainCharm) Meta() *charm.Meta {
 	return c.charm.Meta()
 }
 
-func (c *domainCharm) Config() *charm.Config {
+func (c *domainCharm) Config() *charm.ConfigSpec {
 	return c.charm.Config()
 }
 

@@ -100,10 +100,10 @@ func (c *MockApplicationServiceAddIAASSubordinateUnitCall) DoAndReturn(f func(co
 }
 
 // GetApplicationConfigWithDefaults mocks base method.
-func (m *MockApplicationService) GetApplicationConfigWithDefaults(arg0 context.Context, arg1 application.ID) (charm0.Settings, error) {
+func (m *MockApplicationService) GetApplicationConfigWithDefaults(arg0 context.Context, arg1 application.ID) (charm0.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationConfigWithDefaults", arg0, arg1)
-	ret0, _ := ret[0].(charm0.Settings)
+	ret0, _ := ret[0].(charm0.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -121,19 +121,19 @@ type MockApplicationServiceGetApplicationConfigWithDefaultsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Return(arg0 charm0.Settings, arg1 error) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Return(arg0 charm0.Config, arg1 error) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Do(f func(context.Context, application.ID) (charm0.Settings, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) Do(f func(context.Context, application.ID) (charm0.Config, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) DoAndReturn(f func(context.Context, application.ID) (charm0.Settings, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
+func (c *MockApplicationServiceGetApplicationConfigWithDefaultsCall) DoAndReturn(f func(context.Context, application.ID) (charm0.Config, error)) *MockApplicationServiceGetApplicationConfigWithDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

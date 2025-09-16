@@ -113,7 +113,7 @@ type HookProcess interface {
 type HookUnit interface {
 	Application(context.Context) (api.Application, error)
 	ApplicationName() string
-	ConfigSettings(context.Context) (charm.Settings, error)
+	ConfigSettings(context.Context) (charm.Config, error)
 	LogActionMessage(context.Context, names.ActionTag, string) error
 	Name() string
 	NetworkInfo(ctx context.Context, bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
@@ -170,7 +170,7 @@ type HookContext struct {
 	availabilityZone string
 
 	// configSettings holds the application configuration.
-	configSettings charm.Settings
+	configSettings charm.Config
 
 	// goalState holds the goal state struct
 	goalState application.GoalState
@@ -758,7 +758,7 @@ func (c *HookContext) OpenedPortRanges() network.GroupedPortRanges {
 
 // ConfigSettings returns the current application configuration of the executing unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (c *HookContext) ConfigSettings(ctx context.Context) (charm.Settings, error) {
+func (c *HookContext) ConfigSettings(ctx context.Context) (charm.Config, error) {
 	if c.configSettings == nil {
 		var err error
 		c.configSettings, err = c.unit.ConfigSettings(ctx)
@@ -766,7 +766,7 @@ func (c *HookContext) ConfigSettings(ctx context.Context) (charm.Settings, error
 			return nil, err
 		}
 	}
-	result := charm.Settings{}
+	result := charm.Config{}
 	for name, value := range c.configSettings {
 		result[name] = value
 	}

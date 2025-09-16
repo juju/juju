@@ -75,7 +75,7 @@ type ExportService interface {
 	// If the application does not exist, a
 	// [applicationerrors.ApplicationNotFound] error is returned. If no config
 	// is set for the application, an empty config is returned.
-	GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Settings, application.ApplicationSettings, error)
+	GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Config, application.ApplicationSettings, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application name.

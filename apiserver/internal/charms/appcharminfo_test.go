@@ -46,7 +46,7 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 	manifest := &internalcharm.Manifest{
 		Bases: []internalcharm.Base{{Name: "ubuntu", Channel: internalcharm.Channel{Track: "22.04", Risk: "stable"}}},
 	}
-	config := &internalcharm.Config{
+	config := &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{"foo": {Type: "string"}},
 	}
 	actions := &internalcharm.Actions{

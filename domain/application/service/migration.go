@@ -220,7 +220,7 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 // If the application does not exist, a [applicationerrors.ApplicationNotFound]
 // error is returned. If no config is set for the application, an empty config
 // is returned.
-func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Settings, application.ApplicationSettings, error) {
+func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Config, application.ApplicationSettings, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -238,7 +238,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Settings)
+	result := make(internalcharm.Config)
 	for k, v := range cfg {
 		result[k] = v.Value
 	}

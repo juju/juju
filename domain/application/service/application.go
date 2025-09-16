@@ -1473,7 +1473,7 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appl
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (internalcharm.Settings, error) {
+func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (internalcharm.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1486,7 +1486,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Settings)
+	result := make(internalcharm.Config)
 	for k, v := range cfg {
 		result[k] = v.Value
 	}
@@ -1545,7 +1545,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Settings)
+	result := make(internalcharm.Config)
 	for k, v := range appConfig {
 		result[k] = v.Value
 	}
@@ -1849,7 +1849,7 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 	return &b, nil
 }
 
-func encodeApplicationConfig(cfg internalcharm.Settings, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
+func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
 	// If there is no config, then we can just return nil.
 	if len(cfg) == 0 {
 		return nil, nil
@@ -1872,7 +1872,7 @@ func encodeApplicationConfig(cfg internalcharm.Settings, charmConfig charm.Confi
 	return encodedConfig, nil
 }
 
-func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings) error {
+func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Config) error {
 	for name, value := range cfg {
 		option, ok := chCfg.Options[name]
 		if !ok {

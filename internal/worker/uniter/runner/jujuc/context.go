@@ -141,7 +141,7 @@ type ContextUnit interface {
 
 	// ConfigSettings returns the current application
 	// configuration of the executing unit.
-	ConfigSettings(context.Context) (charm.Settings, error)
+	ConfigSettings(context.Context) (charm.Config, error)
 
 	// GoalState returns the goal state for the current unit.
 	GoalState(context.Context) (*application.GoalState, error)

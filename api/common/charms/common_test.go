@@ -103,7 +103,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 	want := &apicommoncharms.CharmInfo{
 		Revision: 1,
 		URL:      url,
-		Config: &charm.Config{
+		Config: &charm.ConfigSpec{
 			Options: map[string]charm.Option{
 				"config": {
 					Type:        "type",

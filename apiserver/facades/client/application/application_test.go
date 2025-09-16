@@ -704,11 +704,11 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().GetApplicationAndCharmConfig(gomock.Any(), appID).Return(applicationservice.ApplicationConfig{
 		CharmName: "ch",
-		ApplicationConfig: internalcharm.Settings{
+		ApplicationConfig: internalcharm.Config{
 			"foo": "doink",
 			"bar": 18,
 		},
-		CharmConfig: internalcharm.Config{
+		CharmConfig: internalcharm.ConfigSpec{
 			Options: map[string]internalcharm.Option{
 				"foo": {
 					Type:        "string",
@@ -1285,7 +1285,7 @@ func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr 
 // expectCreateApplicationForDeploy should only be used when calling
 // api.Deploy(). DO NOT use for DeployFromRepository(), the expectations
 // are different.
-func (s *applicationSuite) expectCreateApplicationForDeployWithConfig(c *tc.C, name string, appConfig internalcharm.Settings, retErr error) {
+func (s *applicationSuite) expectCreateApplicationForDeployWithConfig(c *tc.C, name string, appConfig internalcharm.Config, retErr error) {
 	s.applicationService.EXPECT().CreateIAASApplication(gomock.Any(),
 		name,
 		gomock.Any(),
