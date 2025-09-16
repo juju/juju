@@ -10,7 +10,7 @@ CREATE TABLE block_device (
     mount_point TEXT,
     in_use BOOLEAN,
     filesystem_label TEXT,
-    filesystem_uuid TEXT, -- not a key, value from the partition table
+    host_filesystem_uuid TEXT,
     filesystem_type TEXT,
     CONSTRAINT fk_block_device_machine
     FOREIGN KEY (machine_uuid)

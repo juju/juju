@@ -64,7 +64,7 @@ func (s *stateSuite) insertBlockDevice(
 	_, err := s.DB().Exec(`
 INSERT INTO block_device (
 	uuid, machine_uuid, name, filesystem_label,
-	filesystem_uuid, hardware_id, wwn, bus_address, serial_id,
+	host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id,
 	mount_point, filesystem_type, size_mib, in_use)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, blockDeviceUUID, machineUUID, bd.DeviceName, bd.FilesystemLabel,
