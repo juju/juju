@@ -62,6 +62,14 @@ type BlockDeviceService interface {
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 
+	// MatchOrCreateBlockDevice matches an existing block device to the provided
+	// block device, otherwise it creates one that matches the existing device.
+	// It returns the UUID of the block device.
+	MatchOrCreateBlockDevice(
+		ctx context.Context, machineUUID machine.UUID,
+		device blockdevice.BlockDevice,
+	) (string, error)
+
 	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
 	// devices associated with the specified machine.
 	WatchBlockDevices(
