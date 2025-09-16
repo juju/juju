@@ -154,13 +154,61 @@ updated:
 		ctx, machineUUID, added, updated, removed)
 }
 
-// SetBlockDevices overrides all current block devices on the named machine.
+// MatchOrCreateBlockDevice matches an existing block device to the provided
+// block device, otherwise it creates one that matches the provided device.
+// It returns the UUID of the block device.
 //
 // The following errors may be returned:
 // - [errors.NotValid] when the machine uuid is not valid.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
-func (s *Service) SetBlockDevices(
+func (s *Service) MatchOrCreateBlockDevice(
+	ctx context.Context, machineUUID machine.UUID,
+	device coreblockdevice.BlockDevice,
+) (blockdevice.BlockDeviceUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := machineUUID.Validate()
+	if err != nil {
+		return "", err
+	}
+
+	existing, err := s.st.GetBlockDevicesForMachine(ctx, machineUUID)
+	if err != nil {
+		return "", err
+	}
+
+	for devUUID, dev := range existing {
+		if blockdevice.SameDevice(dev, device) {
+			return devUUID, nil
+		}
+	}
+
+	devUUID, err := blockdevice.NewBlockDeviceUUID()
+	if err != nil {
+		return "", nil
+	}
+
+	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+		devUUID: device,
+	}
+	err = s.st.UpdateBlockDevicesForMachine(ctx, machineUUID, added, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return devUUID, nil
+}
+
+// SetBlockDevicesForMachineByName overrides all current block devices on the
+// named machine.
+//
+// The following errors may be returned:
+// - [errors.NotValid] when the machine uuid is not valid.
+// - [machineerrors.MachineNotFound] when the machine is not found.
+// - [machineerrors.MachineIsDead] when the machine is dead.
+func (s *Service) SetBlockDevicesForMachineByName(
 	ctx context.Context, machineName machine.Name,
 	devices []coreblockdevice.BlockDevice,
 ) error {
