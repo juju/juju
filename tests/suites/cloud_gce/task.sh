@@ -11,9 +11,10 @@ test_cloud_gce() {
 		return
 	fi
 
-	echo "==> Checking for dependencies"
+	setup_gcloudcli_credential
 
-	check_dependencies gcloud
+  echo "==> Checking for dependencies"
+  check_dependencies juju gcloud
 
 	file="${TEST_DIR}/test-cloud-gce.log"
 
