@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -189,7 +187,7 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 		return err
 	}
 	if modelType == model.CAAS {
-		if c.PlacementSpec != "" || (len(c.AttachStorage) != 0 && !featureflag.Enabled(feature.K8SAttachStorage)) {
+		if c.PlacementSpec != "" {
 			return errors.New("k8s models only support --num-units")
 		}
 	}

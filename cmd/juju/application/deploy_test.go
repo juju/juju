@@ -21,7 +21,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -60,8 +59,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -1094,8 +1091,6 @@ var caasTests = []struct {
 	args    []string
 	message string
 }{
-	{[]string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"},
-		"--attach-storage cannot be used on k8s models"},
 	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b"},
 		regexp.QuoteMeta(`--to cannot be used on k8s models`)},
 }
@@ -1196,13 +1191,6 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDeployAttachStorage(c *gc.C) {
-	s.SetFeatureFlags(feature.K8SAttachStorage)
-	defer func() {
-		// Unset feature flag
-		os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	}()
-
 	repo := testcharms.RepoWithSeries("kubernetes")
 	charmDir := repo.ClonedDir(s.CharmsPath, "gitlab")
 

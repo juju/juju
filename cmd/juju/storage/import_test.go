@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -86,8 +85,6 @@ func (s *ImportFilesystemSuite) TestImportError(c *gc.C) {
 }
 
 func (s *ImportFilesystemSuite) TestImportSuccessCAAS(c *gc.C) {
-	s.SetFeatureFlags(feature.K8SAttachStorage)
-
 	store := jujuclienttesting.MinimalStore()
 	store.Models["arthur"] = &jujuclient.ControllerModels{
 		CurrentModel: "king/sword",
@@ -113,23 +110,6 @@ imported storage baz/0
 		}},
 		{"Close", nil},
 	})
-}
-
-func (s *ImportFilesystemSuite) TestImportErrorCAASNotSupport(c *gc.C) {
-	store := jujuclienttesting.MinimalStore()
-	store.Models["arthur"] = &jujuclient.ControllerModels{
-		CurrentModel: "king/sword",
-		Models: map[string]jujuclient.ModelDetails{"king/sword": {
-			ModelType: model.CAAS,
-		}},
-	}
-	s.store = store
-
-	ctx, err := s.run(c, "foo", "bar", "baz")
-	c.Assert(err, gc.ErrorMatches, "Juju command \"import-filesystem\" not supported on container models")
-
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *ImportFilesystemSuite) TestImportWithForce(c *gc.C) {

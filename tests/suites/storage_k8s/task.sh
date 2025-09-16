@@ -11,7 +11,9 @@ test_storage_k8s() {
 		echo "==> Checking for dependencies"
 		check_dependencies juju
 
-		export JUJU_DEV_FEATURE_FLAGS=k8s-attach-storage
+		microk8s config >"${TEST_DIR}"/kube.conf
+		export KUBE_CONFIG="${TEST_DIR}"/kube.conf
+
 		test_import_filesystem
 		test_force_import_filesystem
 		test_deploy_attach_storage
