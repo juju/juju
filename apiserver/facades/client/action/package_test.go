@@ -16,10 +16,14 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService,OperationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
+//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination watcherregistry_mock_test.go github.com/juju/juju/internal/worker/watcherregistry WatcherRegistry
+//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
 type MockBaseSuite struct {
-	Authorizer          *facademocks.MockAuthorizer
-	Leadership          *MockReader
+	Authorizer      *facademocks.MockAuthorizer
+	Leadership      *MockReader
+	watcherRegistry *MockWatcherRegistry
+
 	BlockCommandService *MockBlockCommandService
 	ApplicationService  *MockApplicationService
 	ModelInfoService    *MockModelInfoService
@@ -35,6 +39,7 @@ func (s *MockBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.OperationService = NewMockOperationService(ctrl)
 	s.Leadership = NewMockReader(ctrl)
 	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	c.Cleanup(func() {
 		s.BlockCommandService = nil
@@ -43,6 +48,7 @@ func (s *MockBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.OperationService = nil
 		s.Leadership = nil
 		s.Authorizer = nil
+		s.watcherRegistry = nil
 	})
 
 	return ctrl
@@ -66,6 +72,7 @@ func (s *MockBaseSuite) newActionAPIWithAuthorizer(c *tc.C, authorizer facade.Au
 		s.ModelInfoService,
 		s.OperationService,
 		modelUUID,
+		s.watcherRegistry,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 

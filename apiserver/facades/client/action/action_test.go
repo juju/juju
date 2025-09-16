@@ -5,6 +5,7 @@ package action
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/juju/errors"
@@ -25,6 +26,14 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
+
+func TestActionSuite(t *testing.T) {
+	tc.Run(t, &actionSuite{})
+}
+
+func TestActionWatchSuite(t *testing.T) {
+	tc.Run(t, &actionWatcherSuite{})
+}
 
 type actionSuite struct {
 	applicationService *MockApplicationService
@@ -72,6 +81,7 @@ func (s *actionSuite) setupAPI(c *tc.C, authTag names.UserTag) {
 		nil,
 		s.operationService,
 		modelUUID,
+		nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -79,11 +89,6 @@ func (s *actionSuite) setupAPI(c *tc.C, authTag names.UserTag) {
 		s.client = nil
 	})
 }
-
-func TestActionSuite(t *testing.T) {
-	tc.Run(t, &actionSuite{})
-}
-
 func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -605,4 +610,82 @@ func (s *actionSuite) TestApplicationsCharmsActionsEmptyEntityList(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
+}
+
+type actionWatcherSuite struct {
+	MockBaseSuite
+
+	watcher *MockStringsWatcher
+}
+
+func (s *actionWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.MockBaseSuite.setupMocks(c)
+	s.watcher = NewMockStringsWatcher(ctrl)
+
+	c.Cleanup(func() { s.watcher = nil })
+
+	return ctrl
+}
+
+func (s *actionWatcherSuite) TestWatchLogProgress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	// First action
+	chOne := make(chan []string, 1)
+	watcherMsgOne := "test task log"
+	chOne <- []string{
+		watcherMsgOne,
+	}
+	s.watcher.EXPECT().Changes().Return(chOne)
+
+	actionTagOne := names.NewActionTag("7")
+	s.OperationService.EXPECT().WatchTaskLogs(gomock.Any(), actionTagOne.Id()).Return(s.watcher, nil)
+	watcherIDOne := "42"
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return(watcherIDOne, nil)
+
+	// Second action
+	chTwo := make(chan []string, 1)
+	watcherMsgTwo := "second test task log"
+	chTwo <- []string{
+		watcherMsgTwo,
+	}
+	s.watcher.EXPECT().Changes().Return(chTwo)
+
+	actionTagTwo := names.NewActionTag("7")
+	s.OperationService.EXPECT().WatchTaskLogs(gomock.Any(), actionTagTwo.Id()).Return(s.watcher, nil)
+	watcherIDTwo := "42"
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return(watcherIDTwo, nil)
+
+	// Act
+	results, err := s.newActionAPI(c).WatchActionsProgress(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: actionTagOne.String()},
+		{Tag: actionTagTwo.String()},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: watcherIDOne, Changes: []string{watcherMsgOne}},
+			{StringsWatcherId: watcherIDTwo, Changes: []string{watcherMsgTwo}},
+		},
+	})
+}
+
+func (s *actionWatcherSuite) TestWatchLogProgressNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	actionTag := names.NewActionTag("7")
+	s.OperationService.EXPECT().WatchTaskLogs(gomock.Any(), actionTag.Id()).Return(nil, operationerrors.TaskNotFound)
+	api := s.newActionAPI(c)
+
+	// Act
+	results, err := api.WatchActionsProgress(c.Context(), params.Entities{Entities: []params.Entity{{Tag: actionTag.String()}}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("action %q not found", actionTag.Id()))
 }
