@@ -152,6 +152,14 @@ type unitPassword struct {
 
 type unitUUIDs []coreunit.UUID
 
+// unitUUIDAndNetNode represents the uuid and net node uuid that are associated
+// with a unit in the model. Both these values are expected to come directly
+// from the unit table.
+type unitUUIDAndNetNode struct {
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
 type unitLifeAndNetNode struct {
 	NetNodeID string `db:"net_node_uuid"`
 	LifeID    int    `db:"life_id"`

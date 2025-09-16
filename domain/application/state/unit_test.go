@@ -1406,6 +1406,30 @@ func (s *unitStateSuite) TestGetUnitMachineIdentifiers(c *tc.C) {
 	})
 }
 
+// TestGetUnitUUIDAndNetNodeForNameNotFound tests that asking for the uuid and
+// netnode for a unit name that does not exist in the model results in a
+// [applicationerrors.UnitNotFound] error.
+func (s *unitStateSuite) TestGetUnitUUIDAndNetNodeForNameNotFound(c *tc.C) {
+	_, _, err := s.state.GetUnitUUIDAndNetNodeForName(
+		c.Context(), coreunit.Name("does-not-exist"),
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestGetUnitUUIDAndNetNodeForName tests the happy path of getting a units uuid
+// and net node by name.
+func (s *unitStateSuite) TestGetUnitUUIDAndNetNodeForName(c *tc.C) {
+	unitName, unitUUID := s.createNamedCAASUnit(c)
+
+	gotUnitUUID, gotNetNodeUUID, err := s.state.GetUnitUUIDAndNetNodeForName(
+		c.Context(), unitName,
+	)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotUnitUUID, tc.Equals, unitUUID)
+	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`

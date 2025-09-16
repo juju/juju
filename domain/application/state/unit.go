@@ -1920,6 +1920,54 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 	}), nil
 }
 
+// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
+// unit matching the supplied name.
+//
+// The following errors may be expected:
+// - [applicationerrors.UnitNotFound] if no unit exists for the supplied
+// name.
+func (st *State) GetUnitUUIDAndNetNodeForName(
+	ctx context.Context, name coreunit.Name,
+) (coreunit.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var (
+		input = unitName{Name: name}
+		dbVal unitUUIDAndNetNode
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &unitUUIDAndNetNode.*
+FROM   unit
+WHERE  name = $unitName.name
+`,
+		input, dbVal,
+	)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit with name %q does not exist", name,
+			).Add(applicationerrors.UnitNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return coreunit.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
+}
+
 // GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 // The following errors may be returned:
 func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]coreunit.Name, error) {
