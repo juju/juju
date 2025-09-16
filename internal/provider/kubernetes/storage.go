@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -367,12 +368,16 @@ func (v *volumeSource) makePersistentVolumeAvailable(ctx jujucontext.ProviderCal
 		return errors.Trace(err)
 	}
 
-	// Clear the claimRef to make the PV available
-	vol.Spec.ClaimRef = nil
+	// Clear the claimRef to make the PV available using a targeted patch
+	patchData := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"claimRef": nil,
+		},
+	}
 
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, vol)
+	data, err := json.Marshal(patchData)
 	if err != nil {
-		return errors.Annotatef(err, "failed to encode PersistentVolume %s", vol.Name)
+		return errors.Annotatef(err, "failed to marshal patch data for PersistentVolume %s", vol.Name)
 	}
 
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
