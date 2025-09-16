@@ -1933,7 +1933,9 @@ func (s *StorageProvisionerAPIv4) CreateVolumeAttachmentPlans(ctx context.Contex
 	return results, nil
 }
 
-func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.Context, args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
+func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(
+	ctx context.Context, args params.VolumeAttachmentPlans,
+) (params.ErrorResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -1956,48 +1958,27 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 			return apiservererrors.ErrPerm
 		}
 		if vp.Life != "" {
-			return errors.New("life field must not be set")
+			return errors.New(
+				"life field must not be set",
+			).Add(coreerrors.NotValid)
 		}
 		if vp.PlanInfo.DeviceType != "" {
-			return errors.New("device type field must not be set")
+			return errors.New(
+				"device type field must not be set",
+			).Add(coreerrors.NotValid)
 		}
 		if len(vp.PlanInfo.DeviceAttributes) != 0 {
-			return errors.New("device attributes field must not be set")
+			return errors.New(
+				"device attributes field must not be set",
+			).Add(coreerrors.NotValid)
 		}
-
-		planUUID, err := s.getVolumeAttachmentPlanUUID(
-			ctx, volumeTag, machineTag,
-		)
-		if err != nil {
-			return errors.Capture(err)
+		if vp.BlockDevice == nil {
+			return errors.New(
+				"block device must be set",
+			).Add(coreerrors.NotValid)
 		}
-
-		blockDeviceInfo := blockdevice.BlockDevice{
-			DeviceName:      vp.BlockDevice.DeviceName,
-			DeviceLinks:     vp.BlockDevice.DeviceLinks,
-			FilesystemLabel: vp.BlockDevice.Label,
-			FilesystemUUID:  vp.BlockDevice.UUID,
-			HardwareId:      vp.BlockDevice.HardwareId,
-			WWN:             vp.BlockDevice.WWN,
-			BusAddress:      vp.BlockDevice.BusAddress,
-			SizeMiB:         vp.BlockDevice.SizeMiB,
-			FilesystemType:  vp.BlockDevice.FilesystemType,
-			InUse:           vp.BlockDevice.InUse,
-			MountPoint:      vp.BlockDevice.MountPoint,
-			SerialId:        vp.BlockDevice.SerialId,
-		}
-
-		err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(
-			ctx, planUUID, blockDeviceInfo)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
-			return errors.Errorf(
-				"volume attachment plan for machine %q and volume %q not found",
-				machineTag.Id(), volumeTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
+		return s.setVolumeAttachmentPlanBlockInfo(
+			ctx, machineTag, volumeTag, *vp.BlockDevice)
 	}
 
 	results := params.ErrorResults{
@@ -2010,6 +1991,58 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(ctx context.C
 	}
 
 	return results, nil
+}
+
+func (s *StorageProvisionerAPIv4) setVolumeAttachmentPlanBlockInfo(
+	ctx context.Context,
+	machineTag names.MachineTag,
+	volumeTag names.VolumeTag,
+	bd params.BlockDevice,
+) error {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	planUUID, err := s.getVolumeAttachmentPlanUUID(ctx, volumeTag, machineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	blockDevice := blockdevice.BlockDevice{
+		DeviceName:      bd.DeviceName,
+		DeviceLinks:     bd.DeviceLinks,
+		FilesystemLabel: bd.Label,
+		FilesystemUUID:  bd.UUID,
+		HardwareId:      bd.HardwareId,
+		WWN:             bd.WWN,
+		BusAddress:      bd.BusAddress,
+		SizeMiB:         bd.SizeMiB,
+		FilesystemType:  bd.FilesystemType,
+		InUse:           bd.InUse,
+		MountPoint:      bd.MountPoint,
+		SerialId:        bd.SerialId,
+	}
+	blockDeviceUUID, err := s.blockDeviceService.MatchOrCreateBlockDevice(
+		ctx, machineUUID, blockDevice)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return "", errors.Errorf(
+			"machine %q not found", machineTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedBlockDevice(
+		ctx, planUUID, blockDeviceUUID)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+		return errors.Errorf(
+			"volume attachment plan for machine %q and volume %q not found",
+			machineTag.Id(), volumeTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return errors.Capture(err)
+	}
 }
 
 // SetVolumeAttachmentInfo records the details of newly provisioned volume
