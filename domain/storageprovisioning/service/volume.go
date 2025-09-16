@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/juju/core/blockdevice"
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	corechangestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -857,7 +857,7 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeAttachmentPlanUUID,
-	blockDevice blockdevice.BlockDevice,
+	blockDeviceUUID blockdevice.BlockDeviceUUID,
 ) error {
 	return errors.New("SetVolumeAttachmentPlanProvisionedBlockDevice not implemented")
 }

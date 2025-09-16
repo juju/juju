@@ -14,6 +14,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -57,8 +58,9 @@ type MachineService interface {
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.
 type BlockDeviceService interface {
-	// BlockDevices returns the BlockDevices for the specified machine.
-	BlockDevices(
+	// GetBlockDeviceForMachine returns the BlockDevices for the specified
+	// machine.
+	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 
@@ -68,11 +70,11 @@ type BlockDeviceService interface {
 	MatchOrCreateBlockDevice(
 		ctx context.Context, machineUUID machine.UUID,
 		device blockdevice.BlockDevice,
-	) (string, error)
+	) (domainblockdevice.BlockDeviceUUID, error)
 
-	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
-	// devices associated with the specified machine.
-	WatchBlockDevices(
+	// WatchBlockDevicesForMachine returns a new NotifyWatcher watching for
+	// changes to block devices associated with the specified machine.
+	WatchBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.NotifyWatcher, error)
 }
@@ -393,6 +395,6 @@ type StorageProvisioningService interface {
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
 		ctx context.Context,
 		uuid storageprovisioning.VolumeAttachmentPlanUUID,
-		info blockdevice.BlockDevice,
+		blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 	) error
 }

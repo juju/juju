@@ -24,6 +24,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -38,10 +39,11 @@ import (
 type provisionerSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 
-	watcherRegistry                *facademocks.MockWatcherRegistry
-	mockStorageProvisioningService *MockStorageProvisioningService
-	mockMachineService             *MockMachineService
-	mockApplicationService         *MockApplicationService
+	watcherRegistry            *facademocks.MockWatcherRegistry
+	storageProvisioningService *MockStorageProvisioningService
+	machineService             *MockMachineService
+	applicationService         *MockApplicationService
+	blockDeviceService         *MockBlockDeviceService
 
 	api *StorageProvisionerAPIv4
 
@@ -67,23 +69,24 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	}
 
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	s.mockStorageProvisioningService = NewMockStorageProvisioningService(ctrl)
-	s.mockMachineService = NewMockMachineService(ctrl)
-	s.mockApplicationService = NewMockApplicationService(ctrl)
+	s.storageProvisioningService = NewMockStorageProvisioningService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.blockDeviceService = NewMockBlockDeviceService(ctrl)
 
 	var err error
 	s.api, err = NewStorageProvisionerAPIv4(
 		c.Context(),
 		s.watcherRegistry,
 		testclock.NewClock(time.Now()),
-		nil, // blockDeviceService
-		s.mockMachineService,
-		s.mockApplicationService,
+		s.blockDeviceService,
+		s.machineService,
+		s.applicationService,
 		s.authorizer,
 		nil, // storageProviderRegistry
 		nil, // storageService
 		nil, // statusService
-		s.mockStorageProvisioningService,
+		s.storageProvisioningService,
 		loggertesting.WrapCheckLog(c),
 		s.modelUUID,
 		s.controllerUUID,
@@ -93,7 +96,7 @@ func (s *provisionerSuite) setupAPI(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.authorizer = nil
 		s.watcherRegistry = nil
-		s.mockStorageProvisioningService = nil
+		s.storageProvisioningService = nil
 		s.api = nil
 	})
 
@@ -115,7 +118,7 @@ func (s *provisionerSuite) TestVolumes(c *tc.C) {
 		SizeMiB:    1000,
 	}
 
-	s.mockStorageProvisioningService.EXPECT().GetVolumeByID(
+	s.storageProvisioningService.EXPECT().GetVolumeByID(
 		gomock.Any(), tag.Id()).Return(vol, nil)
 
 	result, err := s.api.Volumes(c.Context(), params.Entities{
@@ -148,7 +151,7 @@ func (s *provisionerSuite) TestVolumesNotFound(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().GetVolumeByID(
+	s.storageProvisioningService.EXPECT().GetVolumeByID(
 		gomock.Any(), tag.Id(),
 	).Return(
 		storageprovisioning.Volume{},
@@ -176,7 +179,7 @@ func (s *provisionerSuite) TestVolumesNotProvisioned(c *tc.C) {
 		ProviderID: "fs-1234",
 	}
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeByID(gomock.Any(), tag.Id()).
 		Return(vol, nil)
 
@@ -199,13 +202,13 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachine(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
+	s.storageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
 		Return(storageprovisioning.VolumeAttachment{
 			VolumeID:              "123",
 			BlockDeviceName:       "blk",
@@ -250,13 +253,13 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineNotProvisioned(c *tc.C
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
+	s.storageProvisioningService.EXPECT().GetVolumeAttachment(gomock.Any(), vaUUID).
 		Return(storageprovisioning.VolumeAttachment{
 			VolumeID: "fs-1234",
 			ReadOnly: true,
@@ -284,13 +287,13 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineAttachmentNotFound(c *
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachment(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachment(
 		gomock.Any(), vaUUID,
 	).Return(
 		storageprovisioning.VolumeAttachment{},
@@ -318,10 +321,10 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineVolumeNotFound(c *tc.C
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(
 			gomock.Any(), tag.Id(), machineUUID,
 		).Return("", storageprovisioningerrors.VolumeNotFound)
@@ -346,7 +349,7 @@ func (s *provisionerSuite) TestVolumeAttachmentsForMachineMachineNotFound(c *tc.
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -372,13 +375,13 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
 		Return(blockdevice.BlockDevice{
 			DeviceName: "blk",
 			DeviceLinks: []string{
@@ -439,13 +442,13 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisioned(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
 		Return(blockdevice.BlockDevice{}, nil)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
@@ -470,13 +473,13 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisionedWithoutBlockDevic
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
 		Return(blockdevice.BlockDevice{}, storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
@@ -501,13 +504,13 @@ func (s *provisionerSuite) TestVolumeBlockDevicesAttachmentNotFound(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(
+	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(
 		gomock.Any(), vaUUID,
 	).Return(
 		blockdevice.BlockDevice{},
@@ -535,10 +538,10 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotFound(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentUUIDForVolumeIDMachine(
 			gomock.Any(), tag.Id(), machineUUID,
 		).Return("", storageprovisioningerrors.VolumeNotFound)
@@ -563,7 +566,7 @@ func (s *provisionerSuite) TestVolumeBlockDevicesMachineNotFound(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -596,10 +599,10 @@ func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 		SizeMiB:      1000,
 	}
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemForID(gomock.Any(), tag.Id()).
 		Return(fs, nil)
 
@@ -631,10 +634,10 @@ func (s *provisionerSuite) TestFilesystemsNotFound(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemForID(gomock.Any(), tag.Id()).
 		Return(storageprovisioning.Filesystem{}, storageprovisioningerrors.FilesystemNotFound)
 
@@ -662,10 +665,10 @@ func (s *provisionerSuite) TestFilesystemsNotProvisioned(c *tc.C) {
 		ProviderID: "fs-1234",
 	}
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemForID(gomock.Any(), tag.Id()).
 		Return(fs, nil)
 
@@ -687,10 +690,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachine(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(storageprovisioning.FilesystemAttachment{
 			FilesystemID: "fs-1234",
@@ -730,10 +733,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineNotProvisioned(c *
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(storageprovisioning.FilesystemAttachment{
 			FilesystemID: "fs-1234",
@@ -761,10 +764,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineAttachmentNotFound
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -789,10 +792,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineFilesystemNotFound
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemNotFound)
 
@@ -816,7 +819,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForMachineMachineNotFound(c 
 
 	tag := names.NewFilesystemTag("123")
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -842,8 +845,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnit(c *tc.C) {
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForUnit(gomock.Any(), tag.Id(), unitUUID).
 		Return(storageprovisioning.FilesystemAttachment{
 			FilesystemID: "fs-1234",
@@ -884,8 +887,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnitNotProvisioned(c *tc.
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForUnit(gomock.Any(), tag.Id(), unitUUID).
 		Return(storageprovisioning.FilesystemAttachment{
 			FilesystemID: "fs-1234",
@@ -914,8 +917,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnitAttachmentNotFound(c 
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForUnit(gomock.Any(), tag.Id(), unitUUID).
 		Return(storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -941,8 +944,8 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnitFilesystemNotFound(c 
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentForUnit(gomock.Any(), tag.Id(), unitUUID).
 		Return(storageprovisioning.FilesystemAttachment{}, storageprovisioningerrors.FilesystemNotFound)
 
@@ -967,7 +970,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentsForUnitUnitNotFound(c *tc.C)
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
 
 	result, err := s.api.FilesystemAttachments(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -991,13 +994,13 @@ func (s *provisionerSuite) TestFilesystemParamsNotFound(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
 	).Return(map[string]string{}, nil).AnyTimes()
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return("", storageprovisioningerrors.FilesystemNotFound)
 
@@ -1021,16 +1024,16 @@ func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
 	).Return(map[string]string{}, nil).AnyTimes()
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(fsUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemParams(
+	s.storageProvisioningService.EXPECT().GetFilesystemParams(
 		gomock.Any(), fsUUID,
 	).Return(storageprovisioning.FilesystemParams{}, storageprovisioningerrors.FilesystemNotFound)
 
@@ -1050,18 +1053,18 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
 	).Return(map[string]string{
 		"tag1": "value1",
 	}, nil)
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(fsUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemParams(
+	s.storageProvisioningService.EXPECT().GetFilesystemParams(
 		gomock.Any(), fsUUID,
 	).Return(storageprovisioning.FilesystemParams{
 		Attributes: map[string]string{
@@ -1101,10 +1104,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsMachineNotFound(c *tc.C
 	machineTag := names.NewMachineTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machineTag.Id())).Return(
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(machineTag.Id())).Return(
 		machineUUID, nil,
 	)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return("", machineerrors.MachineNotFound)
 
@@ -1129,10 +1132,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsUnitNotFound(c *tc.C) {
 	unitTag := names.NewUnitTag("foo/123")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
 	)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return("", applicationerrors.UnitNotFound)
 
@@ -1157,10 +1160,10 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsFilesystemNotFound(c *t
 	unitTag := names.NewUnitTag("foo/123")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
 	)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return("", storageprovisioningerrors.FilesystemNotFound)
 
@@ -1186,13 +1189,13 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	fsaUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
 	)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return(fsaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentParams(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentParams(
 		gomock.Any(), fsaUUID,
 	).Return(
 		storageprovisioning.FilesystemAttachmentParams{
@@ -1236,10 +1239,10 @@ func (s *provisionerSuite) TestWatchMachines(c *tc.C) {
 	sourceWatcher := watchertest.NewMockNotifyWatcher(machineChanged)
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		WatchMachineCloudInstances(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1260,7 +1263,7 @@ func (s *provisionerSuite) TestWatchMachinesNotFound(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -1282,9 +1285,9 @@ func (s *provisionerSuite) TestVolumeAttachmentParamsMachineNotFound(c *tc.C) {
 	machineTag := names.NewMachineTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().GetMachineUUID(
+	s.machineService.EXPECT().GetMachineUUID(
 		gomock.Any(), machine.Name(machineTag.Id())).Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID).Return(
 		"", machineerrors.MachineNotFound)
 
@@ -1309,9 +1312,9 @@ func (s *provisionerSuite) TestVolumeAttachmentParamsVolumeNotFound(c *tc.C) {
 	machineTag := names.NewMachineTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().GetMachineUUID(
+	s.machineService.EXPECT().GetMachineUUID(
 		gomock.Any(), machine.Name(machineTag.Id())).Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID).Return(
 		"", storageprovisioningerrors.VolumeNotFound)
 
@@ -1337,11 +1340,11 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().GetMachineUUID(
+	s.machineService.EXPECT().GetMachineUUID(
 		gomock.Any(), machine.Name("11")).Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID).Return(vaUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentParams(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentParams(
 		gomock.Any(), vaUUID,
 	).Return(
 		storageprovisioning.VolumeAttachmentParams{
@@ -1381,9 +1384,9 @@ func (s *provisionerSuite) TestVolumeParamsNotFound(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any()).Return(map[string]string{}, nil).AnyTimes()
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id()).Return(
 		"",
 		storageprovisioningerrors.VolumeNotFound,
@@ -1409,11 +1412,11 @@ func (s *provisionerSuite) TestVolumeParamsNotFoundWithUUID(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any()).Return(map[string]string{}, nil).AnyTimes()
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id()).Return(volUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeParams(
+	s.storageProvisioningService.EXPECT().GetVolumeParams(
 		gomock.Any(), volUUID).Return(
 		storageprovisioning.VolumeParams{},
 		storageprovisioningerrors.VolumeNotFound,
@@ -1435,15 +1438,15 @@ func (s *provisionerSuite) TestVolumeParams(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	volUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
+	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
 	).Return(map[string]string{
 		"tag1": "value1",
 	}, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(volUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeParams(
+	s.storageProvisioningService.EXPECT().GetVolumeParams(
 		gomock.Any(), volUUID,
 	).Return(storageprovisioning.VolumeParams{
 		Attributes: map[string]string{
@@ -1483,7 +1486,7 @@ func (s *provisionerSuite) TestWatchVolumesForModel(c *tc.C) {
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(volumeChanged)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchModelProvisionedVolumes(gomock.Any()).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1511,10 +1514,10 @@ func (s *provisionerSuite) TestWatchVolumesForMachine(c *tc.C) {
 	sourceWatcher := watchertest.NewMockStringsWatcher(volumeChanged)
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchMachineProvisionedVolumes(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1536,7 +1539,7 @@ func (s *provisionerSuite) TestWatchVolumesForMachineNotFound(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -1560,7 +1563,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForModel(c *tc.C) {
 
 	sourceWatcher := watchertest.NewMockStringsWatcher(filesystemChanged)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchModelProvisionedFilesystems(gomock.Any()).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1588,10 +1591,10 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachine(c *tc.C) {
 	sourceWatcher := watchertest.NewMockStringsWatcher(filesystemChanged)
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchMachineProvisionedFilesystems(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1613,7 +1616,7 @@ func (s *provisionerSuite) TestWatchFilesystemsForMachineNotFound(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -1637,10 +1640,10 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchVolumeAttachmentPlans(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
@@ -1671,7 +1674,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlansMachineNotFound(c *tc.C
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -1695,15 +1698,15 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachine(c *tc.C) {
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchMachineProvisionedVolumeAttachments(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.VolumeAttachmentID{
 			"volume-attachment-uuid-1": {
@@ -1741,7 +1744,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForMachineNotFound(c *tc.C)
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 	results, err := s.api.WatchVolumeAttachments(c.Context(), params.Entities{
@@ -1763,12 +1766,12 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForModel(c *tc.C) {
 	attachmentChanged <- []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchModelProvisionedVolumeAttachments(gomock.Any()).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.VolumeAttachmentID{
 			"volume-attachment-uuid-1": {
@@ -1812,15 +1815,15 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachine(c *tc.C) {
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchMachineProvisionedFilesystemAttachments(gomock.Any(), machineUUID).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.FilesystemAttachmentID{
 			"filesystem-attachment-uuid-1": {
@@ -1859,7 +1862,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForMachineNotFound(c *t
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -1882,12 +1885,12 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
 	attachmentChanged <- []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}
 	sourceWatcher := watchertest.NewMockStringsWatcher(attachmentChanged)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		WatchModelProvisionedFilesystemAttachments(gomock.Any()).
 		Return(sourceWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("66", nil)
 
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.FilesystemAttachmentID{
 			"filesystem-attachment-uuid-1": {
@@ -1929,10 +1932,10 @@ func (s *provisionerSuite) TestLifeForVolume(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(volumeUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeLife(
+	s.storageProvisioningService.EXPECT().GetVolumeLife(
 		gomock.Any(), volumeUUID,
 	).Return(domainlife.Alive, nil)
 
@@ -1957,7 +1960,7 @@ func (s *provisionerSuite) TestLifeForVolumeWithUUIDNotFound(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return("", storageprovisioningerrors.VolumeNotFound)
 
@@ -1979,10 +1982,10 @@ func (s *provisionerSuite) TestLifeForVolumeWithVolumeNotFound(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	volumeUUID := storageprovisioningtesting.GenVolumeUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().GetVolumeUUIDForID(
+	s.storageProvisioningService.EXPECT().GetVolumeUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(volumeUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeLife(
+	s.storageProvisioningService.EXPECT().GetVolumeLife(
 		gomock.Any(), volumeUUID,
 	).Return(-1, storageprovisioningerrors.VolumeNotFound)
 
@@ -2004,14 +2007,14 @@ func (s *provisionerSuite) TestLifeForFilesystem(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
 
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(filesystemUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemLife(
+	s.storageProvisioningService.EXPECT().GetFilesystemLife(
 		gomock.Any(), filesystemUUID,
 	).Return(domainlife.Alive, nil)
 
@@ -2036,11 +2039,11 @@ func (s *provisionerSuite) TestLifeForFilesystemWithUUIDNotFound(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
 
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return("", storageprovisioningerrors.FilesystemNotFound)
 
@@ -2062,14 +2065,14 @@ func (s *provisionerSuite) TestLifeForFilesystemWithFilesystemNotFound(c *tc.C) 
 	tag := names.NewFilesystemTag("123")
 	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
-	s.mockStorageProvisioningService.EXPECT().CheckFilesystemForIDExists(
+	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
 	).Return(true, nil)
 
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemUUIDForID(
+	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
 	).Return(filesystemUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemLife(
+	s.storageProvisioningService.EXPECT().GetFilesystemLife(
 		gomock.Any(), filesystemUUID,
 	).Return(-1, storageprovisioningerrors.FilesystemNotFound)
 
@@ -2092,13 +2095,13 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachine(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(domainlife.Alive, nil)
 
@@ -2126,7 +2129,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithMachineNotF
 
 	tag := names.NewFilesystemTag("123")
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -2151,10 +2154,10 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemA
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2179,10 +2182,10 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return("", storageprovisioningerrors.FilesystemNotFound)
 
@@ -2208,13 +2211,13 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemA
 	machineUUID := machinetesting.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2240,13 +2243,13 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 	machineUUID := machinetesting.GenUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2273,11 +2276,11 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnit(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(domainlife.Alive, nil)
 
@@ -2306,7 +2309,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithUnitNotFound(c
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -2330,8 +2333,8 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemAtta
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return("", storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2358,11 +2361,11 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	unitUUID := unittesting.GenUnitUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2389,11 +2392,11 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemAtta
 	unitUUID := unittesting.GenUnitUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2420,11 +2423,11 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	unitUUID := unittesting.GenUnitUUID(c)
 	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
+	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		gomock.Any(), tag.Id(), unitUUID,
 	).Return(filesystemAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetFilesystemAttachmentLife(gomock.Any(), filesystemAttachmentUUID).
 		Return(-1, storageprovisioningerrors.FilesystemAttachmentNotFound)
 
@@ -2450,13 +2453,13 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachine(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
 		Return(domainlife.Alive, nil)
 
@@ -2483,7 +2486,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithMachineNotFound
 
 	tag := names.NewVolumeTag("123")
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return("", machineerrors.MachineNotFound)
 
@@ -2508,10 +2511,10 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmen
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
 
@@ -2536,10 +2539,10 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound(
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return("", storageprovisioningerrors.VolumeNotFound)
 
@@ -2565,13 +2568,13 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeAttachmen
 	machineUUID := machinetesting.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
 		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
 
@@ -2597,13 +2600,13 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeMachineWithVolumeNotFound2
 	machineUUID := machinetesting.GenUUID(c)
 	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 
-	s.mockMachineService.EXPECT().
+	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
 		Return(machineUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
+	s.storageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
+	s.storageProvisioningService.EXPECT().
 		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
 		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
 
@@ -2627,43 +2630,6 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnit(c *tc.C) {
 
 	tag := names.NewVolumeTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
-	unitUUID := unittesting.GenUnitUUID(c)
-	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
-		gomock.Any(), tag.Id(), unitUUID,
-	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
-		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(domainlife.Alive, nil)
-
-	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
-		Ids: []params.MachineStorageId{
-			{
-				MachineTag:    unitTag.String(),
-				AttachmentTag: tag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.LifeResults{
-		Results: []params.LifeResult{
-			{
-				Life: corelife.Alive,
-			},
-		},
-	})
-}
-
-func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithUnitNotFound(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	tag := names.NewVolumeTag("123")
-	unitTag := names.NewUnitTag("mysql/666")
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return("", applicationerrors.UnitNotFound)
 
 	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -2676,127 +2642,7 @@ func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithUnitNotFound(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	r := result.Results[0]
-	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
-}
-
-func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeAttachmentNotFound(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	tag := names.NewVolumeTag("123")
-	unitTag := names.NewUnitTag("mysql/666")
-	unitUUID := unittesting.GenUnitUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
-		gomock.Any(), tag.Id(), unitUUID,
-	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
-
-	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
-		Ids: []params.MachineStorageId{
-			{
-				MachineTag:    unitTag.String(),
-				AttachmentTag: tag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	r := result.Results[0]
-	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
-}
-
-func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	tag := names.NewVolumeTag("123")
-	unitTag := names.NewUnitTag("mysql/666")
-	unitUUID := unittesting.GenUnitUUID(c)
-	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
-		gomock.Any(), tag.Id(), unitUUID,
-	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
-		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
-
-	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
-		Ids: []params.MachineStorageId{
-			{
-				MachineTag:    unitTag.String(),
-				AttachmentTag: tag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	r := result.Results[0]
-	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
-}
-
-func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeAttachmentNotFound2(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	tag := names.NewVolumeTag("123")
-	unitTag := names.NewUnitTag("mysql/666")
-	unitUUID := unittesting.GenUnitUUID(c)
-	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
-		gomock.Any(), tag.Id(), unitUUID,
-	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
-		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
-
-	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
-		Ids: []params.MachineStorageId{
-			{
-				MachineTag:    unitTag.String(),
-				AttachmentTag: tag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	r := result.Results[0]
-	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
-}
-
-func (s *provisionerSuite) TestAttachmentLifeForVolumeUnitWithVolumeNotFound2(c *tc.C) {
-	ctrl := s.setupAPI(c)
-	defer ctrl.Finish()
-
-	tag := names.NewVolumeTag("123")
-	unitTag := names.NewUnitTag("mysql/666")
-	unitUUID := unittesting.GenUnitUUID(c)
-	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
-
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDUnit(
-		gomock.Any(), tag.Id(), unitUUID,
-	).Return(volumeAttachmentUUID, nil)
-	s.mockStorageProvisioningService.EXPECT().
-		GetVolumeAttachmentLife(gomock.Any(), volumeAttachmentUUID).
-		Return(-1, storageprovisioningerrors.VolumeAttachmentNotFound)
-
-	result, err := s.api.AttachmentLife(c.Context(), params.MachineStorageIds{
-		Ids: []params.MachineStorageId{
-			{
-				MachineTag:    unitTag.String(),
-				AttachmentTag: tag.String(),
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	r := result.Results[0]
-	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
+	c.Assert(r.Error.Code, tc.Equals, params.CodeNotImplemented)
 }
 
 func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
@@ -2809,7 +2655,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *tc.C) {
 		ProviderID: "fs-123",
 		SizeMiB:    100,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
 	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
 
@@ -2842,7 +2688,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoWithBackingVolume(c *tc.C) {
 		ProviderID: "fs-123",
 		SizeMiB:    100,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
 	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(nil)
 
@@ -2873,7 +2719,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoNotFound(c *tc.C) {
 		SizeMiB:    100,
 	}
 
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
 	svc.EXPECT().SetFilesystemProvisionedInfo(gomock.Any(), "123", info).Return(
 		storageprovisioningerrors.FilesystemNotFound)
@@ -2901,7 +2747,7 @@ func (s *provisionerSuite) TestSetFilesystemInfoNoPool(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().CheckFilesystemForIDExists(gomock.Any(), "123").Return(true, nil)
 
 	result, err := s.api.SetFilesystemInfo(c.Context(), params.Filesystems{
@@ -2934,7 +2780,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *tc.C) {
 		WWN:        "xyz",
 		Persistent: true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(nil)
 
 	result, err := s.api.SetVolumeInfo(c.Context(), params.Volumes{
@@ -2969,7 +2815,7 @@ func (s *provisionerSuite) TestSetVolumeInfoNotFound(c *tc.C) {
 		WWN:        "xyz",
 		Persistent: true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "123", info).Return(
 		storageprovisioningerrors.VolumeNotFound)
 
@@ -3026,15 +2872,14 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil).AnyTimes()
 	volAttachUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 	volAttachPlanUUID := storageprovisioningtesting.GenVolumeAttachmentPlanUUID(c)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
 	info := storageprovisioning.VolumeAttachmentProvisionedInfo{
-		ReadOnly:              true,
-		BlockDeviceName:       "x",
-		BlockDeviceLink:       "y",
-		BlockDeviceBusAddress: "z",
+		ReadOnly:        true,
+		BlockDeviceUUID: &bdUUID,
 	}
 	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
 		DeviceType: "iscsi",
@@ -3042,8 +2887,16 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 			"a": "b",
 		},
 	}
+	blockDevice := blockdevice.BlockDevice{
+		DeviceName:  "x",
+		DeviceLinks: []string{"y"},
+		BusAddress:  "z",
+	}
 
-	svc := s.mockStorageProvisioningService
+	s.blockDeviceService.EXPECT().MatchOrCreateBlockDevice(gomock.Any(),
+		machineUUID, blockDevice).Return(bdUUID, nil)
+
+	svc := s.storageProvisioningService
 	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(),
 		tag.Id(), machineUUID).Return(volAttachUUID, nil)
 	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
@@ -3092,7 +2945,7 @@ func (s *provisionerSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 	volAttachPlanUUID := storageprovisioningtesting.GenVolumeAttachmentPlanUUID(c)
 
@@ -3106,7 +2959,7 @@ func (s *provisionerSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 		DeviceType:       storageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(volAttachPlanUUID, nil)
@@ -3145,7 +2998,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id()),
 	).Return(machineUUID, nil)
 	volAttachUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
@@ -3155,7 +3008,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 		"b": "y",
 		"c": "z",
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 
 	svc.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
@@ -3198,11 +3051,12 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id()),
 	).Return(machineUUID, nil).AnyTimes()
 	volumeAttachPlanUUID := storageprovisioningtesting.GenVolumeAttachmentPlanUUID(c)
 
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
 	blockDeviceInfo := blockdevice.BlockDevice{
 		DeviceName:      "a",
 		DeviceLinks:     []string{"b"},
@@ -3217,14 +3071,18 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *tc.C) {
 		MountPoint:      "k",
 		SerialId:        "l",
 	}
-	svc := s.mockStorageProvisioningService
+
+	s.blockDeviceService.EXPECT().MatchOrCreateBlockDevice(gomock.Any(),
+		machineUUID, blockDeviceInfo).Return(bdUUID, nil)
+
+	svc := s.storageProvisioningService
 	svc.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 		gomock.Any(), tag.Id(), machineUUID,
 	).Return(volumeAttachPlanUUID, nil)
 	svc.EXPECT().SetVolumeAttachmentPlanProvisionedBlockDevice(
 		gomock.Any(),
 		volumeAttachPlanUUID,
-		blockDeviceInfo,
+		bdUUID,
 	).Return(nil)
 
 	result, err := s.api.SetVolumeAttachmentPlanBlockInfo(c.Context(), params.VolumeAttachmentPlans{
@@ -3272,14 +3130,14 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachine(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForMachine(gomock.Any(),
 		tag.Id(), machineUUID, info).Return(nil)
 
@@ -3307,14 +3165,14 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoMachineErrors(c *tc.C)
 	tag := names.NewFilesystemTag("123")
 	machineTag := names.NewMachineTag("5")
 	machineUUID := machinetesting.GenUUID(c)
-	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(),
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(),
 		machine.Name(machineTag.Id())).Return(machineUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForMachine(gomock.Any(),
 		tag.Id(), machineUUID, info).
 		Return(storageprovisioningerrors.FilesystemAttachmentNotFound)
@@ -3343,14 +3201,14 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnit(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("app/5")
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(),
 		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForUnit(gomock.Any(),
 		tag.Id(), unitUUID, info).Return(nil)
 
@@ -3378,14 +3236,14 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfoUnitErrors(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("app/5")
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(),
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(),
 		coreunit.Name(unitTag.Id())).Return(unitUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
 	}
-	svc := s.mockStorageProvisioningService
+	svc := s.storageProvisioningService
 	svc.EXPECT().SetFilesystemAttachmentProvisionedInfoForUnit(gomock.Any(),
 		tag.Id(), unitUUID, info).
 		Return(storageprovisioningerrors.FilesystemAttachmentNotFound)
