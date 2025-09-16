@@ -27,9 +27,9 @@ type MachineService interface {
 }
 
 type BlockDeviceService interface {
-	// UpdateMachineBlockDevices updates the block devices for the specified
+	// UpdateBlockDevicesForMachine updates the block devices for the specified
 	// machine.
-	UpdateBlockDevices(
+	UpdateBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 		devices []blockdevice.BlockDevice,
 	) error
@@ -73,7 +73,7 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(
 		}
 
 		blockdevices := blockDevicesFromParams(arg.BlockDevices)
-		err = d.blockDeviceService.UpdateBlockDevices(
+		err = d.blockDeviceService.UpdateBlockDevicesForMachine(
 			ctx, machineUUID, blockdevices)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			return errors.Errorf(
