@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package action_test
+package action
 
 import (
 	"context"
@@ -11,10 +11,11 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
+	"gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -22,39 +23,61 @@ import (
 	operation "github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type actionSuite struct {
-	jujutesting.ApiServerSuite
+	applicationService *MockApplicationService
+	operationService   *MockOperationService
 
-	applicationService *action.MockApplicationService
-	operationService   *action.MockOperationService
+	adminTag names.UserTag
+	client   *ActionAPI
+}
 
-	modelTag names.ModelTag
-	client   *action.ActionAPI
+func (s *actionSuite) SetUpTest(c *check.C) {
+	s.adminTag = names.NewUserTag("admin")
 }
 
 func (s *actionSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.applicationService = action.NewMockApplicationService(ctrl)
-	s.operationService = action.NewMockOperationService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.operationService = NewMockOperationService(ctrl)
+
+	c.Cleanup(func() {
+		s.applicationService = nil
+		s.operationService = nil
+	})
 
 	return ctrl
 }
 
-func (s *actionSuite) setupAPI(c *tc.C, authTag names.Tag) {
+func (s *actionSuite) setupAPI(c *tc.C, authTag names.UserTag) {
 	var err error
+
 	auth := apiservertesting.FakeAuthorizer{
 		Tag:      authTag,
-		AdminTag: jujutesting.AdminUser,
+		AdminTag: s.adminTag,
 	}
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.modelTag = names.NewModelTag(modelUUID.String())
-	s.client, err = action.NewActionAPI(auth, action.FakeLeadership{}, s.applicationService, nil, nil, s.operationService, modelUUID)
+
+	leadershipFunc := func() (leadership.Reader, error) {
+		return FakeLeadership{}, nil
+	}
+	s.client, err = newActionAPI(
+		auth,
+		leadershipFunc,
+		s.applicationService,
+		nil,
+		nil,
+		s.operationService,
+		modelUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Cleanup(func() {
+		s.client = nil
+	})
 }
 
 func TestActionSuite(t *testing.T) {
@@ -64,7 +87,7 @@ func TestActionSuite(t *testing.T) {
 func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	resAction := operation.Task{
 		TaskInfo: operation.TaskInfo{
@@ -121,7 +144,7 @@ func (s *actionSuite) TestActionsPermissionDenied(c *tc.C) {
 func (s *actionSuite) TestActionsInvalidActionTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -138,7 +161,7 @@ func (s *actionSuite) TestActionsInvalidActionTag(c *tc.C) {
 func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	taskID := "42"
 
 	s.operationService.EXPECT().GetTask(
@@ -161,7 +184,7 @@ func (s *actionSuite) TestActionsActionNotFound(c *tc.C) {
 func (s *actionSuite) TestActionsServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	taskID := "42"
 
 	s.operationService.EXPECT().GetTask(
@@ -184,7 +207,7 @@ func (s *actionSuite) TestActionsServerError(c *tc.C) {
 func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	taskID0 := "42"
 	taskID1 := "43"
 	resAction0 := operation.Task{
@@ -220,7 +243,7 @@ func (s *actionSuite) TestActionsMultipleEntities(c *tc.C) {
 func (s *actionSuite) TestActionsEmptyEntityList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.Actions(context.Background(), params.Entities{
 		Entities: []params.Entity{},
@@ -233,7 +256,7 @@ func (s *actionSuite) TestActionsEmptyEntityList(c *tc.C) {
 func (s *actionSuite) TestCancelSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	cancelledAction := operation.Task{
 		TaskInfo: operation.TaskInfo{
@@ -281,7 +304,7 @@ func (s *actionSuite) TestCancelPermissionDenied(c *tc.C) {
 func (s *actionSuite) TestCancelInvalidActionTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -298,7 +321,7 @@ func (s *actionSuite) TestCancelInvalidActionTag(c *tc.C) {
 func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	taskID := "42"
 
 	s.operationService.EXPECT().CancelTask(
@@ -321,7 +344,7 @@ func (s *actionSuite) TestCancelActionNotFound(c *tc.C) {
 func (s *actionSuite) TestCancelServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	taskID := "42"
 
 	s.operationService.EXPECT().CancelTask(
@@ -343,7 +366,7 @@ func (s *actionSuite) TestCancelServerError(c *tc.C) {
 func (s *actionSuite) TestCancelEmptyEntityList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.Cancel(context.Background(), params.Entities{
 		Entities: []params.Entity{},
@@ -356,7 +379,7 @@ func (s *actionSuite) TestCancelEmptyEntityList(c *tc.C) {
 func (s *actionSuite) TestApplicationsCharmsActionsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	appName := "postgresql"
 	locator := applicationcharm.CharmLocator{
 		Name:     "postgresql",
@@ -428,7 +451,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsPermissionDenied(c *tc.C) {
 func (s *actionSuite) TestApplicationsCharmsActionsInvalidApplicationTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.ApplicationsCharmsActions(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -445,7 +468,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsInvalidApplicationTag(c *tc.C
 func (s *actionSuite) TestApplicationsCharmsActionsApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	appName := "postgresql"
 
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
@@ -468,7 +491,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsApplicationNotFound(c *tc.C) 
 func (s *actionSuite) TestApplicationsCharmsActionsCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	appName := "postgresql"
 	locator := applicationcharm.CharmLocator{
@@ -501,7 +524,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsCharmNotFound(c *tc.C) {
 func (s *actionSuite) TestApplicationsCharmsActionsServerError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	appName := "postgresql"
 
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(
@@ -523,7 +546,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsServerError(c *tc.C) {
 func (s *actionSuite) TestApplicationsCharmsActionsMultipleEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 	appName1 := "postgresql"
 	appName2 := "mysql"
 	locator1 := applicationcharm.CharmLocator{
@@ -574,7 +597,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsMultipleEntities(c *tc.C) {
 func (s *actionSuite) TestApplicationsCharmsActionsEmptyEntityList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.setupAPI(c, jujutesting.AdminUser)
+	s.setupAPI(c, s.adminTag)
 
 	result, err := s.client.ApplicationsCharmsActions(context.Background(), params.Entities{
 		Entities: []params.Entity{},
@@ -582,8 +605,4 @@ func (s *actionSuite) TestApplicationsCharmsActionsEmptyEntityList(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 0)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -7,11 +7,9 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/leadership"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 )
 
@@ -38,33 +36,40 @@ func (s *MockBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.Leadership = NewMockReader(ctrl)
 	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
 
+	c.Cleanup(func() {
+		s.BlockCommandService = nil
+		s.ApplicationService = nil
+		s.ModelInfoService = nil
+		s.OperationService = nil
+		s.Leadership = nil
+		s.Authorizer = nil
+	})
+
 	return ctrl
 }
 
-func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
-	modelUUID := modeltesting.GenModelUUID(c)
-
+func (s *MockBaseSuite) newActionAPI(c *tc.C) *ActionAPI {
 	s.Authorizer.EXPECT().AuthClient().Return(true)
 	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	api, err := newActionAPI(s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService,
-		s.ModelInfoService, s.OperationService, modelUUID)
+	return s.newActionAPIWithAuthorizer(c, s.Authorizer)
+}
+
+func (s *MockBaseSuite) newActionAPIWithAuthorizer(c *tc.C, authorizer facade.Authorizer) *ActionAPI {
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	api, err := newActionAPI(
+		authorizer,
+		LeaderFactory(s.Leadership),
+		s.ApplicationService,
+		s.BlockCommandService,
+		s.ModelInfoService,
+		s.OperationService,
+		modelUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
-}
-
-func NewActionAPI(
-	authorizer facade.Authorizer,
-	leadership leadership.Reader,
-	applicationService ApplicationService,
-	blockCommandService common.BlockCommandService,
-	modelInfoService ModelInfoService,
-	operationService OperationService,
-	modelUUID coremodel.UUID,
-) (*ActionAPI, error) {
-	return newActionAPI(authorizer, LeaderFactory(leadership), applicationService, blockCommandService,
-		modelInfoService, operationService, modelUUID)
 }
 
 type FakeLeadership struct {
