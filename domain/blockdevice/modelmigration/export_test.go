@@ -66,7 +66,8 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			MountPoint:      "/path/to/here",
 		}},
 	}
-	s.service.EXPECT().AllBlockDevices(gomock.Any()).Return(blockDevices, nil)
+	s.service.EXPECT().GetBlockDevicesForAllMachines(
+		gomock.Any()).Return(blockDevices, nil)
 
 	op := s.newExportOperation()
 	err := op.Execute(c.Context(), dst)
@@ -98,7 +99,7 @@ func (s *exportSuite) TestExportMachineNotFound(c *tc.C) {
 	blockDevices := map[machine.Name][]blockdevice.BlockDevice{
 		"666": {{DeviceName: "foo"}},
 	}
-	s.service.EXPECT().AllBlockDevices(gomock.Any()).
+	s.service.EXPECT().GetBlockDevicesForAllMachines(gomock.Any()).
 		Return(blockDevices, nil)
 
 	op := s.newExportOperation()

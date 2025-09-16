@@ -12,12 +12,12 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/blockdevice"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/blockdevice"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -48,9 +48,9 @@ func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID := tc.Must(c, machine.NewUUID)
-	blockDeviceUUID := tc.Must(c, uuid.NewUUID).String()
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
-	bd := map[string]blockdevice.BlockDevice{
+	bd := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		blockDeviceUUID: {
 			DeviceName:      "foo",
 			DeviceLinks:     []string{"a-link"},
@@ -66,11 +66,13 @@ func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 			SerialId:        "coco-pops",
 		},
 	}
-	s.state.EXPECT().BlockDevices(gomock.Any(), machineUUID).Return(bd, nil)
+	s.state.EXPECT().GetBlockDevicesForMachine(
+		gomock.Any(), machineUUID).Return(bd, nil)
 
-	result, err := s.service(c).BlockDevices(c.Context(), machineUUID)
+	result, err := s.service(c).GetBlockDevicesForMachine(
+		c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDevice{{
+	c.Assert(result, tc.DeepEquals, []coreblockdevice.BlockDevice{{
 		DeviceName:      "foo",
 		DeviceLinks:     []string{"a-link"},
 		FilesystemLabel: "label",
@@ -89,7 +91,7 @@ func (s *serviceSuite) TestBlockDevices(c *tc.C) {
 func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	mbd := map[machine.Name][]blockdevice.BlockDevice{
+	mbd := map[machine.Name][]coreblockdevice.BlockDevice{
 		"666": {{
 			DeviceName:      "foo",
 			DeviceLinks:     []string{"a-link"},
@@ -108,9 +110,10 @@ func (s *serviceSuite) TestAllBlockDevices(c *tc.C) {
 			DeviceName: "bar",
 		}},
 	}
-	s.state.EXPECT().MachineBlockDevices(gomock.Any()).Return(mbd, nil)
+	s.state.EXPECT().GetBlockDevicesForAllMachines(
+		gomock.Any()).Return(mbd, nil)
 
-	result, err := s.service(c).AllBlockDevices(c.Context())
+	result, err := s.service(c).GetBlockDevicesForAllMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, mbd)
 }
@@ -120,7 +123,7 @@ func (s *serviceSuite) TestUpdateDevicesNoExisting(c *tc.C) {
 
 	machineUUID := tc.Must(c, machine.NewUUID)
 
-	bd := []blockdevice.BlockDevice{{
+	bd := []coreblockdevice.BlockDevice{{
 		DeviceName:      "foo",
 		DeviceLinks:     []string{"a-link"},
 		FilesystemLabel: "label",
@@ -134,16 +137,16 @@ func (s *serviceSuite) TestUpdateDevicesNoExisting(c *tc.C) {
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
 	}}
-	s.state.EXPECT().BlockDevices(
+	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(nil, nil)
 
-	s.state.EXPECT().UpdateMachineBlockDevices(
+	s.state.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			_ context.Context, _ machine.UUID,
-			added map[string]blockdevice.BlockDevice,
-			updated map[string]blockdevice.BlockDevice,
-			removed []string,
+			added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			removed []blockdevice.BlockDeviceUUID,
 		) error {
 			c.Check(slices.Collect(maps.Values(added)), tc.DeepEquals, bd)
 			c.Check(updated, tc.HasLen, 0)
@@ -151,7 +154,8 @@ func (s *serviceSuite) TestUpdateDevicesNoExisting(c *tc.C) {
 			return nil
 		})
 
-	err := s.service(c).UpdateBlockDevices(c.Context(), machineUUID, bd)
+	err := s.service(c).UpdateBlockDevicesForMachine(
+		c.Context(), machineUUID, bd)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -160,12 +164,12 @@ func (s *serviceSuite) TestUpdateDevicesExistingUpdated(c *tc.C) {
 
 	machineUUID := tc.Must(c, machine.NewUUID)
 
-	existingBd := map[string]blockdevice.BlockDevice{
+	existingBd := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName: "foo",
 		},
 	}
-	bd := []blockdevice.BlockDevice{{
+	bd := []coreblockdevice.BlockDevice{{
 		DeviceName:      "foo",
 		DeviceLinks:     []string{"a-link"},
 		FilesystemLabel: "label",
@@ -179,26 +183,28 @@ func (s *serviceSuite) TestUpdateDevicesExistingUpdated(c *tc.C) {
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
 	}}
-	s.state.EXPECT().BlockDevices(
+	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
 
-	s.state.EXPECT().UpdateMachineBlockDevices(
+	s.state.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			_ context.Context, _ machine.UUID,
-			added map[string]blockdevice.BlockDevice,
-			updated map[string]blockdevice.BlockDevice,
-			removed []string,
+			added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			removed []blockdevice.BlockDeviceUUID,
 		) error {
 			c.Check(added, tc.HasLen, 0)
-			c.Check(updated, tc.DeepEquals, map[string]blockdevice.BlockDevice{
-				"a": bd[0],
-			})
+			c.Check(updated, tc.DeepEquals,
+				map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+					"a": bd[0],
+				},
+			)
 			c.Check(removed, tc.HasLen, 0)
 			return nil
 		})
 
-	err := s.service(c).UpdateBlockDevices(c.Context(), machineUUID, bd)
+	err := s.service(c).UpdateBlockDevicesForMachine(c.Context(), machineUUID, bd)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -207,12 +213,12 @@ func (s *serviceSuite) TestUpdateDevicesExistingRemoved(c *tc.C) {
 
 	machineUUID := tc.Must(c, machine.NewUUID)
 
-	existingBd := map[string]blockdevice.BlockDevice{
+	existingBd := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName: "bar",
 		},
 	}
-	bd := []blockdevice.BlockDevice{{
+	bd := []coreblockdevice.BlockDevice{{
 		DeviceName:      "foo",
 		DeviceLinks:     []string{"a-link"},
 		FilesystemLabel: "label",
@@ -226,24 +232,24 @@ func (s *serviceSuite) TestUpdateDevicesExistingRemoved(c *tc.C) {
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
 	}}
-	s.state.EXPECT().BlockDevices(
+	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
 
-	s.state.EXPECT().UpdateMachineBlockDevices(
+	s.state.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			_ context.Context, _ machine.UUID,
-			added map[string]blockdevice.BlockDevice,
-			updated map[string]blockdevice.BlockDevice,
-			removed []string,
+			added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			removed []blockdevice.BlockDeviceUUID,
 		) error {
 			c.Check(slices.Collect(maps.Values(added)), tc.DeepEquals, bd)
 			c.Check(updated, tc.HasLen, 0)
-			c.Check(removed, tc.DeepEquals, []string{"a"})
+			c.Check(removed, tc.DeepEquals, []blockdevice.BlockDeviceUUID{"a"})
 			return nil
 		})
 
-	err := s.service(c).UpdateBlockDevices(c.Context(), machineUUID, bd)
+	err := s.service(c).UpdateBlockDevicesForMachine(c.Context(), machineUUID, bd)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -251,15 +257,15 @@ func (s *serviceSuite) TestSetBlockDevices(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID := tc.Must(c, machine.NewUUID)
-	s.state.EXPECT().GetMachineUUID(
+	s.state.EXPECT().GetMachineUUIDByName(
 		gomock.Any(), machine.Name("666")).Return(machineUUID, nil)
 
-	existingBd := map[string]blockdevice.BlockDevice{
+	existingBd := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName: "bar",
 		},
 	}
-	bd := []blockdevice.BlockDevice{{
+	bd := []coreblockdevice.BlockDevice{{
 		DeviceName:      "foo",
 		DeviceLinks:     []string{"a-link"},
 		FilesystemLabel: "label",
@@ -273,24 +279,24 @@ func (s *serviceSuite) TestSetBlockDevices(c *tc.C) {
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
 	}}
-	s.state.EXPECT().BlockDevices(
+	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
 
-	s.state.EXPECT().UpdateMachineBlockDevices(
+	s.state.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
 			_ context.Context, _ machine.UUID,
-			added map[string]blockdevice.BlockDevice,
-			updated map[string]blockdevice.BlockDevice,
-			removed []string,
+			added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+			removed []blockdevice.BlockDeviceUUID,
 		) error {
 			c.Check(slices.Collect(maps.Values(added)), tc.DeepEquals, bd)
 			c.Check(updated, tc.HasLen, 0)
-			c.Check(removed, tc.DeepEquals, []string{"a"})
+			c.Check(removed, tc.DeepEquals, []blockdevice.BlockDeviceUUID{"a"})
 			return nil
 		})
 
-	err := s.service(c).SetBlockDevices(c.Context(), "666", bd)
+	err := s.service(c).SetBlockDevicesForMachineByName(c.Context(), "666", bd)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -308,7 +314,7 @@ func (s *serviceSuite) TestWatchBlockDevices(c *tc.C) {
 	s.watcherFactory.EXPECT().NewNotifyWatcher(
 		gomock.Any(), gomock.Any(), gomock.Any()).Return(tw, nil)
 
-	w, err := s.service(c).WatchBlockDevices(c.Context(), machineUUID)
+	w, err := s.service(c).WatchBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 }

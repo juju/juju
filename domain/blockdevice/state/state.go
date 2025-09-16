@@ -10,10 +10,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	"github.com/juju/juju/core/blockdevice"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
@@ -32,20 +33,20 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// BlockDevices returns the BlockDevices for the specified machine.
+// GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
-func (st *State) BlockDevices(
+func (st *State) GetBlockDevicesForMachine(
 	ctx context.Context, machineUUID machine.UUID,
-) (map[string]blockdevice.BlockDevice, error) {
+) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result map[string]blockdevice.BlockDevice
+	var result map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkMachineNotDead(ctx, tx, machineUUID)
 		if err != nil {
@@ -59,7 +60,7 @@ func (st *State) BlockDevices(
 
 func (st *State) loadBlockDevices(
 	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
-) (map[string]blockdevice.BlockDevice, error) {
+) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error) {
 	input := entityUUID{
 		UUID: machineUUID.String(),
 	}
@@ -102,9 +103,13 @@ WHERE  machine_uuid = $entityUUID.uuid
 		)
 	}
 
-	retVal := make(map[string]blockdevice.BlockDevice, len(blockDevices))
+	retVal := make(
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+		len(blockDevices),
+	)
 	for _, bd := range blockDevices {
-		retVal[bd.UUID] = blockdevice.BlockDevice{
+		uuid := blockdevice.BlockDeviceUUID(bd.UUID)
+		retVal[uuid] = coreblockdevice.BlockDevice{
 			DeviceName:      bd.Name.V,
 			FilesystemLabel: bd.FilesystemLabel,
 			FilesystemUUID:  bd.FilesystemUUID,
@@ -119,12 +124,13 @@ WHERE  machine_uuid = $entityUUID.uuid
 		}
 	}
 	for _, dl := range devLinks {
-		r, ok := retVal[dl.BlockDeviceUUID]
+		uuid := blockdevice.BlockDeviceUUID(dl.BlockDeviceUUID)
+		r, ok := retVal[uuid]
 		if !ok {
 			continue
 		}
 		r.DeviceLinks = append(r.DeviceLinks, dl.Name)
-		retVal[dl.BlockDeviceUUID] = r
+		retVal[uuid] = r
 	}
 
 	return retVal, errors.Capture(err)
@@ -164,12 +170,12 @@ WHERE  uuid = $entityLife.uuid`, io)
 	return nil
 }
 
-// GetMachineUUID gets the uuid for the named machine.
+// GetMachineUUIDByName gets the uuid for the named machine.
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
-func (st *State) GetMachineUUID(
+func (st *State) GetMachineUUIDByName(
 	ctx context.Context, machineName machine.Name,
 ) (machine.UUID, error) {
 	db, err := st.DB(ctx)
@@ -212,17 +218,17 @@ WHERE  name = $entityName.name`, in, out)
 	return machine.UUID(out.UUID), nil
 }
 
-// UpdateMachineBlockDevices updates the block devices for the specified
+// UpdateBlockDevicesForMachine updates the block devices for the specified
 // machine.
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
-func (st *State) UpdateMachineBlockDevices(
+func (st *State) UpdateBlockDevicesForMachine(
 	ctx context.Context, machineUUID machine.UUID,
-	added map[string]blockdevice.BlockDevice,
-	updated map[string]blockdevice.BlockDevice,
-	removeable []string,
+	added map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+	updated map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+	removeable []blockdevice.BlockDeviceUUID,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -265,10 +271,15 @@ func (st *State) UpdateMachineBlockDevices(
 // removeUnreferencedBlockDevices deletes all the block devices specified if
 // they are not referenced by a storage volume attachment.`
 func (st *State) removeUnreferencedBlockDevices(
-	ctx context.Context, tx *sqlair.TX, deviceUUIDs []string,
+	ctx context.Context,
+	tx *sqlair.TX,
+	deviceUUIDs []blockdevice.BlockDeviceUUID,
 ) error {
 	type blockDeviceUUIDs []string
-	input := blockDeviceUUIDs(deviceUUIDs)
+	input := make(blockDeviceUUIDs, 0, len(deviceUUIDs))
+	for _, v := range deviceUUIDs {
+		input = append(input, v.String())
+	}
 
 	selectBlockDevicesStmt, err := st.Prepare(`
 SELECT          bd.uuid AS &entityUUID.uuid
@@ -324,7 +335,7 @@ WHERE uuid IN ($blockDeviceUUIDs[:])
 
 func (st *State) updateBlockDevices(
 	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
-	devices map[string]blockdevice.BlockDevice,
+	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
 	type deviceLinkNames []string
 
@@ -384,7 +395,7 @@ WHERE  uuid = $blockDevice.uuid
 	for blockDeviceUUID, bd := range devices {
 		for _, v := range bd.DeviceLinks {
 			devLinks = append(devLinks, deviceLink{
-				BlockDeviceUUID: blockDeviceUUID,
+				BlockDeviceUUID: blockDeviceUUID.String(),
 				MachineUUID:     machineUUID.String(),
 				Name:            v,
 			})
@@ -399,7 +410,7 @@ WHERE  uuid = $blockDevice.uuid
 
 	for blockDeviceUUID, bd := range devices {
 		val := blockDevice{
-			UUID:            blockDeviceUUID,
+			UUID:            blockDeviceUUID.String(),
 			MachineUUID:     machineUUID.String(),
 			HardwareId:      bd.HardwareId,
 			WWN:             bd.WWN,
@@ -429,7 +440,7 @@ WHERE  uuid = $blockDevice.uuid
 
 func (st *State) insertBlockDevices(
 	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
-	devices map[string]blockdevice.BlockDevice,
+	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
 	insertQuery := `
 INSERT INTO block_device (*)
@@ -452,7 +463,7 @@ VALUES ($deviceLink.*)
 	numLinks := 0
 	for uuid, bd := range devices {
 		inputBlockDevice := blockDevice{
-			UUID:            uuid,
+			UUID:            uuid.String(),
 			MachineUUID:     machineUUID.String(),
 			FilesystemLabel: bd.FilesystemLabel,
 			FilesystemUUID:  bd.FilesystemUUID,
@@ -488,7 +499,7 @@ VALUES ($deviceLink.*)
 	for uuid, bd := range devices {
 		for _, link := range bd.DeviceLinks {
 			inputDevLinks = append(inputDevLinks, deviceLink{
-				BlockDeviceUUID: uuid,
+				BlockDeviceUUID: uuid.String(),
 				MachineUUID:     machineUUID.String(),
 				Name:            link,
 			})
@@ -503,10 +514,10 @@ VALUES ($deviceLink.*)
 	return nil
 }
 
-// MachineBlockDevices retrieves block devices for all machines.
-func (st *State) MachineBlockDevices(
+// GetBlockDevicesForAllMachines retrieves block devices for all machines.
+func (st *State) GetBlockDevicesForAllMachines(
 	ctx context.Context,
-) (map[machine.Name][]blockdevice.BlockDevice, error) {
+) (map[machine.Name][]coreblockdevice.BlockDevice, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -573,10 +584,10 @@ FROM   machine
 		machineNameMap[m.UUID] = machine.Name(m.Name)
 	}
 
-	res := make(map[machine.Name][]blockdevice.BlockDevice, len(blockDevices))
+	res := make(map[machine.Name][]coreblockdevice.BlockDevice, len(blockDevices))
 	for _, bd := range blockDevices {
 		machineName := machineNameMap[bd.MachineUUID]
-		res[machineName] = append(res[machineName], blockdevice.BlockDevice{
+		res[machineName] = append(res[machineName], coreblockdevice.BlockDevice{
 			DeviceName:      bd.Name.V,
 			DeviceLinks:     devLinkMap[bd.UUID],
 			FilesystemUUID:  bd.FilesystemUUID,

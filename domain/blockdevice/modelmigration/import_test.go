@@ -99,7 +99,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		InUse:           true,
 		MountPoint:      "/path/to/here",
 	}}
-	s.service.EXPECT().SetBlockDevices(
+	s.service.EXPECT().SetBlockDevicesForMachineByName(
 		gomock.Any(), machine.Name("666"), expectedBlockDevices).Return(nil)
 
 	op := s.newImportOperation()
