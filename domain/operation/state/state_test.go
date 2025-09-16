@@ -355,9 +355,41 @@ func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForUnit(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	// All tasks should be returned, no matter their status.
+	// Because the FilterTaskUUIDsForUnit does not perform any checks on the
+	// task status' (see method's documentation), this test shows that it will
+	// only filter regarding to the unit's UUID.
+	// In this particular case, all tasks are related to the same unit, so they
+	// are all returned.
 	c.Check(len(result), tc.Equals, 3)
 	c.Check(result, tc.SameContents, []string{"task-1", "task-2", "task-3"})
+}
+
+func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForMultipleUnits(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	unit0UUID := s.addUnit(c, s.addCharm(c))
+	unit1UUID := s.addUnit(c, s.addCharm(c))
+
+	// Add tasks with different statuses
+	taskUUID1 := s.addOperationTaskWithID(c, operationUUID, "task-1", "pending")
+	taskUUID2 := s.addOperationTaskWithID(c, operationUUID, "task-2", "pending")
+	taskUUID3 := s.addOperationTaskWithID(c, operationUUID, "task-3", "pending")
+
+	// Link tasks to unit
+	s.addOperationUnitTask(c, taskUUID1, unit1UUID)
+	s.addOperationUnitTask(c, taskUUID2, unit0UUID)
+	s.addOperationUnitTask(c, taskUUID3, unit1UUID)
+
+	taskUUIDs := []string{taskUUID1, taskUUID2, taskUUID3}
+
+	// Act
+	result, err := s.state.FilterTaskUUIDsForUnit(c.Context(), taskUUIDs, unit0UUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	// Only task-2 is related to unit0UUID.
+	c.Check(len(result), tc.Equals, 1)
+	c.Check(result, tc.SameContents, []string{"task-2"})
 }
 
 func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForUnitEmptyList(c *tc.C) {
@@ -424,9 +456,40 @@ func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForMachine(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	// All tasks should be returned, no matter their status.
+	// Because the FilterTaskUUIDsForMachine does not perform any checks on the
+	// task status' (see method's documentation), this test shows that it will
+	// only filter regarding to the machine's UUID.
+	// In this particular case, all tasks are related to the same machine, so
+	// they are all returned.
 	c.Check(len(result), tc.Equals, 3)
 	c.Check(result, tc.SameContents, []string{"task-1", "task-2", "task-3"})
+}
+
+func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForMultipleMachines(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	machine0UUID := s.addMachine(c, "0")
+	machine1UUID := s.addMachine(c, "1")
+
+	taskUUID1 := s.addOperationTaskWithID(c, operationUUID, "task-1", "running")
+	taskUUID2 := s.addOperationTaskWithID(c, operationUUID, "task-2", "pending")
+	taskUUID3 := s.addOperationTaskWithID(c, operationUUID, "task-3", "aborting")
+
+	// Link tasks to machine.
+	s.addOperationMachineTask(c, taskUUID1, machine1UUID)
+	s.addOperationMachineTask(c, taskUUID2, machine0UUID)
+	s.addOperationMachineTask(c, taskUUID3, machine1UUID)
+
+	taskUUIDs := []string{taskUUID1, taskUUID2, taskUUID3}
+
+	// Act
+	result, err := s.state.FilterTaskUUIDsForMachine(c.Context(), taskUUIDs, machine0UUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	// Only task-2 is related to machine0UUID.
+	c.Check(len(result), tc.Equals, 1)
+	c.Check(result, tc.SameContents, []string{"task-2"})
 }
 
 func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForMachineEmptyList(c *tc.C) {

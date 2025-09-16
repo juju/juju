@@ -87,7 +87,7 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 		return nil, errors.Capture(err)
 	}
 
-	table, initialQuery := s.st.InitialWatchStatementUnitTask()
+	namespace, initialQuery := s.st.InitialWatchStatementUnitTask()
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, "WatchUnitTaskNotifications.mapper")
@@ -97,10 +97,9 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 			return nil, nil
 		}
 
-		taskUUIDs := make([]string, len(changes))
-		for i, change := range changes {
-			taskUUIDs[i] = change.Changed()
-		}
+		taskUUIDs := transform.Slice(changes, func(in changestream.ChangeEvent) string {
+			return in.Changed()
+		})
 		taskIDs, err := s.st.FilterTaskUUIDsForUnit(ctx, taskUUIDs, unitUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -114,7 +113,7 @@ func (s *WatchableService) WatchUnitTaskNotifications(ctx context.Context, unitN
 		eventsource.InitialNamespaceChanges(initialQuery, unitUUID),
 		fmt.Sprintf("unit tasks watcher for %q", unitName),
 		mapper,
-		eventsource.NamespaceFilter(table, changestream.Changed),
+		eventsource.NamespaceFilter(namespace, changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -135,7 +134,7 @@ func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, ma
 		return nil, errors.Capture(err)
 	}
 
-	table, initialQuery := s.st.InitialWatchStatementMachineTask()
+	namespace, initialQuery := s.st.InitialWatchStatementMachineTask()
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		ctx, span := trace.Start(ctx, "WatchMachineTaskNotifications.mapper")
@@ -145,10 +144,9 @@ func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, ma
 			return nil, nil
 		}
 
-		taskUUIDs := make([]string, len(changes))
-		for i, change := range changes {
-			taskUUIDs[i] = change.Changed()
-		}
+		taskUUIDs := transform.Slice(changes, func(in changestream.ChangeEvent) string {
+			return in.Changed()
+		})
 		taskIDs, err := s.st.FilterTaskUUIDsForMachine(ctx, taskUUIDs, machineUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -162,7 +160,7 @@ func (s *WatchableService) WatchMachineTaskNotifications(ctx context.Context, ma
 		eventsource.InitialNamespaceChanges(initialQuery, machineUUID),
 		fmt.Sprintf("machine tasks watcher for %q", machineName),
 		mapper,
-		eventsource.NamespaceFilter(table, changestream.Changed),
+		eventsource.NamespaceFilter(namespace, changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -30,6 +30,17 @@ func (s *operationSuite) SetUpTest(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
 }
 
+// TestOperationTaskStatusPendingInsertTriggered tests that when inserting a
+// new task (thus creating a row in operation_task_status), an event is emitted,
+// even if no status change is made.
+func (s *operationSuite) TestOperationTaskStatusPendingInsertTriggered(c *tc.C) {
+	// Arrange / Act
+	taskUUID := s.newOperationTaskStatus(c, "first", corestatus.Pending)
+
+	// Assert
+	s.assertChangeEvent(c, "custom_operation_task_status_pending", taskUUID)
+}
+
 // TestOperationTaskStatusPending Trigger tests that changing the status to
 // PENDING, triggers a change log event.
 func (s *operationSuite) TestOperationTaskStatusPendingTrigger(c *tc.C) {

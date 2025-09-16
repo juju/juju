@@ -225,13 +225,6 @@ type ApplicationService interface {
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 
-	// WatchUnitActions watches for all updates to actions for the specified unit,
-	// emitting action ids.
-	//
-	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
-	// will be returned.
-	WatchUnitActions(context.Context, coreunit.Name) (watcher.StringsWatcher, error)
-
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
 	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error

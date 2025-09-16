@@ -14,7 +14,9 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coremachine "github.com/juju/juju/core/machine"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/operation/service"
@@ -132,14 +134,14 @@ VALUES (?, 1, 'test-operation', datetime('now'), false, 'test-group')`, uuid.Str
 }
 
 // addOperationTaskWithID creates an operation task with specific ID and status, copying the pattern from state tests.
-func (s *watcherSuite) addOperationTaskWithID(c *tc.C, operationUUID internaluuid.UUID, taskID string, statusID int) internaluuid.UUID {
+func (s *watcherSuite) addOperationTaskWithID(c *tc.C, operationUUID internaluuid.UUID, taskID string, status corestatus.Status) internaluuid.UUID {
 	uuid := internaluuid.MustNewUUID()
 	s.runQuery(c, `
 INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
 VALUES (?, ?, ?, datetime('now'))`, uuid.String(), operationUUID.String(), taskID)
 	s.runQuery(c, `
 INSERT INTO operation_task_status (task_uuid, status_id)
-VALUES (?, ?)`, uuid.String(), statusID)
+SELECT ?, id FROM operation_task_status_value WHERE status = ?`, uuid.String(), string(status))
 	return uuid
 }
 
@@ -158,32 +160,26 @@ VALUES (?, ?)`, taskUUID.String(), machineUUID.String())
 }
 
 // setTaskStatus updates the status of an existing task.
-func (s *watcherSuite) setTaskStatus(c *tc.C, taskUUID internaluuid.UUID, statusID int) {
+func (s *watcherSuite) setTaskStatus(c *tc.C, taskUUID internaluuid.UUID, status corestatus.Status) {
 	s.runQuery(c, `
-UPDATE operation_task_status SET status_id=?, updated_at=datetime('now') WHERE task_uuid=?
-`, statusID, taskUUID.String())
+UPDATE operation_task_status
+SET status_id = (SELECT id FROM operation_task_status_value WHERE status = ?),
+    updated_at = datetime('now')
+WHERE task_uuid = ?
+`, string(status), taskUUID.String())
 }
-
-const (
-	statusRunning   = 1
-	statusPending   = 2
-	statusCancelled = 4
-	statusCompleted = 5
-	statusAborting  = 6
-)
 
 func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
 	unitName := "foo/0"
 	unitUUID := s.addUnit(c, unitName)
 
 	operationUUID := s.addOperation(c)
-	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", statusPending)
-	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", statusPending)
+	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
+	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", corestatus.Pending)
 	s.addOperationUnitTask(c, task0UUID, unitUUID)
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
-	unitNameParsed, err := coreunit.NewName(unitName)
-	c.Assert(err, tc.ErrorIsNil)
+	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -191,7 +187,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
 	// NOTE: Since we have dispatched initial events, we need to assert that the
 	// changes were actually emitted by the watcher.
 	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initail values, only its
+	// that doesn't check the emitted changes for the initial values, only its
 	// values.
 	harness.AddTest(c, func(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -200,13 +196,13 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
 
 	// Change one task to running.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, task0UUID, statusRunning)
+		s.setTaskStatus(c, task0UUID, corestatus.Running)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 	// Change the other to cancelled.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, task1UUID, statusCancelled)
+		s.setTaskStatus(c, task1UUID, corestatus.Cancelled)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -220,20 +216,19 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_EmptyInitial(c *tc.C) {
 	unitUUID := s.addUnit(c, unitName)
 
 	operationUUID := s.addOperation(c)
-	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", statusRunning)
-	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", statusRunning)
+	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Running)
+	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", corestatus.Running)
 	s.addOperationUnitTask(c, task0UUID, unitUUID)
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
-	unitNameParsed, err := coreunit.NewName(unitName)
-	c.Assert(err, tc.ErrorIsNil)
+	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Complete one task, no emitted event.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, task0UUID, statusCompleted)
+		s.setTaskStatus(c, task0UUID, corestatus.Completed)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -248,13 +243,12 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_MixedPendingAndNonPending(
 
 	// Create both pending and non-pending tasks
 	operationUUID := s.addOperation(c)
-	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", statusPending)
-	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", statusRunning)
+	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
+	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", corestatus.Running)
 	s.addOperationUnitTask(c, task0UUID, unitUUID)
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
-	unitNameParsed, err := coreunit.NewName(unitName)
-	c.Assert(err, tc.ErrorIsNil)
+	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -262,7 +256,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_MixedPendingAndNonPending(
 	// NOTE: Since we have dispatched initial events, we need to assert that the
 	// changes were actually emitted by the watcher.
 	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initail values, only its
+	// that doesn't check the emitted changes for the initial values, only its
 	// values.
 	harness.AddTest(c, func(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -271,7 +265,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_MixedPendingAndNonPending(
 
 	// Change pending task to aborting, emitted event.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, task1UUID, statusAborting)
+		s.setTaskStatus(c, task1UUID, corestatus.Aborting)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{"task-1"}))
 	})
@@ -285,8 +279,8 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
 	machineUUID := s.addMachine(c, machineName)
 
 	operationUUID := s.addOperation(c)
-	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", statusPending)
-	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", statusPending)
+	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
+	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", corestatus.Pending)
 	s.addOperationMachineTask(c, task0UUID, machineUUID)
 	s.addOperationMachineTask(c, task1UUID, machineUUID)
 
@@ -297,7 +291,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
 	// NOTE: Since we have dispatched initial events, we need to assert that the
 	// changes were actually emitted by the watcher.
 	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initail values, only its
+	// that doesn't check the emitted changes for the initial values, only its
 	// values.
 	harness.AddTest(c, func(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -306,7 +300,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
 
 	// Complete the running task.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, task1UUID, statusCompleted)
+		s.setTaskStatus(c, task1UUID, corestatus.Completed)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -320,7 +314,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc
 	machineUUID := s.addMachine(c, machineName)
 
 	operationUUID := s.addOperation(c)
-	taskUUID := s.addOperationTaskWithID(c, operationUUID, "task-0", statusPending)
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
 	s.addOperationMachineTask(c, taskUUID, machineUUID)
 
 	watcher, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name(machineName))
@@ -330,7 +324,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc
 	// NOTE: Since we have dispatched initial events, we need to assert that the
 	// changes were actually emitted by the watcher.
 	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initail values, only its
+	// that doesn't check the emitted changes for the initial values, only its
 	// values.
 	harness.AddTest(c, func(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -339,7 +333,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc
 
 	// Change to aborting, no change emitted.
 	harness.AddTest(c, func(c *tc.C) {
-		s.setTaskStatus(c, taskUUID, statusAborting)
+		s.setTaskStatus(c, taskUUID, corestatus.Aborting)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})

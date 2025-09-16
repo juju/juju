@@ -273,9 +273,9 @@ WHERE  name = $nameArg.name`
 	return result.UUID, nil
 }
 
-// InitialWatchStatementUnitTask returns the namespace (table) and an
-// initial query function which returns the list of (only PENDING or ABORTING
-// status) task ids for the given unit.
+// InitialWatchStatementUnitTask returns the namespace and an initial query
+// function which returns the list of (only PENDING or ABORTING status) task ids
+// for the given unit.
 func (s *State) InitialWatchStatementUnitTask() (string, string) {
 	return "custom_operation_task_status_pending_or_aborting", `
 SELECT t.task_id
@@ -308,6 +308,10 @@ AND    sv.status = 'pending'`
 // FiltertTaskUUIDsForUnit returns a list of task IDs that corresponds to the
 // filtered list of task UUIDs from the provided list that target the given
 // unit uuid.
+// NOTE: This function does not perform any check on the status of the tasks.
+// Although the status check is needed for the notification watcher, we already
+// have a custom changelog trigger, which only fires on PENDING and ABORTING
+// statuses, which makes this filter only needed for unit UUID filtering.
 func (s *State) FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -341,16 +345,19 @@ AND    ut.unit_uuid = $uuid.uuid`
 		return nil, errors.Errorf("getting task ids for unit %q: %w", unitUUID, err)
 	}
 
-	ids := make([]string, len(results))
-	for i, result := range results {
-		ids[i] = result.ID
-	}
+	ids := transform.Slice(results, func(res taskIdent) string {
+		return res.ID
+	})
 	return ids, nil
 }
 
 // FilterTaskUUIDsForMachine returns a list of task IDs that corresponds to the
 // filtered list of task UUIDs from the provided list that target the given
 // machine uuid.
+// NOTE: This function does not perform any check on the status of the tasks.
+// Although the status check is needed for the notification watcher, we already
+// have a custom changelog trigger, which only fires on PENDING status, which
+// makes this filter only needed for machine UUID filtering.
 func (s *State) FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -384,9 +391,8 @@ AND    mt.machine_uuid = $uuid.uuid`
 		return nil, errors.Errorf("getting task ids for machine %q: %w", machineUUID, err)
 	}
 
-	ids := make([]string, len(results))
-	for i, result := range results {
-		ids[i] = result.ID
-	}
+	ids := transform.Slice(results, func(res taskIdent) string {
+		return res.ID
+	})
 	return ids, nil
 }
