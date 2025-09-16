@@ -295,7 +295,10 @@ run_deploy_lxd_profile_bundle() {
 		wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
 	done
 
-	lxd_profile_name="juju-${model_name}-lxd-profile"
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	lxd_profile_name="juju-${model_name}-${short_uuid}-lxd-profile"
+
 	for i in 0 1 2 3; do
 		machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
 		juju status --format=json | jq "${machine_n_lxd0}" | check "${lxd_profile_name}"
