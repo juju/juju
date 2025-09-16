@@ -294,10 +294,9 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		if f.ModelName == "" {
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
-		modelQualifier := f.ModelQualifier
-		if modelQualifier == "" {
-			modelQualifier = apiUser.Id()
-		}
+
+		modelQualifier := constructModelQualifier(f.ModelQualifier, apiUser).String()
+
 		var (
 			modelUUID string
 			ok        bool
@@ -324,6 +323,14 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		filtersPerModel[modelUUID] = filters
 	}
 	return models, filtersPerModel, nil
+}
+
+func constructModelQualifier(qualifier string, apiUser names.UserTag) model.Qualifier {
+	if qualifier == "" {
+		return model.QualifierFromUserTag(apiUser)
+	}
+
+	return model.NormalizeQualifier(qualifier)
 }
 
 // applicationOffersFromModel gets details about remote applications that match given filters.
@@ -562,7 +569,6 @@ func (api *OffersAPI) modifyOneOfferAccess(
 	modelUUID string,
 	arg params.ModifyOfferAccess,
 ) error {
-
 	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, model.UUID(modelUUID))
 	if err != nil {
 		return errors.Capture(err)
@@ -645,16 +651,14 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 		if err != nil {
 			return nil, model.Model{}, errors.Capture(err)
 		}
+
+		url.ModelQualifier = constructModelQualifier(url.ModelQualifier, user).String()
 		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
 		if foundModel, ok := modelsCache[modelPath]; ok {
 			return url, foundModel, nil
 		}
 
-		modelQualifier := url.ModelQualifier
-		if modelQualifier == "" {
-			modelQualifier = user.Id()
-		}
-		m, err := api.modelForName(ctx, url.ModelName, modelQualifier)
+		m, err := api.modelForName(ctx, url.ModelName, url.ModelQualifier)
 		if err != nil {
 			return nil, model.Model{}, errors.Capture(err)
 		}
@@ -766,15 +770,19 @@ func applicationOfferURLAndFilter(in string, apiUserTag names.UserTag) (string, 
 	if err != nil {
 		return "", params.OfferFilter{}, apiservererrors.ServerError(err)
 	}
-	if url.ModelQualifier == "" {
-		url.ModelQualifier = apiUserTag.Id()
-	}
+
+	// Ensure that we have a valid normalized model qualifier.
+	url.ModelQualifier = constructModelQualifier(url.ModelQualifier, apiUserTag).String()
+
+	// URL must not have an endpoint.
 	if url.HasEndpoint() {
 		return "", params.OfferFilter{}, &params.Error{
 			Code:    params.CodeNotSupported,
 			Message: fmt.Sprintf("saas application %q shouldn't include endpoint", url),
 		}
 	}
+
+	// URL must be local.
 	if url.Source != "" {
 		return "", params.OfferFilter{}, &params.Error{
 			Code:    params.CodeNotSupported,
