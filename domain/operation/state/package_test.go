@@ -237,11 +237,23 @@ func (s *baseSuite) addOperationTaskOutputWithData(c *tc.C, taskUUID, sha256, sh
 	s.query(c, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
 VALUES (?, ?, ?, ?)`, storeUUID, sha256, sha384, size)
-	s.query(c, `
-INSERT INTO object_store_metadata_path (path, metadata_uuid)
-VALUES (?, ?)`, path, storeUUID)
+	s.addMetadataStorePath(c, storeUUID, path)
 	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
 	return storeUUID
+}
+
+// addOperationTaskOutput links a task to an object store metadata, return the
+// store metadata uuid
+func (s *baseSuite) addOperationTaskOutputWithPath(c *tc.C, taskUUID string, path string) string {
+	storeUUID := s.addFakeMetadataStore(c, 42)
+	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	s.addMetadataStorePath(c, storeUUID, path)
+	return storeUUID
+}
+
+// addMetadataStorePath links a store metadata to a path
+func (s *baseSuite) addMetadataStorePath(c *tc.C, storeUUID, path string) {
+	s.query(c, `INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)`, path, storeUUID)
 }
 
 // addOperationTaskOutput links a task to an object store metadata, return the

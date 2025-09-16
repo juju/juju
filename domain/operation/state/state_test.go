@@ -37,16 +37,21 @@ func (s *deleteOperationSuite) TestDeleteOperationByUUIDs(c *tc.C) {
 	s.addOperationParameter(c, toDeleteOp2, "todelete", "value1")
 	s.addOperationParameter(c, controlOp, "control", "value2")
 
-	s.addOperationTask(c, toDeleteOp1)
-	s.addOperationTask(c, controlOp)
+	toDeleteTask := s.addOperationTask(c, toDeleteOp1)
+	s.addOperationTaskOutputWithPath(c, toDeleteTask, "/path")
+	controlTask := s.addOperationTask(c, controlOp)
+	s.addOperationTaskOutput(c, controlTask)
 
 	// Act: delete the operations.
-	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteOperationByUUIDs(ctx, tx, []string{toDeleteOp1, toDeleteOp2})
+	var storeUUIDs []string
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		storeUUIDs, err = s.state.deleteOperationByUUIDs(ctx, tx, []string{toDeleteOp1, toDeleteOp2})
+		return
 	})
 
 	// Assert: the operations are deleted.
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storeUUIDs, tc.SameContents, []string{"/path"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{controlOp})
 
 	for _, table := range []string{
@@ -71,7 +76,8 @@ func (s *deleteOperationSuite) TestDeleteOperationByUUIDsEmptyInput(c *tc.C) {
 
 	// Act: delete empty input.
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteOperationByUUIDs(ctx, tx, []string{})
+		_, err := s.state.deleteOperationByUUIDs(ctx, tx, []string{})
+		return err
 	})
 
 	// Assert: no error and no change in operations.
@@ -90,7 +96,8 @@ func (s *deleteOperationSuite) TestDeleteOperationByUUIDsNilInput(c *tc.C) {
 
 	// Act: delete empty input.
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteOperationByUUIDs(ctx, tx, nil)
+		_, err := s.state.deleteOperationByUUIDs(ctx, tx, nil)
+		return err
 	})
 
 	// Assert: no error and no change in operations.
@@ -112,7 +119,8 @@ func (s *deleteOperationSuite) TestDeleteTaskByUUIDs(c *tc.C) {
 	s.addOperationUnitTask(c, controlTask1, s.addUnit(c, s.addCharm(c)))
 	s.addOperationMachineTask(c, toDeleteTask1, s.addMachine(c, "machine1"))
 	s.addOperationMachineTask(c, controlTask2, s.addMachine(c, "machine2"))
-	s.addOperationTaskOutput(c, toDeleteTask1)
+	s.addOperationTaskOutputWithPath(c, toDeleteTask1, "/path")
+	s.addOperationTaskOutputWithPath(c, toDeleteTask2, "/path2")
 	s.addOperationTaskOutput(c, controlTask1)
 	s.addOperationTaskOutput(c, controlTask2)
 	s.addOperationTaskStatus(c, toDeleteTask2, "pending")
@@ -123,16 +131,18 @@ func (s *deleteOperationSuite) TestDeleteTaskByUUIDs(c *tc.C) {
 	s.addOperationTaskLog(c, controlTask2, "log2")
 
 	// Act: delete the tasks.
-	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteTaskByUUIDs(ctx, tx, []string{toDeleteTask1, toDeleteTask2})
+	var storeUUIDs []string
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		storeUUIDs, err = s.state.deleteTaskByUUIDs(ctx, tx, []string{toDeleteTask1, toDeleteTask2})
+		return err
 	})
 
-	// Assert: the tasks are deleted.
+	// Assert: the tasks are deleted and the storeUUID returned
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storeUUIDs, tc.SameContents, []string{"/path", "/path2"})
 	// no change in operations
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{operation1,
 		operation2})
-
 	c.Check(s.selectDistinctValues(c, "uuid", "operation_task"), tc.SameContents, []string{controlTask1, controlTask2})
 	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_unit_task"), tc.SameContents, []string{controlTask1})
 	c.Check(s.selectDistinctValues(c, "task_uuid", "operation_machine_task"), tc.SameContents, []string{controlTask2})
@@ -156,12 +166,15 @@ func (s *deleteOperationSuite) TestDeleteTaskByUUIDsEmptyInput(c *tc.C) {
 	}
 
 	// Act: delete empty input.
-	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteTaskByUUIDs(ctx, tx, []string{})
+	var storeUUIDs []string
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		storeUUIDs, err = s.state.deleteTaskByUUIDs(ctx, tx, []string{})
+		return
 	})
 
 	// Assert: no error and no change in operations.
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storeUUIDs, tc.HasLen, 0)
 	c.Check(s.selectDistinctValues(c, "uuid", "operation_task"), tc.SameContents, expected)
 }
 
@@ -175,12 +188,15 @@ func (s *deleteOperationSuite) TestDeleteTaskByUUIDsNilInput(c *tc.C) {
 	}
 
 	// Act: delete empty input.
-	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.deleteTaskByUUIDs(ctx, tx, nil)
+	var storeUUIDs []string
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		storeUUIDs, err = s.state.deleteTaskByUUIDs(ctx, tx, nil)
+		return
 	})
 
 	// Assert: no error and no change in operations.
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storeUUIDs, tc.HasLen, 0)
 	c.Check(s.selectDistinctValues(c, "uuid", "operation_task"), tc.SameContents, expected)
 }
 
