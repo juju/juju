@@ -45,23 +45,17 @@ func NewJAASOfferBakery(
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*JAASOfferBakery, error) {
-	store := internalmacaroon.NewExpirableStorage(backingStore, offerPermissionExpiryTime, clock)
+	store := internalmacaroon.NewRootKeyStore(backingStore, offerPermissionExpiryTime, clock)
 
 	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
-	jaasOfferBakery := bakery.New(bakery.BakeryParams{
-		Location:      location,
-		Locator:       externalKeyLocator,
-		RootKeyStore:  store,
-		Checker:       checker,
-		OpsAuthorizer: authorizer,
-	})
-
-	bakery := &bakeryutil.ExpirableStorageBakery{
-		Bakery:   jaasOfferBakery,
-		Location: location,
-		Locator:  externalKeyLocator,
-		Store:    store,
-		Key:      keyPair,
+	bakery := &bakeryutil.StorageBakery{
+		Bakery: bakery.New(bakery.BakeryParams{
+			Location:      location,
+			Locator:       externalKeyLocator,
+			RootKeyStore:  store,
+			Checker:       checker,
+			OpsAuthorizer: authorizer,
+		}),
 	}
 
 	return &JAASOfferBakery{
