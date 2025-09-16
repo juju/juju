@@ -277,7 +277,8 @@ func (s *baseSuite) addOperationTaskStatus(c *tc.C, taskUUID, status string) {
 
 // addOperationTaskLog inserts a log message for a task.
 func (s *baseSuite) addOperationTaskLog(c *tc.C, taskUUID, content string) {
-	s.query(c, `INSERT INTO operation_task_log (task_uuid, content, created_at) VALUES (?, ?, ?)`, taskUUID, content, s.state.clock.Now())
+	s.query(c, `INSERT INTO operation_task_log (task_uuid, content, created_at) VALUES (?, ?, ?)`,
+		taskUUID, content, s.state.clock.Now().UTC())
 }
 
 // addOperationParameter inserts a parameter key/value for an operation.
