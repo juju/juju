@@ -382,13 +382,8 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 		if !canAccess(machineTag) {
 			return "", apiservererrors.ErrPerm
 		}
-		machineUUID, err := s.machineService.GetMachineUUID(
-			ctx, machine.Name(machineTag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", errors.Errorf(
-				"machine %q not found", machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
+		machineUUID, err := s.getMachineUUID(ctx, machineTag)
+		if err != nil {
 			return "", err
 		}
 		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineUUID)
@@ -428,13 +423,8 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 		if !canAccess(machineTag) {
 			return "", apiservererrors.ErrPerm
 		}
-		machineName := machine.Name(machineTag.Id())
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", errors.Errorf(
-				"machine not found for id %q", machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
+		machineUUID, err := s.getMachineUUID(ctx, machineTag)
+		if err != nil {
 			return "", err
 		}
 		w, err := s.machineService.WatchMachineCloudInstances(ctx, machineUUID)
@@ -457,7 +447,9 @@ func (s *StorageProvisionerAPIv4) WatchMachines(ctx context.Context, args params
 
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+func (s *StorageProvisionerAPIv4) WatchVolumes(
+	ctx context.Context, args params.Entities,
+) (params.StringsWatchResults, error) {
 	return s.watchStorageEntities(
 		ctx, args,
 		s.storageProvisioningService.WatchModelProvisionedVolumes,
@@ -467,7 +459,9 @@ func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchFilesystems(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
+func (s *StorageProvisionerAPIv4) WatchFilesystems(
+	ctx context.Context, args params.Entities,
+) (params.StringsWatchResults, error) {
 	return s.watchStorageEntities(
 		ctx, args,
 		s.storageProvisioningService.WatchModelProvisionedFilesystems,
@@ -498,12 +492,7 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 		switch tag := tag.(type) {
 		case names.MachineTag:
 			var machineUUID machine.UUID
-			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				return "", nil, errors.Errorf(
-					"machine %q not found", tag.Id(),
-				).Add(coreerrors.NotFound)
-			}
+			machineUUID, err = s.getMachineUUID(ctx, tag)
 			if err != nil {
 				return "", nil, errors.Capture(err)
 			}
@@ -546,183 +535,161 @@ func (s *StorageProvisionerAPIv4) watchStorageEntities(
 
 // WatchVolumeAttachments watches for changes to volume attachments scoped to
 // the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(
+	ctx context.Context, args params.Entities,
+) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		ctx, args,
 		s.storageProvisioningService.WatchModelProvisionedVolumeAttachments,
 		s.storageProvisioningService.WatchMachineProvisionedVolumeAttachments,
-		func(ctx context.Context, volumeAttachmentUUIDs ...string) ([]corewatcher.MachineStorageID, error) {
-			if len(volumeAttachmentUUIDs) == 0 {
-				return nil, nil
-			}
-			attachmentIDs, err := s.storageProvisioningService.GetVolumeAttachmentIDs(ctx, volumeAttachmentUUIDs)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-			if len(attachmentIDs) == 0 {
-				return nil, nil
-			}
-			out := make([]corewatcher.MachineStorageID, 0, len(attachmentIDs))
-			for _, id := range attachmentIDs {
-				if id.MachineName == nil && id.UnitName == nil {
-					// This should never happen.
-					continue
-				}
-				if !names.IsValidVolume(id.VolumeID) {
-					// This should never happen.
-					s.logger.Errorf(ctx, "invalid volume tag ID %q", id.VolumeID)
-					continue
-				}
-				machineStorageId := corewatcher.MachineStorageID{
-					AttachmentTag: names.NewVolumeTag(id.VolumeID).String(),
-				}
-				if id.MachineName != nil {
-					machineStorageId.MachineTag = names.NewMachineTag(id.MachineName.String()).String()
-				} else if id.UnitName != nil {
-					if !names.IsValidUnit(id.UnitName.String()) {
-						// This should never happen.
-						s.logger.Errorf(ctx,
-							"invalid unit name %q for volume ID %v",
-							id.UnitName.String(), id.VolumeID,
-						)
-						continue
-					}
-					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
-				}
-				out = append(out, machineStorageId)
-			}
-			return out, nil
-		},
+		s.watchVolumeAttachmentsMapper,
 	)
+}
+
+// watchVolumeAttachmentsMapper is the mapper function for the mapping of volume
+// attachment UUIDs to machine/unit tags and filesystem tag. It is used by the
+// WatchVolumeAttachments facade method.
+func (s *StorageProvisionerAPIv4) watchVolumeAttachmentsMapper(
+	ctx context.Context, volumeAttachmentUUIDs ...string,
+) ([]corewatcher.MachineStorageID, error) {
+	if len(volumeAttachmentUUIDs) == 0 {
+		return nil, nil
+	}
+	attachmentIDs, err := s.storageProvisioningService.GetVolumeAttachmentIDs(
+		ctx, volumeAttachmentUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(attachmentIDs) == 0 {
+		return nil, nil
+	}
+	out := make([]corewatcher.MachineStorageID, 0, len(attachmentIDs))
+	for _, id := range attachmentIDs {
+		if id.MachineName == nil && id.UnitName == nil {
+			// This should never happen.
+			continue
+		}
+		if !names.IsValidVolume(id.VolumeID) {
+			// This should never happen.
+			s.logger.Errorf(ctx, "invalid volume tag ID %q", id.VolumeID)
+			continue
+		}
+		machineStorageId := corewatcher.MachineStorageID{
+			AttachmentTag: names.NewVolumeTag(id.VolumeID).String(),
+		}
+		if id.MachineName != nil {
+			machineStorageId.MachineTag = names.NewMachineTag(
+				id.MachineName.String()).String()
+			out = append(out, machineStorageId)
+			continue
+		}
+		if !names.IsValidUnit(id.UnitName.String()) {
+			// This should never happen.
+			s.logger.Errorf(ctx,
+				"invalid unit name %q for volume ID %v",
+				id.UnitName.String(), id.VolumeID,
+			)
+			continue
+		}
+		machineStorageId.MachineTag = names.NewUnitTag(
+			id.UnitName.String()).String()
+		out = append(out, machineStorageId)
+	}
+	return out, nil
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(
+	ctx context.Context, args params.Entities,
+) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		ctx, args,
 		s.storageProvisioningService.WatchModelProvisionedFilesystemAttachments,
 		s.storageProvisioningService.WatchMachineProvisionedFilesystemAttachments,
-		func(ctx context.Context, filesystemAttachmentUUIDs ...string) ([]corewatcher.MachineStorageID, error) {
-			if len(filesystemAttachmentUUIDs) == 0 {
-				return nil, nil
-			}
-			attachmentIDs, err := s.storageProvisioningService.GetFilesystemAttachmentIDs(ctx, filesystemAttachmentUUIDs)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-			if len(attachmentIDs) == 0 {
-				return nil, nil
-			}
-			out := make([]corewatcher.MachineStorageID, 0, len(attachmentIDs))
-			for _, id := range attachmentIDs {
-				if id.MachineName == nil && id.UnitName == nil {
-					// This should never happen.
-					continue
-				}
-				if !names.IsValidFilesystem(id.FilesystemID) {
-					// This should never happen.
-					s.logger.Errorf(ctx, "invalid filesystem tag ID %q", id.FilesystemID)
-					continue
-				}
-				machineStorageId := corewatcher.MachineStorageID{
-					AttachmentTag: names.NewFilesystemTag(id.FilesystemID).String(),
-				}
-				if id.MachineName != nil {
-					machineStorageId.MachineTag = names.NewMachineTag(id.MachineName.String()).String()
-				} else if id.UnitName != nil {
-					if !names.IsValidUnit(id.UnitName.String()) {
-						// This should never happen.
-						s.logger.Errorf(ctx,
-							"invalid unit name %q for filesystem ID %q",
-							id.UnitName.String(), id.FilesystemID,
-						)
-						continue
-					}
-					machineStorageId.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
-				}
-				out = append(out, machineStorageId)
-			}
-			return out, nil
-		},
+		s.watchFilesystemAttachmentsMapper,
 	)
 }
 
-// WatchVolumeAttachmentPlans watches for changes to volume attachments for a machine for the purpose of allowing
-// that machine to run any initialization needed, for that volume to actually appear as a block device (ie: iSCSI)
-func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+// watchFilesystemAttachmentsMapper is the mapper function for the mapping of
+// filesystem attachment UUIDs to machine/unit tags and filesystem tag. It is
+// used by the WatchFilesystemAttachments facade method.
+func (s *StorageProvisionerAPIv4) watchFilesystemAttachmentsMapper(
+	ctx context.Context, filesystemAttachmentUUIDs ...string,
+) ([]corewatcher.MachineStorageID, error) {
+	if len(filesystemAttachmentUUIDs) == 0 {
+		return nil, nil
+	}
+	attachmentIDs, err := s.storageProvisioningService.GetFilesystemAttachmentIDs(
+		ctx, filesystemAttachmentUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(attachmentIDs) == 0 {
+		return nil, nil
+	}
+	out := make([]corewatcher.MachineStorageID, 0, len(attachmentIDs))
+	for _, id := range attachmentIDs {
+		if id.MachineName == nil && id.UnitName == nil {
+			// This should never happen.
+			continue
+		}
+		if !names.IsValidFilesystem(id.FilesystemID) {
+			// This should never happen.
+			s.logger.Errorf(
+				ctx, "invalid filesystem tag ID %q", id.FilesystemID)
+			continue
+		}
+		machineStorageId := corewatcher.MachineStorageID{
+			AttachmentTag: names.NewFilesystemTag(
+				id.FilesystemID).String(),
+		}
+		if id.MachineName != nil {
+			machineStorageId.MachineTag = names.NewMachineTag(
+				id.MachineName.String()).String()
+			out = append(out, machineStorageId)
+			continue
+		}
+		if !names.IsValidUnit(id.UnitName.String()) {
+			// This should never happen.
+			s.logger.Errorf(
+				ctx, "invalid unit name %q for filesystem ID %q",
+				id.UnitName.String(), id.FilesystemID,
+			)
+			continue
+		}
+		machineStorageId.MachineTag = names.NewUnitTag(
+			id.UnitName.String()).String()
+		out = append(out, machineStorageId)
+	}
+	return out, nil
+}
+
+// WatchVolumeAttachmentPlans watches for changes to volume attachments for a
+// machine for the purpose of allowing that machine to run any initialization
+// needed, for that volume to actually appear as a block device (ie: iSCSI)
+func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(
+	ctx context.Context, args params.Entities,
+) (params.MachineStorageIdsWatchResults, error) {
 	canAccess, err := s.getMachineAuthFunc(ctx)
 	if err != nil {
-		return params.MachineStorageIdsWatchResults{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+		return params.MachineStorageIdsWatchResults{}, apiservererrors.ServerError(
+			apiservererrors.ErrPerm)
 	}
 	results := params.MachineStorageIdsWatchResults{
 		Results: make([]params.MachineStorageIdsWatchResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (_ string, _ []corewatcher.MachineStorageID, err error) {
-		tag, err := names.ParseTag(arg.Tag)
-		if err != nil || !canAccess(tag) {
+	one := func(arg params.Entity) (string, []corewatcher.MachineStorageID, error) {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			return "", nil, errors.New(
+				"machine tag invalid",
+			).Add(coreerrors.NotValid)
+		}
+		if !canAccess(machineTag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		tag, ok := tag.(names.MachineTag)
-		if !ok {
-			return "", nil, apiservererrors.ErrPerm
-		}
-
-		defer func() {
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				err = errors.Errorf(
-					"machine %q not found", tag.Id(),
-				).Add(coreerrors.NotFound)
-			}
-		}()
-
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", nil, errors.Errorf(
-				"machine %q not found", tag.Id(),
-			).Add(coreerrors.NotFound)
-		}
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		sourceWatcher, err := s.storageProvisioningService.WatchVolumeAttachmentPlans(ctx, machineUUID)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return "", nil, errors.Errorf(
-				"machine %q not found", tag.Id(),
-			).Add(coreerrors.NotFound)
-		}
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		w, err := newStringSourcedWatcher(
-			sourceWatcher,
-			func(_ context.Context, volumeIDs ...string) ([]corewatcher.MachineStorageID, error) {
-				if len(volumeIDs) == 0 {
-					return nil, nil
-				}
-				out := make([]corewatcher.MachineStorageID, len(volumeIDs))
-				for i, volumeID := range volumeIDs {
-					if !names.IsValidVolume(volumeID) {
-						// This should never happen.
-						s.logger.Errorf(ctx, "invalid volume tag ID %q", volumeID)
-						continue
-					}
-					out[i] = corewatcher.MachineStorageID{
-						MachineTag:    tag.String(),
-						AttachmentTag: names.NewVolumeTag(volumeID).String(),
-					}
-				}
-				return out, nil
-			},
-		)
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		id, changes, err := internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-		return id, changes, nil
+		return s.watchVolumeAttachmentPlans(ctx, machineTag)
 	}
 	for i, arg := range args.Entities {
 		var result params.MachineStorageIdsWatchResult
@@ -736,6 +703,56 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachmentPlans(ctx context.Context
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// watchVolumeAttachmentPlans performs operations required for the corrosponding
+// facade method WatchVolumeAttachmentPlans.
+func (s *StorageProvisionerAPIv4) watchVolumeAttachmentPlans(
+	ctx context.Context, machineTag names.MachineTag,
+) (string, []corewatcher.MachineStorageID, error) {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+	sourceWatcher, err := s.storageProvisioningService.WatchVolumeAttachmentPlans(
+		ctx, machineUUID)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return "", nil, errors.Errorf(
+			"machine %q not found", machineTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+	mapper := func(
+		ctx context.Context, volumeIDs ...string,
+	) ([]corewatcher.MachineStorageID, error) {
+		if len(volumeIDs) == 0 {
+			return nil, nil
+		}
+		out := make([]corewatcher.MachineStorageID, 0, len(volumeIDs))
+		for _, volumeID := range volumeIDs {
+			if !names.IsValidVolume(volumeID) {
+				// This should never happen.
+				s.logger.Errorf(ctx, "invalid volume tag ID %q", volumeID)
+				continue
+			}
+			out = append(out, corewatcher.MachineStorageID{
+				MachineTag:    machineTag.String(),
+				AttachmentTag: names.NewVolumeTag(volumeID).String(),
+			})
+		}
+		return out, nil
+	}
+	w, err := newStringSourcedWatcher(sourceWatcher, mapper)
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+	id, changes, err := internal.EnsureRegisterWatcher(
+		ctx, s.watcherRegistry, w)
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
+	return id, changes, nil
 }
 
 func machineStorageIDsToParams(ids []corewatcher.MachineStorageID) []params.MachineStorageId {
@@ -781,12 +798,7 @@ func (s *StorageProvisionerAPIv4) watchAttachments(
 		switch tag := tag.(type) {
 		case names.MachineTag:
 			var machineUUID machine.UUID
-			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				return "", nil, errors.Errorf(
-					"machine %q not found", tag.Id(),
-				).Add(coreerrors.NotFound)
-			}
+			machineUUID, err = s.getMachineUUID(ctx, tag)
 			if err != nil {
 				return "", nil, errors.Capture(err)
 			}
@@ -979,28 +991,15 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 func (s *StorageProvisionerAPIv4) getVolumeAttachmentPlanUUID(
 	ctx context.Context,
 	volumeTag names.VolumeTag,
-	machineTag names.MachineTag,
+	machineUUID machine.UUID,
 ) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
-	machineUUID, err := s.machineService.GetMachineUUID(
-		ctx, machine.Name(machineTag.Id()),
-	)
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		return "", errors.Errorf(
-			"machine %q not found", machineTag.Id(),
-		).Add(coreerrors.NotFound)
-	} else if err != nil {
-		return "", errors.Errorf(
-			"getting machine %q: %v", machineTag.Id(), err,
-		)
-	}
-
 	vapUUID, err := s.storageProvisioningService.GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 		ctx, volumeTag.Id(), machineUUID,
 	)
 	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
 		return "", errors.Errorf(
 			"volume attachment plan %q on machine %q not found",
-			volumeTag.Id(), machineTag.Id(),
+			volumeTag.Id(), machineUUID,
 		).Add(coreerrors.NotFound)
 	} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
 		return "", errors.Errorf(
@@ -1008,92 +1007,45 @@ func (s *StorageProvisionerAPIv4) getVolumeAttachmentPlanUUID(
 		).Add(coreerrors.NotFound)
 	} else if errors.Is(err, machineerrors.MachineNotFound) {
 		return "", errors.Errorf(
-			"machine %q not found", machineTag.Id(),
+			"machine %q not found", machineUUID,
 		).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return "", errors.Errorf(
 			"getting volume attachment plan %q on machine %q: %v",
-			volumeTag.Id(), machineTag.Id(), err,
+			volumeTag.Id(), machineUUID, err,
 		)
 	}
-
 	return vapUUID, nil
 }
 
-// VolumeAttachmentPlans returns details of volume attachment plans with the specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(ctx context.Context, args params.MachineStorageIds) (params.VolumeAttachmentPlanResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+// VolumeAttachmentPlans returns details of volume attachment plans with the
+// specified IDs.
+func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(
+	ctx context.Context, args params.MachineStorageIds,
+) (params.VolumeAttachmentPlanResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeAttachmentPlanResults{},
 			apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	one := func(id params.MachineStorageId) (params.VolumeAttachmentPlan, error) {
-		tag, err := names.ParseVolumeTag(id.AttachmentTag)
+		volumeTag, err := names.ParseVolumeTag(id.AttachmentTag)
 		if err != nil {
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"volume tag %q invalid", id.AttachmentTag,
+			return params.VolumeAttachmentPlan{}, errors.New(
+				"volume tag invalid",
 			).Add(coreerrors.NotValid)
 		}
 		machineTag, err := names.ParseMachineTag(id.MachineTag)
 		if err != nil {
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"machine tag %q invalid", id.MachineTag,
+			return params.VolumeAttachmentPlan{}, errors.New(
+				"machine tag invalid",
 			).Add(coreerrors.NotValid)
 		}
-		if !canAccess(tag) {
+		if !canAccess(machineTag, volumeTag) {
 			return params.VolumeAttachmentPlan{}, apiservererrors.ErrPerm
 		}
-
-		planUUID, err := s.getVolumeAttachmentPlanUUID(ctx, tag, machineTag)
-		if err != nil {
-			return params.VolumeAttachmentPlan{}, err
-		}
-
-		vap, err := s.storageProvisioningService.GetVolumeAttachmentPlan(
-			ctx, planUUID,
-		)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"volume attachment plan %q on machine %q not found",
-				tag.Id(), machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"getting volume attachment plan %q on machine %q: %v",
-				tag.Id(), machineTag.Id(), err,
-			)
-		}
-
-		life, err := vap.Life.Value()
-		if err != nil {
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"getting volume attachment plan %q life: %w",
-				planUUID, err,
-			)
-		}
-
-		var deviceType storage.DeviceType
-		switch vap.DeviceType {
-		case storageprovisioning.PlanDeviceTypeISCSI:
-			deviceType = storage.DeviceTypeISCSI
-		case storageprovisioning.PlanDeviceTypeLocal:
-			deviceType = storage.DeviceTypeLocal
-		default:
-			return params.VolumeAttachmentPlan{}, errors.Errorf(
-				"unknown device type %q", vap.DeviceType,
-			)
-		}
-
-		return params.VolumeAttachmentPlan{
-			VolumeTag:  tag.String(),
-			MachineTag: machineTag.String(),
-			Life:       life,
-			PlanInfo: params.VolumeAttachmentPlanInfo{
-				DeviceAttributes: vap.DeviceAttributes,
-				DeviceType:       deviceType,
-			},
-		}, nil
+		return s.volumeAttachmentPlan(ctx, machineTag, volumeTag)
 	}
 
 	results := params.VolumeAttachmentPlanResults{
@@ -1113,103 +1065,94 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentPlans(ctx context.Context, arg
 	return results, nil
 }
 
+func (s *StorageProvisionerAPIv4) volumeAttachmentPlan(
+	ctx context.Context,
+	machineTag names.MachineTag,
+	volumeTag names.VolumeTag,
+) (params.VolumeAttachmentPlan, error) {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return params.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	planUUID, err := s.getVolumeAttachmentPlanUUID(ctx, volumeTag, machineUUID)
+	if err != nil {
+		return params.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	vap, err := s.storageProvisioningService.GetVolumeAttachmentPlan(
+		ctx, planUUID,
+	)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+		return params.VolumeAttachmentPlan{}, errors.Errorf(
+			"volume attachment plan %q on machine %q not found",
+			volumeTag.Id(), machineTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.VolumeAttachmentPlan{}, errors.Errorf(
+			"getting volume attachment plan %q on machine %q: %v",
+			volumeTag.Id(), machineTag.Id(), err,
+		)
+	}
+
+	life, err := vap.Life.Value()
+	if err != nil {
+		return params.VolumeAttachmentPlan{}, errors.Errorf(
+			"getting volume attachment plan %q life: %w",
+			planUUID, err,
+		)
+	}
+
+	var deviceType storage.DeviceType
+	switch vap.DeviceType {
+	case storageprovisioning.PlanDeviceTypeISCSI:
+		deviceType = storage.DeviceTypeISCSI
+	case storageprovisioning.PlanDeviceTypeLocal:
+		deviceType = storage.DeviceTypeLocal
+	default:
+		return params.VolumeAttachmentPlan{}, errors.Errorf(
+			"unknown device type %q", vap.DeviceType,
+		)
+	}
+
+	return params.VolumeAttachmentPlan{
+		VolumeTag:  volumeTag.String(),
+		MachineTag: machineTag.String(),
+		Life:       life,
+		PlanInfo: params.VolumeAttachmentPlanInfo{
+			DeviceAttributes: vap.DeviceAttributes,
+			DeviceType:       deviceType,
+		},
+	}, nil
+}
+
 // VolumeAttachments returns details of volume attachments with the specified IDs.
-func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
-	canAccess, err := s.getStorageEntityAuthFunc(ctx)
+func (s *StorageProvisionerAPIv4) VolumeAttachments(
+	ctx context.Context, args params.MachineStorageIds,
+) (params.VolumeAttachmentResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc(ctx)
 	if err != nil {
 		return params.VolumeAttachmentResults{},
 			apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	one := func(id params.MachineStorageId) (params.VolumeAttachment, error) {
-		tag, err := names.ParseVolumeTag(id.AttachmentTag)
+		volumeTag, err := names.ParseVolumeTag(id.AttachmentTag)
 		if err != nil {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"volume tag %q invalid", id.AttachmentTag,
+			return params.VolumeAttachment{}, errors.New(
+				"volume tag invalid",
 			).Add(coreerrors.NotValid)
 		}
 		machineTag, err := names.ParseMachineTag(id.MachineTag)
 		if err != nil {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"machine tag %q invalid", id.MachineTag,
+			return params.VolumeAttachment{}, errors.New(
+				"machine tag invalid",
 			).Add(coreerrors.NotValid)
 		}
-		if !canAccess(tag) {
+		if !canAccess(machineTag, volumeTag) {
 			return params.VolumeAttachment{}, apiservererrors.ErrPerm
 		}
 
-		machineUUID, err := s.machineService.GetMachineUUID(
-			ctx, machine.Name(machineTag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"machine %q not found", machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"getting machine %q: %v", machineTag.Id(), err,
-			)
-		}
-
-		uuid, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
-			ctx, tag.Id(), machineUUID)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"volume attachment %q on machine %q not found",
-				tag.Id(), machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"volume %q not found", tag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if errors.Is(err, machineerrors.MachineNotFound) {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"machine %q not found", machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"getting volume attachment %q on machine %q: %v",
-				tag.Id(), machineTag.Id(), err,
-			)
-		}
-
-		va, err := s.storageProvisioningService.GetVolumeAttachment(ctx, uuid)
-		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"volume attachment %q on machine %q not found",
-				tag.Id(), machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return params.VolumeAttachment{}, errors.Errorf(
-				"getting volume attachment %q on machine %q: %v",
-				tag.Id(), machineTag.Id(), err,
-			)
-		}
-
-		if len(va.BlockDeviceLinks) == 0 {
-			// TODO: We think that a volume attachment with no device link is
-			// not provisioned. The property is set when the storage provisioner
-			// calls SetVolumeAttachmentInfo. This is a temporary workaround for
-			// checking the provision state of an attachment.Ideally, we should
-			// have a consistent way to check provisioning status for all
-			// storage entities.
-			return params.VolumeAttachment{}, errors.Errorf(
-				"volume %q is not provisioned", tag.Id(),
-			).Add(coreerrors.NotProvisioned)
-		}
-
-		result := params.VolumeAttachment{
-			VolumeTag:  tag.String(),
-			MachineTag: machineTag.String(),
-			Info: params.VolumeAttachmentInfo{
-				DeviceName: va.BlockDeviceName,
-				DeviceLink: domainblockdevice.IDLink(va.BlockDeviceLinks),
-				BusAddress: va.BlockDeviceBusAddress,
-				ReadOnly:   va.ReadOnly,
-				// PlanInfo is only used by a storage provisioner to set the
-				// plan info, not to read it.
-			},
-		}
-		return result, nil
 	}
 
 	results := params.VolumeAttachmentResults{
@@ -1226,6 +1169,59 @@ func (s *StorageProvisionerAPIv4) VolumeAttachments(ctx context.Context, args pa
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+func (s *StorageProvisionerAPIv4) volumeAttachments(
+	ctx context.Context, machineTag names.MachineTag, volumeTag names.VolumeTag,
+) (params.VolumeAttachment, error) {
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return params.VolumeAttachment{}, errors.Capture(err)
+	}
+
+	uuid, err := s.getVolumeAttachmentUUID(ctx, volumeTag, machineTag)
+	if err != nil {
+		return params.VolumeAttachment{}, errors.Capture(err)
+	}
+
+	va, err := s.storageProvisioningService.GetVolumeAttachment(ctx, uuid)
+	if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+		return params.VolumeAttachment{}, errors.Errorf(
+			"volume attachment %q on machine %q not found",
+			volumeTag.Id(), machineTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return params.VolumeAttachment{}, errors.Errorf(
+			"getting volume attachment %q on machine %q: %v",
+			volumeTag.Id(), machineTag.Id(), err,
+		)
+	}
+
+	if len(va.BlockDeviceLinks) == 0 {
+		// TODO: We think that a volume attachment with no device link is
+		// not provisioned. The property is set when the storage provisioner
+		// calls SetVolumeAttachmentInfo. This is a temporary workaround for
+		// checking the provision state of an attachment.Ideally, we should
+		// have a consistent way to check provisioning status for all
+		// storage entities.
+		return params.VolumeAttachment{}, errors.Errorf(
+			"volume %q is not provisioned", volumeTag.Id(),
+		).Add(coreerrors.NotProvisioned)
+	}
+
+	result := params.VolumeAttachment{
+		VolumeTag:  volumeTag.String(),
+		MachineTag: machineTag.String(),
+		Info: params.VolumeAttachmentInfo{
+			DeviceName: va.BlockDeviceName,
+			DeviceLink: domainblockdevice.IDLink(va.BlockDeviceLinks),
+			BusAddress: va.BlockDeviceBusAddress,
+			ReadOnly:   va.ReadOnly,
+			// PlanInfo is only used by a storage provisioner to set the
+			// plan info, not to read it.
+		},
+	}
+	return result, nil
 }
 
 // VolumeBlockDevices returns details of the block devices corresponding to the
@@ -1254,16 +1250,9 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 			return params.BlockDevice{}, apiservererrors.ErrPerm
 		}
 
-		machineUUID, err := s.machineService.GetMachineUUID(
-			ctx, machine.Name(machineTag.Id()))
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return params.BlockDevice{}, errors.Errorf(
-				"machine %q not found", machineTag.Id(),
-			).Add(coreerrors.NotFound)
-		} else if err != nil {
-			return params.BlockDevice{}, errors.Errorf(
-				"getting machine %q: %v", machineTag.Id(), err,
-			)
+		machineUUID, err := s.getMachineUUID(ctx, machineTag)
+		if err != nil {
+			return params.BlockDevice{}, errors.Capture(err)
 		}
 
 		va, err := s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
@@ -1384,12 +1373,8 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachments(ctx context.Context, arg
 		switch tag := hostTag.(type) {
 		case names.MachineTag:
 			var machineUUID machine.UUID
-			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				return result, errors.Errorf(
-					"machine %q not found", tag.Id(),
-				).Add(coreerrors.NotFound)
-			} else if err != nil {
+			machineUUID, err = s.getMachineUUID(ctx, tag)
+			if err != nil {
 				return result, errors.Capture(err)
 			}
 			fsAttachment, err = s.storageProvisioningService.GetFilesystemAttachmentForMachine(
@@ -2155,12 +2140,8 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 		switch tag := hostTag.(type) {
 		case names.MachineTag:
 			var machineUUID machine.UUID
-			machineUUID, err = s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
-			if errors.Is(err, machineerrors.MachineNotFound) {
-				return errors.Errorf(
-					"machine %q not found", tag.Id(),
-				).Add(coreerrors.NotFound)
-			} else if err != nil {
+			machineUUID, err = s.getMachineUUID(ctx, tag)
+			if err != nil {
 				return errors.Capture(err)
 			}
 			err = s.storageProvisioningService.SetFilesystemAttachmentProvisionedInfoForMachine(
@@ -2287,11 +2268,10 @@ func (s *StorageProvisionerAPIv4) getFilesystemAttachmentUUID(
 	var rval storageprovisioning.FilesystemAttachmentUUID
 	switch tag := hostTag.(type) {
 	case names.MachineTag:
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		machineUUID, err := s.getMachineUUID(ctx, tag)
 		if err != nil {
-			return "", errHandler(err)
+			return "", errors.Capture(err)
 		}
-
 		rval, err = s.storageProvisioningService.GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 			ctx, fsTag.Id(), machineUUID,
 		)
@@ -2347,11 +2327,10 @@ func (s *StorageProvisionerAPIv4) getVolumeAttachmentUUID(
 	var rval storageprovisioning.VolumeAttachmentUUID
 	switch tag := hostTag.(type) {
 	case names.MachineTag:
-		machineUUID, err := s.machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
+		machineUUID, err := s.getMachineUUID(ctx, tag)
 		if err != nil {
-			return "", errHandler(err)
+			return "", errors.Capture(err)
 		}
-
 		rval, err = s.storageProvisioningService.GetVolumeAttachmentUUIDForVolumeIDMachine(
 			ctx, volTag.Id(), machineUUID,
 		)
@@ -2517,4 +2496,25 @@ func (s *StorageProvisionerAPIv4) SetStatus(ctx context.Context, args params.Set
 		result.Results[i].Error = apiservererrors.ServerError(statusErr)
 	}
 	return result, nil
+}
+
+// getMachineUUID is a utility function that gets a machine uuid by tag.
+//
+// This func allows all users of this value to share a common set of error
+// handling logic and get to the desired value quicker. The error returned from
+// this func has been converted to an error understood by this facade caller and
+// requires no further translation.
+func (s *StorageProvisionerAPIv4) getMachineUUID(
+	ctx context.Context, machineTag names.MachineTag,
+) (machine.UUID, error) {
+	machineUUID, err := s.machineService.GetMachineUUID(
+		ctx, machine.Name(machineTag.Id()))
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return "", errors.Errorf(
+			"machine %q not found", machineTag.Id(),
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+	return machineUUID, nil
 }
