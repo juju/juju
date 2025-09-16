@@ -27,8 +27,8 @@ func RegisterExport(coordinator Coordinator, logger logger.Logger) {
 // ExportService provides a subset of the block device domain
 // service methods needed for block device export.
 type ExportService interface {
-	// AllBlockDevices retrieves block devices for all machines.
-	AllBlockDevices(
+	// GetBlockDevicesForAllMachines retrieves block devices for all machines.
+	GetBlockDevicesForAllMachines(
 		ctx context.Context,
 	) (map[machine.Name][]blockdevice.BlockDevice, error)
 }
@@ -60,7 +60,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(
 	ctx context.Context, model description.Model,
 ) error {
-	blockDevices, err := e.service.AllBlockDevices(ctx)
+	blockDevices, err := e.service.GetBlockDevicesForAllMachines(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}

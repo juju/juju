@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/blockdevice"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -28,7 +29,7 @@ func (s *stateSuite) TestBlockDevicesNone(c *tc.C) {
 	machineUUID := s.createMachine(c, "666")
 
 	st := NewState(s.TxnRunnerFactory())
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 }
@@ -37,7 +38,9 @@ func (s *stateSuite) createMachine(c *tc.C, machineId string) machine.UUID {
 	return s.createMachineWithLife(c, machineId, life.Alive)
 }
 
-func (s *stateSuite) createMachineWithLife(c *tc.C, name string, life life.Life) machine.UUID {
+func (s *stateSuite) createMachineWithLife(
+	c *tc.C, name string, life life.Life,
+) machine.UUID {
 	netNodeUUID := uuid.MustNewUUID().String()
 	_, err := s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -51,8 +54,8 @@ VALUES (?, ?, ?, ?)
 }
 
 func (s *stateSuite) insertBlockDevice(
-	c *tc.C, bd blockdevice.BlockDevice,
-	blockDeviceUUID string, machineUUID machine.UUID,
+	c *tc.C, bd coreblockdevice.BlockDevice,
+	blockDeviceUUID blockdevice.BlockDeviceUUID, machineUUID machine.UUID,
 ) {
 	inUse := 0
 	if bd.InUse {
@@ -81,7 +84,7 @@ VALUES (?, ?, ?)
 func (s *stateSuite) TestBlockDevicesOne(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	bd := blockdevice.BlockDevice{
+	bd := coreblockdevice.BlockDevice{
 		DeviceName:      "name-666",
 		DeviceLinks:     []string{"dev_link1", "dev_link2"},
 		FilesystemLabel: "label-666",
@@ -95,15 +98,17 @@ func (s *stateSuite) TestBlockDevicesOne(c *tc.C) {
 		MountPoint:      "mount-666",
 		SerialId:        "serial-666",
 	}
-	blockDeviceUUID := uuid.MustNewUUID().String()
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	machineUUID := s.createMachine(c, "666")
 	s.insertBlockDevice(c, bd, blockDeviceUUID, machineUUID)
 
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
-		blockDeviceUUID: bd,
-	})
+	c.Assert(result, tc.DeepEquals,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			blockDeviceUUID: bd,
+		},
+	)
 }
 
 func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
@@ -111,7 +116,7 @@ func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
 
 	machineUUID := s.createMachine(c, "666")
 
-	bd1 := blockdevice.BlockDevice{
+	bd1 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-666",
 		FilesystemLabel: "label-666",
 		FilesystemUUID:  "device-666",
@@ -124,7 +129,7 @@ func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
 		MountPoint:      "mount-666",
 		SerialId:        "serial-666",
 	}
-	bd2 := blockdevice.BlockDevice{
+	bd2 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-667",
 		DeviceLinks:     []string{"dev_link1", "dev_link2"},
 		FilesystemLabel: "label-667",
@@ -137,17 +142,19 @@ func (s *stateSuite) TestBlockDevicesMany(c *tc.C) {
 		MountPoint:      "mount-667",
 		SerialId:        "serial-667",
 	}
-	blockDevice1UUID := uuid.MustNewUUID().String()
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machineUUID)
-	blockDevice2UUID := uuid.MustNewUUID().String()
+	blockDevice2UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machineUUID)
 
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
-		blockDevice1UUID: bd1,
-		blockDevice2UUID: bd2,
-	})
+	c.Assert(result, tc.DeepEquals,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			blockDevice1UUID: bd1,
+			blockDevice2UUID: bd2,
+		},
+	)
 }
 
 func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
@@ -156,7 +163,7 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
 	machine1UUID := s.createMachine(c, "666")
 	machine2UUID := s.createMachine(c, "667")
 
-	bd1 := blockdevice.BlockDevice{
+	bd1 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-666",
 		FilesystemLabel: "label-666",
 		FilesystemUUID:  "device-666",
@@ -169,7 +176,7 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
 		MountPoint:      "mount-666",
 		SerialId:        "serial-666",
 	}
-	bd2 := blockdevice.BlockDevice{
+	bd2 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-667",
 		DeviceLinks:     []string{"dev_link1", "dev_link2"},
 		FilesystemLabel: "label-667",
@@ -182,16 +189,18 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *tc.C) {
 		MountPoint:      "mount-667",
 		SerialId:        "serial-667",
 	}
-	blockDevice1UUID := uuid.MustNewUUID().String()
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machine1UUID)
-	blockDevice2UUID := uuid.MustNewUUID().String()
+	blockDevice2UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
-	result, err := st.BlockDevices(c.Context(), machine2UUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machine2UUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]blockdevice.BlockDevice{
-		blockDevice2UUID: bd2,
-	})
+	c.Assert(result, tc.DeepEquals,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			blockDevice2UUID: bd2,
+		},
+	)
 }
 
 func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
@@ -200,7 +209,7 @@ func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
 	machine1UUID := s.createMachine(c, "666")
 	machine2UUID := s.createMachine(c, "667")
 
-	bd1 := blockdevice.BlockDevice{
+	bd1 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-666",
 		FilesystemLabel: "label-666",
 		FilesystemUUID:  "device-666",
@@ -213,7 +222,7 @@ func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
 		MountPoint:      "mount-666",
 		SerialId:        "serial-666",
 	}
-	bd2 := blockdevice.BlockDevice{
+	bd2 := coreblockdevice.BlockDevice{
 		DeviceName:      "name-667",
 		DeviceLinks:     []string{"dev_link1", "dev_link2"},
 		FilesystemLabel: "label-667",
@@ -226,14 +235,14 @@ func (s *stateSuite) TestMachineBlockDevices(c *tc.C) {
 		MountPoint:      "mount-667",
 		SerialId:        "serial-667",
 	}
-	blockDevice1UUID := uuid.MustNewUUID().String()
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machine1UUID)
-	blockDevice2UUID := uuid.MustNewUUID().String()
+	blockDevice2UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
-	result, err := st.MachineBlockDevices(c.Context())
+	result, err := st.GetBlockDevicesForAllMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[machine.Name][]blockdevice.BlockDevice{
+	c.Assert(result, tc.DeepEquals, map[machine.Name][]coreblockdevice.BlockDevice{
 		"666": {bd1},
 		"667": {bd2},
 	})
@@ -244,7 +253,7 @@ func (s *stateSuite) TestUpdateMachineBlockDevicesDeadMachine(c *tc.C) {
 
 	uuid := s.createMachineWithLife(c, "666", 2)
 
-	err := st.UpdateMachineBlockDevices(
+	err := st.UpdateBlockDevicesForMachine(
 		c.Context(), uuid, nil, nil, nil)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
 }
@@ -254,7 +263,7 @@ func (s *stateSuite) TestUpdateMachineBlockDevicesMissingMachine(c *tc.C) {
 
 	machineUUID := tc.Must(c, machine.NewUUID)
 
-	err := st.UpdateMachineBlockDevices(
+	err := st.UpdateBlockDevicesForMachine(
 		c.Context(), machineUUID, nil, nil, nil)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -264,7 +273,7 @@ func (s *stateSuite) TestUpdateBlockDevices(c *tc.C) {
 
 	machineUUID := s.createMachine(c, "666")
 
-	added := map[string]blockdevice.BlockDevice{
+	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName:      "name-666",
 			DeviceLinks:     []string{"dev_link1", "dev_link2"},
@@ -281,10 +290,10 @@ func (s *stateSuite) TestUpdateBlockDevices(c *tc.C) {
 		},
 	}
 
-	err := st.UpdateMachineBlockDevices(
+	err := st.UpdateBlockDevicesForMachine(
 		c.Context(), machineUUID, added, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, added)
 }
@@ -294,7 +303,7 @@ func (s *stateSuite) TestUpdateBlockDevicesRemoves(c *tc.C) {
 
 	machineUUID := s.createMachine(c, "666")
 
-	added := map[string]blockdevice.BlockDevice{
+	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName:      "name-666",
 			DeviceLinks:     []string{"dev_link1", "dev_link2"},
@@ -310,19 +319,19 @@ func (s *stateSuite) TestUpdateBlockDevicesRemoves(c *tc.C) {
 			SerialId:        "serial-666",
 		},
 	}
-	err := st.UpdateMachineBlockDevices(
+	err := st.UpdateBlockDevicesForMachine(
 		c.Context(), machineUUID, added, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, added)
 
-	err = st.UpdateMachineBlockDevices(
-		c.Context(), machineUUID, nil, nil, []string{"a"})
+	err = st.UpdateBlockDevicesForMachine(
+		c.Context(), machineUUID, nil, nil, []blockdevice.BlockDeviceUUID{"a"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err = st.BlockDevices(c.Context(), machineUUID)
+	result, err = st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 0)
 }
@@ -332,7 +341,7 @@ func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 
 	machineUUID := s.createMachine(c, "666")
 
-	added := map[string]blockdevice.BlockDevice{
+	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName:      "name-666",
 			DeviceLinks:     []string{"dev_link1", "dev_link2"},
@@ -348,15 +357,15 @@ func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 			SerialId:        "serial-666",
 		},
 	}
-	err := st.UpdateMachineBlockDevices(
+	err := st.UpdateBlockDevicesForMachine(
 		c.Context(), machineUUID, added, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := st.BlockDevices(c.Context(), machineUUID)
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, added)
 
-	updated := map[string]blockdevice.BlockDevice{
+	updated := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName:      "name-666_b",
 			DeviceLinks:     []string{"dev_link1_b", "dev_link2_b"},
@@ -372,11 +381,11 @@ func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 			SerialId:        "serial-666_b",
 		},
 	}
-	err = st.UpdateMachineBlockDevices(
+	err = st.UpdateBlockDevicesForMachine(
 		c.Context(), machineUUID, nil, updated, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err = st.BlockDevices(c.Context(), machineUUID)
+	result, err = st.GetBlockDevicesForMachine(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, updated)
 }

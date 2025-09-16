@@ -33,8 +33,9 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // ImportService provides a subset of the block device domain
 // service methods needed for block device import.
 type ImportService interface {
-	// SetBlockDevices overrides all current block devices on the named machine.
-	SetBlockDevices(
+	// SetBlockDevicesForMachineByName overrides all current block devices on
+	// the named machine.
+	SetBlockDevicesForMachineByName(
 		ctx context.Context, machineName machine.Name,
 		devices []blockdevice.BlockDevice,
 	) error
@@ -89,7 +90,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			}
 		}
 
-		err := i.service.SetBlockDevices(
+		err := i.service.SetBlockDevicesForMachineByName(
 			ctx, machine.Name(m.Id()), machineBlockDevices)
 		if err != nil {
 			return errors.Errorf(

@@ -101,40 +101,40 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
 
-// SetBlockDevices mocks base method.
-func (m *MockImportService) SetBlockDevices(arg0 context.Context, arg1 machine.Name, arg2 []blockdevice.BlockDevice) error {
+// SetBlockDevicesForMachineByName mocks base method.
+func (m *MockImportService) SetBlockDevicesForMachineByName(arg0 context.Context, arg1 machine.Name, arg2 []blockdevice.BlockDevice) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBlockDevices", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetBlockDevicesForMachineByName", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetBlockDevices indicates an expected call of SetBlockDevices.
-func (mr *MockImportServiceMockRecorder) SetBlockDevices(arg0, arg1, arg2 any) *MockImportServiceSetBlockDevicesCall {
+// SetBlockDevicesForMachineByName indicates an expected call of SetBlockDevicesForMachineByName.
+func (mr *MockImportServiceMockRecorder) SetBlockDevicesForMachineByName(arg0, arg1, arg2 any) *MockImportServiceSetBlockDevicesForMachineByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockDevices", reflect.TypeOf((*MockImportService)(nil).SetBlockDevices), arg0, arg1, arg2)
-	return &MockImportServiceSetBlockDevicesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockDevicesForMachineByName", reflect.TypeOf((*MockImportService)(nil).SetBlockDevicesForMachineByName), arg0, arg1, arg2)
+	return &MockImportServiceSetBlockDevicesForMachineByNameCall{Call: call}
 }
 
-// MockImportServiceSetBlockDevicesCall wrap *gomock.Call
-type MockImportServiceSetBlockDevicesCall struct {
+// MockImportServiceSetBlockDevicesForMachineByNameCall wrap *gomock.Call
+type MockImportServiceSetBlockDevicesForMachineByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceSetBlockDevicesCall) Return(arg0 error) *MockImportServiceSetBlockDevicesCall {
+func (c *MockImportServiceSetBlockDevicesForMachineByNameCall) Return(arg0 error) *MockImportServiceSetBlockDevicesForMachineByNameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceSetBlockDevicesCall) Do(f func(context.Context, machine.Name, []blockdevice.BlockDevice) error) *MockImportServiceSetBlockDevicesCall {
+func (c *MockImportServiceSetBlockDevicesForMachineByNameCall) Do(f func(context.Context, machine.Name, []blockdevice.BlockDevice) error) *MockImportServiceSetBlockDevicesForMachineByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceSetBlockDevicesCall) DoAndReturn(f func(context.Context, machine.Name, []blockdevice.BlockDevice) error) *MockImportServiceSetBlockDevicesCall {
+func (c *MockImportServiceSetBlockDevicesForMachineByNameCall) DoAndReturn(f func(context.Context, machine.Name, []blockdevice.BlockDevice) error) *MockImportServiceSetBlockDevicesForMachineByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -162,41 +162,41 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
 }
 
-// AllBlockDevices mocks base method.
-func (m *MockExportService) AllBlockDevices(arg0 context.Context) (map[machine.Name][]blockdevice.BlockDevice, error) {
+// GetBlockDevicesForAllMachines mocks base method.
+func (m *MockExportService) GetBlockDevicesForAllMachines(arg0 context.Context) (map[machine.Name][]blockdevice.BlockDevice, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllBlockDevices", arg0)
+	ret := m.ctrl.Call(m, "GetBlockDevicesForAllMachines", arg0)
 	ret0, _ := ret[0].(map[machine.Name][]blockdevice.BlockDevice)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllBlockDevices indicates an expected call of AllBlockDevices.
-func (mr *MockExportServiceMockRecorder) AllBlockDevices(arg0 any) *MockExportServiceAllBlockDevicesCall {
+// GetBlockDevicesForAllMachines indicates an expected call of GetBlockDevicesForAllMachines.
+func (mr *MockExportServiceMockRecorder) GetBlockDevicesForAllMachines(arg0 any) *MockExportServiceGetBlockDevicesForAllMachinesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllBlockDevices", reflect.TypeOf((*MockExportService)(nil).AllBlockDevices), arg0)
-	return &MockExportServiceAllBlockDevicesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevicesForAllMachines", reflect.TypeOf((*MockExportService)(nil).GetBlockDevicesForAllMachines), arg0)
+	return &MockExportServiceGetBlockDevicesForAllMachinesCall{Call: call}
 }
 
-// MockExportServiceAllBlockDevicesCall wrap *gomock.Call
-type MockExportServiceAllBlockDevicesCall struct {
+// MockExportServiceGetBlockDevicesForAllMachinesCall wrap *gomock.Call
+type MockExportServiceGetBlockDevicesForAllMachinesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceAllBlockDevicesCall) Return(arg0 map[machine.Name][]blockdevice.BlockDevice, arg1 error) *MockExportServiceAllBlockDevicesCall {
+func (c *MockExportServiceGetBlockDevicesForAllMachinesCall) Return(arg0 map[machine.Name][]blockdevice.BlockDevice, arg1 error) *MockExportServiceGetBlockDevicesForAllMachinesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceAllBlockDevicesCall) Do(f func(context.Context) (map[machine.Name][]blockdevice.BlockDevice, error)) *MockExportServiceAllBlockDevicesCall {
+func (c *MockExportServiceGetBlockDevicesForAllMachinesCall) Do(f func(context.Context) (map[machine.Name][]blockdevice.BlockDevice, error)) *MockExportServiceGetBlockDevicesForAllMachinesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceAllBlockDevicesCall) DoAndReturn(f func(context.Context) (map[machine.Name][]blockdevice.BlockDevice, error)) *MockExportServiceAllBlockDevicesCall {
+func (c *MockExportServiceGetBlockDevicesForAllMachinesCall) DoAndReturn(f func(context.Context) (map[machine.Name][]blockdevice.BlockDevice, error)) *MockExportServiceGetBlockDevicesForAllMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
