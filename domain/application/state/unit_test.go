@@ -17,13 +17,11 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1362,7 +1360,7 @@ func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
 // exist in the model the caller gets back an error satisfying
 // [applicationerrors.UnitNotFound].
 func (s *unitStateSuite) TestGetUnitMachineIdentifiersUnitNotFound(c *tc.C) {
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := coreunittesting.GenUnitUUID(c)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		_, err := s.state.getUnitMachineIdentifiers(
@@ -1400,7 +1398,7 @@ func (s *unitStateSuite) TestGetUnitMachineIdentifiers(c *tc.C) {
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(recievedIdentifiers, tc.Equals, internalapplication.MachineIdentifiers{
-		Name:        machine.Name("0"),
+		Name:        coremachine.Name("0"),
 		NetNodeUUID: netNodeUUID,
 		UUID:        machineUUID,
 	})

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/unit"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -74,7 +73,7 @@ func (s *State) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, re
 	selectQuery := `
 SELECT &charmID.*
 FROM charm
-WHERE reference_name = $charmReferenceNameRevisionSource.reference_name 
+WHERE reference_name = $charmReferenceNameRevisionSource.reference_name
 AND revision = $charmReferenceNameRevisionSource.revision
 	`
 	ref := charmReferenceNameRevisionSource{
@@ -1275,7 +1274,7 @@ WHERE name = $unitName.name;
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
-func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) error {
+func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid unit.UUID) error {
 	query := `
 SELECT &lifeID.*
 FROM unit

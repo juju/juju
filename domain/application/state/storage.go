@@ -181,7 +181,9 @@ func (st *State) GetUnitStorageDirectives(
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
 SELECT &storageDirective.*
-FROM   unit_storage_directive
+FROM   unit_storage_directive usd
+JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
+JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
 WHERE  unit_uuid = $entityUUID.uuid
 		`,
 		unitUUIDInput, storageDirective{},
@@ -221,7 +223,7 @@ WHERE  unit_uuid = $entityUUID.uuid
 		rval = append(rval, application.StorageDirective{
 			Count:    val.Count,
 			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.CharmStorageKind),
+			Type:     charm.StorageType(val.Type),
 			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
 			Size:     val.SizeMiB,
 		})

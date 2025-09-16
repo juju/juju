@@ -16,7 +16,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -554,9 +553,9 @@ WHERE  u.uuid = $entityUUID.uuid
 	}
 
 	return internalapplication.MachineIdentifiers{
-		Name:        machine.Name(dbVal.Name),
+		Name:        coremachine.Name(dbVal.Name),
 		NetNodeUUID: domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
-		UUID:        machine.UUID(dbVal.UUID),
+		UUID:        coremachine.UUID(dbVal.UUID),
 	}, nil
 }
 
@@ -599,7 +598,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
+			uName, _, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -671,6 +670,7 @@ func (st *State) AddIAASSubordinateUnit(
 
 	var (
 		unitName     coreunit.Name
+		unitUUID     coreunit.UUID
 		machineNames []coremachine.Name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -718,7 +718,7 @@ func (st *State) AddIAASSubordinateUnit(
 			},
 		}
 
-		unitName, machineNames, err = st.insertIAASUnit(
+		unitName, unitUUID, machineNames, err = st.insertIAASUnit(
 			ctx, tx, arg.SubordinateAppID, charmUUID, addUnitArg,
 		)
 		if err != nil {
@@ -1451,7 +1451,7 @@ func (st *State) insertIAASUnit(
 
 	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
 	if err != nil {
-		return "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
+		return "", "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
 	}
 
 	err = st.insertUnit(
@@ -2237,35 +2237,6 @@ VALUES ($unitPrincipal.*)
 	}
 
 	return nil
-}
-
-// getUnitMachineName returns the name of the machine the unit is running on. If
-// the unit is not associated with a machine, the name returned is empty.
-func (st *State) getUnitMachineName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitName coreunit.Name,
-) (coremachine.Name, error) {
-	arg := getUnitMachine{
-		UnitName: unitName,
-	}
-	stmt, err := st.Prepare(`
-SELECT m.name AS &getUnitMachine.machine_name
-FROM   unit u
-JOIN   machine m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.name = $getUnitMachine.unit_name
-`, arg)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.MachineNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return arg.UnitMachine, nil
 }
 
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.

@@ -22,11 +22,8 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
-<<<<<<< HEAD
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-=======
 	networktesting "github.com/juju/juju/domain/network/testing"
->>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/sequence"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -323,102 +320,6 @@ WHERE m.name = ?
 	}
 }
 
-<<<<<<< HEAD
-func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachine(c *tc.C) {
-	// Create the machine, then try to place it on the same machine.
-
-	var netNode string
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		netNode, _, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
-			Directive: deployment.Placement{
-				Type: deployment.PlacementTypeUnset,
-			},
-		})
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	var (
-		resultNetNode string
-		machineNames  []machine.Name
-	)
-	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		resultNetNode, machineNames, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
-			Directive: deployment.Placement{
-				Type:      deployment.PlacementTypeMachine,
-				Directive: "0",
-			},
-		})
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resultNetNode, tc.Equals, netNode)
-	c.Assert(machineNames, tc.HasLen, 1)
-	c.Check(machineNames[0], tc.Equals, machine.Name("0"))
-}
-
-func (s *placementSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *tc.C) {
-	// Try and place a machine that doesn't exist.
-
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
-			Directive: deployment.Placement{
-				Type:      deployment.PlacementTypeMachine,
-				Directive: "0",
-			},
-		})
-		return err
-	})
-	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
-}
-
-func (s *placementSuite) TestPlaceMachineExistingMachineInvalidArch(c *tc.C) {
-	// Arrange: create a machine with an arch of arm64.
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
-			Directive: deployment.Placement{
-				Type: deployment.PlacementTypeUnset,
-			},
-			Platform: deployment.Platform{
-				OSType:       deployment.Ubuntu,
-				Channel:      "22.04",
-				Architecture: architecture.ARM64,
-			},
-		})
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Arrange: Mark the machine hw characteristics as arm64. This is needed
-	// since this is only filled in when the instance is created.
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = "arm64"`)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Act: place something on the machine, with a constrained arch of amd64.
-	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
-			Directive: deployment.Placement{
-				Type:      deployment.PlacementTypeMachine,
-				Directive: "0",
-			},
-			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
-			},
-		})
-		return err
-	})
-
-	// Assert: the placement fails with an error.
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineConstraintViolation)
-}
-
-=======
->>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
 func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	// Ensure the parent and child machine got created.
 	var (
@@ -510,7 +411,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 func (s *placementSuite) TestPlaceNetNodeMachinesContainerInvalidArch(c *tc.C) {
 	// Arrange: create a machine with an arch of arm64.
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+		_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 			Directive: deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
 			},
@@ -534,7 +435,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerInvalidArch(c *tc.C) {
 
 	// Act: place something in a container on the machine, with a constrained arch of amd64.
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.AddMachineArgs{
+		_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 			Directive: deployment.Placement{
 				Type:      deployment.PlacementTypeContainer,
 				Container: deployment.ContainerTypeLXD,

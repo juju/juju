@@ -193,11 +193,6 @@ type machinePlatformUUID struct {
 	ArchitectureID int              `db:"architecture_id"`
 }
 
-type machineUUIDAndNetNodeUUID struct {
-	MachineUUID string `db:"uuid"`
-	NetNodeUUID string `db:"net_node_uuid"`
-}
-
 type machineNameWithMachineUUID struct {
 	Name machine.Name `db:"name"`
 	UUID machine.UUID `db:"uuid"`
@@ -232,14 +227,6 @@ type containerType struct {
 type machineContainerType struct {
 	MachineUUID     string `db:"machine_uuid"`
 	ContainerTypeID int    `db:"container_type_id"`
-}
-
-type insertMachineAndNetNodeArgs struct {
-	machineName string
-	machineUUID string
-	platform    deployment.Platform
-	nonce       *string
-	constraints constraints.Constraints
 }
 
 type insertChildMachineForContainerPlacementArgs struct {

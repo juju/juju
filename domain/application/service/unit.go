@@ -72,8 +72,8 @@ type UnitState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
-	// GetUnitUUIDAndNetNodeForName returns the uuid net node uuid for a unit
-	// matching the supplied name.
+	// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
+	// unit matching the supplied name.
 	//
 	// The following errors may be expected:
 	// - [applicationerrors.UnitNotFound] if no unit exists for the supplied

@@ -4,8 +4,9 @@
 package testing
 
 import (
-	"github.com/juju/juju/domain/network"
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/domain/network"
 )
 
 // GenNetNodeUUID is a convenience testing function for generating a net node

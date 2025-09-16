@@ -4,9 +4,9 @@
 package application
 
 import (
+	"github.com/juju/juju/domain/application/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // CreateApplicationStorageDirectiveArg defines an individual storage directive to be
@@ -135,7 +135,7 @@ type StorageDirective struct {
 
 	// Type represents the storage type of the charm that the directive relates
 	// to.
-	Type internalcharm.StorageType
+	Type charm.StorageType
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name

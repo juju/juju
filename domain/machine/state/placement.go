@@ -47,29 +47,15 @@ func PlaceMachine(
 			Nonce:       args.Nonce,
 			Constraints: args.Constraints,
 		})
-<<<<<<< HEAD
-		return netNodeUUID, []coremachine.Name{machineName}, errors.Capture(err)
+		return []coremachine.Name{machineName}, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
 		machineName := coremachine.Name(args.Directive.Directive)
-		// Look up the existing machine by name (example: 0 or 0/lxd/0) and then
-		// return the associated net node UUID.
-		machineUUID, netNodeUUID, err := getMachineUUIDAndNetNodeUUIDFromName(ctx, tx, preparer, machineName)
+		err := validateMachineSatisfiesConstraints(ctx, tx, preparer, args.MachineUUID.String(), args.Constraints)
 		if err != nil {
-			return "", nil, errors.Capture(err)
+			return nil, errors.Errorf("validating machine placement: %w", err)
 		}
-		err = validateMachineSatisfiesConstraints(ctx, tx, preparer, machineUUID, args.Constraints)
-		if err != nil {
-			return "", nil, errors.Errorf("validating machine placement: %w", err)
-		}
-		// At this point we know that the machine exists, so we can return its
-		// name taken from the directive.
-		machineNames := []coremachine.Name{machineName}
-		return netNodeUUID, machineNames, nil
-
-=======
-		return []coremachine.Name{machineName}, errors.Capture(err)
->>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
+		return []coremachine.Name{machineName}, nil
 	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd or lxd:0). If there
 		// is no directive, we need to create a parent machine (the next in the
@@ -86,14 +72,7 @@ func PlaceMachine(
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-<<<<<<< HEAD
-		childMachineUUID, err := coremachine.NewUUID()
-		if err != nil {
-			return "", nil, errors.Capture(err)
-		}
-=======
 
->>>>>>> 730475d5d8 (refactor: require machine placement to calc uuid and net node before)
 		// Use the container type to determine the scope of the container.
 		// For example, lxd.
 		insertChildMachineArgs := insertChildMachineForContainerPlacementArgs{
@@ -698,34 +677,6 @@ func acquireParentMachineForContainer(
 		return "", "", errors.Capture(err)
 	}
 	return machineUUID, mName, nil
-}
-
-func getMachineUUIDAndNetNodeUUIDFromName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	preparer domain.Preparer,
-	name coremachine.Name,
-) (string, string, error) {
-	mName := machineName{Name: name}
-	query := `
-SELECT &machineUUIDAndNetNodeUUID.*
-FROM machine
-WHERE name = $machineName.name
-`
-	stmt, err := preparer.Prepare(query, mName, machineUUIDAndNetNodeUUID{})
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	var machine machineUUIDAndNetNodeUUID
-	err = tx.Query(ctx, stmt, mName).Get(&machine)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", errors.Errorf("machine %q not found", name).
-			Add(machineerrors.MachineNotFound)
-	} else if err != nil {
-		return "", "", errors.Errorf("querying machine %q: %w", name, err)
-	}
-	return machine.MachineUUID, machine.NetNodeUUID, nil
 }
 
 func getMachineUUIDFromName(

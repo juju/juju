@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -588,12 +589,12 @@ func makeStorageAttachmentArgs(
 // encodeStorageKindFromCharmStorageType provides a mapping from charm storage
 // type to storage kind.
 func encodeStorageKindFromCharmStorageType(
-	storageType internalcharm.StorageType,
+	storageType charm.StorageType,
 ) (domainstorageprov.Kind, error) {
 	switch storageType {
-	case internalcharm.StorageBlock:
+	case charm.StorageBlock:
 		return domainstorageprov.KindBlock, nil
-	case internalcharm.StorageFilesystem:
+	case charm.StorageFilesystem:
 		return domainstorageprov.KindFilesystem, nil
 	default:
 		return -1, errors.Errorf(
@@ -702,7 +703,7 @@ func makeStorageDirectiveFromApplicationArg(
 		rval = append(rval, application.StorageDirective{
 			Name:     arg.Name,
 			Count:    arg.Count,
-			Type:     charmStorage[arg.Name.String()].Type,
+			Type:     charm.StorageType(charmStorage[arg.Name.String()].Type),
 			PoolUUID: arg.PoolUUID,
 			Size:     arg.Size,
 		})
