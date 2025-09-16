@@ -30,6 +30,14 @@ func (s *Service) ReceiverFromTask(ctx context.Context, id string) (string, erro
 	return "", coreerrors.NotImplemented
 }
 
+// GetPendingTaskByTaskID return a struct containing the data required to
+// run a task. The task must have a status of pending.
+// Returns TaskNotPending if the task exists but does not have
+// a pending status.
+func (s *Service) GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error) {
+	return operation.TaskArgs{}, coreerrors.NotImplemented
+}
+
 // GetTask returns the task identified by its ID.
 func (s *Service) GetTask(ctx context.Context, taskID string) (operation.Task, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(),

@@ -9,4 +9,8 @@ const (
 	// TaskNotFound describes an error that occurs when the task being
 	// operated on does not exist.
 	TaskNotFound = errors.ConstError("task not found")
+
+	// TaskNotPending describes an error that occurs when a pending task
+	// is queried and does not have a pending status.
+	TaskNotPending = errors.ConstError("task not pending")
 )

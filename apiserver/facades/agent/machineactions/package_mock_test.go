@@ -80,6 +80,45 @@ func (c *MockOperationServiceFinishTaskCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// GetPendingTaskByTaskID mocks base method.
+func (m *MockOperationService) GetPendingTaskByTaskID(arg0 context.Context, arg1 string) (operation.TaskArgs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingTaskByTaskID", arg0, arg1)
+	ret0, _ := ret[0].(operation.TaskArgs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingTaskByTaskID indicates an expected call of GetPendingTaskByTaskID.
+func (mr *MockOperationServiceMockRecorder) GetPendingTaskByTaskID(arg0, arg1 any) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingTaskByTaskID", reflect.TypeOf((*MockOperationService)(nil).GetPendingTaskByTaskID), arg0, arg1)
+	return &MockOperationServiceGetPendingTaskByTaskIDCall{Call: call}
+}
+
+// MockOperationServiceGetPendingTaskByTaskIDCall wrap *gomock.Call
+type MockOperationServiceGetPendingTaskByTaskIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) Return(arg0 operation.TaskArgs, arg1 error) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) Do(f func(context.Context, string) (operation.TaskArgs, error)) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) DoAndReturn(f func(context.Context, string) (operation.TaskArgs, error)) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReceiverFromTask mocks base method.
 func (m *MockOperationService) ReceiverFromTask(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()

@@ -360,6 +360,12 @@ type PortService interface {
 
 // OperationService provides access to operations and tasks.
 type OperationService interface {
+	// GetPendingTaskByTaskID return a struct containing the data required to
+	// run a task. The task must have a status of pending.
+	// Returns TaskNotPending if the task exists but does not have
+	// a pending status.
+	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
+
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
 
