@@ -783,6 +783,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	addIAASApplicationArgs.Constraints = constraints.DecodeConstraints(cons)
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)
@@ -842,6 +843,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 	addCAASApplicationArg.Constraints = constraints.DecodeConstraints(cons)
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)

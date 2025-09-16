@@ -1355,8 +1355,8 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
+	err = st.insertUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1365,7 +1365,7 @@ func (st *State) insertCAASUnitWithName(
 	}
 
 	err = st.insertUnitStorageInstances(
-		ctx, tx, unitStorageDirectives, args.StorageInstances,
+		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1469,8 +1469,8 @@ func (st *State) insertIAASUnit(
 		return "", "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 
-	unitStorageDirectives, err := st.insertUnitStorageDirectives(
-		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
+	err = st.insertUnitStorageDirectives(
+		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
@@ -1478,7 +1478,7 @@ func (st *State) insertIAASUnit(
 		)
 	}
 
-	err = st.insertUnitStorageInstances(ctx, tx, unitStorageDirectives, args.StorageInstances)
+	err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,

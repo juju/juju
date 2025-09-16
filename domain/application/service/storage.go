@@ -619,7 +619,7 @@ func makeUnitStorageInstancesFromDirective(
 		return nil, nil
 	}
 
-	storageKind, err := encodeStorageKindFromCharmStorageType(directive.Type)
+	storageKind, err := encodeStorageKindFromCharmStorageType(directive.CharmStorageType)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -653,9 +653,12 @@ func makeUnitStorageInstancesFromDirective(
 		}
 
 		instArg := application.CreateUnitStorageInstanceArg{
-			Kind: storageKind,
-			Name: directive.Name,
-			UUID: uuid,
+			CharmName:       directive.CharmMetadataName,
+			Kind:            storageKind,
+			Name:            directive.Name,
+			RequestSizeMiB:  directive.Size,
+			StoragePoolUUID: directive.PoolUUID,
+			UUID:            uuid,
 		}
 
 		if composition.FilesystemRequired {
@@ -696,17 +699,19 @@ func makeUnitStorageInstancesFromDirective(
 // directive create params for an application and converting them into
 // [application.StorageDirective] types for creating units.
 func makeStorageDirectiveFromApplicationArg(
+	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,
 	applicationArgs []application.CreateApplicationStorageDirectiveArg,
 ) []application.StorageDirective {
 	rval := make([]application.StorageDirective, 0, len(applicationArgs))
 	for _, arg := range applicationArgs {
 		rval = append(rval, application.StorageDirective{
-			Name:     arg.Name,
-			Count:    arg.Count,
-			Type:     charm.StorageType(charmStorage[arg.Name.String()].Type),
-			PoolUUID: arg.PoolUUID,
-			Size:     arg.Size,
+			CharmMetadataName: charmMetadataName,
+			Name:              arg.Name,
+			Count:             arg.Count,
+			CharmStorageType:  charm.StorageType(charmStorage[arg.Name.String()].Type),
+			PoolUUID:          arg.PoolUUID,
+			Size:              arg.Size,
 		})
 	}
 

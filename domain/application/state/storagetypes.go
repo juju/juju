@@ -7,17 +7,6 @@ import (
 	"time"
 )
 
-// applicationStorageDirective is used to represent the values held in the
-// application_storage_directive table representing the storage directives of
-// an application.
-type applicationStorageDirective struct {
-	Count            uint32 `db:"count"`
-	CharmStorageKind string `db:"kind"`
-	SizeMiB          uint64 `db:"size_mib"`
-	StorageName      string `db:"storage_name"`
-	StoragePoolUUID  string `db:"storage_pool_uuid"`
-}
-
 // insertStorageFilesystem represents the set of values required for inserting a
 // new storage filesystem into the model.
 type insertStorageFilesystem struct {
@@ -129,19 +118,15 @@ type storageVolumeUUIDRef struct {
 	UUID string `db:"storage_volume_uuid"`
 }
 
-// storageVolumeProvisionScope is a database type for finding the provison
-// scope of a volume.
-type storageVolumeProvisionScope struct {
-	UUID             string `db:"uuid"`
-	ProvisionScopeID int    `db:"provision_scope_id"`
-}
-
+// storageDirective represents either a storage directive from a unit in the
+// model or an application.
 type storageDirective struct {
-	Count           uint32 `db:"count"`
-	Kind            string `db:"kind"`
-	SizeMiB         uint64 `db:"size_mib"`
-	StorageName     string `db:"storage_name"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+	CharmMetadataName string `db:"charm_metadata_name"`
+	Count             uint32 `db:"count"`
+	CharmStorageKind  string `db:"charm_storage_kind"`
+	SizeMiB           uint64 `db:"size_mib"`
+	StorageName       string `db:"storage_name"`
+	StoragePoolUUID   string `db:"storage_pool_uuid"`
 }
 
 // unitStorageDirective is used to represent the values held in the
