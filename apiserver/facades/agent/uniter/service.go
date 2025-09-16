@@ -225,13 +225,6 @@ type ApplicationService interface {
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 
-	// WatchUnitActions watches for all updates to actions for the specified unit,
-	// emitting action ids.
-	//
-	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
-	// will be returned.
-	WatchUnitActions(context.Context, coreunit.Name) (watcher.StringsWatcher, error)
-
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
 	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error
@@ -376,6 +369,18 @@ type OperationService interface {
 	// ReceiverFromTask return a receiver string for the task identified.
 	// The string should satisfy the ActionReceiverTag type.
 	ReceiverFromTask(ctx context.Context, id string) (string, error)
+
+	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
+	// ids for tasks targeted at the provided machine.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING only.
+	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
+
+	// WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
+	// for tasks targeted at the provided unit.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING or ABORTING only.
+	WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

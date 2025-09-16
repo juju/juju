@@ -50,7 +50,8 @@ const (
 	customNamespaceModelLifeRemovalLifecycle
 	customNamespaceStorageAttachmentRelatedEntities
 	customNamespaceStorageAttachmentLifecycle
-	customNamespaceOperatingTaskStatusAborting
+	customNamespaceOperatingTaskStatusPending
+	customNamespaceOperatingTaskStatusPendingOrAborting
 )
 
 const (
@@ -90,6 +91,7 @@ const (
 	tableIpAddress
 	tableApplicationEndpoint
 	tableOperationTaskLog
+	tableOperationTaskStatus
 )
 
 // ModelDDL is used to create model databases.

@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -14,7 +15,11 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -198,4 +203,196 @@ WHERE  %q IN ($uuids[:])`, table, field), uuidToDelete)
 		return errors.Capture(err)
 	}
 	return tx.Query(ctx, stmt, uuidToDelete).Run()
+}
+
+// GetUnitUUIDByName returns the unit UUID for the given unit name.
+func (s *State) GetUnitUUIDByName(ctx context.Context, unitName coreunit.Name) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	unitIdent := nameArg{Name: unitName.String()}
+	query := `
+SELECT uuid AS &uuid.uuid 
+FROM   unit 
+WHERE  name = $nameArg.name`
+	stmt, err := s.Prepare(query, uuid{}, unitIdent)
+	if err != nil {
+		return "", errors.Errorf("preparing statement: %w", err)
+	}
+
+	var result uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, unitIdent).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("unit %q not found", unitName.String()).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying unit: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("getting unit UUID for %q: %w", unitName.String(), err)
+	}
+	return result.UUID, nil
+}
+
+// GetMachineUUIDByName returns the machine UUID for the given machine name.
+func (s *State) GetMachineUUIDByName(ctx context.Context, machineName coremachine.Name) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	machineIdent := nameArg{Name: machineName.String()}
+	query := `
+SELECT uuid AS &uuid.uuid 
+FROM   machine 
+WHERE  name = $nameArg.name`
+	stmt, err := s.Prepare(query, uuid{}, machineIdent)
+	if err != nil {
+		return "", errors.Errorf("preparing statement: %w", err)
+	}
+
+	var result uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, machineIdent).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("machine %q not found", machineName.String()).Add(machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying machine: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("getting machine UUID for %q: %w", machineName.String(), err)
+	}
+	return result.UUID, nil
+}
+
+// InitialWatchStatementUnitTask returns the namespace and an initial query
+// function which returns the list of (only PENDING or ABORTING status) task ids
+// for the given unit.
+func (s *State) InitialWatchStatementUnitTask() (string, string) {
+	return "custom_operation_task_status_pending_or_aborting", `
+SELECT t.task_id
+FROM   operation_task AS t
+JOIN   operation_unit_task AS ut ON t.uuid = ut.task_uuid
+JOIN   operation_task_status AS ts ON t.uuid = ts.task_uuid
+JOIN   operation_task_status_value AS sv ON ts.status_id = sv.id
+WHERE  ut.unit_uuid = ?
+AND    (
+       sv.status = 'pending'
+       OR
+       sv.status = 'aborting'
+)`
+}
+
+// InitialWatchStatementMachineTask returns the namespace and an initial
+// query function which returns the list of (only PENDING status) task ids for
+// the given machine.
+func (s *State) InitialWatchStatementMachineTask() (string, string) {
+	return "custom_operation_task_status_pending", `
+SELECT t.task_id
+FROM   operation_task AS t
+JOIN   operation_machine_task AS mt ON t.uuid = mt.task_uuid
+JOIN   operation_task_status AS ts ON t.uuid = ts.task_uuid
+JOIN   operation_task_status_value AS sv ON ts.status_id = sv.id
+WHERE  mt.machine_uuid = ?
+AND    sv.status = 'pending'`
+}
+
+// FiltertTaskUUIDsForUnit returns a list of task IDs that corresponds to the
+// filtered list of task UUIDs from the provided list that target the given
+// unit uuid.
+// NOTE: This function does not perform any check on the status of the tasks.
+// Although the status check is needed for the notification watcher, we already
+// have a custom changelog trigger, which only fires on PENDING and ABORTING
+// statuses, which makes this filter only needed for unit UUID filtering.
+func (s *State) FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type taskUUIDs []string
+	taskInputUUIDs := taskUUIDs(tUUIDs)
+	unitIdent := uuid{UUID: unitUUID}
+	query := `
+SELECT t.task_id AS &taskIdent.task_id
+FROM   operation_task AS t
+JOIN   operation_unit_task AS ut ON t.uuid = ut.task_uuid
+WHERE  t.uuid IN ($taskUUIDs[:])
+AND    ut.unit_uuid = $uuid.uuid`
+	stmt, err := s.Prepare(query, taskIdent{}, taskInputUUIDs, unitIdent)
+	if err != nil {
+		return nil, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var results []taskIdent
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, taskInputUUIDs, unitIdent).GetAll(&results)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("querying unit task ids: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting task ids for unit %q: %w", unitUUID, err)
+	}
+
+	ids := transform.Slice(results, func(res taskIdent) string {
+		return res.ID
+	})
+	return ids, nil
+}
+
+// FilterTaskUUIDsForMachine returns a list of task IDs that corresponds to the
+// filtered list of task UUIDs from the provided list that target the given
+// machine uuid.
+// NOTE: This function does not perform any check on the status of the tasks.
+// Although the status check is needed for the notification watcher, we already
+// have a custom changelog trigger, which only fires on PENDING status, which
+// makes this filter only needed for machine UUID filtering.
+func (s *State) FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type taskUUIDs []string
+	taskInputUUIDs := taskUUIDs(tUUIDs)
+	machineIdent := uuid{UUID: machineUUID}
+	query := `
+SELECT t.task_id AS &taskIdent.task_id
+FROM   operation_task AS t
+JOIN   operation_machine_task AS mt ON t.uuid = mt.task_uuid
+WHERE  t.uuid IN ($taskUUIDs[:])
+AND    mt.machine_uuid = $uuid.uuid`
+	stmt, err := s.Prepare(query, taskIdent{}, taskInputUUIDs, machineIdent)
+	if err != nil {
+		return nil, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var results []taskIdent
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, taskInputUUIDs, machineIdent).GetAll(&results)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("querying task ids: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting task ids for machine %q: %w", machineUUID, err)
+	}
+
+	ids := transform.Slice(results, func(res taskIdent) string {
+		return res.ID
+	})
+	return ids, nil
 }

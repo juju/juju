@@ -14,6 +14,8 @@ import (
 	reflect "reflect"
 	time "time"
 
+	machine "github.com/juju/juju/core/machine"
+	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	operation "github.com/juju/juju/domain/operation"
@@ -84,6 +86,84 @@ func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (o
 	return c
 }
 
+// FilterTaskUUIDsForMachine mocks base method.
+func (m *MockState) FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterTaskUUIDsForMachine", ctx, tUUIDs, machineUUID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilterTaskUUIDsForMachine indicates an expected call of FilterTaskUUIDsForMachine.
+func (mr *MockStateMockRecorder) FilterTaskUUIDsForMachine(ctx, tUUIDs, machineUUID any) *MockStateFilterTaskUUIDsForMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterTaskUUIDsForMachine", reflect.TypeOf((*MockState)(nil).FilterTaskUUIDsForMachine), ctx, tUUIDs, machineUUID)
+	return &MockStateFilterTaskUUIDsForMachineCall{Call: call}
+}
+
+// MockStateFilterTaskUUIDsForMachineCall wrap *gomock.Call
+type MockStateFilterTaskUUIDsForMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateFilterTaskUUIDsForMachineCall) Return(arg0 []string, arg1 error) *MockStateFilterTaskUUIDsForMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateFilterTaskUUIDsForMachineCall) Do(f func(context.Context, []string, string) ([]string, error)) *MockStateFilterTaskUUIDsForMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateFilterTaskUUIDsForMachineCall) DoAndReturn(f func(context.Context, []string, string) ([]string, error)) *MockStateFilterTaskUUIDsForMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// FilterTaskUUIDsForUnit mocks base method.
+func (m *MockState) FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilterTaskUUIDsForUnit", ctx, tUUIDs, unitUUID)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilterTaskUUIDsForUnit indicates an expected call of FilterTaskUUIDsForUnit.
+func (mr *MockStateMockRecorder) FilterTaskUUIDsForUnit(ctx, tUUIDs, unitUUID any) *MockStateFilterTaskUUIDsForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterTaskUUIDsForUnit", reflect.TypeOf((*MockState)(nil).FilterTaskUUIDsForUnit), ctx, tUUIDs, unitUUID)
+	return &MockStateFilterTaskUUIDsForUnitCall{Call: call}
+}
+
+// MockStateFilterTaskUUIDsForUnitCall wrap *gomock.Call
+type MockStateFilterTaskUUIDsForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateFilterTaskUUIDsForUnitCall) Return(arg0 []string, arg1 error) *MockStateFilterTaskUUIDsForUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateFilterTaskUUIDsForUnitCall) Do(f func(context.Context, []string, string) ([]string, error)) *MockStateFilterTaskUUIDsForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateFilterTaskUUIDsForUnitCall) DoAndReturn(f func(context.Context, []string, string) ([]string, error)) *MockStateFilterTaskUUIDsForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetIDsForAbortingTaskOfReceiver mocks base method.
 func (m *MockState) GetIDsForAbortingTaskOfReceiver(ctx context.Context, receiverUUID uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -119,6 +199,45 @@ func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) DoAndReturn(f func(context.Context, uuid.UUID) ([]string, error)) *MockStateGetIDsForAbortingTaskOfReceiverCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineUUIDByName mocks base method.
+func (m *MockState) GetMachineUUIDByName(ctx context.Context, n machine.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUIDByName", ctx, n)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUIDByName indicates an expected call of GetMachineUUIDByName.
+func (mr *MockStateMockRecorder) GetMachineUUIDByName(ctx, n any) *MockStateGetMachineUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUIDByName", reflect.TypeOf((*MockState)(nil).GetMachineUUIDByName), ctx, n)
+	return &MockStateGetMachineUUIDByNameCall{Call: call}
+}
+
+// MockStateGetMachineUUIDByNameCall wrap *gomock.Call
+type MockStateGetMachineUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineUUIDByNameCall) Return(arg0 string, arg1 error) *MockStateGetMachineUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineUUIDByNameCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -277,6 +396,123 @@ func (c *MockStateGetTaskUUIDByIDCall) Do(f func(context.Context, string) (strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetTaskUUIDByIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateGetTaskUUIDByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitUUIDByName mocks base method.
+func (m *MockState) GetUnitUUIDByName(ctx context.Context, n unit.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUIDByName", ctx, n)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUIDByName indicates an expected call of GetUnitUUIDByName.
+func (mr *MockStateMockRecorder) GetUnitUUIDByName(ctx, n any) *MockStateGetUnitUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDByName", reflect.TypeOf((*MockState)(nil).GetUnitUUIDByName), ctx, n)
+	return &MockStateGetUnitUUIDByNameCall{Call: call}
+}
+
+// MockStateGetUnitUUIDByNameCall wrap *gomock.Call
+type MockStateGetUnitUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitUUIDByNameCall) Return(arg0 string, arg1 error) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (string, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (string, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementMachineTask mocks base method.
+func (m *MockState) InitialWatchStatementMachineTask() (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementMachineTask")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchStatementMachineTask indicates an expected call of InitialWatchStatementMachineTask.
+func (mr *MockStateMockRecorder) InitialWatchStatementMachineTask() *MockStateInitialWatchStatementMachineTaskCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementMachineTask", reflect.TypeOf((*MockState)(nil).InitialWatchStatementMachineTask))
+	return &MockStateInitialWatchStatementMachineTaskCall{Call: call}
+}
+
+// MockStateInitialWatchStatementMachineTaskCall wrap *gomock.Call
+type MockStateInitialWatchStatementMachineTaskCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementMachineTaskCall) Return(arg0, arg1 string) *MockStateInitialWatchStatementMachineTaskCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementMachineTaskCall) Do(f func() (string, string)) *MockStateInitialWatchStatementMachineTaskCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementMachineTaskCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchStatementMachineTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementUnitTask mocks base method.
+func (m *MockState) InitialWatchStatementUnitTask() (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementUnitTask")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchStatementUnitTask indicates an expected call of InitialWatchStatementUnitTask.
+func (mr *MockStateMockRecorder) InitialWatchStatementUnitTask() *MockStateInitialWatchStatementUnitTaskCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementUnitTask", reflect.TypeOf((*MockState)(nil).InitialWatchStatementUnitTask))
+	return &MockStateInitialWatchStatementUnitTaskCall{Call: call}
+}
+
+// MockStateInitialWatchStatementUnitTaskCall wrap *gomock.Call
+type MockStateInitialWatchStatementUnitTaskCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementUnitTaskCall) Return(arg0, arg1 string) *MockStateInitialWatchStatementUnitTaskCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementUnitTaskCall) Do(f func() (string, string)) *MockStateInitialWatchStatementUnitTaskCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementUnitTaskCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchStatementUnitTaskCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

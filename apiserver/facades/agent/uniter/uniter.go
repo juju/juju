@@ -986,10 +986,6 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 // Unit.WatchActionNotifications(). This method is called from
 // api/uniter/uniter.go WatchActionNotifications().
 func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	// TODO (stickupkid): The actions watcher shouldn't cause the uniter to
-	// start up, but here we are.
-	// This is will need to fixed when actions are moved to dqlite.
-
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
@@ -1015,7 +1011,7 @@ func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.En
 			continue
 		}
 
-		w, err := u.applicationService.WatchUnitActions(ctx, unitName)
+		w, err := u.operationService.WatchUnitTaskNotifications(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(
 				errors.NotFoundf("unit %s", unitName),
