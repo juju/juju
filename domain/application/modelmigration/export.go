@@ -14,7 +14,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -76,7 +75,7 @@ type ExportService interface {
 	// If the application does not exist, a
 	// [applicationerrors.ApplicationNotFound] error is returned. If no config
 	// is set for the application, an empty config is returned.
-	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
+	GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Settings, application.ApplicationSettings, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application name.

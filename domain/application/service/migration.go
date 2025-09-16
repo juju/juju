@@ -11,7 +11,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -221,7 +220,7 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 // If the application does not exist, a [applicationerrors.ApplicationNotFound]
 // error is returned. If no config is set for the application, an empty config
 // is returned.
-func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error) {
+func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (internalcharm.Settings, application.ApplicationSettings, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -239,7 +238,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Settings)
 	for k, v := range cfg {
 		result[k] = v.Value
 	}

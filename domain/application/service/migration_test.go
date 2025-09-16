@@ -15,7 +15,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
@@ -27,6 +26,7 @@ import (
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -328,7 +328,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
+	c.Check(results, tc.DeepEquals, internalcharm.Settings{
 		"foo": "bar",
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
@@ -373,7 +373,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{})
+	c.Check(results, tc.DeepEquals, internalcharm.Settings{})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
@@ -390,7 +390,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.
 
 	results, settings, err := s.service.GetApplicationConfigAndSettings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{})
+	c.Check(results, tc.DeepEquals, internalcharm.Settings{})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
 	})

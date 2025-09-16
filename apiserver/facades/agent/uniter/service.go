@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/blockdevice"
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -173,11 +172,8 @@ type ApplicationService interface {
 	// charm using the charm name, source and revision.
 	GetCharmLXDProfile(context.Context, charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
 
-	// GetApplicationConfig returns the application config attributes for the
-	// configuration.
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfig(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	// GetApplicationTrustSetting returns the application trust setting.
+	GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error)
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(context.Context, coreunit.Name) (domainapplication.UnitAttributes, error)
@@ -199,7 +195,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (internalcharm.Settings, error)
 
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.

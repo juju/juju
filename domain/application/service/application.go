@@ -14,7 +14,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -1468,41 +1467,13 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appl
 	return s.st.GetApplicationsForRevisionUpdater(ctx)
 }
 
-// GetApplicationConfig returns the application config attributes for the
-// configuration.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
-	}
-
-	cfg, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	result := make(config.ConfigAttributes)
-	for k, v := range cfg {
-		result[k] = v.Value
-	}
-
-	// Always return the trust setting, as it's a special case.
-	result[coreapplication.TrustConfigOptionName] = settings.Trust
-
-	return result, nil
-}
-
 // GetApplicationConfigWithDefaults returns the application config attributes
 // for the configuration, or their charm default if the config attribute is not
 // set.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
+func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (internalcharm.Settings, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1515,7 +1486,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Settings)
 	for k, v := range cfg {
 		result[k] = v.Value
 	}
@@ -1574,7 +1545,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Settings)
 	for k, v := range appConfig {
 		result[k] = v.Value
 	}
@@ -1878,7 +1849,7 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 	return &b, nil
 }
 
-func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
+func encodeApplicationConfig(cfg internalcharm.Settings, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
 	// If there is no config, then we can just return nil.
 	if len(cfg) == 0 {
 		return nil, nil

@@ -140,7 +140,7 @@ func DeployApplication(
 			Status: status.Unset,
 			Since:  ptr(clock.Now()),
 		},
-		ApplicationConfig: config.ConfigAttributes(charmConfig),
+		ApplicationConfig: charmConfig,
 		ApplicationSettings: application.ApplicationSettings{
 			Trust: trust,
 		},

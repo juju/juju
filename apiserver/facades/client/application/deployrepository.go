@@ -143,7 +143,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			Status: status.Unset,
 			Since:  ptr(api.clock.Now()),
 		},
-		ApplicationConfig: config.ConfigAttributes(dt.charmSettings),
+		ApplicationConfig: dt.charmSettings,
 		ApplicationSettings: application.ApplicationSettings{
 			Trust: trust,
 		},
