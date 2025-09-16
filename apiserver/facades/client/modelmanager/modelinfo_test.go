@@ -680,6 +680,11 @@ func (m *mockCaasBroker) Create(context.ProviderCallContext, environs.CreatePara
 	return nil
 }
 
+func (m *mockCaasBroker) Destroy(context.ProviderCallContext) error {
+	m.MethodCall(m, "Destroy")
+	return nil
+}
+
 type mockState struct {
 	jujutesting.Stub
 
