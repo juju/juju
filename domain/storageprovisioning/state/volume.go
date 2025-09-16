@@ -15,6 +15,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -764,6 +765,99 @@ WHERE  uuid = $volumeUUID.uuid
 		Persistent: vol.Persistent,
 	}
 	return retVal, nil
+}
+
+// SetVolumeAttachmentProvisionedInfo sets on the provided volume the
+// information about the provisioned volume attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided volume attachment uuid.
+// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
+// for a given block device uuid.
+func (st *State) SetVolumeAttachmentProvisionedInfo(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	info domainstorageprovisioning.VolumeAttachmentProvisionedInfo,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := volumeAttachmentProvisionedInfo{
+		UUID:     uuid.String(),
+		ReadOnly: info.ReadOnly,
+	}
+	if info.BlockDeviceUUID != nil {
+		input.BlockDeviceUUID = sql.Null[string]{
+			V:     info.BlockDeviceUUID.String(),
+			Valid: true,
+		}
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_volume_attachment
+SET    read_only = $volumeAttachmentProvisionedInfo.read_only,
+       block_device_uuid = $volumeAttachmentProvisionedInfo.block_device_uuid
+WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
+`, input)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeAttachmentExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+
+		if info.BlockDeviceUUID != nil {
+			exists, err := st.checkBlockDeviceExists(
+				ctx, tx, *info.BlockDeviceUUID)
+			if err != nil {
+				return err
+			} else if !exists {
+				return errors.Errorf(
+					"block device %q does not exist", *info.BlockDeviceUUID,
+				).Add(storageprovisioningerrors.BlockDeviceNotFound)
+			}
+		}
+
+		return tx.Query(ctx, stmt, input).Run()
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+func (st *State) checkBlockDeviceExists(
+	ctx context.Context, tx *sqlair.TX, uuid blockdevice.BlockDeviceUUID,
+) (bool, error) {
+	io := entityUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   block_device
+WHERE  uuid = $entityUUID.uuid
+`, io)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, io).Get(&io)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // SetVolumeProvisionedInfo sets the provisioned information for the given

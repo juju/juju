@@ -6,6 +6,7 @@ package storageprovisioning
 import (
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -99,11 +100,8 @@ type VolumeAttachmentPlan struct {
 // VolumeAttachmentProvisionedInfo is information set by the storage provisioner
 // for volume attachments it has provisioned.
 type VolumeAttachmentProvisionedInfo struct {
-	ReadOnly bool
-
-	BlockDeviceName       string
-	BlockDeviceLink       string
-	BlockDeviceBusAddress string
+	ReadOnly        bool
+	BlockDeviceUUID *blockdevice.BlockDeviceUUID
 }
 
 // VolumeAttachmentPlanProvisionedInfo is information set by the storage
