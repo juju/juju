@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -71,7 +72,7 @@ AND    life_id = 0`, attachmentUUID)
 	}))
 }
 
-// StorageAttachmentScheduleRemoval schedules a removal job for the storage 
+// StorageAttachmentScheduleRemoval schedules a removal job for the storage
 // attachment with the input UUID, qualified with the input force boolean.
 // We don't care if the attachment does not exist at this point because:
 // - it should have been validated prior to calling this method,
