@@ -802,13 +802,13 @@ func (s *storageStatusSuite) newStorageVolumeAttachmentPlan(
 ) string {
 	vapUUID := uuid.MustNewUUID().String()
 	_, err := s.DB().Exec(
-		`INSERT INTO storage_volume_attachment_plan(uuid, storage_volume_uuid, net_node_uuid, life_id, device_type_id) VALUES(?, ?, ?, 0, ?)`,
+		`INSERT INTO storage_volume_attachment_plan(uuid, storage_volume_uuid, net_node_uuid, life_id, device_type_id, provision_scope_id) VALUES(?, ?, ?, 0, ?, 1)`,
 		vapUUID, volumeUUID, netNodeUUID, deviceTypeID)
 	c.Assert(err, tc.ErrorIsNil)
 	for key, value := range attrs {
 		_, err := s.DB().Exec(
-			`INSERT INTO storage_volume_attachment_plan_attr(uuid, attachment_plan_uuid, key, value) VALUES(?, ?, ?, ?)`,
-			uuid.MustNewUUID().String(), vapUUID, key, value)
+			`INSERT INTO storage_volume_attachment_plan_attr(attachment_plan_uuid, key, value) VALUES(?, ?, ?)`,
+			vapUUID, key, value)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	return vapUUID
