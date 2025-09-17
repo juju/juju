@@ -1745,11 +1745,7 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		bindings := transform.Map(arg.Bindings, func(k string, v string) (string, network.SpaceName) {
-			return k, network.SpaceName(v)
-		})
-
-		err = api.applicationService.MergeApplicationEndpointBindings(ctx, appID, bindings, arg.Force)
+		err = api.applicationService.MergeApplicationEndpointBindings(ctx, appID, transformBindings(arg.Bindings), arg.Force)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			res[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Id())
 			continue
