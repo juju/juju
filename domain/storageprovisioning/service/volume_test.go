@@ -748,6 +748,45 @@ func (s *volumeSuite) TestGetVolumeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeNotFound)
 }
 
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachment(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	s.state.EXPECT().GetBlockDeviceForVolumeAttachment(
+		c.Context(), vaUUID).Return(bdUUID, nil)
+
+	result, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, bdUUID)
+}
+
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	s.state.EXPECT().GetBlockDeviceForVolumeAttachment(c.Context(),
+		vaUUID).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vaUUID := storageprovisioning.VolumeAttachmentUUID("foo")
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *volumeSuite) TestSetVolumeProvisionedInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

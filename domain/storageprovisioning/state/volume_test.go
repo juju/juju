@@ -1071,6 +1071,44 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
 
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachment(c *tc.C) {
+	nnUUID := s.newNetNode(c)
+	mUUID, _ := s.newMachineWithNetNode(c, nnUUID)
+	volUUID, _ := s.newMachineVolume(c)
+	vaUUID := s.newModelVolumeAttachment(c, volUUID, nnUUID)
+	bdUUID := s.newBlockDevice(c, mUUID, "sda", "", "",
+		[]string{"/dev/disk/by-id/mysda"})
+	s.changeVolumeAttachmentInfo(c, vaUUID, bdUUID, false)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	result, err := st.GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, blockdevice.BlockDeviceUUID(bdUUID))
+}
+
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentNoBlockDevice(c *tc.C) {
+	nnUUID := s.newNetNode(c)
+	volUUID, _ := s.newMachineVolume(c)
+	vaUUID := s.newModelVolumeAttachment(c, volUUID, nnUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
+}
+
+func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentNotFound(c *tc.C) {
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
 // changeVolumeLife is a utility function for updating the life value of a
 // volume.
 func (s *volumeSuite) changeVolumeLife(

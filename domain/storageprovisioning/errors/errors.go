@@ -30,6 +30,10 @@ const (
 	// not have an associated block device yet.
 	VolumeAttachmentWithoutBlockDevice = errors.ConstError("volume attachment without block device")
 
+	// VolumeAttachmentPlanAlreadyExists is used when a volume attachment plan
+	// already exists for the given volume attachment.
+	VolumeAttachmentPlanAlreadyExists = errors.ConstError("volume attachment plan already exists")
+
 	// StorageInstanceNotFound is used when a storage instance cannot be found.
 	StorageInstanceNotFound = errors.ConstError("storage instance not found")
 
