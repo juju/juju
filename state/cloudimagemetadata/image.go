@@ -376,9 +376,13 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
 	}
 
-	if criteria.ImageID != "" {
-		all = append(all, bson.DocElem{"image_id", criteria.ImageID})
-	}
+	// TODO - we want to refactor to allow image-id filtering.
+	// We could filter on cons.ImageID here but that would prevent
+	// users from being able to force Juju to use an image not
+	// included in the published metadata.
+	// if criteria.ImageID != "" {
+	//	all = append(all, bson.DocElem{"image_id", criteria.ImageID})
+	//}
 
 	if len(all.Map()) == 0 {
 		return nil

@@ -578,6 +578,9 @@ func bootstrapIAAS(
 			if args.CloudCredential.AuthType() == cloud.ManagedIdentityAuthType {
 				return errors.NotSupportedf("instance role constraint with managed identity credential")
 			}
+			if args.CloudCredential.AuthType() == cloud.ServiceAccountAuthType {
+				return errors.NotSupportedf("instance role constraint with service account credential")
+			}
 		}
 		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
 		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(callCtx) {
@@ -935,8 +938,6 @@ func bootstrapImageMetadata(
 		return nil, errors.Trace(err)
 	}
 
-	// TODO - here we take any supplied image id to use at face value, whereas later
-	// on when creating machines, we use image id as just another attribute to filter on.
 	if bootstrapImageId != "" {
 		if bootstrapBase == nil {
 			return nil, errors.NotValidf("no base specified with bootstrap image")
