@@ -30,20 +30,16 @@ type StorageProvider interface {
 }
 
 // CalculateStorageInstanceComposition is responsible for taking a storage kind
-// that is to be created and providing an answer on what storage entity
-// composition is required to achieve the storage kind.
-//
-// This information is calculated by look at what the StorageProvider is able
-// to achieve.
+// that is to be created and coming up with a composition that can be achieved
+// with the current provider.
 func CalculateStorageInstanceComposition(
 	kind Kind,
 	provider StorageProvider,
 ) (StorageInstanceComposition, error) {
 	// There exists some edge cases in this func. We purposely don't try and
-	// defined strong error values for them or talk about them in the contract.
-	//
-	// Callers of this function should have already verified that the provider
-	// is capable of provisioning the supplied storage kind.
+	// define strong error values. Callers of this function should have already
+	// verified that the provider is capable of provisioning the supplied
+	// storage kind  for their purpose.
 	//
 	// This function performs an ugly dance when it comes to filesystems and
 	// providers that only support block devices. It is assumed that if a
@@ -55,13 +51,12 @@ func CalculateStorageInstanceComposition(
 	// achieve a storage kind.
 	var rval StorageInstanceComposition
 
+	var pScope ProvisionScope
 	switch s := provider.Scope(); s {
 	case internalstorage.ScopeEnviron:
-		rval.FilesystemProvisionScope = ProvisionScopeModel
-		rval.VolumeProvisionScope = ProvisionScopeModel
+		pScope = ProvisionScopeModel
 	case internalstorage.ScopeMachine:
-		rval.FilesystemProvisionScope = ProvisionScopeMachine
-		rval.VolumeProvisionScope = ProvisionScopeMachine
+		pScope = ProvisionScopeMachine
 	default:
 		return StorageInstanceComposition{}, errors.Errorf(
 			"unrecognised scope %q from provider",
@@ -75,12 +70,14 @@ func CalculateStorageInstanceComposition(
 	case kind == KindBlock &&
 		provider.Supports(internalstorage.StorageKindBlock):
 		rval.VolumeRequired = true
+		rval.VolumeProvisionScope = pScope
 
 	// If the provider supports creating filesystems directly and a filesystem
 	// is requested.
 	case kind == KindFilesystem &&
 		provider.Supports(internalstorage.StorageKindFilesystem):
 		rval.FilesystemRequired = true
+		rval.FilesystemProvisionScope = pScope
 
 	// If the provider supports creating block devices and a filesystem is
 	// requested then we can create the filesystem on top of the block device
@@ -91,8 +88,9 @@ func CalculateStorageInstanceComposition(
 		// the provision scope of the filesystem is machine as it has to be made
 		// on the machine.
 		rval.FilesystemRequired = true
-		rval.FilesystemProvisionScope = ProvisionScopeModel
+		rval.FilesystemProvisionScope = ProvisionScopeMachine
 		rval.VolumeRequired = true
+		rval.VolumeProvisionScope = pScope
 
 	default:
 		// This should never happen but we cover the case to be safe.
