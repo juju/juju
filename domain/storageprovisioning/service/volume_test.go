@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
+	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -888,5 +889,51 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoInvalidBlockDeviceUU
 
 	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUIDValid, info)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+
+	vap := storageprovisioning.VolumeAttachmentPlan{
+		Life:       life.Dying,
+		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceAttributes: map[string]string{
+			"a": "x",
+		},
+	}
+	s.state.EXPECT().GetVolumeAttachmentPlan(gomock.Any(), vapUUID).Return(
+		vap, nil)
+
+	result, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlan(c.Context(), vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, vap)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+
+	s.state.EXPECT().GetVolumeAttachmentPlan(gomock.Any(), vapUUID).Return(
+		storageprovisioning.VolumeAttachmentPlan{},
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlan(c.Context(), vapUUID)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vapUUID := storageprovisioning.VolumeAttachmentPlanUUID("foo")
+
+	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
+		GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }

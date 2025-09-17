@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
+	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -686,7 +687,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeNetNode(c *tc.C) {
 		c.Context(), volUUID, netNodeUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(uuid.String(), tc.Equals, vapUUID)
+	c.Check(uuid, tc.Equals, vapUUID)
 }
 
 // TestGetVolumeAttachmentPlanUUIDForVolumeNetNodeVolNotFound tests that the
@@ -932,6 +933,39 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	})
 }
 
+func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	volUUID, _ := s.newMachineVolume(c)
+	vapUUID := s.newVolumeAttachmentPlan(c, volUUID, netNodeUUID)
+	attrs := map[string]string{
+		"a": "x",
+		"b": "y",
+		"c": "z",
+	}
+	s.changeVolumeAttachmentPlanInfo(c, vapUUID,
+		domainstorageprovisioning.PlanDeviceTypeISCSI, attrs)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
+		Life:             life.Alive,
+		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
+		DeviceAttributes: attrs,
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentPlanNotFound(c *tc.C) {
+	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
+	c.Assert(err, tc.ErrorIs,
+		storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+}
+
 func (s *volumeSuite) TestGetVolume(c *tc.C) {
 	volUUID, volID := s.newModelVolume(c)
 	s.changeVolumeInfo(c, volUUID, "vol-123", 1234, "hwid", "wwn", true)
@@ -1140,7 +1174,9 @@ WHERE  uuid = ?
 // changeVolumeAttachmentPlanLife is a utility function for updating the life
 // value of a volume attachment plan.
 func (s *volumeSuite) changeVolumeAttachmentPlanLife(
-	c *tc.C, uuid string, life domainlife.Life,
+	c *tc.C,
+	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
 UPDATE storage_volume_attachment_plan

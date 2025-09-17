@@ -344,3 +344,14 @@ type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
 }
+
+type volumeAttachmentPlan struct {
+	Life       life.Life `db:"life_id"`
+	DeviceType string    `db:"device_type"`
+}
+
+type volumeAttachmentPlanAttr struct {
+	AttachmentPlanUUID string `db:"attachment_plan_uuid"`
+	Key                string `db:"key"`
+	Value              string `db:"value"`
+}

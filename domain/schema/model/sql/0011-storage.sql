@@ -444,10 +444,10 @@ CREATE UNIQUE INDEX idx_storage_volume_attachment_plan_net_node_uuid_volume_uuid
 ON storage_volume_attachment_plan (storage_volume_uuid, net_node_uuid);
 
 CREATE TABLE storage_volume_attachment_plan_attr (
-    uuid TEXT NOT NULL PRIMARY KEY,
     attachment_plan_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT NOT NULL,
+    PRIMARY KEY (attachment_plan_uuid, "key"),
     CONSTRAINT fk_storage_vol_attach_plan_attr_plan
     FOREIGN KEY (attachment_plan_uuid)
     REFERENCES storage_volume_attachment_plan (uuid)
