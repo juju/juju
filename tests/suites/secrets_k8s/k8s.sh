@@ -356,21 +356,19 @@ run_user_secret_drain() {
 }
 
 run_test_add_multiple_secrets_parallel() {
-	controller_name='multiple-secrets-parallel-k8s-controller'
-	ctrl_log_file="${TEST_DIR}/${controller_name}.log"
+	ctrl_log_file="${TEST_DIR}/multiple-secrets-parallel-k8s-controller.log"
 
 	model_name='multiple-secrets-parallel-k8s-model'
 	model_log_file="${TEST_DIR}/${model_name}.log"
 
 	cleanup_resources() {
-		# remove files in this test in case other k8s test uses the same file names.
+		# Remove files in this test in case other k8s test uses the same file names.
 		rm -f "$ctrl_log_file" "$model_log_file"
 		export KILL_CONTROLLER=true
-		destroy_controller "$controller_name"
 	}
 	trap cleanup_resources EXIT HUP INT TERM
 
-	# Verify all added secret IDs exist
+	# Verify all added secret IDs exist.
 	verify_secrets_exist() {
 		local log_file=$1
 		local total=0 missing=0
@@ -389,19 +387,21 @@ run_test_add_multiple_secrets_parallel() {
 		echo "Success: all $total secret IDs found."
 	}
 
-	# bootstrap a controller with k8s secrets provider to test the controller model path.
-	bootstrap_custom_controller "$controller_name" microk8s
-
 	juju switch controller
-	# check logs during juju add-secret in controller model for any errors
+	# Check logs during juju add-secret in controller model for any errors.
 	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for controller model."
 		exit 1
 	fi
 	verify_secrets_exist "$ctrl_log_file"
 
+	# Remove all secrets that were added to controller.
+	for i in $(seq 1 100); do
+		juju remove-secret "test${i}"
+	done
+
 	juju add-model "$model_name"
-	# check logs during juju add-secret in non-controller model for any errors
+	# Check logs during juju add-secret in non-controller model for any errors.
 	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$model_log_file" 2>&1 || grep -iq 'error' "$model_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for non-controller model."
 		exit 1
