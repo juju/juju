@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -773,7 +774,7 @@ WHERE  uuid = $volumeUUID.uuid
 // The following errors may be returned:
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the provided volume attachment uuid.
-// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists
 // for a given block device uuid.
 func (st *State) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
@@ -824,7 +825,7 @@ WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
 			} else if !exists {
 				return errors.Errorf(
 					"block device %q does not exist", *info.BlockDeviceUUID,
-				).Add(storageprovisioningerrors.BlockDeviceNotFound)
+				).Add(blockdeviceerrors.BlockDeviceNotFound)
 			}
 		}
 

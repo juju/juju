@@ -11,6 +11,7 @@ import (
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -79,6 +80,40 @@ VALUES (?, ?, ?)
 `, blockDeviceUUID, machineUUID, link)
 		c.Assert(err, tc.ErrorIsNil)
 	}
+}
+
+func (s *stateSuite) TestGetBlockDevice(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	machine1UUID := s.createMachine(c, "666")
+	bd1 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
+	}
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	s.insertBlockDevice(c, bd1, blockDevice1UUID, machine1UUID)
+
+	result, err := st.GetBlockDevice(c.Context(), blockDevice1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, bd1)
+}
+
+func (s *stateSuite) TestGetBlockDeviceNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	_, err := st.GetBlockDevice(c.Context(), blockDevice1UUID)
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
 }
 
 func (s *stateSuite) TestBlockDevicesOne(c *tc.C) {

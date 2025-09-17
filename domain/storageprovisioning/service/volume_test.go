@@ -16,6 +16,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -814,11 +815,11 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoNotFound(c *tc.C) {
 	}
 
 	s.state.EXPECT().SetVolumeAttachmentProvisionedInfo(gomock.Any(),
-		vaUUID, info).Return(storageprovisioningerrors.BlockDeviceNotFound)
+		vaUUID, info).Return(blockdeviceerrors.BlockDeviceNotFound)
 
 	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.BlockDeviceNotFound)
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
 }
 
 func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoInvalidAttachmentUUID(c *tc.C) {

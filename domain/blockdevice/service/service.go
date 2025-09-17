@@ -11,6 +11,7 @@ import (
 
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
@@ -26,6 +27,11 @@ type State interface {
 	GetMachineUUIDByName(
 		ctx context.Context, name machine.Name,
 	) (machine.UUID, error)
+
+	// GetBlockDevice retrieves the info for the specified block device.
+	GetBlockDevice(
+		ctx context.Context, uuid blockdevice.BlockDeviceUUID,
+	) (coreblockdevice.BlockDevice, error)
 
 	// GetBlockDevicesForMachine returns the BlockDevices for the specified
 	// machine.
@@ -82,7 +88,7 @@ func NewService(st State, logger logger.Logger) *Service {
 // GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
 //
 // The following errors may be returned:
-// - [errors.NotValid] when the machine uuid is not valid.
+// - [coreerrors.NotValid] when the machine uuid is not valid.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
 func (s *Service) GetBlockDevicesForMachine(
@@ -107,7 +113,7 @@ func (s *Service) GetBlockDevicesForMachine(
 // machine.
 //
 // The following errors may be returned:
-// - [errors.NotValid] when the machine uuid is not valid.
+// - [coreerrors.NotValid] when the machine uuid is not valid.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
 func (s *Service) UpdateBlockDevicesForMachine(
@@ -159,7 +165,7 @@ updated:
 // It returns the UUID of the block device.
 //
 // The following errors may be returned:
-// - [errors.NotValid] when the machine uuid is not valid.
+// - [coreerrors.NotValid] when the machine uuid is not valid.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
 func (s *Service) MatchOrCreateBlockDevice(
@@ -205,7 +211,7 @@ func (s *Service) MatchOrCreateBlockDevice(
 // named machine.
 //
 // The following errors may be returned:
-// - [errors.NotValid] when the machine uuid is not valid.
+// - [coreerrors.NotValid] when the machine uuid is not valid.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
 func (s *Service) SetBlockDevicesForMachineByName(
@@ -254,6 +260,32 @@ func (s *Service) GetBlockDevicesForAllMachines(
 		return nil, errors.Errorf("loading all block devices: %w", err)
 	}
 	return blockDevices, nil
+}
+
+// GetBlockDevice retrieves a block device by uuid.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the block device uuid is not valid.
+// - [blockdeviceerrors.BlockDeviceNotFound] when the block device is not found.
+func (s *Service) GetBlockDevice(
+	ctx context.Context, uuid blockdevice.BlockDeviceUUID,
+) (coreblockdevice.BlockDevice, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := uuid.Validate()
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Errorf(
+			"block device uuid not valid: %w", err,
+		).Add(coreerrors.NotValid)
+	}
+
+	bd, err := s.st.GetBlockDevice(ctx, uuid)
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Capture(err)
+	}
+
+	return bd, nil
 }
 
 // WatchableService defines a service for interacting with the underlying state

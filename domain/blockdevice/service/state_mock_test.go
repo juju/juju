@@ -44,6 +44,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetBlockDevice mocks base method.
+func (m *MockState) GetBlockDevice(arg0 context.Context, arg1 blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockDevice", arg0, arg1)
+	ret0, _ := ret[0].(blockdevice.BlockDevice)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockDevice indicates an expected call of GetBlockDevice.
+func (mr *MockStateMockRecorder) GetBlockDevice(arg0, arg1 any) *MockStateGetBlockDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevice", reflect.TypeOf((*MockState)(nil).GetBlockDevice), arg0, arg1)
+	return &MockStateGetBlockDeviceCall{Call: call}
+}
+
+// MockStateGetBlockDeviceCall wrap *gomock.Call
+type MockStateGetBlockDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetBlockDeviceCall) Return(arg0 blockdevice.BlockDevice, arg1 error) *MockStateGetBlockDeviceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetBlockDeviceCall) Do(f func(context.Context, blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error)) *MockStateGetBlockDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetBlockDeviceCall) DoAndReturn(f func(context.Context, blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error)) *MockStateGetBlockDeviceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBlockDevicesForAllMachines mocks base method.
 func (m *MockState) GetBlockDevicesForAllMachines(arg0 context.Context) (map[machine.Name][]blockdevice.BlockDevice, error) {
 	m.ctrl.T.Helper()

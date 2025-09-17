@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -1057,7 +1058,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoBlockDeviceNotFound(
 		BlockDeviceUUID: &blockDeviceUUID,
 	}
 	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.BlockDeviceNotFound)
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
 }
 
 func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoNotFound(c *tc.C) {

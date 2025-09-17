@@ -748,6 +748,7 @@ func (s *Service) WatchVolumeAttachmentPlans(
 
 // SetVolumeProvisionedInfo sets on the provided volume the information about
 // the provisioned volume.
+//
 // The following errors may be returned:
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
 // provided volume id.
@@ -780,8 +781,8 @@ func (s *Service) SetVolumeProvisionedInfo(
 // device uuid is not valid.
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the provided volume attachment uuid.
-// - [storageprovisioningerrors.BlockDeviceNotFound] when no block device exists
-// for a given block device uuid.
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists for a
+// given block device uuid.
 func (s *Service) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
 	volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
@@ -851,9 +852,14 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 
 // SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided
 // volume attachment plan the information about the provisioned block device.
+//
 // The following errors may be returned:
-// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
-// attachment plan exists for the provided volume attachment plan uuid.
+// - [coreerrors.NotValid] when the provided volume attachment plan uuid or
+// block device uuid is not valid.
+// - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
+// attachment plan exists for the provided uuid.
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists for the
+// provided block device uuid.
 func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeAttachmentPlanUUID,

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
@@ -31,6 +32,80 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
+}
+
+// GetBlockDevice retrieves the info for the specified block device.
+//
+// The following errors may be returned:
+// - [blockdeviceerrors.BlockDeviceNotFound] when the block device is not found.
+func (st *State) GetBlockDevice(
+	ctx context.Context, uuid blockdevice.BlockDeviceUUID,
+) (coreblockdevice.BlockDevice, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Capture(err)
+	}
+
+	input := entityUUID{
+		UUID: uuid.String(),
+	}
+	blockDeviceStmt, err := st.Prepare(`
+SELECT &blockDevice.*
+FROM   block_device
+WHERE  uuid = $entityUUID.uuid
+`, input, blockDevice{})
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Capture(err)
+	}
+
+	blockDeviceLinkStmt, err := st.Prepare(`
+SELECT &deviceLink.*
+FROM   block_device_link_device
+WHERE  block_device_uuid = $entityUUID.uuid
+`, input, deviceLink{})
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Capture(err)
+	}
+
+	var blockDevice blockDevice
+	var devLinks []deviceLink
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, blockDeviceStmt, input).Get(&blockDevice)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"block device %q not found", uuid,
+			).Add(blockdeviceerrors.BlockDeviceNotFound)
+		} else if err != nil {
+			return err
+		}
+		err = tx.Query(ctx, blockDeviceLinkStmt, input).GetAll(&devLinks)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return coreblockdevice.BlockDevice{}, errors.Capture(err)
+	}
+
+	retVal := coreblockdevice.BlockDevice{
+		DeviceName:      blockDevice.Name.V,
+		FilesystemLabel: blockDevice.FilesystemLabel,
+		FilesystemUUID:  blockDevice.HostFilesystemUUID,
+		HardwareId:      blockDevice.HardwareId,
+		WWN:             blockDevice.WWN,
+		BusAddress:      blockDevice.BusAddress,
+		SizeMiB:         blockDevice.SizeMiB,
+		FilesystemType:  blockDevice.FilesystemType,
+		InUse:           blockDevice.InUse,
+		MountPoint:      blockDevice.MountPoint,
+		SerialId:        blockDevice.SerialId,
+	}
+	for _, v := range devLinks {
+		retVal.DeviceLinks = append(retVal.DeviceLinks, v.Name)
+	}
+
+	return retVal, nil
 }
 
 // GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
