@@ -29,10 +29,10 @@ test_deploy_attach_storage() {
 	wait_for "{}" ".storage"
 
 	# Clean up: make sure PersistentVolume is in available status
-	kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	kubectl delete pvc "${PVC}" -n "${model_name}"
-	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
+	microk8s kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	microk8s kubectl delete pvc "${PVC}" -n "${model_name}"
+	microk8s kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Import filesystem as pgdata/0 in second model.
 	juju add-model "${second_model_name}"
@@ -44,24 +44,24 @@ test_deploy_attach_storage() {
 	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
-	OUT=$(kubectl get pv "${PV}" -o json | jq '.status.phase')
+	OUT=$(microk8s kubectl get pv "${PV}" -o json | jq '.status.phase')
 	echo "${OUT}" | check "Bound"
 
 	# Make sure new PV/PVC is used by the postgresql-k8s charm
-	NEW_PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	NEW_PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 	OUT=$(
-		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
+		microk8s kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
 			jq '.metadata.labels."storage.juju.is/name"'
 	)
 	echo "${OUT}" | check "pgdata"
 
 	OUT=$(
-		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
+		microk8s kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
 			jq '.metadata.labels."app.kubernetes.io/managed-by"'
 	)
 	echo "${OUT}" | check "juju"
 	OUT=$(
-		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
+		microk8s kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
 			jq '.metadata.annotations."juju-storage-owner"'
 	)
 	echo "${OUT}" | check "psql-k8s"
