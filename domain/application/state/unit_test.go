@@ -34,7 +34,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
-	networktesting "github.com/juju/juju/domain/network/testing"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -954,7 +953,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNotFound(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		placeMachineArgs := domainmachine.PlaceMachineArgs{
@@ -976,8 +975,8 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *tc.C) {
 
 func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
-	altNetNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	altNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	s.createIAASApplication(c, "foo", life.Alive,
 		application.AddIAASUnitArg{
 			MachineUUID:        machineUUID,
@@ -1299,7 +1298,7 @@ func (s *unitStateSuite) TestGetMachineUUIDAndNetNodeForNonExistentMachineName(c
 // net node is returned for a machine matching the supplied name.
 func (s *unitStateSuite) TestGetMachineUUIDAndNetNodeForName(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
 	err := s.TxnRunner().StdTxn(
 		c.Context(),
@@ -1375,7 +1374,7 @@ func (s *unitStateSuite) TestGetUnitMachineIdentifiersUnitNotFound(c *tc.C) {
 // [State.getUnitMachineIdentifiers].
 func (s *unitStateSuite) TestGetUnitMachineIdentifiers(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	appUUID := s.createIAASApplication(c, "myapp", life.Alive, application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        machineUUID,
@@ -1559,7 +1558,7 @@ func (s *unitStateSubordinateSuite) createNPrincipalUnits(
 	args := make([]application.AddIAASUnitArg, 0, n)
 
 	for range n {
-		netNodeUUID := networktesting.GenNetNodeUUID(c)
+		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		args = append(args, application.AddIAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
 				NetNodeUUID: netNodeUUID,

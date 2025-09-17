@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -149,7 +149,7 @@ func (s *machinePlacementSuite) createUnit(c *tc.C) unit.Name {
 	appID, err := s.state.GetApplicationIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	unitNames, _, err := s.state.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: netNodeUUID,

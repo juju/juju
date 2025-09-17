@@ -23,7 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	"github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -647,10 +647,10 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
-			NetNodeUUID: networktesting.GenNetNodeUUID(c),
+			NetNodeUUID: tc.Must(c, network.NewNetNodeUUID),
 		},
 		Nonce:              ptr("foo"),
-		MachineNetNodeUUID: networktesting.GenNetNodeUUID(c),
+		MachineNetNodeUUID: tc.Must(c, network.NewNetNodeUUID),
 		MachineUUID:        machinetesting.GenUUID(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)

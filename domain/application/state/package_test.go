@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -227,7 +227,7 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 	ctx := c.Context()
 	units := make([]application.AddIAASUnitArg, unitCount)
 	for i := range units {
-		netNodeUUID := networktesting.GenNetNodeUUID(c)
+		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		units[i].MachineUUID = coremachinetesting.GenUUID(c)
 		units[i].MachineNetNodeUUID = netNodeUUID
 		units[i].NetNodeUUID = netNodeUUID

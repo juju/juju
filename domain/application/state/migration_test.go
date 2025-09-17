@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	machinestate "github.com/juju/juju/domain/machine/state"
-	domainnetworktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -532,7 +532,7 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {
 				Architecture: architecture.ARM64,
 			},
 			MachineUUID: machinetesting.GenUUID(c).String(),
-			NetNodeUUID: domainnetworktesting.GenNetNodeUUID(c).String(),
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
 		})
 		return err
 	})

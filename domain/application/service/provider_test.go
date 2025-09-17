@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
@@ -392,8 +392,8 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
-	machineUUID := machinetesting.GenUUID(c)
-	machineNetNodeUUID := networktesting.GenNetNodeUUID(c)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
@@ -818,7 +818,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	preCheckError := errors.New("precheck failure error")
 
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
-		machinetesting.GenUUID(c), networktesting.GenNetNodeUUID(c), nil,
+		machinetesting.GenUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	)
 	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
 		application.DefaultStorageProvisioners{}, nil,
@@ -2712,9 +2712,9 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
-	machineUUID := machinetesting.GenUUID(c)
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{

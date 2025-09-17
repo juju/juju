@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -408,8 +408,8 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	// Arrange:
 	appID := applicationtesting.GenApplicationUUID(c)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
-	principalUnitUUID := unittesting.GenUnitUUID(c)
-	principalNetNodeUUID := networktesting.GenNetNodeUUID(c)
+	principalUnitUUID := tc.Must(c, coreunit.NewUUID)
+	principalNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
 		principalUnitUUID, principalNetNodeUUID, nil,
@@ -443,7 +443,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitUnitAlreadyHasSubordinate(c
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
-		unittesting.GenUnitUUID(c), networktesting.GenNetNodeUUID(c), nil,
+		unittesting.GenUnitUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	).AnyTimes()
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 	s.state.EXPECT().AddIAASSubordinateUnit(gomock.Any(), gomock.Any()).Return("", nil, applicationerrors.UnitAlreadyHasSubordinate)
@@ -462,7 +462,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitStateError(c *tc.C) {
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
-		unittesting.GenUnitUUID(c), networktesting.GenNetNodeUUID(c), nil,
+		unittesting.GenUnitUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	).AnyTimes()
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
 
@@ -483,7 +483,7 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnitApplicationNotSubordinate(c
 	appID := applicationtesting.GenApplicationUUID(c)
 	principalUnitName := unittesting.GenNewName(c, "principal/0")
 	s.state.EXPECT().GetUnitUUIDAndNetNodeForName(gomock.Any(), principalUnitName).Return(
-		unittesting.GenUnitUUID(c), networktesting.GenNetNodeUUID(c), nil,
+		unittesting.GenUnitUUID(c), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	).AnyTimes()
 	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(false, nil)
 

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	networktesting "github.com/juju/juju/domain/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/sequence"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -58,7 +58,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *tc.C) {
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnset(c *tc.C) {
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
 	var machineNames []machine.Name
@@ -97,7 +97,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 		Channel:      "22.04",
 		Architecture: architecture.ARM64,
 	}
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -119,7 +119,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
 	nonce := ptr("test-nonce")
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
 	var (
@@ -148,7 +148,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingArchite
 		OSType:  deployment.Ubuntu,
 		Channel: "22.04",
 	}
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -172,7 +172,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatformMissingBase(c 
 	platform := deployment.Platform{
 		Architecture: architecture.ARM64,
 	}
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -199,7 +199,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	netNodes := make([]string, 0, total)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNodeUUID := networktesting.GenNetNodeUUID(c)
+			netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 			_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 				Directive: deployment.Placement{
 					Type: deployment.PlacementTypeUnset,
@@ -239,7 +239,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNodeUUID := networktesting.GenNetNodeUUID(c)
+				netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 				_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 					Directive: deployment.Placement{
 						Type: deployment.PlacementTypeUnset,
@@ -323,7 +323,7 @@ WHERE m.name = ?
 func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 	// Ensure the parent and child machine got created.
 	var (
-		netNodeUUID  = networktesting.GenNetNodeUUID(c)
+		netNodeUUID  = tc.Must(c, domainnetwork.NewNetNodeUUID)
 		machineNames []machine.Name
 	)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -370,14 +370,14 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C)
 					Type: deployment.PlacementTypeUnset,
 				},
 				MachineUUID: machinetesting.GenUUID(c),
-				NetNodeUUID: networktesting.GenNetNodeUUID(c),
+				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
-		netNodeUUID  = networktesting.GenNetNodeUUID(c)
+		netNodeUUID  = tc.Must(c, domainnetwork.NewNetNodeUUID)
 		machineNames []machine.Name
 	)
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -460,7 +460,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNo
 				Directive: "1",
 			},
 			MachineUUID: machinetesting.GenUUID(c),
-			NetNodeUUID: networktesting.GenNetNodeUUID(c),
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		})
 		return err
 	})
@@ -476,7 +476,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 	netNodes := make([]string, 0, total)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNodeUUID := networktesting.GenNetNodeUUID(c)
+			netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 			_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 				Directive: deployment.Placement{
 					Type:      deployment.PlacementTypeContainer,
@@ -520,7 +520,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	createMachines := func() {
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNodeUUID := networktesting.GenNetNodeUUID(c)
+				netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 				_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
 					Directive: deployment.Placement{
 						Type:      deployment.PlacementTypeContainer,
@@ -625,7 +625,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesProvider(c *tc.C) {
 	// Ensure that the parent placement is correctly set on the
 	// machine_placement table.
 
-	netNodeUUID := networktesting.GenNetNodeUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		_, err = PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
