@@ -58,6 +58,11 @@ type MachineService interface {
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.
 type BlockDeviceService interface {
+	// GetBlockDevice retrieves a block device by uuid.
+	GetBlockDevice(
+		ctx context.Context, uuid domainblockdevice.BlockDeviceUUID,
+	) (blockdevice.BlockDevice, error)
+
 	// GetBlockDeviceForMachine returns the BlockDevices for the specified
 	// machine.
 	GetBlockDevicesForMachine(

@@ -374,6 +374,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
 
 	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -382,23 +383,25 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
 	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
-		Return(blockdevice.BlockDevice{
-			DeviceName: "blk",
-			DeviceLinks: []string{
-				"/dev/blocky",
-				"/dev/sda",
-			},
-			FilesystemLabel: "lbl",
-			FilesystemUUID:  "the devices uuid",
-			HardwareId:      "hwid",
-			WWN:             "wwn",
-			BusAddress:      "blk:addr:foo",
-			SizeMiB:         123,
-			FilesystemType:  "ext4",
-			InUse:           true,
-			MountPoint:      "/mnt/blocky",
-			SerialId:        "bl0cky",
-		}, nil)
+		Return(bdUUID, nil)
+
+	s.blockDeviceService.EXPECT().GetBlockDevice(gomock.Any(), bdUUID).Return(blockdevice.BlockDevice{
+		DeviceName: "blk",
+		DeviceLinks: []string{
+			"/dev/blocky",
+			"/dev/sda",
+		},
+		FilesystemLabel: "lbl",
+		FilesystemUUID:  "the devices uuid",
+		HardwareId:      "hwid",
+		WWN:             "wwn",
+		BusAddress:      "blk:addr:foo",
+		SizeMiB:         123,
+		FilesystemType:  "ext4",
+		InUse:           true,
+		MountPoint:      "/mnt/blocky",
+		SerialId:        "bl0cky",
+	}, nil)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -441,6 +444,7 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisioned(c *tc.C) {
 	tag := names.NewVolumeTag("123")
 	machineUUID := machinetesting.GenUUID(c)
 	vaUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
 
 	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -449,7 +453,10 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisioned(c *tc.C) {
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
 	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
-		Return(blockdevice.BlockDevice{}, nil)
+		Return(bdUUID, nil)
+
+	s.blockDeviceService.EXPECT().GetBlockDevice(
+		gomock.Any(), bdUUID).Return(blockdevice.BlockDevice{}, nil)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -480,7 +487,7 @@ func (s *provisionerSuite) TestVolumeBlockDevicesNotProvisionedWithoutBlockDevic
 		GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), tag.Id(), machineUUID).
 		Return(vaUUID, nil)
 	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
-		Return(blockdevice.BlockDevice{}, storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
+		Return("", storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -512,10 +519,7 @@ func (s *provisionerSuite) TestVolumeBlockDevicesAttachmentNotFound(c *tc.C) {
 		Return(vaUUID, nil)
 	s.storageProvisioningService.EXPECT().GetBlockDeviceForVolumeAttachment(
 		gomock.Any(), vaUUID,
-	).Return(
-		blockdevice.BlockDevice{},
-		storageprovisioningerrors.VolumeAttachmentNotFound,
-	)
+	).Return("", storageprovisioningerrors.VolumeAttachmentNotFound)
 
 	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{
@@ -2882,7 +2886,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 		BlockDeviceUUID: &bdUUID,
 	}
 	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: "iscsi",
+		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "b",
 		},

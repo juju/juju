@@ -43,6 +43,45 @@ func (m *MockBlockDeviceService) EXPECT() *MockBlockDeviceServiceMockRecorder {
 	return m.recorder
 }
 
+// GetBlockDevice mocks base method.
+func (m *MockBlockDeviceService) GetBlockDevice(arg0 context.Context, arg1 blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockDevice", arg0, arg1)
+	ret0, _ := ret[0].(blockdevice.BlockDevice)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockDevice indicates an expected call of GetBlockDevice.
+func (mr *MockBlockDeviceServiceMockRecorder) GetBlockDevice(arg0, arg1 any) *MockBlockDeviceServiceGetBlockDeviceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevice", reflect.TypeOf((*MockBlockDeviceService)(nil).GetBlockDevice), arg0, arg1)
+	return &MockBlockDeviceServiceGetBlockDeviceCall{Call: call}
+}
+
+// MockBlockDeviceServiceGetBlockDeviceCall wrap *gomock.Call
+type MockBlockDeviceServiceGetBlockDeviceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBlockDeviceServiceGetBlockDeviceCall) Return(arg0 blockdevice.BlockDevice, arg1 error) *MockBlockDeviceServiceGetBlockDeviceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBlockDeviceServiceGetBlockDeviceCall) Do(f func(context.Context, blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error)) *MockBlockDeviceServiceGetBlockDeviceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBlockDeviceServiceGetBlockDeviceCall) DoAndReturn(f func(context.Context, blockdevice0.BlockDeviceUUID) (blockdevice.BlockDevice, error)) *MockBlockDeviceServiceGetBlockDeviceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBlockDevicesForMachine mocks base method.
 func (m *MockBlockDeviceService) GetBlockDevicesForMachine(arg0 context.Context, arg1 machine.UUID) ([]blockdevice.BlockDevice, error) {
 	m.ctrl.T.Helper()
