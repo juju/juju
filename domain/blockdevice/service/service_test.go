@@ -13,9 +13,11 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -42,6 +44,70 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *serviceSuite) service(c *tc.C) *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+}
+
+func (s *serviceSuite) TestGetBlockDevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	bd := coreblockdevice.BlockDevice{
+		DeviceName:      "foo",
+		DeviceLinks:     []string{"a-link"},
+		FilesystemLabel: "label",
+		FilesystemUUID:  "device-uuid",
+		HardwareId:      "hardware-id",
+		WWN:             "wwn",
+		BusAddress:      "bus-address",
+		SizeMiB:         100,
+		FilesystemType:  "ext4",
+		InUse:           true,
+		MountPoint:      "/path",
+		SerialId:        "coco-pops",
+	}
+	s.state.EXPECT().GetBlockDevice(
+		gomock.Any(), blockDeviceUUID).Return(bd, nil)
+
+	result, err := s.service(c).GetBlockDevice(
+		c.Context(), blockDeviceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coreblockdevice.BlockDevice{
+		DeviceName:      "foo",
+		DeviceLinks:     []string{"a-link"},
+		FilesystemLabel: "label",
+		FilesystemUUID:  "device-uuid",
+		HardwareId:      "hardware-id",
+		WWN:             "wwn",
+		BusAddress:      "bus-address",
+		SizeMiB:         100,
+		FilesystemType:  "ext4",
+		InUse:           true,
+		MountPoint:      "/path",
+		SerialId:        "coco-pops",
+	})
+}
+
+func (s *serviceSuite) TestGetBlockDeviceNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	s.state.EXPECT().GetBlockDevice(gomock.Any(), blockDeviceUUID).Return(
+		coreblockdevice.BlockDevice{}, blockdeviceerrors.BlockDeviceNotFound)
+
+	_, err := s.service(c).GetBlockDevice(
+		c.Context(), blockDeviceUUID)
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
+}
+
+func (s *serviceSuite) TestGetBlockDeviceInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	blockDeviceUUID := blockdevice.BlockDeviceUUID("foo")
+
+	_, err := s.service(c).GetBlockDevice(
+		c.Context(), blockDeviceUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestBlockDevices(c *tc.C) {
