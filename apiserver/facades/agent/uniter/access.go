@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/unit"
 )
 
@@ -78,16 +77,13 @@ func cloudSpecAccessor(authorizer facade.Authorizer, appService ApplicationServi
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
 
-		appUUID, err := appService.GetApplicationIDByName(ctx, appName)
+		trust, err := appService.GetApplicationTrustSetting(ctx, appName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		config, err := appService.GetApplicationConfig(ctx, appUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+
 		return func() bool {
-			return config.GetBool(coreapplication.TrustConfigOptionName, false)
+			return trust
 		}, nil
 	}
 }

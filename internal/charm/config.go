@@ -4,14 +4,15 @@
 package charm
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"strconv"
 
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/yaml.v2"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -19,10 +20,10 @@ const (
 	ErrUnknownOption = errors.ConstError("unknown option")
 )
 
-// Settings is a group of charm config option names and values. A Settings
+// Config is a group of charm config option names and values. A Config
 // S is considered valid by the Config C if every key in S is an option in
 // C, and every value either has the correct type or is nil.
-type Settings map[string]interface{}
+type Config map[string]interface{}
 
 // Option represents a single charm config option.
 type Option struct {
@@ -35,7 +36,7 @@ type Option struct {
 // validation failure for the supplied value.
 func (option Option) error(err *error, name string, value interface{}) {
 	if *err != nil {
-		*err = fmt.Errorf("option %q expected %s, got %#v", name, option.Type, value)
+		*err = errors.Errorf("option %q expected %s, got %#v", name, option.Type, value)
 	}
 }
 
@@ -55,13 +56,13 @@ func (c secretC) Coerce(v interface{}, path []string) (interface{}, error) {
 	}
 	u, err := url.Parse(str)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if u.Scheme == "" {
-		return nil, errors.NotValidf("secret URI scheme missing")
+		return nil, errors.Errorf("secret URI scheme missing").Add(coreerrors.NotValid)
 	}
 	if u.Scheme != secretScheme {
-		return nil, errors.NotValidf("secret URI scheme %q", u.Scheme)
+		return nil, errors.Errorf("secret URI scheme %q", u.Scheme).Add(coreerrors.NotValid)
 	}
 	return str, nil
 }
@@ -80,7 +81,7 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 		}
 		return value, nil
 	}
-	return nil, fmt.Errorf("option %q has unknown type %q", name, option.Type)
+	return nil, errors.Errorf("option %q has unknown type %q", name, option.Type)
 }
 
 var optionTypeCheckers = map[string]schema.Checker{
@@ -102,36 +103,36 @@ func (option Option) parse(name, str string) (val interface{}, err error) {
 	case "boolean":
 		val, err = strconv.ParseBool(str)
 	default:
-		return nil, fmt.Errorf("option %q has unknown type %q", name, option.Type)
+		return nil, errors.Errorf("option %q has unknown type %q", name, option.Type)
 	}
 
 	defer option.error(&err, name, str)
 	return
 }
 
-// Config represents the supported configuration options for a charm,
+// ConfigSpec represents the supported configuration options for a charm,
 // as declared in its config.yaml file.
-type Config struct {
+type ConfigSpec struct {
 	Options map[string]Option
 }
 
 // NewConfig returns a new Config without any options.
-func NewConfig() *Config {
-	return &Config{map[string]Option{}}
+func NewConfig() *ConfigSpec {
+	return &ConfigSpec{map[string]Option{}}
 }
 
 // ReadConfig reads a Config in YAML format.
-func ReadConfig(r io.Reader) (*Config, error) {
+func ReadConfig(r io.Reader) (*ConfigSpec, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	var config *Config
+	var config *ConfigSpec
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
 	if config == nil {
-		return nil, fmt.Errorf("invalid config: empty configuration")
+		return nil, errors.Errorf("invalid config: empty configuration")
 	}
 	if config.Options == nil {
 		// We are allowed an empty configuration if the options
@@ -144,7 +145,7 @@ func ReadConfig(r io.Reader) (*Config, error) {
 		}
 		m, _ := configInterface.(map[interface{}]interface{})
 		if _, ok := m["options"]; !ok {
-			return nil, fmt.Errorf("invalid config: empty configuration")
+			return nil, errors.Errorf("invalid config: empty configuration")
 		}
 	}
 	for name, option := range config.Options {
@@ -154,14 +155,14 @@ func ReadConfig(r io.Reader) (*Config, error) {
 			// Missing type is valid in python.
 			option.Type = "string"
 		default:
-			return nil, fmt.Errorf("invalid config: option %q has unknown type %q", name, option.Type)
+			return nil, errors.Errorf("invalid config: option %q has unknown type %q", name, option.Type)
 		}
 		def := option.Default
 		if def == "" && (option.Type == "string" || option.Type == "secret") {
 			// Skip normal validation for compatibility with pyjuju.
 		} else if option.Default, err = option.validate(name, def); err != nil {
 			option.error(&err, name, def)
-			return nil, fmt.Errorf("invalid config default: %v", err)
+			return nil, errors.Errorf("invalid config default: %v", err)
 		}
 		config.Options[name] = option
 	}
@@ -170,28 +171,28 @@ func ReadConfig(r io.Reader) (*Config, error) {
 
 // option returns the named option from the config, or an error if none
 // such exists.
-func (c *Config) option(name string) (Option, error) {
+func (c *ConfigSpec) option(name string) (Option, error) {
 	if option, ok := c.Options[name]; ok {
 		return option, nil
 	}
-	return Option{}, fmt.Errorf("%w %q", ErrUnknownOption, name)
+	return Option{}, errors.Errorf("%w %q", ErrUnknownOption, name)
 }
 
 // DefaultSettings returns settings containing the default value of every
 // option in the config. Default values may be nil.
-func (c *Config) DefaultSettings() Settings {
-	out := make(Settings)
+func (c *ConfigSpec) DefaultSettings() Config {
+	out := make(Config)
 	for name, option := range c.Options {
 		out[name] = option.Default
 	}
 	return out
 }
 
-// ValidateSettings returns a copy of the supplied settings with a consistent type
+// ValidateApplicationConfig returns a copy of the supplied settings with a consistent type
 // for each value. It returns an error if the settings contain unknown keys
 // or invalid values.
-func (c *Config) ValidateSettings(settings Settings) (Settings, error) {
-	out := make(Settings)
+func (c *ConfigSpec) ValidateApplicationConfig(settings Config) (Config, error) {
+	out := make(Config)
 	for name, value := range settings {
 		if option, err := c.option(name); err != nil {
 			return nil, err
@@ -203,9 +204,9 @@ func (c *Config) ValidateSettings(settings Settings) (Settings, error) {
 	return out, nil
 }
 
-// FilterSettings returns the subset of the supplied settings that are valid.
-func (c *Config) FilterSettings(settings Settings) Settings {
-	out := make(Settings)
+// FilterApplicationConfig returns the subset of the supplied settings that are valid.
+func (c *ConfigSpec) FilterApplicationConfig(settings Config) Config {
+	out := make(Config)
 	for name, value := range settings {
 		if option, err := c.option(name); err == nil {
 			if value, err := option.validate(name, value); err == nil {
@@ -219,8 +220,8 @@ func (c *Config) FilterSettings(settings Settings) Settings {
 // ParseSettingsStrings returns settings derived from the supplied map. Every
 // value in the map must be parseable to the correct type for the option
 // identified by its key. Empty values are interpreted as nil.
-func (c *Config) ParseSettingsStrings(values map[string]string) (Settings, error) {
-	out := make(Settings)
+func (c *ConfigSpec) ParseSettingsStrings(values map[string]string) (Config, error) {
+	out := make(Config)
 	for name, str := range values {
 		option, err := c.option(name)
 		if err != nil {
@@ -240,16 +241,16 @@ func (c *Config) ParseSettingsStrings(values map[string]string) (Settings, error
 // must be present in the map, and must point to a map in which every value
 // must have, or be a string parseable to, the correct type for the associated
 // config option. Empty strings and nil values are both interpreted as nil.
-func (c *Config) ParseSettingsYAML(yamlData []byte, key string) (Settings, error) {
-	var allSettings map[string]Settings
+func (c *ConfigSpec) ParseSettingsYAML(yamlData []byte, key string) (Config, error) {
+	var allSettings map[string]Config
 	if err := yaml.Unmarshal(yamlData, &allSettings); err != nil {
-		return nil, fmt.Errorf("cannot parse settings data: %v", err)
+		return nil, errors.Errorf("cannot parse settings data: %v", err)
 	}
 	settings, ok := allSettings[key]
 	if !ok {
-		return nil, fmt.Errorf("no settings found for %q", key)
+		return nil, errors.Errorf("no settings found for %q", key)
 	}
-	out := make(Settings)
+	out := make(Config)
 	for name, value := range settings {
 		option, err := c.option(name)
 		if err != nil {

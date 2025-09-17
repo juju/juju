@@ -875,6 +875,11 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return errors.Errorf("validating device constraints: %w", err)
 	}
 
+	// ValidateApplicationConfig also coerces config values to the correct type
+	if args.ApplicationConfig, err = charm.Config().ValidateApplicationConfig(args.ApplicationConfig); err != nil {
+		return errors.Errorf("validating application config: %w", err)
+	}
+
 	return nil
 }
 

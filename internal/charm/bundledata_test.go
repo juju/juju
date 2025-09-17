@@ -941,7 +941,7 @@ func parseRelations(s string, role charm.RelationRole) map[string]charm.Relation
 
 type testCharmImpl struct {
 	meta   *charm.Meta
-	config *charm.Config
+	config *charm.ConfigSpec
 	// Implement charm.Charm, but panic if anything other than
 	// Meta or Config methods are called.
 	charm.Charm
@@ -951,7 +951,7 @@ func (c testCharmImpl) Meta() *charm.Meta {
 	return c.meta
 }
 
-func (c testCharmImpl) Config() *charm.Config {
+func (c testCharmImpl) Config() *charm.ConfigSpec {
 	return c.config
 }
 

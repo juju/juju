@@ -535,23 +535,23 @@ func (s *Service) GetCharmActions(ctx context.Context, locator charm.CharmLocato
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator) (internalcharm.Config, error) {
+func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator) (internalcharm.ConfigSpec, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	args := argsFromLocator(locator)
 	id, err := s.getCharmID(ctx, args)
 	if err != nil {
-		return internalcharm.Config{}, errors.Capture(err)
+		return internalcharm.ConfigSpec{}, errors.Capture(err)
 	}
 	config, err := s.st.GetCharmConfig(ctx, id)
 	if err != nil {
-		return internalcharm.Config{}, errors.Capture(err)
+		return internalcharm.ConfigSpec{}, errors.Capture(err)
 	}
 
 	decoded, err := decodeConfig(config)
 	if err != nil {
-		return internalcharm.Config{}, errors.Capture(err)
+		return internalcharm.ConfigSpec{}, errors.Capture(err)
 	}
 	return decoded, nil
 }

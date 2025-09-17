@@ -23,7 +23,7 @@ func (adaptor charmInfoAdaptor) Manifest() *charm.Manifest {
 	return adaptor.meta.Manifest
 }
 
-func (adaptor charmInfoAdaptor) Config() *charm.Config {
+func (adaptor charmInfoAdaptor) Config() *charm.ConfigSpec {
 	return adaptor.meta.Config
 }
 

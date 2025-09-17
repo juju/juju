@@ -47,7 +47,7 @@ type Unit interface {
 	// Used by runner.context.
 
 	ApplicationName() string
-	ConfigSettings(context.Context) (charm.Settings, error)
+	ConfigSettings(context.Context) (charm.Config, error)
 	LogActionMessage(context.Context, names.ActionTag, string) error
 	Name() string
 	NetworkInfo(ctx context.Context, bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)

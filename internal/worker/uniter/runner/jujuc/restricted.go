@@ -25,7 +25,7 @@ var ErrRestrictedContext = errors.NotImplementedf("not implemented for restricte
 type RestrictedContext struct{}
 
 // ConfigSettings implements hooks.Context.
-func (*RestrictedContext) ConfigSettings(context.Context) (charm.Settings, error) {
+func (*RestrictedContext) ConfigSettings(context.Context) (charm.Config, error) {
 	return nil, ErrRestrictedContext
 }
 

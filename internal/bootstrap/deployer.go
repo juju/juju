@@ -21,7 +21,6 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -416,8 +415,8 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	return sha256, sha384, nil
 }
 
-func (b *baseDeployer) createCharmSettings() (config.ConfigAttributes, error) {
-	cfg := config.ConfigAttributes{
+func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
+	cfg := charm.Config{
 		"is-juju": true,
 	}
 	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()

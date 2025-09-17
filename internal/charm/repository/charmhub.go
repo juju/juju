@@ -764,7 +764,7 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 	}
 
 	configYAML := entity.ConfigYAML
-	var chConfig *charm.Config
+	var chConfig *charm.ConfigSpec
 	// NOTE: Charmhub returns a "{}\n" when no config.yaml exists for
 	// the charm, e.g. postgreql. However, this will fail the charm
 	// config validation which happens in ReadConfig. Valid config

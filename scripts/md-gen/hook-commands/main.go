@@ -100,7 +100,7 @@ func (dummyHookContext) ClosePort(protocol string, port int) error {
 func (dummyHookContext) OpenedPorts() []network.PortRange {
 	return nil
 }
-func (dummyHookContext) ConfigSettings(ctx context.Context) (charm.Settings, error) {
+func (dummyHookContext) ConfigSettings(ctx context.Context) (charm.Config, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, error) {

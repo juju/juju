@@ -215,7 +215,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
-	expConfig := new(charm.Config)
+	expConfig := new(charm.ConfigSpec)
 	s.repository.EXPECT().ResolveForDeploy(gomock.Any(), corecharm.CharmID{
 		URL:    curl,
 		Origin: requestedOrigin,

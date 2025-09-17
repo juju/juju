@@ -147,7 +147,7 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 
 // EffectiveChanges returns the effective changes resulting from the
 // application of these changes to the input defaults.
-func (c ItemChanges) EffectiveChanges(defaults charm.Settings) map[string]interface{} {
+func (c ItemChanges) EffectiveChanges(defaults charm.Config) map[string]interface{} {
 	result := make(map[string]interface{})
 	for _, change := range c {
 		key := change.Key

@@ -802,7 +802,7 @@ func (s *unitSuite) TestConfigSettings(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	settings, err := unit.ConfigSettings(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(settings, tc.DeepEquals, charm.Settings{
+	c.Assert(settings, tc.DeepEquals, charm.Config{
 		"foo": "bar",
 	})
 }

@@ -395,10 +395,10 @@ func (c *MockUnitCommitHookChangesCall) DoAndReturn(f func(context.Context, para
 }
 
 // ConfigSettings mocks base method.
-func (m *MockUnit) ConfigSettings(arg0 context.Context) (charm.Settings, error) {
+func (m *MockUnit) ConfigSettings(arg0 context.Context) (charm.Config, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings", arg0)
-	ret0, _ := ret[0].(charm.Settings)
+	ret0, _ := ret[0].(charm.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -416,19 +416,19 @@ type MockUnitConfigSettingsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUnitConfigSettingsCall) Return(arg0 charm.Settings, arg1 error) *MockUnitConfigSettingsCall {
+func (c *MockUnitConfigSettingsCall) Return(arg0 charm.Config, arg1 error) *MockUnitConfigSettingsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitConfigSettingsCall) Do(f func(context.Context) (charm.Settings, error)) *MockUnitConfigSettingsCall {
+func (c *MockUnitConfigSettingsCall) Do(f func(context.Context) (charm.Config, error)) *MockUnitConfigSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitConfigSettingsCall) DoAndReturn(f func(context.Context) (charm.Settings, error)) *MockUnitConfigSettingsCall {
+func (c *MockUnitConfigSettingsCall) DoAndReturn(f func(context.Context) (charm.Config, error)) *MockUnitConfigSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

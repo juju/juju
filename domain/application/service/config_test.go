@@ -24,12 +24,12 @@ func TestConfigSuite(t *testing.T) {
 var configTestCases = [...]struct {
 	name   string
 	input  charm.Config
-	output internalcharm.Config
+	output internalcharm.ConfigSpec
 }{
 	{
 		name:   "empty",
 		input:  charm.Config{},
-		output: internalcharm.Config{},
+		output: internalcharm.ConfigSpec{},
 	},
 	{
 		name: "config",
@@ -62,7 +62,7 @@ var configTestCases = [...]struct {
 				},
 			},
 		},
-		output: internalcharm.Config{
+		output: internalcharm.ConfigSpec{
 			Options: map[string]internalcharm.Option{
 				"key-string": {
 					Type:        "string",

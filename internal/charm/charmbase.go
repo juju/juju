@@ -7,7 +7,7 @@ package charm
 // a charm archive and directory.
 type charmBase struct {
 	meta       *Meta
-	config     *Config
+	config     *ConfigSpec
 	actions    *Actions
 	lxdProfile *LXDProfile
 	manifest   *Manifest
@@ -17,7 +17,7 @@ type charmBase struct {
 
 // NewCharmBase creates a new charmBase with the given metadata, config,
 // actions, lxdProfile, and manifest.
-func NewCharmBase(meta *Meta, manifest *Manifest, config *Config, actions *Actions, lxdProfile *LXDProfile) *charmBase {
+func NewCharmBase(meta *Meta, manifest *Manifest, config *ConfigSpec, actions *Actions, lxdProfile *LXDProfile) *charmBase {
 	return &charmBase{
 		meta:       meta,
 		manifest:   manifest,
@@ -46,7 +46,7 @@ func (c *charmBase) Meta() *Meta {
 
 // Config returns the Config representing the config.yaml file
 // for the charm expanded in dir.
-func (c *charmBase) Config() *Config {
+func (c *charmBase) Config() *ConfigSpec {
 	return c.config
 }
 

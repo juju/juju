@@ -72,7 +72,7 @@ type EssentialMetadata struct {
 
 	Meta     *charm.Meta
 	Manifest *charm.Manifest
-	Config   *charm.Config
+	Config   *charm.ConfigSpec
 
 	// DownloadInfo is the information needed to download the charm
 	// directly from the charm store.

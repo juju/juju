@@ -84,7 +84,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			},
 		},
 	}
-	config := &internalcharm.Config{
+	config := &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{"foo": {Type: "string", Description: "bar", Default: "baz"}},
 	}
 	actions := &internalcharm.Actions{

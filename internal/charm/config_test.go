@@ -16,7 +16,7 @@ import (
 )
 
 type ConfigSuite struct {
-	config *charm.Config
+	config *charm.ConfigSpec
 }
 
 func TestConfigSuite(t *testing.T) {
@@ -100,7 +100,7 @@ func (s *ConfigSuite) TestReadSample(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestDefaultSettings(c *tc.C) {
-	c.Assert(s.config.DefaultSettings(), tc.DeepEquals, charm.Settings{
+	c.Assert(s.config.DefaultSettings(), tc.DeepEquals, charm.Config{
 		"title":              "My Title",
 		"subtitle":           "",
 		"username":           "admin001",
@@ -112,8 +112,8 @@ func (s *ConfigSuite) TestDefaultSettings(c *tc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestFilterSettings(c *tc.C) {
-	settings := s.config.FilterSettings(charm.Settings{
+func (s *ConfigSuite) TestFilterApplicationConfig(c *tc.C) {
+	settings := s.config.FilterApplicationConfig(charm.Config{
 		"title":              "something valid",
 		"username":           nil,
 		"unknown":            "whatever",
@@ -122,33 +122,33 @@ func (s *ConfigSuite) TestFilterSettings(c *tc.C) {
 		"agility-ratio":      true,
 		"reticulate-splines": "hullo",
 	})
-	c.Assert(settings, tc.DeepEquals, charm.Settings{
+	c.Assert(settings, tc.DeepEquals, charm.Config{
 		"title":    "something valid",
 		"username": nil,
 		"outlook":  "",
 	})
 }
 
-func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
+func (s *ConfigSuite) TestValidateApplicationConfig(c *tc.C) {
 	for i, test := range []struct {
 		info   string
-		input  charm.Settings
-		expect charm.Settings
+		input  charm.Config
+		expect charm.Config
 		err    string
 	}{
 		{
 			info:   "nil settings are valid",
-			expect: charm.Settings{},
+			expect: charm.Config{},
 		}, {
 			info:  "empty settings are valid",
-			input: charm.Settings{},
+			input: charm.Config{},
 		}, {
 			info:  "unknown keys are not valid",
-			input: charm.Settings{"foo": nil},
+			input: charm.Config{"foo": nil},
 			err:   `unknown option "foo"`,
 		}, {
 			info: "nil is valid for every value type",
-			input: charm.Settings{
+			input: charm.Config{
 				"outlook":            nil,
 				"skill-level":        nil,
 				"agility-ratio":      nil,
@@ -156,7 +156,7 @@ func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
 			},
 		}, {
 			info: "correctly-typed values are valid",
-			input: charm.Settings{
+			input: charm.Config{
 				"outlook":            "stormy",
 				"skill-level":        int64(123),
 				"agility-ratio":      0.5,
@@ -164,46 +164,46 @@ func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
 			},
 		}, {
 			info:   "empty string-typed values stay empty",
-			input:  charm.Settings{"outlook": ""},
-			expect: charm.Settings{"outlook": ""},
+			input:  charm.Config{"outlook": ""},
+			expect: charm.Config{"outlook": ""},
 		}, {
 			info: "almost-correctly-typed values are valid",
-			input: charm.Settings{
+			input: charm.Config{
 				"skill-level":   123,
 				"agility-ratio": float32(0.5),
 			},
-			expect: charm.Settings{
+			expect: charm.Config{
 				"skill-level":   int64(123),
 				"agility-ratio": 0.5,
 			},
 		}, {
 			info:  "bad string",
-			input: charm.Settings{"outlook": false},
+			input: charm.Config{"outlook": false},
 			err:   `option "outlook" expected string, got false`,
 		}, {
 			info:  "bad int",
-			input: charm.Settings{"skill-level": 123.4},
+			input: charm.Config{"skill-level": 123.4},
 			err:   `option "skill-level" expected int, got 123.4`,
 		}, {
 			info:  "bad float",
-			input: charm.Settings{"agility-ratio": "cheese"},
+			input: charm.Config{"agility-ratio": "cheese"},
 			err:   `option "agility-ratio" expected float, got "cheese"`,
 		}, {
 			info:  "bad boolean",
-			input: charm.Settings{"reticulate-splines": 101},
+			input: charm.Config{"reticulate-splines": 101},
 			err:   `option "reticulate-splines" expected boolean, got 101`,
 		}, {
 			info:  "invalid secret",
-			input: charm.Settings{"secret-foo": "cheese"},
+			input: charm.Config{"secret-foo": "cheese"},
 			err:   `option "secret-foo" expected secret, got "cheese"`,
 		}, {
 			info:   "valid secret",
-			input:  charm.Settings{"secret-foo": "secret:cj4v5vm78ohs79o84r4g"},
-			expect: charm.Settings{"secret-foo": "secret:cj4v5vm78ohs79o84r4g"},
+			input:  charm.Config{"secret-foo": "secret:cj4v5vm78ohs79o84r4g"},
+			expect: charm.Config{"secret-foo": "secret:cj4v5vm78ohs79o84r4g"},
 		},
 	} {
 		c.Logf("test %d: %s", i, test.info)
-		result, err := s.config.ValidateSettings(test.input)
+		result, err := s.config.ValidateApplicationConfig(test.input)
 		if test.err != "" {
 			c.Check(err, tc.ErrorMatches, test.err)
 		} else {
@@ -217,14 +217,14 @@ func (s *ConfigSuite) TestValidateSettings(c *tc.C) {
 	}
 }
 
-var settingsWithNils = charm.Settings{
+var settingsWithNils = charm.Config{
 	"outlook":            nil,
 	"skill-level":        nil,
 	"agility-ratio":      nil,
 	"reticulate-splines": nil,
 }
 
-var settingsWithValues = charm.Settings{
+var settingsWithValues = charm.Config{
 	"outlook":            "whatever",
 	"skill-level":        int64(123),
 	"agility-ratio":      2.22,
@@ -236,7 +236,7 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *tc.C) {
 		info   string
 		yaml   string
 		key    string
-		expect charm.Settings
+		expect charm.Config
 		err    string
 	}{{
 		info: "bad structure",
@@ -291,7 +291,7 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *tc.C) {
 		info:   "empty dict is valid",
 		yaml:   "blah: {}",
 		key:    "blah",
-		expect: charm.Settings{},
+		expect: charm.Config{},
 	}, {
 		info: "nil values are valid",
 		yaml: `blah:
@@ -362,19 +362,19 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *tc.C) {
 	for i, test := range []struct {
 		info   string
 		input  map[string]string
-		expect charm.Settings
+		expect charm.Config
 		err    string
 	}{{
 		info:   "nil map is valid",
-		expect: charm.Settings{},
+		expect: charm.Config{},
 	}, {
 		info:   "empty map is valid",
 		input:  map[string]string{},
-		expect: charm.Settings{},
+		expect: charm.Config{},
 	}, {
 		info:   "empty strings for string options are valid",
 		input:  map[string]string{"outlook": ""},
-		expect: charm.Settings{"outlook": ""},
+		expect: charm.Config{"outlook": ""},
 	}, {
 		info:  "empty strings for non-string options are invalid",
 		input: map[string]string{"skill-level": ""},
@@ -491,7 +491,7 @@ options:
 }
 
 func (s *ConfigSuite) TestErrorOnInvalidOptionTypes(c *tc.C) {
-	cfg := charm.Config{
+	cfg := charm.ConfigSpec{
 		Options: map[string]charm.Option{"testOption": {Type: "invalid type"}},
 	}
 	_, err := cfg.ParseSettingsYAML([]byte("testKey:\n  testOption: 12.345"), "testKey")

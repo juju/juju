@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/core/config"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -319,7 +318,7 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(importArgs.Charm.Meta().Name, tc.Equals, "prometheus")
-	c.Check(importArgs.ApplicationConfig, tc.DeepEquals, config.ConfigAttributes{
+	c.Check(importArgs.ApplicationConfig, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
 	})
 	c.Check(importArgs.ApplicationSettings, tc.DeepEquals, application.ApplicationSettings{

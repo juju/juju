@@ -19,7 +19,6 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -705,11 +704,11 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.applicationService.EXPECT().GetApplicationAndCharmConfig(gomock.Any(), appID).Return(applicationservice.ApplicationConfig{
 		CharmName: "ch",
-		ApplicationConfig: config.ConfigAttributes{
+		ApplicationConfig: internalcharm.Config{
 			"foo": "doink",
 			"bar": 18,
 		},
-		CharmConfig: internalcharm.Config{
+		CharmConfig: internalcharm.ConfigSpec{
 			Options: map[string]internalcharm.Option{
 				"foo": {
 					Type:        "string",
@@ -1286,14 +1285,14 @@ func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr 
 // expectCreateApplicationForDeploy should only be used when calling
 // api.Deploy(). DO NOT use for DeployFromRepository(), the expectations
 // are different.
-func (s *applicationSuite) expectCreateApplicationForDeployWithConfig(c *tc.C, name string, config config.ConfigAttributes, retErr error) {
+func (s *applicationSuite) expectCreateApplicationForDeployWithConfig(c *tc.C, name string, appConfig internalcharm.Config, retErr error) {
 	s.applicationService.EXPECT().CreateIAASApplication(gomock.Any(),
 		name,
 		gomock.Any(),
 		gomock.Any(),
 		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
 	).DoAndReturn(func(ctx context.Context, s string, charm internalcharm.Charm, origin corecharm.Origin, args applicationservice.AddApplicationArgs, arg ...applicationservice.AddIAASUnitArg) (application.ID, error) {
-		c.Check(args.ApplicationConfig, tc.DeepEquals, config)
+		c.Check(args.ApplicationConfig, tc.DeepEquals, appConfig)
 		return application.ID("app-" + name), retErr
 	})
 }

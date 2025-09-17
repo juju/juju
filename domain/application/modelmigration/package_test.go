@@ -9,7 +9,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	unit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -92,7 +91,7 @@ func (s *exportSuite) expectMinimalCharmFor(name string) {
 	meta := &internalcharm.Meta{
 		Name: name,
 	}
-	cfg := &internalcharm.Config{
+	cfg := &internalcharm.ConfigSpec{
 		Options: map[string]internalcharm.Option{
 			"foo": {
 				Type:    "string",
@@ -112,7 +111,7 @@ func (s *exportSuite) expectApplicationConfig() {
 }
 
 func (s *exportSuite) expectApplicationConfigFor(name string) {
-	config := config.ConfigAttributes{
+	config := internalcharm.Config{
 		"foo": "bar",
 	}
 	settings := application.ApplicationSettings{

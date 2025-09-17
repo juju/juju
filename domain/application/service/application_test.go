@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	machine "github.com/juju/juju/core/machine"
@@ -458,61 +457,6 @@ func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *tc.C)
 	c.Check(results, tc.DeepEquals, apps)
 }
 
-func (s *applicationServiceSuite) TestGetApplicationConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
-		"foo": {
-			Type:  applicationcharm.OptionString,
-			Value: "bar",
-		},
-	}, application.ApplicationSettings{
-		Trust: true,
-	}, nil)
-
-	results, err := s.service.GetApplicationConfig(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
-		"foo":   "bar",
-		"trust": true,
-	})
-}
-
-func (s *applicationServiceSuite) TestGetApplicationConfigWithError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
-		"foo": {
-			Type:  applicationcharm.OptionString,
-			Value: "bar",
-		},
-	}, application.ApplicationSettings{
-		Trust: true,
-	}, errors.Errorf("boom"))
-
-	_, err := s.service.GetApplicationConfig(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
-func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
-		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
-
-	results, err := s.service.GetApplicationConfig(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
-		"trust": false,
-	})
-}
-
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -527,7 +471,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 
 	results, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
+	c.Check(results, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
 	})
 }
@@ -559,30 +503,6 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsNoConfig(c
 	results, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 0)
-}
-
-func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
-		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{
-			Trust: true,
-		}, nil)
-
-	results, err := s.service.GetApplicationConfig(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(results, tc.DeepEquals, config.ConfigAttributes{
-		"trust": true,
-	})
-}
-
-func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetApplicationConfig(c.Context(), "!!!")
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *tc.C) {
@@ -922,10 +842,10 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	results, err := s.service.GetApplicationAndCharmConfig(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, ApplicationConfig{
-		ApplicationConfig: config.ConfigAttributes{
+		ApplicationConfig: internalcharm.Config{
 			"foo": "bar",
 		},
-		CharmConfig: internalcharm.Config{
+		CharmConfig: internalcharm.ConfigSpec{
 			Options: map[string]internalcharm.Option{
 				"foo": {
 					Type:    "string",

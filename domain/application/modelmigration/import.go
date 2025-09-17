@@ -15,7 +15,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -249,7 +248,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	return errors.Errorf("rollback failed: %w", errors.Join(errs...))
 }
 
-func (i *importOperation) importApplicationConfig(app description.Application) (config.ConfigAttributes, error) {
+func (i *importOperation) importApplicationConfig(app description.Application) (internalcharm.Config, error) {
 	// Application config is optional, so if we don't have any data, we can just
 	// return an empty config.
 	appConfig := app.CharmConfig()
@@ -267,7 +266,7 @@ func (i *importOperation) importApplicationConfig(app description.Application) (
 
 	charmCfg := charmConfig.Configs()
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Config)
 	for k, v := range appConfig {
 		if _, ok := charmCfg[k]; !ok {
 			// This shouldn't happen, and could be a warning like above, but
@@ -622,7 +621,7 @@ func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) 
 	return &profile, nil
 }
 
-func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.Config, error) {
+func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.ConfigSpec, error) {
 	// Charm config is optional, so if we don't have any data, we can just
 	// return nil.
 	if data == nil {
@@ -640,7 +639,7 @@ func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*int
 		}
 	}
 
-	return &internalcharm.Config{
+	return &internalcharm.ConfigSpec{
 		Options: options,
 	}, nil
 

@@ -35,7 +35,7 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 	}
 
 	info.Unit.Name = s.Unit
-	info.ConfigSettings = charm.Settings{
+	info.ConfigSettings = charm.Config{
 		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45.0,

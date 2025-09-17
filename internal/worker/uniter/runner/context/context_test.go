@@ -317,7 +317,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *tc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	cfg := charm.Settings{"blog-title": "My Title"}
+	cfg := charm.Config{"blog-title": "My Title"}
 	s.unit.EXPECT().ConfigSettings(gomock.Any()).Return(cfg, nil)
 
 	settings, err := ctx.ConfigSettings(c.Context())
