@@ -281,7 +281,6 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 	}
 
 	return nil
-
 }
 
 // insertApplicationEndpointsParams contains parameters required to insert

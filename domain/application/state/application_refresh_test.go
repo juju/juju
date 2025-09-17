@@ -340,6 +340,203 @@ VALUES (?, ?)`, spaceUUID, spaceName)
 	c.Assert(bindings["established"], tc.Equals, spaceUUID)
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionString,
+					Description: "foo",
+					Default:     "bar",
+				},
+				"bar": {
+					Type:        charm.OptionInt,
+					Description: "bar",
+					Default:     42,
+				},
+			},
+		},
+		applicationConfig: map[string]application.ApplicationConfig{
+			"foo": {
+				Type:  charm.OptionString,
+				Value: "baz",
+			},
+			"bar": {
+				Type:  charm.OptionInt,
+				Value: 43,
+			},
+		},
+	})
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionString,
+					Description: "foo",
+					Default:     "bar",
+				},
+				"bar": {
+					Type:        charm.OptionInt,
+					Description: "bar",
+					Default:     42,
+				},
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  charm.OptionString,
+			Value: "baz",
+		},
+		"bar": {
+			Type:  charm.OptionInt,
+			Value: "43",
+		},
+	})
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionString,
+					Description: "foo",
+				},
+			},
+		},
+		applicationConfig: map[string]application.ApplicationConfig{
+			"foo": {
+				Type:  charm.OptionString,
+				Value: "12",
+			},
+		},
+	})
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionInt,
+					Description: "foo",
+				},
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  charm.OptionInt,
+			Value: "12",
+		},
+	})
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionString,
+					Description: "foo",
+					Default:     "bar",
+				},
+				"bar": {
+					Type:        charm.OptionInt,
+					Description: "bar",
+					Default:     42,
+				},
+			},
+		},
+		applicationConfig: map[string]application.ApplicationConfig{
+			"foo": {
+				Type:  charm.OptionString,
+				Value: "baz",
+			},
+			"bar": {
+				Type:  charm.OptionInt,
+				Value: 43,
+			},
+		},
+	})
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		charmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:        charm.OptionInt,
+					Description: "foo",
+					Default:     0,
+				},
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  charm.OptionInt,
+			Value: "0",
+		},
+	})
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		trust:   true,
+	})
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	trust, err := s.state.GetApplicationTrustSetting(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(trust, tc.Equals, true)
+}
+
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
 func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.ID {
 	appName := args.appName
@@ -367,6 +564,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 			Peers:    args.relationMap(c, charm.RolePeer),
 		},
 		Manifest:      s.minimalManifest(c),
+		Config:        args.charmConfig,
 		ReferenceName: appName,
 		Source:        charm.LocalSource,
 		Revision:      42,
@@ -378,6 +576,10 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 			Charm:             originalCharm,
 			CharmDownloadInfo: nil,
 			Channel:           channel,
+			Config:            args.applicationConfig,
+			Settings: application.ApplicationSettings{
+				Trust: args.trust,
+			},
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
@@ -395,6 +597,7 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 			Peers:    args.relationMap(c, charm.RolePeer),
 		},
 		Manifest:      s.minimalManifest(c),
+		Config:        args.charmConfig,
 		ReferenceName: args.name,
 		Source:        charm.LocalSource,
 		Revision:      43,
@@ -492,6 +695,12 @@ type createApplicationArgs struct {
 	appName string
 	// relations define the list of relations associated with the application.
 	relations []charm.Relation
+	// charmConfig defines the config for the charm on this application
+	charmConfig charm.Config
+	// applicationConfig defines the config for the application
+	applicationConfig map[string]application.ApplicationConfig
+	// trust specifies whether the application should be trusted.
+	trust bool
 }
 
 // relationMap processes the relations of a createApplicationArgs instance,
@@ -534,6 +743,8 @@ type createCharmArgs struct {
 	name string
 	// relations define the list of relations associated with the application.
 	relations []charm.Relation
+	// charmConfig defines the config for the charm on this application
+	charmConfig charm.Config
 }
 
 // relationMap processes the relations of a createCharmArgs instance,

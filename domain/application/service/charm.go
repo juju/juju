@@ -12,6 +12,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
@@ -330,7 +331,7 @@ func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) 
 		return nil, charm.CharmLocator{}, false, errors.Capture(err)
 	}
 
-	config, err := decodeConfig(ch.Config)
+	config, err := application.DecodeConfig(ch.Config)
 	if err != nil {
 		return nil, charm.CharmLocator{}, false, errors.Capture(err)
 	}
@@ -549,7 +550,7 @@ func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator
 		return internalcharm.ConfigSpec{}, errors.Capture(err)
 	}
 
-	decoded, err := decodeConfig(config)
+	decoded, err := application.DecodeConfig(config)
 	if err != nil {
 		return internalcharm.ConfigSpec{}, errors.Capture(err)
 	}
@@ -1077,7 +1078,7 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 		return charm.Charm{}, warnings, errors.Errorf("encoding actions: %w", err)
 	}
 
-	config, err := encodeConfig(ch.Config())
+	config, err := application.EncodeConfig(ch.Config())
 	if err != nil {
 		return charm.Charm{}, warnings, errors.Errorf("encoding config: %w", err)
 	}

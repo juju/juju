@@ -1079,7 +1079,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	config, err := decodeConfig(ch.Config)
+	config, err := application.DecodeConfig(ch.Config)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
@@ -1555,7 +1555,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	decodedCharmConfig, err := decodeConfig(charmConfig)
+	decodedCharmConfig, err := application.DecodeConfig(charmConfig)
 	if err != nil {
 		return ApplicationConfig{}, errors.Errorf("decoding charm config: %w", err)
 	}
@@ -1633,7 +1633,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 		return errors.Capture(err)
 	}
 
-	charmConfig, err := decodeConfig(cfg)
+	charmConfig, err := application.DecodeConfig(cfg)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1663,21 +1663,15 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 	// upgrade, we can prevent a runtime error during that phase.
 	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
 	for k, v := range coercedConfig {
-		option, ok := charmConfig.Options[k]
+		option, ok := cfg.Options[k]
 		if !ok {
 			// This should never happen, as we've verified the config is valid.
 			// But if it does, then we should return an error.
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
-
-		optionType, err := encodeOptionType(option.Type)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
 		encodedConfig[k] = application.ApplicationConfig{
 			Value: v,
-			Type:  optionType,
+			Type:  option.Type,
 		}
 	}
 
