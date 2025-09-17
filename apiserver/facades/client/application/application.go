@@ -26,6 +26,8 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -73,18 +75,20 @@ type APIBase struct {
 	check      BlockChecker
 	repoDeploy DeployFromRepository
 
-	modelUUID          model.UUID
-	modelType          model.ModelType
-	modelConfigService ModelConfigService
-	machineService     MachineService
-	applicationService ApplicationService
-	resolveService     ResolveService
-	networkService     NetworkService
-	portService        PortService
-	relationService    RelationService
-	removalService     RemovalService
-	resourceService    ResourceService
-	storageService     StorageService
+	controllerUUID            string
+	modelUUID                 model.UUID
+	modelType                 model.ModelType
+	modelConfigService        ModelConfigService
+	machineService            MachineService
+	applicationService        ApplicationService
+	resolveService            ResolveService
+	networkService            NetworkService
+	portService               PortService
+	relationService           RelationService
+	removalService            RemovalService
+	resourceService           ResourceService
+	storageService            StorageService
+	externalControllerService ExternalControllerService
 
 	leadershipReader leadership.Reader
 
@@ -101,7 +105,6 @@ type CaasBrokerInterface interface {
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
-
 	domainServices := ctx.DomainServices()
 	blockChecker := common.NewBlockChecker(domainServices.BlockCommand())
 
@@ -157,19 +160,21 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	return NewAPIBase(
 		Services{
-			NetworkService:     domainServices.Network(),
-			ModelConfigService: domainServices.Config(),
-			MachineService:     domainServices.Machine(),
-			ApplicationService: applicationService,
-			ResolveService:     domainServices.Resolve(),
-			PortService:        domainServices.Port(),
-			RelationService:    domainServices.Relation(),
-			RemovalService:     domainServices.Removal(),
-			ResourceService:    domainServices.Resource(),
-			StorageService:     storageService,
+			ExternalControllerService: domainServices.ExternalController(),
+			NetworkService:            domainServices.Network(),
+			ModelConfigService:        domainServices.Config(),
+			MachineService:            domainServices.Machine(),
+			ApplicationService:        applicationService,
+			ResolveService:            domainServices.Resolve(),
+			PortService:               domainServices.Port(),
+			RelationService:           domainServices.Relation(),
+			RemovalService:            domainServices.Removal(),
+			ResourceService:           domainServices.Resource(),
+			StorageService:            storageService,
 		},
 		ctx.Auth(),
 		blockChecker,
+		ctx.ControllerUUID(),
 		modelInfo.UUID,
 		modelInfo.Type,
 		leadershipReader,
@@ -200,6 +205,7 @@ func NewAPIBase(
 	services Services,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
+	controllerUUID string,
 	modelUUID model.UUID,
 	modelType model.ModelType,
 	leadershipReader Leadership,
@@ -223,6 +229,7 @@ func NewAPIBase(
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
+		controllerUUID:        controllerUUID,
 		modelUUID:             modelUUID,
 		modelType:             modelType,
 		leadershipReader:      leadershipReader,
@@ -231,16 +238,17 @@ func NewAPIBase(
 		caasBroker:            caasBroker,
 		store:                 store,
 
-		applicationService: services.ApplicationService,
-		resolveService:     services.ResolveService,
-		machineService:     services.MachineService,
-		modelConfigService: services.ModelConfigService,
-		networkService:     services.NetworkService,
-		portService:        services.PortService,
-		relationService:    services.RelationService,
-		removalService:     services.RemovalService,
-		resourceService:    services.ResourceService,
-		storageService:     services.StorageService,
+		externalControllerService: services.ExternalControllerService,
+		applicationService:        services.ApplicationService,
+		resolveService:            services.ResolveService,
+		machineService:            services.MachineService,
+		modelConfigService:        services.ModelConfigService,
+		networkService:            services.NetworkService,
+		portService:               services.PortService,
+		relationService:           services.RelationService,
+		removalService:            services.RemovalService,
+		resourceService:           services.ResourceService,
+		storageService:            services.StorageService,
 
 		logger: logger,
 		clock:  clock,
@@ -1336,8 +1344,68 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
-	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until "+
-		"backend functionality is moved to domain: %w", errors.NotImplemented)
+	if err := api.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	results := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		err := api.consumeOne(ctx, arg)
+		results[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.ErrorResults{
+		Results: results,
+	}, nil
+}
+
+func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArgV5) error {
+	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
+	if err != nil {
+		return internalerrors.Errorf("parsing source model tag: %w", err).Add(coreerrors.BadRequest)
+	}
+
+	// Maybe save the details of the controller hosting the offer.
+	var externalControllerTag names.ControllerTag
+	if arg.ControllerInfo != nil {
+		externalControllerTag, err = api.saveExternalController(ctx, *arg.ControllerInfo, sourceModelTag)
+		if err != nil {
+			return internalerrors.Errorf("saving external controller info: %w", err)
+		}
+	}
+
+	_ = externalControllerTag
+
+	return nil
+}
+
+func (api *APIBase) saveExternalController(ctx context.Context, info params.ExternalControllerInfo, sourceModelTag names.ModelTag) (names.ControllerTag, error) {
+	controllerTag, err := names.ParseControllerTag(info.ControllerTag)
+	if err != nil {
+		return names.ControllerTag{}, internalerrors.Errorf("parsing controller tag %q: %w", info.ControllerTag, err).Add(coreerrors.BadRequest)
+	}
+
+	// Don't save the controller if it's this controller. It's allowed to
+	// consume offers from different models on the same controller.
+	if controllerTag.Id() == api.controllerUUID {
+		return names.ControllerTag{}, nil
+	}
+
+	// Save the controller details, if we have the information already
+	// then update it.
+	if err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+		ControllerUUID: controllerTag.Id(),
+		Alias:          info.Alias,
+		Addrs:          info.Addrs,
+		CACert:         info.CACert,
+		ModelUUIDs:     []string{sourceModelTag.Id()},
+	}); err != nil {
+		return names.ControllerTag{}, internalerrors.Errorf("updating external controller %q: %w", controllerTag.Id(), err)
+	}
+
+	return controllerTag, nil
 }
 
 // Get returns the charm configuration for an application.

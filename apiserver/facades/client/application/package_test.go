@@ -17,9 +17,10 @@ import (
 	"github.com/juju/juju/core/permission"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -32,27 +33,29 @@ type baseSuite struct {
 
 	api *APIBase
 
-	applicationService *MockApplicationService
-	resolveService     *MockResolveService
-	machineService     *MockMachineService
-	modelConfigService *MockModelConfigService
-	networkService     *MockNetworkService
-	portService        *MockPortService
-	resourceService    *MockResourceService
-	storageService     *MockStorageService
-	relationService    *MockRelationService
-	removalService     *MockRemovalService
-	authorizer         *MockAuthorizer
-	blockChecker       *MockBlockChecker
-	leadershipReader   *MockLeadership
-	deployFromRepo     *MockDeployFromRepository
-	objectStore        *MockObjectStore
+	externalControllerService *MockExternalControllerService
+	applicationService        *MockApplicationService
+	resolveService            *MockResolveService
+	machineService            *MockMachineService
+	modelConfigService        *MockModelConfigService
+	networkService            *MockNetworkService
+	portService               *MockPortService
+	resourceService           *MockResourceService
+	storageService            *MockStorageService
+	relationService           *MockRelationService
+	removalService            *MockRemovalService
+	authorizer                *MockAuthorizer
+	blockChecker              *MockBlockChecker
+	leadershipReader          *MockLeadership
+	deployFromRepo            *MockDeployFromRepository
+	objectStore               *MockObjectStore
 
 	charmRepository        *MockRepository
 	charmRepositoryFactory *MockRepositoryFactory
 
-	modelUUID model.UUID
-	modelType model.ModelType
+	controllerUUID string
+	modelUUID      model.UUID
+	modelType      model.ModelType
 
 	// Legacy types that we're transitioning away from.
 	deployApplication DeployApplicationFunc
@@ -63,6 +66,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
@@ -84,6 +88,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.charmRepository = NewMockRepository(ctrl)
 	s.charmRepositoryFactory = NewMockRepositoryFactory(ctrl)
 
+	s.controllerUUID = tc.Must(c, uuid.NewUUID).String()
 	s.modelUUID = modeltesting.GenModelUUID(c)
 
 	return ctrl
@@ -132,19 +137,21 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 	var err error
 	s.api, err = NewAPIBase(
 		Services{
-			NetworkService:     s.networkService,
-			ModelConfigService: s.modelConfigService,
-			MachineService:     s.machineService,
-			ApplicationService: s.applicationService,
-			ResolveService:     s.resolveService,
-			PortService:        s.portService,
-			ResourceService:    s.resourceService,
-			StorageService:     s.storageService,
-			RelationService:    s.relationService,
-			RemovalService:     s.removalService,
+			ExternalControllerService: s.externalControllerService,
+			NetworkService:            s.networkService,
+			ModelConfigService:        s.modelConfigService,
+			MachineService:            s.machineService,
+			ApplicationService:        s.applicationService,
+			ResolveService:            s.resolveService,
+			PortService:               s.portService,
+			ResourceService:           s.resourceService,
+			StorageService:            s.storageService,
+			RelationService:           s.relationService,
+			RemovalService:            s.removalService,
 		},
 		s.authorizer,
 		s.blockChecker,
+		s.controllerUUID,
 		s.modelUUID,
 		s.modelType,
 		s.leadershipReader,
