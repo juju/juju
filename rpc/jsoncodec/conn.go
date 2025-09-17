@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
@@ -56,11 +57,38 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 	return err
 }
 
+const (
+	closeWritePeriod    = 30 * time.Second
+	closeAckGracePeriod = 2 * time.Second
+)
+
 func (conn *wsJSONConn) Close() error {
 	// Tell the other end we are closing.
 	conn.writeMutex.Lock()
-	_ = conn.conn.WriteMessage(websocket.CloseMessage, []byte{})
+	_ = conn.conn.SetWriteDeadline(time.Now().Add(closeWritePeriod))
+	closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+	_ = conn.conn.WriteMessage(websocket.CloseMessage, closeMsg)
 	conn.writeMutex.Unlock()
+
+	// Read messages until we get a close ack.
+	for {
+		conn.readMutex.Lock()
+		_ = conn.conn.SetReadDeadline(time.Now().Add(closeAckGracePeriod))
+		_, _, err := conn.conn.NextReader()
+		conn.readMutex.Unlock()
+		if websocket.IsCloseError(err,
+			websocket.CloseNormalClosure,
+			websocket.CloseGoingAway,
+			websocket.CloseNoStatusReceived,
+			websocket.CloseAbnormalClosure) ||
+			errors.Is(err, websocket.ErrCloseSent) {
+			break
+		}
+		if err != nil {
+			logger.Debugf("waiting for websocket close message: %v", err)
+			break
+		}
+	}
 	return conn.conn.Close()
 }
 

@@ -5,9 +5,11 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 	"sync"
 
@@ -568,6 +570,19 @@ func (conn *Conn) runRequest(
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
 
+	callInfo := fmt.Sprintf("%s.%s", req.hdr.Request.Type, req.hdr.Request.Action)
+	pprof.Do(ctx, pprof.Labels("->rpc", callInfo), func(ctx context.Context) {
+		conn.callRequest(ctx, req, arg, version, recorder)
+	})
+}
+
+func (conn *Conn) callRequest(
+	ctx context.Context,
+	req boundRequest,
+	arg reflect.Value,
+	version int,
+	recorder Recorder,
+) {
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
