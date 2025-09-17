@@ -20,7 +20,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -30,7 +30,7 @@ import (
 func (st *State) checkVolumeAttachmentExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (bool, error) {
 	vaUUIDInput := volumeAttachmentUUID{UUID: uuid.String()}
 
@@ -58,7 +58,7 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 func (st *State) checkVolumeExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid domainstorageprovisioning.VolumeUUID,
+	uuid storageprovisioning.VolumeUUID,
 ) (bool, error) {
 	io := volumeUUID{UUID: uuid.String()}
 
@@ -89,7 +89,7 @@ WHERE  uuid = $volumeUUID.uuid
 // in the result.
 func (st *State) GetVolumeAttachmentIDs(
 	ctx context.Context, uuids []string,
-) (map[string]domainstorageprovisioning.VolumeAttachmentID, error) {
+) (map[string]storageprovisioning.VolumeAttachmentID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -149,9 +149,9 @@ SELECT &volumeAttachmentIDs.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[string]domainstorageprovisioning.VolumeAttachmentID, len(dbVals))
+	rval := make(map[string]storageprovisioning.VolumeAttachmentID, len(dbVals))
 	for _, v := range dbVals {
-		id := domainstorageprovisioning.VolumeAttachmentID{
+		id := storageprovisioning.VolumeAttachmentID{
 			VolumeID: v.VolumeID,
 		}
 		if v.MachineName.Valid {
@@ -176,7 +176,7 @@ SELECT &volumeAttachmentIDs.* FROM (
 // attachment exists for the provided uuid.
 func (st *State) GetVolumeAttachmentLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -336,9 +336,9 @@ AND             svap.net_node_uuid=$netNodeUUID.uuid
 // attachment exists for the supplied values.
 func (st *State) GetVolumeAttachmentUUIDForVolumeNetNode(
 	ctx context.Context,
-	vUUID domainstorageprovisioning.VolumeUUID,
+	vUUID storageprovisioning.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
-) (domainstorageprovisioning.VolumeAttachmentUUID, error) {
+) (storageprovisioning.VolumeAttachmentUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -400,7 +400,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
+	return storageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
 }
 
 // GetVolumeAttachmentPlanUUIDForVolumeNetNode returns the volume attachment
@@ -416,9 +416,9 @@ AND    net_node_uuid = $netNodeUUID.uuid
 // attachment plan exists for the supplied values.
 func (st *State) GetVolumeAttachmentPlanUUIDForVolumeNetNode(
 	ctx context.Context,
-	vUUID domainstorageprovisioning.VolumeUUID,
+	vUUID storageprovisioning.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
-) (domainstorageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -480,7 +480,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentPlanUUID(dbVal.UUID), nil
+	return storageprovisioning.VolumeAttachmentPlanUUID(dbVal.UUID), nil
 }
 
 // GetVolumeAttachment returns the volume attachment for the supplied volume
@@ -491,11 +491,11 @@ AND    net_node_uuid = $netNodeUUID.uuid
 // attachment exists for the provided uuid.
 func (st *State) GetVolumeAttachment(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (domainstorageprovisioning.VolumeAttachment, error) {
+	uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	var (
@@ -519,7 +519,7 @@ SELECT &volumeAttachment.* FROM (
 		uuidInput, volumeAttachment{},
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	devLinksStmt, err := st.Prepare(`
@@ -528,7 +528,7 @@ FROM   block_device_link_device
 WHERE  block_device_uuid = $entityUUID.uuid
 `, entityName{}, entityUUID{})
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	var va volumeAttachment
@@ -555,10 +555,10 @@ WHERE  block_device_uuid = $entityUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
-	retVal := domainstorageprovisioning.VolumeAttachment{
+	retVal := storageprovisioning.VolumeAttachment{
 		VolumeID:              va.VolumeID,
 		ReadOnly:              va.ReadOnly,
 		BlockDeviceName:       va.BlockDeviceName,
@@ -579,7 +579,7 @@ WHERE  block_device_uuid = $entityUUID.uuid
 // provided uuid.
 func (st *State) GetVolumeLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeUUID,
+	uuid storageprovisioning.VolumeUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -679,7 +679,7 @@ AND             sva.net_node_uuid=$netNodeUUID.uuid
 // for the provided volume uuid.
 func (st *State) GetVolumeUUIDForID(
 	ctx context.Context, vID string,
-) (domainstorageprovisioning.VolumeUUID, error) {
+) (storageprovisioning.VolumeUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -714,7 +714,7 @@ WHERE  volume_id = $volumeID.volume_id
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeUUID(dbVal.UUID), nil
+	return storageprovisioning.VolumeUUID(dbVal.UUID), nil
 }
 
 // GetVolume returns the volume information for the specified volume uuid.
@@ -723,11 +723,11 @@ WHERE  volume_id = $volumeID.volume_id
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists
 // for the provided volume uuid.
 func (st *State) GetVolume(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeUUID,
-) (domainstorageprovisioning.Volume, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.Volume, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
 	uuidInput := volumeUUID{UUID: uuid.String()}
@@ -739,7 +739,7 @@ WHERE  uuid = $volumeUUID.uuid
 		uuidInput, volume{},
 	)
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
 	var vol volume
@@ -754,10 +754,10 @@ WHERE  uuid = $volumeUUID.uuid
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
-	retVal := domainstorageprovisioning.Volume{
+	retVal := storageprovisioning.Volume{
 		VolumeID:   vol.VolumeID,
 		ProviderID: vol.ProviderID,
 		SizeMiB:    vol.SizeMiB,
@@ -778,8 +778,8 @@ WHERE  uuid = $volumeUUID.uuid
 // for a given block device uuid.
 func (st *State) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
-	info domainstorageprovisioning.VolumeAttachmentProvisionedInfo,
+	uuid storageprovisioning.VolumeAttachmentUUID,
+	info storageprovisioning.VolumeAttachmentProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -870,7 +870,7 @@ WHERE  uuid = $entityUUID.uuid
 // - [storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice] when the
 // volume attachment does not yet have a block device.
 func (st *State) GetBlockDeviceForVolumeAttachment(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
 ) (blockdevice.BlockDeviceUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -919,8 +919,8 @@ WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
 // for the provided volume uuid.
 func (st *State) SetVolumeProvisionedInfo(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeUUID,
-	info domainstorageprovisioning.VolumeProvisionedInfo,
+	uuid storageprovisioning.VolumeUUID,
+	info storageprovisioning.VolumeProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -974,11 +974,11 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
 // the uuid.
 func (st *State) GetVolumeParams(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeUUID,
-) (domainstorageprovisioning.VolumeParams, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.VolumeParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -1001,7 +1001,7 @@ SELECT &volumeParams.* FROM (
 		paramsVal, input,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	poolAttributesStmt, err := st.Prepare(`
@@ -1016,7 +1016,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		storagePoolAttribute{}, input,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var attributeVals []storagePoolAttribute
@@ -1054,7 +1054,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	attributesRval := make(map[string]string, len(attributeVals))
@@ -1062,7 +1062,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		attributesRval[attr.Key] = attr.Value
 	}
 
-	return domainstorageprovisioning.VolumeParams{
+	return storageprovisioning.VolumeParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.VolumeID,
 		Provider:   paramsVal.Type,
@@ -1077,11 +1077,11 @@ WHERE  sv.uuid = $volumeUUID.uuid
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the supplied uuid.
 func (st *State) GetVolumeAttachmentParams(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (domainstorageprovisioning.VolumeAttachmentParams, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachmentParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -1125,7 +1125,7 @@ SELECT &volumeAttachmentParams.* FROM (
 		vaUUIDInput, dbVal,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1151,10 +1151,10 @@ SELECT &volumeAttachmentParams.* FROM (
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentParams{
+	return storageprovisioning.VolumeAttachmentParams{
 		MachineInstanceID: dbVal.InstanceID,
 		Provider:          dbVal.Type,
 		ProviderID:        dbVal.ProviderID,
@@ -1170,9 +1170,9 @@ SELECT &volumeAttachmentParams.* FROM (
 // attachment plan exists for the provided uuid.
 func (st *State) GetVolumeAttachmentPlan(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
-) (domainstorageprovisioning.VolumeAttachmentPlan, error) {
-	return domainstorageprovisioning.VolumeAttachmentPlan{}, nil
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+) (storageprovisioning.VolumeAttachmentPlan, error) {
+	return storageprovisioning.VolumeAttachmentPlan{}, nil
 }
 
 // CreateVolumeAttachmentPlan creates a volume attachment plan for the
@@ -1185,9 +1185,9 @@ func (st *State) GetVolumeAttachmentPlan(
 // volume attachment plan already exists for the given volume attachnment.
 func (st *State) CreateVolumeAttachmentPlan(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
-	attachmentUUID domainstorageprovisioning.VolumeAttachmentUUID,
-	deviceType domainstorageprovisioning.PlanDeviceType,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	attachmentUUID storageprovisioning.VolumeAttachmentUUID,
+	deviceType storageprovisioning.PlanDeviceType,
 	attrs map[string]string,
 ) error {
 	return nil
@@ -1201,8 +1201,8 @@ func (st *State) CreateVolumeAttachmentPlan(
 // attachment plan exists for the provided uuid.
 func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
-	info domainstorageprovisioning.VolumeAttachmentPlanProvisionedInfo,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 ) error {
 	return nil
 }
@@ -1217,7 +1217,7 @@ func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
 // provided block device uuid.
 func (st *State) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
 	blockDeviceUUID blockdevice.BlockDeviceUUID,
 ) error {
 	return nil
