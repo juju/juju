@@ -192,6 +192,10 @@ func (l volumeAttachmentPlanLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
+// volumeAttachmentPlanUUID represents the UUID of a record in the
+// volume_attachment_plan table.
+type volumeAttachmentPlanUUID entityUUID
+
 // volumeAttachmentUUID represents the UUID of a record in the volume_attachment
 // table.
 type volumeAttachmentUUID entityUUID
@@ -345,9 +349,17 @@ type storageAttachmentIdentifier struct {
 	UnitUUID            string `db:"unit_uuid"`
 }
 
+type volumeAttachmentInfo struct {
+	UUID              string    `db:"uuid"`
+	NetNodeUUID       string    `db:"net_node_uuid"`
+	StorageVolumeUUID string    `db:"storage_volume_uuid"`
+	Life              life.Life `db:"life_id"`
+}
+
 type volumeAttachmentPlan struct {
-	Life       life.Life `db:"life_id"`
-	DeviceType string    `db:"device_type"`
+	UUID         string    `db:"uuid"`
+	Life         life.Life `db:"life_id"`
+	DeviceTypeID int       `db:"device_type_id"`
 }
 
 type volumeAttachmentPlanAttr struct {

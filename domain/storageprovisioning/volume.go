@@ -107,7 +107,7 @@ type VolumeAttachmentProvisionedInfo struct {
 // VolumeAttachmentPlanProvisionedInfo is information set by the storage
 // provisioner for volume attachments it has provisioned.
 type VolumeAttachmentPlanProvisionedInfo struct {
-	DeviceType       string
+	DeviceType       PlanDeviceType
 	DeviceAttributes map[string]string
 }
 
