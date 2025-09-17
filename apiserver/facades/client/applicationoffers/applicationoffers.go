@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -35,6 +37,19 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// CrossModelAuthContext provides methods to create macaroons for cross model
+// operations.
+type CrossModelAuthContext interface {
+	// CreateConsumeOfferMacaroon creates a macaroon that authorizes access to the
+	// specified offer.
+	CreateConsumeOfferMacaroon(
+		ctx context.Context,
+		modelUUID model.UUID,
+		offerUUID, username string,
+		version bakery.Version,
+	) (*bakery.Macaroon, error)
+}
 
 // OffersAPIv5 implements the cross model interface and is the concrete
 // implementation of the api end point.
@@ -45,13 +60,16 @@ type OffersAPIv5 struct {
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
 type OffersAPI struct {
-	authorizer     facade.Authorizer
+	authorizer            facade.Authorizer
+	crossModelAuthContext CrossModelAuthContext
+
 	controllerUUID string
 	modelUUID      model.UUID
 	logger         corelogger.Logger
 
-	accessService AccessService
-	modelService  ModelService
+	accessService     AccessService
+	controllerService ControllerService
+	modelService      ModelService
 
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error)
 	removalServiceGetter            func(c context.Context, modelUUID model.UUID) (RemovalService, error)
@@ -60,9 +78,11 @@ type OffersAPI struct {
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	authorizer facade.Authorizer,
+	crossModelAuthContext CrossModelAuthContext,
 	controllerUUID string,
 	modelUUID model.UUID,
 	accessService AccessService,
+	controllerService ControllerService,
 	modelService ModelService,
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error),
 	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
@@ -74,9 +94,11 @@ func createOffersAPI(
 
 	api := &OffersAPI{
 		authorizer:                      authorizer,
+		crossModelAuthContext:           crossModelAuthContext,
 		controllerUUID:                  controllerUUID,
 		modelUUID:                       modelUUID,
 		accessService:                   accessService,
+		controllerService:               controllerService,
 		modelService:                    modelService,
 		crossModelRelationServiceGetter: crossModelRelationServiceGetter,
 		removalServiceGetter:            removalServiceGetter,
@@ -272,10 +294,9 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		if f.ModelName == "" {
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
-		modelQualifier := f.ModelQualifier
-		if modelQualifier == "" {
-			modelQualifier = apiUser.Id()
-		}
+
+		modelQualifier := constructModelQualifier(f.ModelQualifier, apiUser).String()
+
 		var (
 			modelUUID string
 			ok        bool
@@ -302,6 +323,14 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		filtersPerModel[modelUUID] = filters
 	}
 	return models, filtersPerModel, nil
+}
+
+func constructModelQualifier(qualifier string, apiUser names.UserTag) model.Qualifier {
+	if qualifier == "" {
+		return model.QualifierFromUserTag(apiUser)
+	}
+
+	return model.NormalizeQualifier(qualifier)
 }
 
 // applicationOffersFromModel gets details about remote applications that match given filters.
@@ -540,7 +569,6 @@ func (api *OffersAPI) modifyOneOfferAccess(
 	modelUUID string,
 	arg params.ModifyOfferAccess,
 ) error {
-
 	crossModelRelationService, err := api.crossModelRelationServiceGetter(ctx, model.UUID(modelUUID))
 	if err != nil {
 		return errors.Capture(err)
@@ -623,16 +651,14 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 		if err != nil {
 			return nil, model.Model{}, errors.Capture(err)
 		}
+
+		url.ModelQualifier = constructModelQualifier(url.ModelQualifier, user).String()
 		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
 		if foundModel, ok := modelsCache[modelPath]; ok {
 			return url, foundModel, nil
 		}
 
-		modelQualifier := url.ModelQualifier
-		if modelQualifier == "" {
-			modelQualifier = user.Id()
-		}
-		m, err := api.modelForName(ctx, url.ModelName, modelQualifier)
+		m, err := api.modelForName(ctx, url.ModelName, url.ModelQualifier)
 		if err != nil {
 			return nil, model.Model{}, errors.Capture(err)
 		}
@@ -656,14 +682,17 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 // - [coreerrors.NotValid] when ownerName is not valid.
 func (api *OffersAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
 	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
+
 	m, err := api.modelService.GetModelByNameAndQualifier(ctx, modelName, qualifier)
 	if errors.Is(err, modelerrors.NotFound) {
 		return model.Model{}, errors.Errorf(`model "%s/%s": %w`, ownerName, modelName, coreerrors.NotFound)
 	} else if errors.Is(err, accesserrors.UserNameNotValid) {
 		return model.Model{}, errors.Errorf("user name %q: %w", ownerName, coreerrors.NotValid)
+	} else if err != nil {
+		return model.Model{}, errors.Capture(err)
 	}
 
-	return m, errors.Capture(err)
+	return m, nil
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
@@ -675,16 +704,28 @@ func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferUR
 		return results, apiservererrors.ErrPerm
 	}
 
+	offers, err := api.getApplicationOffers(ctx, apiUser, urls)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	results.Results = offers
+	return results, nil
+}
+
+func (api *OffersAPI) getApplicationOffers(ctx context.Context, apiUser names.UserTag, urls params.OfferURLs) ([]params.ApplicationOfferResult, error) {
+	results := make([]params.ApplicationOfferResult, len(urls.OfferURLs))
+
 	var filters []params.OfferFilter
 	// fullURLs contains the URL strings mapped to the result index
 	// from the url args, with any optional parts like model owner
 	// filled in. It is used to process the result offers.
-	fullURLs := make(map[string]int, 0)
+	fullURLs := make(map[string]int)
 
 	for i, urlStr := range urls.OfferURLs {
-		url, filter, err := applicationOfferURLAndFilter(urlStr, apiUser.Id())
+		url, filter, err := applicationOfferURLAndFilter(urlStr, apiUser)
 		if err != nil {
-			results.Results[i].Error = err
+			results[i].Error = err
 			continue
 		}
 		filters = append(filters, filter)
@@ -695,7 +736,7 @@ func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferUR
 		return results, nil
 	}
 
-	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, params.OfferFilters{filters})
+	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, params.OfferFilters{Filters: filters})
 	if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}
@@ -708,36 +749,40 @@ func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferUR
 	// criteria is not met. Ensure that all requested offers were found, or
 	// return a NotFound error.
 	for urlStr, i := range fullURLs {
-		if results.Results[i].Error != nil {
+		if results[i].Error != nil {
 			continue
 		}
 		offer, ok := offersByURL[urlStr]
 		if !ok {
-			results.Results[i].Error = &params.Error{
+			results[i].Error = &params.Error{
 				Code:    params.CodeNotFound,
 				Message: fmt.Sprintf("application offer %q", urlStr),
 			}
 			continue
 		}
-		results.Results[i].Result = &offer
+		results[i].Result = &offer
 	}
 	return results, nil
 }
 
-func applicationOfferURLAndFilter(in, apiUserID string) (string, params.OfferFilter, *params.Error) {
+func applicationOfferURLAndFilter(in string, apiUserTag names.UserTag) (string, params.OfferFilter, *params.Error) {
 	url, err := corecrossmodel.ParseOfferURL(in)
 	if err != nil {
 		return "", params.OfferFilter{}, apiservererrors.ServerError(err)
 	}
-	if url.ModelQualifier == "" {
-		url.ModelQualifier = apiUserID
-	}
+
+	// Ensure that we have a valid normalized model qualifier.
+	url.ModelQualifier = constructModelQualifier(url.ModelQualifier, apiUserTag).String()
+
+	// URL must not have an endpoint.
 	if url.HasEndpoint() {
 		return "", params.OfferFilter{}, &params.Error{
 			Code:    params.CodeNotSupported,
 			Message: fmt.Sprintf("saas application %q shouldn't include endpoint", url),
 		}
 	}
+
+	// URL must be local.
 	if url.Source != "" {
 		return "", params.OfferFilter{}, &params.Error{
 			Code:    params.CodeNotSupported,
@@ -776,7 +821,118 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 // GetConsumeDetails returns the details necessary to pass to another model
 // to allow the specified args user to consume the offers represented by the args URLs.
 func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
-	return params.ConsumeOfferDetailsResults{}, nil
+	var user names.UserTag
+	if args.UserTag != "" {
+		// Only controller admins can get consume details for other users.
+		if err := api.checkAPIUserControllerAdmin(ctx); err != nil {
+			return params.ConsumeOfferDetailsResults{}, err
+		}
+
+		// The API user is a controller admin, so they can get the consume
+		// details for the specified user. We must ensure the specified user
+		// is a valid tag.
+		var err error
+		user, err = names.ParseUserTag(args.UserTag)
+		if err != nil {
+			return params.ConsumeOfferDetailsResults{}, apiservererrors.ServerError(err)
+		}
+	} else {
+		// If no user was specified, the API user is the user.
+		user = api.authorizer.GetAuthTag().(names.UserTag)
+	}
+
+	// We require the current controller info to build the consume details.
+	controllerInfo, err := api.getControllerInfo(ctx)
+	if err != nil {
+		return params.ConsumeOfferDetailsResults{}, apiservererrors.ServerError(err)
+	}
+
+	return api.getConsumeDetails(ctx, controllerInfo, user, args.OfferURLs)
+}
+
+func (api *OffersAPI) getControllerInfo(ctx context.Context) (controller.ControllerInfo, error) {
+	c, err := api.controllerService.GetControllerInfo(ctx)
+	if err != nil {
+		return controller.ControllerInfo{}, errors.Errorf("getting controller info: %w", err)
+	}
+	return c, nil
+}
+
+func (api *OffersAPI) getConsumeDetails(
+	ctx context.Context,
+	controllerInfo controller.ControllerInfo,
+	apiUser names.UserTag,
+	urls params.OfferURLs,
+) (params.ConsumeOfferDetailsResults, error) {
+	externalControllerInfo := &params.ExternalControllerInfo{
+		ControllerTag: names.NewControllerTag(controllerInfo.UUID).String(),
+		Addrs:         controllerInfo.APIAddresses,
+		CACert:        controllerInfo.CACert,
+	}
+
+	offers, err := api.getApplicationOffers(ctx, apiUser, urls)
+	if err != nil {
+		return params.ConsumeOfferDetailsResults{}, apiservererrors.ServerError(err)
+	}
+
+	results := make([]params.ConsumeOfferDetailsResult, len(offers))
+	for i, offerResult := range offers {
+		if offerResult.Error != nil {
+			results[i].Error = offerResult.Error
+			continue
+		}
+
+		offerDetails := offerResult.Result.ApplicationOfferDetailsV5
+
+		modelTag, err := names.ParseModelTag(offerDetails.SourceModelTag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		modelUUID := model.UUID(modelTag.Id())
+		err = api.checkAPIUserAdmin(ctx, modelUUID)
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if err != nil {
+			// The user isn't admin on the model, so they must be allowed to
+			// consume the offer.
+			appOffer := names.NewApplicationOfferTag(offerDetails.OfferUUID)
+			err = api.authorizer.EntityHasPermission(ctx, apiUser, permission.ConsumeAccess, appOffer)
+			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			} else if err != nil {
+				// This logic is purely for JAAS.
+				//
+				// JAAS has already checked permissions of args.UserTag in their
+				// side, so we don't need to check it again. But as a TODO, we
+				// need to set the ConsumeOfferMacaroon's expiry time to 0 to
+				// force go to discharge flow once they got the macaroon.
+				if err := api.checkAPIUserControllerAdmin(ctx); err != nil {
+					results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+			}
+		}
+
+		offerMacaroon, err := api.crossModelAuthContext.CreateConsumeOfferMacaroon(ctx, modelUUID, offerDetails.OfferUUID, apiUser.Id(), urls.BakeryVersion)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results[i].ConsumeOfferDetails = params.ConsumeOfferDetails{
+			Offer:          &offerDetails,
+			ControllerInfo: externalControllerInfo,
+			Macaroon:       offerMacaroon.M(),
+		}
+	}
+
+	return params.ConsumeOfferDetailsResults{
+		Results: results,
+	}, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
@@ -863,4 +1019,8 @@ func (api *OffersAPI) checkAPIUserAdmin(
 	}
 
 	return errors.Capture(err)
+}
+
+func (api *OffersAPI) checkAPIUserControllerAdmin(ctx context.Context) error {
+	return api.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(api.controllerUUID))
 }

@@ -24,14 +24,15 @@ import (
 
 // ModelContext implements facade.ModelContext in the simplest possible way.
 type ModelContext struct {
-	Auth_                facade.Authorizer
-	Dispose_             func()
-	WatcherRegistry_     watcherregistry.WatcherRegistry
-	ID_                  string
-	ControllerUUID_      string
-	ControllerModelUUID_ model.UUID
-	ModelUUID_           model.UUID
-	RequestRecorder_     facade.RequestRecorder
+	Auth_                  facade.Authorizer
+	CrossModelAuthContext_ facade.CrossModelAuthContext
+	Dispose_               func()
+	WatcherRegistry_       watcherregistry.WatcherRegistry
+	ID_                    string
+	ControllerUUID_        string
+	ControllerModelUUID_   model.UUID
+	ModelUUID_             model.UUID
+	RequestRecorder_       facade.RequestRecorder
 
 	LeadershipClaimer_     leadership.Claimer
 	LeadershipRevoker_     leadership.Revoker
@@ -60,6 +61,12 @@ type ModelContext struct {
 // Auth is part of the facade.ModelContext interface.
 func (c ModelContext) Auth() facade.Authorizer {
 	return c.Auth_
+}
+
+// CrossModelAuthContext provides methods to create and authorize macaroons
+// for cross model operations.
+func (c ModelContext) CrossModelAuthContext() facade.CrossModelAuthContext {
+	return c.CrossModelAuthContext_
 }
 
 // Dispose is part of the facade.ModelContext interface.

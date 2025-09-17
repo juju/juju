@@ -149,7 +149,13 @@ func (q Qualifier) Validate() error {
 // QualifierFromUserTag returns a model qualifier created
 // from the supplied user tag.
 func QualifierFromUserTag(u names.UserTag) Qualifier {
-	validQualifier := strings.ToLower(u.Id())
+	return NormalizeQualifier(u.Id())
+}
+
+// NormalizeQualifier returns a normalized version of the
+// supplied qualifier.
+func NormalizeQualifier(q string) Qualifier {
+	validQualifier := strings.ToLower(q)
 	// Replace chars from a valid user tag that we
 	// don't want in a qualifier with "-".
 	validQualifier = strings.NewReplacer(
