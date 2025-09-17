@@ -433,6 +433,10 @@ Please choose a different model name.
 		StorageProviderRegistry: storageProviderRegistry,
 	})
 	if err != nil {
+		// Clean up the model.
+		if e := broker.Destroy(m.callContext); e != nil {
+			logger.Warningf("failed to clean up the model, error %v", e)
+		}
 		return nil, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
@@ -494,9 +498,9 @@ func (m *ModelManagerAPI) newModel(
 		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
-		// Clean up the environ.
+		// Clean up the model.
 		if e := env.Destroy(m.callContext); e != nil {
-			logger.Warningf("failed to destroy environ, error %v", e)
+			logger.Warningf("failed to clean up the model, error %v", e)
 		}
 		return nil, errors.Annotate(err, "failed to create new model")
 	}
