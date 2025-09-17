@@ -113,9 +113,6 @@ ON unit_storage_directive (unit_uuid);
 -- necessarily the same as the storage instance. This is even more true when we
 -- are trying to understand the composition of a storage_instance and not the
 -- purpose it may be fulfilling.
---
--- It is possible for a storage_instance to not be associated to a charm in the
--- model.
 CREATE TABLE storage_kind (
     id INT NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL
