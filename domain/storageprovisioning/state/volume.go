@@ -861,6 +861,56 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
+// GetBlockDeviceForVolumeAttachment returns the uuid of the block device set
+// for the specified volume attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice] when the
+// volume attachment does not yet have a block device.
+func (st *State) GetBlockDeviceForVolumeAttachment(
+	ctx context.Context, uuid domainstorageprovisioning.VolumeAttachmentUUID,
+) (blockdevice.BlockDeviceUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	io := volumeAttachmentProvisionedInfo{
+		UUID: uuid.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT &volumeAttachmentProvisionedInfo.*
+FROM   storage_volume_attachment
+WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
+`, io)
+	if err != nil {
+		return "", err
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, io).Get(&io)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if !io.BlockDeviceUUID.Valid {
+		return "", errors.Errorf(
+			"volume attachment %q without block device", uuid,
+		).Add(storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
+	}
+
+	return blockdevice.BlockDeviceUUID(io.BlockDeviceUUID.V), nil
+}
+
 // SetVolumeProvisionedInfo sets the provisioned information for the given
 // volume.
 //
@@ -1094,6 +1144,67 @@ SELECT &volumeAttachmentParams.* FROM (
 		ProviderID:        dbVal.ProviderID,
 		ReadOnly:          dbVal.ReadOnly,
 	}, nil
+}
+
+// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
+// uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
+// attachment plan exists for the provided uuid.
+func (st *State) GetVolumeAttachmentPlan(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+) (domainstorageprovisioning.VolumeAttachmentPlan, error) {
+	return domainstorageprovisioning.VolumeAttachmentPlan{}, nil
+}
+
+// CreateVolumeAttachmentPlan creates a volume attachment plan for the
+// provided volume attachment uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists ] when a
+// volume attachment plan already exists for the given volume attachnment.
+func (st *State) CreateVolumeAttachmentPlan(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	attachmentUUID domainstorageprovisioning.VolumeAttachmentUUID,
+	deviceType domainstorageprovisioning.PlanDeviceType,
+	attrs map[string]string,
+) error {
+	return nil
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume attachment
+// plan information.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
+// attachment plan exists for the provided uuid.
+func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	info domainstorageprovisioning.VolumeAttachmentPlanProvisionedInfo,
+) error {
+	return nil
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided
+// volume attachment plan the information about the provisioned block device.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
+// attachment plan exists for the provided uuid.
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists for the
+// provided block device uuid.
+func (st *State) SetVolumeAttachmentPlanProvisionedBlockDevice(
+	ctx context.Context,
+	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	blockDeviceUUID blockdevice.BlockDeviceUUID,
+) error {
+	return nil
 }
 
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for
