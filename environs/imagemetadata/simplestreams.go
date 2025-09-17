@@ -245,13 +245,13 @@ func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, con
 	if err != nil {
 		return nil, resolveInfo, err
 	}
-	metadata := make([]*ImageMetadata, 0, len(items))
-	for _, md := range items {
-		imageMetadata := md.(*ImageMetadata)
-		if cons.ImageID != nil && *cons.ImageID != imageMetadata.Id {
-			continue
-		}
-		metadata = append(metadata, imageMetadata)
+	// TODO - we want to refactor to allow image-id filtering.
+	// We could filter on cons.ImageID here but that would prevent
+	// users from being able to force Juju to use an image not
+	// included in the published metadata.
+	metadata := make([]*ImageMetadata, len(items))
+	for i, md := range items {
+		metadata[i] = md.(*ImageMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.
