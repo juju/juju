@@ -6016,6 +6016,90 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 1,
+		},
+	}
+	charm := s.AddTestingCharm(c, "cockroachdb")
+	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["database"].Pool, gc.Equals, "loop")
+	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+
+	newSC := map[string]state.StorageConstraints{
+		"database": makeStorageCons("loop", 4096, 1),
+	}
+
+	charmWithNewURL := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", URL: "local:quantal/quantal-cockroachdb-1"})
+
+	// set charm to a different url before running replaceStorageConstraintsOp txn
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := app.SetCharm(state.SetCharmConfig{
+			Charm:       charmWithNewURL,
+			CharmOrigin: defaultCharmOrigin(charmWithNewURL.URL()),
+			StorageConstraints: map[string]state.StorageConstraints{
+				"database": {
+					Pool:  "loop",
+					Size:  2048,
+					Count: 1,
+				},
+				"data": {
+					Pool:  "loop",
+					Size:  1928,
+					Count: 1,
+				},
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["database"].Pool, gc.Equals, "loop")
+	c.Assert(cons["database"].Count, gc.Equals, uint64(1))
+	c.Assert(cons["database"].Size, gc.Equals, uint64(4096))
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsNotSupported(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 1,
+		},
+	}
+	charm := s.AddTestingCharm(c, "cockroachdb")
+	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["database"].Pool, gc.Equals, "loop")
+	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+
+	newSC := map[string]state.StorageConstraints{
+		"database":       makeStorageCons("loop", 4096, 1),
+		"not-supported1": makeStorageCons("loop", 4096, 1),
+		"not-supported2": makeStorageCons("loop", 4096, 1),
+	}
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	registry := &storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{

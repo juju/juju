@@ -63,9 +63,14 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv22 provides the Application API facade for version 22.
+type APIv22 struct {
+	*APIBase
+}
+
 // APIv21 provides the Application API facade for version 21.
 type APIv21 struct {
-	*APIBase
+	*APIv22
 }
 
 // APIv20 provides the Application API facade for version 20.
@@ -3116,4 +3121,97 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	return params.DeployFromRepositoryResults{
 		Results: results,
 	}, nil
+}
+
+func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageConstraints, error) {
+	appTag, err := names.ParseTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := api.backend.Application(appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageConstraints, err := app.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	sc := make(map[string]params.StorageConstraints)
+	for key, cons := range storageConstraints {
+		sc[key] = params.StorageConstraints{
+			Pool:  cons.Pool,
+			Size:  &cons.Size,
+			Count: &cons.Count,
+		}
+	}
+	return sc, nil
+}
+
+// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+func (api *APIBase) GetApplicationStorage(args params.Entities) (params.ApplicationStorageGetResults, error) {
+	resp := params.ApplicationStorageGetResults{
+		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
+	}
+	if err := api.checkCanRead(); err != nil {
+		return resp, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		sc, err := api.getOneApplicationStorage(entity)
+		if err != nil {
+			resp.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		resp.Results[i].StorageConstraints = sc
+	}
+	return resp, nil
+}
+
+func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
+	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := api.backend.Application(appTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	sCons := make(map[string]state.StorageConstraints)
+	for storageName, con := range storageUpdate.StorageConstraints {
+		sc := state.StorageConstraints{
+			Pool: con.Pool,
+		}
+		if con.Size != nil {
+			sc.Size = *con.Size
+		}
+		if con.Count != nil {
+			sc.Count = *con.Count
+		}
+		sCons[storageName] = sc
+	}
+
+	return app.UpdateStorageConstraints(sCons)
+}
+
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
+// application deployment. The storage constraints passed are validated against the charm's declared storage meta.
+// The following apiserver codes can be returned in each ErrorResult:
+//   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+	resp := params.ErrorResults{}
+	if err := api.checkCanWrite(); err != nil {
+		return resp, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.ApplicationStorageUpdates))
+	resp.Results = res
+
+	for i, storageUpdate := range args.ApplicationStorageUpdates {
+		err := api.updateOneApplicationStorage(storageUpdate)
+		res[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return resp, nil
 }
