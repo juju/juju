@@ -25,6 +25,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -1278,7 +1279,7 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 			)
 		}
 
-		bd, err := s.storageProvisioningService.GetBlockDeviceForVolumeAttachment(
+		bdUUID, err := s.storageProvisioningService.GetBlockDeviceForVolumeAttachment(
 			ctx, va)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice) {
 			return params.BlockDevice{}, errors.Errorf(
@@ -1294,6 +1295,18 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 			return params.BlockDevice{}, errors.Errorf(
 				"getting volume attachment %q on machine %q: %v",
 				tag.Id(), machineTag.Id(), err,
+			)
+		}
+
+		bd, err := s.blockDeviceService.GetBlockDevice(ctx, bdUUID)
+		if errors.Is(err, blockdeviceerrors.BlockDeviceNotFound) {
+			return params.BlockDevice{}, errors.Errorf(
+				"volume attachment %q on machine %q is not provisioned",
+				tag.Id(), machineTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		} else if err != nil {
+			return params.BlockDevice{}, errors.Errorf(
+				"getting block device %q: %v", bdUUID, err,
 			)
 		}
 
@@ -2181,8 +2194,13 @@ func (s *StorageProvisionerAPIv4) setVolumeAttachmentInfo(
 	}
 
 	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType:       string(vai.PlanInfo.DeviceType),
 		DeviceAttributes: vai.PlanInfo.DeviceAttributes,
+	}
+	switch vai.PlanInfo.DeviceType {
+	case storage.DeviceTypeLocal:
+		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+	case storage.DeviceTypeISCSI:
+		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
 	}
 	err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedInfo(
 		ctx, planUUID, planInfo,
