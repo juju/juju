@@ -419,9 +419,7 @@ CREATE TABLE storage_volume_attachment_plan (
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     device_type_id INT,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
+    provision_scope_id INT NOT NULL,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
