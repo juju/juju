@@ -6,12 +6,13 @@ package storageprovisioning
 import (
 	"testing"
 
-	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-// provisioningSuite is a test suite asserting storage provisioning buisness
+// provisioningSuite is a test suite asserting storage provisioning business
 // logic that is offered up in this package.
 type provisioningSuite struct {
 	storageProvider *MockStorageProvider
@@ -147,7 +148,7 @@ func (s *provisioningSuite) TestFilesystemCompositionFilesystemBackedModelScoped
 // This test is important because we will try and create filesystems on volumes
 // if the composition thinks a filesystem source is not available. This test
 // ensures that if a filesystem source is on offer from the provider it is
-// always choosen.
+// always chosen.
 //
 // If this test fails for you it means you have most likely re-arranged logic
 // internally and this is your chance to make the change conform to the
