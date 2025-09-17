@@ -9,6 +9,7 @@ import "github.com/juju/juju/core/model"
 // for applications and units within a model.
 type LeaseManager interface {
 	Checker
+	Reader
 	Revoker
 }
 

@@ -294,6 +294,11 @@ func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseManager, err
 		return nil, internalerrors.Errorf("getting checker lease manager: %w", err)
 	}
 
+	reader, err := s.manager.Reader(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf("getting reader lease manager: %w", err)
+	}
+
 	revoker, err := s.manager.Revoker(lease.ApplicationLeadershipNamespace, s.modelUUID.String())
 	if err != nil {
 		return nil, internalerrors.Errorf("getting revoker lease manager: %w", err)
@@ -301,13 +306,20 @@ func (s modelApplicationLeaseManager) GetLeaseManager() (lease.LeaseManager, err
 
 	return leaseManager{
 		checker: checker,
+		reader:  reader,
 		revoker: revoker,
 	}, nil
 }
 
 type leaseManager struct {
 	checker lease.Checker
+	reader  lease.Reader
 	revoker lease.Revoker
+}
+
+// Leases returns a map of lease names to their current holders.
+func (s leaseManager) Leases() (map[string]string, error) {
+	return s.reader.Leases()
 }
 
 // WaitUntilExpired returns nil when the named lease is no longer held.

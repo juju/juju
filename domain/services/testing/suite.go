@@ -443,6 +443,11 @@ func (TestingLeaseManager) WaitUntilExpired(ctx context.Context, leaseName strin
 	return nil
 }
 
+// Leases returns a map of lease names to their current holders.
+func (TestingLeaseManager) Leases() (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 // Token returns a Token that can be interrogated at any time to discover
 // whether the supplied lease is currently held by the supplied holder.
 func (TestingLeaseManager) Token(leaseName, holderName string) lease.Token {
