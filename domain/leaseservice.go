@@ -6,6 +6,7 @@ package domain
 import (
 	"context"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/unit"
@@ -30,15 +31,24 @@ func NewLeaseService(leaseManager lease.ModelLeaseManagerGetter) *LeaseService {
 	}
 }
 
-// Leaders returns all application leaders, as a map of application name to unit
-// name.
-func (s *LeaseService) Leaders() (map[string]string, error) {
+// ApplicationLeader returns the leader unit name for the input application.
+// The following errors may be returned:
+// - [coreerrors.NotFound] if the application is not found on the leases map.
+func (s *LeaseService) ApplicationLeader(appName string) (string, error) {
 	leaseManager, err := s.leaseManager.GetLeaseManager()
 	if err != nil {
-		return nil, errors.Errorf("getting lease manager: %w", err)
+		return "", errors.Errorf("getting lease manager: %w", err)
 	}
 
-	return leaseManager.Leases()
+	leases, err := leaseManager.Leases()
+	if err != nil {
+		return "", errors.Errorf("getting leases: %w", err)
+	}
+	if _, ok := leases[appName]; !ok {
+		return "", errors.Errorf("application %q not found in leases", appName).Add(coreerrors.NotFound)
+	}
+
+	return leases[appName], nil
 }
 
 // LeadershipCheck returns a token that can be used to check if the input unit

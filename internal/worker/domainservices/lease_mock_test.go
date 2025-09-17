@@ -482,6 +482,45 @@ func (m *MockLeaseManager) EXPECT() *MockLeaseManagerMockRecorder {
 	return m.recorder
 }
 
+// Leases mocks base method.
+func (m *MockLeaseManager) Leases() (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Leases")
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Leases indicates an expected call of Leases.
+func (mr *MockLeaseManagerMockRecorder) Leases() *MockLeaseManagerLeasesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Leases", reflect.TypeOf((*MockLeaseManager)(nil).Leases))
+	return &MockLeaseManagerLeasesCall{Call: call}
+}
+
+// MockLeaseManagerLeasesCall wrap *gomock.Call
+type MockLeaseManagerLeasesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLeaseManagerLeasesCall) Return(arg0 map[string]string, arg1 error) *MockLeaseManagerLeasesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLeaseManagerLeasesCall) Do(f func() (map[string]string, error)) *MockLeaseManagerLeasesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLeaseManagerLeasesCall) DoAndReturn(f func() (map[string]string, error)) *MockLeaseManagerLeasesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Revoke mocks base method.
 func (m *MockLeaseManager) Revoke(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
