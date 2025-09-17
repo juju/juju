@@ -141,7 +141,7 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	config, err := decodeConfig(ch.Config)
+	config, err := application.DecodeConfig(ch.Config)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}

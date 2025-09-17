@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -1543,6 +1544,11 @@ WHERE uuid = $applicationID.uuid
 		if err := tx.Query(ctx, setAppCharmStmt, charmIdent, appIdent).Run(); err != nil {
 			return errors.Errorf("setting application charm: %w", err)
 		}
+
+		if err := st.refreshApplicationConfig(ctx, tx, appIdent, charmIdent); err != nil {
+			return errors.Errorf("refreshing application config: %w", err)
+		}
+
 		return nil
 	}); err != nil {
 		return errors.Capture(err)
@@ -3464,5 +3470,63 @@ func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, app
 				appRelation.Name, appRelation.Count)
 		}
 	}
+	return nil
+}
+
+func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	charmConfig, err := st.getCharmConfig(ctx, tx, charmIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	decodedCharmConfig, err := application.DecodeConfig(charmConfig)
+	if err != nil {
+		return errors.Errorf("decoding charm config: %w", err)
+	}
+
+	applicationConfig, err := st.getApplicationConfig(ctx, tx, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	decodedApplicationConfig := make(internalcharm.Config, len(applicationConfig))
+	for _, v := range applicationConfig {
+		decodedApplicationConfig[v.Key] = v.Value
+	}
+
+	filteredDecodedApplicationConfig := decodedCharmConfig.FilterApplicationConfig(decodedApplicationConfig)
+	filteredApplicationConfig := make(map[string]application.ApplicationConfig, len(filteredDecodedApplicationConfig))
+	for k, v := range filteredDecodedApplicationConfig {
+		opt, ok := charmConfig.Options[k]
+		if !ok {
+			// This should never happen, as we've verified the config is valid.
+			// But if it does, then we should return an error.
+			return errors.Errorf("missing charm config, expected %q", k)
+		}
+		filteredApplicationConfig[k] = application.ApplicationConfig{
+			Type:  opt.Type,
+			Value: v,
+		}
+	}
+
+	clearApplicationConfig, err := st.Prepare(`
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid;
+`, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, clearApplicationConfig, appIdent).Run(); err != nil {
+		return errors.Errorf("clearing old application config: %w", err)
+	}
+
+	if err := st.insertApplicationConfig(ctx, tx, appIdent.ID, filteredApplicationConfig); err != nil {
+		return errors.Errorf("inserting application config: %w", err)
+	}
+
+	if err := st.updateConfigHash(ctx, tx, appIdent); err != nil {
+		return errors.Errorf("refreshing config hash: %w", err)
+	}
+
 	return nil
 }

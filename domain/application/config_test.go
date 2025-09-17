@@ -1,7 +1,7 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package application
 
 import (
 	"testing"
@@ -94,16 +94,16 @@ var configTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertConfig(c *tc.C) {
+func (s *configSuite) TestConvertConfig(c *tc.C) {
 	for _, testCase := range configTestCases {
 		c.Logf("Running test case %q", testCase.name)
 
-		result, err := decodeConfig(testCase.input)
+		result, err := DecodeConfig(testCase.input)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(result, tc.DeepEquals, testCase.output)
 
 		// Ensure that the conversion is idempotent.
-		converted, err := encodeConfig(&result)
+		converted, err := EncodeConfig(&result)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(converted, tc.DeepEquals, testCase.input)
 	}
