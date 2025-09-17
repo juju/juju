@@ -4,12 +4,10 @@
 package application_test
 
 import (
-	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,8 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -258,10 +254,10 @@ func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expectedError)
 
 	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2")
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, gc.ErrorMatches, "--attach-storage cannot be used with -n")
 
 	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
 	c.Assert(err, gc.ErrorMatches, expectedError)
@@ -292,12 +288,6 @@ func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
 }
 
 func (s *AddUnitSuite) TestCAASAddUnitAttachStorage(c *gc.C) {
-	s.SetFeatureFlags(feature.K8SAttachStorage)
-	defer func() {
-		// Unset feature flag
-		os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	}()
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
