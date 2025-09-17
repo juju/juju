@@ -18,7 +18,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -899,7 +898,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
 
 	vap := storageprovisioning.VolumeAttachmentPlan{
-		Life:       life.Dying,
+		Life:       domainlife.Dying,
 		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",

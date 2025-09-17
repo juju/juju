@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -941,7 +940,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
-		Life:             life.Alive,
+		Life:             domainlife.Alive,
 		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	})
@@ -977,7 +976,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
-		Life:             life.Alive,
+		Life:             domainlife.Alive,
 		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	})
@@ -998,7 +997,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAlreadyExists(c *tc.C) {
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
-		Life:             life.Alive,
+		Life:             domainlife.Alive,
 		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
 		DeviceAttributes: nil,
 	})
@@ -1047,7 +1046,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
-		Life:       life.Alive,
+		Life:       domainlife.Alive,
 		DeviceType: domainstorageprovisioning.PlanDeviceTypeLocal,
 		DeviceAttributes: map[string]string{
 			"foo": "bar",
@@ -1212,10 +1211,9 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfo(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 
-	blockDeviceUUID := blockdevice.BlockDeviceUUID(bdUUID)
 	info := domainstorageprovisioning.VolumeAttachmentProvisionedInfo{
 		ReadOnly:        true,
-		BlockDeviceUUID: &blockDeviceUUID,
+		BlockDeviceUUID: &bdUUID,
 	}
 	err := st.SetVolumeAttachmentProvisionedInfo(c.Context(), vaUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1291,7 +1289,7 @@ func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachment(c *tc.C) {
 
 	result, err := st.GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.Equals, blockdevice.BlockDeviceUUID(bdUUID))
+	c.Check(result, tc.Equals, bdUUID)
 }
 
 func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentNoBlockDevice(c *tc.C) {
