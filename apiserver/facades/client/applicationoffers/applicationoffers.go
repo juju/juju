@@ -878,6 +878,7 @@ func (api *OffersAPI) getConsumeDetails(
 	results := make([]params.ConsumeOfferDetailsResult, len(offers))
 	for i, offerResult := range offers {
 		if offerResult.Error != nil {
+			results[i].Error = offerResult.Error
 			continue
 		}
 
