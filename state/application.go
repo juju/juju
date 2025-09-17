@@ -6,6 +6,7 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"net"
 	"sort"
 	"strconv"
@@ -3627,6 +3628,60 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return cons, nil
+}
+
+// UpdateStorageConstraints updates the storage constraints for the application.
+func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
+	if len(cons) == 0 {
+		return nil
+	}
+
+	// Ensure storage constraints have all the necessary fields and validate them.
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		currentCons := maps.Clone(cons)
+
+		storageConstraintsKey := a.storageConstraintsKey()
+
+		// Validate that the charm supports the storage name that was passed in by the client.
+		ch, _, err := a.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if err := addDefaultStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "adding default storage constraints")
+		}
+		if err := validateStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "validating storage constraints")
+		}
+
+		storageConstraintsOp := replaceStorageConstraintsOp(
+			storageConstraintsKey, currentCons,
+		)
+		return []txn.Op{storageConstraintsOp}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot update storage constraints")
+	}
+
+	return nil
 }
 
 // DeviceConstraints returns the device constraints for the application.

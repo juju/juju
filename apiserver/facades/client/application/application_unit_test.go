@@ -2521,7 +2521,7 @@ func (s *ApplicationSuite) TestAPIv20DeployRejectsAttachStorage(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	api := &application.APIv20{APIv21: &application.APIv21{APIBase: s.api}}
+	api := &application.APIv20{APIv21: &application.APIv21{APIv22: &application.APIv22{APIBase: s.api}}}
 
 	_, err := api.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2543,7 +2543,7 @@ func (s *ApplicationSuite) TestAPIv20ScaleApplicationsCompatibility(c *gc.C) {
 	app.EXPECT().ChangeScale(1, ([]names.StorageTag)(nil)).Return(2, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	api := &application.APIv20{APIv21: &application.APIv21{APIBase: s.api}}
+	api := &application.APIv20{APIv21: &application.APIv21{APIv22: &application.APIv22{APIBase: s.api}}}
 
 	results, err := api.ScaleApplications(params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
