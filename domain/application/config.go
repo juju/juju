@@ -18,6 +18,8 @@ const (
 	StorageDefaultFilesystemSourceKey = "storage-default-filesystem-source"
 )
 
+// DecodeConfig decodes the domain charm config representation into the internal
+// charm config representation.
 func DecodeConfig(options charm.Config) (internalcharm.ConfigSpec, error) {
 	if len(options.Options) == 0 {
 		return internalcharm.ConfigSpec{}, nil
@@ -67,6 +69,8 @@ func decodeOptionType(t charm.OptionType) (string, error) {
 	}
 }
 
+// EncodeConfig encodes the internal charm config representation into the domain
+// charm config representation.
 func EncodeConfig(config *internalcharm.ConfigSpec) (charm.Config, error) {
 	if config == nil || len(config.Options) == 0 {
 		return charm.Config{}, nil

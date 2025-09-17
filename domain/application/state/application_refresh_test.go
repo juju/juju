@@ -515,6 +515,28 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 	})
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		trust:   true,
+	})
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	trust, err := s.state.GetApplicationTrustSetting(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(trust, tc.Equals, true)
+}
+
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
 func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.ID {
 	appName := args.appName
@@ -555,6 +577,9 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 			CharmDownloadInfo: nil,
 			Channel:           channel,
 			Config:            args.applicationConfig,
+			Settings: application.ApplicationSettings{
+				Trust: args.trust,
+			},
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
@@ -674,6 +699,8 @@ type createApplicationArgs struct {
 	charmConfig charm.Config
 	// applicationConfig defines the config for the application
 	applicationConfig map[string]application.ApplicationConfig
+	// trust specifies whether the application should be trusted.
+	trust bool
 }
 
 // relationMap processes the relations of a createApplicationArgs instance,
