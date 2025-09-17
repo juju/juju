@@ -33,6 +33,33 @@ func TestLeaseServiceSuite(t *testing.T) {
 	tc.Run(t, &leaseServiceSuite{})
 }
 
+func (s *leaseServiceSuite) TestLeaders(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaseManager.EXPECT().Leases().Return(map[string]string{
+		"redis": "redis/42",
+		"kafka": "kafka/0",
+	}, nil)
+
+	service := NewLeaseService(s.modelLeaseManager)
+	leaders, err := service.Leaders()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leaders, tc.DeepEquals, map[string]string{
+		"redis": "redis/42",
+		"kafka": "kafka/0",
+	})
+}
+
+func (s *leaseServiceSuite) TestLeadersReturnsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaseManager.EXPECT().Leases().Return(nil, errors.New("boom"))
+
+	service := NewLeaseService(s.modelLeaseManager)
+	_, err := service.Leaders()
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *leaseServiceSuite) TestWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

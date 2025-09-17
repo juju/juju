@@ -30,6 +30,17 @@ func NewLeaseService(leaseManager lease.ModelLeaseManagerGetter) *LeaseService {
 	}
 }
 
+// Leaders returns all application leaders, as a map of application name to unit
+// name.
+func (s *LeaseService) Leaders() (map[string]string, error) {
+	leaseManager, err := s.leaseManager.GetLeaseManager()
+	if err != nil {
+		return nil, errors.Errorf("getting lease manager: %w", err)
+	}
+
+	return leaseManager.Leases()
+}
+
 // LeadershipCheck returns a token that can be used to check if the input unit
 // is the leader of the input application.
 func (s *LeaseService) LeadershipCheck(appName, unitName string) leadership.Token {
