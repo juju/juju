@@ -29,9 +29,10 @@ type HTTPClient interface {
 // JAASOfferBakery is a bakery for JAAS offer access.
 type JAASOfferBakery struct {
 	baseBakery
-	oven   Oven
-	clock  clock.Clock
-	logger logger.Logger
+	oven     Oven
+	endpoint string
+	clock    clock.Clock
+	logger   logger.Logger
 }
 
 // NewJAASOfferBakery returns a new JAASOfferBakery.
@@ -59,9 +60,11 @@ func NewJAASOfferBakery(
 	}
 
 	return &JAASOfferBakery{
-		oven:   bakery,
-		clock:  clock,
-		logger: logger,
+		baseBakery: baseBakery{checker: bakery.Checker},
+		oven:       bakery,
+		endpoint:   endpoint,
+		clock:      clock,
+		logger:     logger,
 	}, nil
 }
 
@@ -76,8 +79,19 @@ func (o *JAASOfferBakery) GetConsumeOfferCaveats(offerUUID, sourceModelUUID, use
 	}
 }
 
+// GetRemoteRelationCaveats returns the caveats for accessing a remote relation.
+func (o *JAASOfferBakery) GetRemoteRelationCaveats(offerUUID, sourceModelUUID, username, relation string) []checkers.Caveat {
+	return []checkers.Caveat{
+		checkers.TimeBeforeCaveat(o.clock.Now().Add(offerPermissionExpiryTime)),
+		checkers.DeclaredCaveat(sourceModelKey, sourceModelUUID),
+		checkers.DeclaredCaveat(offerUUIDKey, offerUUID),
+		checkers.DeclaredCaveat(usernameKey, username),
+		checkers.DeclaredCaveat(relationKey, relation),
+	}
+}
+
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
-func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
+func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) DeclaredValues {
 	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
 
 	o.logger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
@@ -90,13 +104,42 @@ func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, required
 			declared[relationKey] = relation
 		}
 	}
-	return declared
+
+	additional := make(map[string]string)
+
+	for k, v := range declared {
+		switch k {
+		case sourceModelKey, usernameKey, offerUUIDKey, relationKey:
+			// These are handled below.
+		default:
+			additional[k] = v
+		}
+	}
+
+	var userName *string
+	if user, ok := declared[usernameKey]; ok {
+		userName = &user
+	}
+
+	return DeclaredValues{
+		userName:        userName,
+		sourceModelUUID: declared[sourceModelKey],
+		offerUUID:       declared[offerUUIDKey],
+		relationKey:     declared[relationKey],
+		additional:      additional,
+	}
+}
+
+// NewMacaroon creates a new macaroon for the given version, caveats and ops.
+func (o *JAASOfferBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+	return o.oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *JAASOfferBakery) CreateDischargeMacaroon(
-	ctx context.Context, accessEndpoint, username string,
-	requiredValues, declaredValues map[string]string,
+	ctx context.Context, username string,
+	requiredValues map[string]string,
+	declaredValues DeclaredValues,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
 	// TODO (stickupkid): If these are required values we should check that
@@ -109,12 +152,13 @@ func (o *JAASOfferBakery) CreateDischargeMacaroon(
 	}
 
 	conditionCaveat := checkers.Caveat{
-		Location:  accessEndpoint,
+		Location:  o.endpoint,
 		Condition: strings.Join(conditionParts, " "),
 	}
 
-	declaredCaveats := make([]checkers.Caveat, 0, len(declaredValues))
-	for k, v := range declaredValues {
+	values := declaredValues.AsMap()
+	declaredCaveats := make([]checkers.Caveat, 0, len(values))
+	for k, v := range values {
 		declaredCaveats = append(declaredCaveats, checkers.DeclaredCaveat(k, v))
 	}
 

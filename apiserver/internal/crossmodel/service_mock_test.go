@@ -107,19 +107,58 @@ func (m *MockOfferBakery) EXPECT() *MockOfferBakeryMockRecorder {
 	return m.recorder
 }
 
-// CreateDischargeMacaroon mocks base method.
-func (m *MockOfferBakery) CreateDischargeMacaroon(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 bakery.Op, arg6 bakery.Version) (*bakery.Macaroon, error) {
+// AllowedAuth mocks base method.
+func (m *MockOfferBakery) AllowedAuth(arg0 context.Context, arg1 bakery.Op, arg2 macaroon.Slice) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateDischargeMacaroon", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "AllowedAuth", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllowedAuth indicates an expected call of AllowedAuth.
+func (mr *MockOfferBakeryMockRecorder) AllowedAuth(arg0, arg1, arg2 any) *MockOfferBakeryAllowedAuthCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllowedAuth", reflect.TypeOf((*MockOfferBakery)(nil).AllowedAuth), arg0, arg1, arg2)
+	return &MockOfferBakeryAllowedAuthCall{Call: call}
+}
+
+// MockOfferBakeryAllowedAuthCall wrap *gomock.Call
+type MockOfferBakeryAllowedAuthCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryAllowedAuthCall) Return(arg0 []string, arg1 error) *MockOfferBakeryAllowedAuthCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryAllowedAuthCall) Do(f func(context.Context, bakery.Op, macaroon.Slice) ([]string, error)) *MockOfferBakeryAllowedAuthCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryAllowedAuthCall) DoAndReturn(f func(context.Context, bakery.Op, macaroon.Slice) ([]string, error)) *MockOfferBakeryAllowedAuthCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateDischargeMacaroon mocks base method.
+func (m *MockOfferBakery) CreateDischargeMacaroon(arg0 context.Context, arg1 string, arg2 map[string]string, arg3 bakery0.DeclaredValues, arg4 bakery.Op, arg5 bakery.Version) (*bakery.Macaroon, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateDischargeMacaroon", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(*bakery.Macaroon)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateDischargeMacaroon indicates an expected call of CreateDischargeMacaroon.
-func (mr *MockOfferBakeryMockRecorder) CreateDischargeMacaroon(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockOfferBakeryCreateDischargeMacaroonCall {
+func (mr *MockOfferBakeryMockRecorder) CreateDischargeMacaroon(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockOfferBakeryCreateDischargeMacaroonCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDischargeMacaroon", reflect.TypeOf((*MockOfferBakery)(nil).CreateDischargeMacaroon), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDischargeMacaroon", reflect.TypeOf((*MockOfferBakery)(nil).CreateDischargeMacaroon), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockOfferBakeryCreateDischargeMacaroonCall{Call: call}
 }
 
@@ -135,13 +174,13 @@ func (c *MockOfferBakeryCreateDischargeMacaroonCall) Return(arg0 *bakery.Macaroo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOfferBakeryCreateDischargeMacaroonCall) Do(f func(context.Context, string, string, map[string]string, map[string]string, bakery.Op, bakery.Version) (*bakery.Macaroon, error)) *MockOfferBakeryCreateDischargeMacaroonCall {
+func (c *MockOfferBakeryCreateDischargeMacaroonCall) Do(f func(context.Context, string, map[string]string, bakery0.DeclaredValues, bakery.Op, bakery.Version) (*bakery.Macaroon, error)) *MockOfferBakeryCreateDischargeMacaroonCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOfferBakeryCreateDischargeMacaroonCall) DoAndReturn(f func(context.Context, string, string, map[string]string, map[string]string, bakery.Op, bakery.Version) (*bakery.Macaroon, error)) *MockOfferBakeryCreateDischargeMacaroonCall {
+func (c *MockOfferBakeryCreateDischargeMacaroonCall) DoAndReturn(f func(context.Context, string, map[string]string, bakery0.DeclaredValues, bakery.Op, bakery.Version) (*bakery.Macaroon, error)) *MockOfferBakeryCreateDischargeMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -184,11 +223,127 @@ func (c *MockOfferBakeryGetConsumeOfferCaveatsCall) DoAndReturn(f func(string, s
 	return c
 }
 
+// GetOfferRequiredValues mocks base method.
+func (m *MockOfferBakery) GetOfferRequiredValues(arg0, arg1 string) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferRequiredValues", arg0, arg1)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferRequiredValues indicates an expected call of GetOfferRequiredValues.
+func (mr *MockOfferBakeryMockRecorder) GetOfferRequiredValues(arg0, arg1 any) *MockOfferBakeryGetOfferRequiredValuesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferRequiredValues", reflect.TypeOf((*MockOfferBakery)(nil).GetOfferRequiredValues), arg0, arg1)
+	return &MockOfferBakeryGetOfferRequiredValuesCall{Call: call}
+}
+
+// MockOfferBakeryGetOfferRequiredValuesCall wrap *gomock.Call
+type MockOfferBakeryGetOfferRequiredValuesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryGetOfferRequiredValuesCall) Return(arg0 map[string]string, arg1 error) *MockOfferBakeryGetOfferRequiredValuesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryGetOfferRequiredValuesCall) Do(f func(string, string) (map[string]string, error)) *MockOfferBakeryGetOfferRequiredValuesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryGetOfferRequiredValuesCall) DoAndReturn(f func(string, string) (map[string]string, error)) *MockOfferBakeryGetOfferRequiredValuesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationRequiredValues mocks base method.
+func (m *MockOfferBakery) GetRelationRequiredValues(arg0, arg1, arg2 string) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationRequiredValues", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationRequiredValues indicates an expected call of GetRelationRequiredValues.
+func (mr *MockOfferBakeryMockRecorder) GetRelationRequiredValues(arg0, arg1, arg2 any) *MockOfferBakeryGetRelationRequiredValuesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationRequiredValues", reflect.TypeOf((*MockOfferBakery)(nil).GetRelationRequiredValues), arg0, arg1, arg2)
+	return &MockOfferBakeryGetRelationRequiredValuesCall{Call: call}
+}
+
+// MockOfferBakeryGetRelationRequiredValuesCall wrap *gomock.Call
+type MockOfferBakeryGetRelationRequiredValuesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryGetRelationRequiredValuesCall) Return(arg0 map[string]string, arg1 error) *MockOfferBakeryGetRelationRequiredValuesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryGetRelationRequiredValuesCall) Do(f func(string, string, string) (map[string]string, error)) *MockOfferBakeryGetRelationRequiredValuesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryGetRelationRequiredValuesCall) DoAndReturn(f func(string, string, string) (map[string]string, error)) *MockOfferBakeryGetRelationRequiredValuesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRemoteRelationCaveats mocks base method.
+func (m *MockOfferBakery) GetRemoteRelationCaveats(arg0, arg1, arg2, arg3 string) []checkers.Caveat {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteRelationCaveats", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]checkers.Caveat)
+	return ret0
+}
+
+// GetRemoteRelationCaveats indicates an expected call of GetRemoteRelationCaveats.
+func (mr *MockOfferBakeryMockRecorder) GetRemoteRelationCaveats(arg0, arg1, arg2, arg3 any) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteRelationCaveats", reflect.TypeOf((*MockOfferBakery)(nil).GetRemoteRelationCaveats), arg0, arg1, arg2, arg3)
+	return &MockOfferBakeryGetRemoteRelationCaveatsCall{Call: call}
+}
+
+// MockOfferBakeryGetRemoteRelationCaveatsCall wrap *gomock.Call
+type MockOfferBakeryGetRemoteRelationCaveatsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) Return(arg0 []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) Do(f func(string, string, string, string) []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryGetRemoteRelationCaveatsCall) DoAndReturn(f func(string, string, string, string) []checkers.Caveat) *MockOfferBakeryGetRemoteRelationCaveatsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InferDeclaredFromMacaroon mocks base method.
-func (m *MockOfferBakery) InferDeclaredFromMacaroon(arg0 macaroon.Slice, arg1 map[string]string) map[string]string {
+func (m *MockOfferBakery) InferDeclaredFromMacaroon(arg0 macaroon.Slice, arg1 map[string]string) bakery0.DeclaredValues {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InferDeclaredFromMacaroon", arg0, arg1)
-	ret0, _ := ret[0].(map[string]string)
+	ret0, _ := ret[0].(bakery0.DeclaredValues)
 	return ret0
 }
 
@@ -205,19 +360,63 @@ type MockOfferBakeryInferDeclaredFromMacaroonCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) Return(arg0 map[string]string) *MockOfferBakeryInferDeclaredFromMacaroonCall {
+func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) Return(arg0 bakery0.DeclaredValues) *MockOfferBakeryInferDeclaredFromMacaroonCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) Do(f func(macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInferDeclaredFromMacaroonCall {
+func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) Do(f func(macaroon.Slice, map[string]string) bakery0.DeclaredValues) *MockOfferBakeryInferDeclaredFromMacaroonCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) DoAndReturn(f func(macaroon.Slice, map[string]string) map[string]string) *MockOfferBakeryInferDeclaredFromMacaroonCall {
+func (c *MockOfferBakeryInferDeclaredFromMacaroonCall) DoAndReturn(f func(macaroon.Slice, map[string]string) bakery0.DeclaredValues) *MockOfferBakeryInferDeclaredFromMacaroonCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewMacaroon mocks base method.
+func (m *MockOfferBakery) NewMacaroon(arg0 context.Context, arg1 bakery.Version, arg2 []checkers.Caveat, arg3 ...bakery.Op) (*bakery.Macaroon, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewMacaroon", varargs...)
+	ret0, _ := ret[0].(*bakery.Macaroon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewMacaroon indicates an expected call of NewMacaroon.
+func (mr *MockOfferBakeryMockRecorder) NewMacaroon(arg0, arg1, arg2 any, arg3 ...any) *MockOfferBakeryNewMacaroonCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewMacaroon", reflect.TypeOf((*MockOfferBakery)(nil).NewMacaroon), varargs...)
+	return &MockOfferBakeryNewMacaroonCall{Call: call}
+}
+
+// MockOfferBakeryNewMacaroonCall wrap *gomock.Call
+type MockOfferBakeryNewMacaroonCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOfferBakeryNewMacaroonCall) Return(arg0 *bakery.Macaroon, arg1 error) *MockOfferBakeryNewMacaroonCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOfferBakeryNewMacaroonCall) Do(f func(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)) *MockOfferBakeryNewMacaroonCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOfferBakeryNewMacaroonCall) DoAndReturn(f func(context.Context, bakery.Version, []checkers.Caveat, ...bakery.Op) (*bakery.Macaroon, error)) *MockOfferBakeryNewMacaroonCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

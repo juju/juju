@@ -14,7 +14,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination service_mock_test.go github.com/juju/juju/apiserver/internal/crossmodel/bakery BakeryStore,Oven,HTTPClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination service_mock_test.go github.com/juju/juju/apiserver/internal/crossmodel/bakery BakeryStore,Oven,MacaroonChecker,HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination bakery_mock_test.go github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery OpsAuthorizer
 
 type baseBakerySuite struct {
@@ -23,6 +23,7 @@ type baseBakerySuite struct {
 	clock      *MockClock
 	store      *MockBakeryStore
 	oven       *MockOven
+	checker    *MockMacaroonChecker
 	authorizer *MockOpsAuthorizer
 	httpClient *MockHTTPClient
 
@@ -35,6 +36,7 @@ func (s *baseBakerySuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.store = NewMockBakeryStore(ctrl)
 	s.oven = NewMockOven(ctrl)
+	s.checker = NewMockMacaroonChecker(ctrl)
 	s.authorizer = NewMockOpsAuthorizer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 
@@ -46,6 +48,7 @@ func (s *baseBakerySuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.clock = nil
 		s.store = nil
 		s.oven = nil
+		s.checker = nil
 		s.authorizer = nil
 		s.httpClient = nil
 

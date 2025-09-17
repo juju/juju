@@ -35,6 +35,7 @@ func (s *localBakerySuite) TestNewLocalOfferBakery(c *tc.C) {
 	bakery, err := NewLocalOfferBakery(
 		s.keyPair,
 		"juju model",
+		"http://offer-access",
 		s.store,
 		checker,
 		s.authorizer,
@@ -102,7 +103,21 @@ func (s *localBakerySuite) TestGetConsumeOfferCaveatsWithRelation(c *tc.C) {
 	}
 	caveats := bakery.GetConsumeOfferCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
 
-	c.Check(caveats, tc.SameContents, s.caveatWithRelation(now))
+	c.Check(caveats, tc.SameContents, s.caveatsWithRelation(now))
+}
+
+func (s *localBakerySuite) TestGetRemoteRelationCaveats(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().Truncate(time.Second)
+	s.clock.EXPECT().Now().Return(now)
+
+	bakery := LocalOfferBakery{
+		clock: s.clock,
+	}
+	caveats := bakery.GetRemoteRelationCaveats("mysql-uuid", s.modelUUID.String(), "mary", "mediawiki:db mysql:server")
+
+	c.Check(caveats, tc.SameContents, s.caveatsWithRelation(now))
 }
 
 func (s *localBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
@@ -114,7 +129,7 @@ func (s *localBakerySuite) TestInferDeclaredFromMacaroon(c *tc.C) {
 
 	bakery := LocalOfferBakery{}
 	m := bakery.InferDeclaredFromMacaroon(macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"})
-	c.Check(m, tc.DeepEquals, map[string]string{})
+	c.Check(m, tc.DeepEquals, DeclaredValues{})
 }
 
 func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
@@ -138,20 +153,20 @@ func (s *localBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 	})
 
 	localBakery := LocalOfferBakery{
-		oven:  s.oven,
-		clock: s.clock,
+		oven:     s.oven,
+		endpoint: "http://offer-access",
+		clock:    s.clock,
 	}
 
 	mac, err := localBakery.CreateDischargeMacaroon(
 		c.Context(),
-		"http://offer-access",
 		"mary",
 		map[string]string{
 			sourceModelKey: s.modelUUID.String(),
 			relationKey:    "mediawiki:db mysql:server",
 			offerUUIDKey:   "mysql-uuid",
 		},
-		map[string]string{},
+		DeclaredValues{},
 		op,
 		bakery.LatestVersion,
 	)
@@ -179,7 +194,7 @@ func (s *localBakerySuite) caveats(now time.Time) []checkers.Caveat {
 	}
 }
 
-func (s *localBakerySuite) caveatWithRelation(now time.Time) []checkers.Caveat {
+func (s *localBakerySuite) caveatsWithRelation(now time.Time) []checkers.Caveat {
 	return append(s.caveats(now), checkers.DeclaredCaveat(relationKey, "mediawiki:db mysql:server"))
 }
 
