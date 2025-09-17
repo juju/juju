@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1218,4 +1219,104 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 		Storage:          arg.Storage,
 		Trust:            arg.Trust,
 	}
+}
+
+// ApplicationStorageInfo contains the storage information for an application.
+type ApplicationStorageInfo struct {
+	Error error
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+}
+
+// GetApplicationStorage retrieves storage information for the specified applications.
+func (c *Client) GetApplicationStorage(applications []names.ApplicationTag) ([]ApplicationStorageInfo, error) {
+	all := make([]params.Entity, len(applications))
+	for i, one := range applications {
+		all[i] = params.Entity{Tag: one.String()}
+	}
+	in := params.Entities{Entities: all}
+	var out params.ApplicationStorageGetResults
+	err := c.facade.FacadeCall("GetApplicationStorage", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != len(applications) {
+		return nil, errors.Errorf("expected %d results, got %d", len(applications), resultsLen)
+	}
+	infos := make([]ApplicationStorageInfo, len(out.Results))
+	for i, r := range out.Results {
+		infos[i] = applicationInfoFromParams(r)
+	}
+	return infos, nil
+}
+
+func applicationInfoFromParams(param params.ApplicationStorageGetResult) ApplicationStorageInfo {
+	if param.Error != nil {
+		return ApplicationStorageInfo{
+			Error: apiservererrors.RestoreError(param.Error),
+		}
+	}
+	sc := make(map[string]storage.Constraints)
+	for k, v := range param.StorageConstraints {
+		con := storage.Constraints{
+			Pool: v.Pool,
+		}
+		if v.Size != nil {
+			con.Size = *v.Size
+		}
+		if v.Count != nil {
+			con.Count = *v.Count
+		}
+		sc[k] = con
+	}
+
+	return ApplicationStorageInfo{
+		StorageConstraints: sc,
+	}
+}
+
+// ApplicationStorageUpdateParams contains the storage update information for multiple applications.
+type ApplicationStorageUpdateParams struct {
+	ApplicationStorageUpdates []ApplicationStorageUpdate `json:"storage-updates"`
+}
+
+// ApplicationStorageUpdate holds the desired storage constraint updates for a single application.
+type ApplicationStorageUpdate struct {
+	ApplicationTag names.ApplicationTag
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+}
+
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+func (c *Client) UpdateApplicationStorage(applicationStorageUpdateParams ApplicationStorageUpdateParams) ([]params.ErrorResult, error) {
+	applicationStorageUpdates := make([]params.ApplicationStorageUpdate, len(applicationStorageUpdateParams.ApplicationStorageUpdates))
+
+	for i, one := range applicationStorageUpdateParams.ApplicationStorageUpdates {
+		applicationStorageUpdates[i].ApplicationTag = one.ApplicationTag.String()
+		applicationStorageUpdates[i].StorageConstraints = make(map[string]params.StorageConstraints)
+		for k, v := range one.StorageConstraints {
+			applicationStorageUpdates[i].StorageConstraints[k] = params.StorageConstraints{
+				Pool:  v.Pool,
+				Size:  &v.Size,
+				Count: &v.Count,
+			}
+		}
+	}
+	in := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: applicationStorageUpdates,
+	}
+	var out params.ErrorResults
+	err := c.facade.FacadeCall("UpdateApplicationStorage", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != len(applicationStorageUpdates) {
+		return nil, errors.Errorf("expected %d results, got %d", len(applicationStorageUpdates), resultsLen)
+	}
+	return out.Results, nil
 }

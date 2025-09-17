@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -1525,69 +1524,254 @@ func (s *applicationSuite) TestLeader(c *gc.C) {
 	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
 }
 
-func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
+func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.DeployFromRepositoryArgs{
-		Args: []params.DeployFromRepositoryArg{{
-			ApplicationName: "jammy",
-			CharmName:       "ubuntu",
-			Base: &params.Base{
-				Name:    "ubuntu",
-				Channel: "22.04",
-			},
-		}},
-	}
-	stable := "stable"
-	candidate := "candidate"
-	result := new(params.DeployFromRepositoryResults)
-	results := params.DeployFromRepositoryResults{
-		Results: []params.DeployFromRepositoryResult{{
-			Errors: []*params.Error{
-				{Message: "one"},
-				{Message: "two"},
-				{Message: "three"},
-			},
-			Info: params.DeployFromRepositoryInfo{
-				Channel:      candidate,
-				Architecture: "arm64",
-				Base: params.Base{
-					Name:    "ubuntu",
-					Channel: "22.04",
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+			{Tag: "application-cockroachdb"},
+		}}
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	ckSize := uint64(15)
+	ckCount := uint64(1)
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				StorageConstraints: map[string]params.StorageConstraints{
+					"storage-block": {
+						Pool:  "loop",
+						Size:  &sbSize,
+						Count: &sbCount,
+					},
 				},
-				EffectiveChannel: &stable,
-				Name:             "ubuntu",
-				Revision:         7,
 			},
-			PendingResourceUploads: nil,
-		}},
+			{
+				StorageConstraints: map[string]params.StorageConstraints{
+					"cockroachdb": {
+						Pool:  "loop",
+						Size:  &ckSize,
+						Count: &ckCount,
+					},
+				},
+			},
+		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("DeployFromRepository", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	arg := application.DeployFromRepositoryArg{
-		CharmName:       "ubuntu",
-		ApplicationName: "jammy",
-		Base:            &corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
+	applications := []names.ApplicationTag{
+		names.NewApplicationTag("storage-block"),
+		names.NewApplicationTag("cockroachdb"),
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, _, errs := client.DeployFromRepository(arg)
-	c.Assert(errs, gc.HasLen, 3)
-	c.Assert(errs[0], gc.ErrorMatches, "one")
-	c.Assert(errs[1], gc.ErrorMatches, "two")
-	c.Assert(errs[2], gc.ErrorMatches, "three")
+	infos, err := client.GetApplicationStorage(applications)
 
-	c.Assert(info, gc.DeepEquals, application.DeployInfo{
-		Channel:      candidate,
-		Architecture: "arm64",
-		Base: corebase.Base{
-			OS:      "ubuntu",
-			Channel: corebase.Channel{Track: "22.04", Risk: "stable"},
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos[0].StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
+		"storage-block": {
+			Pool:  "loop",
+			Size:  uint64(5),
+			Count: uint64(1),
 		},
-		EffectiveChannel: &stable,
-		Name:             "ubuntu",
-		Revision:         7,
 	})
+	c.Assert(infos[1].StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
+		"cockroachdb": {
+			Pool:  "loop",
+			Size:  uint64(15),
+			Count: uint64(1),
+		},
+	})
+}
 
+func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+			{Tag: "application-cockroachdb"},
+		}}
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				ErrorResult: params.ErrorResult{
+					Error: &params.Error{
+						Code:    params.CodeNotFound,
+						Message: "Not Found Error",
+					},
+				},
+			},
+			{
+				ErrorResult: params.ErrorResult{
+					Error: &params.Error{
+						Code:    params.CodeNotValid,
+						Message: "Invalid Error",
+					},
+				},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
+
+	applications := []names.ApplicationTag{
+		names.NewApplicationTag("storage-block"),
+		names.NewApplicationTag("cockroachdb"),
+	}
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	infos, err := client.GetApplicationStorage(applications)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos[0].Error, jc.ErrorIs, errors.NotFound)
+	c.Assert(infos[1].Error, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	ckSize := uint64(15)
+	ckCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  &sbSize,
+					Count: &sbCount,
+				},
+			}},
+			{ApplicationTag: "application-cockroachdb", StorageConstraints: map[string]params.StorageConstraints{
+				"cockroachdb": {
+					Pool:  "loop",
+					Size:  &ckSize,
+					Count: &ckCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: nil,
+			},
+			{
+				Error: nil,
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
+
+	applicationStorageUpdateParams := application.ApplicationStorageUpdateParams{
+		ApplicationStorageUpdates: []application.ApplicationStorageUpdate{
+			{ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  uint64(5),
+					Count: uint64(1),
+				},
+			}},
+			{ApplicationTag: names.NewApplicationTag("cockroachdb"), StorageConstraints: map[string]storage.Constraints{
+				"cockroachdb": {
+					Pool:  "loop",
+					Size:  uint64(15),
+					Count: uint64(1),
+				},
+			}},
+		},
+	}
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	infos, err := client.UpdateApplicationStorage(applicationStorageUpdateParams)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos, gc.HasLen, 2)
+	c.Assert(infos[0].Error, gc.IsNil)
+	c.Assert(infos[1].Error, gc.IsNil)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	ckSize := uint64(15)
+	ckCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  &sbSize,
+					Count: &sbCount,
+				},
+			}},
+			{ApplicationTag: "application-cockroachdb", StorageConstraints: map[string]params.StorageConstraints{
+				"cockroachdb": {
+					Pool:  "loop",
+					Size:  &ckSize,
+					Count: &ckCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Message: "test error1", Code: params.CodeNotFound},
+			},
+			{
+				Error: &params.Error{Message: "test error2", Code: params.CodeNotValid},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
+
+	applicationStorageUpdateParams := application.ApplicationStorageUpdateParams{
+		ApplicationStorageUpdates: []application.ApplicationStorageUpdate{
+			{ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  uint64(5),
+					Count: uint64(1),
+				},
+			}},
+			{ApplicationTag: names.NewApplicationTag("cockroachdb"), StorageConstraints: map[string]storage.Constraints{
+				"cockroachdb": {
+					Pool:  "loop",
+					Size:  uint64(15),
+					Count: uint64(1),
+				},
+			}},
+		},
+	}
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	infos, err := client.UpdateApplicationStorage(applicationStorageUpdateParams)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos, gc.HasLen, 2)
+	c.Assert(infos[0].Error, gc.NotNil)
+	c.Assert(infos[0].Error.Message, gc.DeepEquals, "test error1")
+	c.Assert(infos[1].Error, gc.NotNil)
+	c.Assert(infos[1].Error.Message, gc.DeepEquals, "test error2")
 }
