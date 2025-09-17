@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names/v6"
 
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
@@ -38,76 +39,38 @@ func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 
 // ApplicationOffers gets details about remote applications that match given URLs.
 // It converts incoming URLs to adapt model owner name to qualifier.
-func (api *OffersAPIv5) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
-	return params.ApplicationOffersResults{}, nil
+func (api *OffersAPIv5) ApplicationOffers(ctx context.Context, args params.OfferURLs) (params.ApplicationOffersResults, error) {
+	args.OfferURLs = transformOfferURLs(args.OfferURLs)
 
-	// TODO - this would be the compatibility code if the functionality weren't temporarily removed
-	/*
-		user := api.Authorizer.GetAuthTag().(names.UserTag)
-		var results params.ApplicationOffersResults
-		results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
+	return api.OffersAPI.ApplicationOffers(ctx, args)
+}
 
-		var (
-			filters []params.OfferFilter
-			// fullURLs contains the URL strings from the url args,
-			// with any optional parts like model owner filled in.
-			// It is used to process the result offers.
-			fullURLs []string
-			// urlArgs is the unmodified URLs without any username -> qualifier mapping.
-			// This is used to report any errors to the caller.
-			// Legacy callers can supply an offer URL with a username in the URL
-			// and we want to report back that same URL if there's an error.
-			urlArgs []string
-		)
-		for i, urlStr := range urls.OfferURLs {
-			url, err := jujucrossmodel.ParseOfferURL(urlStr)
-			if err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			if url.ModelQualifier == "" {
-				url.ModelQualifier = user.Id()
-			}
-			urlCopy := *url
-			// Older clients may try to reference an offer with a model owner username.
-			// Create a URL ensuring a valid model qualifier is always used.
-			url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(url.ModelQualifier)).String()
-			if url.HasEndpoint() {
-				results.Results[i].Error = apiservererrors.ServerError(
-					errors.Errorf("saas application %q shouldn't include endpoint", urlCopy.String()))
-				continue
-			}
-			if url.Source != "" {
-				results.Results[i].Error = apiservererrors.ServerError(
-					errors.NotSupportedf("query for non-local application offers"))
-				continue
-			}
-			fullURLs = append(fullURLs, url.String())
-			urlArgs = append(urlArgs, urlCopy.String())
-			filters = append(filters, api.filterFromURL(url))
-		}
-		if len(filters) == 0 {
-			return results, nil
-		}
-		offers, err := api.getApplicationOffersDetails(ctx, user, params.OfferFilters{Filters: filters}, permission.ReadAccess)
+func transformOfferURLs(in []string) []string {
+	updatedURLs := make([]string, len(in))
+
+	// Update any model owners values in the offer URLs to be in
+	// the model qualifier form used currently. All other concerns of
+	// parsing the URL or handling errors will be done by the newer
+	// version of ApplicationOffers.
+	for i, urlStr := range in {
+		url, err := jujucrossmodel.ParseOfferURL(urlStr)
 		if err != nil {
-			return results, apiservererrors.ServerError(err)
+			// We know this will fail, however to allow for errors to
+			// be properly returned, handle in the newer version of
+			// ApplicationOffers.
+			updatedURLs[i] = urlStr
+			continue
 		}
-		offersByURL := make(map[string]params.ApplicationOfferAdminDetailsV5)
-		for _, offer := range offers {
-			offersByURL[offer.OfferURL] = offer
+		if url.ModelQualifier == "" {
+			updatedURLs[i] = urlStr
+			continue
 		}
-		for i, urlStr := range fullURLs {
-			offer, ok := offersByURL[urlStr]
-			if !ok {
-				err = errors.NotFoundf("application offer %q", urlArgs[i])
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			results.Results[i].Result = &offer
-		}
-		return results, nil
-	*/
+		// Older clients may try to reference an offer with a model owner username.
+		// Create a URL ensuring a valid model qualifier is always used.
+		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(url.ModelQualifier)).String()
+		updatedURLs[i] = url.String()
+	}
+	return updatedURLs
 }
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
