@@ -1156,7 +1156,76 @@ func (st *State) GetVolumeAttachmentPlan(
 	ctx context.Context,
 	uuid storageprovisioning.VolumeAttachmentPlanUUID,
 ) (storageprovisioning.VolumeAttachmentPlan, error) {
-	return storageprovisioning.VolumeAttachmentPlan{}, nil
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	input := entityUUID{
+		UUID: uuid.String(),
+	}
+	planStmt, err := st.Prepare(`
+SELECT    svap.life_id AS &volumeAttachmentPlan.life_id,
+          svdt.name AS &volumeAttachmentPlan.device_type
+FROM      storage_volume_attachment_plan svap
+LEFT JOIN storage_volume_device_type svdt ON svdt.id=svap.device_type_id
+WHERE     svap.uuid = $entityUUID.uuid
+`, input, volumeAttachmentPlan{})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	attrStmt, err := st.Prepare(`
+SELECT &volumeAttachmentPlanAttr.*
+FROM   storage_volume_attachment_plan_attr
+WHERE  attachment_plan_uuid = $entityUUID.uuid
+`, input, volumeAttachmentPlanAttr{})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	var plan volumeAttachmentPlan
+	var attrs []volumeAttachmentPlanAttr
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, planStmt, input).Get(&plan)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment plan %q not found", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, attrStmt, input).GetAll(&attrs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	retVal := storageprovisioning.VolumeAttachmentPlan{
+		Life: plan.Life,
+	}
+	switch plan.DeviceType {
+	case "local":
+		retVal.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+	case "iscsi":
+		retVal.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
+	}
+	if len(attrs) == 0 {
+		return retVal, nil
+	}
+
+	retVal.DeviceAttributes = make(map[string]string, len(attrs))
+	for _, v := range attrs {
+		retVal.DeviceAttributes[v.Key] = v.Value
+	}
+
+	return retVal, nil
 }
 
 // CreateVolumeAttachmentPlan creates a volume attachment plan for the
