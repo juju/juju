@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -443,8 +444,8 @@ func (s *baseSuite) newBlockDevice(
 	hardwareID string,
 	busAddress string,
 	deviceLinks []string,
-) string {
-	uuid := uuid.MustNewUUID().String()
+) blockdevice.BlockDeviceUUID {
+	uuid := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	_, err := s.DB().Exec(
 		`INSERT INTO block_device(uuid, machine_uuid, name, hardware_id, bus_address) VALUES(?, ?, ?, ?, ?)`,
 		uuid, machineUUID, name, hardwareID, busAddress)
@@ -461,7 +462,7 @@ func (s *baseSuite) newBlockDevice(
 func (s *baseSuite) changeVolumeAttachmentInfo(
 	c *tc.C,
 	uuid storageprovisioning.VolumeAttachmentUUID,
-	blockDeviceUUID string,
+	blockDeviceUUID blockdevice.BlockDeviceUUID,
 	readOnly bool,
 ) {
 	_, err := s.DB().Exec(
