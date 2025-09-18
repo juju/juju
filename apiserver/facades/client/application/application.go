@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
+	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -43,7 +44,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -100,6 +103,7 @@ type APIBase struct {
 	resourceService           ResourceService
 	storageService            StorageService
 	externalControllerService ExternalControllerService
+	crossModelRelationService CrossModelRelationService
 
 	leadershipReader leadership.Reader
 
@@ -182,6 +186,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			RemovalService:            domainServices.Removal(),
 			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
+			CrossModelRelationService: domainServices.CrossModelRelation(),
 		},
 		ctx.Auth(),
 		blockChecker,
@@ -260,6 +265,7 @@ func NewAPIBase(
 		removalService:            services.RemovalService,
 		resourceService:           services.ResourceService,
 		storageService:            services.StorageService,
+		crossModelRelationService: services.CrossModelRelationService,
 
 		logger: logger,
 		clock:  clock,
@@ -1420,29 +1426,38 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 	}
 
 	// Maybe save the details of the controller hosting the offer.
-	var externalControllerTag names.ControllerTag
+	var offererControllerUUID *string
 	if arg.ControllerInfo != nil {
-		externalControllerTag, err = api.saveExternalController(ctx, *arg.ControllerInfo, sourceModelTag)
+		offererControllerUUID, err = api.saveExternalController(ctx, *arg.ControllerInfo, sourceModelTag)
 		if err != nil {
 			return internalerrors.Errorf("saving external controller info: %w", err)
 		}
 	}
 
-	_ = externalControllerTag
+	applicationName := arg.ApplicationAlias
+	if applicationName == "" {
+		applicationName = arg.OfferName
+	}
 
-	return nil
+	return api.saveRemoteApplicationOfferer(
+		ctx,
+		applicationName,
+		offererControllerUUID, sourceModelTag.Id(),
+		arg.ApplicationOfferDetailsV5,
+		arg.Macaroon,
+	)
 }
 
-func (api *APIBase) saveExternalController(ctx context.Context, info params.ExternalControllerInfo, sourceModelTag names.ModelTag) (names.ControllerTag, error) {
+func (api *APIBase) saveExternalController(ctx context.Context, info params.ExternalControllerInfo, sourceModelTag names.ModelTag) (*string, error) {
 	controllerTag, err := names.ParseControllerTag(info.ControllerTag)
 	if err != nil {
-		return names.ControllerTag{}, internalerrors.Errorf("parsing controller tag %q: %w", info.ControllerTag, err).Add(coreerrors.BadRequest)
+		return nil, internalerrors.Errorf("parsing controller tag %q: %w", info.ControllerTag, err).Add(coreerrors.BadRequest)
 	}
 
 	// Don't save the controller if it's this controller. It's allowed to
 	// consume offers from different models on the same controller.
 	if controllerTag.Id() == api.controllerUUID {
-		return names.ControllerTag{}, nil
+		return nil, nil
 	}
 
 	// Save the controller details, if we have the information already
@@ -1454,10 +1469,63 @@ func (api *APIBase) saveExternalController(ctx context.Context, info params.Exte
 		CACert:         info.CACert,
 		ModelUUIDs:     []string{sourceModelTag.Id()},
 	}); err != nil {
-		return names.ControllerTag{}, internalerrors.Errorf("updating external controller %q: %w", controllerTag.Id(), err)
+		return nil, internalerrors.Errorf("updating external controller %q: %w", controllerTag.Id(), err)
 	}
 
-	return controllerTag, nil
+	return ptr(controllerTag.Id()), nil
+}
+
+func (api *APIBase) saveRemoteApplicationOfferer(
+	ctx context.Context,
+	applicationName string,
+	offererControllerUUID *string,
+	offererModelUUID string,
+	offer params.ApplicationOfferDetailsV5,
+	macaroon *macaroon.Macaroon,
+) error {
+
+	remoteEps := make([]domaincharm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
+		role, err := enocdeRelationRole(ep.Role)
+		if err != nil {
+			return internalerrors.Errorf("parsing role for endpoint %q: %w", ep.Name, err).Add(coreerrors.BadRequest)
+		}
+
+		remoteEps[j] = domaincharm.Relation{
+			Name:      ep.Name,
+			Role:      role,
+			Interface: ep.Interface,
+		}
+	}
+
+	// TODO (stickupkid): Handle the following case:
+	//
+	// If a remote application with the same name and endpoints from the same
+	// source model already exists, we will use that one. If the status was
+	// "terminated", the offer had been removed, so we'll replace the terminated
+	// application with a fresh copy.
+	//
+
+	return api.crossModelRelationService.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:             offer.OfferUUID,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      offererModelUUID,
+		Endpoints:             remoteEps,
+		Macaroon:              macaroon,
+	})
+}
+
+func enocdeRelationRole(role charm.RelationRole) (domaincharm.RelationRole, error) {
+	switch role {
+	case charm.RoleProvider:
+		return domaincharm.RoleProvider, nil
+	case charm.RoleRequirer:
+		return domaincharm.RoleRequirer, nil
+	case charm.RolePeer:
+		return "", errors.New("peer relations cannot be cross model")
+	default:
+		return "", errors.Errorf("unknown role %q", role)
+	}
 }
 
 // Get returns the charm configuration for an application.
