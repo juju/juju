@@ -129,8 +129,7 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveDestroyStorage(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
@@ -148,8 +147,10 @@ func (s *unitSuite) TestEnsureUnitNotAliveDestroyStorage(c *tc.C) {
 		}
 
 		inst := `
-INSERT INTO storage_instance (uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id)
-VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0)`
+INSERT INTO storage_instance (
+	uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id, storage_kind_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0, 0)`
 		if _, err := tx.ExecContext(ctx, inst); err != nil {
 			return err
 		}

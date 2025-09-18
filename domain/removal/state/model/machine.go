@@ -183,11 +183,15 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			return nil
 		}
 
+		const (
+			checkEmptyMachine = false
+			destroyStorage = false
+		)
 		unitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
 			return u.UUID
 		})
 		for _, u := range unitUUIDs {
-			_, err := st.ensureUnitNotAliveCascade(ctx, tx, u, false, false)
+			_, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}

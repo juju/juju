@@ -56,7 +56,7 @@ WHERE  uuid = $entityUUID.uuid`, applicationUUID)
 // the last ones on their machines, it will cascade and the machines are
 // also set to dying. The affected machine UUIDs are returned.
 func (st *State) EnsureApplicationNotAliveCascade(
-	ctx context.Context, aUUID string,
+	ctx context.Context, aUUID string, destroyStorage bool,
 ) (res removal.ApplicationArtifacts, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -107,19 +107,10 @@ AND    life_id = 0`, applicationUUID)
 		return res, errors.Errorf("preparing unit uuids query: %w", err)
 	}
 
-	updateUnitStmt, err := st.Prepare(`
-UPDATE unit
-SET    life_id = 1
-WHERE  application_uuid = $entityUUID.uuid
-AND    life_id = 0`, applicationUUID)
-	if err != nil {
-		return res, errors.Errorf("preparing unit life update: %w", err)
-	}
-
 	var (
-		relationUUIDsRec []string
-		unitUUIDsRec     []entityUUID
-		machineUUIDsRec  []string
+		relations []string
+		machines  []string
+		units     []string
 	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
@@ -127,18 +118,23 @@ AND    life_id = 0`, applicationUUID)
 		}
 
 		var relationUUIDs []entityUUID
-		if err := tx.Query(ctx, selectRelationUUIDsStmt, applicationUUID).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(
+			ctx, selectRelationUUIDsStmt, applicationUUID,
+		).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting relation UUIDs: %w", err)
 		}
-		relationUUIDsRec = transform.Slice(relationUUIDs, func(e entityUUID) string { return e.UUID })
+		relations = transform.Slice(relationUUIDs, func(e entityUUID) string { return e.UUID })
 
-		if len(relationUUIDsRec) > 0 {
-			if err := tx.Query(ctx, updateRelationStmt, uuids(relationUUIDsRec)).Run(); err != nil {
+		if len(relations) > 0 {
+			if err := tx.Query(ctx, updateRelationStmt, uuids(relations)).Run(); err != nil {
 				return errors.Errorf("advancing relation life: %w", err)
 			}
 		}
 
-		if err := tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDsRec); errors.Is(err, sqlair.ErrNoRows) {
+		var unitUUIDsRec []entityUUID
+		if err := tx.Query(
+			ctx, selectUnitUUIDsStmt, applicationUUID,
+		).GetAll(&unitUUIDsRec); errors.Is(err, sqlair.ErrNoRows) {
 			// If there are no units associated with the application,
 			// we can just return nil, as there is nothing to update.
 			return nil
@@ -146,40 +142,27 @@ AND    life_id = 0`, applicationUUID)
 			return errors.Errorf("selecting associated application unit lives: %w", err)
 		}
 
-		// We guarantee to have at least one unit UUID here.
-
-		if err := tx.Query(ctx, updateUnitStmt, applicationUUID).Run(); err != nil {
-			return errors.Errorf("advancing associated application unit lives: %w", err)
-		}
-
-		// If any units are also the last ones on their machines, we also
-		// set the machines to dying. This will ensure that any of those
-		// machines will be stopped from being used.
-
-		for _, unit := range unitUUIDsRec {
-			machineUUID, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, unit.UUID)
+		const checkEmptyMachine = true
+		units = transform.Slice(unitUUIDsRec, func(e entityUUID) string { return e.UUID })
+		for _, u := range units {
+			cascaded, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
 			if err != nil {
-				return errors.Errorf("marking last unit on machine as dying: %w", err)
-			} else if machineUUID == "" {
-				// The unit was not the last one on the machine, so we can
-				// skip to the next unit.
-				continue
+				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
-
-			machineUUIDsRec = append(machineUUIDsRec, machineUUID)
+			if cascaded.MachineUUID != nil {
+				machines = append(machines, *cascaded.MachineUUID)
+			}
 		}
 
 		return nil
 	})); err != nil {
-		return res, err
+		return res, errors.Capture(err)
 	}
 
 	return removal.ApplicationArtifacts{
-		MachineUUIDs: machineUUIDsRec,
-		UnitUUIDs: transform.Slice(unitUUIDsRec, func(e entityUUID) string {
-			return e.UUID
-		}),
-		RelationUUIDs: relationUUIDsRec,
+		MachineUUIDs:  machines,
+		UnitUUIDs:     units,
+		RelationUUIDs: relations,
 	}, nil
 }
 
