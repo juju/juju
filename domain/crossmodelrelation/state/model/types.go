@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/life"
 )
 
 // nameAndUUID is an agnostic container for the pair of
@@ -110,4 +111,43 @@ func (o offerDetails) TransformToOfferDetails() []*crossmodelrelation.OfferDetai
 	}
 
 	return slices.Collect(maps.Values(converted))
+}
+
+type applicationDetails struct {
+	UUID      string    `db:"uuid"`
+	Name      string    `db:"name"`
+	CharmUUID string    `db:"charm_uuid"`
+	LifeID    life.Life `db:"life_id"`
+	SpaceUUID string    `db:"space_uuid"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
+}
+
+// setCharmState is used to set the charm.
+type setCharmState struct {
+	UUID          string `db:"uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+}
+
+// setCharmMetadata is used to set the metadata of a charm.
+// This includes the setting of the LXD profile.
+type setCharmMetadata struct {
+	CharmUUID   string `db:"charm_uuid"`
+	Name        string `db:"name"`
+	Description string `db:"description"`
+}
+
+// setCharmRelation is used to set the relations of a charm.
+type setCharmRelation struct {
+	UUID      string `db:"uuid"`
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
+	RoleID    int    `db:"role_id"`
+	Interface string `db:"interface"`
+	Optional  bool   `db:"optional"`
+	Capacity  int    `db:"capacity"`
+	ScopeID   int    `db:"scope_id"`
 }
