@@ -3,6 +3,11 @@
 
 package storageprovisioning
 
+import (
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
+)
+
 // ApplicationResourceTagInfo represents storage tag information in the context
 // of an application.
 type ApplicationResourceTagInfo struct {
@@ -26,3 +31,10 @@ const (
 	// PlanDeviceTypeISCSI indicates an iscsi attachment.
 	PlanDeviceTypeISCSI
 )
+
+// ProvisionerIdent must have at one of two fields filled out to identify the
+// provisioner interested in a storage entity.
+type ProvisionerIdent struct {
+	Model   model.UUID
+	Machine machine.Name
+}

@@ -334,28 +334,24 @@ type StorageProvisioningService interface {
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the
 	// information about the provisioned filesystem.
 	SetFilesystemProvisionedInfo(
-		ctx context.Context, filesystemID string,
+		ctx context.Context,
+		uuid storageprovisioning.FilesystemUUID,
 		info storageprovisioning.FilesystemProvisionedInfo,
 	) error
 
-	// SetFilesystemAttachmentProvisionedInfoForMachine sets on the provided
-	// filesystem the information about the provisioned filesystem attachment.
-	SetFilesystemAttachmentProvisionedInfoForMachine(
-		ctx context.Context, filesystemID string, machineUUID machine.UUID,
-		info storageprovisioning.FilesystemAttachmentProvisionedInfo,
-	) error
-
-	// SetFilesystemAttachmentProvisionedInfoForUnit sets on the provided
-	// filesystem the information about the provisioned filesystem attachment.
-	SetFilesystemAttachmentProvisionedInfoForUnit(
-		ctx context.Context, filesystemID string, unitUUID coreunit.UUID,
+	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
+	// attachment the information about the provisioned filesystem attachment.
+	SetFilesystemAttachmentProvisionedInfo(
+		ctx context.Context,
+		uuid storageprovisioning.FilesystemAttachmentUUID,
 		info storageprovisioning.FilesystemAttachmentProvisionedInfo,
 	) error
 
 	// SetVolumeProvisionedInfo sets on the provided volume the information
 	// about the provisioned volume.
 	SetVolumeProvisionedInfo(
-		ctx context.Context, volumeID string,
+		ctx context.Context,
+		uuid storageprovisioning.VolumeUUID,
 		info storageprovisioning.VolumeProvisionedInfo,
 	) error
 
@@ -363,7 +359,7 @@ type StorageProvisioningService interface {
 	// information about the provisioned volume attachment.
 	SetVolumeAttachmentProvisionedInfo(
 		ctx context.Context,
-		volumeAttachmentUUID storageprovisioning.VolumeAttachmentUUID,
+		uuid storageprovisioning.VolumeAttachmentUUID,
 		info storageprovisioning.VolumeAttachmentProvisionedInfo,
 	) error
 
@@ -406,4 +402,52 @@ type StorageProvisioningService interface {
 		uuid storageprovisioning.VolumeAttachmentPlanUUID,
 		blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 	) error
+
+	// CheckVolumeProvisioner returns true if the named machine is the
+	// provisioner for the specified volume. If an empty machine name is
+	// supplied, true is returned when the volume is model provisoned.
+	CheckVolumeProvisioner(
+		context.Context,
+		storageprovisioning.VolumeUUID,
+		storageprovisioning.ProvisionerIdent,
+	) (bool, error)
+
+	// CheckVolumeAttachmentProvisioner returns true if the named machine is the
+	// provisioner for the specified volume attachment. If an empty machine name
+	// is supplied, true is returned when the volume attachment is model
+	// provisoned.
+	CheckVolumeAttachmentProvisioner(
+		context.Context,
+		storageprovisioning.VolumeAttachmentUUID,
+		storageprovisioning.ProvisionerIdent,
+	) (bool, error)
+
+	// CheckVolumeAttachmentPlanProvisioner returns true if the named machine is
+	// the provisioner for the specified volume attachment plan. If an empty
+	// machine name is supplied, true is returned when the volume attachment
+	// plan is model provisoned.
+	CheckVolumeAttachmentPlanProvisioner(
+		context.Context,
+		storageprovisioning.VolumeAttachmentPlanUUID,
+		storageprovisioning.ProvisionerIdent,
+	) (bool, error)
+
+	// CheckFilesystemProvisioner returns true if the named machine is the
+	// provisioner for the specified filesystem. If an empty machine name is
+	// supplied, true is returned when the filesystem is model provisoned.
+	CheckFilesystemProvisioner(
+		context.Context,
+		storageprovisioning.FilesystemUUID,
+		storageprovisioning.ProvisionerIdent,
+	) (bool, error)
+
+	// CheckFilesystemAttachmentProvisioner returns true if the named machine
+	// is the provisioner for the specified filesystem attachment. If an empty
+	// machine name is supplied, true is returned when the filesystem attachment
+	// is model provisoned.
+	CheckFilesystemAttachmentProvisioner(
+		context.Context,
+		storageprovisioning.FilesystemAttachmentUUID,
+		storageprovisioning.ProvisionerIdent,
+	) (bool, error)
 }

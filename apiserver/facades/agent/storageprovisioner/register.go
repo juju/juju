@@ -17,7 +17,15 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister(
 		"StorageProvisioner", 4,
 		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacadeV4(stdCtx, ctx)
+			return newMachineFacadeV4(stdCtx, ctx)
+		},
+		reflect.TypeOf((*StorageProvisionerAPIv4)(nil)),
+	)
+
+	registry.MustRegister(
+		"ModelStorageProvisioner", 0,
+		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+			return newModelFacade(stdCtx, ctx)
 		},
 		reflect.TypeOf((*StorageProvisionerAPIv4)(nil)),
 	)
@@ -36,8 +44,20 @@ func Register(registry facade.FacadeRegistry) {
 	)
 }
 
-// newFacadeV4 provides the signature required for facade registration.
-func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
+// newMachineFacadeV4 provides the signature required for facade registration.
+func newMachineFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
+	modelScoped := false
+	return newFacadeV4(stdCtx, ctx, modelScoped)
+}
+
+// newModelFacade provides the latest storage provisioner facade to the model
+// scoped provisioner.
+func newModelFacade(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv4, error) {
+	modelScoped := true
+	return newFacadeV4(stdCtx, ctx, modelScoped)
+}
+
+func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext, modelScoped bool) (*StorageProvisionerAPIv4, error) {
 	domainServices := ctx.DomainServices()
 	storageService := domainServices.Storage()
 
@@ -54,6 +74,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
+		modelScoped,
 		ctx.WatcherRegistry(),
 		ctx.Clock(),
 		domainServices.BlockDevice(),
