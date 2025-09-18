@@ -12,41 +12,14 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelDBState describes retrieval and persistence methods for cross model
 // relations in the model database.
 type ModelDBState interface {
-	// CreateOffer creates an offer and links the endpoints to it.
-	CreateOffer(
-		context.Context,
-		internal.CreateOfferArgs,
-	) error
-
-	// DeleteFailedOffer deletes the provided offer, used after adding
-	// permissions failed. Assumes that the offer is never used, no
-	// checking of relations is required.
-	DeleteFailedOffer(
-		context.Context,
-		uuid.UUID,
-	) error
-
-	// GetOfferDetails returns the OfferDetail of every offer in the model.
-	// No error is returned if offers are found.
-	GetOfferDetails(context.Context, internal.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)
-
-	// GetOfferUUID returns the offer uuid for provided name.
-	// Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
-	GetOfferUUID(ctx context.Context, name string) (string, error)
-
-	// UpdateOffer updates the endpoints of the given offer.
-	UpdateOffer(
-		ctx context.Context,
-		offerName string,
-		offerEndpoints []string,
-	) error
+	ModelDBOfferState
+	ModelDBRemoteApplicationState
 }
 
 // ControllerDBState describes retrieval and persistence methods for cross

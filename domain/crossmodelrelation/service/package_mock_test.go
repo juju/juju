@@ -221,6 +221,44 @@ func (m *MockModelDBState) EXPECT() *MockModelDBStateMockRecorder {
 	return m.recorder
 }
 
+// AddRemoteApplicationOfferer mocks base method.
+func (m *MockModelDBState) AddRemoteApplicationOfferer(arg0 context.Context, arg1 string, arg2 crossmodelrelation.AddRemoteApplicationOffererArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddRemoteApplicationOfferer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRemoteApplicationOfferer indicates an expected call of AddRemoteApplicationOfferer.
+func (mr *MockModelDBStateMockRecorder) AddRemoteApplicationOfferer(arg0, arg1, arg2 any) *MockModelDBStateAddRemoteApplicationOffererCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteApplicationOfferer", reflect.TypeOf((*MockModelDBState)(nil).AddRemoteApplicationOfferer), arg0, arg1, arg2)
+	return &MockModelDBStateAddRemoteApplicationOffererCall{Call: call}
+}
+
+// MockModelDBStateAddRemoteApplicationOffererCall wrap *gomock.Call
+type MockModelDBStateAddRemoteApplicationOffererCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateAddRemoteApplicationOffererCall) Return(arg0 error) *MockModelDBStateAddRemoteApplicationOffererCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateAddRemoteApplicationOffererCall) Do(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationOffererArgs) error) *MockModelDBStateAddRemoteApplicationOffererCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateAddRemoteApplicationOffererCall) DoAndReturn(f func(context.Context, string, crossmodelrelation.AddRemoteApplicationOffererArgs) error) *MockModelDBStateAddRemoteApplicationOffererCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateOffer mocks base method.
 func (m *MockModelDBState) CreateOffer(arg0 context.Context, arg1 internal.CreateOfferArgs) error {
 	m.ctrl.T.Helper()
