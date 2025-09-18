@@ -22,8 +22,15 @@ const (
 	MachineJob
 	// ModelJob indicates a job to remove a model.
 	ModelJob
+	// StorageInstanceJob indicates a job to remove a storage instance.
+	StorageInstanceJob
+	// StorageAttachmentJob indicates a job to remove a unit's
+	// attachment to a storage instance.
+	StorageAttachmentJob
 )
 
+// String is used in logging output make job type identifiers readable.
+// Do not use this for decoding database output.
 func (t JobType) String() string {
 	switch t {
 	case RelationJob:
@@ -36,6 +43,10 @@ func (t JobType) String() string {
 		return "machine"
 	case ModelJob:
 		return "model"
+	case StorageInstanceJob:
+		return "storage instance"
+	case StorageAttachmentJob:
+		return "storage attachment"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
