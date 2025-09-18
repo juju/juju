@@ -4114,7 +4114,7 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	constraints := map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 1024, Pool: "mypool"},
 	}
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = s.mysql.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlWc.AssertOneChange()
 
@@ -4132,12 +4132,12 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 	constraints = map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 2048, Pool: "mypool"},
 	}
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = s.mysql.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlWc.AssertOneChange()
 
 	// Check the watcher does not react when the content remains the same.
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = s.mysql.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlWc.AssertNoChange()
 
@@ -4167,7 +4167,7 @@ func (s *ApplicationSuite) TestWatchStorageConstraintsDoesNotCrossApplications(c
 	constraints := map[string]state.StorageConstraints{
 		"data": {Count: 1, Size: 1024, Pool: "mypool"},
 	}
-	err = state.UpdateStorageConstraints(s.State, mariadbApp, constraints)
+	err = mariadbApp.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlWc.AssertNoChange()
 
