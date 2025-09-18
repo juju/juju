@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/juju/core/errors"
@@ -56,13 +57,11 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 		ReferenceName: "foo",
 		Source:        charm.CMRSource,
 	}
-	s.modelDBState.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm:                 syntheticCharm,
-		OfferUUID:             offerUUID,
-		OffererControllerUUID: offererControllerUUID,
-		OffererModelUUID:      offererModelUUID,
-		EncodedMacaroon:       tc.Must(c, macaroon.MarshalJSON),
-	}).Return(nil)
+	var received crossmodelrelation.AddRemoteApplicationOffererArgs
+	s.modelDBState.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(_ context.Context, _ string, args crossmodelrelation.AddRemoteApplicationOffererArgs) error {
+		received = args
+		return nil
+	})
 
 	service := s.service(c)
 
@@ -85,6 +84,22 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 		Macaroon: macaroon,
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(received.RemoteApplicationUUID, tc.IsUUID)
+	c.Check(received.ApplicationUUID, tc.IsUUID)
+	c.Check(received.CharmUUID, tc.IsUUID)
+
+	received.RemoteApplicationUUID = ""
+	received.ApplicationUUID = ""
+	received.CharmUUID = ""
+
+	c.Check(received, tc.DeepEquals, crossmodelrelation.AddRemoteApplicationOffererArgs{
+		Charm:                 syntheticCharm,
+		OfferUUID:             offerUUID,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      offererModelUUID,
+		EncodedMacaroon:       tc.Must(c, macaroon.MarshalJSON),
+	})
 }
 
 func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererNoEndpoints(c *tc.C) {

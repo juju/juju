@@ -9,8 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
@@ -36,20 +34,15 @@ func (st *State) AddRemoteApplicationOfferer(
 		return errors.Capture(err)
 	}
 
-	appUUID, err := coreapplication.NewID()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Insert the application, along with the associated charm.
-		if err := st.insertApplication(ctx, tx, applicationName, appUUID, args); err != nil {
+		if err := st.insertApplication(ctx, tx, applicationName, args); err != nil {
 			return errors.Capture(err)
 		}
 
 		// Insert the remote application offerer record, this allows us to find
 		// the synthetic application later.
-		if err := st.insertRemoteApplicationOfferer(ctx, tx, appUUID, args); err != nil {
+		if err := st.insertRemoteApplicationOfferer(ctx, tx, args); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -65,18 +58,12 @@ func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
 	name string,
-	appUUID coreapplication.ID,
 	args crossmodelrelation.AddRemoteApplicationOffererArgs,
 ) error {
-	charmID, err := corecharm.NewID()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	appDetails := applicationDetails{
-		UUID:      appUUID.String(),
+		UUID:      args.ApplicationUUID,
 		Name:      name,
-		CharmUUID: charmID.String(),
+		CharmUUID: args.CharmUUID,
 		LifeID:    life.Alive,
 
 		// SpaceUUID here is to prevent the FK violation, but we push it
@@ -96,7 +83,7 @@ func (st *State) insertApplication(
 		return errors.Errorf("checking if application %q exists: %w", name, err)
 	}
 
-	if err := st.addCharm(ctx, tx, charmID, args.Charm); err != nil {
+	if err := st.addCharm(ctx, tx, args.CharmUUID, args.Charm); err != nil {
 		return errors.Errorf("setting charm: %w", err)
 	}
 
@@ -111,14 +98,8 @@ func (st *State) insertApplication(
 func (st *State) insertRemoteApplicationOfferer(
 	ctx context.Context,
 	tx *sqlair.TX,
-	applicationUUID coreapplication.ID,
 	args crossmodelrelation.AddRemoteApplicationOffererArgs,
 ) error {
-	uuid, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	var offererControllerUUID sql.Null[string]
 	if args.OffererControllerUUID != nil {
 		offererControllerUUID = sql.Null[string]{
@@ -128,9 +109,9 @@ func (st *State) insertRemoteApplicationOfferer(
 	}
 
 	remoteApp := remoteApplicationOfferer{
-		UUID:                  uuid.String(),
+		UUID:                  args.RemoteApplicationUUID,
 		LifeID:                life.Alive,
-		ApplicationUUID:       applicationUUID.String(),
+		ApplicationUUID:       args.ApplicationUUID,
 		OfferUUID:             args.OfferUUID,
 		Version:               0,
 		OffererControllerUUID: offererControllerUUID,
@@ -179,7 +160,7 @@ WHERE name = $applicationDetails.name
 	return nil
 }
 
-func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, ch charm.Charm) error {
+func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {
 	if err := s.addCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Capture(err)
 	}
@@ -198,7 +179,7 @@ func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 func (s *State) addCharmState(
 	ctx context.Context,
 	tx *sqlair.TX,
-	id corecharm.ID,
+	uuid string,
 	ch charm.Charm,
 ) error {
 	sourceID, err := encodeCharmSource(ch.Source)
@@ -207,7 +188,7 @@ func (s *State) addCharmState(
 	}
 
 	chState := setCharmState{
-		UUID:          id.String(),
+		UUID:          uuid,
 		ReferenceName: ch.ReferenceName,
 		SourceID:      sourceID,
 	}
@@ -228,10 +209,10 @@ func (s *State) addCharmState(
 func (s *State) addCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
-	id corecharm.ID,
+	uuid string,
 	metadata charm.Metadata,
 ) error {
-	encodedMetadata, err := encodeMetadata(id, metadata)
+	encodedMetadata, err := encodeMetadata(uuid, metadata)
 	if err != nil {
 		return errors.Errorf("encoding charm metadata: %w", err)
 	}
@@ -249,8 +230,8 @@ func (s *State) addCharmMetadata(
 	return nil
 }
 
-func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
-	encodedRelations, err := encodeRelations(id, metadata)
+func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, uuid string, metadata charm.Metadata) error {
+	encodedRelations, err := encodeRelations(uuid, metadata)
 	if err != nil {
 		return errors.Errorf("encoding charm relations: %w", err)
 	}
@@ -258,7 +239,7 @@ func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, id corecha
 	// juju-info is a implicit endpoint that must exist for all charms.
 	// Add it if the charm author has not.
 	if !hasJujuInfoRelation(encodedRelations) {
-		jujuInfoRelation, err := encodeJujuInfoRelation(id)
+		jujuInfoRelation, err := encodeJujuInfoRelation(uuid)
 		if err != nil {
 			return errors.Errorf("encoding juju-info relation: %w", err)
 		}
@@ -294,18 +275,18 @@ func encodeCharmSource(source charm.CharmSource) (int, error) {
 	}
 }
 
-func encodeMetadata(id corecharm.ID, metadata charm.Metadata) (setCharmMetadata, error) {
+func encodeMetadata(uuid string, metadata charm.Metadata) (setCharmMetadata, error) {
 	return setCharmMetadata{
-		CharmUUID:   id.String(),
+		CharmUUID:   uuid,
 		Name:        metadata.Name,
 		Description: metadata.Description,
 	}, nil
 }
 
-func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRelation, error) {
+func encodeRelations(uuid string, metatadata charm.Metadata) ([]setCharmRelation, error) {
 	var result []setCharmRelation
 	for _, relation := range metatadata.Provides {
-		encoded, err := encodeRelation(id, relation)
+		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode provides relation: %w", err)
 		}
@@ -313,7 +294,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	}
 
 	for _, relation := range metatadata.Requires {
-		encoded, err := encodeRelation(id, relation)
+		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode requires relation: %w", err)
 		}
@@ -321,7 +302,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	}
 
 	for _, relation := range metatadata.Peers {
-		encoded, err := encodeRelation(id, relation)
+		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode peers relation: %w", err)
 		}
@@ -331,8 +312,8 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	return result, nil
 }
 
-func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
-	return encodeRelation(id, charm.Relation{
+func encodeJujuInfoRelation(uuid string) (setCharmRelation, error) {
+	return encodeRelation(uuid, charm.Relation{
 		Name:      corerelation.JujuInfo,
 		Role:      charm.RoleProvider,
 		Interface: corerelation.JujuInfo,
@@ -340,7 +321,7 @@ func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
 	})
 }
 
-func encodeRelation(id corecharm.ID, relation charm.Relation) (setCharmRelation, error) {
+func encodeRelation(uuid string, relation charm.Relation) (setCharmRelation, error) {
 	relationUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return setCharmRelation{}, errors.Errorf("generating relation uuid")
@@ -358,7 +339,7 @@ func encodeRelation(id corecharm.ID, relation charm.Relation) (setCharmRelation,
 
 	return setCharmRelation{
 		UUID:      relationUUID.String(),
-		CharmUUID: id.String(),
+		CharmUUID: uuid,
 		Name:      relation.Name,
 		RoleID:    roleID,
 		Interface: relation.Interface,

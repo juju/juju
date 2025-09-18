@@ -87,7 +87,25 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		return internalerrors.Errorf("marshalling macaroon: %w", err)
 	}
 
+	remoteApplicationUUID, err := uuid.NewUUID()
+	if err != nil {
+		return internalerrors.Errorf("creating remote application uuid: %w", err)
+	}
+
+	applicationUUID, err := uuid.NewUUID()
+	if err != nil {
+		return internalerrors.Errorf("creating application uuid: %w", err)
+	}
+
+	charmUUID, err := uuid.NewUUID()
+	if err != nil {
+		return internalerrors.Errorf("creating charm uuid: %w", err)
+	}
+
 	return s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
+		RemoteApplicationUUID: remoteApplicationUUID.String(),
+		ApplicationUUID:       applicationUUID.String(),
+		CharmUUID:             charmUUID.String(),
 		Charm:                 syntheticCharm,
 		OfferUUID:             args.OfferUUID,
 		OffererControllerUUID: args.OffererControllerUUID,
