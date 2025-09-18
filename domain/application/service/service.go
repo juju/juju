@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 
 	"github.com/juju/clock"
@@ -57,16 +56,6 @@ type State interface {
 	MigrationState
 	MachineState
 }
-
-const (
-	// applicationSnippet is a non-compiled regexp that can be composed with
-	// other snippets to form a valid application regexp.
-	applicationSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
-)
-
-var (
-	validApplication = regexp.MustCompile("^" + applicationSnippet + "$")
-)
 
 // Service provides the API for working with applications.
 type Service struct {
@@ -843,18 +832,6 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
-}
-
-// isValidApplicationName returns whether name is a valid application name.
-func isValidApplicationName(name string) bool {
-	return validApplication.MatchString(name)
-}
-
-// isValidReferenceName returns whether name is a valid reference name.
-// This ensures that the reference name is both a valid application name
-// and a valid charm name.
-func isValidReferenceName(name string) bool {
-	return isValidApplicationName(name) && isValidCharmName(name)
 }
 
 func encodeChannelAndPlatform(origin corecharm.Origin) (*deployment.Channel, deployment.Platform, error) {
