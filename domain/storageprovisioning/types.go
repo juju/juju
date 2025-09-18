@@ -39,6 +39,7 @@ type StorageAttachmentInfo struct {
 	Owner                 *unit.Name
 	Kind                  storage.StorageKind
 	Life                  life.Life
+	Location              string
 }
 
 // VolumeAttachmentInfo represents information about a volume attachment

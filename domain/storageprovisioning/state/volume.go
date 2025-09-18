@@ -1632,20 +1632,17 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 	return nil
 }
 
-// GetVolumeAttachmentUUIDForStorageID returns the volume
-// attachment uuid for the supplied storage id.
+// GetVolumeAttachmentUUIDForStorageAttachmentUUID returns the volume
+// attachment uuid for the supplied storage attachment UUID.
 //
 // The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-// instance exists for the supplied storage instance id.
-// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
-// net node uuid.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when no storage
+// attachment exists for the provided storage attachment uuid.
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the supplied values.
-func (st *State) GetVolumeAttachmentUUIDForStorageID(
+func (st *State) GetVolumeAttachmentUUIDForStorageAttachmentUUID(
 	ctx context.Context,
-	storageInstanceID string,
-	nodeUUID string,
+	storageAttachmentUUID string,
 ) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1653,9 +1650,8 @@ func (st *State) GetVolumeAttachmentUUIDForStorageID(
 	}
 
 	var (
-		storageIDInput = storageID{ID: storageInstanceID}
-		nodeUUIDInput  = netNodeUUID{UUID: nodeUUID}
-		dbVal          volumeAttachmentUUID
+		storageAttachmentUUIDInput = entityUUID{UUID: storageAttachmentUUID}
+		dbVal                      volumeAttachmentUUID
 	)
 
 	stmt, err := st.Prepare(`
@@ -1664,39 +1660,32 @@ FROM      storage_volume_attachment sva
 JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
 LEFT JOIN storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
 LEFT JOIN storage_instance si ON siv.storage_instance_uuid = si.uuid
-WHERE     si.storage_id = $storageID.storage_id
-AND       sva.net_node_uuid = $netNodeUUID.uuid
-`, storageIDInput, nodeUUIDInput, dbVal)
+LEFT JOIN storage_attachment sa ON si.uuid = sa.storage_instance_uuid
+LEFT JOIN unit u ON sva.net_node_uuid = u.net_node_uuid AND sa.unit_uuid = u.uuid
+WHERE     sa.uuid = $entityUUID.uuid
+`, storageAttachmentUUIDInput, dbVal)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(nodeUUID)); err != nil {
+		if exists, err := st.checkStorageAttachmentExists(ctx, tx, storageAttachmentUUID); err != nil {
 			return errors.Errorf(
-				"checking if net node %q exists: %w", nodeUUID, err,
+				"checking if storage attachment %q exists: %w",
+				storageAttachmentUUID, err,
 			)
 		} else if !exists {
 			return errors.Errorf(
-				"net node %q does not exist", nodeUUID,
-			).Add(networkerrors.NetNodeNotFound)
+				"storage attachment %q does not exist",
+				storageAttachmentUUID,
+			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
 		}
 
-		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageInstanceID); err != nil {
-			return errors.Errorf(
-				"checking if storage instance %q exists: %w", storageInstanceID, err,
-			)
-		} else if !exists {
-			return errors.Errorf(
-				"storage instance %q does not exist", storageInstanceID,
-			).Add(storageprovisioningerrors.StorageInstanceNotFound)
-		}
-
-		err = tx.Query(ctx, stmt, storageIDInput, nodeUUIDInput).Get(&dbVal)
+		err = tx.Query(ctx, stmt, storageAttachmentUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"volume attachment for storage instance %q and net node %q does not exist",
-				storageInstanceID, nodeUUID,
+				"volume attachment for storage attachment %q does not exist",
+				storageAttachmentUUID,
 			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
 		}
 		return err

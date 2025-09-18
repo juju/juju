@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/core/application"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -19,7 +20,9 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
+	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
@@ -356,13 +359,21 @@ func (s *Service) GetStorageResourceTagsForModel(ctx context.Context) (
 	return rval, nil
 }
 
-// GetStorageAttachmentInfo returns information about a storage attachment for
+// GetUnitStorageAttachmentInfo returns information about a storage attachment for
 // the given storage attachment UUID.
 //
 // The following errors may be returned:
 // - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
 // attachment does not exist.
-func (s *Service) GetStorageAttachmentInfo(
+// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+// exists.
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+// attachment exists for the provided values.
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the supplied values.
+// [storageprovisioningerrors.StorageAttachmentNotProvisioned] when the storage
+// attachment has not been fully provisioned yet.
+func (s *Service) GetUnitStorageAttachmentInfo(
 	ctx context.Context,
 	uuid storageprovisioning.StorageAttachmentUUID,
 ) (storageprovisioning.StorageAttachmentInfo, error) {
@@ -376,6 +387,70 @@ func (s *Service) GetStorageAttachmentInfo(
 	info, err := s.st.GetStorageAttachmentInfo(ctx, uuid.String())
 	if err != nil {
 		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+
+	switch info.Kind {
+	case domainstorage.StorageKindBlock:
+		volumeAttachmentUUID, err := s.st.GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+			ctx, uuid.String(),
+		)
+		if err != nil {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"getting volume attachment uuid for storage attachment %q: %w",
+				uuid, err,
+			)
+		}
+		volAttachmentInfo, err := s.st.GetVolumeAttachmentInfo(
+			ctx, volumeAttachmentUUID,
+		)
+		if err != nil {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"getting volume attachment info for storage attachment %q: %w",
+				uuid, err,
+			)
+		}
+
+		if volAttachmentInfo.BlockDeviceName == "" {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"storage attachment %q has no associated block device yet", uuid,
+			).Add(storageprovisioningerrors.StorageAttachmentNotProvisioned)
+		}
+
+		var deviceLinks []string
+		if volAttachmentInfo.BlockDeviceLink != "" {
+			deviceLinks = append(deviceLinks, volAttachmentInfo.BlockDeviceLink)
+		}
+		info.Location, err = coreblockdevice.BlockDevicePath(coreblockdevice.BlockDevice{
+			HardwareId:  volAttachmentInfo.HardwareID,
+			WWN:         volAttachmentInfo.WWN,
+			DeviceName:  volAttachmentInfo.BlockDeviceName,
+			DeviceLinks: deviceLinks,
+		})
+		if err != nil {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"getting block device path for storage attachment %q: %w", uuid, err,
+			)
+		}
+	case domainstorage.StorageKindFilesystem:
+		filesystemAttachmentUUID, err := s.st.GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+			ctx, uuid.String(),
+		)
+		if err != nil {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"getting filesystem attachment uuid for storage attachment %q: %w",
+				uuid, err,
+			)
+		}
+		fsAttachmentInfo, err := s.st.GetFilesystemAttachment(
+			ctx, storageprovisioning.FilesystemAttachmentUUID(filesystemAttachmentUUID),
+		)
+		if err != nil {
+			return storageprovisioning.StorageAttachmentInfo{}, errors.Errorf(
+				"getting filesystem attachment info for storage attachment %q: %w",
+				uuid, err,
+			)
+		}
+		info.Location = fsAttachmentInfo.MountPoint
 	}
 
 	return info, nil

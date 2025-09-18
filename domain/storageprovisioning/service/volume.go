@@ -213,20 +213,18 @@ type VolumeState interface {
 		uuid storageprovisioning.VolumeAttachmentPlanUUID,
 		blockDeviceUUID blockdevice.BlockDeviceUUID,
 	) error
-	// GetVolumeAttachmentUUIDForStorageID returns the volume
-	// attachment uuid for the supplied storage id.
+
+	// GetVolumeAttachmentUUIDForStorageAttachmentUUID returns the volume
+	// attachment uuid for the supplied storage attachment UUID.
 	//
 	// The following errors may be returned:
-	// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-	// instance exists for the supplied storage instance id.
-	// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
-	// net node uuid.
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when no storage
+	// attachment exists for the provided storage attachment uuid.
 	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 	// attachment exists for the supplied values.
-	GetVolumeAttachmentUUIDForStorageID(
+	GetVolumeAttachmentUUIDForStorageAttachmentUUID(
 		ctx context.Context,
-		storageID string,
-		nodeUUID string,
+		storageAttachmentUUID string,
 	) (string, error)
 
 	// GetVolumeAttachmentInfo retrieves information about the volume attachment
@@ -672,57 +670,6 @@ func (s *Service) GetBlockDeviceForVolumeAttachment(
 	}
 
 	return bdUUID, nil
-}
-
-// GetVolumeAttachmentUUIDForStorageID returns the volume
-// attachment uuid for the supplied storage id.
-//
-// The following errors may be returned:
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no
-// unit exists for the supplied unit UUID.
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-// instance exists for the supplied storage instance id.
-// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
-// net node UUID.
-// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-// attachment exists for the supplied values.
-func (s *Service) GetVolumeAttachmentUUIDForStorageID(
-	ctx context.Context,
-	storageID string,
-	unitUUID coreunit.UUID,
-) (storageprovisioning.VolumeAttachmentUUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := unitUUID.Validate(); err != nil {
-		return "", errors.Capture(err)
-	}
-
-	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	uuid, err := s.st.GetVolumeAttachmentUUIDForStorageID(
-		ctx, storageID, netNodeUUID.String(),
-	)
-	return storageprovisioning.VolumeAttachmentUUID(uuid), errors.Capture(err)
-}
-
-// GetVolumeAttachmentInfo retrieves information about the volume attachment
-// with volume information included.
-//
-// The following errors may be returned:
-// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
-// attachment exists for the supplied uuid.
-func (s *Service) GetVolumeAttachmentInfo(
-	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentUUID,
-) (storageprovisioning.VolumeAttachmentInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.GetVolumeAttachmentInfo(ctx, uuid.String())
 }
 
 // WatchModelProvisionedVolumes returns a watcher that emits volume IDs,

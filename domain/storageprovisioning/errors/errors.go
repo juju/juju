@@ -39,4 +39,8 @@ const (
 
 	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
 	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
+
+	// StorageAttachmentNotProvisioned is used when a storage attachment has not yet been
+	// provisioned.
+	StorageAttachmentNotProvisioned = errors.ConstError("storage attachment not provisioned")
 )

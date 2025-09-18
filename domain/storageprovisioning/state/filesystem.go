@@ -1007,21 +1007,17 @@ WHERE  filesystem_id = $filesystemID.filesystem_id
 	return storageprovisioning.FilesystemUUID(dbVal.UUID), nil
 }
 
-// GetFilesystemAttachmentUUIDForStorageID returns the filesystem
-// attachment UUID for the supplied storage instance id which is attached to
-// the given net node UUID.
+// GetFilesystemAttachmentUUIDForStorageAttachmentUUID returns the filesystem
+// attachment UUID for the supplied storage attachment UUID.
 //
 // The following errors may be returned:
-// - [storageprovisioningerrors.StorageInstanceNotFound] when no storage
-// instance exists for the supplied storage instance id.
-// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
-// net node UUID.
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when no storage
+// attachment exists for the provided storage attachment uuid.
 // - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
 // attachment exists for the provided values.
-func (st *State) GetFilesystemAttachmentUUIDForStorageID(
+func (st *State) GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
 	ctx context.Context,
-	storageInstanceID string,
-	nodeUUID string,
+	storageAttachmentUUID string,
 ) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1029,49 +1025,42 @@ func (st *State) GetFilesystemAttachmentUUIDForStorageID(
 	}
 
 	var (
-		storageIDInput = storageID{ID: storageInstanceID}
-		nodeUUIDInput  = netNodeUUID{UUID: nodeUUID}
-		dbVal          filesystemAttachmentUUID
+		storageAttachmentUUIDInput = entityUUID{UUID: storageAttachmentUUID}
+		dbVal                      filesystemAttachmentUUID
 	)
 
 	stmt, err := st.Prepare(`
-SELECT    sva.uuid AS &filesystemAttachmentUUID.uuid
-FROM      storage_filesystem_attachment sva
-JOIN      storage_filesystem sv ON sva.storage_filesystem_uuid = sv.uuid
-LEFT JOIN storage_instance_filesystem siv ON sv.uuid = siv.storage_filesystem_uuid
-LEFT JOIN storage_instance si ON siv.storage_instance_uuid = si.uuid
-WHERE     si.storage_id = $storageID.storage_id
-AND       sva.net_node_uuid = $netNodeUUID.uuid
-`, storageIDInput, nodeUUIDInput, dbVal)
+SELECT    sfa.uuid AS &filesystemAttachmentUUID.uuid
+FROM      storage_filesystem_attachment sfa
+JOIN      storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+LEFT JOIN storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON sif.storage_instance_uuid = si.uuid
+LEFT JOIN storage_attachment sa ON si.uuid = sa.storage_instance_uuid
+LEFT JOIN unit u ON sfa.net_node_uuid = u.net_node_uuid AND sa.unit_uuid = u.uuid
+WHERE     sa.uuid = $entityUUID.uuid
+`, storageAttachmentUUIDInput, dbVal)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if exists, err := st.checkNetNodeExists(ctx, tx, domainnetwork.NetNodeUUID(nodeUUID)); err != nil {
+		if exists, err := st.checkStorageAttachmentExists(ctx, tx, storageAttachmentUUID); err != nil {
 			return errors.Errorf(
-				"checking if net node %q exists: %w", nodeUUID, err,
+				"checking if storage attachment %q exists: %w",
+				storageAttachmentUUID, err,
 			)
 		} else if !exists {
 			return errors.Errorf(
-				"net node %q does not exist", nodeUUID,
-			).Add(networkerrors.NetNodeNotFound)
+				"storage attachment %q does not exist",
+				storageAttachmentUUID,
+			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
 		}
 
-		if exists, err := st.checkStorageInstanceUUIDByStorageID(ctx, tx, storageInstanceID); err != nil {
-			return errors.Errorf(
-				"checking if storage instance %q exists: %w", storageInstanceID, err,
-			)
-		} else if !exists {
-			return errors.Errorf(
-				"storage instance %q does not exist", storageInstanceID,
-			).Add(storageprovisioningerrors.StorageInstanceNotFound)
-		}
-		err = tx.Query(ctx, stmt, storageIDInput, nodeUUIDInput).Get(&dbVal)
+		err = tx.Query(ctx, stmt, storageAttachmentUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"filesystem attachment for storage instance %q and net node %q does not exist",
-				storageInstanceID, nodeUUID,
+				"filesystem attachment for storage attachment %q does not exist",
+				storageAttachmentUUID,
 			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
 		}
 		return err

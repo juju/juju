@@ -992,62 +992,51 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	})
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageID(c *tc.C) {
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageAttachmentUUID(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
-	_, _ = s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	storageID := s.getStorageID(c, storageInstanceUUID)
+	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	fsUUID, _ := s.newMachineFilesystem(c)
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	result, err := st.GetFilesystemAttachmentUUIDForStorageID(
-		c.Context(), storageID, netNodeUUID.String(),
+	result, err := st.GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, fsaUUID.String())
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithStorageInstanceNotFound(c *tc.C) {
-	netNodeUUID := s.newNetNode(c)
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageAttachmentUUIDWithStorageAttachmentNotFound(c *tc.C) {
+	storageAttachmentUUID := domaintesting.GenStorageAttachmentUUID(c)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetFilesystemAttachmentUUIDForStorageID(
-		c.Context(), "storageID", netNodeUUID.String(),
+	_, err := st.GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID.String(),
 	)
-	c.Check(err, tc.ErrorIs, storageprovisioningerrors.StorageInstanceNotFound)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
 }
 
-func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithNetNodeNotFound(c *tc.C) {
-	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := NewState(s.TxnRunnerFactory())
-	_, err = st.GetFilesystemAttachmentUUIDForStorageID(
-		c.Context(), "storageID", netNodeUUID.String(),
-	)
-	c.Check(err, tc.ErrorIs, networkerrors.NetNodeNotFound)
-}
-
-func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageIDWithFilesystemAttachmentNotFound(c *tc.C) {
+func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageAttachmentUUIDWithFilesystemAttachmentNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
-	_, _ = s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	storageID := s.getStorageID(c, storageInstanceUUID)
+	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetFilesystemAttachmentUUIDForStorageID(
-		c.Context(), storageID, netNodeUUID.String(),
+	_, err := st.GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID,
 	)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
 }
