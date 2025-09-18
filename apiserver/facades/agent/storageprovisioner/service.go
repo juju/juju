@@ -226,6 +226,10 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
 
+	// CheckVolumeForIDExists checks if a volume exists for the supplied volume
+	// ID. True is returned when a volume exists.
+	CheckVolumeForIDExists(context.Context, string) (bool, error)
+
 	// GetVolumeAttachmentParams retrieves the attachment parameters for a given
 	// volume attachment.
 	GetVolumeAttachmentParams(

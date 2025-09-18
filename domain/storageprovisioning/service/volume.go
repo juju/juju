@@ -26,6 +26,10 @@ import (
 )
 
 type VolumeState interface {
+	// CheckVolumeForIDExists checks if a filesystem exists for the supplied
+	// volume ID. True is returned when a volume exists for the supplied id.
+	CheckVolumeForIDExists(context.Context, string) (bool, error)
+
 	// GetVolume returns the volume information for the specified volume uuid.
 	GetVolume(
 		context.Context, storageprovisioning.VolumeUUID,
@@ -252,6 +256,17 @@ type VolumeState interface {
 	InitialWatchStatementVolumeAttachmentPlans(
 		domainnetwork.NetNodeUUID,
 	) (string, eventsource.Query[map[string]domainlife.Life])
+}
+
+// CheckVolumeForIDExists checks if a volume exists for the supplied volume
+// ID. True is returned when a volume exists.
+func (s *Service) CheckVolumeForIDExists(
+	ctx context.Context, volumeID string,
+) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.CheckVolumeForIDExists(ctx, volumeID)
 }
 
 // GetVolumeAttachmentIDs returns the

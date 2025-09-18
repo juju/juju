@@ -126,6 +126,45 @@ func (c *MockStateCheckMachineIsDeadCall) DoAndReturn(f func(context.Context, ma
 	return c
 }
 
+// CheckVolumeForIDExists mocks base method.
+func (m *MockState) CheckVolumeForIDExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckVolumeForIDExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckVolumeForIDExists indicates an expected call of CheckVolumeForIDExists.
+func (mr *MockStateMockRecorder) CheckVolumeForIDExists(arg0, arg1 any) *MockStateCheckVolumeForIDExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckVolumeForIDExists", reflect.TypeOf((*MockState)(nil).CheckVolumeForIDExists), arg0, arg1)
+	return &MockStateCheckVolumeForIDExistsCall{Call: call}
+}
+
+// MockStateCheckVolumeForIDExistsCall wrap *gomock.Call
+type MockStateCheckVolumeForIDExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckVolumeForIDExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckVolumeForIDExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckVolumeForIDExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateCheckVolumeForIDExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckVolumeForIDExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateCheckVolumeForIDExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateVolumeAttachmentPlan mocks base method.
 func (m *MockState) CreateVolumeAttachmentPlan(ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID, attachmentUUID storageprovisioning.VolumeAttachmentUUID, deviceType storageprovisioning.PlanDeviceType, attrs map[string]string) error {
 	m.ctrl.T.Helper()

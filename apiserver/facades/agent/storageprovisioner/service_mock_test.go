@@ -485,6 +485,45 @@ func (c *MockStorageProvisioningServiceCheckFilesystemForIDExistsCall) DoAndRetu
 	return c
 }
 
+// CheckVolumeForIDExists mocks base method.
+func (m *MockStorageProvisioningService) CheckVolumeForIDExists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckVolumeForIDExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckVolumeForIDExists indicates an expected call of CheckVolumeForIDExists.
+func (mr *MockStorageProvisioningServiceMockRecorder) CheckVolumeForIDExists(arg0, arg1 any) *MockStorageProvisioningServiceCheckVolumeForIDExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckVolumeForIDExists", reflect.TypeOf((*MockStorageProvisioningService)(nil).CheckVolumeForIDExists), arg0, arg1)
+	return &MockStorageProvisioningServiceCheckVolumeForIDExistsCall{Call: call}
+}
+
+// MockStorageProvisioningServiceCheckVolumeForIDExistsCall wrap *gomock.Call
+type MockStorageProvisioningServiceCheckVolumeForIDExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageProvisioningServiceCheckVolumeForIDExistsCall) Return(arg0 bool, arg1 error) *MockStorageProvisioningServiceCheckVolumeForIDExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageProvisioningServiceCheckVolumeForIDExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStorageProvisioningServiceCheckVolumeForIDExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageProvisioningServiceCheckVolumeForIDExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStorageProvisioningServiceCheckVolumeForIDExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateVolumeAttachmentPlan mocks base method.
 func (m *MockStorageProvisioningService) CreateVolumeAttachmentPlan(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentUUID, arg2 storageprovisioning.PlanDeviceType, arg3 map[string]string) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
 	m.ctrl.T.Helper()

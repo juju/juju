@@ -25,6 +25,45 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// CheckVolumeForIDExists checks if a filesystem exists for the supplied
+// volume ID. True is returned when a volume exists for the supplied id.
+func (st *State) CheckVolumeForIDExists(
+	ctx context.Context, volID string,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	io := volumeID{ID: volID}
+	checkQuery, err := st.Prepare(`
+SELECT &volumeID.*
+FROM   storage_volume
+WHERE  volume_id=$volumeID.volume_id
+`, io)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var exists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, checkQuery, io).Get(&io)
+		if err == nil {
+			exists = true
+			return nil
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			exists = false
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return exists, nil
+}
+
 // checkVolumeAttachmentExists checks if a volume attachment for the provided
 // UUID exists. True is returned when the volume attachment exists.
 func (st *State) checkVolumeAttachmentExists(

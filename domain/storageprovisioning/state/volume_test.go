@@ -29,6 +29,25 @@ func TestVolumeSuite(t *testing.T) {
 	tc.Run(t, &volumeSuite{})
 }
 
+func (s *volumeSuite) TestCheckVolumeForIDExists(c *tc.C) {
+	_, id := s.newModelVolume(c)
+	st := NewState(s.TxnRunnerFactory())
+
+	exists, err := st.CheckVolumeForIDExists(c.Context(), id)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+}
+
+func (s *volumeSuite) TestCheckVolumeForIDNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	exists, err := st.CheckVolumeForIDExists(c.Context(), "no-exist")
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+}
+
 // TestGetVolumeAttachmentIDsOnlyUnits tests that when requesting ids for a
 // volume attachment and no machines are using the net node the unit name is
 // reported.
