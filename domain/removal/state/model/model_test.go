@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/changestream"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -64,8 +63,7 @@ func (s *modelSuite) TestGetModelLifeNotFound(c *tc.C) {
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 
 	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -173,8 +171,7 @@ where  r.uuid = ?`, removalUUID,
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	unitUUID := s.getAllUnitUUIDs(c, appUUID)[0]

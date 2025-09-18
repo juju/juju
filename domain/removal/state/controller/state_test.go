@@ -24,7 +24,6 @@ import (
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
-	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
@@ -39,7 +38,7 @@ func TestStateSuite(t *testing.T) {
 }
 
 type baseSuite struct {
-	changestreamtesting.ControllerSuite
+	schematesting.ControllerSuite
 
 	uuid coremodel.UUID
 }
