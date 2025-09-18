@@ -1483,10 +1483,9 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 	offer params.ApplicationOfferDetailsV5,
 	macaroon *macaroon.Macaroon,
 ) error {
-
 	remoteEps := make([]domaincharm.Relation, len(offer.Endpoints))
 	for j, ep := range offer.Endpoints {
-		role, err := enocdeRelationRole(ep.Role)
+		role, err := encodeRelationRole(ep.Role)
 		if err != nil {
 			return internalerrors.Errorf("parsing role for endpoint %q: %w", ep.Name, err).Add(coreerrors.BadRequest)
 		}
@@ -1495,6 +1494,7 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 			Name:      ep.Name,
 			Role:      role,
 			Interface: ep.Interface,
+			Limit:     ep.Limit,
 		}
 	}
 
@@ -1515,16 +1515,16 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 	})
 }
 
-func enocdeRelationRole(role charm.RelationRole) (domaincharm.RelationRole, error) {
+func encodeRelationRole(role charm.RelationRole) (domaincharm.RelationRole, error) {
 	switch role {
 	case charm.RoleProvider:
 		return domaincharm.RoleProvider, nil
 	case charm.RoleRequirer:
 		return domaincharm.RoleRequirer, nil
 	case charm.RolePeer:
-		return "", errors.New("peer relations cannot be cross model")
+		return "", errors.New("peer relations cannot be used in cross model")
 	default:
-		return "", errors.Errorf("unknown role %q", role)
+		return "", errors.Errorf(`endpoint role must be "provider" or "requirer", got %q`, role)
 	}
 }
 
