@@ -1,0 +1,10 @@
+name: storage-constraint2
+summary: A charm needed to test for concurrent storage constraints update
+maintainers: ["Alvin Chee <alvin.chee@canonical.com>"]
+description: assists in storage 
+storage:
+   data:
+        type: block
+        multiple:
+                range: 5-10
+   

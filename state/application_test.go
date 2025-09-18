@@ -6016,50 +6016,27 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraints_Serial_Success(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
-		"database": {
+		"data": {
 			Pool:  "loop",
 			Size:  100,
-			Count: 1,
+			Count: 5,
 		},
 	}
-	charm := s.AddTestingCharm(c, "cockroachdb")
-	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+	charm := s.AddTestingCharm(c, "storage-constraint1")
+	app := s.AddTestingApplicationWithStorage(c, "storage-constraint1", charm, oldSC)
 
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["database"].Pool, gc.Equals, "loop")
-	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
-	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.DeepEquals, uint64(5))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(100))
 
 	newSC := map[string]state.StorageConstraints{
-		"database": makeStorageCons("loop", 4096, 1),
+		"data": makeStorageCons("loop", 4096, 3),
 	}
-
-	charmWithNewURL := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", URL: "local:quantal/quantal-cockroachdb-1"})
-
-	// set charm to a different url before running replaceStorageConstraintsOp txn
-	defer state.SetBeforeHooks(c, s.State, func() {
-		err := app.SetCharm(state.SetCharmConfig{
-			Charm:       charmWithNewURL,
-			CharmOrigin: defaultCharmOrigin(charmWithNewURL.URL()),
-			StorageConstraints: map[string]state.StorageConstraints{
-				"database": {
-					Pool:  "loop",
-					Size:  2048,
-					Count: 1,
-				},
-				"data": {
-					Pool:  "loop",
-					Size:  1928,
-					Count: 1,
-				},
-			},
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}).Check()
 
 	err = app.UpdateStorageConstraints(newSC)
 	c.Assert(err, jc.ErrorIsNil)
@@ -6067,12 +6044,39 @@ func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 	cons, err = app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["database"].Pool, gc.Equals, "loop")
-	c.Assert(cons["database"].Count, gc.Equals, uint64(1))
-	c.Assert(cons["database"].Size, gc.Equals, uint64(4096))
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.Equals, uint64(3))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(4096))
 }
 
-func (s *ApplicationSuite) TestUpdateStorageConstraintsNotSupported(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraints_Serial_ErrOnCountIncrease(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 5,
+		},
+	}
+	charm := s.AddTestingCharm(c, "storage-constraint1")
+	app := s.AddTestingApplicationWithStorage(c, "storage-constraint1", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.DeepEquals, uint64(5))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(100))
+
+	newSC := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 4096, 6),
+	}
+
+	// This fails because storage constraint size of storage-constraint1 charm is 1-5.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraints_Serial_ErrNotSupported(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
 		"database": {
 			Pool:  "loop",
@@ -6098,6 +6102,127 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsNotSupported(c *gc.C) {
 
 	err = app.UpdateStorageConstraints(newSC)
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraints_Concurrent_Success(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 1,
+		},
+	}
+	charm := s.AddTestingCharm(c, "storage-constraint1")
+	app := s.AddTestingApplicationWithStorage(c, "storage-constraint1", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(100))
+
+	// Storage constraint size of 5 should work for both storage-constraint1 and storage-constraint2 charms.
+	newSC := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 4096, 5),
+	}
+
+	upgradedCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "storage-constraint2", URL: "local:quantal/quantal-storage-constraint2-1"})
+
+	// Set charm to new storage-constraint2 charm with storage constraint size
+	// from 5-10 before running replaceStorageConstraintsOp txn.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := app.SetCharm(state.SetCharmConfig{
+			Charm:       upgradedCharm,
+			CharmOrigin: defaultCharmOrigin(upgradedCharm.URL()),
+			StorageConstraints: map[string]state.StorageConstraints{
+				"database": {
+					Pool:  "loop",
+					Size:  2048,
+					Count: 1,
+				},
+				"data": {
+					Pool:  "loop",
+					Size:  1928,
+					Count: 7,
+				},
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	// This succeeds because storage constraint size of storage-constraint2 charm is 5-10
+	// and we set it to 5 in the newSC. This works because the value is compatible for both charms.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure storage constraints are updated to newSC.
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.Equals, uint64(5))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(4096))
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraints_Concurrent_ErrOnCountIncrease(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "loop",
+			Size:  100,
+			Count: 5,
+		},
+	}
+	// storage-constraint1 charm storage constraint size is 1-5. We set this as our original application charm.
+	charm := s.AddTestingCharm(c, "storage-constraint1")
+	app := s.AddTestingApplicationWithStorage(c, "storage-constraint1", charm, oldSC)
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.DeepEquals, uint64(5))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(100))
+
+	// We try to update original application charm storage constraint size to 3.
+	newSC := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 4096, 3),
+	}
+
+	// storage-constraint2 charm storage constraint size is 6-10.
+	upgradedCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "storage-constraint2", URL: "local:quantal/quantal-storageconstraint1-2"})
+
+	// Set charm to new storage-constraint2 charm with storage constraint size
+	// from 6-10 before running replaceStorageConstraintsOp txn.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := app.SetCharm(state.SetCharmConfig{
+			Charm:       upgradedCharm,
+			CharmOrigin: defaultCharmOrigin(upgradedCharm.URL()),
+			StorageConstraints: map[string]state.StorageConstraints{
+				"data": {
+					Pool:  "loop",
+					Size:  200,
+					Count: 6,
+				},
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	// This should fail since we try to set storage constraint size to 3 in
+	// the new charm with storage constraint size of range 6-10.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+
+	// Charm storage constraints should be updated to new charm
+	// with new storage constraints since the hook update is successful.
+	appCharm, _, _ := app.Charm()
+	c.Assert(appCharm.URL(), gc.Equals, upgradedCharm.URL())
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data"].Count, gc.DeepEquals, uint64(6))
+	c.Assert(cons["data"].Size, gc.Equals, uint64(200))
 }
 
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
