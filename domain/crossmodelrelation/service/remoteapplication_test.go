@@ -26,7 +26,8 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	offerUUID := tc.Must(c, uuid.NewUUID).String()
-	externalControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
+	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
+	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
 	macaroon := newMacaroon(c, "test")
 
 	syntheticCharm := charm.Charm{
@@ -56,17 +57,19 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 		Source:        charm.CMRSource,
 	}
 	s.modelDBState.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm:                  syntheticCharm,
-		OfferUUID:              offerUUID,
-		ExternalControllerUUID: externalControllerUUID,
-		EncodedMacaroon:        tc.Must(c, macaroon.MarshalJSON),
+		Charm:                 syntheticCharm,
+		OfferUUID:             offerUUID,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      offererModelUUID,
+		EncodedMacaroon:       tc.Must(c, macaroon.MarshalJSON),
 	}).Return(nil)
 
 	service := s.service(c)
 
 	err := service.AddRemoteApplicationOfferer(c.Context(), "foo", AddRemoteApplicationOffererArgs{
-		OfferUUID:              offerUUID,
-		ExternalControllerUUID: externalControllerUUID,
+		OfferUUID:             offerUUID,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      offererModelUUID,
 		Endpoints: []charm.Relation{{
 			Name:      "db",
 			Role:      charm.RoleProvider,
@@ -113,6 +116,21 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOf
 
 	err := service.AddRemoteApplicationOfferer(c.Context(), "foo", AddRemoteApplicationOffererArgs{
 		OfferUUID: "!!",
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOffererModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offererModelUUID := "!!"
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationOfferer(c.Context(), "foo", AddRemoteApplicationOffererArgs{
+		OfferUUID:        offerUUID,
+		OffererModelUUID: offererModelUUID,
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

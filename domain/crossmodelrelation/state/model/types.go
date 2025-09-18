@@ -4,6 +4,7 @@
 package state
 
 import (
+	"database/sql"
 	"maps"
 	"slices"
 
@@ -150,4 +151,28 @@ type setCharmRelation struct {
 	Optional  bool   `db:"optional"`
 	Capacity  int    `db:"capacity"`
 	ScopeID   int    `db:"scope_id"`
+}
+
+type remoteApplicationOfferer struct {
+	// UUID is the unique identifier for this remote application offerer.
+	UUID string `db:"uuid"`
+	// LifeID is the life state of the remote application offerer.
+	LifeID life.Life `db:"life_id"`
+	// ApplicationUUID is the unique identifier for the application
+	// that is being offered.
+	ApplicationUUID string `db:"application_uuid"`
+	// OfferUUID is the offer uuid that ties both the offerer and consumer
+	// together.
+	OfferUUID string `db:"offer_uuid"`
+	// Version is the version of the remote application offerer.
+	Version int `db:"version"`
+	// OffererControllerUUID is the unique identifier for the controller
+	// that is offering this application.
+	OffererControllerUUID sql.Null[string] `db:"offerer_controller_uuid"`
+	// OffererModelUUID is the unique identifier for the model
+	// that is offering this application.
+	OffererModelUUID string `db:"offerer_model_uuid"`
+	// Macaroon is the serialized macaroon that can be used to
+	// authenticate to the offerer controller.
+	Macaroon []byte `db:"macaroon"`
 }

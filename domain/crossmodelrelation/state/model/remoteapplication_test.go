@@ -52,10 +52,12 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm: charm,
+		Charm:           charm,
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.assertApplicationRemoteOfferer(c, "foo")
 	s.assertApplication(c, "foo")
 	s.assertCharmMetadata(c, "foo", charm)
 }
@@ -70,18 +72,41 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		},
 	}
 	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm: charm,
+		Charm:           charm,
+		EncodedMacaroon: []byte("encoded macaroon"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.assertApplicationRemoteOfferer(c, "foo")
 	s.assertApplication(c, "foo")
 	s.assertCharmMetadata(c, "foo", charm)
 }
 
-func (s *modelRemoteApplicationSuite) assertApplication(
-	c *tc.C,
-	name string,
-) {
+func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, name string) {
+	var (
+		gotLifeID   int
+		gotVersion  int
+		gotMacaroon string
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT aro.life_id, aro.version, aro.macaroon 
+FROM application_remote_offerer AS aro
+JOIN application AS a ON aro.application_uuid = a.uuid
+WHERE a.name=?`, name).
+			Scan(&gotLifeID, &gotVersion, &gotMacaroon)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotLifeID, tc.Equals, 0)
+	c.Check(gotVersion, tc.Equals, 0)
+	c.Check(gotMacaroon, tc.Equals, "encoded macaroon")
+}
+
+func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, name string) {
 	var (
 		gotName      string
 		gotUUID      string
@@ -99,11 +124,7 @@ func (s *modelRemoteApplicationSuite) assertApplication(
 	c.Check(gotName, tc.Equals, name)
 }
 
-func (s *modelRemoteApplicationSuite) assertCharmMetadata(
-	c *tc.C,
-	name string,
-	expected charm.Charm,
-) {
+func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, name string, expected charm.Charm) {
 	var (
 		gotReferenceName string
 		gotSourceName    string

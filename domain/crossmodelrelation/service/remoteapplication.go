@@ -39,9 +39,13 @@ type AddRemoteApplicationOffererArgs struct {
 	// consuming.
 	OfferUUID string
 
-	// ExternalControllerUUID is the UUID of the controller that the remote
+	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.
-	ExternalControllerUUID *string
+	OffererControllerUUID *string
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
 
 	// Endpoints is the collection of endpoint names offered.
 	Endpoints []charm.Relation
@@ -64,6 +68,9 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	if !uuid.IsValidUUIDString(args.OfferUUID) {
 		return internalerrors.Errorf("offer UUID %q is not a valid UUID", args.OfferUUID).Add(errors.NotValid)
 	}
+	if !uuid.IsValidUUIDString(args.OffererModelUUID) {
+		return internalerrors.Errorf("offerer model UUID %q is not a valid UUID", args.OffererModelUUID).Add(errors.NotValid)
+	}
 	if len(args.Endpoints) == 0 {
 		return internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)
 	}
@@ -81,10 +88,11 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 
 	return s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		Charm:                  syntheticCharm,
-		OfferUUID:              args.OfferUUID,
-		ExternalControllerUUID: args.ExternalControllerUUID,
-		EncodedMacaroon:        encodedMacaroon,
+		Charm:                 syntheticCharm,
+		OfferUUID:             args.OfferUUID,
+		OffererControllerUUID: args.OffererControllerUUID,
+		OffererModelUUID:      args.OffererModelUUID,
+		EncodedMacaroon:       encodedMacaroon,
 	})
 }
 
