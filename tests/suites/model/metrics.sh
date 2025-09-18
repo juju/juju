@@ -8,12 +8,19 @@ run_model_metrics() {
 	file="${TEST_DIR}/test-${testname}.log"
 	ensure "${testname}" "${file}"
 
-	# Deploy juju-qa-test with a different name, check that the metric send the charm name, not the application name.
-	juju deploy juju-qa-test app-juju-qa-test --base ubuntu@22.04
+	# Deploy ubuntu with a different name, check that the metric send the charm name, not the application name.
+	juju deploy ubuntu app-one --base ubuntu@22.04
+	juju deploy juju-qa-test
 	juju deploy juju-qa-dummy-subordinate
-	juju integrate juju-qa-test dummy-subordinate
-	wait_for "app-juju-qa-test" "$(idle_condition "app-juju-qa-test" 1)"
-	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "app-juju-qa-test")"
+	juju config dummy-subordinate token=becomegreen
+	juju relate dummy-subordinate app-one
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 2)"
+	wait_for "app-one" "$(idle_condition "app-one" 0)"
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "app-one" 0)"
+
+	juju relate dummy-subordinate:juju-info juju-qa-test:juju-info
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test" 1)"
 
 	juju model-config -m controller logging-config="<root>=INFO;#charmhub=TRACE"
 
@@ -26,7 +33,7 @@ run_model_metrics() {
 	attempt=0
 	while true; do
 		OUT=$(juju debug-log -m controller --include-module juju.apiserver.charmrevisionupdater.client | grep metrics || true)
-		if echo "${OUT}" | grep -e '"metrics":{"relations":"dummy-subordinate,juju-qa-test","units":"2"}'-e '"model":{"applications":"2",' -e '"machines":"1",'; then
+		if echo "${OUT}" | grep -e '"metrics":{"relations":"juju-qa-test,ubuntu","units":"2"}' -e '"metrics":{"relations":"dummy-subordinate","units":"1"}' -e '"model":{"applications":"3",' -e '"machines":"2",'; then
 			break
 		fi
 		echo "${OUT}"

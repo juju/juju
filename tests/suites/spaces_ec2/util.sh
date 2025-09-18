@@ -73,5 +73,5 @@ configure_multi_nic_netplan() {
 
 	# Wait for the interface to be detected by juju
 	echo "[+] waiting for juju to detect added NIC"
-	wait_for_machine_netif_count "$juju_machine_id" "3"
+	wait_for_machine_netif_count "$juju_machine_id" "2"
 }

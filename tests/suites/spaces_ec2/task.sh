@@ -4,6 +4,10 @@ test_spaces_ec2() {
 		return
 	fi
 
+	if [ "${BOOTSTRAP_REGION:-}" == "" ]; then
+		BOOTSTRAP_REGION=us-east-1
+	fi
+
 	setup_awscli_credential
 	# Ensure that the aws cli and juju both use the same aws region
 	export AWS_DEFAULT_REGION="${BOOTSTRAP_REGION}"
