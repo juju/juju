@@ -4,6 +4,7 @@
 package removal
 
 import (
+	"strconv"
 	"time"
 )
 
@@ -21,12 +22,35 @@ const (
 	MachineJob
 	// ModelJob indicates a job to remove a model.
 	ModelJob
-	// StorageInstance indicates a job to remove a storage instance.
-	StorageInstance
-	// StorageAttachment indicates a job to remove a unit's
+	// StorageInstanceJob indicates a job to remove a storage instance.
+	StorageInstanceJob
+	// StorageAttachmentJob indicates a job to remove a unit's
 	// attachment to a storage instance.
-	StorageAttachment
+	StorageAttachmentJob
 )
+
+// String is used in logging output make job type identifiers readable.
+// Do not use this for decoding database output.
+func (t JobType) String() string {
+	switch t {
+	case RelationJob:
+		return "relation"
+	case UnitJob:
+		return "unit"
+	case ApplicationJob:
+		return "application"
+	case MachineJob:
+		return "machine"
+	case ModelJob:
+		return "model"
+	case StorageInstanceJob:
+		return "storage instance"
+	case StorageAttachmentJob:
+		return "storage attachment"
+	default:
+		return strconv.FormatInt(int64(t), 10)
+	}
+}
 
 // Job is a removal job for a single entity.
 type Job struct {
