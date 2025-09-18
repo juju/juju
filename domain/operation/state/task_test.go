@@ -4,11 +4,14 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
 
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/operation/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -127,9 +130,6 @@ func (s *taskSuite) TestGetTaskWithMachineReceiver(c *tc.C) {
 }
 
 func (s *taskSuite) TestGetTaskWithoutReceiver(c *tc.C) {
-	internaluuid.MustNewUUID()
-
-	internaluuid.MustNewUUID()
 	taskID := "42"
 
 	operationUUID := s.addOperation(c)
@@ -145,6 +145,60 @@ func (s *taskSuite) TestCancelTaskNotFound(c *tc.C) {
 
 	_, err := s.state.CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `.*task with ID \"42\" not found`)
+}
+
+func (s *taskSuite) TestStartTask(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "42"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "pending")
+
+	// Act
+	err := s.state.StartTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.assertStatusRunning(c, taskUUID)
+}
+
+func (s *taskSuite) TestStartTaskNotFound(c *tc.C) {
+	// Arrange
+	taskID := "42"
+
+	// Act
+	err := s.state.StartTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.TaskNotFound)
+}
+
+func (s *taskSuite) TestStartTaskNotPending(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "42"
+	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+
+	// Act
+	err := s.state.StartTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.TaskNotPending)
+}
+
+func (s *taskSuite) assertStatusRunning(c *tc.C, taskUUID string) {
+	// Assert: Check that the resource has been remove from the stored blob
+	var task string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT ots.task_uuid
+FROM   operation_task_status AS ots
+JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
+WHERE  ots.task_uuid = ?
+AND    otsv.status = ?
+`, taskUUID, corestatus.Running.String()).Scan(&task)
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(task, tc.Equals, taskUUID)
 }
 
 func ptr[T any](v T) *T {

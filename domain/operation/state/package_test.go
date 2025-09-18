@@ -266,12 +266,12 @@ func (s *baseSuite) addOperationTaskOutput(c *tc.C, taskUUID string) string {
 
 // addOperationTaskStatus sets a status for the task with the given textual status name.
 func (s *baseSuite) addOperationTaskStatus(c *tc.C, taskUUID, status string) {
-	beforCount := s.getRowCount(c, "operation_task_status")
+	beforeCount := s.getRowCount(c, "operation_task_status")
 	// Map status to id via the table
 	s.query(c, `INSERT INTO operation_task_status (task_uuid, status_id, updated_at) 
 		SELECT ?, id, ? FROM operation_task_status_value WHERE status = ?`, taskUUID, s.state.clock.Now(), status)
 	afterCount := s.getRowCount(c, "operation_task_status")
-	c.Assert(afterCount, tc.Equals, beforCount+1, tc.Commentf("status %q is not valid, is any of %v", status,
+	c.Assert(afterCount, tc.Equals, beforeCount+1, tc.Commentf("status %q is not valid, is any of %v", status,
 		s.selectDistinctValues(c, "status", "operation_task_status_value")))
 }
 

@@ -15,8 +15,14 @@ import (
 )
 
 // StartTask marks a task as running and logs the time it was started.
-func (s *Service) StartTask(ctx context.Context, id string) error {
-	return coreerrors.NotImplemented
+func (s *Service) StartTask(ctx context.Context, taskID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", taskID),
+		))
+	defer span.End()
+
+	return s.st.StartTask(ctx, taskID)
 }
 
 // FinishTask saves the result of a completed task.
@@ -32,7 +38,8 @@ func (s *Service) ReceiverFromTask(ctx context.Context, id string) (string, erro
 
 // GetPendingTaskByTaskID return a struct containing the data required to
 // run a task. The task must have a status of pending.
-// Returns TaskNotPending if the task exists but does not have
+// The following errors may be returned:
+// - [operationerrors.TaskNotPending] if the task exists but does not have
 // a pending status.
 func (s *Service) GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error) {
 	return operation.TaskArgs{}, coreerrors.NotImplemented

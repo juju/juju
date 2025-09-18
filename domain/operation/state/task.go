@@ -47,6 +47,97 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 	return result, outputPath, nil
 }
 
+// StartTask sets the task start time and updates the status to running.
+// Returns [operationerrors.TaskNotFound] if the task does not exist,
+// and [operationerrors.TaskNotPending] if the task is not pending.
+func (s *State) StartTask(ctx context.Context, taskID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	updateStartedAt := taskTime{
+		TaskID: taskID,
+		Time:   time.Now().UTC(),
+	}
+	updateStartedStmt, err := s.Prepare(`
+UPDATE operation_task
+SET    started_at = $taskTime.time
+WHERE  task_id = $taskTime.task_id
+`, updateStartedAt)
+	if err != nil {
+		return errors.Errorf("preparing status update started at for task ID %q: %w", taskID, err)
+	}
+
+	task := taskIdent{ID: taskID}
+	updateStatus := taskStatus{
+		Status:    corestatus.Running.String(),
+		UpdatedAt: updateStartedAt.Time,
+	}
+	type status struct {
+		Status string `db:"status"`
+	}
+	startingStatus := status{Status: corestatus.Pending.String()}
+
+	updateStatusStmt, err := s.Prepare(`
+UPDATE operation_task_status
+SET    status_id = (
+           SELECT id FROM operation_task_status_value WHERE status = $taskStatus.status
+       ), 
+       updated_at = $taskStatus.updated_at
+WHERE  task_uuid = (
+           SELECT uuid FROM operation_task WHERE task_id = $taskIdent.task_id
+       )
+AND    status_id = (
+           SELECT id FROM operation_task_status_value WHERE status = $status.status
+       )
+`, task, updateStatus, startingStatus)
+	if err != nil {
+		return errors.Errorf("preparing status update statement for task ID %q: %w", taskID, err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+
+		err = tx.Query(ctx, updateStartedStmt, updateStartedAt).Get(&outcome)
+		if err != nil {
+			return errors.Errorf("updating start time of task ID %q: %w", taskID, err)
+		}
+		if err = verifyOneOutcome(outcome, operationerrors.TaskNotFound); err != nil {
+			return errors.Errorf("task %q: %w", taskID, err)
+		}
+
+		outcome = sqlair.Outcome{}
+		err = tx.Query(ctx, updateStatusStmt, task, updateStatus, startingStatus).Get(&outcome)
+		if err != nil {
+			return errors.Errorf("updating status of task ID %q: %w", taskID, err)
+		}
+		if err = verifyOneOutcome(outcome, operationerrors.TaskNotPending); err != nil {
+			return errors.Errorf("task %q: %w", taskID, err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Errorf("starting task %q: %w", taskID, err)
+	}
+
+	return nil
+}
+
+// verifyOneOutcome returns the provided error if the outcome's
+// rows affected is not 1.
+func verifyOneOutcome(outcome sqlair.Outcome, returnError error) error {
+	n, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if n == 0 {
+		return returnError
+	}
+	return nil
+}
+
 // CancelTask attempts to cancel an enqueued task, identified by its
 // ID.
 //

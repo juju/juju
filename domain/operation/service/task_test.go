@@ -127,3 +127,31 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	c.Check(task.Output["result"], tc.Equals, "success")
 	c.Check(task.Output["message"], tc.Equals, "Task completed successfully")
 }
+
+func (s *serviceSuite) TestStartTaskSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	s.state.EXPECT().StartTask(gomock.Any(), taskID).Return(nil)
+
+	// Act
+	err := s.service().StartTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *serviceSuite) TestStartTaskSuccessFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	s.state.EXPECT().StartTask(gomock.Any(), taskID).Return(errors.New("task start fail"))
+
+	// Act
+	err := s.service().StartTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `task start fail`)
+}

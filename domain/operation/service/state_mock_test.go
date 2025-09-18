@@ -632,6 +632,44 @@ func (c *MockStatePruneOperationsCall) DoAndReturn(f func(context.Context, time.
 	return c
 }
 
+// StartTask mocks base method.
+func (m *MockState) StartTask(ctx context.Context, taskID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartTask", ctx, taskID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartTask indicates an expected call of StartTask.
+func (mr *MockStateMockRecorder) StartTask(ctx, taskID any) *MockStateStartTaskCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartTask", reflect.TypeOf((*MockState)(nil).StartTask), ctx, taskID)
+	return &MockStateStartTaskCall{Call: call}
+}
+
+// MockStateStartTaskCall wrap *gomock.Call
+type MockStateStartTaskCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateStartTaskCall) Return(arg0 error) *MockStateStartTaskCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateStartTaskCall) Do(f func(context.Context, string) error) *MockStateStartTaskCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateStartTaskCall) DoAndReturn(f func(context.Context, string) error) *MockStateStartTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller
