@@ -69,3 +69,9 @@ type nameArg struct {
 type path struct {
 	Path string `db:"path"`
 }
+
+// taskTime maps a task ID and time together
+type taskTime struct {
+	TaskID string    `db:"task_id"`
+	Time   time.Time `db:"time"`
+}

@@ -84,6 +84,12 @@ type State interface {
 	// query function which returns the list of task ids for the given machine.
 	InitialWatchStatementMachineTask() (string, string)
 
+	// StartTask sets the task start time and updates the status to running.
+	// The following errors may be returned:
+	// - [operationerrors.TaskNotFound] if the task does not exist.
+	// - [operationerrors.TaskNotPending] if the task is not pending.
+	StartTask(ctx context.Context, taskID string) error
+
 	// NamespaceForTaskAbortingWatcher returns the name space to be used
 	// for the TaskAbortingWatcher.
 	NamespaceForTaskAbortingWatcher() string
