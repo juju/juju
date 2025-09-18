@@ -574,8 +574,12 @@ func (s *unitStateSuite) TestAddIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
 	now := ptr(time.Now())
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusExecuting,
@@ -628,6 +632,7 @@ func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 	now := ptr(time.Now())
 	u := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusExecuting,

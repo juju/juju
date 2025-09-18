@@ -64,6 +64,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	now := ptr(s.clock.Now())
 	us := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,
@@ -1357,6 +1358,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,
@@ -1518,6 +1520,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,
@@ -1682,6 +1685,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c 
 	now := ptr(s.clock.Now())
 	us := []application.AddIAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,

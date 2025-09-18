@@ -20,6 +20,7 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
@@ -346,8 +348,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 			Channel: channel,
 		},
 	}
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	us := []application.AddIAASUnitArg{{
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		MachineNetNodeUUID: machineNetNodeUUID,
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: machineNetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusExecuting,

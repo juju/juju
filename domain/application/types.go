@@ -236,6 +236,7 @@ type RegisterCAASUnitArg struct {
 	ProviderID   string
 	Address      *string
 	Ports        *[]string
+	NetNodeUUID  domainnetwork.NetNodeUUID
 	OrderedScale bool
 	OrderedId    int
 

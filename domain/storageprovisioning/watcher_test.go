@@ -644,7 +644,6 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
-	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 
 	watcher, err := svc.WatchStorageAttachmentsForUnit(
 		c.Context(), unitUUID,
@@ -653,9 +652,9 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	storageInstanceUUID1, storageID1 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-	storageInstanceUUID2, storageID2 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
-	storageInstanceUUID3, storageID3 := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID1, storageID1 := s.newStorageInstance(c)
+	storageInstanceUUID2, storageID2 := s.newStorageInstance(c)
+	storageInstanceUUID3, storageID3 := s.newStorageInstance(c)
 	harness.AddTest(c, func(c *tc.C) {
 		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
 		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)
@@ -702,8 +701,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentForVolume(c *tc.C) {
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
-	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID, _ := s.newStorageInstance(c)
 	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
 	volumeUUID, _ := s.newMachineVolume(c)
 
@@ -795,8 +793,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentForFilesystem(c *tc.C) {
 
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, netNodeUUID := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
-	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceWithCharmUUID(c, charmUUID, poolUUID)
+	storageInstanceUUID, _ := s.newStorageInstance(c)
 	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
 	fsUUID, _ := s.newMachineFilesystem(c)
 
@@ -1694,9 +1691,9 @@ VALUES (?, ?, ?)`, spUUID.String(), k, v)
 	return spUUID.String()
 }
 
-func (s *watcherSuite) newStorageInstanceWithCharmUUID(
-	c *tc.C, charmUUID, poolUUID string,
-) (domainstorage.StorageInstanceUUID, string) {
+func (s *watcherSuite) newStorageInstance(c *tc.C) (
+	domainstorage.StorageInstanceUUID, string,
+) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	seq := s.nextStorageSequenceNumber(c)
 	storageName := fmt.Sprintf("mystorage-%d", seq)
@@ -1720,8 +1717,10 @@ VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)`,
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             storage_kind_id, life_id, requested_size_mib,
+                             storage_pool_uuid)
+VALUES (?, ?, ?, ?, 1, 0, 100, ?)`,
 			storageInstanceUUID.String(),
 			charmName,
 			storageName,
@@ -1731,6 +1730,7 @@ VALUES (?, ?, ?, ?, 0, 100, ?)`,
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
 	return storageInstanceUUID, storageID
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
@@ -149,7 +150,10 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+		MachineNetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
+		MachineUUID:        tc.Must(c, machine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
 				Directive: machineName.String(),

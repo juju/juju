@@ -645,12 +645,13 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
+	netNodeUUID := tc.Must(c, network.NewNetNodeUUID)
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
-			NetNodeUUID: tc.Must(c, network.NewNetNodeUUID),
+			NetNodeUUID: netNodeUUID,
 		},
 		Nonce:              ptr("foo"),
-		MachineNetNodeUUID: tc.Must(c, network.NewNetNodeUUID),
+		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        machinetesting.GenUUID(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)

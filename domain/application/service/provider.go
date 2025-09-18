@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
@@ -467,9 +468,15 @@ func (s *ProviderService) RegisterCAASUnit(
 	if err != nil {
 		return "", "", errors.Errorf("generating unit password: %w", err)
 	}
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	if err != nil {
+		return "", "", errors.Errorf("generating net node uuid: %w", err)
+	}
+
 	registerArgs := application.RegisterCAASUnitArg{
 		ProviderID:   params.ProviderID,
 		PasswordHash: password.AgentPasswordHash(pass),
+		NetNodeUUID:  netNodeUUID,
 	}
 
 	// We don't support anything other that statefulsets.

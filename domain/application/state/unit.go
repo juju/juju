@@ -1186,6 +1186,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.RegisterUnitStorageArg.CreateUnitStorageArg,
+			NetNodeUUID:          arg.NetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,

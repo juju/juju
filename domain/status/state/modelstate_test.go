@@ -1349,8 +1349,12 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	now := time.Now()
 
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusIdle,
@@ -1367,8 +1371,12 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusError,
@@ -1475,9 +1483,20 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) {
 	now := time.Now()
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	netNodeUUID3 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+	}
+	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+	}
 	u3 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID3,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -1968,8 +1987,8 @@ func (s *modelStateSuite) TestGetMachineStatusSuccess(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
 UPDATE machine_status
-SET status_id='1', 
-	message='started', 
+SET status_id='1',
+	message='started',
 	updated_at='2024-07-12 12:00:00'
 WHERE machine_uuid=?`, mUUID)
 		return err
@@ -1996,8 +2015,8 @@ func (s *modelStateSuite) TestGetMachineStatusSuccessWithData(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
 UPDATE machine_status
-SET status_id='1', 
-	message='started', 
+SET status_id='1',
+	message='started',
 	data='{"key":"data"}',
 	updated_at='2024-07-12 12:00:00'
 WHERE machine_uuid=?`, mUUID)
@@ -2328,8 +2347,8 @@ func (s *modelStateSuite) TestGetInstanceStatusSuccess(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
 UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
+SET status_id='3',
+	message='running',
 	updated_at='2024-07-12 12:00:00'
 WHERE machine_uuid=?`, machineUUID)
 		return err
@@ -2357,8 +2376,8 @@ func (s *modelStateSuite) TestGetInstanceStatusSuccessWithData(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
 UPDATE machine_cloud_instance_status
-SET status_id='3', 
-	message='running', 
+SET status_id='3',
+	message='running',
 	data='{"key": "data"}',
 	updated_at='2024-07-12 12:00:00'
 WHERE machine_uuid=?`, machineUUID)

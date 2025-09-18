@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -156,15 +157,25 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that we place the unit on the same machine as the net node.
-	var machineName machine.Name
+	var (
+		machineName machine.Name
+		machineUUID string
+	)
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM machine WHERE net_node_uuid = ?", netNodeUUID).Scan(&machineName)
+		err := tx.QueryRowContext(
+			ctx,
+			"SELECT uuid, name FROM machine WHERE net_node_uuid = ?",
+			netNodeUUID,
+		).Scan(&machineUUID, &machineName)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+		MachineNetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
+		MachineUUID:        machine.UUID(machineUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
 				Directive: machineName.String(),

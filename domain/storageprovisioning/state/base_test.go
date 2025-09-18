@@ -274,8 +274,10 @@ func (s *baseSuite) newStorageInstanceForCharmWithPool(
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             life_id, requested_size_mib, storage_pool_uuid,
+                             storage_kind_id)
+VALUES (?, ?, ?, ?, 0, 100, ?, 1)
 `,
 		storageInstanceUUID.String(),
 		charmName,
