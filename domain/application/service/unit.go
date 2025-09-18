@@ -218,18 +218,20 @@ func (s *ProviderService) makeIAASUnitArgs(
 		// If the placement of the unit is on to an already established machine
 		// we need to resolve this to a machine uuid and netnode uuid.
 		if placement.Type == deployment.PlacementTypeMachine {
-			var err error
-			machineUUID, machineNetNodeUUID, err =
-				s.st.GetMachineUUIDAndNetNodeForName(
-					ctx, placement.Directive,
-				)
+			mUUID, mNNUUID, err := s.st.GetMachineUUIDAndNetNodeForName(
+				ctx, placement.Directive,
+			)
 			if err != nil {
 				return nil, errors.Errorf(
 					"getting machine %q for unit placement directive: %w",
 					placement.Directive, err,
 				)
 			}
+			machineUUID = mUUID
+			machineNetNodeUUID = mNNUUID
 		} else {
+			// If the placement is not on to an already established machine we need
+			// to generate a new machine uuid and netnode uuid for the unit.
 			var err error
 			machineUUID, err = coremachine.NewUUID()
 			if err != nil {
@@ -381,6 +383,11 @@ func (s *Service) AddIAASSubordinateUnit(
 		return errors.Errorf(
 			"principal unit for name %q does not exist", principalUnitName,
 		).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting principal unit %q uuid and netnode: %w",
+			principalUnitName, err,
+		)
 	}
 
 	statusArg := s.makeIAASUnitStatusArgs()

@@ -208,9 +208,9 @@ type AddIAASUnitArg struct {
 	AddUnitArg
 	Platform deployment.Platform
 
-	// MachineNetNodeUUID either represents the new net uuid to give a machine
-	// that is created by this struct or if the placement is onto an existing
-	// machine the existing netnode uuid of the machine.
+	// MachineNetNodeUUID either represents the new netnode uuid to give a
+	// machine that is created by this struct or if the placement is onto an
+	// existing machine the existing netnode uuid of the machine.
 	MachineNetNodeUUID domainnetwork.NetNodeUUID
 
 	// MachineUUID either represents the new machine uuid to give a machine that

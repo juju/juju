@@ -430,8 +430,8 @@ func (s *unitServiceSuite) TestAddIAASSubordinateUnit(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(recievedSubordinateArg.SubordinateAppID, tc.Equals, appID)
 	c.Check(recievedSubordinateArg.PrincipalUnitUUID, tc.Equals, principalUnitUUID)
-	// This is important as the subordinate unit must use the the same net node
-	// uuid of the principal.
+	// This is important as the subordinate unit must use the same net node uuid
+	// of the principal.
 	c.Check(recievedSubordinateArg.NetNodeUUID, tc.Equals, principalNetNodeUUID)
 }
 

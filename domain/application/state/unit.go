@@ -507,7 +507,8 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 // The following errors may be expected:
 // - [applicationerrors.UnitNotFound] when the unit identified by the uuid no
 // longer exists.
-// - [machineerrors.MachineNotFound] when the unit is not assigned to a machine.
+// - [applicationerrors.UnitMachineNotAssigned] when the unit is not assigned to
+// a machine.
 func (st *State) getUnitMachineIdentifiers(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
 ) (internalapplication.MachineIdentifiers, error) {
@@ -547,7 +548,7 @@ WHERE  u.uuid = $entityUUID.uuid
 		// provide a more helpful error message than sql error no rows.
 		return internalapplication.MachineIdentifiers{}, errors.Errorf(
 			"unit %q is not assigned to a machine in the model", unitUUID,
-		).Add(machineerrors.MachineNotFound)
+		).Add(applicationerrors.UnitMachineNotAssigned)
 	} else if err != nil {
 		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
 	}
