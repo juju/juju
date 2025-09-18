@@ -505,7 +505,7 @@ func (s *stateSuite) TestGetStorageAttachmentInfo(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	s.newStorageOwner(c, storageInstanceUUID, unitUUID)
 
 	expectedOwner := unit.Name("foo/0")

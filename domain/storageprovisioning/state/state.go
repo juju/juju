@@ -454,6 +454,31 @@ func (st *State) checkApplicationExists(
 	return true, nil
 }
 
+func (st *State) checkStorageAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	input := storageAttachmentUUID{UUID: uuid}
+
+	checkStmt, err := st.Prepare(`
+SELECT &storageAttachmentUUID.*
+FROM   storage_attachment
+WHERE  uuid = $storageAttachmentUUID.uuid`, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 //
 // The following errors may be returned:

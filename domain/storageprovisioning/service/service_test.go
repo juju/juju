@@ -399,10 +399,11 @@ func (s *serviceSuite) TestWatchStorageAttachment(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetStorageAttachmentInfo(c *tc.C) {
+func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForVolume(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
 	owner := unittesting.GenNewName(c, "foo/0")
 	info := storageprovisioning.StorageAttachmentInfo{
 		StorageAttachmentUUID: storageAttachmentUUID.String(),
@@ -411,27 +412,92 @@ func (s *serviceSuite) TestGetStorageAttachmentInfo(c *tc.C) {
 		Life:                  domainlife.Alive,
 	}
 
-	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).Return(
-		info, nil,
-	)
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).
+		Return(info, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		gomock.Any(), storageAttachmentUUID.String(),
+	).Return(volumeAttachmentUUID.String(), nil)
+	s.state.EXPECT().GetVolumeAttachmentInfo(gomock.Any(), volumeAttachmentUUID.String()).
+		Return(storageprovisioning.VolumeAttachmentInfo{
+			HardwareID:      "hwid",
+			WWN:             "wwn",
+			BlockDeviceName: "sda",
+			BlockDeviceLink: "by-id/xyz",
+		}, nil)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	result, err := svc.GetStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	result, err := svc.GetUnitStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.Equals, info)
+	c.Assert(result, tc.Equals, storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: storageAttachmentUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+		Location:              "/dev/disk/by-id/wwn-wwn",
+	})
 }
 
-func (s *serviceSuite) TestGetStorageAttachmentInfoWithStorageAttachmentNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForVolumeWithStorageAttachmentNotProvisioned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	volumeAttachmentUUID := storageprovisioningtesting.GenVolumeAttachmentUUID(c)
+	owner := unittesting.GenNewName(c, "foo/0")
+	info := storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: storageAttachmentUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindBlock,
+		Life:                  domainlife.Alive,
+	}
 
-	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).Return(
-		storageprovisioning.StorageAttachmentInfo{},
-		storageprovisioningerrors.StorageAttachmentNotFound,
-	)
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).
+		Return(info, nil)
+	s.state.EXPECT().GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		gomock.Any(), storageAttachmentUUID.String(),
+	).Return(volumeAttachmentUUID.String(), nil)
+	s.state.EXPECT().GetVolumeAttachmentInfo(gomock.Any(), volumeAttachmentUUID.String()).
+		Return(storageprovisioning.VolumeAttachmentInfo{
+			HardwareID:      "hwid",
+			WWN:             "wwn",
+			BlockDeviceName: "", // Not yet provisioned.
+		}, nil)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	_, err := svc.GetStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
-	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+	_, err := svc.GetUnitStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotProvisioned)
+}
+
+func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForFilesystem(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	owner := unittesting.GenNewName(c, "foo/0")
+	info := storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: storageAttachmentUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindFilesystem,
+		Life:                  domainlife.Alive,
+	}
+
+	s.state.EXPECT().GetStorageAttachmentInfo(gomock.Any(), storageAttachmentUUID.String()).
+		Return(info, nil)
+	s.state.EXPECT().GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+		gomock.Any(), storageAttachmentUUID.String(),
+	).Return(filesystemAttachmentUUID.String(), nil)
+	s.state.EXPECT().GetFilesystemAttachment(gomock.Any(), filesystemAttachmentUUID).
+		Return(storageprovisioning.FilesystemAttachment{
+			MountPoint: "/mnt/data",
+		}, nil)
+
+	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	result, err := svc.GetUnitStorageAttachmentInfo(c.Context(), storageAttachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: storageAttachmentUUID.String(),
+		Owner:                 &owner,
+		Kind:                  domainstorage.StorageKindFilesystem,
+		Life:                  domainlife.Alive,
+		Location:              "/mnt/data",
+	})
 }
