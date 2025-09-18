@@ -81,7 +81,7 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidCharmName(args.Name) {
+	if !application.IsValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
 
@@ -110,7 +110,7 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return nil, charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -182,7 +182,7 @@ func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string)
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -201,7 +201,7 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -224,7 +224,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return nil, application.ApplicationSettings{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -255,7 +255,7 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return coreconstraints.Value{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -289,7 +289,7 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
 	}
 
