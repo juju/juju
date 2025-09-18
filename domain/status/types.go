@@ -76,7 +76,6 @@ type StorageInstance struct {
 	UUID  storage.StorageInstanceUUID
 	ID    string
 	Owner *unit.Name
-	Kind  storage.StorageKind
 	Life  life.Life
 }
 

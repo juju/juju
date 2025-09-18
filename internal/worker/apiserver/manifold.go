@@ -244,6 +244,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	macaroonHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.MacaroonPurpose)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	var dbGetter changestream.WatchableDBGetter
 	if err := getter.Get(config.ChangeStreamName, &dbGetter); err != nil {
@@ -316,6 +320,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		EmbeddedCommand:                   execEmbeddedCommand,
 		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
+		MacaroonHTTPClient:                macaroonHTTPClient,
 		DBGetter:                          dbGetter,
 		DBDeleter:                         dbDeleter,
 		DomainServicesGetter:              domainServicesGetter,

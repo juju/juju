@@ -32,10 +32,6 @@ type count struct {
 	Count int `db:"count"`
 }
 
-type modelInfo struct {
-	ModelType string `db:"type"`
-}
-
 type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
@@ -903,16 +899,11 @@ type spaceUUID struct {
 type storageInstance struct {
 	StorageUUID      domainstorage.StorageInstanceUUID `db:"uuid"`
 	StorageID        corestorage.ID                    `db:"storage_id"`
-	CharmUUID        corecharm.ID                      `db:"charm_uuid"`
+	CharmName        string                            `db:"charm_name"`
 	StorageName      corestorage.Name                  `db:"storage_name"`
 	LifeID           life.Life                         `db:"life_id"`
 	StoragePoolUUID  string                            `db:"storage_pool_uuid"`
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
-}
-
-type storageUnit struct {
-	StorageUUID domainstorage.StorageInstanceUUID `db:"storage_instance_uuid"`
-	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
 }
 
 type unitCharmStorage struct {
@@ -925,40 +916,6 @@ type storageCount struct {
 	StorageName corestorage.Name                  `db:"storage_name"`
 	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
 	Count       uint64                            `db:"count"`
-}
-
-type storageAttachment struct {
-	StorageUUID domainstorage.StorageInstanceUUID `db:"storage_instance_uuid"`
-	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
-	LifeID      life.Life                         `db:"life_id"`
-	UUID        string                            `db:"uuid"`
-}
-
-type filesystemUUID struct {
-	UUID       string  `db:"uuid"`
-	AttachedTo *string `db:"net_node_uuid"`
-}
-
-type volumeUUID struct {
-	UUID       string  `db:"uuid"`
-	AttachedTo *string `db:"net_node_uuid"`
-}
-
-type filesystemAttachment struct {
-	UUID           string    `db:"uuid"`
-	NetNodeUUID    string    `db:"net_node_uuid"`
-	FilesystemUUID string    `db:"storage_filesystem_uuid"`
-	LifeID         life.Life `db:"life_id"`
-	MountPoint     string    `db:"mount_point"`
-	ReadOnly       bool      `db:"read_only"`
-}
-
-type volumeAttachment struct {
-	UUID        string    `db:"uuid"`
-	NetNodeUUID string    `db:"net_node_uuid"`
-	VolumeUUID  string    `db:"storage_volume_uuid"`
-	LifeID      life.Life `db:"life_id"`
-	ReadOnly    bool      `db:"read_only"`
 }
 
 type setUnitConstraint struct {

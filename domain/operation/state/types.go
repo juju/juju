@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// uuids represents a slice of UUIDs.
+type uuids []string
+
 // taskResult represents the result of joining operation with its tasks and
 // receivers.
 type taskResult struct {
@@ -55,4 +58,14 @@ type taskIdent struct {
 type taskStatus struct {
 	Status    string    `db:"status"`
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+type nameArg struct {
+	Name string `db:"name"`
+}
+
+// path represents a path parameter for queries on the
+// object_store_metadata_path table.
+type path struct {
+	Path string `db:"path"`
 }

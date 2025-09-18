@@ -16,7 +16,7 @@ import (
 // Unit holds the values for the hook context.
 type Unit struct {
 	Name           string
-	ConfigSettings charm.Settings
+	ConfigSettings charm.Config
 	GoalState      application.GoalState
 	K8sSpec        string
 	RawK8sSpec     string
@@ -38,7 +38,7 @@ func (c *ContextUnit) UnitName() string {
 }
 
 // ConfigSettings implements jujuc.ContextUnit.
-func (c *ContextUnit) ConfigSettings(context.Context) (charm.Settings, error) {
+func (c *ContextUnit) ConfigSettings(context.Context) (charm.Config, error) {
 	c.stub.AddCall("ConfigSettings")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

@@ -40,6 +40,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
@@ -986,10 +987,6 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 // Unit.WatchActionNotifications(). This method is called from
 // api/uniter/uniter.go WatchActionNotifications().
 func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	// TODO (stickupkid): The actions watcher shouldn't cause the uniter to
-	// start up, but here we are.
-	// This is will need to fixed when actions are moved to dqlite.
-
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringsWatchResults{}, err
@@ -1015,7 +1012,7 @@ func (u *UniterAPI) WatchActionNotifications(ctx context.Context, args params.En
 			continue
 		}
 
-		w, err := u.applicationService.WatchUnitActions(ctx, unitName)
+		w, err := u.operationService.WatchUnitTaskNotifications(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(
 				errors.NotFoundf("unit %s", unitName),
@@ -1187,12 +1184,38 @@ func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (par
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.ActionResults, error) {
-	_, err := u.accessUnit(ctx)
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ActionResults{}, err
 	}
 
-	return params.ActionResults{}, nil
+	results := params.ActionResults{
+		Results: make([]params.ActionResult, len(args.Entities)),
+	}
+
+	for i, arg := range args.Entities {
+		actionID, err := u.authTaskID(ctx, canAccess, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		action, err := u.operationService.GetPendingTaskByTaskID(ctx, actionID)
+		if errors.Is(err, operationerrors.TaskNotPending) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Action = &params.Action{
+			Name:           action.ActionName,
+			Parameters:     action.Parameters,
+			Parallel:       ptr(action.IsParallel),
+			ExecutionGroup: nilZeroPtr(action.ExecutionGroup),
+		}
+	}
+	return results, nil
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
@@ -3198,5 +3221,13 @@ func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
 func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
 
 func ptr[T any](v T) *T {
+	return &v
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
 	return &v
 }

@@ -261,7 +261,7 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 
 	validateErr := st.validateUnitsInSpaces(ctx, tx, appID, slices.Collect(maps.Values(spacesToUUIDs)))
 	if !force && validateErr != nil {
-		return errors.Capture(err)
+		return errors.Capture(validateErr)
 	} else if force && validateErr != nil {
 		st.logger.Infof(ctx, "binding validation ignored due to force: %w", validateErr)
 	}
@@ -281,7 +281,6 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 	}
 
 	return nil
-
 }
 
 // insertApplicationEndpointsParams contains parameters required to insert

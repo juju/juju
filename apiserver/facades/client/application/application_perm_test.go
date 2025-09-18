@@ -8,9 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -80,11 +82,12 @@ func (s *permBaseSuite) TestSetCharmBlocked(c *tc.C) {
 
 	s.expectAuthClient()
 	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{})
-	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorMatches, "blocked")
 }
 
 func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
@@ -103,14 +106,18 @@ func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *tc.C) {
 
 	// The validation error is returned if the charm origin is empty.
 
-	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 }
 
 func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient()
+	s.expectAnyChangeOrRemoval()
 	s.expectHasWritePermission()
+
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(applicationerrors.ApplicationNotFound)
 
 	s.newAPI(c)
 
@@ -119,12 +126,13 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
+		CharmURL:        "local:foo-42",
 		CharmOrigin: &params.CharmOrigin{
 			Source: "local",
 		},
 	})
 
-	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
 func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *tc.C) {

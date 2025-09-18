@@ -85,6 +85,16 @@ func customModelTriggers() []func() schema.Patch {
 		storageAttachmentRelatedEntitiesTrigger(
 			customNamespaceStorageAttachmentRelatedEntities,
 		),
+
+		// Setup trigger for operation task status changes to PENDING.
+		operationTaskStatusPendingTrigger(
+			customNamespaceOperatingTaskStatusPending,
+		),
+		// Setup trigger for operation task status changes to PENDING or
+		// ABORTING.
+		operationTaskStatusPendingOrAbortingTrigger(
+			customNamespaceOperatingTaskStatusPendingOrAborting,
+		),
 	}
 }
 
@@ -465,5 +475,85 @@ BEGIN
 	WHERE sva.block_device_uuid = OLD.block_device_uuid;
 END;
 `[1:], namespace)
+	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+// operationTaskStatusPendingTrigger creates a trigger for operation task's
+// status values inserted (in PENDING state) and changing to PENDING.
+// NOTE: Our (current) implementation does not allow moving a task (back) to
+// the PENDING state, so one could deduct that this trigger is equivalent to
+// a trigger on the operation_task table for INSERTs. However, having this
+// trigger is more explicit with respect to what the watcher is actually
+// emitting.
+func operationTaskStatusPendingTrigger(namespace int) func() schema.Patch {
+	stmt := fmt.Sprintf(`
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_operation_task_status_pending',
+        'Operation task status changes to PENDING');
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_insert
+AFTER INSERT ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid 
+    AND otsv.status = 'pending';
+END;
+        
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_update
+AFTER UPDATE ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid 
+    AND otsv.status = 'pending';
+END;
+`,
+		namespace)
+	return func() schema.Patch { return schema.MakePatch(stmt) }
+}
+
+// operationTaskStatusPendingOrAbortingTrigger creates a trigger for operation
+// task's status values inserted (in PENDING state) and  changing to PENDING
+// or ABORTING.
+func operationTaskStatusPendingOrAbortingTrigger(namespace int) func() schema.Patch {
+	stmt := fmt.Sprintf(`
+INSERT INTO change_log_namespace
+VALUES (%[1]d,
+        'custom_operation_task_status_pending_or_aborting',
+        'Operation task status changes to PENDING or ABORTING');
+        
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_insert
+AFTER INSERT ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, %[1]d, ots.task_uuid, DATETIME('now')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid 
+    AND (
+        otsv.status = 'aborting'
+        OR otsv.status = 'pending');
+END;
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_update
+AFTER UPDATE ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, %[1]d, ots.task_uuid, DATETIME('now')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid 
+    AND (
+        otsv.status = 'aborting'
+        OR otsv.status = 'pending');
+END;
+`,
+		namespace)
 	return func() schema.Patch { return schema.MakePatch(stmt) }
 }

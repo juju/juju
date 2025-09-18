@@ -190,9 +190,9 @@ type machinePlatformUUID struct {
 	ArchitectureID int              `db:"architecture_id"`
 }
 
-type machineNameWithNetNodeUUID struct {
-	Name        machine.Name `db:"name"`
-	NetNodeUUID string       `db:"net_node_uuid"`
+type machineUUIDAndNetNodeUUID struct {
+	MachineUUID string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
 }
 
 type machineNameWithMachineUUID struct {

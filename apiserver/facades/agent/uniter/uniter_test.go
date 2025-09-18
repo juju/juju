@@ -38,6 +38,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -1183,6 +1184,69 @@ func (s *uniterSuite) TestFinishActions(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+}
+
+func (s *uniterSuite) TestActions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+
+	tagOne := names.NewActionTag("42")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return("bar/0", nil)
+	taskOne := operation.TaskArgs{
+		ActionName: "one",
+		Parameters: map[string]interface{}{"foo": "bar"},
+	}
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(taskOne, nil)
+
+	tagTwo := names.NewActionTag("47")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagTwo.Id()).Return("bar/0", nil)
+	taskTwo := operation.TaskArgs{
+		ActionName: "two",
+		Parameters: map[string]interface{}{"baz": "bar"},
+	}
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagTwo.Id()).Return(taskTwo, nil)
+
+	// Act
+	results, err := s.uniter.Actions(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: tagOne.String()},
+		{Tag: tagTwo.String()},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Check(results.Results[0].Action, tc.DeepEquals, &params.Action{
+		Name:       "one",
+		Parameters: map[string]interface{}{"foo": "bar"},
+	})
+	c.Check(results.Results[1].Action, tc.DeepEquals, &params.Action{
+		Name:       "two",
+		Parameters: map[string]interface{}{"baz": "bar"},
+	})
+}
+
+func (s *uniterSuite) TestActionsTaskNotPending(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+
+	tagOne := names.NewActionTag("42")
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return("bar/0", nil)
+
+	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(operation.TaskArgs{}, operationerrors.TaskNotPending)
+
+	// Act
+	results, err := s.uniter.Actions(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: tagOne.String()},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "action no longer available")
 }
 
 func (s *uniterSuite) TestAuthTaskID(c *tc.C) {

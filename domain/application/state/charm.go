@@ -382,40 +382,58 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 }
 
 // GetCharmMetadataName returns the name from the metadata for the charm using
-// the charm ID. If the charm does not exist, a [errors.CharmNotFound] error is
-// returned.
-func (s *State) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
+// the charm UUID.
+//
+// The following errors may be expected:
+// - [errors.CharmNotFound] when the the charm does not exist
+func (s *State) GetCharmMetadataName(ctx context.Context, uuid corecharm.ID) (string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id}
+	var name string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		name, err = s.getCharmMetadataName(ctx, tx, uuid)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return name, nil
+}
+
+// getCharmMetadataName returns the name from the metadata for the charm using
+// the charm UUID.
+//
+// The following errors may be expected:
+// - [errors.CharmNotFound] when the the charm does not exist
+func (s *State) getCharmMetadataName(
+	ctx context.Context, tx *sqlair.TX, uuid corecharm.ID,
+) (string, error) {
+	ident := entityUUID{UUID: uuid.String()}
 
 	query := `
-SELECT name AS &charmMetadata.name
-FROM v_charm_metadata
-WHERE uuid = $charmID.uuid;`
+SELECT &charmName.*
+FROM   charm_metadata
+WHERE  charm_uuid = $entityUUID.uuid;`
 
-	var metadata charmMetadata
-	stmt, err := s.Prepare(query, metadata, ident)
+	var dbVal charmName
+	stmt, err := s.Prepare(query, dbVal, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing query: %w", err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return errors.Errorf("selecting charm metadata: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return "", errors.Errorf("getting charm metadata: %w", err)
+	err = tx.Query(ctx, stmt, ident).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.CharmNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
 	}
 
-	return metadata.Name, nil
+	return dbVal.Name, nil
 }
 
 // GetCharmMetadataDescription returns the description for the metadata for the
@@ -621,9 +639,9 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 	return ch, di, nil
 }
 
-// SetCharm persists the charm metadata, actions, config and manifest to
+// AddCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
+func (s *State) AddCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
 	// This check is defensive, as the service layer should not allow this to
 	// happen, but it causes confusion if it does happen.
 	if ch.Revision >= 0 && requiresSequencing {
@@ -672,7 +690,7 @@ WHERE uuid = $charmID.uuid;
 			ch.Revision = int(rev)
 		}
 
-		if err := s.setCharm(ctx, tx, id, ch, downloadInfo); err != nil {
+		if err := s.addCharm(ctx, tx, id, ch, downloadInfo); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -946,7 +964,7 @@ WHERE uuid = $charmID.uuid;
 		}
 
 		// Insert the charm download info.
-		if err := s.setCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
+		if err := s.addCharmDownloadInfo(ctx, tx, id, info.DownloadInfo); err != nil {
 			return errors.Errorf("setting charm download info: %w", err)
 		}
 

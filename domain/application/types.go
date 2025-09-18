@@ -431,14 +431,9 @@ type InsertApplicationArgs struct {
 	PeerRelations map[string]int
 }
 
-// UpdateCharmParams contains the parameters for updating
+// SetCharmParams contains the parameters for updating
 // an application's charm and storage.
-type UpdateCharmParams struct {
-	// Charm is the new charm to use for the application. New units
-	// will be started with this charm, and existing units will be
-	// upgraded to use it.
-	Charm internalcharm.Charm
-
+type SetCharmParams struct {
 	// Storage contains the storage directives to add or update when
 	// upgrading the charm.
 	//

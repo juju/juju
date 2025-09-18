@@ -83,8 +83,10 @@ type StatusService interface {
 
 // BlockDeviceService instances can fetch block devices for a machine.
 type BlockDeviceService interface {
-	// BlockDevices returns the block devices for a machine.
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+	// BlockDevices returns the BlockDevices for the specified machine.
+	BlockDevices(
+		ctx context.Context, machineUUID machine.UUID,
+	) ([]blockdevice.BlockDevice, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

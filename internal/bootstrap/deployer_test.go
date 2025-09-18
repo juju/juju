@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -267,7 +266,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			},
 			CharmStoragePath:     "path",
 			CharmObjectStoreUUID: "1234",
-			ApplicationConfig: coreconfig.ConfigAttributes{
+			ApplicationConfig: charm.Config{
 				"is-juju":               true,
 				"identity-provider-url": "https://inferi.com",
 				"controller-url":        "wss://obscura.com:1234/api",

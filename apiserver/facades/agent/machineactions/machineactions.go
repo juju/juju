@@ -13,13 +13,23 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // OperationService provides access to operations and tasks.
 type OperationService interface {
+	// GetPendingTaskByTaskID return a struct containing the data required to
+	// run a task. The task must have a status of pending.
+	// Returns TaskNotPending if the task exists but does not have
+	// a pending status.
+	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
+
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
 
@@ -29,6 +39,12 @@ type OperationService interface {
 	// ReceiverFromTask return a receiver string for the task identified.
 	// The string should satisfy the ActionReceiverTag type.
 	ReceiverFromTask(ctx context.Context, id string) (string, error)
+
+	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
+	// ids for tasks targeted at the provided machine.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING only.
+	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
 }
 
 // Facade implements the machineactions interface and is the concrete
@@ -44,20 +60,48 @@ type Facade struct {
 func NewFacade(
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
+	operationService OperationService,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		watcherRegistry: watcherRegistry,
-		accessMachine:   authorizer.AuthOwner,
+		watcherRegistry:  watcherRegistry,
+		accessMachine:    authorizer.AuthOwner,
+		operationService: operationService,
 	}, nil
 }
 
 // Actions returns the Actions by Tags passed and ensures that the machine asking
-// for them is the machine that has the actions
+// for them is the machine that has the actions.
 func (f *Facade) Actions(ctx context.Context, args params.Entities) params.ActionResults {
-	return params.ActionResults{}
+	results := params.ActionResults{
+		Results: make([]params.ActionResult, len(args.Entities)),
+	}
+
+	for i, arg := range args.Entities {
+		taskID, err := f.authTaskID(ctx, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		task, err := f.operationService.GetPendingTaskByTaskID(ctx, taskID)
+		if errors.Is(err, operationerrors.TaskNotPending) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Action = &params.Action{
+			Name:           task.ActionName,
+			Parameters:     task.Parameters,
+			Parallel:       ptr(task.IsParallel),
+			ExecutionGroup: nilZeroPtr(task.ExecutionGroup),
+		}
+	}
+
+	return results
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
@@ -132,19 +176,36 @@ func (f *Facade) FinishActions(ctx context.Context, args params.ActionExecutionR
 func (f *Facade) WatchActionNotifications(ctx context.Context, args params.Entities) params.StringsWatchResults {
 	results := make([]params.StringsWatchResult, len(args.Entities))
 
-	for i := range args.Entities {
+	for i, entity := range args.Entities {
 		result := &results[i]
 
-		// We need a notify watcher for each item, otherwise during a migration
-		// a 3.x agent will bounce and will not be able to continue. By
-		// providing a watcher which does nothing, we can ensure that the 3.x
-		// agent will continue to work.
-		watcher := watcher.TODO[[]string]()
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
+			continue
+		}
+		if !f.accessMachine(machineTag) {
+			result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		machineName := machineTag.Id()
+
+		watcher, err := f.operationService.WatchMachineTaskNotifications(ctx, coremachine.Name(machineName))
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", machineName)
+			continue
+		} else if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		id, _, err := internal.EnsureRegisterWatcher(ctx, f.watcherRegistry, watcher)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			continue
 		}
+
 		result.StringsWatcherId = id
 	}
 	return params.StringsWatchResults{Results: results}
@@ -157,4 +218,16 @@ func (f *Facade) RunningActions(ctx context.Context, args params.Entities) param
 	return params.ActionsByReceivers{
 		Actions: make([]params.ActionsByReceiver, len(args.Entities)),
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }

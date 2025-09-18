@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ConfigAttributes represents config for an entity.
+// ConfigAttributes represents config for a model or controller.
 type ConfigAttributes map[string]interface{}
 
 // Config encapsulates config for an entity.

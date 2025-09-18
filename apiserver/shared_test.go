@@ -18,7 +18,8 @@ import (
 )
 
 type sharedServerContextSuite struct {
-	controllerConfigService ControllerConfigService
+	controllerConfigService *MockControllerConfigService
+	crossModelAuthContext   *MockCrossModelAuthContext
 }
 
 func TestSharedServerContextSuite(t *stdtesting.T) {
@@ -62,6 +63,7 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 	controllerConfig := testing.FakeControllerConfig()
 
 	return sharedServerConfig{
+		crossModelAuthContext:   s.crossModelAuthContext,
 		leaseManager:            &lease.Manager{},
 		controllerConfig:        controllerConfig,
 		controllerConfigService: s.controllerConfigService,
@@ -83,5 +85,6 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 func (s *sharedServerContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
 	return ctrl
 }

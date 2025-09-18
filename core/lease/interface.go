@@ -91,6 +91,7 @@ type Token interface {
 // Reader describes retrieval of all leases and holders
 // for a known namespace and model.
 type Reader interface {
+	// Leases returns a map of lease names to their current holders.
 	Leases() (map[string]string, error)
 }
 

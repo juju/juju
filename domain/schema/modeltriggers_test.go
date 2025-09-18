@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	"github.com/juju/tc"
@@ -21,8 +20,6 @@ import (
 // storage provisioning triggers that exist in the model schema.
 type modelStorageSuite struct {
 	schemaBaseSuite
-
-	seq int64
 }
 
 // TestModelStorageSuite registers the tests for the [modelStorageSuite].
@@ -35,57 +32,6 @@ func TestModelStorageSuite(t *testing.T) {
 func (s *modelStorageSuite) SetUpTest(c *tc.C) {
 	s.schemaBaseSuite.SetUpTest(c)
 	s.applyDDL(c, ModelDDL())
-}
-
-func (s *modelStorageSuite) nextSeq() int64 {
-	// Currently tests are run sequentially, but just in case.
-	return atomic.AddInt64(&s.seq, 1)
-}
-
-func (s *modelStorageSuite) getNamespaceID(
-	c *tc.C, namespace string,
-) int {
-	row := s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT id FROM change_log_namespace WHERE namespace = ?",
-		namespace,
-	)
-	var nsID int
-	err := row.Scan(&nsID)
-	c.Assert(err, tc.ErrorIsNil)
-	return nsID
-}
-
-func (s *modelStorageSuite) clearChangeEvents(
-	c *tc.C, nsID int, changed string,
-) {
-	_, err := s.DB().Exec(
-		"DELETE FROM change_log WHERE namespace_id = ? AND changed = ?",
-		nsID, changed,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// assertChangeEvent asserts that a single change event exists for the provided
-// namespace and changed value. If successful the matching change event will be
-// deleted from the database so subsequent calls can be made to this func within
-// a single test.
-func (s *modelStorageSuite) assertChangeEvent(
-	c *tc.C, namespace string, changed string,
-) {
-	nsID := s.getNamespaceID(c, namespace)
-
-	row := s.DB().QueryRow(`
-SELECT COUNT(*)
-FROM   change_log
-WHERE  namespace_id = ?
-AND    changed = ?`, nsID, changed)
-	var count int
-	err := row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(count, tc.Equals, 1)
-
-	s.clearChangeEvents(c, nsID, changed)
 }
 
 func (s *modelStorageSuite) changeStorageAttachmentLife(
@@ -558,11 +504,20 @@ INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_m
 VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Get the metadata charm name for the storage instance.
+	var charmName string
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID,
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
 VALUES (?, ?, ?, ?, 0, 100, ?)`,
 		storageInstanceUUID.String(),
-		charmUUID,
+		charmName,
 		storageName,
 		storageID,
 		poolUUID,
@@ -626,10 +581,11 @@ VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUU
 func (s *modelStorageSuite) newBlockDeviceLinkDevice(
 	c *tc.C,
 	blockDeviceUUID string,
+	machineUUID string,
 ) {
 	_, err := s.DB().Exec(`
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (?, ?)`, blockDeviceUUID, blockDeviceUUID)
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)`, blockDeviceUUID, machineUUID, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1524,7 +1480,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceInse
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)
 
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 	s.assertChangeEvent(
 		c, "custom_storage_attachment_entities_storage_attachment_uuid", saUUID,
 	)
@@ -1542,7 +1498,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceUpda
 	machineUUID := s.newMachine(c, netNodeUUID)
 	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
 	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)
@@ -1565,7 +1521,7 @@ func (s *modelStorageSuite) TestCustomStorageAttachmentBlockDeviceLinkDeviceDele
 	machineUUID := s.newMachine(c, netNodeUUID)
 	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
 	s.changeVolumeAttachmentBlockDevice(c, vaUUID, blockDeviceUUID)
-	s.newBlockDeviceLinkDevice(c, blockDeviceUUID)
+	s.newBlockDeviceLinkDevice(c, blockDeviceUUID, machineUUID)
 
 	nsID := s.getNamespaceID(c, "custom_storage_attachment_entities_storage_attachment_uuid")
 	s.clearChangeEvents(c, nsID, saUUID)

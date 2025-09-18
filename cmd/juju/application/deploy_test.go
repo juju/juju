@@ -848,9 +848,8 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), false, 1, nil, nil)
 
 	origin := commoncharm.Origin{
-		Source:       commoncharm.OriginCharmHub,
-		Architecture: arch.DefaultArchitecture,
-		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Source: commoncharm.OriginCharmHub,
+		Base:   corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmID := application.CharmID{
@@ -1668,8 +1667,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
-	fallbackCons := constraints.MustParse("arch=amd64")
-	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
+	platform := apputils.MakePlatform(constraints.Value{}, base, constraints.Value{})
 	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
@@ -1717,10 +1715,9 @@ func withCharmRepoResolvable(
 ) {
 	for _, risk := range []string{"", "stable"} {
 		origin := commoncharm.Origin{
-			Source:       commoncharm.OriginCharmHub,
-			Architecture: arch.DefaultArchitecture,
-			Base:         base,
-			Risk:         risk,
+			Source: commoncharm.OriginCharmHub,
+			Base:   base,
+			Risk:   risk,
 		}
 		fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 			url,

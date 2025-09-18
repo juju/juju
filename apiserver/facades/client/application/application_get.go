@@ -11,7 +11,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -25,7 +24,7 @@ import (
 func (api *APIBase) getConfig(
 	ctx context.Context,
 	args params.ApplicationGet,
-	describe func(applicationConfig config.ConfigAttributes, charmConfig charm.Config) map[string]interface{},
+	describe func(applicationConfig charm.Config, charmConfig charm.ConfigSpec) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// There is no reason to split all these calls into multiple DB calls.
@@ -47,15 +46,14 @@ func (api *APIBase) getConfig(
 	}
 	mergedCharmConfig := describe(appInfo.ApplicationConfig, appInfo.CharmConfig)
 
-	appSettings := config.ConfigAttributes{
+	appSettings := map[string]interface{}{
 		coreapplication.TrustConfigOptionName: appInfo.Trust,
 	}
-
 	providerSchema, providerDefaults, err := ConfigSchema()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	appConfigInfo := describeAppConfig(appSettings, providerSchema, providerDefaults)
+	appConfigInfo := describeAppSettings(appSettings, providerSchema, providerDefaults)
 
 	isSubordinate, err := api.applicationService.IsSubordinateApplication(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -192,8 +190,8 @@ func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName stri
 	return describe(appInfo.ApplicationConfig, appInfo.CharmConfig), nil
 }
 
-func describeAppConfig(
-	appConfig config.ConfigAttributes,
+func describeAppSettings(
+	appConfig map[string]interface{},
 	schemaFields configschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {
@@ -227,7 +225,7 @@ func describeAppConfig(
 	return results
 }
 
-func describe(settings config.ConfigAttributes, config charm.Config) map[string]interface{} {
+func describe(settings charm.Config, config charm.ConfigSpec) map[string]interface{} {
 	results := make(map[string]interface{})
 	for name, option := range config.Options {
 		info := map[string]interface{}{
@@ -267,7 +265,7 @@ func (c *domainCharm) Meta() *charm.Meta {
 	return c.charm.Meta()
 }
 
-func (c *domainCharm) Config() *charm.Config {
+func (c *domainCharm) Config() *charm.ConfigSpec {
 	return c.charm.Config()
 }
 

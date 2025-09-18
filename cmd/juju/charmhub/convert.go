@@ -110,7 +110,7 @@ func convertCharm(info transport.InfoResponse) *Charm {
 		ch.Relations = transformRelations(meta.Requires, meta.Provides)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
-		ch.Config = &charm.Config{
+		ch.Config = &charm.ConfigSpec{
 			Options: toCharmOptionMap(cfg),
 		}
 	}
@@ -225,7 +225,7 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 	}
 }
 
-func toCharmOptionMap(config *charm.Config) map[string]charm.Option {
+func toCharmOptionMap(config *charm.ConfigSpec) map[string]charm.Option {
 	if config == nil {
 		return nil
 	}
@@ -262,7 +262,7 @@ func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
 	return meta
 }
 
-func unmarshalCharmConfig(configYAML string) *charm.Config {
+func unmarshalCharmConfig(configYAML string) *charm.ConfigSpec {
 	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
 		return nil
 	}

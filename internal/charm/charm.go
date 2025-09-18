@@ -17,7 +17,7 @@ type CharmMeta interface {
 // may be handled as a charm.
 type Charm interface {
 	CharmMeta
-	Config() *Config
+	Config() *ConfigSpec
 	Actions() *Actions
 	Revision() int
 	Version() string

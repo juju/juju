@@ -332,7 +332,7 @@ func getCharmInfoResponse() InfoResponse {
 		},
 		Tags: []string{"app", "seven"},
 		Charm: &Charm{
-			Config: &charm.Config{
+			Config: &charm.ConfigSpec{
 				Options: map[string]charm.Option{
 					"status": {
 						Type:        "string",

@@ -21,7 +21,7 @@ import (
 // on a charm directory.
 type CharmDir struct {
 	meta       *charm.Meta
-	config     *charm.Config
+	config     *charm.ConfigSpec
 	actions    *charm.Actions
 	lxdProfile *charm.LXDProfile
 	manifest   *charm.Manifest
@@ -121,7 +121,7 @@ func (dir *CharmDir) Meta() *charm.Meta {
 
 // Config returns the Config representing the config.yaml file
 // for the charm expanded in dir.
-func (dir *CharmDir) Config() *charm.Config {
+func (dir *CharmDir) Config() *charm.ConfigSpec {
 	return dir.config
 }
 

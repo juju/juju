@@ -37,7 +37,8 @@ func newDiskManagerAPI(ctx facade.ModelContext) (*DiskManagerAPI, error) {
 	}
 
 	return &DiskManagerAPI{
-		blockDeviceUpdater: ctx.DomainServices().BlockDevice(),
+		machineService:     ctx.DomainServices().Machine(),
+		blockDeviceService: ctx.DomainServices().BlockDevice(),
 		authorizer:         authorizer,
 		getAuthFunc:        getAuthFunc,
 	}, nil

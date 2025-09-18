@@ -255,7 +255,7 @@ func (u *Unit) Application(ctx context.Context) (*Application, error) {
 // available to the unit. Unset values will be replaced with the default
 // value for the associated option, and may thus be nil when no default is
 // specified.
-func (u *Unit) ConfigSettings(ctx context.Context) (charm.Settings, error) {
+func (u *Unit) ConfigSettings(ctx context.Context) (charm.Config, error) {
 	var results params.ConfigSettingsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -271,7 +271,7 @@ func (u *Unit) ConfigSettings(ctx context.Context) (charm.Settings, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return charm.Settings(result.Settings), nil
+	return charm.Config(result.Settings), nil
 }
 
 // ApplicationName returns the application name.

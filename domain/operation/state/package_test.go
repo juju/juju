@@ -1,4 +1,4 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -6,10 +6,14 @@ package state
 import (
 	"context"
 	"database/sql"
-	"strings"
+	"fmt"
+	"time"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -19,22 +23,46 @@ import (
 
 type baseSuite struct {
 	schematesting.ModelSuite
+	state  *State
+	nextID func() string
+}
 
-	state *State
+// sequenceGenerator returns a function that generates unique string values in
+// ascending order starting from "0".
+func sequenceGenerator() func() string {
+	id := 0
+	return func() string {
+		next := fmt.Sprint(id)
+		id++
+		return next
+	}
 }
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	s.nextID = sequenceGenerator()
 
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	c.Cleanup(func() {
+		s.state = nil
+	})
 }
 
-// runQuery executes the provided SQL query string using the current state's database connection.
-func (s *baseSuite) runQuery(c *tc.C, query string, args ...any) {
+// txn executes a transactional function within a database context,
+// ensuring proper error handling and assertion.
+func (s *baseSuite) txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
+	db, err := s.state.DB(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	return db.Txn(c.Context(), fn)
+}
+
+// query executes a given SQL query with optional arguments within a
+// transactional context using the test database.
+func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
-			return errors.Errorf("%w: query: %s (args: %s)", err, query, args)
+			return errors.Errorf("%v: query: %s (args: %v)", err, query, args)
 		}
 		return nil
 	})
@@ -42,156 +70,217 @@ func (s *baseSuite) runQuery(c *tc.C, query string, args ...any) {
 		errors.ErrorStack(err)))
 }
 
-// addOperation adds a new operation to the database.
-func (s *baseSuite) addOperation(c *tc.C) internaluuid.UUID {
-	uuid := internaluuid.MustNewUUID()
-	s.runQuery(c, `
-INSERT INTO operation (uuid, operation_id, summary, enqueued_at, parallel, execution_group)
-VALUES (?, 1, 'test-operation', datetime('now'), false, 'test-group')`, uuid.String())
-	return uuid
+// getRowCount returns the number of rows in a table.
+func (s *baseSuite) getRowCount(c *tc.C, table string) int {
+	var obtained int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", table)
+		return tx.QueryRowContext(ctx, query).Scan(&obtained)
+	})
+	c.Assert(err, tc.IsNil, tc.Commentf("counting rows in table %q", table))
+	return obtained
 }
 
-// addOperationTaskWithID adds a new operation task to the database with a specific task ID.
-func (s *baseSuite) addOperationTaskWithID(c *tc.C, operationUUID internaluuid.UUID, taskID string, statusID string) internaluuid.UUID {
-	uuid := internaluuid.MustNewUUID()
-	s.runQuery(c, `
-INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
-VALUES (?, ?, ?, datetime('now'))`, uuid.String(), operationUUID.String(), taskID)
-	s.runQuery(c, `
-INSERT INTO operation_task_status (task_uuid, status_id)
-VALUES (?, ?)`, uuid.String(), statusID)
-	return uuid
+// selectDistinctValues retrieves distinct values for a given field from a table.
+func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
+	var obtained []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := fmt.Sprintf("SELECT DISTINCT %q FROM %q", field, table)
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var val *string
+			if err := rows.Scan(&val); err != nil {
+				return err
+			}
+			if val == nil {
+				obtained = append(obtained, "")
+			} else {
+				obtained = append(obtained, *val)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.IsNil, tc.Commentf("fetching distinct %q from table %q", field, table))
+	return obtained
 }
 
-// addUnit adds a new unit to the database with all required dependencies.
-func (s *baseSuite) addUnit(c *tc.C) internaluuid.UUID {
-	unitUUID := internaluuid.MustNewUUID()
-	appUUID := internaluuid.MustNewUUID().String()
+// addCharm inserts a new charm record into the database and returns its UUID as a string.
+func (s *baseSuite) addCharm(c *tc.C) string {
 	charmUUID := internaluuid.MustNewUUID().String()
-	spaceUUID := internaluuid.MustNewUUID().String()
-	netNodeUUID := internaluuid.MustNewUUID().String()
-	unitName := "test-app/0"
-
-	// Extract application name from unit name (e.g., "test-app-1/0" -> "test-app-1")
-	appName := unitName
-	if slashIndex := strings.Index(unitName, "/"); slashIndex != -1 {
-		appName = unitName[:slashIndex]
-	}
-
-	// Insert net_node first
-	s.runQuery(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)`, netNodeUUID)
-
-	// Insert space first (use unique name to avoid conflicts)
-	spaceName := "test-space-" + spaceUUID[:8]
-	s.runQuery(c, `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`, spaceUUID, spaceName)
-
-	// Insert charm (use unique name to avoid conflicts)
-	charmName := "test-charm-" + charmUUID[:8]
-	s.runQuery(c, `
-INSERT INTO charm (uuid, source_id, reference_name, revision, available)
-VALUES (?, 1, ?, 1, true)`, charmUUID, charmName)
-
-	// Insert application with extracted name from unit name
-	s.runQuery(c, `
-INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
-VALUES (?, ?, ?, ?, ?)`, appUUID, appName, life.Alive, charmUUID, spaceUUID)
-
-	// Insert unit
-	s.runQuery(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
-VALUES (?, ?, ?, ?, ?, ?)`, unitUUID.String(), unitName, life.Alive, appUUID, netNodeUUID, charmUUID)
-	return unitUUID
-}
-
-// addMachine adds a new machine to the database with all required dependencies.
-func (s *baseSuite) addMachine(c *tc.C) internaluuid.UUID {
-	netNodeUUID := internaluuid.MustNewUUID().String()
-
-	// Insert net_node first
-	s.runQuery(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)`, netNodeUUID)
-
-	machineUUID := internaluuid.MustNewUUID()
-	// Insert machine
-	s.runQuery(c, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid)
-VALUES (?, ?, ?, ?)`, machineUUID.String(), "0", life.Alive, netNodeUUID)
-
-	return machineUUID
-}
-
-// addOperationUnitTask links an operation task to a unit.
-func (s *baseSuite) addOperationUnitTask(c *tc.C, taskUUID, unitUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_unit_task (task_uuid, unit_uuid)
-VALUES (?, ?)`, taskUUID.String(), unitUUID.String())
-}
-
-// addOperationMachineTask links an operation task to a machine.
-func (s *baseSuite) addOperationMachineTask(c *tc.C, taskUUID, machineUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_machine_task (task_uuid, machine_uuid)
-VALUES (?, ?)`, taskUUID.String(), machineUUID.String())
-}
-
-// addCharm adds a new charm to the database.
-func (s *baseSuite) addCharm(c *tc.C) internaluuid.UUID {
-	charmUUID := internaluuid.MustNewUUID()
-	s.runQuery(c, `
-INSERT INTO charm (uuid, reference_name, source_id, revision)
-VALUES (?, ?, 0, 1)`, charmUUID.String(), "test-charm")
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, s.state.clock.Now())
 	return charmUUID
 }
 
 // addCharmAction adds a new charm action to the database.
-func (s *baseSuite) addCharmAction(c *tc.C, charmUUID internaluuid.UUID) {
-	s.runQuery(c, `
+func (s *baseSuite) addCharmAction(c *tc.C, charmUUID string) {
+	s.query(c, `
 INSERT INTO charm_action (charm_uuid, "key", description, parallel, execution_group, params)
-VALUES (?, ?, ?, false, NULL, NULL)`, charmUUID.String(), "test-action", "Test action")
+VALUES (?, ?, ?, false, NULL, NULL)`, charmUUID, "test-action", "Test action")
 }
 
-// addOperationAction links an operation to a charm action.
-func (s *baseSuite) addOperationAction(c *tc.C, operationUUID, charmUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_action (operation_uuid, charm_uuid, charm_action_key)
-VALUES (?, ?, ?)`, operationUUID.String(), charmUUID.String(), "test-action")
+// addMachine inserts a new machine record and its associated net_node into the
+// database, returning the machine UUID.
+func (s *baseSuite) addMachine(c *tc.C, name string) string {
+	netNodeUUID := internaluuid.MustNewUUID().String()
+	machineUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
+	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
+		machineUUID, netNodeUUID, name, 0)
+	return machineUUID
 }
 
-// addOperationLog adds a log entry for an operation.
-func (s *baseSuite) addOperationLog(c *tc.C, taskUUID internaluuid.UUID, content string) {
-	s.runQuery(c, `
-INSERT INTO operation_task_log (task_uuid, content, created_at)
-VALUES (?, ?, datetime('now'))`, taskUUID.String(), content)
+// addUnit inserts a new unit record into the database and returns the generated unit UUID.
+func (s *baseSuite) addUnit(c *tc.C, charmUUID string) string {
+	return s.addUnitWithName(c, charmUUID, "")
 }
 
-// addOperationParameter adds a parameter for an operation.
-func (s *baseSuite) addOperationParameter(c *tc.C, operationUUID internaluuid.UUID, key, value string) {
-	s.runQuery(c, `
-INSERT INTO operation_parameter (operation_uuid, "key", value)
-VALUES (?, ?, ?)`, operationUUID.String(), key, value)
+// addUnit inserts a new unit record into the database and returns the generated unit UUID.
+func (s *baseSuite) addUnitWithName(c *tc.C, charmUUID, name string) string {
+	appUUID := internaluuid.MustNewUUID().String()
+	nodeUUID := internaluuid.MustNewUUID().String()
+	unitUUID := internaluuid.MustNewUUID().String()
+	if name == "" {
+		name = unitUUID
+	}
+	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, network.AlphaSpaceId)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, name, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
 }
 
-// addObjectStoreMetadata adds object store metadata to the database.
-func (s *baseSuite) addObjectStoreMetadata(c *tc.C, sha256, sha384 string, size int, path string) internaluuid.UUID {
-	uuid := internaluuid.MustNewUUID()
-	s.runQuery(c, `
+// addOperation inserts a minimal operation row, returning the new operation UUID.
+func (s *baseSuite) addOperation(c *tc.C) string {
+	return s.addOperationWithExecutionGroup(c, "")
+}
+
+// addOperationWithExecutionGroup inserts a minimal operation row, returning the new operation UUID.
+func (s *baseSuite) addOperationWithExecutionGroup(c *tc.C, execGroup string) string {
+	opUUID := internaluuid.MustNewUUID().String()
+	opID := s.nextID()
+	enqueued := s.state.clock.Now()
+	s.query(c, `INSERT INTO operation (uuid, operation_id, summary, execution_group, enqueued_at) 
+VALUES (?, ?, ?, ?,?)`, opUUID, opID,
+		"", execGroup, enqueued)
+	return opUUID
+}
+
+// addOperationTaskWithID adds a new operation task to the database with a specific task ID.
+func (s *baseSuite) addOperationTaskWithID(c *tc.C, operationUUID string, taskID string, status string) string {
+	opUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
+VALUES (?, ?, ?, datetime('now'))`, opUUID, operationUUID, taskID)
+	s.addOperationTaskStatus(c, opUUID, status)
+	return opUUID
+}
+
+// addCompletedOperation inserts an operation with completed_at set to now - completedSince.
+func (s *baseSuite) addCompletedOperation(c *tc.C, completedSince time.Duration) string {
+	opUUID := internaluuid.MustNewUUID().String()
+	opID := s.nextID()
+	now := s.state.clock.Now()
+	completedAt := now.Add(-completedSince)
+	startedAt := completedAt.Add(-time.Second)
+	enqueuedAt := startedAt.Add(-time.Second)
+	s.query(c, `
+INSERT INTO operation (uuid, operation_id, enqueued_at, started_at, completed_at) 
+VALUES (?, ?, ?, ?, ?)`,
+		opUUID, opID, enqueuedAt, startedAt, completedAt)
+	return opUUID
+}
+
+// addOperationAction links an operation to a charm action; creates charm_action if necessary.
+func (s *baseSuite) addOperationAction(c *tc.C, operationUUID, charmUUID, key string) {
+	s.query(c, `INSERT INTO charm_action (charm_uuid, "key") VALUES (?, ?) ON CONFLICT DO NOTHING`, charmUUID, key)
+	// Insert operation_action
+	s.query(c, `INSERT INTO operation_action (operation_uuid, charm_uuid, charm_action_key) VALUES (?, ?, ?)`, operationUUID, charmUUID, key)
+}
+
+// addOperationTask inserts a minimal operation_task for the given operation.
+func (s *baseSuite) addOperationTask(c *tc.C, operationUUID string) string {
+	taskUUID := internaluuid.MustNewUUID().String()
+	taskID := s.nextID()
+	enqueued := s.state.clock.Now()
+	s.query(c, `INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at) VALUES (?, ?, ?, ?)`, taskUUID, operationUUID, taskID, enqueued)
+	return taskUUID
+}
+
+// addOperationUnitTask links a task to a unit
+func (s *baseSuite) addOperationUnitTask(c *tc.C, taskUUID, unitUUID string) {
+	s.query(c, `INSERT INTO operation_unit_task (task_uuid, unit_uuid) VALUES (?, ?)`, taskUUID, unitUUID)
+}
+
+// addOperationMachineTask links a task to a machine
+func (s *baseSuite) addOperationMachineTask(c *tc.C, taskUUID, machineUUID string) {
+	s.query(c, `INSERT INTO operation_machine_task (task_uuid, machine_uuid) VALUES (?, ?)`, taskUUID, machineUUID)
+}
+
+func (s *baseSuite) addFakeMetadataStore(c *tc.C, size int) string {
+	storeUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
 INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
-VALUES (?, ?, ?, ?)`, uuid.String(), sha256, sha384, size)
-
-	s.runQuery(c, `
-INSERT INTO object_store_metadata_path (path, metadata_uuid)
-VALUES (?, ?)`, path, uuid.String())
-	return uuid
+VALUES (?, ?, ?, ?)`, storeUUID, storeUUID, storeUUID, size)
+	return storeUUID
 }
 
-// addOperationTaskOutput links a task to its output in object store.
-func (s *baseSuite) addOperationTaskOutput(c *tc.C, taskUUID, storeUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_task_output (task_uuid, store_uuid)
-VALUES (?, ?)`, taskUUID.String(), storeUUID.String())
+// addOperationTaskOutputWithData adds object store metadata to the database with a path
+func (s *baseSuite) addOperationTaskOutputWithData(c *tc.C, taskUUID, sha256, sha384 string, size int,
+	path string) string {
+	storeUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)`, storeUUID, sha256, sha384, size)
+	s.addMetadataStorePath(c, storeUUID, path)
+	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	return storeUUID
+}
+
+// addOperationTaskOutput links a task to an object store metadata, return the
+// store metadata uuid
+func (s *baseSuite) addOperationTaskOutputWithPath(c *tc.C, taskUUID string, path string) string {
+	storeUUID := s.addFakeMetadataStore(c, 42)
+	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	s.addMetadataStorePath(c, storeUUID, path)
+	return storeUUID
+}
+
+// addMetadataStorePath links a store metadata to a path
+func (s *baseSuite) addMetadataStorePath(c *tc.C, storeUUID, path string) {
+	s.query(c, `INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)`, path, storeUUID)
+}
+
+// addOperationTaskOutput links a task to an object store metadata, return the
+// store metadata uuid
+func (s *baseSuite) addOperationTaskOutput(c *tc.C, taskUUID string) string {
+	storeUUID := s.addFakeMetadataStore(c, 42)
+	s.query(c, `INSERT INTO operation_task_output (task_uuid, store_uuid) VALUES (?, ?)`, taskUUID, storeUUID)
+	return storeUUID
+}
+
+// addOperationTaskStatus sets a status for the task with the given textual status name.
+func (s *baseSuite) addOperationTaskStatus(c *tc.C, taskUUID, status string) {
+	beforCount := s.getRowCount(c, "operation_task_status")
+	// Map status to id via the table
+	s.query(c, `INSERT INTO operation_task_status (task_uuid, status_id, updated_at) 
+		SELECT ?, id, ? FROM operation_task_status_value WHERE status = ?`, taskUUID, s.state.clock.Now(), status)
+	afterCount := s.getRowCount(c, "operation_task_status")
+	c.Assert(afterCount, tc.Equals, beforCount+1, tc.Commentf("status %q is not valid, is any of %v", status,
+		s.selectDistinctValues(c, "status", "operation_task_status_value")))
+}
+
+// addOperationTaskLog inserts a log message for a task.
+func (s *baseSuite) addOperationTaskLog(c *tc.C, taskUUID, content string) {
+	s.query(c, `INSERT INTO operation_task_log (task_uuid, content, created_at) VALUES (?, ?, ?)`, taskUUID, content, s.state.clock.Now())
+}
+
+// addOperationParameter inserts a parameter key/value for an operation.
+func (s *baseSuite) addOperationParameter(c *tc.C, operationUUID, key, value string) {
+	s.query(c, `INSERT INTO operation_parameter (operation_uuid, "key", value) VALUES (?, ?, ?)`, operationUUID, key, value)
 }

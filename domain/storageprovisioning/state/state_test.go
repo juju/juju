@@ -305,7 +305,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
 	storageID := s.getStorageID(c, storageInstanceUUID)
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 	storageIDs, err := st.GetStorageAttachmentIDsForUnit(c.Context(), unitUUID.String())
@@ -351,7 +351,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -404,7 +404,7 @@ func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
 	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
 	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
-	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID, domainlife.Alive)
+	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -436,7 +436,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
-	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID, 0)
+	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/blockdevice"
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -173,11 +172,8 @@ type ApplicationService interface {
 	// charm using the charm name, source and revision.
 	GetCharmLXDProfile(context.Context, charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
 
-	// GetApplicationConfig returns the application config attributes for the
-	// configuration.
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfig(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	// GetApplicationTrustSetting returns the application trust setting.
+	GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error)
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(context.Context, coreunit.Name) (domainapplication.UnitAttributes, error)
@@ -199,7 +195,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (coreconfig.ConfigAttributes, error)
+	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (internalcharm.Config, error)
 
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.
@@ -224,13 +220,6 @@ type ApplicationService interface {
 	// upgrade to the latest version of the application charm even if they are in
 	// error state.
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
-
-	// WatchUnitActions watches for all updates to actions for the specified unit,
-	// emitting action ids.
-	//
-	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
-	// will be returned.
-	WatchUnitActions(context.Context, coreunit.Name) (watcher.StringsWatcher, error)
 
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
@@ -367,6 +356,12 @@ type PortService interface {
 
 // OperationService provides access to operations and tasks.
 type OperationService interface {
+	// GetPendingTaskByTaskID return a struct containing the data required to
+	// run a task. The task must have a status of pending.
+	// Returns TaskNotPending if the task exists but does not have
+	// a pending status.
+	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
+
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
 
@@ -376,6 +371,18 @@ type OperationService interface {
 	// ReceiverFromTask return a receiver string for the task identified.
 	// The string should satisfy the ActionReceiverTag type.
 	ReceiverFromTask(ctx context.Context, id string) (string, error)
+
+	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
+	// ids for tasks targeted at the provided machine.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING only.
+	WatchMachineTaskNotifications(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
+
+	// WatchUnitTaskNotifications returns a StringsWatcher that emits task ids
+	// for tasks targeted at the provided unit.
+	// NOTE: This watcher will emit events for tasks changing their statuses to
+	// PENDING or ABORTING only.
+	WatchUnitTaskNotifications(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine
@@ -590,8 +597,16 @@ type RemovalService interface {
 
 // BlockDeviceService provides methods to watch and manage block devices.
 type BlockDeviceService interface {
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-	WatchBlockDevices(ctx context.Context, machineId string) (watcher.NotifyWatcher, error)
+	// BlockDevices returns the block devices for the specified machine.
+	BlockDevices(
+		ctx context.Context, machineUUID coremachine.UUID,
+	) ([]blockdevice.BlockDevice, error)
+
+	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
+	// devices associated with the specified machine.
+	WatchBlockDevices(
+		ctx context.Context, machineUUID coremachine.UUID,
+	) (watcher.NotifyWatcher, error)
 }
 
 // StorageProvisioningService provides methods to watch and manage storage

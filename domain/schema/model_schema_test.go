@@ -226,7 +226,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Block device
 		"block_device_link_device",
 		"block_device",
-		"filesystem_type",
 
 		// Storage
 		"application_storage_directive",
@@ -687,9 +686,17 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_ensure_single_app_per_offer",
 		"trg_offer_endpoint_immutable_update",
 
+		"trg_log_operation_task_log_delete",
+		"trg_log_operation_task_log_insert",
+		"trg_log_operation_task_log_update",
 		"trg_operation_parameter_immutable_update",
 		"trg_operation_machine_task_immutable_update",
 		"trg_operation_unit_task_immutable_update",
+		"trg_log_custom_operation_task_status_pending_insert",
+		"trg_log_custom_operation_task_status_pending_update",
+		"trg_log_custom_operation_task_status_pending_or_aborting_insert",
+		"trg_log_custom_operation_task_status_pending_or_aborting_update",
+
 		"trg_insert_machine_task_if_not_unit_task",
 		"trg_insert_unit_task_if_not_machine_task",
 	)

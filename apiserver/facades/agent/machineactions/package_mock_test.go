@@ -13,6 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
+	watcher "github.com/juju/juju/core/watcher"
 	operation "github.com/juju/juju/domain/operation"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -74,6 +76,45 @@ func (c *MockOperationServiceFinishTaskCall) Do(f func(context.Context, operatio
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOperationServiceFinishTaskCall) DoAndReturn(f func(context.Context, operation.CompletedTaskResult) error) *MockOperationServiceFinishTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetPendingTaskByTaskID mocks base method.
+func (m *MockOperationService) GetPendingTaskByTaskID(arg0 context.Context, arg1 string) (operation.TaskArgs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingTaskByTaskID", arg0, arg1)
+	ret0, _ := ret[0].(operation.TaskArgs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingTaskByTaskID indicates an expected call of GetPendingTaskByTaskID.
+func (mr *MockOperationServiceMockRecorder) GetPendingTaskByTaskID(arg0, arg1 any) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingTaskByTaskID", reflect.TypeOf((*MockOperationService)(nil).GetPendingTaskByTaskID), arg0, arg1)
+	return &MockOperationServiceGetPendingTaskByTaskIDCall{Call: call}
+}
+
+// MockOperationServiceGetPendingTaskByTaskIDCall wrap *gomock.Call
+type MockOperationServiceGetPendingTaskByTaskIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) Return(arg0 operation.TaskArgs, arg1 error) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) Do(f func(context.Context, string) (operation.TaskArgs, error)) *MockOperationServiceGetPendingTaskByTaskIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceGetPendingTaskByTaskIDCall) DoAndReturn(f func(context.Context, string) (operation.TaskArgs, error)) *MockOperationServiceGetPendingTaskByTaskIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -151,6 +192,45 @@ func (c *MockOperationServiceStartTaskCall) Do(f func(context.Context, string) e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOperationServiceStartTaskCall) DoAndReturn(f func(context.Context, string) error) *MockOperationServiceStartTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchMachineTaskNotifications mocks base method.
+func (m *MockOperationService) WatchMachineTaskNotifications(arg0 context.Context, arg1 machine.Name) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchMachineTaskNotifications", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchMachineTaskNotifications indicates an expected call of WatchMachineTaskNotifications.
+func (mr *MockOperationServiceMockRecorder) WatchMachineTaskNotifications(arg0, arg1 any) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineTaskNotifications", reflect.TypeOf((*MockOperationService)(nil).WatchMachineTaskNotifications), arg0, arg1)
+	return &MockOperationServiceWatchMachineTaskNotificationsCall{Call: call}
+}
+
+// MockOperationServiceWatchMachineTaskNotificationsCall wrap *gomock.Call
+type MockOperationServiceWatchMachineTaskNotificationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) Do(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchMachineTaskNotificationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceWatchMachineTaskNotificationsCall) DoAndReturn(f func(context.Context, machine.Name) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchMachineTaskNotificationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

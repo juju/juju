@@ -128,6 +128,7 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		MetricsCollector:           s.metricsCollector,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
+		MacaroonHTTPClient:         s.macaroonHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
 		DomainServicesGetter:       s.domainServicesGetter,

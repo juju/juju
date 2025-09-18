@@ -572,6 +572,135 @@ func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsUpda
 	c.Assert(s.getApplicationDefaultSpace(c, appUUID.String()), tc.Equals, network.SpaceName("beta"))
 }
 
+func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsValidateUnitsInSpaces(c *tc.C) {
+	// Arrange
+	// Create 3 spaces. Add addresses for a unit in 2 of them.
+	betaSpace := s.addSpace(c, "beta").String()
+	gammaSpace := s.addSpace(c, "gamma").String()
+	deltaSpace := s.addSpace(c, "delta").String()
+	bindings := map[string]network.SpaceName{
+		"":         "beta",
+		"endpoint": "beta",
+		"misc":     "beta",
+		"extra":    "beta",
+	}
+	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
+	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
+
+	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
+	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, gammaSpace, "10.16.42.9/24", "10.16.42.0/24")
+	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, deltaSpace, "10.0.0.87/24", "10.0.0.0/24")
+
+	// Act
+	// Provide two spaces the unit is in.
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), appUUID.String(),
+		map[string]string{
+			"misc":  "gamma",
+			"extra": "delta",
+		}, false,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsValidateUnitsInSpacesFail(c *tc.C) {
+	// Arrange
+	// Create 3 spaces. Add addresses for a unit in 2 of them.
+	betaSpace := s.addSpace(c, "beta").String()
+	gammaSpace := s.addSpace(c, "gamma").String()
+	s.addSpace(c, "delta")
+	bindings := map[string]network.SpaceName{
+		"":         "beta",
+		"endpoint": "beta",
+		"misc":     "beta",
+		"extra":    "beta",
+	}
+	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
+	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
+
+	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
+	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, gammaSpace, "10.16.42.9/24", "10.16.42.0/24")
+
+	// Act
+	// Provide one space the unit is not in.
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), appUUID.String(),
+		map[string]string{
+			"extra": "delta",
+		}, false,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*unit "fee/0" not in space "delta"`)
+}
+
+func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsValidateUnitsInSpacesFailOneYesOneNo(c *tc.C) {
+	// Arrange
+	// Create 2 spaces. One unit has an address in one space.
+	// Another unit has an address in two spaces.
+	betaSpace := s.addSpace(c, "beta").String()
+	deltaSpace := s.addSpace(c, "delta").String()
+	bindings := map[string]network.SpaceName{
+		"":         "beta",
+		"endpoint": "beta",
+		"misc":     "beta",
+		"extra":    "beta",
+	}
+	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
+	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
+	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
+	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, deltaSpace, "10.16.43.9/24", "10.16.43.0/24")
+
+	unitUUIDTwo := s.addUnit(c, "fee/1", appUUID).String()
+	_ = s.addUnitIPWithSpace(c, unitUUIDTwo, betaSpace, "192.168.4.48/24", "192.168.4.0/24")
+
+	// Act
+	// Provide two spaces, one both units are in, the other only one is.
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), appUUID.String(),
+		map[string]string{
+			"misc":  "beta",
+			"extra": "delta",
+		}, false,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*unit "fee/1" not in space "delta"`)
+}
+
+func (s *applicationEndpointStateSuite) TestMergeApplicationEndpointBindingsValidateUnitsInSpacesFailIgnoredWithForce(c *tc.C) {
+	// Arrange
+	// Create 2 spaces. One unit has an address in one space.
+	// Another unit has an address in two spaces.
+	betaSpace := s.addSpace(c, "beta").String()
+	deltaSpace := s.addSpace(c, "delta").String()
+	bindings := map[string]network.SpaceName{
+		"":         "beta",
+		"endpoint": "beta",
+		"misc":     "beta",
+		"extra":    "beta",
+	}
+	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
+	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
+	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
+	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, deltaSpace, "10.16.43.9/24", "10.16.43.0/24")
+
+	unitUUIDTwo := s.addUnit(c, "fee/1", appUUID).String()
+	_ = s.addUnitIPWithSpace(c, unitUUIDTwo, betaSpace, "192.168.4.48/24", "192.168.4.0/24")
+
+	// Act
+	// Provide two spaces, one both units are in, the other only one is.
+	// Merge endpoint bindings with force
+	err := s.state.MergeApplicationEndpointBindings(c.Context(), appUUID.String(),
+		map[string]string{
+			"misc":  "beta",
+			"extra": "delta",
+		}, true,
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *applicationEndpointStateSuite) TestGetAllEndpointBindingsFreshModel(c *tc.C) {
 	// Act:
 	bindings, err := s.state.GetAllEndpointBindings(c.Context())
@@ -1021,102 +1150,6 @@ func (s *applicationEndpointStateSuite) TestGetBindingNamesIgnoreAppDefaultSpace
 		}
 		c.Check(found, mc, bind)
 	}
-}
-
-func (s *applicationEndpointStateSuite) TestValidateUnitsInSpaces(c *tc.C) {
-	db, err := s.state.DB(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Arrange
-	// Create 3 spaces. Add addresses for a unit in 2 of them.
-	betaSpace := s.addSpace(c, "beta").String()
-	gammaSpace := s.addSpace(c, "gamma").String()
-	deltaSpace := s.addSpace(c, "delta").String()
-	bindings := map[string]network.SpaceName{
-		"":         "beta",
-		"endpoint": "beta",
-		"misc":     "beta",
-		"extra":    "beta",
-	}
-	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
-	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
-
-	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
-	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, gammaSpace, "10.16.42.9/24", "10.16.42.0/24")
-	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, deltaSpace, "10.0.0.87/24", "10.0.0.0/24")
-
-	// Act
-	// Provide two spaces the unit is in.
-	err = db.Txn(context.TODO(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.validateUnitsInSpaces(ctx, tx, appUUID.String(), []string{gammaSpace, betaSpace})
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *applicationEndpointStateSuite) TestValidateUnitsInSpacesFail(c *tc.C) {
-	db, err := s.state.DB(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Arrange
-	// Create 3 spaces. Add addresses for a unit in 2 of them.
-	betaSpace := s.addSpace(c, "beta").String()
-	gammaSpace := s.addSpace(c, "gamma").String()
-	deltaSpace := s.addSpace(c, "delta").String()
-	bindings := map[string]network.SpaceName{
-		"":         "beta",
-		"endpoint": "beta",
-		"misc":     "beta",
-		"extra":    "beta",
-	}
-	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
-	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
-
-	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
-	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, gammaSpace, "10.16.42.9/24", "10.16.42.0/24")
-
-	// Act
-	// Provide one space the unit is not in.
-	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.validateUnitsInSpaces(ctx, tx, appUUID.String(), []string{deltaSpace})
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorMatches, `unit "fee/0" not in space "delta"`)
-}
-
-func (s *applicationEndpointStateSuite) TestValidateUnitsInSpacesFailOneYesOneNo(c *tc.C) {
-	db, err := s.state.DB(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Arrange
-	// Create 2 spaces. One unit has an address in one space.
-	// Another unit has an address in two spaces.
-	betaSpace := s.addSpace(c, "beta").String()
-	deltaSpace := s.addSpace(c, "delta").String()
-	bindings := map[string]network.SpaceName{
-		"":         "beta",
-		"endpoint": "beta",
-		"misc":     "beta",
-		"extra":    "beta",
-	}
-	appUUID := s.createIAASApplicationWithEndpointBindings(c, "fee", life.Alive, bindings)
-	unitUUID := s.addUnit(c, "fee/0", appUUID).String()
-	netNodeUUID := s.addUnitIPWithSpace(c, unitUUID, betaSpace, "192.168.3.42/24", "192.168.3.0/24")
-	s.addUnitAnotherIPWithSpace(c, unitUUID, netNodeUUID, deltaSpace, "10.16.43.9/24", "10.16.43.0/24")
-
-	unitUUIDTwo := s.addUnit(c, "fee/1", appUUID).String()
-	_ = s.addUnitIPWithSpace(c, unitUUIDTwo, betaSpace, "192.168.4.48/24", "192.168.4.0/24")
-
-	// Act
-	// Provide two spaces, one both units are in, the other only one is.
-	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.validateUnitsInSpaces(ctx, tx, appUUID.String(), []string{deltaSpace, betaSpace})
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorMatches, `unit "fee/1" not in space "delta"`)
 }
 
 func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *tc.C, spaceUUID network.SpaceUUID, relationUUID string) string {

@@ -48,7 +48,7 @@ func ReadCharmDirManifest(path string) (*Manifest, error) {
 }
 
 // ReadCharmDirConfig reads and parses the config file for a charm directory.
-func ReadCharmDirConfig(path string) (*Config, error) {
+func ReadCharmDirConfig(path string) (*ConfigSpec, error) {
 	reader, err := os.Open(filepath.Join(path, "config.yaml"))
 	if _, ok := err.(*os.PathError); ok {
 		return nil, errors.Errorf("config.yaml: %w", FileNotFound)

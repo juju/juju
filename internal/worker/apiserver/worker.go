@@ -44,6 +44,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
+	MacaroonHTTPClient                HTTPClient
 	WatcherRegistryGetter             watcherregistry.WatcherRegistryGetter
 
 	// DBGetter supplies WatchableDB implementations by namespace.
@@ -98,6 +99,9 @@ func (config Config) Validate() error {
 	}
 	if config.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
+	}
+	if config.MacaroonHTTPClient == nil {
+		return errors.NotValidf("nil MacaroonHTTPClient")
 	}
 	if config.DomainServicesGetter == nil {
 		return errors.NotValidf("nil DomainServicesGetter")
@@ -182,6 +186,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		LogSink:                       config.LogSink,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
+		MacaroonHTTPClient:            config.MacaroonHTTPClient,
 		DBGetter:                      config.DBGetter,
 		DBDeleter:                     config.DBDeleter,
 		DomainServicesGetter:          config.DomainServicesGetter,

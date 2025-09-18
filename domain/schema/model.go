@@ -24,6 +24,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -49,6 +50,8 @@ const (
 	customNamespaceModelLifeRemovalLifecycle
 	customNamespaceStorageAttachmentRelatedEntities
 	customNamespaceStorageAttachmentLifecycle
+	customNamespaceOperatingTaskStatusPending
+	customNamespaceOperatingTaskStatusPendingOrAborting
 )
 
 const (
@@ -87,6 +90,8 @@ const (
 	tableRelationUnit
 	tableIpAddress
 	tableApplicationEndpoint
+	tableOperationTaskLog
+	tableOperationTaskStatus
 )
 
 // ModelDDL is used to create model databases.
@@ -162,6 +167,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
+		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
 	)
 
 	// Generic triggers.

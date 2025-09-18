@@ -422,18 +422,16 @@ func (st *State) GetVolumeAttachment(
 
 	stmt, err := st.Prepare(`
 SELECT &volumeAttachment.* FROM (
-    SELECT DISTINCT sv.volume_id,
-                    sva.life_id,
-                    sva.read_only,
-                    bd.name AS block_device_name,
-                    bd.bus_address AS block_device_bus_address,
-                    first_value(bdld.name) OVER bdld_first AS block_device_link
-    FROM            storage_volume_attachment sva
-    JOIN            storage_volume sv ON sv.uuid=sva.storage_volume_uuid
-    LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
-    LEFT JOIN       block_device_link_device bdld ON bd.uuid=bdld.block_device_uuid
-    WHERE           sva.uuid = $volumeAttachmentUUID.uuid
-    WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+    SELECT     sv.volume_id,
+               sva.life_id,
+               sva.read_only,
+               bd.name AS block_device_name,
+               bd.bus_address AS block_device_bus_address,
+               bd.uuid AS block_device_uuid
+    FROM       storage_volume_attachment sva
+    JOIN       storage_volume sv ON sv.uuid=sva.storage_volume_uuid
+    LEFT JOIN  block_device bd ON bd.uuid=sva.block_device_uuid
+    WHERE      sva.uuid = $volumeAttachmentUUID.uuid
 )
 `,
 		uuidInput, volumeAttachment{},
@@ -442,15 +440,37 @@ SELECT &volumeAttachment.* FROM (
 		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
+	devLinksStmt, err := st.Prepare(`
+SELECT &entityName.*
+FROM   block_device_link_device
+WHERE  block_device_uuid = $entityUUID.uuid
+`, entityName{}, entityUUID{})
+	if err != nil {
+		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+	}
+
 	var va volumeAttachment
+	var devLinks []entityName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, uuidInput).Get(&va)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"volume attachment does not exist",
 			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		} else if err != nil {
+			return err
 		}
-		return err
+		if va.BlockDeviceUUID == "" {
+			return nil
+		}
+		blockDeviceUUID := entityUUID{
+			UUID: va.BlockDeviceUUID,
+		}
+		err = tx.Query(ctx, devLinksStmt, blockDeviceUUID).GetAll(&devLinks)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
@@ -460,8 +480,11 @@ SELECT &volumeAttachment.* FROM (
 		VolumeID:              va.VolumeID,
 		ReadOnly:              va.ReadOnly,
 		BlockDeviceName:       va.BlockDeviceName,
-		BlockDeviceLink:       va.BlockDeviceLink,
 		BlockDeviceBusAddress: va.BlockDeviceBusAddress,
+	}
+	retVal.BlockDeviceLinks = make([]string, 0, len(devLinks))
+	for _, v := range devLinks {
+		retVal.BlockDeviceLinks = append(retVal.BlockDeviceLinks, v.Name)
 	}
 	return retVal, nil
 }
@@ -841,6 +864,20 @@ func (st *State) GetVolumeAttachmentParams(
 		dbVal       volumeAttachmentParams
 	)
 
+	/*
+			   id      parent  notused detail
+			   20      0       0       SEARCH sva USING INDEX sqlite_autoindex_storage_volume_attachment_1 (uuid=?)
+		       25      0       0       SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?)
+		       30      0       0       SEARCH siv USING INDEX idx_storage_instance_volume (storage_volume_uuid=?)
+		       38      0       0       SEARCH si USING INDEX sqlite_autoindex_storage_instance_1 (uuid=?)
+		       43      0       0       SEARCH sp USING INDEX sqlite_autoindex_storage_pool_1 (uuid=?)
+		       48      0       0       SEARCH sa USING COVERING INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid (storage_instance_uuid=?)
+		           	                   LEFT-JOIN
+		       54      0       0       SEARCH u USING INDEX sqlite_autoindex_unit_1 (uuid=?) LEFT-JOIN
+		       62      0       0       SEARCH cs USING INDEX sqlite_autoindex_charm_storage_1 (charm_uuid=? AND name=?) LEFT-JOIN
+		       71      0       0       SEARCH m USING INDEX idx_machine_net_node (net_node_uuid=?) LEFT-JOIN
+		       78      0       0       SEARCH mci USING INDEX sqlite_autoindex_machine_cloud_instance_1 (machine_uuid=?) LEFT-JOIN
+	*/
 	stmt, err := st.Prepare(`
 SELECT &volumeAttachmentParams.* FROM (
     SELECT    sv.provider_id,
@@ -852,7 +889,9 @@ SELECT &volumeAttachmentParams.* FROM (
     JOIN      storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
     JOIN 	  storage_instance si ON siv.storage_instance_uuid = si.uuid
     JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
-    LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
+    LEFT JOIN storage_attachment sa ON si.uuid = sa.storage_instance_uuid
+    LEFT JOIN unit u ON sa.unit_uuid = u.uuid
+    LEFT JOIN charm_storage cs ON u.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
     LEFT JOIN machine m ON sva.net_node_uuid = m.net_node_uuid
     LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
     WHERE     sva.uuid = $volumeAttachmentUUID.uuid

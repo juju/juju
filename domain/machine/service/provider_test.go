@@ -123,10 +123,6 @@ func (s *providerServiceSuite) TestAddMachine(c *tc.C) {
 			OS:      "ubuntu",
 			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
 		},
-		Constraints: coreconstraints.Value{
-			// Default arch should be added in this case.
-			Arch: ptr(arch.AMD64),
-		},
 	}).Return(nil)
 	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("netNodeUUID", []machine.Name{"name"}, nil)
 
@@ -151,10 +147,6 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 		Base: base.Base{
 			OS:      "ubuntu",
 			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
-		},
-		Constraints: coreconstraints.Value{
-			// Default arch should be added in this case.
-			Arch: ptr(arch.AMD64),
 		},
 	}).Return(nil)
 	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
@@ -190,10 +182,6 @@ func (s *providerServiceSuite) TestAddMachineError(c *tc.C) {
 			OS:      "ubuntu",
 			Channel: base.Channel{Risk: base.Stable, Track: "22.04"},
 		},
-		Constraints: coreconstraints.Value{
-			// Default arch should be added in this case.
-			Arch: ptr(arch.AMD64),
-		},
 	}).Return(nil)
 
 	rErr := errors.New("boom")
@@ -225,9 +213,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 
 	cons, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cons, tc.DeepEquals, coreconstraints.Value{
-		Arch: ptr(arch.AMD64),
-	})
+	c.Check(cons, tc.DeepEquals, coreconstraints.Value{})
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *tc.C) {
@@ -300,7 +286,6 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 		Arch: ptr(arch.AMD64),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
 	c.Check(*merged.Mem, tc.Equals, uint64(42))
 }
@@ -331,8 +316,6 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 		RootDiskSource: ptr("source-disk"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	// Default arch should be added in this case.
-	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
 	c.Check(*merged.Mem, tc.Equals, uint64(42))
 }

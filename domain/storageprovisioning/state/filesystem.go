@@ -583,6 +583,20 @@ func (st *State) GetFilesystemAttachmentParams(
 		dbVal        filesystemAttachmentParams
 	)
 
+	/*
+	   id      parent  notused detail
+	   20      0       0       SEARCH sfa USING INDEX sqlite_autoindex_storage_filesystem_attachment_1 (uuid=?)
+	   25      0       0       SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?)
+	   30      0       0       SEARCH sif USING INDEX idx_storage_instance_filesystem (storage_filesystem_uuid=?)
+	   38      0       0       SEARCH si USING INDEX sqlite_autoindex_storage_instance_1 (uuid=?)
+	   43      0       0       SEARCH sp USING INDEX sqlite_autoindex_storage_pool_1 (uuid=?)
+	   48      0       0       SEARCH sa USING COVERING INDEX idx_storage_attachment_unit_uuid_storage_instance_uuid (storage_instance_uuid=?)
+	                           LEFT-JOIN
+	   54      0       0       SEARCH u USING INDEX sqlite_autoindex_unit_1 (uuid=?) LEFT-JOIN
+	   62      0       0       SEARCH cs USING INDEX sqlite_autoindex_charm_storage_1 (charm_uuid=? AND name=?) LEFT-JOIN
+	   71      0       0       SEARCH m USING INDEX idx_machine_net_node (net_node_uuid=?) LEFT-JOIN
+	   78      0       0       SEARCH mci USING INDEX sqlite_autoindex_machine_cloud_instance_1 (machine_uuid=?) LEFT-JOIN
+	*/
 	stmt, err := st.Prepare(`
 SELECT &filesystemAttachmentParams.* FROM (
     SELECT    sf.provider_id,
@@ -595,7 +609,9 @@ SELECT &filesystemAttachmentParams.* FROM (
     JOIN      storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
     JOIN 	  storage_instance si ON sif.storage_instance_uuid = si.uuid
     JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
-    LEFT JOIN charm_storage cs ON si.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
+    LEFT JOIN storage_attachment sa ON si.uuid = sa.storage_instance_uuid
+    LEFT JOIN unit u ON sa.unit_uuid = u.uuid
+    LEFT JOIN charm_storage cs ON u.charm_uuid = cs.charm_uuid AND si.storage_name = cs.name
     LEFT JOIN machine m ON sfa.net_node_uuid = m.net_node_uuid
     LEFT JOIN machine_cloud_instance mci ON m.uuid = mci.machine_uuid
     WHERE     sfa.uuid = $filesystemAttachmentUUID.uuid

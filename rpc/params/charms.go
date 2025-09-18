@@ -215,7 +215,7 @@ type ContainerProfileResults struct {
 	Results []ContainerProfileResult `json:"results"`
 }
 
-func ToCharmOptionMap(config *charm.Config) map[string]CharmOption {
+func ToCharmOptionMap(config *charm.ConfigSpec) map[string]CharmOption {
 	if config == nil {
 		return nil
 	}
@@ -234,11 +234,11 @@ func toParamsCharmOption(opt charm.Option) CharmOption {
 	}
 }
 
-func FromCharmOptionMap(config map[string]CharmOption) *charm.Config {
+func FromCharmOptionMap(config map[string]CharmOption) *charm.ConfigSpec {
 	if len(config) == 0 {
 		return nil
 	}
-	result := &charm.Config{
+	result := &charm.ConfigSpec{
 		Options: make(map[string]charm.Option),
 	}
 	for key, value := range config {

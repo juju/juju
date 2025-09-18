@@ -240,7 +240,7 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 		return corecharm.Origin{}, errors.Annotatef(err, "making revision for charm %q", args.URL)
 	}
 
-	if _, warnings, err := a.applicationService.SetCharm(ctx, applicationcharm.SetCharmArgs{
+	if _, warnings, err := a.applicationService.AddCharm(ctx, applicationcharm.AddCharmArgs{
 		Charm:         corecharm.NewCharmInfoAdaptor(essentialMetadata),
 		Source:        requestedOrigin.Source,
 		ReferenceName: charmURL.Name,

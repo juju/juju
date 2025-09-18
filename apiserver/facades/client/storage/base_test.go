@@ -17,7 +17,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	jujustorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -30,20 +29,18 @@ type baseStorageSuite struct {
 	controllerUUID string
 	modelUUID      coremodel.UUID
 
-	api                 *storage.StorageAPI
-	apiCaas             *storage.StorageAPI
-	blockDeviceGetter   *mockBlockDeviceGetter
-	blockCommandService *storage.MockBlockCommandService
+	api     *storage.StorageAPI
+	apiCaas *storage.StorageAPI
 
 	unitTag    names.UnitTag
 	machineTag names.MachineTag
 
-	stub testhelpers.Stub
-
-	storageService     *storage.MockStorageService
-	applicationService *storage.MockApplicationService
-	registry           jujustorage.StaticProviderRegistry
-	poolsInUse         []string
+	blockDeviceService  *storage.MockBlockDeviceService
+	blockCommandService *storage.MockBlockCommandService
+	storageService      *storage.MockStorageService
+	applicationService  *storage.MockApplicationService
+	registry            jujustorage.StaticProviderRegistry
+	poolsInUse          []string
 }
 
 func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -53,9 +50,8 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineTag = names.NewMachineTag("1234")
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
-	s.stub.ResetCalls()
-	s.blockDeviceGetter = &mockBlockDeviceGetter{}
 
+	s.blockDeviceService = storage.NewMockBlockDeviceService(ctrl)
 	s.blockCommandService = storage.NewMockBlockCommandService(ctrl)
 	s.storageService = storage.NewMockStorageService(ctrl)
 	s.applicationService = storage.NewMockApplicationService(ctrl)
@@ -71,12 +67,12 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelUUID = modeltesting.GenModelUUID(c)
 	s.api = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
-		s.blockDeviceGetter,
+		s.blockDeviceService,
 		s.storageService, s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)
 	s.apiCaas = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID,
-		s.blockDeviceGetter,
+		s.blockDeviceService,
 		s.storageService, s.applicationService, s.storageRegistryGetter,
 		s.authorizer, s.blockCommandService)
 

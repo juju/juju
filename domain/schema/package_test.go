@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -18,6 +19,8 @@ import (
 
 type schemaBaseSuite struct {
 	databasetesting.DqliteSuite
+
+	seq int64
 }
 
 // NewCleanDB returns a new sql.DB reference.
@@ -68,6 +71,57 @@ var (
 		"sqlite_sequence",
 	)
 )
+
+func (s *schemaBaseSuite) nextSeq() int64 {
+	// Currently tests are run sequentially, but just in case.
+	return atomic.AddInt64(&s.seq, 1)
+}
+
+func (s *schemaBaseSuite) getNamespaceID(
+	c *tc.C, namespace string,
+) int {
+	row := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id FROM change_log_namespace WHERE namespace = ?",
+		namespace,
+	)
+	var nsID int
+	err := row.Scan(&nsID)
+	c.Assert(err, tc.ErrorIsNil)
+	return nsID
+}
+
+func (s *schemaBaseSuite) clearChangeEvents(
+	c *tc.C, nsID int, changed string,
+) {
+	_, err := s.DB().Exec(
+		"DELETE FROM change_log WHERE namespace_id = ? AND changed = ?",
+		nsID, changed,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// assertChangeEvent asserts that a single change event exists for the provided
+// namespace and changed value. If successful the matching change event will be
+// deleted from the database so subsequent calls can be made to this func within
+// a single test.
+func (s *schemaBaseSuite) assertChangeEvent(
+	c *tc.C, namespace string, changed string,
+) {
+	nsID := s.getNamespaceID(c, namespace)
+
+	row := s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   change_log
+WHERE  namespace_id = ?
+AND    changed = ?`, nsID, changed)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 1)
+
+	s.clearChangeEvents(c, nsID, changed)
+}
 
 func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
 	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)

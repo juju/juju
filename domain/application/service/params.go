@@ -5,7 +5,6 @@ package service
 
 import (
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -64,7 +63,7 @@ type AddApplicationArgs struct {
 	PendingResources []resource.UUID
 
 	// ApplicationConfig contains the application config.
-	ApplicationConfig config.ConfigAttributes
+	ApplicationConfig internalcharm.Config
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
@@ -232,7 +231,7 @@ type ImportApplicationArgs struct {
 	ReferenceName string
 
 	// ApplicationConfig contains the application config.
-	ApplicationConfig config.ConfigAttributes
+	ApplicationConfig internalcharm.Config
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
@@ -269,8 +268,8 @@ type ImportApplicationArgs struct {
 // application ID.
 type ApplicationConfig struct {
 	CharmOrigin       corecharm.Origin
-	CharmConfig       internalcharm.Config
-	ApplicationConfig config.ConfigAttributes
+	CharmConfig       internalcharm.ConfigSpec
+	ApplicationConfig internalcharm.Config
 	Trust             bool
 	CharmName         string
 	Principal         bool

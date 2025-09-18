@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -76,25 +74,6 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
-// Deprecated: This method will be removed, as there should be no need to
-// determine the model type from the state or service. That's an artifact of
-// the caller to call the correct methods.
-func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
-	var result modelInfo
-	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
-		return "", modelerrors.NotFound
-	} else if err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
-	}
-
-	return coremodel.ModelType(result.ModelType), nil
-}
-
 // CreateIAASApplication creates an IAAS application, returning an error
 // satisfying [applicationerrors.ApplicationAlreadyExists] if the application
 // already exists. It returns as error satisfying
@@ -125,7 +104,18 @@ func (st *State) CreateIAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if machineNames, err = st.insertIAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if machineNames, err = st.insertIAASApplicationUnits(
+			ctx, tx, appUUID, charmUUID, units,
+		); err != nil {
 			return errors.Errorf("inserting IAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -179,7 +169,16 @@ func (st *State) CreateCAASApplication(
 		if len(units) == 0 {
 			return nil
 		}
-		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+
+		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting charm uuid for new application %q: %w",
+				name, err,
+			)
+		}
+
+		if err = st.insertCAASApplicationUnits(ctx, tx, appUUID, charmUUID, units); err != nil {
 			return errors.Errorf("inserting CAAS units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -286,7 +285,7 @@ func (st *State) insertApplication(
 	}
 
 	if shouldInsertCharm {
-		if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
+		if err := st.addCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
 			return errors.Errorf("setting charm: %w", err)
 		}
 	}
@@ -379,12 +378,12 @@ VALUES ($applicationDetails.uuid)
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddIAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, unit)
+		_, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -397,11 +396,11 @@ func (st *State) insertIAASApplicationUnits(
 func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.AddCAASApplicationArg,
+	charmUUID corecharm.ID,
 	units []application.AddCAASUnitArg,
 ) error {
 	for i, unit := range units {
-		if _, err := st.insertCAASUnit(ctx, tx, appUUID, unit); err != nil {
+		if _, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, unit); err != nil {
 			return errors.Errorf(
 				"inserting CAAS unit %d for application: %w", i, err,
 			)
@@ -1499,33 +1498,58 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 // Some validation needs to be transactional:
 // - relation compatibility needs to be transactional, since a new or removed
 // relation can change the validation result.
-func (st *State) SetApplicationCharm(ctx context.Context, id coreapplication.ID,
-	params application.UpdateCharmParams) error {
+func (st *State) SetApplicationCharm(
+	ctx context.Context,
+	appID coreapplication.ID,
+	chID corecharm.ID,
+	params application.SetCharmParams,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	charmIdent := charmID{UUID: chID}
+	appIdent := applicationID{ID: appID}
+
+	setAppCharmStmt, err := st.Prepare(`
+UPDATE application
+SET charm_uuid = $charmID.uuid
+WHERE uuid = $applicationID.uuid
+`, charmIdent, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		meta := params.Charm.Meta()
-		if meta == nil {
-			return errors.Errorf("charm doesn't have any valid metadata")
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.checkCharmExists(ctx, tx, charmIdent); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.precheckUpgradeRelation(ctx, tx, appIdent, charmIdent); err != nil {
+			return errors.Capture(err)
 		}
 
-		relations, err := st.getAllNonPeerRelationInfo(ctx, tx, id)
-		if err != nil {
-			return errors.Errorf("fetching all relation for application %q: %w", id, err)
-		}
-		if err := precheckUpgradeRelation(meta, relations); err != nil {
-			return err
-		}
-
-		//TODO(storage) - update charm and storage directive for app
+		//TODO(storage) - update storage directive for app
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()
 		})
-		return st.mergeApplicationEndpointBindings(ctx, tx, id.String(), bindings, false)
+		if err := st.mergeApplicationEndpointBindings(ctx, tx, appID.String(), bindings, false); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, setAppCharmStmt, charmIdent, appIdent).Run(); err != nil {
+			return errors.Errorf("setting application charm: %w", err)
+		}
+
+		if err := st.refreshApplicationConfig(ctx, tx, appIdent, charmIdent); err != nil {
+			return errors.Errorf("refreshing application config: %w", err)
+		}
+
+		return nil
 	}); err != nil {
 		return errors.Capture(err)
 	}
@@ -1781,7 +1805,7 @@ WHERE uuid = $charmID.uuid;`
 
 		// Write the charm actions.yaml, this will actually disappear once the
 		// charmhub store provides this information.
-		if err = st.setCharmActions(ctx, tx, id, info.Actions); err != nil {
+		if err = st.addCharmActions(ctx, tx, id, info.Actions); err != nil {
 			return errors.Errorf("setting charm actions for %q: %w", id, err)
 		}
 
@@ -3416,33 +3440,93 @@ GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional
 // - the new charm implements existing relation given as a argument,
 // - the current count of established relations does not exceed
 // the new charm limit for each specified relation.
-func precheckUpgradeRelation(meta *internalcharm.Meta, relations []relationInfo) error {
-	relSpec := meta.CombinedRelations()
-	for _, rel := range relations {
-		charmRel := decodeRelation(rel)
-		if !charmRel.ImplementedBy(meta) {
-			return errors.Errorf("would break relation %s:%s", rel.ApplicationName, rel.Name)
-		}
-		// The relation will always be found. If not, it would have caused
-		// the previous check to fail.
-		if spec := relSpec[rel.Name]; rel.Count > spec.Limit {
-			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be"+
-				" satisfied by the number of already established relations (%d)", spec.Limit, rel.ApplicationName,
-				rel.Name, rel.Count)
+func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	charmRelations, err := st.getCharmRelations(ctx, tx, charmIdent)
+	if err != nil {
+		return errors.Errorf("fetching charm relations for charm %q: %w", charmIdent.UUID, err)
+	}
+	indexedCharmRelations := make(map[string]charmRelation)
+	for _, rel := range charmRelations {
+		indexedCharmRelations[rel.Name] = rel
+	}
+
+	appRelations, err := st.getAllNonPeerRelationInfo(ctx, tx, appIdent.ID)
+	if err != nil {
+		return errors.Errorf("fetching all relation for application %q: %w", appIdent.ID, err)
+	}
+
+	for _, appRelation := range appRelations {
+		if charmRelation, ok := indexedCharmRelations[appRelation.Name]; !ok {
+			return errors.Errorf("charm has no corresponding relation %q", appRelation.Name)
+		} else if charmRelation.Role != appRelation.Role {
+			return errors.Errorf("cannot change role of relation %q from %s to %s", appRelation.Name, appRelation.Role, charmRelation.Role)
+		} else if charmRelation.Interface != appRelation.Interface {
+			return errors.Errorf("cannot change interface of relation %q from %s to %s", appRelation.Name, appRelation.Interface, charmRelation.Interface)
+		} else if charmRelation.Scope == string(charm.ScopeContainer) && appRelation.Scope == string(charm.ScopeGlobal) {
+			return errors.Errorf("cannot change scope of relation %q from %s to %s", appRelation.Name, appRelation.Scope, charmRelation.Scope)
+		} else if appRelation.Count > charmRelation.Capacity {
+			return errors.Errorf("new charm version imposes a maximum relation limit of %d for %q which cannot be"+
+				" satisfied by the number of already established relations (%d)", charmRelation.Capacity,
+				appRelation.Name, appRelation.Count)
 		}
 	}
 	return nil
 }
 
-// decodeRelation transforms the relationInfo data into an [internalcharm.Relation]
-// structure.
-func decodeRelation(ri relationInfo) internalcharm.Relation {
-	return internalcharm.Relation{
-		Name:      ri.Name,
-		Role:      internalcharm.RelationRole(ri.Role),
-		Interface: ri.Interface,
-		Optional:  ri.Optional,
-		Limit:     ri.Capacity,
-		Scope:     internalcharm.RelationScope(ri.Scope),
+func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	charmConfig, err := st.getCharmConfig(ctx, tx, charmIdent)
+	if err != nil {
+		return errors.Capture(err)
 	}
+	decodedCharmConfig, err := application.DecodeConfig(charmConfig)
+	if err != nil {
+		return errors.Errorf("decoding charm config: %w", err)
+	}
+
+	applicationConfig, err := st.getApplicationConfig(ctx, tx, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	decodedApplicationConfig := make(internalcharm.Config, len(applicationConfig))
+	for _, v := range applicationConfig {
+		decodedApplicationConfig[v.Key] = v.Value
+	}
+
+	filteredDecodedApplicationConfig := decodedCharmConfig.FilterApplicationConfig(decodedApplicationConfig)
+	filteredApplicationConfig := make(map[string]application.ApplicationConfig, len(filteredDecodedApplicationConfig))
+	for k, v := range filteredDecodedApplicationConfig {
+		opt, ok := charmConfig.Options[k]
+		if !ok {
+			// This should never happen, as we've verified the config is valid.
+			// But if it does, then we should return an error.
+			return errors.Errorf("missing charm config, expected %q", k)
+		}
+		filteredApplicationConfig[k] = application.ApplicationConfig{
+			Type:  opt.Type,
+			Value: v,
+		}
+	}
+
+	clearApplicationConfig, err := st.Prepare(`
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid;
+`, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, clearApplicationConfig, appIdent).Run(); err != nil {
+		return errors.Errorf("clearing old application config: %w", err)
+	}
+
+	if err := st.insertApplicationConfig(ctx, tx, appIdent.ID, filteredApplicationConfig); err != nil {
+		return errors.Errorf("inserting application config: %w", err)
+	}
+
+	if err := st.updateConfigHash(ctx, tx, appIdent); err != nil {
+		return errors.Errorf("refreshing config hash: %w", err)
+	}
+
+	return nil
 }

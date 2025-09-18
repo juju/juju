@@ -6,17 +6,16 @@ package bakeryutil
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/authentication"
 	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
+
+var logger = internallogger.GetLogger("juju.apiserver.bakery")
 
 // BakeryThirdPartyLocator is an implementation of
 // bakery.BakeryThirdPartyLocator that simply returns
@@ -33,37 +32,21 @@ func (b BakeryThirdPartyLocator) ThirdPartyInfo(ctx context.Context, loc string)
 	}, nil
 }
 
-// ExpirableStorageBakery wraps bakery.Bakery,
-// adding the ExpireStorageAfter method.
-type ExpirableStorageBakery struct {
+// StorageBakery wraps bakery.Bakery,
+type StorageBakery struct {
 	*bakery.Bakery
-	Location string
-	Key      *bakery.KeyPair
-	Store    internalmacaroon.ExpirableStorage
-	Locator  bakery.ThirdPartyLocator
 }
 
-// ExpireStorageAfter implements authentication.ExpirableStorageBakery.
-func (s *ExpirableStorageBakery) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
-	store := s.Store.ExpireAfter(t)
-	service := bakery.New(bakery.BakeryParams{
-		Location:     s.Location,
-		RootKeyStore: store,
-		Key:          s.Key,
-		Locator:      s.Locator,
-	})
-	return &ExpirableStorageBakery{service, s.Location, s.Key, store, s.Locator}, nil
-}
-
-// NewMacaroon implements MacaroonMinter.NewMacaroon.
-func (s *ExpirableStorageBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+// NewMacaroon takes a macaroon with the given version from the oven, associates
+// it with the given operations and attaches the given caveats. There must be at
+// least one operation specified.
+func (s *StorageBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	return s.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
-var logger = internallogger.GetLogger("juju.apiserver.bakery")
-
-// Auth implements MacaroonChecker.Auth.
-func (s *ExpirableStorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
+// Auth makes a new AuthChecker instance using the given macaroons to inform
+// authorization decisions.
+func (s *StorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	if logger.IsLevelEnabled(corelogger.TRACE) {
 		for i, ms := range mss {
 			ops, conditions, err := s.Oven.VerifyMacaroon(ctx, ms)
@@ -75,5 +58,6 @@ func (s *ExpirableStorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice
 			logger.Tracef(ctx, "macaroon %d: %+v : %v", i, ops, conditions)
 		}
 	}
+
 	return s.Checker.Auth(mss...)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -138,8 +137,7 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 }
 
 // mergeMachineAndModelConstraints resolves given application constraints, taking
-// into account the model constraints, and any hard-coded default constraint values
-// that exist.
+// into account the model constraints
 func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, cons domainconstraints.Constraints) (constraints.Value, error) {
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil {
@@ -154,10 +152,6 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(modelCons), domainconstraints.EncodeConstraints(cons))
 	if err != nil {
 		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
-	}
-
-	if !mergedCons.HasArch() {
-		mergedCons.Arch = ptr(arch.DefaultArchitecture)
 	}
 
 	return mergedCons, nil

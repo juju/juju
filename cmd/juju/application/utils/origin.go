@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -18,23 +17,13 @@ import (
 // Depending on what the schema is, will then construct the correct
 // origin for that application.
 func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
-	// Arch is ultimately determined for non-local cases in the API call
-	// to `ResolveCharm`. To ensure we always have an architecture, even if
-	// somehow the MakePlatform doesn't find one fill one in.
-	// Additionally, `ResolveCharm` is not called for local charms, which are
-	// simply uploaded and deployed. We satisfy the requirement for
-	// non-empty platform architecture by making our best guess here.
-	architecture := platform.Architecture
-	if architecture == "" {
-		architecture = arch.DefaultArchitecture
-	}
 
 	var origin commoncharm.Origin
 	switch schema {
 	case charm.Local:
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
-			Architecture: architecture,
+			Architecture: platform.Architecture,
 		}
 	case charm.CharmHub:
 		var track *string
@@ -50,7 +39,7 @@ func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platfo
 			Risk:         string(channel.Risk),
 			Track:        track,
 			Branch:       branch,
-			Architecture: architecture,
+			Architecture: platform.Architecture,
 		}
 	default:
 		return commoncharm.Origin{}, errors.NotSupportedf("charm source %q", schema)
@@ -72,7 +61,7 @@ func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platfo
 // constraints and a base.
 func MakePlatform(cons constraints.Value, base corebase.Base, modelCons constraints.Value) corecharm.Platform {
 	return corecharm.Platform{
-		Architecture: constraints.ArchOrDefault(cons, &modelCons),
+		Architecture: constraints.ArchOrDefault(cons, modelCons),
 		OS:           base.OS,
 		Channel:      base.Channel.Track,
 	}

@@ -14,7 +14,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -146,7 +145,7 @@ type ApplicationState interface {
 
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
-	SetApplicationCharm(ctx context.Context, id coreapplication.ID, params application.UpdateCharmParams) error
+	SetApplicationCharm(ctx context.Context, appID coreapplication.ID, charmID corecharm.ID, params application.SetCharmParams) error
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -942,7 +941,7 @@ func makeApplicationStorageDirectiveArg(
 
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
-func (s *Service) SetApplicationCharm(ctx context.Context, appName string, params application.UpdateCharmParams) error {
+func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -950,7 +949,11 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, param
 	if err != nil {
 		return errors.Errorf("getting application ID: %w", err)
 	}
-	err = s.st.SetApplicationCharm(ctx, appID, params)
+	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
+	if err != nil {
+		return errors.Errorf("getting charm ID: %w", err)
+	}
+	err = s.st.SetApplicationCharm(ctx, appID, charmID, params)
 	if err != nil {
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}
@@ -1076,7 +1079,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	config, err := decodeConfig(ch.Config)
+	config, err := application.DecodeConfig(ch.Config)
 	if err != nil {
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
@@ -1464,41 +1467,13 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appl
 	return s.st.GetApplicationsForRevisionUpdater(ctx)
 }
 
-// GetApplicationConfig returns the application config attributes for the
-// configuration.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
-	}
-
-	cfg, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	result := make(config.ConfigAttributes)
-	for k, v := range cfg {
-		result[k] = v.Value
-	}
-
-	// Always return the trust setting, as it's a special case.
-	result[coreapplication.TrustConfigOptionName] = settings.Trust
-
-	return result, nil
-}
-
 // GetApplicationConfigWithDefaults returns the application config attributes
 // for the configuration, or their charm default if the config attribute is not
 // set.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
+func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (internalcharm.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1511,7 +1486,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Config)
 	for k, v := range cfg {
 		result[k] = v.Value
 	}
@@ -1570,7 +1545,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	result := make(config.ConfigAttributes)
+	result := make(internalcharm.Config)
 	for k, v := range appConfig {
 		result[k] = v.Value
 	}
@@ -1580,7 +1555,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	decodedCharmConfig, err := decodeConfig(charmConfig)
+	decodedCharmConfig, err := application.DecodeConfig(charmConfig)
 	if err != nil {
 		return ApplicationConfig{}, errors.Errorf("decoding charm config: %w", err)
 	}
@@ -1658,7 +1633,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 		return errors.Capture(err)
 	}
 
-	charmConfig, err := decodeConfig(cfg)
+	charmConfig, err := application.DecodeConfig(cfg)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1688,21 +1663,15 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 	// upgrade, we can prevent a runtime error during that phase.
 	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
 	for k, v := range coercedConfig {
-		option, ok := charmConfig.Options[k]
+		option, ok := cfg.Options[k]
 		if !ok {
 			// This should never happen, as we've verified the config is valid.
 			// But if it does, then we should return an error.
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
-
-		optionType, err := encodeOptionType(option.Type)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
 		encodedConfig[k] = application.ApplicationConfig{
 			Value: v,
-			Type:  optionType,
+			Type:  option.Type,
 		}
 	}
 
@@ -1874,7 +1843,7 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 	return &b, nil
 }
 
-func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
+func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
 	// If there is no config, then we can just return nil.
 	if len(cfg) == 0 {
 		return nil, nil
@@ -1897,7 +1866,7 @@ func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig charm.Conf
 	return encodedConfig, nil
 }
 
-func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings) error {
+func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Config) error {
 	for name, value := range cfg {
 		option, ok := chCfg.Options[name]
 		if !ok {

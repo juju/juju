@@ -78,10 +78,10 @@ func (c *MockCharmActionsCall) DoAndReturn(f func() *charm.Actions) *MockCharmAc
 }
 
 // Config mocks base method.
-func (m *MockCharm) Config() *charm.Config {
+func (m *MockCharm) Config() *charm.ConfigSpec {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
-	ret0, _ := ret[0].(*charm.Config)
+	ret0, _ := ret[0].(*charm.ConfigSpec)
 	return ret0
 }
 
@@ -98,19 +98,19 @@ type MockCharmConfigCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmConfigCall) Return(arg0 *charm.Config) *MockCharmConfigCall {
+func (c *MockCharmConfigCall) Return(arg0 *charm.ConfigSpec) *MockCharmConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmConfigCall) Do(f func() *charm.Config) *MockCharmConfigCall {
+func (c *MockCharmConfigCall) Do(f func() *charm.ConfigSpec) *MockCharmConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmConfigCall) DoAndReturn(f func() *charm.Config) *MockCharmConfigCall {
+func (c *MockCharmConfigCall) DoAndReturn(f func() *charm.ConfigSpec) *MockCharmConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

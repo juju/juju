@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/juju/core/charm"
-	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
@@ -264,10 +263,10 @@ func (c *MockExportServiceGetApplicationCharmOriginCall) DoAndReturn(f func(cont
 }
 
 // GetApplicationConfigAndSettings mocks base method.
-func (m *MockExportService) GetApplicationConfigAndSettings(arg0 context.Context, arg1 string) (config.ConfigAttributes, application.ApplicationSettings, error) {
+func (m *MockExportService) GetApplicationConfigAndSettings(arg0 context.Context, arg1 string) (charm1.Config, application.ApplicationSettings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationConfigAndSettings", arg0, arg1)
-	ret0, _ := ret[0].(config.ConfigAttributes)
+	ret0, _ := ret[0].(charm1.Config)
 	ret1, _ := ret[1].(application.ApplicationSettings)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -286,19 +285,19 @@ type MockExportServiceGetApplicationConfigAndSettingsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Return(arg0 config.ConfigAttributes, arg1 application.ApplicationSettings, arg2 error) *MockExportServiceGetApplicationConfigAndSettingsCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Return(arg0 charm1.Config, arg1 application.ApplicationSettings, arg2 error) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Do(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Do(f func(context.Context, string) (charm1.Config, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, string) (charm1.Config, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

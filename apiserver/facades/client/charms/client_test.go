@@ -215,7 +215,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
-	expConfig := new(charm.Config)
+	expConfig := new(charm.ConfigSpec)
 	s.repository.EXPECT().ResolveForDeploy(gomock.Any(), corecharm.CharmID{
 		URL:    curl,
 		Origin: requestedOrigin,
@@ -229,7 +229,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *tc.C) {
 		},
 	}, nil)
 
-	s.applicationService.EXPECT().SetCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.SetCharmArgs) (corecharm.ID, []string, error) {
+	s.applicationService.EXPECT().AddCharm(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, args domaincharm.AddCharmArgs) (corecharm.ID, []string, error) {
 		c.Check(args.Charm.Meta(), tc.Equals, expMeta)
 		c.Check(args.Charm.Manifest(), tc.Equals, expManifest)
 		c.Check(args.Charm.Config(), tc.Equals, expConfig)
