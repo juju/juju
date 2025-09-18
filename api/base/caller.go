@@ -5,9 +5,11 @@ package base
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"runtime/pprof"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v5"
@@ -141,10 +143,15 @@ var _ FacadeCaller = facadeCaller{}
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
-func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
-	return fc.caller.APICall(
-		fc.facadeName, fc.bestVersion, "",
-		request, params, response)
+func (fc facadeCaller) FacadeCall(request string, params, response interface{}) (err error) {
+	callInfo := fmt.Sprintf("%s.%s", fc.facadeName, request)
+	pprof.Do(context.Background(), pprof.Labels("rpc->", callInfo), func(ctx context.Context) {
+		err = fc.caller.APICall(
+			fc.facadeName, fc.bestVersion, "",
+			request, params, response,
+		)
+	})
+	return
 }
 
 // Name returns the facade name.
