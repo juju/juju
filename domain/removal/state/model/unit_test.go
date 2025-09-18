@@ -515,6 +515,92 @@ func (s *unitSuite) TestDeleteIAASUnitWithSubordinatesNotDying(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*still alive.*`)
 }
 
+func (s *unitSuite) TestDeleteIAASUnitWithOperation(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addOperation(c) // control operation
+	opUUID := s.addOperationAction(c, s.addCharm(c), "op")
+	s.addOperationUnitTask(c, opUUID, unitUUID.String())
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The operation should be gone, since it is only linked to the associated unit.
+	c.Check(s.getRowCount(c, "operation"), tc.Equals, 1)
+}
+
+func (s *unitSuite) TestDeleteIAASUnitWithOperationExec(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addOperation(c) // control operation
+	// Exec operation without params (no entry in operation_action nor operation_parameters)
+	opUUID := s.addOperation(c)
+	s.addOperationUnitTask(c, opUUID, unitUUID.String())
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The operation should be gone, since it is only linked to the associated unit.
+	c.Check(s.getRowCount(c, "operation"), tc.Equals, 1)
+}
+
+func (s *unitSuite) TestDeleteIAASUnitWithOperationSpannedToSeveralUnit(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	opUUID := s.addOperationAction(c, s.addCharm(c), "op")
+	s.addOperationUnitTask(c, opUUID, unitUUID.String())
+	s.addOperationUnitTask(c, opUUID, s.addUnit(c, s.addCharm(c))) // Spans to another unit.
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The operation should not be gone, since it is linked to another unit.
+	c.Check(s.getRowCount(c, "operation"), tc.Equals, 1)
+	c.Check(s.getRowCount(c, "operation_task"), tc.Equals, 1)
+}
+
 func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})

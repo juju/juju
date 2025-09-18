@@ -829,6 +829,73 @@ func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
 	c.Check(exists, tc.Equals, true)
 }
 
+func (s *machineSuite) TestDeleteMachineWithOperation(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addOperation(c) // control operation
+	opUUID := s.addOperation(c)
+	s.addOperationMachineTask(c, opUUID, machineUUID.String())
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The operation should be gone, since it is only linked to the associated unit.
+	c.Check(s.getRowCount(c, "operation"), tc.Equals, 1)
+}
+
+func (s *machineSuite) TestDeleteMachineWithOperationSpannedToSeveralMachine(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	opUUID := s.addOperation(c)
+	s.addOperationMachineTask(c, opUUID, machineUUID.String())
+	s.addOperationMachineTask(c, opUUID, s.addMachine(c, "machine-2")) // spanned to another machine
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	err = st.DeleteMachine(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The operation should not be gone, since it is linked to another machine.
+	c.Check(s.getRowCount(c, "operation"), tc.Equals, 1)
+	c.Check(s.getRowCount(c, "operation_task"), tc.Equals, 1)
+}
+
 func (s *machineSuite) TestDeleteContainer(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{

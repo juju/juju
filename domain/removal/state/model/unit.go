@@ -396,6 +396,13 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
+		// Delete all tasks related to the unit, and eventually removes
+		// operations if they are empty after tasks deletion.
+		_, err := st.cleanupTasksAndOperationsByUnitUUID(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("deleting operations for unit %q: %w", unitUUID, err)
+		}
+
 		var netNodeUUIDRec entityUUID
 		if err := tx.Query(ctx, selectNetNodeStmt, unitUUIDRec).Get(&netNodeUUIDRec); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.UnitNotFound
