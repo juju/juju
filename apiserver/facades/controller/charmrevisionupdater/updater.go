@@ -154,7 +154,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			}
 			if origin.ID == "" || origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
 				logger.Errorf("charm %s has missing id(%s), revision (%p), channel (%p), or platform (%p), skipping",
-					curl, origin.Revision, origin.Channel, origin.Platform)
+					curl, origin.ID, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
 			channel, err := charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
