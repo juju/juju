@@ -72,8 +72,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnit(c *tc.C) 
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeStorageAttachmentsDying(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
