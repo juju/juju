@@ -37,7 +37,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
-	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -129,7 +128,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 }
 
 type baseSuite struct {
-	changestreamtesting.ModelSuite
+	schematesting.ModelSuite
 }
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
@@ -169,7 +168,7 @@ func (s *baseSuite) setupMachineService(c *tc.C) *machineservice.ProviderService
 	)
 }
 
-func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBFactory) *applicationservice.WatchableService {
+func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.ProviderService {
 	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -181,10 +180,9 @@ func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBF
 		return appProvider{}, nil
 	}
 
-	return applicationservice.NewWatchableService(
+	return applicationservice.NewProviderService(
 		applicationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
-		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		providerGetter,
 		caasProviderGetter,
@@ -196,7 +194,7 @@ func (s *baseSuite) setupApplicationService(c *tc.C, factory domain.WatchableDBF
 	)
 }
 
-func (s *baseSuite) setupRelationService(c *tc.C, factory domain.WatchableDBFactory) *relationservice.Service {
+func (s *baseSuite) setupRelationService(c *tc.C) *relationservice.Service {
 	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -207,7 +205,7 @@ func (s *baseSuite) setupRelationService(c *tc.C, factory domain.WatchableDBFact
 	)
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -235,7 +233,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Watch
 	return appID
 }
 
-func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm", subordinate: true}
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -263,7 +261,7 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 	return appID
 }
 
-func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.WatchableService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,

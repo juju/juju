@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/instance"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
@@ -31,8 +30,7 @@ func TestMachineSuite(t *testing.T) {
 }
 
 func (s *machineSuite) TestMachineExists(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -48,8 +46,7 @@ func (s *machineSuite) TestMachineExists(c *tc.C) {
 }
 
 func (s *machineSuite) TestGetMachineLifeSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -75,8 +72,7 @@ func (s *machineSuite) TestGetMachineLifeNotFound(c *tc.C) {
 }
 
 func (s *machineSuite) TestGetInstanceLifeSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -102,8 +98,7 @@ func (s *machineSuite) TestGetInstanceLifeNotFound(c *tc.C) {
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -115,8 +110,7 @@ func (s *machineSuite) TestGetMachineNetworkInterfacesNoHardwareDevices(c *tc.C)
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfaces(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -148,8 +142,7 @@ VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:4
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesMultiple(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -187,8 +180,7 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name2", 1500, "66:11:22:33:
 }
 
 func (s *machineSuite) TestGetMachineNetworkInterfacesContainer(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID0 := s.createIAASApplication(c, svc, "some-app1", applicationservice.AddIAASUnitArg{})
 	appUUID1 := s.createIAASApplication(c, svc, "some-app2", applicationservice.AddIAASUnitArg{
 		AddUnitArg: applicationservice.AddUnitArg{
@@ -245,8 +237,7 @@ VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -263,8 +254,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascade(c *tc.C) {
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
 		applicationservice.AddIAASUnitArg{
@@ -294,8 +284,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
 		applicationservice.AddIAASUnitArg{
@@ -327,8 +316,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeDoesNotSetOtherUnitsToDying(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID0 := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
 	machineUUID0 := s.getMachineUUIDFromApp(c, appUUID0)
 
@@ -412,8 +400,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "foo", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -427,8 +414,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 }
 
 func (s *machineSuite) TestMachineRemovalNormalSuccess(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
@@ -563,8 +549,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasContainers(c *tc.C) {
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -579,8 +564,7 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnitsWithDeadUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
@@ -663,8 +647,7 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineHasContainers(c *tc.C) {
 }
 
 func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
@@ -808,8 +791,7 @@ func (s *machineSuite) TestDeleteMachineWithContainers(c *tc.C) {
 }
 
 func (s *machineSuite) TestDeleteMachineWithUnits(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "pelican")
-	svc := s.setupApplicationService(c, factory)
+	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
