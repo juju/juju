@@ -842,11 +842,14 @@ func (s *watcherSuite) TestWatchStorageAttachmentForFilesystem(c *tc.C) {
 func (s *watcherSuite) changeStorageAttachmentLife(
 	c *tc.C, storageInstanceUUID string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE storage_attachment
 SET    life_id = ?
 WHERE  storage_instance_uuid = ?
 `, int(life), storageInstanceUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -873,11 +876,14 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeVolumeAttachmentLife(
 	c *tc.C, uuid string, life domainlife.Life,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE storage_volume_attachment
 SET    life_id = ?
 WHERE  uuid = ?`, int(life), uuid,
-	)
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -907,14 +913,16 @@ WHERE  uuid = ?
 func (s *watcherSuite) changeFilesystemAttachmentMountPoint(
 	c *tc.C, uuid string,
 ) {
-
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE storage_filesystem_attachment
 SET    mount_point = 'foobar'
 WHERE  uuid = ?
 `,
-		uuid,
-	)
+			uuid,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1568,7 +1576,8 @@ func (s *watcherSuite) newModelVolumeAttachmentForNetNode(
 	attachmentUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_volume_attachment (
     uuid,
     storage_volume_uuid,
@@ -1576,6 +1585,8 @@ INSERT INTO storage_volume_attachment (
     life_id,
     provision_scope_id)
 VALUES (?, ?, ?, 0, 0)`, attachmentUUID.String(), vsUUID, netNodeUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return attachmentUUID.String()
@@ -1618,12 +1629,12 @@ func (s *watcherSuite) newUnitWithNetNode(
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err = s.DB().Exec(`
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(`
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
 VALUES (?, ?, ?, ?, ?, 0)`,
 			unitUUID.String(), name, appUUID, charmUUID, nodeUUID.String())
@@ -1691,28 +1702,34 @@ func (s *watcherSuite) newStorageInstanceWithCharmUUID(
 	storageName := fmt.Sprintf("mystorage-%d", seq)
 	storageID := fmt.Sprintf("mystorage/%d", seq)
 
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
 VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
-	c.Assert(err, tc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 
-	var charmName string
-	err = s.DB().QueryRowContext(
-		c.Context(),
-		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
-		charmUUID,
-	).Scan(&charmName)
-	c.Assert(err, tc.ErrorIsNil)
+		var charmName string
+		err = tx.QueryRowContext(ctx,
+			"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+			charmUUID,
+		).Scan(&charmName)
+		if err != nil {
+			return err
+		}
 
-	_, err = s.DB().Exec(`
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
 VALUES (?, ?, ?, ?, 0, 100, ?)`,
-		storageInstanceUUID.String(),
-		charmName,
-		storageName,
-		storageID,
-		poolUUID,
-	)
+			storageInstanceUUID.String(),
+			charmName,
+			storageName,
+			storageID,
+			poolUUID,
+		)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	return storageInstanceUUID, storageID
 }
@@ -1724,10 +1741,13 @@ func (s *watcherSuite) newStorageAttachment(
 	life domainlife.Life,
 ) storageprovisioning.StorageAttachmentUUID {
 	saUUID := domaintesting.GenStorageAttachmentUUID(c)
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)`,
-		saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
+			saUUID.String(), storageInstanceUUID.String(), unitUUID.String(), life)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	return saUUID
 }
@@ -1736,10 +1756,12 @@ func (s *watcherSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
 	filesystemUUID storageprovisioning.FilesystemUUID,
 ) {
-	ctx := c.Context()
-	_, err := s.DB().ExecContext(ctx, `
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
 VALUES (?, ?)`, instanceUUID.String(), filesystemUUID.String())
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1747,10 +1769,12 @@ func (s *watcherSuite) newStorageInstanceVolume(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
 	volumeUUID storageprovisioning.VolumeUUID,
 ) {
-	ctx := c.Context()
-	_, err := s.DB().ExecContext(ctx, `
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
 VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1761,9 +1785,12 @@ func (s *watcherSuite) newBlockDevice(
 	blockDeviceUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec(`
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO block_device (uuid, name, machine_uuid)
 VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	return blockDeviceUUID.String()
 }
@@ -1771,10 +1798,13 @@ VALUES (?, ?, ?)`, blockDeviceUUID.String(), blockDeviceUUID.String(), machineUU
 func (s *watcherSuite) setVolumeAttachmentBlockDevice(
 	c *tc.C, attachmentUUID string, blockDeviceUUID string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE storage_volume_attachment
 SET    block_device_uuid = ?
 WHERE  uuid = ?`, blockDeviceUUID, attachmentUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1783,19 +1813,25 @@ func (s *watcherSuite) newBlockDeviceLinkDevice(
 	blockDeviceUUID string,
 	machineUUID string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
 VALUES (?, ?, ?)`, blockDeviceUUID, machineUUID, blockDeviceUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) changeBlockDeviceMountPoint(
 	c *tc.C, blockDeviceUUID string, mountPoint string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE block_device
 SET    mount_point = ?
 WHERE  uuid = ?`, mountPoint, blockDeviceUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1804,10 +1840,13 @@ func (s *watcherSuite) renameBlockDeviceLinkDevice(
 	blockDeviceUUID string,
 	newName string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 UPDATE block_device_link_device
 SET name = ?
 WHERE block_device_uuid = ?`, newName, blockDeviceUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1815,8 +1854,11 @@ func (s *watcherSuite) deleteBlockDeviceLinkDevice(
 	c *tc.C,
 	blockDeviceUUID string,
 ) {
-	_, err := s.DB().Exec(`
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
 DELETE FROM block_device_link_device
 WHERE block_device_uuid = ?`, blockDeviceUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
