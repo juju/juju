@@ -427,26 +427,39 @@ func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
 		return errors.Capture(err)
 	}
 
+	type node entityUUID
+	type machine entityUUID
 	machineUUIDParam := entityUUID{UUID: mUUID}
+
+	// Prepare query to fetch net node for machine
+	getNode := `
+SELECT net_node_uuid AS &node.uuid 
+FROM   machine 
+WHERE  uuid = $machine.uuid
+`
+	getNodeStmt, err := st.Prepare(getNode, machine{}, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	// Prepare query for deleting machine row.
 	deleteMachine := `
 DELETE FROM machine 
-WHERE uuid = $entityUUID.uuid;
+WHERE uuid = $machine.uuid;
 `
-	deleteMachineStmt, err := st.Prepare(deleteMachine, machineUUIDParam)
+	deleteMachineStmt, err := st.Prepare(deleteMachine, machine{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Prepare query for deleting net node row.
 	// TODO (stickupkid): We need to ensure that no unit is still using this
-	// net node. If it is, we need to return an error.
+	//    net node. If it is, we need to return an error.
 	deleteNode := `
-DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM machine WHERE uuid = $entityUUID.uuid)
+DELETE FROM net_node 
+WHERE uuid = $node.uuid
 `
-	deleteNodeStmt, err := st.Prepare(deleteNode, machineUUIDParam)
+	deleteNodeStmt, err := st.Prepare(deleteNode, node{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -485,13 +498,19 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Errorf("removing basic machine data: %w", err)
 		}
 
+		// Get the net node for the machine.
+		var node node
+		if err := tx.Query(ctx, getNodeStmt, machine(machineUUIDParam)).Get(&node); err != nil {
+			return errors.Errorf("getting net node: %w", err)
+		}
+
 		// Remove the machine entry
-		if err := tx.Query(ctx, deleteMachineStmt, machineUUIDParam).Run(); err != nil {
+		if err := tx.Query(ctx, deleteMachineStmt, machine(machineUUIDParam)).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
 		}
 
 		// Remove the net node for the machine.
-		if err := tx.Query(ctx, deleteNodeStmt, machineUUIDParam).Run(); err != nil {
+		if err := tx.Query(ctx, deleteNodeStmt, node).Run(); err != nil {
 			return errors.Errorf("deleting net node: %w", err)
 		}
 
