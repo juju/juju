@@ -85,21 +85,22 @@ func NewStorageProvisionerAPIv4(
 	}
 
 	canAccessStorageMachine := func(tag names.Tag, allowController bool) bool {
+	canAccessStorageMachine := func(ctx context.Context, tag names.MachineTag) bool {
 		authEntityTag := authorizer.GetAuthTag()
 		if tag == authEntityTag {
 			// Machine agents can access volumes
 			// scoped to their own machine.
 			return true
 		}
-		parentId := container.ParentId(tag.Id())
-		if parentId == "" {
-			return allowController && authorizer.AuthController()
+		parentTag := tag.Parent()
+		if parentTag == nil {
+			return authorizer.AuthController()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
-		return names.NewMachineTag(parentId) == authEntityTag
+		return parentTag == authEntityTag
 	}
-	getScopeAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getScopeAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
 			case names.ModelTag:
@@ -108,126 +109,82 @@ func NewStorageProvisionerAPIv4(
 				isModelManager := authorizer.AuthController()
 				return isModelManager && tag == names.NewModelTag(modelUUID.String())
 			case names.MachineTag:
-				return canAccessStorageMachine(tag, false)
-			case names.ApplicationTag:
-				return authorizer.AuthController()
+				return canAccessStorageMachine(ctx, tag)
 			default:
 				return false
 			}
 		}, nil
 	}
-	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
+	canAccessStorageEntity := func(ctx context.Context, tag names.Tag) bool {
 		switch tag := tag.(type) {
 		case names.VolumeTag:
-			machineTag, ok := names.VolumeMachine(tag)
-			if ok {
-				return canAccessStorageMachine(machineTag, false)
+			exists, err := storageProvisioningService.CheckVolumeForIDExists(
+				ctx, tag.Id(),
+			)
+			if err != nil {
+				logger.Errorf(ctx, "volume auth failed: %q", err)
+				return false
 			}
-			return authorizer.AuthController()
+			return exists || authorizer.AuthController()
 		case names.FilesystemTag:
-			machineTag, ok := names.FilesystemMachine(tag)
-			if ok {
-				return canAccessStorageMachine(machineTag, false)
-			}
-			_, ok = names.FilesystemUnit(tag)
-			if ok {
-				return authorizer.AuthController()
-			}
-
 			exists, err := storageProvisioningService.CheckFilesystemForIDExists(
 				ctx, tag.Id(),
 			)
 			if err != nil {
+				logger.Errorf(ctx, "filesystem auth failed: %q", err)
 				return false
 			}
-			if !exists {
-				return authorizer.AuthController()
-			}
-			// TODO: implement volume auth in Dqlite.
-			// volumeTag, err := f.Volume()
-			// if err == nil {
-			// 	// The filesystem has a backing volume. If the
-			// 	// authenticated agent has access to any of the
-			// 	// machines that the volume is attached to, then
-			// 	// it may access the filesystem too.
-			// 	volumeAttachments, err := sb.VolumeAttachments(volumeTag)
-			// 	if err != nil && !errors.Is(err, errors.NotFound) {
-			// 		return false
-			// 	}
-			// 	for _, a := range volumeAttachments {
-			// 		if canAccessStorageMachine(a.Host(), false) {
-			// 			return true
-			// 		}
-			// 	}
-			// } else if !errors.Is(err, errors.NotFound) && err != state.ErrNoBackingVolume {
-			// 	return false
-			// }
-			return authorizer.AuthController()
-		case names.MachineTag:
-			return allowMachines && canAccessStorageMachine(tag, true)
-		case names.ApplicationTag:
-			return authorizer.AuthController()
+			return exists || authorizer.AuthController()
 		default:
 			return false
 		}
 	}
-	getStorageEntityAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getStorageEntityAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, false)
+			return canAccessStorageEntity(ctx, tag)
 		}, nil
 	}
-	getLifeAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getLifeAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return canAccessStorageEntity(tag, true)
+			switch tag := tag.(type) {
+			case names.MachineTag:
+				return canAccessStorageMachine(ctx, tag)
+			default:
+				return canAccessStorageEntity(ctx, tag)
+			}
 		}, nil
 	}
-	getAttachmentAuthFunc := func(context.Context) (func(names.Tag, names.Tag) bool, error) {
+	getAttachmentAuthFunc := func(ctx context.Context) (func(names.Tag, names.Tag) bool, error) {
 		// getAttachmentAuthFunc returns a function that validates
 		// access by the authenticated user to an attachment.
 		return func(hostTag names.Tag, attachmentTag names.Tag) bool {
-			if hostTag.Kind() == names.UnitTagKind {
+			var machineTag names.MachineTag
+			switch tag := hostTag.(type) {
+			case names.MachineTag:
+				machineTag = tag
+			case names.UnitTag:
 				return authorizer.AuthController()
-			}
-
-			// Machine agents can access their own machine, and
-			// machines contained. Controllers can access
-			// top-level machines.
-			machineAccessOk := canAccessStorageMachine(hostTag, true)
-
-			if !machineAccessOk {
+			default:
 				return false
 			}
-
-			// Controllers can access model-scoped
-			// volumes and volumes scoped to their own machines.
-			// Other machine agents can access volumes regardless
-			// of their scope.
-			if !authorizer.AuthController() {
-				return true
+			if !canAccessStorageMachine(ctx, machineTag) {
+				return false
 			}
-			var machineScope names.MachineTag
-			var hasMachineScope bool
-			switch attachmentTag := attachmentTag.(type) {
-			case names.VolumeTag:
-				machineScope, hasMachineScope = names.VolumeMachine(attachmentTag)
-			case names.FilesystemTag:
-				machineScope, hasMachineScope = names.FilesystemMachine(attachmentTag)
-			}
-			return !hasMachineScope || machineScope == authorizer.GetAuthTag()
+			return canAccessStorageEntity(ctx, attachmentTag)
 		}, nil
 	}
-	getMachineAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getMachineAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag, ok := tag.(names.MachineTag); ok {
-				return canAccessStorageMachine(tag, true)
+				return canAccessStorageMachine(ctx, tag)
 			}
 			return false
 		}, nil
 	}
-	getBlockDevicesAuthFunc := func(context.Context) (common.AuthFunc, error) {
+	getBlockDevicesAuthFunc := func(ctx context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag, ok := tag.(names.MachineTag); ok {
-				return canAccessStorageMachine(tag, false)
+				return canAccessStorageMachine(ctx, tag)
 			}
 			return false
 		}, nil
