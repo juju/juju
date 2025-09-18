@@ -22,6 +22,10 @@ type ControllerModelSuite struct {
 	watchableDBs map[string]*TestWatchableDB
 }
 
+// DB shadows [testing.ControllerModelSuite] DB to ensure that change stream
+// testing is performed through a txn runner.
+func (s *ControllerModelSuite) DB() {}
+
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the controller schema.
 func (s *ControllerModelSuite) SetUpTest(c *tc.C) {
