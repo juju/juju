@@ -15,11 +15,13 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
@@ -41,11 +43,21 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 type applicationSuite struct {
 	baseSuite
+}
+
+func (s *applicationSuite) TestStub(c *tc.C) {
+	c.Skip("Suspending relation requires CMR support, which is not yet implemented.\n" +
+		"Once it will be implemented, at minimum, the following tests should be added:\n" +
+		"- TestSetRelationsSuspended\n" +
+		"- TestSetRelationsReestablished\n" +
+		"- TestSetRelationsSuspendedPermissionError\n" +
+		"- TestSetRelationsSuspendedNoOffer")
 }
 
 func TestApplicationSuite(t *stdtesting.T) {
@@ -1248,18 +1260,148 @@ func (s *applicationSuite) TestUnitsInfoApplicationNotFound(c *tc.C) {
 	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *applicationSuite) TestSetRelationsSuspendedStub(c *tc.C) {
-	c.Skip("Suspending relation requires CMR support, which is not yet implemented.\n" +
-		"Once it will be implemented, at minimum, the following tests should be added:\n" +
-		"- TestSetRelationsSuspended\n" +
-		"- TestSetRelationsReestablished\n" +
-		"- TestSetRelationsSuspendedPermissionError\n" +
-		"- TestSetRelationsSuspendedNoOffer")
+func (s *applicationSuite) TestConsumeWithNoArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	_, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.baseSuite.setupMocks(c)
-	return ctrl
+func (s *applicationSuite) TestConsumeNotAllowed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
+
+	s.newIAASAPI(c)
+
+	_, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *applicationSuite) TestConsumeCheckBlocked(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectAnyPermissions()
+	s.expectDisallowBlockChange()
+
+	s.newIAASAPI(c)
+
+	_, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{})
+	c.Assert(err, tc.ErrorMatches, "blocked")
+}
+
+func (s *applicationSuite) TestConsume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerUUID := tc.Must(c, uuid.NewUUID).String()
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+
+	controllerInfo := crossmodel.ControllerInfo{
+		ControllerUUID: controllerUUID,
+		Alias:          "alias",
+		Addrs:          []string{"10.0.0.1"},
+		CACert:         "cert",
+		ModelUUIDs:     []string{modelUUID},
+	}
+	s.externalControllerService.EXPECT().UpdateExternalController(gomock.Any(), controllerInfo).Return(nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+			},
+			ControllerInfo: &params.ExternalControllerInfo{
+				ControllerTag: names.NewControllerTag(controllerUUID).String(),
+				Alias:         "alias",
+				Addrs:         []string{"10.0.0.1"},
+				CACert:        "cert",
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Even if the controller UUID is the same, we don't touch the external
+	// controller record. The data could be old, so leave it alone.
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+			},
+			ControllerInfo: &params.ExternalControllerInfo{
+				ControllerTag: names.NewControllerTag(s.controllerUUID).String(),
+				Alias:         "alias",
+				Addrs:         []string{"10.0.0.1"},
+				CACert:        "cert",
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeInvalidSourceModelTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := "bad"
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{
+				Code:    params.CodeBadRequest,
+				Message: `parsing source model tag: "model-bad" is not a valid model tag`,
+			},
+		}},
+	})
 }
 
 func (s *applicationSuite) setupAPI(c *tc.C) {
