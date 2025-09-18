@@ -21,7 +21,7 @@ CREATE TABLE storage_pool (
     -- The origin sets to "user" by default for user created pools.
     -- The "built-in" and "provider-default" origins are used
     -- for pools that are created by the system when a model is created.
-    origin_id INT NOT NULL DEFAULT 1,
+    origin_id INT NOT NULL DEFAULT 0,
     CONSTRAINT chk_storage_pool_name_not_empty
     CHECK (name <> ''),
     CONSTRAINT chk_storage_pool_type_not_empty
