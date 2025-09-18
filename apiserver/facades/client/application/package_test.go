@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
+	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
@@ -167,4 +168,10 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		clock.WallClock,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
+	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	return mac
 }
