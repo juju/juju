@@ -40,6 +40,9 @@ const (
 	LocalSource CharmSource = "local"
 	// CharmHubSource represents a charmhub charm source.
 	CharmHubSource CharmSource = "charmhub"
+	// CMRSource represents a CMR synthetic charm source, used for
+	// cross-model relations.
+	CMRSource CharmSource = "cmr"
 )
 
 // ParseCharmSchema creates a CharmSource from a  string.

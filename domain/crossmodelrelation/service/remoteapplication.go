@@ -121,6 +121,7 @@ func constructSyntheticCharm(applicationName string, endpoints []charm.Relation)
 			Peers:       peers,
 		},
 		ReferenceName: applicationName,
+		Source:        charm.CMRSource,
 	}, nil
 }
 

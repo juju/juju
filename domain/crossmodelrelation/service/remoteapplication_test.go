@@ -53,6 +53,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 			Peers: map[string]charm.Relation{},
 		},
 		ReferenceName: "foo",
+		Source:        charm.CMRSource,
 	}
 	s.modelDBState.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
 		Charm:                  syntheticCharm,
