@@ -116,7 +116,7 @@ func (s *Service) RemoveUnit(
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if cascaded.IsEmpty() {
-		// No other intities associated with the unit were
+		// No other entities associated with the unit were
 		// also ensured to be "dying", so we're done.
 		return unitJobUUID, nil
 	}

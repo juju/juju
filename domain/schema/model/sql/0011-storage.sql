@@ -1,3 +1,14 @@
+CREATE TABLE storage_pool_origin (
+    id INT NOT NULL PRIMARY KEY,
+    origin TEXT NOT NULL UNIQUE,
+    CONSTRAINT chk_storage_pool_origin_not_empty
+    CHECK (origin <> '')
+);
+
+INSERT INTO storage_pool_origin (id, origin) VALUES
+(1, 'user'),
+(2, 'provider-default');
+
 CREATE TABLE storage_pool (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -39,17 +50,6 @@ CREATE TABLE storage_pool_attribute (
     REFERENCES storage_pool (uuid),
     PRIMARY KEY (storage_pool_uuid, "key")
 );
-
-CREATE TABLE storage_pool_origin (
-    id INT NOT NULL PRIMARY KEY,
-    origin TEXT NOT NULL UNIQUE,
-    CONSTRAINT chk_storage_pool_origin_not_empty
-    CHECK (origin <> '')
-);
-
-INSERT INTO storage_pool_origin (id, origin) VALUES
-(1, 'user'),
-(2, 'provider-default');
 
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then

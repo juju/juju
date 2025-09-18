@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -70,26 +71,74 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("preparing unit life update: %w", err)
 	}
 
-	var mUUID string
-	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	var (
+		mUUID        string
+		sAttachments []string
+		sInstances   []string
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
 			return errors.Errorf("advancing unit life: %w", err)
 		}
 
+		sAttachments, err = st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
+		if err != nil {
+			return errors.Errorf("setting unit storage attachment lives to dying: %w", err)
+		}
+
 		mUUID, err = st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
 		if err != nil {
-			return errors.Errorf("marking last unit on machine as dying: %w", err)
+			return errors.Errorf("setting unit machine life to dying: %w", err)
 		}
 
 		return nil
-	})); err != nil {
-		return cascaded, err
+	}); err != nil {
+		return cascaded, errors.Capture(err)
 	}
 
 	if mUUID != "" {
 		cascaded.MachineUUID = &mUUID
 	}
+	cascaded.StorageAttachmentUUIDs = sAttachments
+	cascaded.StorageInstanceUUIDs = sInstances
 	return cascaded, nil
+}
+
+func (st *State) ensureUnitStorageAttachmentsNotAlive(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) ([]string, error) {
+	unitUUID := entityUUID{UUID: uUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_attachment
+WHERE  unit_uuid = $entityUUID.uuid
+AND    life_id = 0`, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing live storage attachments query: %w", err)
+	}
+
+	var attachments []entityUUID
+	if err = tx.Query(ctx, stmt, unitUUID).GetAll(&attachments); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running live storage attachments query: %w", err)
+	}
+
+	stmt, err = st.Prepare(`
+UPDATE storage_attachment
+SET    life_id = 1
+WHERE  unit_uuid = $entityUUID.uuid
+AND    life_id = 0`, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing live storage attachments update: %w", err)
+	}
+
+	if err = tx.Query(ctx, stmt, unitUUID).Run(); err != nil {
+		return nil, errors.Errorf("running live storage attachments update: %w", err)
+	}
+	return transform.Slice(attachments, func(a entityUUID) string { return a.UUID }), nil
 }
 
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
