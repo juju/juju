@@ -412,18 +412,13 @@ func (st *State) updateBlockDevices(
 	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
 	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
-	type deviceLinkNames []string
-
-	machineUUIDInput := entityUUID{
-		UUID: machineUUID.String(),
-	}
+	type blockDeviceUUIDs []string
 
 	deleteOldLinkStmt, err := st.Prepare(`
 DELETE
 FROM   block_device_link_device
-WHERE  machine_uuid = $entityUUID.uuid AND
-       name NOT IN ($deviceLinkNames[:])
-`, deviceLinkNames{}, machineUUIDInput)
+WHERE  block_device_uuid IN ($blockDeviceUUIDs[:])
+`, blockDeviceUUIDs{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -455,15 +450,13 @@ WHERE  uuid = $blockDevice.uuid
 		return errors.Capture(err)
 	}
 
-	var linkNames deviceLinkNames
-	for _, v := range devices {
-		linkNames = append(linkNames, v.DeviceLinks...)
+	var uuids blockDeviceUUIDs
+	for k := range devices {
+		uuids = append(uuids, k.String())
 	}
-	if len(linkNames) > 0 {
-		err = tx.Query(ctx, deleteOldLinkStmt, linkNames, machineUUIDInput).Run()
-		if err != nil {
-			return errors.Errorf("deleting block device links: %w", err)
-		}
+	err = tx.Query(ctx, deleteOldLinkStmt, uuids).Run()
+	if err != nil {
+		return errors.Errorf("deleting block device links: %w", err)
 	}
 
 	var devLinks []deviceLink

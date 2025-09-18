@@ -403,7 +403,7 @@ func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 	updated := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
 		"a": {
 			DeviceName:      "name-666_b",
-			DeviceLinks:     []string{"dev_link1_b", "dev_link2_b"},
+			DeviceLinks:     []string{"dev_link1", "dev_link2_b"},
 			FilesystemLabel: "label-666_b",
 			FilesystemUUID:  "device-666_b",
 			HardwareId:      "hardware-666_b",
