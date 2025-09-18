@@ -25,6 +25,7 @@ import (
 type StatefulSet struct {
 	client v1.StatefulSetInterface
 	appsv1.StatefulSet
+	OrphanDelete bool
 }
 
 // NewStatefulSet creates a new statefulset resource.
@@ -34,7 +35,7 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &StatefulSet{client, *in}
+	return &StatefulSet{client, *in, false}
 }
 
 // Clone returns a copy of the resource.
@@ -108,9 +109,13 @@ func (ss *StatefulSet) Get(ctx context.Context) error {
 
 // Delete removes the resource.
 func (ss *StatefulSet) Delete(ctx context.Context) error {
-	err := ss.client.Delete(ctx, ss.Name, metav1.DeleteOptions{
+	option := metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-	})
+	}
+	if ss.OrphanDelete {
+		option.PropagationPolicy = k8sconstants.DeletePropagationOrphan()
+	}
+	err := ss.client.Delete(ctx, ss.Name, option)
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}

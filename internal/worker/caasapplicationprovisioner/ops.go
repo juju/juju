@@ -58,6 +58,8 @@ type ApplicationOps interface {
 
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
+
+	UpdatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error
 }
 
 type applicationOps struct {
@@ -118,9 +120,18 @@ func (applicationOps) EnsureScale(appName string, app caas.Application, appLife 
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
+func (applicationOps) UpdatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error {
+	return updatePVC(appName, app, appLife, logger)
+}
+
 type Tomb interface {
 	Dying() <-chan struct{}
 	ErrDying() error
+}
+
+func updatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error {
+	logger.Debugf("updating application %q pvc", appName)
+
 }
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
