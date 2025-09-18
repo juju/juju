@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
-	"github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/domain/schema/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
