@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 
@@ -113,6 +114,40 @@ func (st *State) insertRemoteApplicationOfferer(
 	applicationUUID coreapplication.ID,
 	args crossmodelrelation.AddRemoteApplicationOffererArgs,
 ) error {
+	uuid, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var offererControllerUUID sql.Null[string]
+	if args.OffererControllerUUID != nil {
+		offererControllerUUID = sql.Null[string]{
+			V:     *args.OffererControllerUUID,
+			Valid: true,
+		}
+	}
+
+	remoteApp := remoteApplicationOfferer{
+		UUID:                  uuid.String(),
+		LifeID:                life.Alive,
+		ApplicationUUID:       applicationUUID.String(),
+		OfferUUID:             args.OfferUUID,
+		Version:               0,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      args.OffererModelUUID,
+		Macaroon:              args.EncodedMacaroon,
+	}
+
+	insertRemoteApp := `INSERT INTO application_remote_offerer (*) VALUES ($remoteApplicationOfferer.*);`
+	insertRemoteAppStmt, err := st.Prepare(insertRemoteApp, remoteApp)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, insertRemoteAppStmt, remoteApp).Run(); err != nil {
+		return errors.Errorf("inserting remote application offerer record: %w", err)
+	}
+
 	return nil
 }
 

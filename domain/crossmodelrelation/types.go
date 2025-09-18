@@ -187,9 +187,13 @@ type AddRemoteApplicationOffererArgs struct {
 	// consuming.
 	OfferUUID string
 
-	// ExternalControllerUUID is the UUID of the controller that the remote
+	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.
-	ExternalControllerUUID *string
+	OffererControllerUUID *string
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
 
 	// EncodedMacaroon is the encoded macaroon that the remote application uses
 	// to authenticate with the offerer model.
