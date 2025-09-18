@@ -55,11 +55,26 @@ WHERE  uuid = $entityUUID.uuid`, unitUUID)
 // affected machine UUID is returned.
 func (st *State) EnsureUnitNotAliveCascade(
 	ctx context.Context, uUUID string, destroyStorage bool,
-) (cascaded internal.CascadedUnitLives, err error) {
+) (internal.CascadedUnitLives, error) {
+	var cascaded internal.CascadedUnitLives
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return cascaded, errors.Capture(err)
 	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		cascaded, err = st.ensureUnitNotAliveCascade(ctx, tx, uUUID, true, destroyStorage)
+		return errors.Capture(err)
+	})
+	return cascaded, errors.Capture(err)
+}
+
+func (st *State) ensureUnitNotAliveCascade(
+	ctx context.Context, tx *sqlair.TX, uUUID string, checkMachine, destroyStorage bool,
+) (internal.CascadedUnitLives, error) {
+	var cascaded internal.CascadedUnitLives
 
 	unitUUID := entityUUID{UUID: uUUID}
 	updateUnitStmt, err := st.Prepare(`
@@ -71,41 +86,33 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("preparing unit life update: %w", err)
 	}
 
-	var (
-		mUUID        string
-		sAttachments []string
-		sInstances   []string
-	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
-			return errors.Errorf("advancing unit life: %w", err)
-		}
-
-		sAttachments, err = st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
-		if err != nil {
-			return errors.Errorf("setting unit storage attachment lives to dying: %w", err)
-		}
-
-		if destroyStorage {
-			sInstances, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
-			if err != nil {
-				return errors.Errorf("setting unit storage instance lives to dying: %w", err)
-			}
-		}
-
-		mUUID, err = st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
-		if err != nil {
-			return errors.Errorf("setting unit machine life to dying: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return cascaded, errors.Capture(err)
+	if err := tx.Query(ctx, updateUnitStmt, unitUUID).Run(); err != nil {
+		return cascaded, errors.Errorf("advancing unit life: %w", err)
 	}
 
-	if mUUID != "" {
-		cascaded.MachineUUID = &mUUID
+	sAttachments, err := st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
+	if err != nil {
+		return cascaded, errors.Errorf("setting unit storage attachment lives to dying: %w", err)
 	}
+
+	var sInstances []string
+	if destroyStorage {
+		sInstances, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
+		if err != nil {
+			return cascaded, errors.Errorf("setting unit storage instance lives to dying: %w", err)
+		}
+	}
+
+	if checkMachine {
+		mUUID, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
+		if err != nil {
+			return cascaded, errors.Errorf("setting unit machine life to dying: %w", err)
+		}
+		if mUUID != "" {
+			cascaded.MachineUUID = &mUUID
+		}
+	}
+
 	cascaded.StorageAttachmentUUIDs = sAttachments
 	cascaded.StorageInstanceUUIDs = sInstances
 	return cascaded, nil
