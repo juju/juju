@@ -39,13 +39,13 @@ import (
 // with a defined end that ask the same question repeatedly is that this type
 // exists to solve.
 type cachedStoragePoolProvider struct {
-	// Cache is the internal cache used. This value must be initialised by the
-	// user.
-	Cache map[domainstorage.StoragePoolUUID]storage.Provider
-
 	// StoragePoolProvider is the storage pool provider that is wrapped by this
 	// cache.
 	StoragePoolProvider
+
+	// Cache is the internal cache used. This value must be initialised by the
+	// user.
+	Cache map[domainstorage.StoragePoolUUID]storage.Provider
 }
 
 // StoragePoolProvider defines an interface by where provider based questions
