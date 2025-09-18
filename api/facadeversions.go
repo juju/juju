@@ -25,7 +25,7 @@ var facadeVersions = facades.FacadeVersions{
 	"Agent":                        {3},
 	"AgentLifeFlag":                {1},
 	"Annotations":                  {2},
-	"Application":                  {19, 20},
+	"Application":                  {19, 20, 21},
 	"ApplicationOffers":            {5, 6},
 	"Backups":                      {3},
 	"Block":                        {2},

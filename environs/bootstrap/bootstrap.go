@@ -565,6 +565,9 @@ func bootstrapIAAS(
 			if args.CloudCredential.AuthType() == cloud.ManagedIdentityAuthType {
 				return errors.NotSupportedf("instance role constraint with managed identity credential")
 			}
+			if args.CloudCredential.AuthType() == cloud.ServiceAccountAuthType {
+				return errors.NotSupportedf("instance role constraint with service account credential")
+			}
 		}
 		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
 		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(ctx) {

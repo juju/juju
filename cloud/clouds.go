@@ -72,6 +72,12 @@ const (
 	// a JSON file.
 	JSONFileAuthType AuthType = "jsonfile"
 
+	// ServiceAccountAuthType is an authentication type used by sourcing
+	// a bearer token from a cloud metadata service tied to an instance's
+	// attached service account.
+	// You only get these credentials by running within that machine.
+	ServiceAccountAuthType AuthType = "service-account"
+
 	// ClientCertificateAuthType is an authentication type using client
 	// certificates.
 	ClientCertificateAuthType AuthType = "clientcertificate"
@@ -384,11 +390,14 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 		// Azure managed identity auth types, add it manually.
 		// This is a short term compatibility fix.
 		for name, cld := range result {
-			if cld.Type != "azure" || cld.AuthTypes.Contains(ManagedIdentityAuthType) {
-				continue
+			if cld.Type == "azure" && !cld.AuthTypes.Contains(ManagedIdentityAuthType) {
+				cld.AuthTypes = append(cld.AuthTypes, ManagedIdentityAuthType)
+				result[name] = cld
 			}
-			cld.AuthTypes = append(cld.AuthTypes, ManagedIdentityAuthType)
-			result[name] = cld
+			if cld.Type == "gce" && !cld.AuthTypes.Contains(ServiceAccountAuthType) {
+				cld.AuthTypes = append(cld.AuthTypes, ServiceAccountAuthType)
+				result[name] = cld
+			}
 		}
 
 	}()

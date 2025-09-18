@@ -662,18 +662,6 @@ func (c *DeployCommand) Init(args []string) error {
 	// a bundle does not require a channel, today you cannot refresh/upgrade
 	// a bundle, only the components. These flags will be verified in the
 	// GetDeployer instead.
-	if err := c.validateStorageByModelType(context.Background()); err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
-		}
-		// It is possible that we will not be able to get model type to validate with.
-		// For example, if current client does not know about a model, we
-		// would have queried the controller about the model. However,
-		// at Init() we do not yet have an API connection.
-		// So we do not want to fail here if we encountered NotFoundErr, we want to
-		// do a late validation at Run().
-		c.unknownModel = true
-	}
 	switch len(args) {
 	case 2:
 		if err := names.ValidateApplicationName(args[1]); err != nil {
@@ -716,20 +704,6 @@ func (c *DeployCommand) Init(args []string) error {
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
 		}
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateStorageByModelType(ctx context.Context) error {
-	modelType, err := c.ModelType(ctx)
-	if err != nil {
-		return err
-	}
-	if modelType == model.IAAS {
-		return nil
-	}
-	if len(c.AttachStorage) > 0 {
-		return errors.New("--attach-storage cannot be used on k8s models")
 	}
 	return nil
 }
@@ -791,9 +765,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.unknownModel {
-		if err := c.validateStorageByModelType(ctx); err != nil {
-			return errors.Trace(err)
-		}
 		if err := c.validatePlacementByModelType(ctx); err != nil {
 			return errors.Trace(err)
 		}

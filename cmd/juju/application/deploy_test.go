@@ -527,8 +527,6 @@ var caasTests = []struct {
 	args    []string
 	message string
 }{
-	{[]string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"},
-		"--attach-storage cannot be used on k8s models"},
 	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b"},
 		regexp.QuoteMeta(`--to cannot be used on k8s models`)},
 }
@@ -626,6 +624,30 @@ func (s *CAASDeploySuite) TestDevices(c *tc.C) {
 	}
 
 	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "-m", "caas-model", "--device", "bitcoinminer=10,nvidia.com/gpu", "--base", "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *CAASDeploySuite) TestDeployAttachStorage(c *tc.C) {
+	repo := testcharms.RepoWithSeries("focal")
+	charmDir := repo.ClonedDir(s.CharmsPath, "bitcoin-miner")
+
+	defer s.setupMocks(c).Finish()
+	cfg := basicDeployerConfig(charmDir.Path)
+	cfg.Base = defaultBase
+	cfg.AttachStorage = []string{"foo/0", "bar/0"}
+	s.expectDeployer(c, cfg)
+
+	fakeAPI := s.fakeAPI()
+	curl := charm.MustParseURL("local:bitcoin-miner-1")
+	withLocalCharmDeployable(fakeAPI, curl, charmDir, false)
+	withCharmDeployable(
+		fakeAPI, curl, cfg.Base, charmDir.Meta(), false,
+		1, []string{"foo/0", "bar/0"}, nil,
+	)
+	_, err := s.runDeploy(
+		c, fakeAPI, charmDir.Path,
+		"-m", "caas-model", "--attach-storage", "foo/0,bar/0", "--base", "ubuntu@22.04",
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
