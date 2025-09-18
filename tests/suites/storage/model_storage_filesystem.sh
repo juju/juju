@@ -21,14 +21,10 @@ run_model_storage_filesystem() {
 test_default_filesystem_storage() {
 	local model_name=$1
 
-	# Get the default storage type from model config.
-	default_fs=$(juju model-config -m "${model_name}" storage-default-filesystem-source)
-
-	# Set the test storage type to the opposite of the default.
+	# Set the test storage type to be different to the provider.
+	# eg for lxd, the default would be "lxd", so we want something else.
+	# No provider uses "tmpfs" as the default.
 	test_fs="tmpfs"
-	if [ "${default_fs}" = "tmpfs" ]; then
-		test_fs="rootfs"
-	fi
 
 	echo "Testing model config filesystem storage type with ${test_fs}"
 
