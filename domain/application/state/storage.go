@@ -58,7 +58,7 @@ func (st *State) GetApplicationStorageDirectives(
 	query, err := st.Prepare(`
 SELECT &applicationStorageDirective.*
 FROM   application_storage_directive asd
-JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.name
+JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
 JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
 WHERE  application_uuid = $entityUUID.uuid
 		`,
