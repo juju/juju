@@ -116,13 +116,13 @@ func (s *machineSuite) TestGetMachineNetworkInterfaces(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var netNodeUUID string
-		err := s.DB().QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = s.DB().ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
@@ -148,19 +148,19 @@ func (s *machineSuite) TestGetMachineNetworkInterfacesMultiple(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var netNodeUUID string
-		err := s.DB().QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = s.DB().ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name1", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
 		}
-		_, err = s.DB().ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
 VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name2", 1500, "66:11:22:33:44:56", 0, 0)
 		if err != nil {
@@ -192,26 +192,26 @@ func (s *machineSuite) TestGetMachineNetworkInterfacesContainer(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var netNodeUUID string
-		err := s.DB().QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID0.String()).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = s.DB().ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-0", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
 		}
 
-		err = s.DB().QueryRowContext(ctx, `
+		err = tx.QueryRowContext(ctx, `
 SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID1.String()).Scan(&netNodeUUID)
 		if err != nil {
 			return err
 		}
 
-		_, err = s.DB().ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
 VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33:44:66", 0, 0)
 		if err != nil {
