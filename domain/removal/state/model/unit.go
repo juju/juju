@@ -86,6 +86,13 @@ AND    life_id = 0`, unitUUID)
 			return errors.Errorf("setting unit storage attachment lives to dying: %w", err)
 		}
 
+		if destroyStorage {
+			sInstances, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID)
+			if err != nil {
+				return errors.Errorf("setting unit storage instance lives to dying: %w", err)
+			}
+		}
+
 		mUUID, err = st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
 		if err != nil {
 			return errors.Errorf("setting unit machine life to dying: %w", err)
@@ -139,6 +146,47 @@ AND    life_id = 0`, unitUUID)
 		return nil, errors.Errorf("running live storage attachments update: %w", err)
 	}
 	return transform.Slice(attachments, func(a entityUUID) string { return a.UUID }), nil
+}
+
+func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
+	ctx context.Context, tx *sqlair.TX, uUUID string,
+) ([]string, error) {
+	unitUUID := entityUUID{UUID: uUUID}
+
+	stmt, err := st.Prepare(`
+SELECT si.uuid AS &entityUUID.uuid
+FROM   storage_unit_owner so 
+JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
+WHERE  so.unit_uuid = $entityUUID.uuid
+AND    si.life_id = 0`, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing live storage instances query: %w", err)
+	}
+
+	var instances []entityUUID
+	if err = tx.Query(ctx, stmt, unitUUID).GetAll(&instances); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf("running live storage instances query: %w", err)
+	}
+
+	result := transform.Slice(instances, func(a entityUUID) string { return a.UUID })
+	instanceUUIDs := uuids(result)
+
+	stmt, err = st.Prepare(`
+UPDATE storage_instance
+SET    life_id = 1
+WHERE  uuid IN ($uuids[:])
+AND    life_id = 0`, instanceUUIDs)
+	if err != nil {
+		return nil, errors.Errorf("preparing live storage instances update: %w", err)
+	}
+
+	if err = tx.Query(ctx, stmt, instanceUUIDs).Run(); err != nil {
+		return nil, errors.Errorf("running live storage instances update: %w", err)
+	}
+	return result, nil
 }
 
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
