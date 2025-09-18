@@ -165,7 +165,7 @@ type remoteApplicationOfferer struct {
 	// together.
 	OfferUUID string `db:"offer_uuid"`
 	// Version is the version of the remote application offerer.
-	Version int `db:"version"`
+	Version uint64 `db:"version"`
 	// OffererControllerUUID is the unique identifier for the controller
 	// that is offering this application.
 	OffererControllerUUID sql.Null[string] `db:"offerer_controller_uuid"`

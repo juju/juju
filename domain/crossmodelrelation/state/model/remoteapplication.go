@@ -15,6 +15,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -108,12 +110,17 @@ func (st *State) insertRemoteApplicationOfferer(
 		}
 	}
 
+	version, err := st.nextRemoteApplicationOffererVersion(ctx, tx, args.OfferUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	remoteApp := remoteApplicationOfferer{
 		UUID:                  args.RemoteApplicationUUID,
 		LifeID:                life.Alive,
 		ApplicationUUID:       args.ApplicationUUID,
 		OfferUUID:             args.OfferUUID,
-		Version:               0,
+		Version:               version,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
 		Macaroon:              args.EncodedMacaroon,
@@ -130,6 +137,20 @@ func (st *State) insertRemoteApplicationOfferer(
 	}
 
 	return nil
+}
+
+func (st *State) nextRemoteApplicationOffererVersion(
+	ctx context.Context,
+	tx *sqlair.TX,
+	offerUUID string,
+) (uint64, error) {
+
+	namespace := domainsequence.MakePrefixNamespace(crossmodelrelation.ApplicationRemoteOffererSequenceNamespace, offerUUID)
+	nextVersion, err := sequencestate.NextValue(ctx, st, tx, namespace)
+	if err != nil {
+		return 0, errors.Errorf("getting next remote application offerer version: %w", err)
+	}
+	return nextVersion, nil
 }
 
 // checkApplicationNameAvailable checks if the application name is available.
@@ -283,9 +304,9 @@ func encodeMetadata(uuid string, metadata charm.Metadata) (setCharmMetadata, err
 	}, nil
 }
 
-func encodeRelations(uuid string, metatadata charm.Metadata) ([]setCharmRelation, error) {
+func encodeRelations(uuid string, metadata charm.Metadata) ([]setCharmRelation, error) {
 	var result []setCharmRelation
-	for _, relation := range metatadata.Provides {
+	for _, relation := range metadata.Provides {
 		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode provides relation: %w", err)
@@ -293,7 +314,7 @@ func encodeRelations(uuid string, metatadata charm.Metadata) ([]setCharmRelation
 		result = append(result, encoded)
 	}
 
-	for _, relation := range metatadata.Requires {
+	for _, relation := range metadata.Requires {
 		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode requires relation: %w", err)
@@ -301,7 +322,7 @@ func encodeRelations(uuid string, metatadata charm.Metadata) ([]setCharmRelation
 		result = append(result, encoded)
 	}
 
-	for _, relation := range metatadata.Peers {
+	for _, relation := range metadata.Peers {
 		encoded, err := encodeRelation(uuid, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode peers relation: %w", err)

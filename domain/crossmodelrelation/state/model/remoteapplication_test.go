@@ -59,6 +59,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		ApplicationUUID:       applicationUUID,
 		CharmUUID:             charmUUID,
 		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
 		Charm:                 charm,
 		EncodedMacaroon:       []byte("encoded macaroon"),
 	})
@@ -85,6 +86,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 		ApplicationUUID:       applicationUUID,
 		CharmUUID:             charmUUID,
 		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
 		Charm:                 charm,
 		EncodedMacaroon:       []byte("encoded macaroon"),
 	})
@@ -93,6 +95,88 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	s.assertApplicationRemoteOfferer(c, applicationUUID)
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsVersionSequence(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		OfferUUID:             offerUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		Charm:                 charm,
+		EncodedMacaroon:       []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that we have a sequence table.
+
+	var sequence int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT value
+FROM sequence
+WHERE namespace=?`, "remote-offerer-application_"+offerUUID).Scan(&sequence)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sequence, tc.Equals, 0)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsVersionRespectsSequence(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO sequence (namespace, value)
+VALUES (?, ?)
+`, "remote-offerer-application_"+offerUUID, 42)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+		},
+	}
+
+	err = s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		OfferUUID:             offerUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		Charm:                 charm,
+		EncodedMacaroon:       []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that we have a sequence table.
+
+	var sequence int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT value
+FROM sequence
+WHERE namespace=?`, "remote-offerer-application_"+offerUUID).Scan(&sequence)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sequence, tc.Equals, 43)
 }
 
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, uuid string) {
