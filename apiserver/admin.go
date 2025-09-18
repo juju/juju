@@ -271,10 +271,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		result.userLogin = false
 	}
 
-	// Anonymous logins come from other controllers (in cross-model relations).
-	// We don't need to start pingers because we don't maintain presence
-	// information for them.
-	startPinger := !result.anonymousLogin
+	startPinger := result.anonymousLogin || !result.userLogin
 
 	var authInfo authentication.AuthInfo
 
@@ -343,7 +340,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 	a.loggedIn = true
 
 	if startPinger {
-		if err := setupPingTimeoutDisconnect(ctx, a.srv.pingClock, a.root, a.root.authInfo.Tag); err != nil {
+		if err := setupPingTimeoutDisconnect(ctx, a.srv.pingClock, a.root); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -550,11 +547,7 @@ type PingRootHandler interface {
 	CloseConn() error
 }
 
-func setupPingTimeoutDisconnect(ctx context.Context, clock clock.Clock, root PingRootHandler, tag names.Tag) error {
-	if tag.Kind() == names.UserTagKind {
-		return nil
-	}
-
+func setupPingTimeoutDisconnect(ctx context.Context, clock clock.Clock, root *apiHandler) error {
 	// pingTimeout, by contrast, *is* used by the Pinger facade to
 	// stave off the call to action() that will shut down the agent
 	// connection if it gets lackadaisical about sending keepalive

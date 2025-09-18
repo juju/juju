@@ -26,8 +26,24 @@ func GlobalFirewallName(env *environ) string {
 	return env.globalFirewallName()
 }
 
-func ParsePlacement(env *environ, ctx context.Context, placement string) (*computepb.Zone, error) {
-	return env.parsePlacement(ctx, placement)
+func ParsePlacementZone(env *environ, placement string) (string, error) {
+	p, err := env.parsePlacement(placement)
+	if err != nil {
+		return "", err
+	}
+	return p.zone, nil
+}
+
+func ParsePlacementSubnetSpec(env *environ, placement string) (string, error) {
+	p, err := env.parsePlacement(placement)
+	if err != nil {
+		return "", err
+	}
+	return p.subnetSpec, nil
+}
+
+func SubnetsForInstance(env *environ, ctx context.Context, args environs.StartInstanceParams) (*string, []*computepb.Subnetwork, error) {
+	return env.subnetsForInstance(ctx, args)
 }
 
 func FinishInstanceConfig(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {

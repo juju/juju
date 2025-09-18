@@ -15,11 +15,10 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
-	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := env.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone); err != nil {
+	if _, err := env.DeriveAvailabilityZones(ctx, environs.StartInstanceParams{
+		Placement:         args.Placement,
+		VolumeAttachments: args.VolumeAttachments,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -39,7 +38,7 @@ func (env *environ) PrecheckInstance(ctx context.Context, args environs.Precheck
 			return errors.Trace(err)
 		}
 		if len(subnetworks) == 0 {
-			return errors.New("VPC does not auto create subnets and has no subnets")
+			return ErrNoSubnets
 		}
 	}
 

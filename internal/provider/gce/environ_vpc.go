@@ -69,10 +69,6 @@ but will be used anyway because vpc-id-force=true is also specified.
 )
 
 func validateBootstrapVPC(ctx environs.BootstrapContext, conn ComputeService, region, vpcID string, force bool) error {
-	if vpcID == google.NetworkDefaultName {
-		ctx.Infof("Using GCE default VPC in region %q", region)
-	}
-
 	err := validateVPC(ctx, conn, region, vpcID, true)
 	switch {
 	case errors.Is(err, errorVPCNotUsable):
@@ -198,12 +194,19 @@ func getVPCByID(ctx stdcontext.Context, conn ComputeService, vpcID string) (*com
 func findFirstAvailableSubnet(ctx stdcontext.Context, subnets []*computepb.Subnetwork) (*computepb.Subnetwork, error) {
 	for _, subnet := range subnets {
 		logger.Debugf(ctx, "found subnet %q with state %q", subnet.GetName(), subnet.GetState())
-		if state := subnet.GetState(); state != "" && state != string(google.NetworkStatusReady) {
+		if err := isSubnetReady(subnet); err != nil {
 			continue
 		}
 		return subnet, nil
 	}
 	return nil, fmt.Errorf("VPC contains no available subnets%w", errors.Hide(errorVPCNotRecommended))
+}
+
+func isSubnetReady(subnet *computepb.Subnetwork) error {
+	if state := subnet.GetState(); state != "" && state != string(google.NetworkStatusReady) {
+		return errors.Errorf("subnet %q is not ready", subnet.GetName())
+	}
+	return nil
 }
 
 func validateModelVPC(ctx stdcontext.Context, conn ComputeService, region, modelName, vpcID string) error {

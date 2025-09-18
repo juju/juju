@@ -113,6 +113,9 @@ func (s *environAZSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
 		Name:   ptr("test-available"),
 		Status: ptr("UP"),
+	}, {
+		Name:   ptr("test-unavailable"),
+		Status: ptr("DOWN"),
 	}}, nil)
 
 	s.StartInstArgs.Placement = "zone=test-available"
@@ -126,6 +129,14 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
+	}}, nil)
 
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
@@ -175,20 +186,12 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesConflictsVolume(c *tc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
-	}, {
-		Name:   ptr("away-zone"),
-		Status: ptr("UP"),
-	}}, nil)
-
 	s.StartInstArgs.Placement = "zone=home-zone"
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	zones, err := env.DeriveAvailabilityZones(c.Context(), s.StartInstArgs)
-	c.Assert(err, tc.ErrorMatches, `cannot create instance with placement "zone=home-zone": cannot create instance in zone "home-zone", as this will prevent attaching the requested disks in zone "away-zone"`)
+	c.Assert(err, tc.ErrorMatches, `cannot create instance in zone "home-zone", as this will prevent attaching the requested disks in zone "away-zone"`)
 	c.Assert(zones, tc.HasLen, 0)
 }
 
@@ -197,6 +200,14 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *tc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}, {
+		Name:   ptr("away-zone"),
+		Status: ptr("UP"),
+	}}, nil)
 
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",

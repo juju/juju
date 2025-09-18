@@ -42,6 +42,27 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *tc.C) {
 	c.Assert(got, tc.DeepEquals, &want)
 }
 
+func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRoleAndServiceAccount(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	ctx := envtesting.BootstrapTestContext(c)
+	args := environs.BootstrapParams{
+		BootstrapConstraints: constraints.MustParse("instance-role=fred@googledev.com"),
+	}
+	cred := jujucloud.NewCredential(jujucloud.ServiceAccountAuthType, map[string]string{
+		"service-account": "fred@googledev.com",
+	})
+	got, err := env.FinaliseBootstrapCredential(ctx, args, &cred)
+	c.Assert(err, tc.ErrorIsNil)
+	want := jujucloud.NewCredential("service-account", map[string]string{
+		"service-account": "fred@googledev.com",
+	})
+	c.Assert(got, tc.DeepEquals, &want)
+}
+
 func (s *identitySuite) TestFinaliseBootstrapCredentialNoInstanceRole(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()

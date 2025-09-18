@@ -86,6 +86,7 @@ func (s *instanceSuite) TestOpenPorts(c *tc.C) {
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &computepb.Firewall{
 		Name:         &fwName,
+		Description:  ptr("created by Juju with target " + fwName),
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{

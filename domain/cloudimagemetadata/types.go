@@ -80,4 +80,7 @@ type MetadataFilter struct {
 
 	// RootStorageType stores storage type.
 	RootStorageType string
+
+	// ImageID stores the image ID.
+	ImageID string
 }

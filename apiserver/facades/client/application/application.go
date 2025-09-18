@@ -57,9 +57,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// APIv22 provides the Application API facade for version 22.
+type APIv22 struct {
+	*APIBase
+}
+
 // APIv21 provides the Application API facade for version 21.
 type APIv21 struct {
-	*APIBase
+	*APIv22
 }
 
 // APIv20 provides the Application API facade for version 20.
@@ -2125,4 +2130,55 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	return params.DeployFromRepositoryResults{
 		Results: results,
 	}, nil
+}
+
+func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageDirectives, error) {
+	// TODO(storage): implement and add test.
+	return nil, errors.NotImplementedf("GetApplicationStorage")
+}
+
+// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+func (api *APIBase) GetApplicationStorage(ctx context.Context, args params.Entities) (params.ApplicationStorageGetResults, error) {
+	resp := params.ApplicationStorageGetResults{
+		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
+	}
+	if err := api.checkCanRead(ctx); err != nil {
+		return resp, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		sc, err := api.getOneApplicationStorage(entity)
+		if err != nil {
+			resp.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		resp.Results[i].StorageConstraints = sc
+	}
+	return resp, nil
+}
+
+func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
+	// TODO(storage): implement and add test.
+	return errors.NotImplementedf("UpdateApplicationStorage")
+}
+
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
+// application deployment. The storage constraints passed are validated against the charm's declared storage meta.
+// The following apiserver codes can be returned in each ErrorResult:
+//   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
+func (api *APIBase) UpdateApplicationStorage(ctx context.Context, args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+	resp := params.ErrorResults{}
+	if err := api.checkCanWrite(ctx); err != nil {
+		return resp, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.ApplicationStorageUpdates))
+	resp.Results = res
+
+	for i, storageUpdate := range args.ApplicationStorageUpdates {
+		err := api.updateOneApplicationStorage(storageUpdate)
+		res[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return resp, nil
 }

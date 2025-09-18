@@ -162,33 +162,26 @@ func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestParsePlacement(c *tc.C) {
+func (s *environInstSuite) TestParsePlacementZone(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
-	}}, nil)
-
-	placement, err := gce.ParsePlacement(env, c.Context(), "zone=home-zone")
+	placement, err := gce.ParsePlacementZone(env, "zone=home-zone")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(placement, tc.DeepEquals, &computepb.Zone{Name: ptr("home-zone"), Status: ptr("UP")})
+	c.Assert(placement, tc.Equals, "home-zone")
 }
 
-func (s *environInstSuite) TestParsePlacementZoneFailure(c *tc.C) {
+func (s *environInstSuite) TestParsePlacementSubnet(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	failure := errors.New("<unknown>")
 
-	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, failure)
-
-	_, err := gce.ParsePlacement(env, c.Context(), "zone=home-zone")
-	c.Assert(err, tc.ErrorIs, failure)
+	subnet, err := gce.ParsePlacementSubnetSpec(env, "subnet=network666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnet, tc.Equals, "network666")
 }
 
 func (s *environInstSuite) TestParsePlacementMissingDirective(c *tc.C) {
@@ -196,7 +189,7 @@ func (s *environInstSuite) TestParsePlacementMissingDirective(c *tc.C) {
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	_, err := gce.ParsePlacement(env, c.Context(), "a-zone")
+	_, err := gce.ParsePlacementZone(env, "a-zone")
 
 	c.Assert(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
@@ -207,7 +200,7 @@ func (s *environInstSuite) TestParsePlacementUnknownDirective(c *tc.C) {
 
 	env := s.SetupEnv(c, s.MockService)
 
-	_, err := gce.ParsePlacement(env, c.Context(), "inst=spam")
+	_, err := gce.ParsePlacementZone(env, "inst=spam")
 
 	c.Assert(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
