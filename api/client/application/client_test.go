@@ -1604,19 +1604,15 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 	results := params.ApplicationStorageGetResults{
 		Results: []params.ApplicationStorageGetResult{
 			{
-				ErrorResult: params.ErrorResult{
-					Error: &params.Error{
-						Code:    params.CodeNotFound,
-						Message: "Not Found Error",
-					},
+				Error: &params.Error{
+					Code:    params.CodeNotFound,
+					Message: "Not Found Error",
 				},
 			},
 			{
-				ErrorResult: params.ErrorResult{
-					Error: &params.Error{
-						Code:    params.CodeNotValid,
-						Message: "Invalid Error",
-					},
+				Error: &params.Error{
+					Code:    params.CodeNotValid,
+					Message: "Invalid Error",
 				},
 			},
 		},
