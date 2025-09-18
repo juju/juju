@@ -53,7 +53,7 @@ type modelStateSuite struct {
 	state *ModelState
 }
 
-func TestStateSuite(t *testing.T) {
+func TestModelStateSuite(t *testing.T) {
 	tc.Run(t, &modelStateSuite{})
 }
 
@@ -128,7 +128,7 @@ func (s *modelStateSuite) TestGetAllRelationStatusesNone(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationIDByName(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	gotID, err := s.state.GetApplicationIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -141,8 +141,7 @@ func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	expectedAppUUID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
 
 	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -156,7 +155,7 @@ func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C)
 }
 
 func (s *modelStateSuite) TestSetApplicationStatus(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -175,7 +174,7 @@ func (s *modelStateSuite) TestSetApplicationStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	err := s.state.SetApplicationStatus(c.Context(), id, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
@@ -201,7 +200,7 @@ func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusWithNoData(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	now := time.Now().UTC()
 	expected := status.StatusInfo[status.WorkloadStatusType]{
@@ -232,7 +231,7 @@ func (s *modelStateSuite) TestSetApplicationStatusApplicationNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusType(99),
@@ -248,7 +247,7 @@ func (s *modelStateSuite) TestGetApplicationStatusApplicationNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationStatusNotSet(c *tc.C) {
-	id, _ := s.createApplication(c, "foo", life.Alive, false, nil)
+	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil)
 
 	sts, err := s.state.GetApplicationStatus(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
@@ -446,8 +445,7 @@ WHERE  relation_uuid = ?
 }
 
 func (s *modelStateSuite) TestSetK8sPodStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	status := status.StatusInfo[status.K8sPodStatusType]{
@@ -466,8 +464,7 @@ func (s *modelStateSuite) TestSetK8sPodStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitAgentStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	status := status.StatusInfo[status.UnitAgentStatusType]{
@@ -498,8 +495,7 @@ func (s *modelStateSuite) TestSetUnitAgentStatusNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	_, err := s.state.GetUnitAgentStatus(c.Context(), unitUUID)
@@ -507,8 +503,10 @@ func (s *modelStateSuite) TestGetUnitAgentStatusUnset(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplication(
+		c, "foo", life.Dead, true, s.appStatus(time.Now()),
+		s.createIAASUnitArg(c),
+	)
 	unitUUID := unitUUIDs[0]
 
 	_, err := s.state.GetUnitAgentStatus(c.Context(), unitUUID)
@@ -516,8 +514,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	status := status.StatusInfo[status.UnitAgentStatusType]{
@@ -538,8 +535,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusPresent(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	status := status.StatusInfo[status.UnitAgentStatusType]{
@@ -577,8 +573,10 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
+	u1 := s.createIAASUnitArg(c)
+	_, unitUUIDs := s.createIAASApplication(
+		c, "foo", life.Dead, false, s.appStatus(time.Now()), u1,
+	)
 	unitUUID := unitUUIDs[0]
 
 	_, err := s.state.GetUnitWorkloadStatus(c.Context(), unitUUID)
@@ -586,8 +584,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	_, err := s.state.GetUnitWorkloadStatus(c.Context(), unitUUID)
@@ -595,8 +592,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	sts := status.StatusInfo[status.WorkloadStatusType]{
@@ -633,8 +629,7 @@ func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	sts := status.StatusInfo[status.WorkloadStatusType]{
@@ -654,8 +649,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	sts := status.StatusInfo[status.WorkloadStatusType]{
@@ -707,8 +701,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusUnset(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	sts, err := s.state.GetUnitK8sPodStatus(c.Context(), unitUUID)
@@ -724,8 +717,10 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
+	u1 := s.createCAASUnitArg(c)
+	_, unitUUIDs := s.createCAASApplication(
+		c, "foo", life.Dead, false, s.appStatus(time.Now()), u1,
+	)
 	unitUUID := unitUUIDs[0]
 
 	_, err := s.state.GetUnitK8sPodStatus(c.Context(), unitUUID)
@@ -733,8 +728,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusDead(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	now := time.Now()
@@ -760,8 +754,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatus(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	appId, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	status := status.StatusInfo[status.WorkloadStatusType]{
@@ -784,9 +777,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	appId, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
@@ -824,9 +815,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	appId, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
@@ -871,7 +860,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *t
 }
 
 func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc.C) {
-	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	appId, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(c.Context(), appId)
 	c.Assert(err, tc.ErrorIsNil)
@@ -879,9 +868,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *tc
 }
 
 func (s *modelStateSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appID, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	appID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
@@ -911,8 +898,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	appId, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
 	unitUUID := unitUUIDs[0]
 
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
@@ -962,9 +948,7 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	appId, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 2)
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
@@ -1031,7 +1015,7 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *tc.C) 
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *tc.C) {
-	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
+	appId, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
 	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(c.Context(), appId)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1039,9 +1023,7 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appId, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	appId, _ := s.createIAASApplicationWithNUnits(c, "foo", 2)
 
 	_, err := s.state.GetAllFullUnitStatusesForApplication(c.Context(), appId)
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitStatusNotFound)
@@ -1054,21 +1036,17 @@ func (s *modelStateSuite) TestGetAllFullUnitStatusesEmptyModel(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllFullUnitStatusesNotFound(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
+	s.createIAASApplicationWithNUnits(c, "foo", 1)
 
 	_, err := s.state.GetAllUnitWorkloadAgentStatuses(c.Context())
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
 func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	u3 := application.AddIAASUnitArg{}
-	_, fooUnitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	_, fooUnitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 2)
 	u1UUID := fooUnitUUIDs[0]
 	u2UUID := fooUnitUUIDs[1]
-	_, barUnitUUIDs := s.createApplication(c, "bar", life.Alive, false, s.appStatus(time.Now()), u3)
+	_, barUnitUUIDs := s.createIAASApplicationWithNUnits(c, "bar", 1)
 	u3UUID := barUnitUUIDs[0]
 
 	u1Workload := status.StatusInfo[status.WorkloadStatusType]{
@@ -1175,9 +1153,10 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesEmptyModel(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	s.createApplication(c, "foo", life.Alive, false, nil, u1)
-	s.createApplication(c, "bar", life.Alive, false, nil)
+	s.createIAASApplication(c, "foo", life.Alive, false, nil,
+		s.createIAASUnitArg(c),
+	)
+	s.createIAASApplication(c, "bar", life.Alive, false, nil)
 
 	statuses, err := s.state.GetAllApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1185,10 +1164,9 @@ func (s *modelStateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	app1ID, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
-	app2ID, _ := s.createApplication(c, "bar", life.Alive, false, s.appStatus(time.Now()))
-	s.createApplication(c, "goo", life.Alive, false, s.appStatus(time.Now()))
+	app1ID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
+	app2ID, _ := s.createIAASApplication(c, "bar", life.Alive, false, s.appStatus(time.Now()))
+	s.createIAASApplication(c, "goo", life.Alive, false, s.appStatus(time.Now()))
 
 	app1Status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
@@ -1220,9 +1198,7 @@ func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestSetUnitPresence(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
 	err := s.state.SetUnitPresence(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1251,9 +1227,7 @@ func (s *modelStateSuite) TestDeleteUnitPresenceNotFound(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1, u2)
+	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
 	err := s.state.SetUnitPresence(c.Context(), "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1291,9 +1265,10 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, nil, u1, u2)
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil,
+		s.createIAASUnitArg(c),
+		s.createIAASUnitArg(c),
+	)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1317,7 +1292,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -1395,7 +1369,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	}
 
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1420,7 +1394,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -1483,21 +1456,14 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) {
 	now := time.Now()
-	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	u1 := s.createIAASUnitArg(c)
+	u2 := s.createIAASUnitArg(c)
 	netNodeUUID3 := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	u1 := application.AddIAASUnitArg{
-		MachineNetNodeUUID: netNodeUUID1,
-		MachineUUID:        tc.Must(c, coremachine.NewUUID),
-	}
-	u2 := application.AddIAASUnitArg{
-		MachineNetNodeUUID: netNodeUUID2,
-		MachineUUID:        tc.Must(c, coremachine.NewUUID),
-	}
 	u3 := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID3,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID3,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status:  status.UnitAgentStatusError,
@@ -1516,10 +1482,10 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 	}
 
 	appStatus := s.appStatus(now)
-	appUUID0, units0 := s.createApplication(c, "foo", life.Alive, false, appStatus, u1)
+	appUUID0, units0 := s.createIAASApplication(c, "foo", life.Alive, false, appStatus, u1)
 	c.Assert(units0, tc.HasLen, 1)
 
-	appUUID1, units1 := s.createApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
+	appUUID1, units1 := s.createIAASApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
 	c.Assert(units1, tc.HasLen, 2)
 	for _, unit := range units1 {
 		// This will cause the subordinates to have incorrect machine names
@@ -1552,7 +1518,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Scale: ptr(1),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -1592,7 +1557,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"sub/0": {
 					Life:            life.Alive,
@@ -1642,12 +1606,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
-
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createIAASApplication(
+		c, "foo", life.Alive, false, appStatus,
+		s.createIAASUnitArg(c),
+		s.createIAASUnitArg(c),
+	)
 	s.setApplicationLXDProfile(c, appUUID, "{}")
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
@@ -1674,7 +1639,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 				Branch: "branch",
 			},
 			LXDProfile: []byte("{}"),
-			Scale:      ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -1704,12 +1668,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
-
 	appStatus := s.appStatus(now)
-	appUUID, unitUUDs := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, unitUUDs := s.createCAASApplication(
+		c, "foo", life.Alive, false, appStatus,
+		s.createCAASUnitArg(c),
+		s.createCAASUnitArg(c),
+	)
 	c.Assert(unitUUDs, tc.HasLen, 2)
 	s.setWorkloadVersion(c, appUUID, unitUUDs[0], "blah")
 
@@ -1742,7 +1707,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1754,7 +1718,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1781,12 +1744,13 @@ func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.ID
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
-
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createCAASApplication(
+		c, "foo", life.Alive, false, appStatus,
+		s.createCAASUnitArg(c),
+		s.createCAASUnitArg(c),
+	)
 
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
 	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Active, "this is a test", now)
@@ -1824,7 +1788,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1835,7 +1798,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1849,12 +1811,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
 	now := time.Now()
-
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createCAASApplication(
+		c, "foo", life.Alive, false, appStatus,
+		s.createCAASUnitArg(c),
+		s.createCAASUnitArg(c),
+	)
 
 	var relations []corerelation.UUID
 	for range 3 {
@@ -1897,7 +1860,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1908,7 +1870,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1922,12 +1883,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	now := time.Now()
-
-	appStatus := s.appStatus(now)
-	s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1938,14 +1894,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesMultiple(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
-	u3 := application.AddIAASUnitArg{}
-	now := time.Now()
-
-	appStatus := s.appStatus(now)
-	s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
-	s.createApplication(c, "bar", life.Alive, false, appStatus, u3)
+	s.createIAASApplicationWithNUnits(c, "foo", 2)
+	s.createIAASApplicationWithNUnits(c, "bar", 1)
 
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1966,7 +1916,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesNoApplication(c 
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesNoUnits(c *tc.C) {
 	now := time.Now()
 	appStatus := s.appStatus(now)
-	s.createApplication(c, "foo", life.Alive, false, appStatus)
+	s.createIAASApplication(c, "foo", life.Alive, false, appStatus)
 
 	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -2621,8 +2571,54 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 	return mUUID, name
 }
 
-func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddIAASUnitArg) (coreapplication.ID, []coreunit.UUID) {
-	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+func (s *modelStateSuite) createCAASUnitArg(c *tc.C) application.AddCAASUnitArg {
+	return application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+		},
+	}
+}
+
+func (s *modelStateSuite) createIAASUnitArg(c *tc.C) application.AddIAASUnitArg {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	return application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+		},
+	}
+}
+
+func (s *modelStateSuite) createIAASApplicationWithNUnits(
+	c *tc.C,
+	name string,
+	nUnits int,
+) (coreapplication.ID, []coreunit.UUID) {
+	units := make([]application.AddIAASUnitArg, nUnits)
+	for i := range units {
+		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+		units[i].MachineUUID = tc.Must(c, coremachine.NewUUID)
+		units[i].MachineNetNodeUUID = netNodeUUID
+		units[i].NetNodeUUID = netNodeUUID
+	}
+
+	return s.createIAASApplication(
+		c, name, life.Alive, false, s.appStatus(time.Now()), units...,
+	)
+}
+
+func (s *modelStateSuite) createIAASApplication(
+	c *tc.C,
+	name string,
+	l life.Life,
+	subordinate bool,
+	appStatus *status.StatusInfo[status.WorkloadStatusType],
+	units ...application.AddIAASUnitArg,
+) (coreapplication.ID, []coreunit.UUID) {
+	appState := applicationstate.NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
@@ -2636,7 +2632,7 @@ func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, s
 	}
 	ctx := c.Context()
 
-	appID, err := appState.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
+	appID, _, err := appState.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
 			Channel:  channel,
@@ -2672,14 +2668,10 @@ func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, s
 			},
 			Status: appStatus,
 		},
-		Scale: len(units),
-	}, nil)
+	}, units)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := appState.AddIAASUnits(ctx, appID, units...)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var unitUUIDs = make([]coreunit.UUID, len(units))
+	var unitUUIDs = make([]coreunit.UUID, 0, len(units))
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
@@ -2691,13 +2683,110 @@ func (s *modelStateSuite) createApplication(c *tc.C, name string, l life.Life, s
 			return err
 		}
 
-		for i, unitName := range unitNames {
-			var uuid coreunit.UUID
-			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&uuid)
-			if err != nil {
-				return err
-			}
-			unitUUIDs[i] = uuid
+		rows, err := tx.QueryContext(
+			ctx,
+			"SELECT uuid FROM unit WHERE application_uuid = ?",
+			appID.String(),
+		)
+
+		for rows.Next() {
+			var unitUUID string
+			c.Assert(rows.Scan(&unitUUID), tc.ErrorIsNil)
+			unitUUIDs = append(unitUUIDs, coreunit.UUID(unitUUID))
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appID, unitUUIDs
+}
+
+func (s *modelStateSuite) createCAASApplication(
+	c *tc.C,
+	name string,
+	l life.Life,
+	subordinate bool,
+	appStatus *status.StatusInfo[status.WorkloadStatusType],
+	units ...application.AddCAASUnitArg,
+) (coreapplication.ID, []coreunit.UUID) {
+	appState := applicationstate.NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+	ctx := c.Context()
+
+	appID, err := appState.CreateCAASApplication(ctx, name, application.AddCAASApplicationArg{
+		Scale: len(units),
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name:        name,
+					Subordinate: subordinate,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Status: appStatus,
+		},
+	}, units)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var unitUUIDs = make([]coreunit.UUID, 0, len(units))
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
+		if err != nil {
+			return err
+		}
+
+		rows, err := tx.QueryContext(
+			ctx,
+			"SELECT uuid FROM unit WHERE application_uuid = ?",
+			appID.String(),
+		)
+
+		for rows.Next() {
+			var unitUUID string
+			c.Assert(rows.Scan(&unitUUID), tc.ErrorIsNil)
+			unitUUIDs = append(unitUUIDs, coreunit.UUID(unitUUID))
 		}
 		return nil
 	})
