@@ -60,26 +60,6 @@ func createAddCAASUnitArgsChecker() *tc.MultiChecker {
 	return mc
 }
 
-// createAddIAASUnitArgsChecker returns a checker that is capable of deep equals
-// checking a slice of [github.com/juju/juju/domain/application.AddIAASUnitArg]
-// values.
-//
-// This checker will:
-// - Deep equals check all values in the slice.
-// - It will not deep equals check unit NetNodeUUID values, instead they will be
-// checked to make sure they're a non zero uuid value.
-// - It will not deep equals check machine uuid values, instead they will be
-// checked to make sure they're a non zero uuid value.
-// - It will not deep equals check machine net node uuid values, instead they
-// will be checked to make sure they're a non zero uuid value.
-func createAddIAASUnitArgsChecker() *tc.MultiChecker {
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].AddUnitArg.NetNodeUUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_[_].MachineNetNodeUUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_[_].MachineUUID`, tc.IsNonZeroUUID)
-	return mc
-}
-
 func noProviderError() error {
 	return nil
 }

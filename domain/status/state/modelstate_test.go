@@ -2688,6 +2688,9 @@ func (s *modelStateSuite) createIAASApplication(
 			"SELECT uuid FROM unit WHERE application_uuid = ?",
 			appID.String(),
 		)
+		if err != nil {
+			return err
+		}
 
 		for rows.Next() {
 			var unitUUID string
@@ -2782,6 +2785,9 @@ func (s *modelStateSuite) createCAASApplication(
 			"SELECT uuid FROM unit WHERE application_uuid = ?",
 			appID.String(),
 		)
+		if err != nil {
+			return err
+		}
 
 		for rows.Next() {
 			var unitUUID string

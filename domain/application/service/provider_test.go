@@ -2910,13 +2910,3 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 }
-
-func (s *providerServiceSuite) createUnitStorageArgChecker() tc.Checker {
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.StorageInstances[_].UUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_.StorageInstances[_].FilesystemUUID`, tc.Deref(tc.IsNonZeroUUID))
-	mc.AddExpr(`_.StorageToAttach[_].UUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_.StorageToAttach[_].StorageInstanceUUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_.StorageToOwn[_]`, tc.IsNonZeroUUID)
-	return mc
-}
