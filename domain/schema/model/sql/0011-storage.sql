@@ -114,7 +114,7 @@ ON unit_storage_directive (unit_uuid);
 -- are trying to understand the composition of a storage_instance and not the
 -- purpose it may be fulfilling.
 CREATE TABLE storage_kind (
-    id INT NOT NULL PRIMARY KEY,
+    id INT PRIMARY KEY,
     kind TEXT NOT NULL
 );
 
