@@ -121,9 +121,10 @@ type filesystemAttachmentParams struct {
 // filesystemParams represents the attachment params for a filesystem from the
 // model database.
 type filesystemParams struct {
-	FilesystemID string `db:"filesystem_id"`
-	Type         string `db:"type"`
-	SizeMiB      uint64 `db:"size_mib"`
+	FilesystemID string           `db:"filesystem_id"`
+	Type         string           `db:"type"`
+	SizeMiB      uint64           `db:"size_mib"`
+	VolumeID     sql.Null[string] `db:"volume_id"`
 }
 
 // filesystemUUID represents the UUID of a record in the filesystem table.
@@ -192,6 +193,10 @@ func (l volumeAttachmentPlanLives) Iter(yield func(string, life.Life) bool) {
 	}
 }
 
+// volumeAttachmentPlanUUID represents the UUID of a record in the
+// volume_attachment_plan table.
+type volumeAttachmentPlanUUID entityUUID
+
 // volumeAttachmentUUID represents the UUID of a record in the volume_attachment
 // table.
 type volumeAttachmentUUID entityUUID
@@ -209,6 +214,12 @@ type volumeAttachment struct {
 	BlockDeviceName       string    `db:"block_device_name"`
 	BlockDeviceUUID       string    `db:"block_device_uuid"`
 	BlockDeviceBusAddress string    `db:"block_device_bus_address"`
+}
+
+type volumeAttachmentProvisionedInfo struct {
+	UUID            string           `db:"uuid"`
+	ReadOnly        bool             `db:"read_only"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
 }
 
 // volumeID represents the volume id value for a storage volume instance.
@@ -286,18 +297,20 @@ type filesystemTemplate struct {
 // volumeParams represents the attachment params for a volume from the model
 // database.
 type volumeParams struct {
-	VolumeID         string `db:"volume_id"`
-	Type             string `db:"type"`
-	RequestedSizeMiB uint64 `db:"requested_size_mib"`
+	VolumeID             string `db:"volume_id"`
+	Type                 string `db:"type"`
+	RequestedSizeMiB     uint64 `db:"requested_size_mib"`
+	VolumeAttachmentUUID string `db:"volume_attachment_uuid"`
 }
 
 // volumeAttachmentParams represents the attachment params for a volume
 // attachment from the model database.
 type volumeAttachmentParams struct {
-	Type       string `db:"type"`
-	InstanceID string `db:"instance_id"`
-	ProviderID string `db:"provider_id"`
-	ReadOnly   bool   `db:"read_only"`
+	Type        string `db:"type"`
+	MachineName string `db:"machine_name"`
+	InstanceID  string `db:"instance_id"`
+	ProviderID  string `db:"provider_id"`
+	ReadOnly    bool   `db:"read_only"`
 }
 
 // storageNameAttributes represents each key/value attribute for a given storage
@@ -337,4 +350,23 @@ type unitUUIDRef struct {
 type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
+}
+
+type volumeAttachmentInfo struct {
+	UUID              string    `db:"uuid"`
+	NetNodeUUID       string    `db:"net_node_uuid"`
+	StorageVolumeUUID string    `db:"storage_volume_uuid"`
+	Life              life.Life `db:"life_id"`
+}
+
+type volumeAttachmentPlan struct {
+	UUID         string    `db:"uuid"`
+	Life         life.Life `db:"life_id"`
+	DeviceTypeID int       `db:"device_type_id"`
+}
+
+type volumeAttachmentPlanAttr struct {
+	AttachmentPlanUUID string `db:"attachment_plan_uuid"`
+	Key                string `db:"key"`
+	Value              string `db:"value"`
 }

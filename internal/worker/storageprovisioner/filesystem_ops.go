@@ -18,6 +18,7 @@ import (
 
 // createFilesystems creates filesystems with the specified parameters.
 func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.FilesystemTag]*createFilesystemOp) error {
+	deps.config.Logger.Tracef(ctx, "createFilesystems: %#v", ops)
 	filesystemParams := make([]storage.FilesystemParams, 0, len(ops))
 	for _, op := range ops {
 		filesystemParams = append(filesystemParams, op.args)
@@ -111,13 +112,14 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 		}
 	}
 	for _, v := range filesystems {
-		updateFilesystem(deps, v)
+		updateFilesystem(ctx, deps, v)
 	}
 	return nil
 }
 
 // attachFilesystems creates filesystem attachments with the specified parameters.
 func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*attachFilesystemOp) error {
+	deps.config.Logger.Tracef(ctx, "createFilesystems: %#v", ops)
 	filesystemAttachmentParams := make([]storage.FilesystemAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		args := op.args
@@ -188,6 +190,7 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 
 // removeFilesystems destroys or releases filesystems with the specified parameters.
 func removeFilesystems(ctx context.Context, deps *dependencies, ops map[names.FilesystemTag]*removeFilesystemOp) error {
+	deps.config.Logger.Tracef(ctx, "removeFilesystems: %#v", ops)
 	tags := make([]names.FilesystemTag, 0, len(ops))
 	for tag := range ops {
 		tags = append(tags, tag)
@@ -292,6 +295,7 @@ func partitionRemoveFilesystemParams(removeTags []names.FilesystemTag, removePar
 
 // detachFilesystems destroys filesystem attachments with the specified parameters.
 func detachFilesystems(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*detachFilesystemOp) error {
+	deps.config.Logger.Tracef(ctx, "detachFilesystems: %#v", ops)
 	filesystemAttachmentParams := make([]storage.FilesystemAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		filesystemAttachmentParams = append(filesystemAttachmentParams, op.args)
@@ -472,6 +476,7 @@ func filesystemAttachmentParamsBySource(
 }
 
 func setFilesystemAttachmentInfo(ctx context.Context, deps *dependencies, filesystemAttachments []storage.FilesystemAttachment) error {
+	deps.config.Logger.Tracef(ctx, "setFilesystemAttachmentInfo: %#v", filesystemAttachments)
 	if len(filesystemAttachments) == 0 {
 		return nil
 	}
@@ -500,7 +505,7 @@ func setFilesystemAttachmentInfo(ctx context.Context, deps *dependencies, filesy
 			AttachmentTag: filesystemAttachments[i].Filesystem.String(),
 		}
 		deps.filesystemAttachments[id] = filesystemAttachments[i]
-		removePendingFilesystemAttachment(deps, id)
+		removePendingFilesystemAttachment(ctx, deps, id)
 	}
 	return nil
 }

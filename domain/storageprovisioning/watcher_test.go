@@ -645,6 +645,10 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, charmUUID)
 
+	storageInstanceUUID1, storageID1 := s.newStorageInstance(c)
+	storageInstanceUUID2, storageID2 := s.newStorageInstance(c)
+	storageInstanceUUID3, storageID3 := s.newStorageInstance(c)
+
 	watcher, err := svc.WatchStorageAttachmentsForUnit(
 		c.Context(), unitUUID,
 	)
@@ -652,9 +656,6 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	storageInstanceUUID1, storageID1 := s.newStorageInstance(c)
-	storageInstanceUUID2, storageID2 := s.newStorageInstance(c)
-	storageInstanceUUID3, storageID3 := s.newStorageInstance(c)
 	harness.AddTest(c, func(c *tc.C) {
 		s.newStorageAttachment(c, storageInstanceUUID1, unitUUID, domainlife.Alive)
 		s.newStorageAttachment(c, storageInstanceUUID2, unitUUID, domainlife.Alive)

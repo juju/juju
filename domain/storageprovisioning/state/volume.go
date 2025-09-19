@@ -15,20 +15,61 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// CheckVolumeForIDExists checks if a filesystem exists for the supplied
+// volume ID. True is returned when a volume exists for the supplied id.
+func (st *State) CheckVolumeForIDExists(
+	ctx context.Context, volID string,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	io := volumeID{ID: volID}
+	checkQuery, err := st.Prepare(`
+SELECT &volumeID.*
+FROM   storage_volume
+WHERE  volume_id=$volumeID.volume_id
+`, io)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var exists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, checkQuery, io).Get(&io)
+		if err == nil {
+			exists = true
+			return nil
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			exists = false
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return exists, nil
+}
 
 // checkVolumeAttachmentExists checks if a volume attachment for the provided
 // UUID exists. True is returned when the volume attachment exists.
 func (st *State) checkVolumeAttachmentExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (bool, error) {
 	vaUUIDInput := volumeAttachmentUUID{UUID: uuid.String()}
 
@@ -51,12 +92,41 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 	return true, nil
 }
 
+// checkVolumeAttachmentPlanExists checks if a volume attachment for the
+// provided UUID exists. True is returned when the volume attachment plan
+// exists.
+func (st *State) checkVolumeAttachmentPlanExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+) (bool, error) {
+	io := entityUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume_attachment_plan
+WHERE  uuid = $entityUUID.uuid
+`, io)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, io).Get(&io)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkVolumeExists checks if a volume for the provided uuid exists.
 // Returning true when this case is satisfied.
 func (st *State) checkVolumeExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid domainstorageprovisioning.VolumeUUID,
+	uuid storageprovisioning.VolumeUUID,
 ) (bool, error) {
 	io := volumeUUID{UUID: uuid.String()}
 
@@ -87,7 +157,7 @@ WHERE  uuid = $volumeUUID.uuid
 // in the result.
 func (st *State) GetVolumeAttachmentIDs(
 	ctx context.Context, uuids []string,
-) (map[string]domainstorageprovisioning.VolumeAttachmentID, error) {
+) (map[string]storageprovisioning.VolumeAttachmentID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -147,9 +217,9 @@ SELECT &volumeAttachmentIDs.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[string]domainstorageprovisioning.VolumeAttachmentID, len(dbVals))
+	rval := make(map[string]storageprovisioning.VolumeAttachmentID, len(dbVals))
 	for _, v := range dbVals {
-		id := domainstorageprovisioning.VolumeAttachmentID{
+		id := storageprovisioning.VolumeAttachmentID{
 			VolumeID: v.VolumeID,
 		}
 		if v.MachineName.Valid {
@@ -174,7 +244,7 @@ SELECT &volumeAttachmentIDs.* FROM (
 // attachment exists for the provided uuid.
 func (st *State) GetVolumeAttachmentLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
+	uuid storageprovisioning.VolumeAttachmentUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -334,9 +404,9 @@ AND             svap.net_node_uuid=$netNodeUUID.uuid
 // attachment exists for the supplied values.
 func (st *State) GetVolumeAttachmentUUIDForVolumeNetNode(
 	ctx context.Context,
-	vUUID domainstorageprovisioning.VolumeUUID,
+	vUUID storageprovisioning.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
-) (domainstorageprovisioning.VolumeAttachmentUUID, error) {
+) (storageprovisioning.VolumeAttachmentUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -398,7 +468,87 @@ AND    net_node_uuid = $netNodeUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
+	return storageprovisioning.VolumeAttachmentUUID(dbVal.UUID), nil
+}
+
+// GetVolumeAttachmentPlanUUIDForVolumeNetNode returns the volume attachment
+// uuid for the supplied volume uuid which is attached to the given net node
+// uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
+// supplied uuid.
+// - [networkerrors.NetNodeNotFound] when no net node exists for the supplied
+// net node uuid.
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the supplied values.
+func (st *State) GetVolumeAttachmentPlanUUIDForVolumeNetNode(
+	ctx context.Context,
+	vUUID storageprovisioning.VolumeUUID,
+	nodeUUID domainnetwork.NetNodeUUID,
+) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		vUUIDInput   = entityUUID{UUID: vUUID.String()}
+		netNodeInput = netNodeUUID{UUID: nodeUUID.String()}
+		dbVal        entityUUID
+	)
+
+	uuidQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume_attachment_plan
+WHERE  storage_volume_uuid = $entityUUID.uuid
+AND    net_node_uuid = $netNodeUUID.uuid
+	`,
+		vUUIDInput, netNodeInput,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeExists(ctx, tx, vUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if volume %q exists: %w", vUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"volume %q does not exist", vUUID,
+			).Add(storageprovisioningerrors.VolumeNotFound)
+		}
+
+		exists, err = st.checkNetNodeExists(ctx, tx, nodeUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking net node uuid %q exists: %w", nodeUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"net node %q does not exist", nodeUUID,
+			).Add(networkerrors.NetNodeNotFound)
+		}
+
+		err = tx.Query(ctx, uuidQuery, vUUIDInput, netNodeInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment plan does not exist",
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return storageprovisioning.VolumeAttachmentPlanUUID(dbVal.UUID), nil
 }
 
 // GetVolumeAttachment returns the volume attachment for the supplied volume
@@ -409,11 +559,11 @@ AND    net_node_uuid = $netNodeUUID.uuid
 // attachment exists for the provided uuid.
 func (st *State) GetVolumeAttachment(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (domainstorageprovisioning.VolumeAttachment, error) {
+	uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	var (
@@ -437,7 +587,7 @@ SELECT &volumeAttachment.* FROM (
 		uuidInput, volumeAttachment{},
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	devLinksStmt, err := st.Prepare(`
@@ -446,7 +596,7 @@ FROM   block_device_link_device
 WHERE  block_device_uuid = $entityUUID.uuid
 `, entityName{}, entityUUID{})
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
 	var va volumeAttachment
@@ -473,10 +623,10 @@ WHERE  block_device_uuid = $entityUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachment{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachment{}, errors.Capture(err)
 	}
 
-	retVal := domainstorageprovisioning.VolumeAttachment{
+	retVal := storageprovisioning.VolumeAttachment{
 		VolumeID:              va.VolumeID,
 		ReadOnly:              va.ReadOnly,
 		BlockDeviceName:       va.BlockDeviceName,
@@ -497,7 +647,7 @@ WHERE  block_device_uuid = $entityUUID.uuid
 // provided uuid.
 func (st *State) GetVolumeLife(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeUUID,
+	uuid storageprovisioning.VolumeUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -597,7 +747,7 @@ AND             sva.net_node_uuid=$netNodeUUID.uuid
 // for the provided volume uuid.
 func (st *State) GetVolumeUUIDForID(
 	ctx context.Context, vID string,
-) (domainstorageprovisioning.VolumeUUID, error) {
+) (storageprovisioning.VolumeUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -632,7 +782,7 @@ WHERE  volume_id = $volumeID.volume_id
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeUUID(dbVal.UUID), nil
+	return storageprovisioning.VolumeUUID(dbVal.UUID), nil
 }
 
 // GetVolume returns the volume information for the specified volume uuid.
@@ -641,11 +791,11 @@ WHERE  volume_id = $volumeID.volume_id
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists
 // for the provided volume uuid.
 func (st *State) GetVolume(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeUUID,
-) (domainstorageprovisioning.Volume, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.Volume, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
 	uuidInput := volumeUUID{UUID: uuid.String()}
@@ -657,7 +807,7 @@ WHERE  uuid = $volumeUUID.uuid
 		uuidInput, volume{},
 	)
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
 	var vol volume
@@ -672,10 +822,10 @@ WHERE  uuid = $volumeUUID.uuid
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.Volume{}, errors.Capture(err)
+		return storageprovisioning.Volume{}, errors.Capture(err)
 	}
 
-	retVal := domainstorageprovisioning.Volume{
+	retVal := storageprovisioning.Volume{
 		VolumeID:   vol.VolumeID,
 		ProviderID: vol.ProviderID,
 		SizeMiB:    vol.SizeMiB,
@@ -686,6 +836,149 @@ WHERE  uuid = $volumeUUID.uuid
 	return retVal, nil
 }
 
+// SetVolumeAttachmentProvisionedInfo sets on the provided volume the
+// information about the provisioned volume attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided volume attachment uuid.
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists
+// for a given block device uuid.
+func (st *State) SetVolumeAttachmentProvisionedInfo(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentUUID,
+	info storageprovisioning.VolumeAttachmentProvisionedInfo,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := volumeAttachmentProvisionedInfo{
+		UUID:     uuid.String(),
+		ReadOnly: info.ReadOnly,
+	}
+	if info.BlockDeviceUUID != nil {
+		input.BlockDeviceUUID = sql.Null[string]{
+			V:     info.BlockDeviceUUID.String(),
+			Valid: true,
+		}
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_volume_attachment
+SET    read_only = $volumeAttachmentProvisionedInfo.read_only,
+       block_device_uuid = $volumeAttachmentProvisionedInfo.block_device_uuid
+WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
+`, input)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeAttachmentExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+
+		if info.BlockDeviceUUID != nil {
+			exists, err := st.checkBlockDeviceExists(
+				ctx, tx, *info.BlockDeviceUUID)
+			if err != nil {
+				return err
+			} else if !exists {
+				return errors.Errorf(
+					"block device %q does not exist", *info.BlockDeviceUUID,
+				).Add(blockdeviceerrors.BlockDeviceNotFound)
+			}
+		}
+
+		return tx.Query(ctx, stmt, input).Run()
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+func (st *State) checkBlockDeviceExists(
+	ctx context.Context, tx *sqlair.TX, uuid blockdevice.BlockDeviceUUID,
+) (bool, error) {
+	io := entityUUID{UUID: uuid.String()}
+
+	checkQuery, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   block_device
+WHERE  uuid = $entityUUID.uuid
+`, io)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkQuery, io).Get(&io)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
+// GetBlockDeviceForVolumeAttachment returns the uuid of the block device set
+// for the specified volume attachment.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice] when the
+// volume attachment does not yet have a block device.
+func (st *State) GetBlockDeviceForVolumeAttachment(
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (blockdevice.BlockDeviceUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	io := volumeAttachmentProvisionedInfo{
+		UUID: uuid.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT &volumeAttachmentProvisionedInfo.*
+FROM   storage_volume_attachment
+WHERE  uuid = $volumeAttachmentProvisionedInfo.uuid
+`, io)
+	if err != nil {
+		return "", err
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, io).Get(&io)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if !io.BlockDeviceUUID.Valid {
+		return "", errors.Errorf(
+			"volume attachment %q without block device", uuid,
+		).Add(storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice)
+	}
+
+	return blockdevice.BlockDeviceUUID(io.BlockDeviceUUID.V), nil
+}
+
 // SetVolumeProvisionedInfo sets the provisioned information for the given
 // volume.
 //
@@ -694,8 +987,8 @@ WHERE  uuid = $volumeUUID.uuid
 // for the provided volume uuid.
 func (st *State) SetVolumeProvisionedInfo(
 	ctx context.Context,
-	uuid domainstorageprovisioning.VolumeUUID,
-	info domainstorageprovisioning.VolumeProvisionedInfo,
+	uuid storageprovisioning.VolumeUUID,
+	info storageprovisioning.VolumeProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -749,11 +1042,11 @@ WHERE  uuid = $volumeProvisionedInfo.uuid
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
 // the uuid.
 func (st *State) GetVolumeParams(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeUUID,
-) (domainstorageprovisioning.VolumeParams, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeUUID,
+) (storageprovisioning.VolumeParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -763,20 +1056,22 @@ func (st *State) GetVolumeParams(
 
 	paramsStmt, err := st.Prepare(`
 SELECT &volumeParams.* FROM (
-    SELECT sv.volume_id,
-           si.requested_size_mib,
-           sp.type
-    FROM   storage_volume sv
-    JOIN   storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
-    JOIN   storage_instance si ON siv.storage_instance_uuid = si.uuid
-    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    SELECT    sv.volume_id,
+              si.requested_size_mib,
+              sp.type,
+              sva.uuid AS volume_attachment_uuid
+    FROM      storage_volume sv
+    JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+    JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
     WHERE  sv.uuid = $volumeUUID.uuid
 )
 `,
 		paramsVal, input,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	poolAttributesStmt, err := st.Prepare(`
@@ -791,7 +1086,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		storagePoolAttribute{}, input,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	var attributeVals []storagePoolAttribute
@@ -829,7 +1124,7 @@ WHERE  sv.uuid = $volumeUUID.uuid
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.VolumeParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeParams{}, errors.Capture(err)
 	}
 
 	attributesRval := make(map[string]string, len(attributeVals))
@@ -837,12 +1132,19 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		attributesRval[attr.Key] = attr.Value
 	}
 
-	return domainstorageprovisioning.VolumeParams{
+	retVal := storageprovisioning.VolumeParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.VolumeID,
 		Provider:   paramsVal.Type,
 		SizeMiB:    paramsVal.RequestedSizeMiB,
-	}, nil
+	}
+	if paramsVal.VolumeAttachmentUUID != "" {
+		vaUUID := storageprovisioning.VolumeAttachmentUUID(
+			paramsVal.VolumeAttachmentUUID)
+		retVal.VolumeAttachmentUUID = &vaUUID
+	}
+
+	return retVal, nil
 }
 
 // GetVolumeAttachmentParams retrieves the attachment params for the given
@@ -852,11 +1154,11 @@ WHERE  sv.uuid = $volumeUUID.uuid
 // - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 // attachment exists for the supplied uuid.
 func (st *State) GetVolumeAttachmentParams(
-	ctx context.Context, uuid domainstorageprovisioning.VolumeAttachmentUUID,
-) (domainstorageprovisioning.VolumeAttachmentParams, error) {
+	ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
+) (storageprovisioning.VolumeAttachmentParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	var (
@@ -883,7 +1185,8 @@ SELECT &volumeAttachmentParams.* FROM (
     SELECT    sv.provider_id,
               mci.instance_id,
               cs.read_only,
-              sp.type
+              sp.type,
+              m.name AS machine_name
     FROM      storage_volume_attachment sva
     JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
     JOIN      storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
@@ -900,7 +1203,7 @@ SELECT &volumeAttachmentParams.* FROM (
 		vaUUIDInput, dbVal,
 	)
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -926,15 +1229,407 @@ SELECT &volumeAttachmentParams.* FROM (
 	})
 
 	if err != nil {
-		return domainstorageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
+		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.VolumeAttachmentParams{
+	retVal := storageprovisioning.VolumeAttachmentParams{
 		MachineInstanceID: dbVal.InstanceID,
 		Provider:          dbVal.Type,
 		ProviderID:        dbVal.ProviderID,
 		ReadOnly:          dbVal.ReadOnly,
-	}, nil
+	}
+	if dbVal.MachineName != "" {
+		m := coremachine.Name(dbVal.MachineName)
+		retVal.Machine = &m
+	}
+
+	return retVal, nil
+}
+
+// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
+// uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
+// attachment plan exists for the provided uuid.
+func (st *State) GetVolumeAttachmentPlan(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+) (storageprovisioning.VolumeAttachmentPlan, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	input := entityUUID{
+		UUID: uuid.String(),
+	}
+	planStmt, err := st.Prepare(`
+SELECT &volumeAttachmentPlan.*
+FROM   storage_volume_attachment_plan
+WHERE  storage_volume_attachment_plan.uuid = $entityUUID.uuid
+`, input, volumeAttachmentPlan{})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	attrStmt, err := st.Prepare(`
+SELECT &volumeAttachmentPlanAttr.*
+FROM   storage_volume_attachment_plan_attr
+WHERE  attachment_plan_uuid = $entityUUID.uuid
+`, input, volumeAttachmentPlanAttr{})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	var plan volumeAttachmentPlan
+	var attrs []volumeAttachmentPlanAttr
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, planStmt, input).Get(&plan)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment plan %q not found", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, attrStmt, input).GetAll(&attrs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return storageprovisioning.VolumeAttachmentPlan{}, errors.Capture(err)
+	}
+
+	retVal := storageprovisioning.VolumeAttachmentPlan{
+		Life: plan.Life,
+	}
+	switch plan.DeviceTypeID {
+	case 0:
+		retVal.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+	case 1:
+		retVal.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
+	}
+	if len(attrs) == 0 {
+		return retVal, nil
+	}
+
+	retVal.DeviceAttributes = make(map[string]string, len(attrs))
+	for _, v := range attrs {
+		retVal.DeviceAttributes[v.Key] = v.Value
+	}
+
+	return retVal, nil
+}
+
+// CreateVolumeAttachmentPlan creates a volume attachment plan for the
+// provided volume attachment uuid.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists] when a
+// volume attachment plan already exists for the given volume attachnment.
+func (st *State) CreateVolumeAttachmentPlan(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	attachmentUUID storageprovisioning.VolumeAttachmentUUID,
+	deviceType storageprovisioning.PlanDeviceType,
+	attrs map[string]string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	vap := volumeAttachmentPlan{
+		UUID: uuid.String(),
+		Life: domainlife.Alive,
+	}
+	switch deviceType {
+	case storageprovisioning.PlanDeviceTypeLocal:
+		vap.DeviceTypeID = 0
+	case storageprovisioning.PlanDeviceTypeISCSI:
+		vap.DeviceTypeID = 1
+	}
+	va := volumeAttachmentInfo{
+		UUID: attachmentUUID.String(),
+	}
+	vaStmt, err := st.Prepare(`
+SELECT &volumeAttachmentInfo.*
+FROM   storage_volume_attachment
+WHERE  uuid = $volumeAttachmentInfo.uuid
+`, va)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	planCheckStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_volume_attachment_plan
+WHERE  storage_volume_uuid = $volumeAttachmentInfo.storage_volume_uuid AND
+       net_node_uuid = $volumeAttachmentInfo.net_node_uuid
+`, entityUUID{}, va)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	planInsertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan (uuid, storage_volume_uuid,
+                                            net_node_uuid, life_id,
+                                            device_type_id, provision_scope_id)
+VALUES      ($volumeAttachmentPlan.uuid,
+             $volumeAttachmentInfo.storage_volume_uuid,
+             $volumeAttachmentInfo.net_node_uuid,
+             $volumeAttachmentPlan.life_id,
+             $volumeAttachmentPlan.device_type_id,
+             1)
+`, va, vap)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	attrInsertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan_attr (attachment_plan_uuid, key, value)
+VALUES      ($volumeAttachmentPlanAttr.*)
+`, volumeAttachmentPlanAttr{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	dbAttrs := make([]volumeAttachmentPlanAttr, 0, len(attrs))
+	for k, v := range attrs {
+		dbAttrs = append(dbAttrs, volumeAttachmentPlanAttr{
+			AttachmentPlanUUID: uuid.String(),
+			Key:                k,
+			Value:              v,
+		})
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, vaStmt, va).Get(&va)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q not found", attachmentUUID,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		} else if err != nil {
+			return err
+		}
+
+		existing := entityUUID{}
+		err = tx.Query(ctx, planCheckStmt, va).Get(&existing)
+		if err == nil {
+			return errors.Errorf(
+				"volume attachment plan already exists",
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists)
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+
+		err = tx.Query(ctx, planInsertStmt, va, vap).Run()
+		if err != nil {
+			return err
+		}
+
+		if len(dbAttrs) > 0 {
+			err = tx.Query(ctx, attrInsertStmt, dbAttrs).Run()
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume attachment
+// plan information.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided uuid.
+func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	vap := volumeAttachmentPlan{
+		UUID: uuid.String(),
+	}
+	switch info.DeviceType {
+	case storageprovisioning.PlanDeviceTypeLocal:
+		vap.DeviceTypeID = 0
+	case storageprovisioning.PlanDeviceTypeISCSI:
+		vap.DeviceTypeID = 1
+	}
+
+	updatePlanStmt, err := st.Prepare(`
+UPDATE storage_volume_attachment_plan
+SET    device_type_id = $volumeAttachmentPlan.device_type_id
+WHERE  uuid = $volumeAttachmentPlan.uuid
+`, vap)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	attrDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_volume_attachment_plan_attr
+WHERE       attachment_plan_uuid = $volumeAttachmentPlan.uuid
+`, vap)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	attrInsertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan_attr (attachment_plan_uuid, key, value)
+VALUES      ($volumeAttachmentPlanAttr.*)
+`, volumeAttachmentPlanAttr{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	dbAttrs := make([]volumeAttachmentPlanAttr, 0, len(info.DeviceAttributes))
+	for k, v := range info.DeviceAttributes {
+		dbAttrs = append(dbAttrs, volumeAttachmentPlanAttr{
+			AttachmentPlanUUID: uuid.String(),
+			Key:                k,
+			Value:              v,
+		})
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeAttachmentPlanExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"volume attachment plan %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		}
+
+		err = tx.Query(ctx, updatePlanStmt, vap).Run()
+		if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, attrDeleteStmt, vap).Run()
+		if err != nil {
+			return err
+		}
+
+		if len(dbAttrs) > 0 {
+			err = tx.Query(ctx, attrInsertStmt, dbAttrs).Run()
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// SetVolumeAttachmentPlanProvisionedBlockDevice sets on the provided
+// volume attachment plan the information about the provisioned block device.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentPlanNotFound] when no volume
+// attachment plan exists for the provided uuid.
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+// attachment exists for the provided attachment plan.
+// - [blockdeviceerrors.BlockDeviceNotFound] when no block device exists for the
+// provided block device uuid.
+func (st *State) SetVolumeAttachmentPlanProvisionedBlockDevice(
+	ctx context.Context,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	blockDeviceUUID blockdevice.BlockDeviceUUID,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := volumeAttachmentPlanUUID{
+		UUID: uuid.String(),
+	}
+	bdUUID := entityUUID{
+		UUID: blockDeviceUUID.String(),
+	}
+	vaUUID := volumeAttachmentUUID{}
+
+	vaUUIDStmt, err := st.Prepare(`
+SELECT sva.uuid AS &volumeAttachmentUUID.uuid
+FROM   storage_volume_attachment_plan svap
+JOIN   storage_volume_attachment sva ON sva.storage_volume_uuid=svap.storage_volume_uuid AND
+                                        sva.net_node_uuid=svap.net_node_uuid
+WHERE  svap.uuid = $volumeAttachmentPlanUUID.uuid
+`, input, vaUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE storage_volume_attachment
+SET    block_device_uuid = $entityUUID.uuid
+WHERE  uuid = $volumeAttachmentUUID.uuid
+`, vaUUID, bdUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkVolumeAttachmentPlanExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"volume attachment plan %q does not exist", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentPlanNotFound)
+		}
+
+		exists, err = st.checkBlockDeviceExists(ctx, tx, blockDeviceUUID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"block device %q does not exist", blockDeviceUUID,
+			).Add(blockdeviceerrors.BlockDeviceNotFound)
+		}
+
+		err = tx.Query(ctx, vaUUIDStmt, input).Get(&vaUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment missing for volume attachment plan %q", uuid,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		} else if err != nil {
+			return err
+		}
+
+		return tx.Query(ctx, updateStmt, vaUUID, bdUUID).Run()
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // InitialWatchStatementMachineProvisionedVolumes returns both the namespace for

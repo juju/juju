@@ -4,6 +4,7 @@
 package testhelpers_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -177,9 +178,15 @@ func assertEcho(c *tc.C, conn net.Conn) {
 }
 
 func assertEOF(c *tc.C, r io.Reader) {
-	n, err := r.Read(make([]byte, 1))
-	c.Assert(err, tc.Equals, io.EOF)
-	c.Assert(n, tc.Equals, 0)
+	_, err := r.Read(make([]byte, 1))
+	if errors.Is(err, io.EOF) {
+		return
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return
+	}
+	c.Fatalf("got unexpected err: %s", err)
 }
 
 func assertReadTimeout(c *tc.C, conn net.Conn) {

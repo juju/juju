@@ -867,13 +867,16 @@ func (st *State) GetFilesystemParams(
 
 	paramsStmt, err := st.Prepare(`
 SELECT &filesystemParams.* FROM (
-    SELECT sf.filesystem_id,
-           si.requested_size_mib AS size_mib,
-           sp.type
-    FROM   storage_filesystem sf
-    JOIN   storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
-    JOIN   storage_instance si ON sif.storage_instance_uuid = si.uuid
-    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    SELECT    sf.filesystem_id,
+              si.requested_size_mib AS size_mib,
+              sp.type,
+              sv.volume_id
+    FROM      storage_filesystem sf
+    JOIN      storage_instance_filesystem sif ON sif.storage_filesystem_uuid = sf.uuid
+    JOIN      storage_instance si ON sif.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
     WHERE  sf.uuid = $filesystemUUID.uuid
 )
 `,
@@ -942,12 +945,20 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 		attributesRval[attr.Key] = attr.Value
 	}
 
-	return storageprovisioning.FilesystemParams{
+	retVal := storageprovisioning.FilesystemParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.FilesystemID,
 		Provider:   paramsVal.Type,
 		SizeMiB:    paramsVal.SizeMiB,
-	}, nil
+	}
+
+	if paramsVal.VolumeID.Valid {
+		retVal.BackingVolume = &storageprovisioning.FilesystemBackingVolume{
+			VolumeID: paramsVal.VolumeID.V,
+		}
+	}
+
+	return retVal, nil
 }
 
 // GetFilesystemUUIDForID returns the uuid for a filesystem with the supplied

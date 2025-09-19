@@ -24,12 +24,12 @@ type blockDevice struct {
 	BusAddress string `db:"bus_address"`
 	SerialId   string `db:"serial_id"`
 
-	SizeMiB         uint64 `db:"size_mib"`
-	FilesystemLabel string `db:"filesystem_label"`
-	FilesystemUUID  string `db:"filesystem_uuid"`
-	FilesystemType  string `db:"filesystem_type"`
-	InUse           bool   `db:"in_use"`
-	MountPoint      string `db:"mount_point"`
+	SizeMiB            uint64 `db:"size_mib"`
+	FilesystemLabel    string `db:"filesystem_label"`
+	HostFilesystemUUID string `db:"host_filesystem_uuid"`
+	FilesystemType     string `db:"filesystem_type"`
+	InUse              bool   `db:"in_use"`
+	MountPoint         string `db:"mount_point"`
 }
 
 type deviceLink struct {

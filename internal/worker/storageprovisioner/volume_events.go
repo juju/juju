@@ -22,6 +22,7 @@ import (
 // volumesChanged is called when the lifecycle states of the volumes
 // with the provided IDs have been seen to have changed.
 func volumesChanged(ctx context.Context, deps *dependencies, changes []string) error {
+	deps.config.Logger.Tracef(ctx, "volumesChanged: %#v", changes)
 	tags := make([]names.Tag, len(changes))
 	for i, change := range changes {
 		tags[i] = names.NewVolumeTag(change)
@@ -31,7 +32,7 @@ func volumesChanged(ctx context.Context, deps *dependencies, changes []string) e
 		return errors.Trace(err)
 	}
 	deps.config.Logger.Debugf(ctx, "volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
-	if err := processDyingVolumes(deps, dying); err != nil {
+	if err := processDyingVolumes(ctx, deps, dying); err != nil {
 		return errors.Annotate(err, "processing dying volumes")
 	}
 	if len(alive)+len(dead) == 0 {
@@ -84,7 +85,7 @@ func sortVolumeAttachmentPlans(
 func volumeAttachmentPlansChanged(
 	ctx context.Context,
 	deps *dependencies, watcherIds []watcher.MachineStorageID) error {
-	deps.config.Logger.Debugf(ctx, "Got machine storage ids: %v", watcherIds)
+	deps.config.Logger.Tracef(ctx, "volumeAttachmentPlansChanged: %v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := sortVolumeAttachmentPlans(ctx, deps, ids)
 	if err != nil {
@@ -105,6 +106,7 @@ func volumeAttachmentPlansChanged(
 func processAliveVolumePlans(
 	ctx context.Context,
 	deps *dependencies, volumePlans []params.VolumeAttachmentPlanResult) error {
+	deps.config.Logger.Tracef(ctx, "processAliveVolumePlans: %#v", volumePlans)
 	volumeAttachmentPlans := make([]params.VolumeAttachmentPlan, len(volumePlans))
 	volumeTags := make([]names.VolumeTag, len(volumePlans))
 	for i, val := range volumePlans {
@@ -164,6 +166,7 @@ func blockDeviceToParams(in blockdevice.BlockDevice) *params.BlockDevice {
 func processDyingVolumePlans(
 	ctx context.Context,
 	deps *dependencies, volumePlans []params.VolumeAttachmentPlanResult) error {
+	deps.config.Logger.Tracef(ctx, "processDyingVolumePlans: %#v", volumePlans)
 	ids := volumePlansToMachineIds(volumePlans)
 	for _, val := range volumePlans {
 		volPlan, err := plans.PlanByType(val.Result.PlanInfo.DeviceType)
@@ -208,6 +211,7 @@ func volumePlansToMachineIds(plans []params.VolumeAttachmentPlanResult) []params
 func volumeAttachmentsChanged(
 	ctx context.Context,
 	deps *dependencies, watcherIds []watcher.MachineStorageID) error {
+	deps.config.Logger.Tracef(ctx, "volumeAttachmentsChanged: %#v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, gone, err := attachmentLife(ctx, deps, ids)
 	if err != nil {
@@ -252,24 +256,25 @@ func volumeAttachmentsChanged(
 
 // processDyingVolumes processes the VolumeResults for Dying volumes,
 // removing them from provisioning-pending as necessary.
-func processDyingVolumes(deps *dependencies, tags []names.Tag) error {
+func processDyingVolumes(ctx context.Context, deps *dependencies, tags []names.Tag) error {
+	deps.config.Logger.Tracef(ctx, "volumesChanged: %#v", tags)
 	if deps.isApplicationKind() {
 		// only care dead for application.
 		return nil
 	}
 	for _, tag := range tags {
-		removePendingVolume(deps, tag.(names.VolumeTag))
+		removePendingVolume(ctx, deps, tag.(names.VolumeTag))
 	}
 	return nil
 }
 
 // updateVolume updates the context with the given volume info.
-func updateVolume(deps *dependencies, info storage.Volume) {
+func updateVolume(ctx context.Context, deps *dependencies, info storage.Volume) {
 	deps.volumes[info.Tag] = info
 	for id, params := range deps.incompleteVolumeAttachmentParams {
 		if params.VolumeId == "" && id.AttachmentTag == info.Tag.String() {
 			params.VolumeId = info.VolumeId
-			updatePendingVolumeAttachment(deps, id, params)
+			updatePendingVolumeAttachment(ctx, deps, id, params)
 		}
 	}
 }
@@ -278,7 +283,7 @@ func updateVolume(deps *dependencies, info storage.Volume) {
 // set or the schedule. If the params are incomplete due to a missing instance
 // ID, updatePendingVolume will request that the machine be watched so its
 // instance ID can be learned.
-func updatePendingVolume(deps *dependencies, params storage.VolumeParams) {
+func updatePendingVolume(ctx context.Context, deps *dependencies, params storage.VolumeParams) {
 	if params.Attachment == nil {
 		// NOTE(axw) this would only happen if the model is
 		// in an incoherent state; we should never have an
@@ -290,9 +295,13 @@ func updatePendingVolume(deps *dependencies, params storage.VolumeParams) {
 		return
 	}
 	if params.Attachment.InstanceId == "" {
-		watchMachine(deps, params.Attachment.Machine.(names.MachineTag))
+		watchMachine(ctx, deps, params.Attachment.Machine.(names.MachineTag))
 		deps.incompleteVolumeParams[params.Tag] = params
+		deps.config.Logger.Debugf(ctx,
+			"pending volume %v due to missing machine instance id", params.Tag)
 	} else {
+		deps.config.Logger.Debugf(ctx,
+			"pending volume %v create scheduled", params.Tag)
 		delete(deps.incompleteVolumeParams, params.Tag)
 		scheduleOperations(deps, &createVolumeOp{args: params})
 	}
@@ -300,7 +309,8 @@ func updatePendingVolume(deps *dependencies, params storage.VolumeParams) {
 
 // removePendingVolume removes the specified pending volume from the
 // incomplete set and/or the schedule if it exists there.
-func removePendingVolume(deps *dependencies, tag names.VolumeTag) {
+func removePendingVolume(ctx context.Context, deps *dependencies, tag names.VolumeTag) {
+	deps.config.Logger.Debugf(ctx, "pending volume %v removed", tag)
 	delete(deps.incompleteVolumeParams, tag)
 	deps.schedule.Remove(tag)
 }
@@ -310,13 +320,18 @@ func removePendingVolume(deps *dependencies, tag names.VolumeTag) {
 // due to a missing instance ID, updatePendingVolumeAttachment will request
 // that the machine be watched so its instance ID can be learned.
 func updatePendingVolumeAttachment(
+	ctx context.Context,
 	deps *dependencies,
 	id params.MachineStorageId,
 	params storage.VolumeAttachmentParams,
 ) {
 	if params.InstanceId == "" {
-		watchMachine(deps, params.Machine.(names.MachineTag))
+		watchMachine(ctx, deps, params.Machine.(names.MachineTag))
+		deps.config.Logger.Debugf(ctx,
+			"pending volume attachment %v due to missing machine instance id", id)
 	} else if params.VolumeId != "" {
+		deps.config.Logger.Debugf(ctx,
+			"pending volume attachment %v attach scheduled", id)
 		delete(deps.incompleteVolumeAttachmentParams, id)
 		scheduleOperations(deps, &attachVolumeOp{args: params})
 		return
@@ -327,7 +342,8 @@ func updatePendingVolumeAttachment(
 // removePendingVolumeAttachment removes the specified pending volume
 // attachment from the incomplete set and/or the schedule if it exists
 // there.
-func removePendingVolumeAttachment(deps *dependencies, id params.MachineStorageId) {
+func removePendingVolumeAttachment(ctx context.Context, deps *dependencies, id params.MachineStorageId) {
+	deps.config.Logger.Debugf(ctx, "pending volume attachment %v removed", id)
 	delete(deps.incompleteVolumeAttachmentParams, id)
 	deps.schedule.Remove(id)
 }
@@ -337,8 +353,9 @@ func removePendingVolumeAttachment(deps *dependencies, id params.MachineStorageI
 func processDeadVolumes(
 	ctx context.Context,
 	deps *dependencies, tags []names.VolumeTag, volumeResults []params.VolumeResult) error {
+	deps.config.Logger.Tracef(ctx, "processDeadVolumes: %#v %#v", tags, volumeResults)
 	for _, tag := range tags {
-		removePendingVolume(deps, tag)
+		removePendingVolume(ctx, deps, tag)
 	}
 	var destroy []names.VolumeTag
 	var remove []names.Tag
@@ -350,7 +367,7 @@ func processDeadVolumes(
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
 			}
-			updateVolume(deps, volume)
+			updateVolume(ctx, deps, volume)
 			destroy = append(destroy, tag)
 			continue
 		}
@@ -382,8 +399,10 @@ func processDyingVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
+	deps.config.Logger.Tracef(ctx, "processDyingVolumeAttachments: %#v %#v",
+		ids, volumeAttachmentResults)
 	for _, id := range ids {
-		removePendingVolumeAttachment(deps, id)
+		removePendingVolumeAttachment(ctx, deps, id)
 	}
 	detach := make([]params.MachineStorageId, 0, len(ids))
 	remove := make([]params.MachineStorageId, 0, len(ids))
@@ -424,6 +443,7 @@ func processDyingVolumeAttachments(
 func processAliveVolumes(
 	ctx context.Context,
 	deps *dependencies, tags []names.Tag, volumeResults []params.VolumeResult) error {
+	deps.config.Logger.Tracef(ctx, "processAliveVolumes: %#v %#v", tags, volumeResults)
 	if deps.isApplicationKind() {
 		// only care dead for application kind.
 		return nil
@@ -440,8 +460,8 @@ func processAliveVolumes(
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
 			}
-			updateVolume(deps, volume)
-			removePendingVolume(deps, volumeTag)
+			updateVolume(ctx, deps, volume)
+			removePendingVolume(ctx, deps, volumeTag)
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -465,7 +485,7 @@ func processAliveVolumes(
 			deps.config.Logger.Debugf(ctx, "not queuing volume for non-machine %v", params.Attachment.Machine)
 			continue
 		}
-		updatePendingVolume(deps, params)
+		updatePendingVolume(ctx, deps, params)
 	}
 	return nil
 }
@@ -479,6 +499,8 @@ func processAliveVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
+	deps.config.Logger.Tracef(ctx, "processAliveVolumeAttachments: %#v %#v",
+		ids, volumeAttachmentResults)
 	// Filter out the already-attached.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
@@ -496,7 +518,7 @@ func processAliveVolumeAttachments(
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
-			removePendingVolumeAttachment(deps, ids[i])
+			removePendingVolumeAttachment(ctx, deps, ids[i])
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -523,7 +545,7 @@ func processAliveVolumeAttachments(
 		if volume, ok := deps.volumes[params.Volume]; ok {
 			params.VolumeId = volume.VolumeId
 		}
-		updatePendingVolumeAttachment(deps, pending[i], params)
+		updatePendingVolumeAttachment(ctx, deps, pending[i], params)
 	}
 	return nil
 }

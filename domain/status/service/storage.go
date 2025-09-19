@@ -161,10 +161,8 @@ func (s *Service) GetStorageInstanceStatuses(
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
 		si := StorageInstance{
-			ID: dsi.ID,
-			// TODO (tlm): This needs to correctly be wired up to a storage kind.
-			// Future work coming will set this value correctly.
-			Kind:  storage.StorageKindFilesystem,
+			ID:    dsi.ID,
+			Kind:  dsi.Kind,
 			Owner: dsi.Owner,
 		}
 		var err error

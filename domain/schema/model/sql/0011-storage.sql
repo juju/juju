@@ -301,6 +301,11 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES storage_provision_scope (id)
 );
 
+-- Until the storage provisioner can handle multi-attachment of volumes,
+-- this will prevent that.
+CREATE UNIQUE INDEX idx_storage_volume_attachment_volume_uuid
+ON storage_volume_attachment (storage_volume_uuid);
+
 CREATE INDEX idx_storage_volume_attachment_net_node_uuid
 ON storage_volume_attachment (net_node_uuid);
 
@@ -419,9 +424,7 @@ CREATE TABLE storage_volume_attachment_plan (
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     device_type_id INT,
-    -- TODO: we may change provision_scope_id to NOT NULL in the future.
-    -- We leave it nullable for now to avoid too much code churn.
-    provision_scope_id INT,
+    provision_scope_id INT NOT NULL,
     CONSTRAINT fk_storage_volume_attachment_plan_vol
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid),
@@ -444,10 +447,10 @@ CREATE UNIQUE INDEX idx_storage_volume_attachment_plan_net_node_uuid_volume_uuid
 ON storage_volume_attachment_plan (storage_volume_uuid, net_node_uuid);
 
 CREATE TABLE storage_volume_attachment_plan_attr (
-    uuid TEXT NOT NULL PRIMARY KEY,
     attachment_plan_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT NOT NULL,
+    PRIMARY KEY (attachment_plan_uuid, "key"),
     CONSTRAINT fk_storage_vol_attach_plan_attr_plan
     FOREIGN KEY (attachment_plan_uuid)
     REFERENCES storage_volume_attachment_plan (uuid)

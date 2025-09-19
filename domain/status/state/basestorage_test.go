@@ -133,6 +133,7 @@ func (s *baseStorageSuite) newStorageInstance(
 	charmUUID corecharm.ID,
 	storageName string,
 	poolUUID storage.StoragePoolUUID,
+	storageKind storage.StorageKind,
 ) (storage.StorageInstanceUUID, string) {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
@@ -151,12 +152,13 @@ func (s *baseStorageSuite) newStorageInstance(
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              storage_kind_id, life_id, requested_size_mib,
                              storage_pool_uuid)
-VALUES (?, ?, ?, ?, 1, 0, 100, ?)
+VALUES (?, ?, ?, ?, ?, 0, 100, ?)
 `,
 		storageInstanceUUID.String(),
 		charmName,
 		storageName,
 		storageID,
+		storageKind,
 		poolUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)

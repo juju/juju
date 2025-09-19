@@ -73,7 +73,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 
 	s.machineService.EXPECT().GetMachineUUID(
 		gomock.Any(), machine.Name("0")).Return(machineUUID, nil)
-	s.blockDeviceService.EXPECT().UpdateBlockDevices(
+	s.blockDeviceService.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, expectedDevices).Return(nil)
 
 	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{
@@ -107,7 +107,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *tc.C) {
 
 	s.machineService.EXPECT().GetMachineUUID(
 		gomock.Any(), machine.Name("0")).Return(machineUUID, nil)
-	s.blockDeviceService.EXPECT().UpdateBlockDevices(
+	s.blockDeviceService.EXPECT().UpdateBlockDevicesForMachine(
 		gomock.Any(), machineUUID, nil).Return(nil)
 
 	results, err := s.api.SetMachineBlockDevices(c.Context(), params.SetMachineBlockDevices{

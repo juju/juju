@@ -241,6 +241,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 			ID:    "12",
 			Owner: ptr(unit.Name("foo/10")),
 			Life:  life.Alive,
+			Kind:  storage.StorageKindFilesystem,
 		},
 	}
 	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)
@@ -283,11 +284,13 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 			UUID: storageInstanceUUID0,
 			ID:   "0",
 			Life: life.Alive,
+			Kind: storage.StorageKindFilesystem,
 		},
 		{
 			UUID: storageInstanceUUID1,
 			ID:   "1",
 			Life: life.Dying,
+			Kind: storage.StorageKindFilesystem,
 		},
 	}
 	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)

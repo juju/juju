@@ -18,6 +18,7 @@ import (
 // filesystemsChanged is called when the lifecycle states of the filesystems
 // with the provided IDs have been seen to have changed.
 func filesystemsChanged(ctx context.Context, deps *dependencies, changes []string) error {
+	deps.config.Logger.Tracef(ctx, "filesystemsChange: %#v", changes)
 	tags := make([]names.Tag, len(changes))
 	for i, change := range changes {
 		tags[i] = names.NewFilesystemTag(change)
@@ -58,7 +59,7 @@ func filesystemsChanged(ctx context.Context, deps *dependencies, changes []strin
 	if err := processDeadFilesystems(ctx, deps, deadFilesystemTags, deadFilesystemResults); err != nil {
 		return errors.Annotate(err, "deprovisioning filesystems")
 	}
-	if err := processDyingFilesystems(deps, dyingFilesystemTags, dyingFilesystemResults); err != nil {
+	if err := processDyingFilesystems(ctx, deps, dyingFilesystemTags, dyingFilesystemResults); err != nil {
 		return errors.Annotate(err, "processing dying filesystems")
 	}
 	if err := processAliveFilesystems(ctx, deps, aliveFilesystemTags, aliveFilesystemResults); err != nil {
@@ -70,6 +71,7 @@ func filesystemsChanged(ctx context.Context, deps *dependencies, changes []strin
 // filesystemAttachmentsChanged is called when the lifecycle states of the filesystem
 // attachments with the provided IDs have been seen to have changed.
 func filesystemAttachmentsChanged(ctx context.Context, deps *dependencies, watcherIds []watcher.MachineStorageID) error {
+	deps.config.Logger.Tracef(ctx, "filesystemAttachmentsChanged: %#v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, gone, err := attachmentLife(ctx, deps, ids)
 	if err != nil {
@@ -114,23 +116,24 @@ func filesystemAttachmentsChanged(ctx context.Context, deps *dependencies, watch
 
 // processDyingFilesystems processes the FilesystemResults for Dying filesystems,
 // removing them from provisioning-pending as necessary.
-func processDyingFilesystems(deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+func processDyingFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Tracef(ctx, "processDyingFilesystems: %#v %#v", tags, filesystemResults)
 	for _, tag := range tags {
-		removePendingFilesystem(deps, tag)
+		removePendingFilesystem(ctx, deps, tag)
 	}
 	return nil
 }
 
-func updateFilesystem(deps *dependencies, info storage.Filesystem) {
+func updateFilesystem(ctx context.Context, deps *dependencies, info storage.Filesystem) {
 	deps.filesystems[info.Tag] = info
 	for id, params := range deps.incompleteFilesystemAttachmentParams {
 		if params.ProviderId == "" && id.AttachmentTag == info.Tag.String() {
-			updatePendingFilesystemAttachment(deps, id, params)
+			updatePendingFilesystemAttachment(ctx, deps, id, params)
 		}
 	}
 }
 
-func updatePendingFilesystem(deps *dependencies, params storage.FilesystemParams) {
+func updatePendingFilesystem(ctx context.Context, deps *dependencies, params storage.FilesystemParams) {
 	if params.Volume != (names.VolumeTag{}) {
 		// The filesystem is volume-backed: we must watch for
 		// the corresponding block device. This will trigger a
@@ -142,14 +145,20 @@ func updatePendingFilesystem(deps *dependencies, params storage.FilesystemParams
 		if _, ok := deps.volumeBlockDevices[params.Volume]; !ok {
 			deps.pendingVolumeBlockDevices.Add(params.Volume)
 			deps.incompleteFilesystemParams[params.Tag] = params
+			deps.config.Logger.Debugf(ctx,
+				"pending filesystem %v waiting for volume block device", params.Tag)
 			return
 		}
 	}
+	deps.config.Logger.Debugf(ctx,
+		"pending filesystem %v scheduled create", params.Tag)
 	delete(deps.incompleteFilesystemParams, params.Tag)
 	scheduleOperations(deps, &createFilesystemOp{args: params})
 }
 
-func removePendingFilesystem(deps *dependencies, tag names.FilesystemTag) {
+func removePendingFilesystem(ctx context.Context, deps *dependencies, tag names.FilesystemTag) {
+	deps.config.Logger.Debugf(ctx,
+		"pending filesystem %v removed", tag)
 	delete(deps.incompleteFilesystemParams, tag)
 	deps.schedule.Remove(tag)
 }
@@ -159,6 +168,7 @@ func removePendingFilesystem(deps *dependencies, tag names.FilesystemTag) {
 // due to a missing instance ID, updatePendingFilesystemAttachment will request
 // that the machine be watched so its instance ID can be learned.
 func updatePendingFilesystemAttachment(
+	ctx context.Context,
 	deps *dependencies,
 	id params.MachineStorageId,
 	params storage.FilesystemAttachmentParams,
@@ -167,6 +177,8 @@ func updatePendingFilesystemAttachment(
 	filesystem, ok := deps.filesystems[params.Filesystem]
 	if !ok {
 		incomplete = true
+		deps.config.Logger.Debugf(ctx,
+			"pending filesystem attachment %v due to missing filesystem %v", id, params.Filesystem)
 	} else {
 		params.ProviderId = filesystem.ProviderId
 		if filesystem.Volume != (names.VolumeTag{}) {
@@ -176,15 +188,22 @@ func updatePendingFilesystemAttachment(
 			// device watcher to trigger.
 			if _, ok := deps.volumeBlockDevices[filesystem.Volume]; !ok {
 				incomplete = true
+				deps.config.Logger.Debugf(ctx,
+					"pending filesystem attachment %v due to missing volume block device %v",
+					id, filesystem.Volume)
 			}
 		}
 	}
 	if params.InstanceId == "" {
-		watchMachine(deps, params.Machine.(names.MachineTag))
+		watchMachine(ctx, deps, params.Machine.(names.MachineTag))
 		incomplete = true
+		deps.config.Logger.Debugf(ctx,
+			"pending filesystem attachment %v due to missing machine instance id", id)
 	}
 	if params.ProviderId == "" {
 		incomplete = true
+		deps.config.Logger.Debugf(ctx,
+			"pending filesystem attachment %v due to missing provider id", id)
 	}
 	if incomplete {
 		deps.incompleteFilesystemAttachmentParams[id] = params
@@ -197,7 +216,9 @@ func updatePendingFilesystemAttachment(
 // removePendingFilesystemAttachment removes the specified pending filesystem
 // attachment from the incomplete set and/or the schedule if it exists
 // there.
-func removePendingFilesystemAttachment(deps *dependencies, id params.MachineStorageId) {
+func removePendingFilesystemAttachment(ctx context.Context, deps *dependencies, id params.MachineStorageId) {
+	deps.config.Logger.Debugf(ctx,
+		"pending filesystem attachment %v removed", id)
 	delete(deps.incompleteFilesystemAttachmentParams, id)
 	deps.schedule.Remove(id)
 }
@@ -205,8 +226,9 @@ func removePendingFilesystemAttachment(deps *dependencies, id params.MachineStor
 // processDeadFilesystems processes the FilesystemResults for Dead filesystems,
 // deprovisioning filesystems and removing from state as necessary.
 func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Tracef(ctx, "processDeadFilesystems: %#v %#v", tags, filesystemResults)
 	for _, tag := range tags {
-		removePendingFilesystem(deps, tag)
+		removePendingFilesystem(ctx, deps, tag)
 	}
 	var destroy []names.FilesystemTag
 	var remove []names.Tag
@@ -218,7 +240,7 @@ func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []name
 			if err != nil {
 				return errors.Annotate(err, "getting filesystem info")
 			}
-			updateFilesystem(deps, filesystem)
+			updateFilesystem(ctx, deps, filesystem)
 			destroy = append(destroy, tag)
 			continue
 		}
@@ -250,8 +272,9 @@ func processDyingFilesystemAttachments(
 	ids []params.MachineStorageId,
 	filesystemAttachmentResults []params.FilesystemAttachmentResult,
 ) error {
+	deps.config.Logger.Tracef(ctx, "processDyingFilesystemAttachments: %#v %#v", ids, filesystemAttachmentResults)
 	for _, id := range ids {
-		removePendingFilesystemAttachment(deps, id)
+		removePendingFilesystemAttachment(ctx, deps, id)
 	}
 	detach := make([]params.MachineStorageId, 0, len(ids))
 	remove := make([]params.MachineStorageId, 0, len(ids))
@@ -287,6 +310,7 @@ func processDyingFilesystemAttachments(
 // processAliveFilesystems processes the FilesystemResults for Alive filesystems,
 // provisioning filesystems and setting the info in state as necessary.
 func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []names.FilesystemTag, filesystemResults []params.FilesystemResult) error {
+	deps.config.Logger.Tracef(ctx, "processAliveFilesystems: %#v %#v", tags, filesystemResults)
 	// Filter out the already-provisioned filesystems.
 	pending := make([]names.FilesystemTag, 0, len(tags))
 	for i, result := range filesystemResults {
@@ -298,13 +322,13 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 			if err != nil {
 				return errors.Annotate(err, "getting filesystem info")
 			}
-			updateFilesystem(deps, filesystem)
+			updateFilesystem(ctx, deps, filesystem)
 			if !deps.isApplicationKind() {
 				if filesystem.Volume != (names.VolumeTag{}) {
 					// Ensure that volume-backed filesystems' block
 					// devices are present even after creating the
 					// filesystem, so that attachments can be made.
-					maybeAddPendingVolumeBlockDevice(deps, filesystem.Volume)
+					maybeAddPendingVolumeBlockDevice(ctx, deps, filesystem.Volume)
 				}
 			}
 			continue
@@ -330,14 +354,16 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 			deps.config.Logger.Debugf(ctx, "not queuing filesystem for %v unit", deps.config.Scope.Id())
 			continue
 		}
-		updatePendingFilesystem(deps, params)
+		updatePendingFilesystem(ctx, deps, params)
 	}
 	return nil
 }
 
-func maybeAddPendingVolumeBlockDevice(deps *dependencies, v names.VolumeTag) {
+func maybeAddPendingVolumeBlockDevice(ctx context.Context, deps *dependencies, v names.VolumeTag) {
 	if _, ok := deps.volumeBlockDevices[v]; !ok {
 		deps.pendingVolumeBlockDevices.Add(v)
+		deps.config.Logger.Debugf(ctx,
+			"pending volume block device %v", v)
 	}
 }
 
@@ -350,6 +376,7 @@ func processAliveFilesystemAttachments(
 	ids []params.MachineStorageId,
 	filesystemAttachmentResults []params.FilesystemAttachmentResult,
 ) error {
+	deps.config.Logger.Tracef(ctx, "processAliveFilesystemAttachments: %#v %#v", ids, filesystemAttachmentResults)
 	// Filter out the already-attached.
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range filesystemAttachmentResults {
@@ -367,7 +394,7 @@ func processAliveFilesystemAttachments(
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
-			removePendingFilesystemAttachment(deps, ids[i])
+			removePendingFilesystemAttachment(ctx, deps, ids[i])
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -391,7 +418,7 @@ func processAliveFilesystemAttachments(
 			deps.config.Logger.Debugf(ctx, "not queuing filesystem attachment for non-machine %v", params.Machine)
 			continue
 		}
-		updatePendingFilesystemAttachment(deps, pending[i], params)
+		updatePendingFilesystemAttachment(ctx, deps, pending[i], params)
 	}
 	return nil
 }
@@ -401,6 +428,7 @@ func filesystemAttachmentParams(
 	ctx context.Context,
 	deps *dependencies, ids []params.MachineStorageId,
 ) ([]storage.FilesystemAttachmentParams, error) {
+	deps.config.Logger.Tracef(ctx, "filesystemAttachmentParams: %#v", ids)
 	paramsResults, err := deps.config.Filesystems.FilesystemAttachmentParams(ctx, ids)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem attachment params")
@@ -421,6 +449,7 @@ func filesystemAttachmentParams(
 
 // filesystemParams obtains the specified filesystems' parameters.
 func filesystemParams(ctx context.Context, deps *dependencies, tags []names.FilesystemTag) ([]storage.FilesystemParams, error) {
+	deps.config.Logger.Tracef(ctx, "filesystemParams: %#v", tags)
 	paramsResults, err := deps.config.Filesystems.FilesystemParams(ctx, tags)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem params")
@@ -441,6 +470,7 @@ func filesystemParams(ctx context.Context, deps *dependencies, tags []names.File
 
 // removeFilesystemParams obtains the specified filesystems' destruction parameters.
 func removeFilesystemParams(ctx context.Context, deps *dependencies, tags []names.FilesystemTag) ([]params.RemoveFilesystemParams, error) {
+	deps.config.Logger.Tracef(ctx, "removeFilesystemParams: %#v", tags)
 	paramsResults, err := deps.config.Filesystems.RemoveFilesystemParams(ctx, tags)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem params")

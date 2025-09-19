@@ -886,6 +886,11 @@ func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
 	})
 }
 
+func (s *filesystemSuite) TestGetFilesystemParamsVolumeBacked(c *tc.C) {
+	// TODO(storage): test that a volume backed filesystem returns the backing
+	// volume information.
+}
+
 // TestGetFilesystemAttachmentParamsNotFound is testing that when asking for the
 // params of a filesystem attachment that does not exist the caller gets back an
 // error satisfying [storageprovisioningerrors.FilesystemAttachmentNotFound].

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -363,13 +364,10 @@ func (s *baseSuite) newVolumeAttachmentPlan(
 	c *tc.C,
 	volumeUUID storageprovisioning.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) string {
-	attachmentUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+) storageprovisioning.VolumeAttachmentPlanUUID {
+	attachmentUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
 
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		`
+	_, err := s.DB().Exec(`
 INSERT INTO storage_volume_attachment_plan (uuid,
                                             storage_volume_uuid,
                                             net_node_uuid,
@@ -380,7 +378,7 @@ VALUES (?, ?, ?, 0, 1)
 		attachmentUUID.String(), volumeUUID.String(), netNodeUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	return attachmentUUID.String()
+	return attachmentUUID
 }
 
 // newStoragePool creates a new storage pool with name, provider type and attrs.
@@ -455,8 +453,8 @@ func (s *baseSuite) newBlockDevice(
 	hardwareID string,
 	busAddress string,
 	deviceLinks []string,
-) string {
-	uuid := uuid.MustNewUUID().String()
+) blockdevice.BlockDeviceUUID {
+	uuid := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	_, err := s.DB().Exec(
 		`INSERT INTO block_device(uuid, machine_uuid, name, hardware_id, bus_address) VALUES(?, ?, ?, ?, ?)`,
 		uuid, machineUUID, name, hardwareID, busAddress)
@@ -473,13 +471,35 @@ func (s *baseSuite) newBlockDevice(
 func (s *baseSuite) changeVolumeAttachmentInfo(
 	c *tc.C,
 	uuid storageprovisioning.VolumeAttachmentUUID,
-	blockDeviceUUID string,
+	blockDeviceUUID blockdevice.BlockDeviceUUID,
 	readOnly bool,
 ) {
 	_, err := s.DB().Exec(
 		`UPDATE storage_volume_attachment SET block_device_uuid=?, read_only=? WHERE uuid=?`,
 		blockDeviceUUID, readOnly, uuid)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *baseSuite) changeVolumeAttachmentPlanInfo(
+	c *tc.C,
+	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	deviceType storageprovisioning.PlanDeviceType,
+	deviceAttrs map[string]string,
+) {
+	_, err := s.DB().Exec(
+		`UPDATE storage_volume_attachment_plan SET device_type_id=? WHERE uuid=?`,
+		deviceType, uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(
+		`DELETE FROM storage_volume_attachment_plan_attr WHERE attachment_plan_uuid=?`,
+		uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	for k, v := range deviceAttrs {
+		_, err := s.DB().Exec(
+			`INSERT INTO storage_volume_attachment_plan_attr(attachment_plan_uuid, "key", value) VALUES(?, ?, ?)`,
+			uuid, k, v)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 }
 
 func (s *baseSuite) changeVolumeInfo(

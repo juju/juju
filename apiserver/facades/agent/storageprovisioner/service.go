@@ -14,6 +14,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -57,14 +58,28 @@ type MachineService interface {
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.
 type BlockDeviceService interface {
-	// BlockDevices returns the BlockDevices for the specified machine.
-	BlockDevices(
+	// GetBlockDevice retrieves a block device by uuid.
+	GetBlockDevice(
+		ctx context.Context, uuid domainblockdevice.BlockDeviceUUID,
+	) (blockdevice.BlockDevice, error)
+
+	// GetBlockDeviceForMachine returns the BlockDevices for the specified
+	// machine.
+	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 
-	// WatchBlockDevices returns a new NotifyWatcher watching for changes to block
-	// devices associated with the specified machine.
-	WatchBlockDevices(
+	// MatchOrCreateBlockDevice matches an existing block device to the provided
+	// block device, otherwise it creates one that matches the existing device.
+	// It returns the UUID of the block device.
+	MatchOrCreateBlockDevice(
+		ctx context.Context, machineUUID machine.UUID,
+		device blockdevice.BlockDevice,
+	) (domainblockdevice.BlockDeviceUUID, error)
+
+	// WatchBlockDevicesForMachine returns a new NotifyWatcher watching for
+	// changes to block devices associated with the specified machine.
+	WatchBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) (watcher.NotifyWatcher, error)
 }
@@ -211,6 +226,10 @@ type StorageProvisioningService interface {
 		ctx context.Context, uuid storageprovisioning.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
 
+	// CheckVolumeForIDExists checks if a volume exists for the supplied volume
+	// ID. True is returned when a volume exists.
+	CheckVolumeForIDExists(context.Context, string) (bool, error)
+
 	// GetVolumeAttachmentParams retrieves the attachment parameters for a given
 	// volume attachment.
 	GetVolumeAttachmentParams(
@@ -246,11 +265,11 @@ type StorageProvisioningService interface {
 		ctx context.Context, volumeID string,
 	) (storageprovisioning.Volume, error)
 
-	// GetBlockDeviceForVolumeAttachment returns information about the block
-	// device set for the specified volume attachment.
+	// GetBlockDeviceForVolumeAttachment returns the uuid of the block device
+	// set for the specified volume attachment.
 	GetBlockDeviceForVolumeAttachment(
 		ctx context.Context, uuid storageprovisioning.VolumeAttachmentUUID,
-	) (blockdevice.BlockDevice, error)
+	) (domainblockdevice.BlockDeviceUUID, error)
 
 	// WatchMachineProvisionedFilesystems returns a watcher that emits
 	// filesystem IDs, whenever the given machine's provisioned filsystem's life
@@ -385,6 +404,6 @@ type StorageProvisioningService interface {
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
 		ctx context.Context,
 		uuid storageprovisioning.VolumeAttachmentPlanUUID,
-		info blockdevice.BlockDevice,
+		blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 	) error
 }

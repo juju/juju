@@ -75,6 +75,7 @@ type Machine struct {
 type StorageInstance struct {
 	UUID  storage.StorageInstanceUUID
 	ID    string
+	Kind  storage.StorageKind
 	Owner *unit.Name
 	Life  life.Life
 }
