@@ -33,7 +33,6 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -1316,9 +1315,9 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 		OfferUUID:             offerUUID,
 		OffererControllerUUID: ptr(controllerUUID),
 		OffererModelUUID:      modelUUID,
-		Endpoints: []domaincharm.Relation{{
+		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
-			Role:      domaincharm.RoleRequirer,
+			Role:      applicationcharm.RoleRequirer,
 			Interface: "db",
 			Limit:     1,
 		}},
@@ -1365,9 +1364,9 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:        offerUUID,
 		OffererModelUUID: modelUUID,
-		Endpoints: []domaincharm.Relation{{
+		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
-			Role:      domaincharm.RoleRequirer,
+			Role:      applicationcharm.RoleRequirer,
 			Interface: "db",
 			Limit:     1,
 		}},
@@ -1411,9 +1410,9 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:        offerUUID,
 		OffererModelUUID: modelUUID,
-		Endpoints: []domaincharm.Relation{{
+		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
-			Role:      domaincharm.RoleRequirer,
+			Role:      applicationcharm.RoleRequirer,
 			Interface: "db",
 			Limit:     1,
 		}},

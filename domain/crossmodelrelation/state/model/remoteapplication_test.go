@@ -49,7 +49,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 					Name:      "cache",
 					Role:      charm.RoleRequirer,
 					Interface: "cacher",
-					Scope:     charm.ScopeContainer,
+					Scope:     charm.ScopeGlobal,
 				},
 			},
 			Peers: map[string]charm.Relation{},
@@ -229,7 +229,6 @@ func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, char
 
 		gotProvides = make(map[string]charm.Relation)
 		gotRequires = make(map[string]charm.Relation)
-		gotPeers    = make(map[string]charm.Relation)
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
@@ -274,16 +273,12 @@ WHERE charm_uuid = ?`, charmUUID)
 				rel.Role = charm.RoleProvider
 			case 1:
 				rel.Role = charm.RoleRequirer
-			case 2:
-				rel.Role = charm.RolePeer
 			default:
 				return internalerrors.Errorf("unknown role ID %d", roleID)
 			}
 			switch scopeID {
 			case 0:
 				rel.Scope = charm.ScopeGlobal
-			case 1:
-				rel.Scope = charm.ScopeContainer
 			default:
 				return internalerrors.Errorf("unknown scope ID %d", scopeID)
 			}
@@ -292,8 +287,6 @@ WHERE charm_uuid = ?`, charmUUID)
 				gotProvides[rel.Name] = rel
 			case charm.RoleRequirer:
 				gotRequires[rel.Name] = rel
-			case charm.RolePeer:
-				gotPeers[rel.Name] = rel
 			}
 		}
 		return nil
@@ -319,5 +312,4 @@ WHERE charm_uuid = ?`, charmUUID)
 
 	c.Check(gotProvides, tc.DeepEquals, provides)
 	c.Check(gotRequires, tc.DeepEquals, expected.Metadata.Requires)
-	c.Check(gotPeers, tc.DeepEquals, expected.Metadata.Peers)
 }

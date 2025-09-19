@@ -389,9 +389,7 @@ func encodeRelationRole(role charm.RelationRole) (int, error) {
 		return 0, nil
 	case charm.RoleRequirer:
 		return 1, nil
-	case charm.RolePeer:
-		return 2, nil
 	default:
-		return -1, errors.Errorf("unknown relation role %q", role)
+		return -1, errors.Errorf("role should not be a peer relation, got %q", role)
 	}
 }
