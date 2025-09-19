@@ -6,13 +6,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
+
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 )
 
 type remoteApplicationServiceSuite struct {
