@@ -147,6 +147,30 @@ type VolumeState interface {
 		storageprovisioning.VolumeProvisionedInfo,
 	) error
 
+	// GetVolumeAttachmentUUIDForStorageAttachmentUUID returns the volume
+	// attachment uuid for the supplied storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when no storage
+	// attachment exists for the provided storage attachment uuid.
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied values.
+	GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		ctx context.Context,
+		storageAttachmentUUID string,
+	) (string, error)
+
+	// GetVolumeAttachmentInfo retrieves information about the volume attachment
+	// with volume information included.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied uuid.
+	GetVolumeAttachmentInfo(
+		ctx context.Context,
+		volumeAttachmentUUID string,
+	) (storageprovisioning.VolumeAttachmentInfo, error)
+
 	// InitialWatchStatementMachineProvisionedVolumes returns both the
 	// namespace for watching volume life changes where the volume is
 	// machine provisioned and the initial query for getting the set of volumes

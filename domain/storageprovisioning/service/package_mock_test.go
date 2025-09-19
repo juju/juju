@@ -398,6 +398,45 @@ func (c *MockStateGetFilesystemAttachmentUUIDForFilesystemNetNodeCall) DoAndRetu
 	return c
 }
 
+// GetFilesystemAttachmentUUIDForStorageAttachmentUUID mocks base method.
+func (m *MockState) GetFilesystemAttachmentUUIDForStorageAttachmentUUID(ctx context.Context, storageAttachmentUUID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachmentUUIDForStorageAttachmentUUID", ctx, storageAttachmentUUID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachmentUUIDForStorageAttachmentUUID indicates an expected call of GetFilesystemAttachmentUUIDForStorageAttachmentUUID.
+func (mr *MockStateMockRecorder) GetFilesystemAttachmentUUIDForStorageAttachmentUUID(ctx, storageAttachmentUUID any) *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachmentUUIDForStorageAttachmentUUID", reflect.TypeOf((*MockState)(nil).GetFilesystemAttachmentUUIDForStorageAttachmentUUID), ctx, storageAttachmentUUID)
+	return &MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall{Call: call}
+}
+
+// MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall wrap *gomock.Call
+type MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall) Return(arg0 string, arg1 error) *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall) Do(f func(context.Context, string) (string, error)) *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateGetFilesystemAttachmentUUIDForStorageAttachmentUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemLife mocks base method.
 func (m *MockState) GetFilesystemLife(arg0 context.Context, arg1 storageprovisioning.FilesystemUUID) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -667,6 +706,45 @@ func (c *MockStateGetStorageAttachmentIDsForUnitCall) Do(f func(context.Context,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetStorageAttachmentIDsForUnitCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetStorageAttachmentIDsForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageAttachmentInfo mocks base method.
+func (m *MockState) GetStorageAttachmentInfo(ctx context.Context, storageAttachmentUUID string) (storageprovisioning.StorageAttachmentInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageAttachmentInfo", ctx, storageAttachmentUUID)
+	ret0, _ := ret[0].(storageprovisioning.StorageAttachmentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageAttachmentInfo indicates an expected call of GetStorageAttachmentInfo.
+func (mr *MockStateMockRecorder) GetStorageAttachmentInfo(ctx, storageAttachmentUUID any) *MockStateGetStorageAttachmentInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentInfo", reflect.TypeOf((*MockState)(nil).GetStorageAttachmentInfo), ctx, storageAttachmentUUID)
+	return &MockStateGetStorageAttachmentInfoCall{Call: call}
+}
+
+// MockStateGetStorageAttachmentInfoCall wrap *gomock.Call
+type MockStateGetStorageAttachmentInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageAttachmentInfoCall) Return(arg0 storageprovisioning.StorageAttachmentInfo, arg1 error) *MockStateGetStorageAttachmentInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageAttachmentInfoCall) Do(f func(context.Context, string) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1061,6 +1139,45 @@ func (c *MockStateGetVolumeAttachmentIDsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetVolumeAttachmentInfo mocks base method.
+func (m *MockState) GetVolumeAttachmentInfo(ctx context.Context, volumeAttachmentUUID string) (storageprovisioning.VolumeAttachmentInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentInfo", ctx, volumeAttachmentUUID)
+	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentInfo indicates an expected call of GetVolumeAttachmentInfo.
+func (mr *MockStateMockRecorder) GetVolumeAttachmentInfo(ctx, volumeAttachmentUUID any) *MockStateGetVolumeAttachmentInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentInfo", reflect.TypeOf((*MockState)(nil).GetVolumeAttachmentInfo), ctx, volumeAttachmentUUID)
+	return &MockStateGetVolumeAttachmentInfoCall{Call: call}
+}
+
+// MockStateGetVolumeAttachmentInfoCall wrap *gomock.Call
+type MockStateGetVolumeAttachmentInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeAttachmentInfoCall) Return(arg0 storageprovisioning.VolumeAttachmentInfo, arg1 error) *MockStateGetVolumeAttachmentInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeAttachmentInfoCall) Do(f func(context.Context, string) (storageprovisioning.VolumeAttachmentInfo, error)) *MockStateGetVolumeAttachmentInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeAttachmentInfoCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.VolumeAttachmentInfo, error)) *MockStateGetVolumeAttachmentInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetVolumeAttachmentLife mocks base method.
 func (m *MockState) GetVolumeAttachmentLife(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentUUID) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -1213,6 +1330,45 @@ func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall) DoAndReturn(f func(context.Context, network.NetNodeUUID) (map[string]life.Life, error)) *MockStateGetVolumeAttachmentPlanLifeForNetNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeAttachmentUUIDForStorageAttachmentUUID mocks base method.
+func (m *MockState) GetVolumeAttachmentUUIDForStorageAttachmentUUID(ctx context.Context, storageAttachmentUUID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentUUIDForStorageAttachmentUUID", ctx, storageAttachmentUUID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentUUIDForStorageAttachmentUUID indicates an expected call of GetVolumeAttachmentUUIDForStorageAttachmentUUID.
+func (mr *MockStateMockRecorder) GetVolumeAttachmentUUIDForStorageAttachmentUUID(ctx, storageAttachmentUUID any) *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentUUIDForStorageAttachmentUUID", reflect.TypeOf((*MockState)(nil).GetVolumeAttachmentUUIDForStorageAttachmentUUID), ctx, storageAttachmentUUID)
+	return &MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall{Call: call}
+}
+
+// MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall wrap *gomock.Call
+type MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall) Return(arg0 string, arg1 error) *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall) Do(f func(context.Context, string) (string, error)) *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateGetVolumeAttachmentUUIDForStorageAttachmentUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

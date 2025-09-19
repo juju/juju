@@ -635,6 +635,25 @@ type StorageProvisioningService interface {
 		ctx context.Context, unitUUID coreunit.UUID, storageID string,
 	) (domainlife.Life, error)
 
+	// GetUnitStorageAttachmentInfo returns information about a storage attachment for
+	// the given storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+	// attachment does not exist.
+	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
+	// exists.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided values.
+	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
+	// attachment exists for the supplied values.
+	// [storageprovisioningerrors.StorageAttachmentNotProvisioned] when the storage
+	// attachment has not been fully provisioned yet.
+	GetUnitStorageAttachmentInfo(
+		ctx context.Context,
+		uuid storageprovisioning.StorageAttachmentUUID,
+	) (storageprovisioning.StorageAttachmentInfo, error)
+
 	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage attachment for the
 	// given storage ID and unit UUID.
 	//

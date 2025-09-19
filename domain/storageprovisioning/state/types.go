@@ -138,6 +138,10 @@ type netNodeUUID entityUUID
 // storageInstanceUUID represents the UUID of a record in the storage_instance table.
 type storageInstanceUUID entityUUID
 
+// storageAttachmentUUID represents the UUID of a record in the storage_attachment
+// table.
+type storageAttachmentUUID entityUUID
+
 // netNodeUUIDRef represents a reference to a network node uuid in a storage
 // entity table.
 type netNodeUUIDRef struct {
@@ -337,4 +341,18 @@ type unitUUIDRef struct {
 type storageAttachmentIdentifier struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
+}
+
+type storageAttachmentInfo struct {
+	StorageAttachmentUUID string         `db:"storage_attachment_uuid"`
+	OwnerUnitName         sql.NullString `db:"owner_unit_name"`
+	KindID                int            `db:"storage_kind_id"`
+	Life                  life.Life      `db:"life_id"`
+}
+
+type volumeAttachmentInfo struct {
+	HardwareId      string `db:"hardware_id"`
+	WWN             string `db:"wwn"`
+	BlockDeviceName string `db:"block_device_name"`
+	BlockDeviceLink string `db:"block_device_link"`
 }
