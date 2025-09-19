@@ -128,6 +128,34 @@ func (w WatcherC[T]) AssertNChanges(n int) {
 	}
 }
 
+// CheckInitial asserts that the watcher sends the expected initial changes. The
+// assertion function is called only once and returns true, or the test
+// times out.
+func (w *WatcherC[T]) CheckInitial(assertion WatcherAssert[T]) {
+	select {
+	case changes, ok := <-w.Watcher.Changes():
+		w.c.Logf("WatcherC Watcher.Changes() => %# v", changes)
+		if !ok {
+			wait := make(chan error)
+			go func() {
+				wait <- w.Watcher.Wait()
+			}()
+			select {
+			case <-w.c.Context().Done():
+				w.c.Fatalf("watcher never stopped")
+			case err := <-wait:
+				w.c.Fatalf("watcher killed with err: %q", err.Error())
+			}
+		}
+
+		if assertion(w.c, []T{changes}) {
+			return
+		}
+	case <-w.c.Context().Done():
+		w.c.Fatalf("watcher did not send initial change")
+	}
+}
+
 // Check asserts that the watcher sends the expected changes. The assertion
 // function is called repeatedly until it returns true, or the test times out.
 func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
