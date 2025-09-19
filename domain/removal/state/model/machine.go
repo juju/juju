@@ -179,13 +179,13 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 		}
 
 		// If there are no units to update, we can return early.
-		if len(parentUnitUUIDs) + len(childUnitUUIDs) == 0 {
+		if len(parentUnitUUIDs)+len(childUnitUUIDs) == 0 {
 			return nil
 		}
 
 		const (
 			checkEmptyMachine = false
-			destroyStorage = false
+			destroyStorage    = false
 		)
 		unitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
 			return u.UUID
