@@ -652,7 +652,6 @@ type testRegistry struct {
 	catacomb                  catacomb.Catacomb
 	runner                    *worker.Runner
 	namespaceCounter, counter int64
-	watcherWrapper            func(worker.Worker) (worker.Worker, error)
 }
 
 func NewTestRegistry() (watcherregistry.WatcherRegistry, error) {
@@ -670,9 +669,6 @@ func NewTestRegistry() (watcherregistry.WatcherRegistry, error) {
 
 	r := &testRegistry{
 		runner: runner,
-		watcherWrapper: func(w worker.Worker) (worker.Worker, error) {
-			return w, nil
-		},
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -724,7 +720,7 @@ func (r *testRegistry) RegisterNamed(ctx context.Context, namespace string, w wo
 func (r *testRegistry) register(ctx context.Context, namespace string, w worker.Worker) error {
 	err := r.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		atomic.AddInt64(&r.counter, 1)
-		return r.watcherWrapper(w)
+		return w, nil
 	})
 	if err != nil {
 		return err
