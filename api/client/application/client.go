@@ -1231,25 +1231,18 @@ type ApplicationStorageInfo struct {
 }
 
 // GetApplicationStorage retrieves storage information for the specified applications.
-func (c *Client) GetApplicationStorage(applications []names.ApplicationTag) ([]ApplicationStorageInfo, error) {
-	all := make([]params.Entity, len(applications))
-	for i, one := range applications {
-		all[i] = params.Entity{Tag: one.String()}
-	}
-	in := params.Entities{Entities: all}
+func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStorageInfo, error) {
+	application := names.NewApplicationTag(applicationName)
+	in := params.Entities{Entities: []params.Entity{{Tag: application.String()}}}
 	var out params.ApplicationStorageGetResults
 	err := c.facade.FacadeCall("GetApplicationStorage", in, &out)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return ApplicationStorageInfo{}, errors.Trace(err)
 	}
-	if resultsLen := len(out.Results); resultsLen != len(applications) {
-		return nil, errors.Errorf("expected %d results, got %d", len(applications), resultsLen)
+	if resultsLen := len(out.Results); resultsLen != 1 {
+		return ApplicationStorageInfo{}, errors.Errorf("expected 1 result, got %d", resultsLen)
 	}
-	infos := make([]ApplicationStorageInfo, len(out.Results))
-	for i, r := range out.Results {
-		infos[i] = applicationInfoFromParams(r)
-	}
-	return infos, nil
+	return applicationInfoFromParams(out.Results[0]), nil
 }
 
 func applicationInfoFromParams(param params.ApplicationStorageGetResult) ApplicationStorageInfo {
@@ -1277,9 +1270,9 @@ func applicationInfoFromParams(param params.ApplicationStorageGetResult) Applica
 	}
 }
 
-// ApplicationStorageUpdateParams contains the storage update information for multiple applications.
-type ApplicationStorageUpdateParams struct {
-	ApplicationStorageUpdates []ApplicationStorageUpdate `json:"storage-updates"`
+// ApplicationStorageUpdateParam contains the storage update information for multiple applications.
+type ApplicationStorageUpdateParam struct {
+	ApplicationStorageUpdates ApplicationStorageUpdate `json:"storage-updates"`
 }
 
 // ApplicationStorageUpdate holds the desired storage constraint updates for a single application.
@@ -1293,30 +1286,31 @@ type ApplicationStorageUpdate struct {
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
-func (c *Client) UpdateApplicationStorage(applicationStorageUpdateParams ApplicationStorageUpdateParams) ([]params.ErrorResult, error) {
-	applicationStorageUpdates := make([]params.ApplicationStorageUpdate, len(applicationStorageUpdateParams.ApplicationStorageUpdates))
-
-	for i, one := range applicationStorageUpdateParams.ApplicationStorageUpdates {
-		applicationStorageUpdates[i].ApplicationTag = one.ApplicationTag.String()
-		applicationStorageUpdates[i].StorageConstraints = make(map[string]params.StorageConstraints)
-		for k, v := range one.StorageConstraints {
-			applicationStorageUpdates[i].StorageConstraints[k] = params.StorageConstraints{
-				Pool:  v.Pool,
-				Size:  &v.Size,
-				Count: &v.Count,
-			}
+func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationStorageUpdate) error {
+	sc := make(map[string]params.StorageConstraints)
+	for k, v := range applicationStorageUpdate.StorageConstraints {
+		sc[k] = params.StorageConstraints{
+			Pool:  v.Pool,
+			Size:  &v.Size,
+			Count: &v.Count,
 		}
 	}
 	in := params.ApplicationStorageUpdateRequest{
-		ApplicationStorageUpdates: applicationStorageUpdates,
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{
+				ApplicationTag:     applicationStorageUpdate.ApplicationTag.String(),
+				StorageConstraints: sc,
+			},
+		},
 	}
+
 	var out params.ErrorResults
 	err := c.facade.FacadeCall("UpdateApplicationStorage", in, &out)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	if resultsLen := len(out.Results); resultsLen != len(applicationStorageUpdates) {
-		return nil, errors.Errorf("expected %d results, got %d", len(applicationStorageUpdates), resultsLen)
+	if resultsLen := len(out.Results); resultsLen != 1 {
+		return errors.Errorf("expected 1 result, got %d", resultsLen)
 	}
-	return out.Results, nil
+	return out.Results[0].Error
 }

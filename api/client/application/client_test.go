@@ -1531,14 +1531,10 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-storage-block"},
-			{Tag: "application-cockroachdb"},
 		}}
 
 	sbSize := uint64(5)
 	sbCount := uint64(1)
-
-	ckSize := uint64(15)
-	ckCount := uint64(1)
 
 	result := new(params.ApplicationStorageGetResults)
 	results := params.ApplicationStorageGetResults{
@@ -1552,39 +1548,19 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 					},
 				},
 			},
-			{
-				StorageConstraints: map[string]params.StorageConstraints{
-					"cockroachdb": {
-						Pool:  "loop",
-						Size:  &ckSize,
-						Count: &ckCount,
-					},
-				},
-			},
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	applications := []names.ApplicationTag{
-		names.NewApplicationTag("storage-block"),
-		names.NewApplicationTag("cockroachdb"),
-	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	infos, err := client.GetApplicationStorage(applications)
+	info, err := client.GetApplicationStorage("storage-block")
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(infos[0].StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
 		"storage-block": {
 			Pool:  "loop",
 			Size:  uint64(5),
-			Count: uint64(1),
-		},
-	})
-	c.Assert(infos[1].StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
-		"cockroachdb": {
-			Pool:  "loop",
-			Size:  uint64(15),
 			Count: uint64(1),
 		},
 	})
@@ -1597,7 +1573,6 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-storage-block"},
-			{Tag: "application-cockroachdb"},
 		}}
 
 	result := new(params.ApplicationStorageGetResults)
@@ -1609,27 +1584,16 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 					Message: "Not Found Error",
 				},
 			},
-			{
-				Error: &params.Error{
-					Code:    params.CodeNotValid,
-					Message: "Invalid Error",
-				},
-			},
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	applications := []names.ApplicationTag{
-		names.NewApplicationTag("storage-block"),
-		names.NewApplicationTag("cockroachdb"),
-	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	infos, err := client.GetApplicationStorage(applications)
+	info, err := client.GetApplicationStorage("storage-block")
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(infos[0].Error, jc.ErrorIs, errors.NotFound)
-	c.Assert(infos[1].Error, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Error, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
@@ -1666,39 +1630,24 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 			{
 				Error: nil,
 			},
-			{
-				Error: nil,
-			},
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	applicationStorageUpdateParams := application.ApplicationStorageUpdateParams{
-		ApplicationStorageUpdates: []application.ApplicationStorageUpdate{
-			{ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
-				"storage-block": {
-					Pool:  "loop",
-					Size:  uint64(5),
-					Count: uint64(1),
-				},
-			}},
-			{ApplicationTag: names.NewApplicationTag("cockroachdb"), StorageConstraints: map[string]storage.Constraints{
-				"cockroachdb": {
-					Pool:  "loop",
-					Size:  uint64(15),
-					Count: uint64(1),
-				},
-			}},
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
 		},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	infos, err := client.UpdateApplicationStorage(applicationStorageUpdateParams)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(infos, gc.HasLen, 2)
-	c.Assert(infos[0].Error, gc.IsNil)
-	c.Assert(infos[1].Error, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
@@ -1735,39 +1684,24 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 			{
 				Error: &params.Error{Message: "test error1", Code: params.CodeNotFound},
 			},
-			{
-				Error: &params.Error{Message: "test error2", Code: params.CodeNotValid},
-			},
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	applicationStorageUpdateParams := application.ApplicationStorageUpdateParams{
-		ApplicationStorageUpdates: []application.ApplicationStorageUpdate{
-			{ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
-				"storage-block": {
-					Pool:  "loop",
-					Size:  uint64(5),
-					Count: uint64(1),
-				},
-			}},
-			{ApplicationTag: names.NewApplicationTag("cockroachdb"), StorageConstraints: map[string]storage.Constraints{
-				"cockroachdb": {
-					Pool:  "loop",
-					Size:  uint64(15),
-					Count: uint64(1),
-				},
-			}},
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
 		},
 	}
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	infos, err := client.UpdateApplicationStorage(applicationStorageUpdateParams)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(infos, gc.HasLen, 2)
-	c.Assert(infos[0].Error, gc.NotNil)
-	c.Assert(infos[0].Error.Message, gc.DeepEquals, "test error1")
-	c.Assert(infos[1].Error, gc.NotNil)
-	c.Assert(infos[1].Error.Message, gc.DeepEquals, "test error2")
+	c.Assert(err.Error(), gc.DeepEquals, "test error1")
 }
