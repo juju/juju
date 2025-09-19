@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
+// CreateMachineArgs represents the arguments required by this package for
+// creating a new machine in the model.
 type CreateMachineArgs struct {
 	Constraints constraints.Constraints
 	Directive   deployment.Placement
