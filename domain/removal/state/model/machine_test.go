@@ -259,7 +259,7 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 		applicationservice.AddIAASUnitArg{},
 	)
 	_, _, err := svc.AddIAASUnits(
-		context.Background(),
+		c.Context(),
 		"some-app",
 		applicationservice.AddIAASUnitArg{
 			AddUnitArg: applicationservice.AddUnitArg{
