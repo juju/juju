@@ -535,7 +535,7 @@ func (st *State) updateValidatedApplicationEndpointSpaces(
 	}
 	for binding, spaceName := range bindingsToFind {
 		var spaceUUID sql.Null[string]
-		uuid, _ := spacesToUUIDs[spaceName]
+		uuid := spacesToUUIDs[spaceName]
 		if spaceName != "" {
 			spaceUUID = sql.Null[string]{
 				V:     uuid,
@@ -544,7 +544,7 @@ func (st *State) updateValidatedApplicationEndpointSpaces(
 		}
 		// bindingTypes contains all keys for the bindings, it's safe
 		// to not check if the key exists in the map.
-		bindingType, _ := bindingTypes[binding]
+		bindingType := bindingTypes[binding]
 		err := st.updateApplicationEndpointSpace(ctx, tx, appID, bindingType, spaceUUID)
 		if err != nil {
 			return errors.Errorf("failure to update endpoint %q: %w", bindingType.Name, err)

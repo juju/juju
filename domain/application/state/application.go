@@ -508,8 +508,10 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &lifeID.* FROM application
-WHERE uuid = $applicationID.uuid
+SELECT &lifeID.* 
+FROM application
+JOIN charm AS c ON c.uuid = application.charm_uuid
+WHERE uuid = $applicationID.uuid AND c.source_id < 2;
 `, lifeID{}, ident)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -655,7 +657,8 @@ func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appNa
 	query := `
 SELECT &applicationDetails.*
 FROM application a
-WHERE name = $applicationDetails.name
+JOIN charm AS c ON c.uuid = application.charm_uuid
+WHERE name = $applicationDetails.name AND c.source_id < 2;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -3071,7 +3074,8 @@ func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name stri
 	queryApplicationStmt, err := st.Prepare(`
 SELECT uuid AS &applicationIDAndName.uuid
 FROM application
-WHERE name = $applicationIDAndName.name
+JOIN charm AS c ON c.uuid = application.charm_uuid
+WHERE name = $applicationIDAndName.name AND c.source_id < 2;
 `, app)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3083,29 +3087,6 @@ WHERE name = $applicationIDAndName.name
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
 	return app.ID, nil
-}
-
-func (st *State) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {
-	query := `
-SELECT COUNT(*) AS &countResult.count
-FROM application
-WHERE uuid = $applicationID.uuid
-AND charm_uuid = $charmID.uuid;
-	`
-	stmt, err := st.Prepare(query, countResult{}, ident, charmID)
-	if err != nil {
-		return errors.Errorf("preparing verification query: %w", err)
-	}
-
-	// Ensure that the charm is the same as the one we're trying to set.
-	var count countResult
-	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); err != nil {
-		return errors.Errorf("verifying charm: %w", err)
-	}
-	if count.Count == 0 {
-		return applicationerrors.ApplicationHasDifferentCharm
-	}
-	return nil
 }
 
 func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {

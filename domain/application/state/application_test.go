@@ -616,7 +616,7 @@ AND state = 'potential'`, appUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var res application.AddApplicationResourceArg
 			var originName string
@@ -2736,7 +2736,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: cid})
+		return s.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: cid})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -2745,7 +2745,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C)
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: "other"})
+		return s.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: "other"})
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
 }
@@ -3043,7 +3043,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var space applicationSpace
 			if err := rows.Scan(&space.SpaceName, &space.SpaceExclude); err != nil {
@@ -3059,7 +3059,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var tag string
 			if err := rows.Scan(&tag); err != nil {
@@ -3075,7 +3075,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var zone string
 			if err := rows.Scan(&zone); err != nil {
@@ -3930,7 +3930,7 @@ ORDER BY r.relation_id
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var row peerRelation
 			var statusName *corestatus.Status // allows graceful error if status not set
@@ -3945,4 +3945,27 @@ ORDER BY r.relation_id
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(peerRelations, tc.SameContents, expected)
+}
+
+func (s *applicationStateSuite) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {
+	query := `
+SELECT COUNT(*) AS &countResult.count
+FROM application
+WHERE uuid = $applicationID.uuid
+AND charm_uuid = $charmID.uuid;
+	`
+	stmt, err := sqlair.Prepare(query, countResult{}, ident, charmID)
+	if err != nil {
+		return errors.Errorf("preparing verification query: %w", err)
+	}
+
+	// Ensure that the charm is the same as the one we're trying to set.
+	var count countResult
+	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); err != nil {
+		return errors.Errorf("verifying charm: %w", err)
+	}
+	if count.Count == 0 {
+		return applicationerrors.ApplicationHasDifferentCharm
+	}
+	return nil
 }
