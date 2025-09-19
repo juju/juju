@@ -39,15 +39,6 @@ func (env *environ) StartInstance(ctx context.Context, args environs.StartInstan
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	// Validate availability zone.
-	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
-	if err != nil {
-		return nil, environs.ZoneIndependentError(err)
-	}
-	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	inst, err := env.startInstance(ctx, args, spec.Image.Id, spec.InstanceType.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -163,15 +154,15 @@ func (env *environ) serviceAccount(ctx context.Context, args environs.StartInsta
 
 	// For controllers, the service account can come from the credential.
 	if args.InstanceConfig.IsController() {
-		if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
-			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
-			if serviceAccount != "" {
-				logger.Debugf(ctx, "using credential service account: %s", serviceAccount)
-			}
-		} else if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+		if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
 			serviceAccount = *args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
 			if serviceAccount != "" {
 				logger.Debugf(ctx, "using bootstrap service account: %s", serviceAccount)
+			}
+		} else if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
+			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
+			if serviceAccount != "" {
+				logger.Debugf(ctx, "using credential service account: %s", serviceAccount)
 			}
 		}
 	}
@@ -237,18 +228,30 @@ func (env *environ) startInstance(
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
 
-	vpcLink, subnetURL, err := env.getInstanceSubnet(ctx)
+	var nics []*computepb.NetworkInterface
+	vpcLink, subnets, err := env.subnetsForInstance(ctx, args)
 	if err != nil {
-		return nil, env.HandleCredentialError(ctx, errors.Trace(err))
+		return nil, environs.ZoneIndependentError(err)
 	}
-	nic := &computepb.NetworkInterface{
-		Network:    &vpcLink,
-		Subnetwork: subnetURL,
+	if len(subnets) == 0 {
+		nics = []*computepb.NetworkInterface{{
+			Network: vpcLink,
+		}}
+	} else {
+		for _, subnet := range subnets {
+			if err := isSubnetReady(subnet); err != nil {
+				return nil, environs.ZoneIndependentError(err)
+			}
+			nics = append(nics, &computepb.NetworkInterface{
+				Network:    vpcLink,
+				Subnetwork: ptr(subnet.GetSelfLink()),
+			})
+		}
 	}
 
 	if allocatePublicIP {
-		nic.AccessConfigs = []*computepb.AccessConfig{{
-			Name: ptr("ExternalNAT"),
+		nics[0].AccessConfigs = []*computepb.AccessConfig{{
+			Name: ptr(google.ExternalNetworkName),
 			Type: ptr(google.NetworkAccessOneToOneNAT),
 		}}
 	}
@@ -270,7 +273,7 @@ func (env *environ) startInstance(
 		Zone:              &args.AvailabilityZone,
 		MachineType:       ptr(formatMachineType(args.AvailabilityZone, instanceTypeName)),
 		Disks:             disks,
-		NetworkInterfaces: []*computepb.NetworkInterface{nic},
+		NetworkInterfaces: nics,
 		Metadata:          packMetadata(metadata),
 		Tags:              &computepb.Tags{Items: tags},
 	}

@@ -117,7 +117,7 @@ Example: vpc-a1b2c3d4
 | - {ref}`constraint-mem`                | &#10003;                                            |
 | - {ref}`constraint-root-disk`          | &#10003;                                            |
 | - {ref}`constraint-root-disk-source`   | &#10005;                                            |
-| - {ref}`constraint-spaces`             | &#10005;                                            |
+| - {ref}`constraint-spaces`             | &#10003;                                            |
 | - {ref}`constraint-tags`               | &#10005;                                            |
 | - {ref}`constraint-virt-type`          | &#10005;                                            |
 | - {ref}`constraint-zones`              | &#10003;                                            |
@@ -127,7 +127,7 @@ Example: vpc-a1b2c3d4
 | {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
 |--------------------------------------------------|----------|
 | {ref}`placement-directive-machine`               | TBA      |
-| {ref}`placement-directive-subnet`                | &#10005; |
+| {ref}`placement-directive-subnet`                | &#10003; |
 | {ref}`placement-directive-system-id`             | &#10005; |
 | {ref}`placement-directive-zone`                  | &#10003; |
 

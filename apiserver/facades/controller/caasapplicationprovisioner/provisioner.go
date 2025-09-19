@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -276,6 +277,83 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, multiWatcher)
 	if err != nil {
 		return result, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// WatchStorageConstraints provides a watcher for changes that affect an application's
+// storage constraint.
+func (a *API) WatchStorageConstraints(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
+	var result params.NotifyWatchResults
+	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		res, err := a.watchStorageConstraints(ctx, appTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].NotifyWatcherId = res.NotifyWatcherId
+	}
+	return result, nil
+}
+
+// TODO - remove this when watch storage constraints is implemented
+type noopNotifyWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan struct{}
+}
+
+func newNoopNotifyWatcher() *noopNotifyWatcher {
+	ch := make(chan struct{}, 1)
+	// Initial event.
+	ch <- struct{}{}
+	w := &noopNotifyWatcher{ch: ch}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
+
+func (w *noopNotifyWatcher) Changes() <-chan struct{} {
+	return w.ch
+}
+
+func (w *noopNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *noopNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *noopNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *noopNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (a *API) watchStorageConstraints(ctx context.Context, appName string) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	// TODO(storage) - implement me and add test.
+	w := newNoopNotifyWatcher()
+
+	if _, ok := <-w.Changes(); ok {
+		var err error
+		result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, a.watcherRegistry, newNoopNotifyWatcher())
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
 	}
 	return result, nil
 }

@@ -324,7 +324,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Releases:  []string{"12.04"},
 			Stream:    t.stream,
-		})
+		}, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
@@ -368,6 +368,49 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 	}
 }
 
+func (s *imageSuite) TestFindInstanceSpecWithImageID(c *tc.C) {
+	imageId := "ami-00000011"
+	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "ep"},
+		Releases:  []string{"12.04"},
+		Arches:    []string{"amd64"},
+	}, &imageId)
+	c.Assert(err, tc.ErrorIsNil)
+
+	dataSource := simplestreams.NewDataSource(simplestreams.Config{
+		Description:          "test",
+		BaseURL:              "some-url",
+		HostnameVerification: true,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+	})
+	imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), dataSource, cons)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var images []Image
+	for _, imageMetadata := range imageMeta {
+		im := *imageMetadata
+		images = append(images, Image{
+			Id:       im.Id,
+			VirtType: im.VirtType,
+			Arch:     im.Arch,
+		})
+	}
+	instanceTypes := []InstanceType{
+		{Id: "1", Name: "it-1", Arch: "amd64", VirtType: &pv, Mem: 512},
+	}
+
+	spec, err := FindInstanceSpec(images, &InstanceConstraint{
+		Base:        corebase.MakeDefaultBase("ubuntu", "12.04"),
+		Region:      "us-east-1",
+		Arch:        "amd64",
+		Constraints: constraints.Value{},
+	}, instanceTypes)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec.Image.Id, tc.Equals, imageId)
+	c.Assert(spec.InstanceType, tc.DeepEquals, instanceTypes[0])
+}
+
 func (s *imageSuite) TestFindInstanceSpecShouldChooseNonSEV(c *tc.C) {
 	imageCons := constraints.MustParse("mem=4G cores=2 root-disk=20G")
 	imageId := "ami-00000035"
@@ -382,7 +425,7 @@ func (s *imageSuite) TestFindInstanceSpecShouldChooseNonSEV(c *tc.C) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"test", "ep"},
 		Releases:  []string{"12.04"},
-	})
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	dataSource := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",

@@ -164,28 +164,31 @@ func (env *environ) AdoptResources(ctx context.Context, controllerUUID string, f
 	return nil
 }
 
+type gcePlacement struct {
+	zone       string
+	subnetSpec string
+}
+
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.Context, placement string) (*computepb.Zone, error) {
+func (env *environ) parsePlacement(placement string) (gcePlacement, error) {
 	if placement == "" {
-		return nil, nil
+		return gcePlacement{}, nil
 	}
 
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
-		return nil, errors.Errorf("unknown placement directive: %v", placement)
+		return gcePlacement{}, errors.Errorf("unknown placement directive: %v", placement)
 	}
 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "subnet":
+		return gcePlacement{subnetSpec: value}, nil
 	case "zone":
-		zone, err := env.availZoneUp(ctx, value)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return zone, nil
+		return gcePlacement{zone: value}, nil
 	}
-	return nil, errors.Errorf("unknown placement directive: %v", placement)
+	return gcePlacement{}, errors.Errorf("unknown placement directive: %v", placement)
 }
 
 // checkInstanceType is used to ensure the provided constraints

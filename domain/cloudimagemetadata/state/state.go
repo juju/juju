@@ -246,6 +246,10 @@ func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.Me
 		return nil, errors.Capture(err)
 	}
 
+	// TODO - we want to refactor to allow image-id filtering.
+	// We could filter on criteria.ImageID here but that would prevent
+	// users from being able to force Juju to use an image not
+	// included in the published metadata.
 	filter := metadataFilter{
 		Region:          criteria.Region,
 		Versions:        criteria.Versions,

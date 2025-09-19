@@ -35,10 +35,10 @@ test_add_unit_attach_storage() {
 
 	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
-		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
+		microk8s kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+		PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		microk8s kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		microk8s kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
 	juju add-model "${second_model_name}"
@@ -59,11 +59,11 @@ test_add_unit_attach_storage() {
 
 	# Verify PVs are bound and PVCs have correct labels
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		OUT=$(kubectl get pv "${pv}" -o json | jq '.status.phase')
+		OUT=$(microk8s kubectl get pv "${pv}" -o json | jq '.status.phase')
 		echo "${OUT}" | check "Bound"
 
-		NEW_PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		PVC_JSON=$(kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json)
+		NEW_PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		PVC_JSON=$(microk8s kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json)
 
 		echo "${PVC_JSON}" | jq '.metadata.labels."storage.juju.is/name"' | check "pgdata"
 		echo "${PVC_JSON}" | jq '.metadata.labels."app.kubernetes.io/managed-by"' | check "juju"
@@ -104,19 +104,19 @@ test_add_unit_duplicate_pvc_exists() {
 
 	# Capture the provisioned PersistentVolume ID.
 	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
 	juju remove-unit postgresql-k8s --num-units 1 --force
 	wait_for "null" '.applications."postgresql-k8s".units'
 
 	# Patch PVC to have incorrect label to simulate duplicate PVC scenario
-	kubectl patch pvc "${PVC}" \
+	microk8s kubectl patch pvc "${PVC}" \
 		-n "${model_name}" \
 		-p '{"metadata":{"labels":{"storage.juju.is/name":"not-pgdata"}}}'
 
-	# Avoid race condition of attaching storage before kubectl patching completes
+	# Avoid race condition of attaching storage before microk8s kubectl patching completes
 	attempt=0
-	until kubectl get pvc "${PVC}" -n "${model_name}" -o json | jq -r '.metadata.labels."storage.juju.is/name"' | grep -q "not-pgdata"; do
+	until microk8s kubectl get pvc "${PVC}" -n "${model_name}" -o json | jq -r '.metadata.labels."storage.juju.is/name"' | grep -q "not-pgdata"; do
 		echo "[+] (attempt ${attempt}) waiting for PVC patch to complete"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
@@ -130,11 +130,11 @@ test_add_unit_duplicate_pvc_exists() {
 	# Should not scale due to wrong label value
 	juju add-unit postgresql-k8s --attach-storage pgdata/0
 	sleep "${SHORT_TIMEOUT}"
-	OUT=$(kubectl get statefulset -n "${model_name}" postgresql-k8s -o jsonpath='{.spec.replicas}')
+	OUT=$(microk8s kubectl get statefulset -n "${model_name}" postgresql-k8s -o jsonpath='{.spec.replicas}')
 	echo "${OUT}" | check 0
 
 	# Fix the PVC label to allow successful attachment
-	kubectl patch pvc "${PVC}" \
+	microk8s kubectl patch pvc "${PVC}" \
 		-n "${model_name}" \
 		-p '{"metadata":{"labels":{"storage.juju.is/name":"pgdata"}}}'
 
@@ -181,10 +181,10 @@ test_add_unit_attach_storage_scaling_race_condition() {
 
 	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
-		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
+		microk8s kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+		PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		microk8s kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		microk8s kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
 	juju add-model "${second_model_name}"

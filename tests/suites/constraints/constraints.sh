@@ -22,6 +22,9 @@ test_constraints_common() {
 		"ec2")
 			run "run_constraints_aws"
 			;;
+		"gce")
+			run "run_constraints_gce"
+			;;
 		"microk8s")
 			echo "==> TEST SKIPPED: constraints - there are no test for k8s cloud"
 			;;
