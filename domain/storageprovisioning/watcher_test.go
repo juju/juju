@@ -1698,7 +1698,7 @@ func (s *watcherSuite) newStorageInstance(c *tc.C) (
 	seq := s.nextStorageSequenceNumber(c)
 	storageName := fmt.Sprintf("mystorage-%d", seq)
 	storageID := fmt.Sprintf("mystorage/%d", seq)
-	poolUUID := s.newStoragePool(c, "storage-pool", "test-provider", nil)
+	poolUUID := s.newStoragePool(c, storageInstanceUUID.String(), "test-provider", nil)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

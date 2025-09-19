@@ -90,8 +90,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeStorageAttachmentsDying(c *tc.C
 		}
 
 		inst := `
-INSERT INTO storage_instance (uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id)
-VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0)`
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', 'storage-name', 0)`
 		if _, err := tx.ExecContext(ctx, inst); err != nil {
 			return err
 		}
