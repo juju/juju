@@ -1603,9 +1603,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 	sbSize := uint64(5)
 	sbCount := uint64(1)
 
-	ckSize := uint64(15)
-	ckCount := uint64(1)
-
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
@@ -1613,13 +1610,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 					Pool:  "loop",
 					Size:  &sbSize,
 					Count: &sbCount,
-				},
-			}},
-			{ApplicationTag: "application-cockroachdb", StorageConstraints: map[string]params.StorageConstraints{
-				"cockroachdb": {
-					Pool:  "loop",
-					Size:  &ckSize,
-					Count: &ckCount,
 				},
 			}},
 		}}
@@ -1647,7 +1637,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
@@ -1657,9 +1647,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	sbSize := uint64(5)
 	sbCount := uint64(1)
 
-	ckSize := uint64(15)
-	ckCount := uint64(1)
-
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
@@ -1667,13 +1654,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 					Pool:  "loop",
 					Size:  &sbSize,
 					Count: &sbCount,
-				},
-			}},
-			{ApplicationTag: "application-cockroachdb", StorageConstraints: map[string]params.StorageConstraints{
-				"cockroachdb": {
-					Pool:  "loop",
-					Size:  &ckSize,
-					Count: &ckCount,
 				},
 			}},
 		}}
@@ -1702,6 +1682,6 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.DeepEquals, "test error1")
 }
