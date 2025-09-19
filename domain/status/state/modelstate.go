@@ -1433,6 +1433,7 @@ LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
+WHERE c.source_id < 2
 ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
@@ -1595,6 +1596,7 @@ LEFT JOIN unit AS upu ON up.principal_uuid = upu.uuid
 LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
 LEFT JOIN unit_agent_version AS uav ON uav.unit_uuid = u.uuid
 LEFT JOIN unit_workload_version AS awv ON awv.unit_uuid = u.uuid
+WHERE c.source_id < 2
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {

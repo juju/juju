@@ -1264,6 +1264,25 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.
 	c.Check(statuses, tc.DeepEquals, map[string]status.Application{})
 }
 
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesCMRSyntheticApplication(c *tc.C) {
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil)
+
+	// Convert the application to a CMRSyntheticApplication by setting source_id to 2
+	// and architecture_id to NULL.
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id=2, architecture_id=NULL
+WHERE uuid=(SELECT charm_uuid FROM application WHERE uuid=?)`, appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, map[string]status.Application{})
+}
+
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
 	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, false, nil,
 		s.createIAASUnitArg(c),
@@ -2691,7 +2710,7 @@ func (s *modelStateSuite) createIAASApplication(
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var unitUUID string
@@ -2789,7 +2808,7 @@ func (s *modelStateSuite) createCAASApplication(
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var unitUUID string
