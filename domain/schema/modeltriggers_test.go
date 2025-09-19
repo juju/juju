@@ -1018,6 +1018,7 @@ func (s *modelStorageSuite) TestNewMachineVolumeTriggerModelAttachment(c *tc.C) 
 // the business logic of Juju but the constraints asserted by the DDL and the
 // storage triggers.
 func (s *modelStorageSuite) TestNewMachineVolumeTriggerDouble(c *tc.C) {
+	c.Skip("TODO(storage): support multiple volume attachments")
 	uuid, _ := s.newMachineVolume(c)
 	netnode1 := s.newNetNode(c)
 	netnode2 := s.newNetNode(c)
@@ -1052,6 +1053,7 @@ func (s *modelStorageSuite) TestUpdateMachineVolumeTrigger(c *tc.C) {
 // a volume which is machine provision scoped results in one change event
 // for every distinct net node uuid in the volume's attachments.
 func (s *modelStorageSuite) TestUpdateMachineVolumeTriggerMultiple(c *tc.C) {
+	c.Skip("TODO(storage): support multiple volume attachments")
 	uuid, _ := s.newMachineVolume(c)
 	netnode1 := s.newNetNode(c)
 	netnode2 := s.newNetNode(c)

@@ -1056,13 +1056,15 @@ func (st *State) GetVolumeParams(
 
 	paramsStmt, err := st.Prepare(`
 SELECT &volumeParams.* FROM (
-    SELECT sv.volume_id,
-           si.requested_size_mib,
-           sp.type
-    FROM   storage_volume sv
-    JOIN   storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
-    JOIN   storage_instance si ON siv.storage_instance_uuid = si.uuid
-    JOIN   storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    SELECT    sv.volume_id,
+              si.requested_size_mib,
+              sp.type,
+              sva.uuid AS volume_attachment_uuid
+    FROM      storage_volume sv
+    JOIN      storage_instance_volume siv ON siv.storage_volume_uuid = sv.uuid
+    JOIN      storage_instance si ON siv.storage_instance_uuid = si.uuid
+    JOIN      storage_pool sp ON si.storage_pool_uuid = sp.uuid
+    LEFT JOIN storage_volume_attachment sva ON sva.storage_volume_uuid = sv.uuid
     WHERE  sv.uuid = $volumeUUID.uuid
 )
 `,
@@ -1130,12 +1132,19 @@ WHERE  sv.uuid = $volumeUUID.uuid
 		attributesRval[attr.Key] = attr.Value
 	}
 
-	return storageprovisioning.VolumeParams{
+	retVal := storageprovisioning.VolumeParams{
 		Attributes: attributesRval,
 		ID:         paramsVal.VolumeID,
 		Provider:   paramsVal.Type,
 		SizeMiB:    paramsVal.RequestedSizeMiB,
-	}, nil
+	}
+	if paramsVal.VolumeAttachmentUUID != "" {
+		vaUUID := storageprovisioning.VolumeAttachmentUUID(
+			paramsVal.VolumeAttachmentUUID)
+		retVal.VolumeAttachmentUUID = &vaUUID
+	}
+
+	return retVal, nil
 }
 
 // GetVolumeAttachmentParams retrieves the attachment params for the given
@@ -1176,7 +1185,8 @@ SELECT &volumeAttachmentParams.* FROM (
     SELECT    sv.provider_id,
               mci.instance_id,
               cs.read_only,
-              sp.type
+              sp.type,
+              m.name AS machine_name
     FROM      storage_volume_attachment sva
     JOIN      storage_volume sv ON sva.storage_volume_uuid = sv.uuid
     JOIN      storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
@@ -1222,12 +1232,18 @@ SELECT &volumeAttachmentParams.* FROM (
 		return storageprovisioning.VolumeAttachmentParams{}, errors.Capture(err)
 	}
 
-	return storageprovisioning.VolumeAttachmentParams{
+	retVal := storageprovisioning.VolumeAttachmentParams{
 		MachineInstanceID: dbVal.InstanceID,
 		Provider:          dbVal.Type,
 		ProviderID:        dbVal.ProviderID,
 		ReadOnly:          dbVal.ReadOnly,
-	}, nil
+	}
+	if dbVal.MachineName != "" {
+		m := coremachine.Name(dbVal.MachineName)
+		retVal.Machine = &m
+	}
+
+	return retVal, nil
 }
 
 // GetVolumeAttachmentPlan gets the volume attachment plan for the provided

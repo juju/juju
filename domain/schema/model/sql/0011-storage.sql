@@ -301,6 +301,11 @@ CREATE TABLE storage_volume_attachment (
     REFERENCES storage_provision_scope (id)
 );
 
+-- Until the storage provisioner can handle multi-attachment of volumes,
+-- this will prevent that.
+CREATE UNIQUE INDEX idx_storage_volume_attachment_volume_uuid
+ON storage_volume_attachment (storage_volume_uuid);
+
 CREATE INDEX idx_storage_volume_attachment_net_node_uuid
 ON storage_volume_attachment (net_node_uuid);
 

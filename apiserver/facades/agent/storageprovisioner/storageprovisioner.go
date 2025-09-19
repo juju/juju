@@ -1465,13 +1465,35 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			Provider:   volParams.Provider,
 			SizeMiB:    volParams.SizeMiB,
 			Tags:       volModelTags,
-			// Attachment is left nil to force the storage provisoner to resolve
-			// it separately.
-			Attachment: nil,
 		}
-
 		for k, v := range volParams.Attributes {
 			rval.Attributes[k] = v
+		}
+
+		if volParams.VolumeAttachmentUUID == nil {
+			return rval, nil
+		}
+
+		vaParams, err := s.storageProvisioningService.GetVolumeAttachmentParams(
+			ctx, *volParams.VolumeAttachmentUUID,
+		)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			return rval, nil
+		} else if err != nil {
+			return params.VolumeParams{}, errors.Capture(err)
+		}
+
+		rval.Attachment = &params.VolumeAttachmentParams{
+			VolumeTag:  tag.String(),
+			InstanceId: vaParams.MachineInstanceID,
+			Provider:   vaParams.Provider,
+			ProviderId: vaParams.ProviderID,
+			ReadOnly:   vaParams.ReadOnly,
+		}
+		if vaParams.Machine != nil {
+			rval.Attachment.MachineTag = names.NewMachineTag(
+				vaParams.Machine.String(),
+			).String()
 		}
 
 		return rval, nil
@@ -1636,12 +1658,11 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 			ctx, attachmentUUID,
 		)
 		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
-			err = errors.Errorf(
+			return params.VolumeAttachmentParams{}, errors.Errorf(
 				"volume attachment for volume %q and host %q not found",
 				volumeTag, machineTag,
 			).Add(coreerrors.NotFound)
-		}
-		if err != nil {
+		} else if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Capture(err)
 		}
 

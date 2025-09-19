@@ -4,6 +4,7 @@
 package storageprovisioning
 
 import (
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockdevice"
@@ -114,6 +115,7 @@ type VolumeAttachmentPlanProvisionedInfo struct {
 // VolumeAttachmentParams defines the set of parameters that a caller needs to
 // know in order to provision a volume attachment in the model.
 type VolumeAttachmentParams struct {
+	Machine           *machine.Name
 	MachineInstanceID string
 	Provider          string
 	ProviderID        string
@@ -123,8 +125,9 @@ type VolumeAttachmentParams struct {
 // VolumeParams defines the set of parameters that a caller needs to know in
 // order to provision a volume in the model.
 type VolumeParams struct {
-	Attributes map[string]string
-	ID         string
-	Provider   string
-	SizeMiB    uint64
+	Attributes           map[string]string
+	ID                   string
+	Provider             string
+	SizeMiB              uint64
+	VolumeAttachmentUUID *VolumeAttachmentUUID
 }
