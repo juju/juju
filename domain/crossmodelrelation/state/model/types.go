@@ -4,12 +4,14 @@
 package state
 
 import (
+	"database/sql"
 	"maps"
 	"slices"
 
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/life"
 )
 
 // nameAndUUID is an agnostic container for the pair of
@@ -110,4 +112,66 @@ func (o offerDetails) TransformToOfferDetails() []*crossmodelrelation.OfferDetai
 	}
 
 	return slices.Collect(maps.Values(converted))
+}
+
+type applicationDetails struct {
+	UUID      string    `db:"uuid"`
+	Name      string    `db:"name"`
+	CharmUUID string    `db:"charm_uuid"`
+	LifeID    life.Life `db:"life_id"`
+	SpaceUUID string    `db:"space_uuid"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
+}
+
+// setCharmState is used to set the charm.
+type setCharmState struct {
+	UUID          string `db:"uuid"`
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+}
+
+// setCharmMetadata is used to set the metadata of a charm.
+// This includes the setting of the LXD profile.
+type setCharmMetadata struct {
+	CharmUUID   string `db:"charm_uuid"`
+	Name        string `db:"name"`
+	Description string `db:"description"`
+}
+
+// setCharmRelation is used to set the relations of a charm.
+type setCharmRelation struct {
+	UUID      string `db:"uuid"`
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
+	RoleID    int    `db:"role_id"`
+	Interface string `db:"interface"`
+	Capacity  int    `db:"capacity"`
+	ScopeID   int    `db:"scope_id"`
+}
+
+type remoteApplicationOfferer struct {
+	// UUID is the unique identifier for this remote application offerer.
+	UUID string `db:"uuid"`
+	// LifeID is the life state of the remote application offerer.
+	LifeID life.Life `db:"life_id"`
+	// ApplicationUUID is the unique identifier for the application
+	// that is being offered.
+	ApplicationUUID string `db:"application_uuid"`
+	// OfferUUID is the offer uuid that ties both the offerer and consumer
+	// together.
+	OfferUUID string `db:"offer_uuid"`
+	// Version is the version of the remote application offerer.
+	Version uint64 `db:"version"`
+	// OffererControllerUUID is the unique identifier for the controller
+	// that is offering this application.
+	OffererControllerUUID sql.Null[string] `db:"offerer_controller_uuid"`
+	// OffererModelUUID is the unique identifier for the model
+	// that is offering this application.
+	OffererModelUUID string `db:"offerer_model_uuid"`
+	// Macaroon is the serialized macaroon that can be used to
+	// authenticate to the offerer controller.
+	Macaroon []byte `db:"macaroon"`
 }

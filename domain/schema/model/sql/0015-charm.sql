@@ -68,9 +68,9 @@ CREATE TABLE charm (
     FOREIGN KEY (object_store_uuid)
     REFERENCES object_store_metadata (uuid),
 
-    -- Ensure we have an architecture if the source is charmhub.
+    -- Ensure we have an architecture if the source is local or charmhub.
     CONSTRAINT chk_charm_architecture
-    CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0),
+    CHECK (((source_id = 0 OR source_id = 1) AND architecture_id >= 0) OR (source_id = 2 AND architecture_id IS NULL)),
 
     -- Ensure we don't have an empty reference
     CONSTRAINT chk_charm_reference_name
@@ -193,7 +193,8 @@ ON charm_source (name);
 
 INSERT INTO charm_source VALUES
 (0, 'local'),
-(1, 'charmhub');
+(1, 'charmhub'),
+(2, 'cmr');
 
 CREATE VIEW v_charm_annotation_index AS
 SELECT
