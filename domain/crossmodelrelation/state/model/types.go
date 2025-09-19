@@ -148,7 +148,6 @@ type setCharmRelation struct {
 	Name      string `db:"name"`
 	RoleID    int    `db:"role_id"`
 	Interface string `db:"interface"`
-	Optional  bool   `db:"optional"`
 	Capacity  int    `db:"capacity"`
 	ScopeID   int    `db:"scope_id"`
 }

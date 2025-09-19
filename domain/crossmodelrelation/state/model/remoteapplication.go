@@ -353,20 +353,21 @@ func encodeRelation(uuid string, relation charm.Relation) (setCharmRelation, err
 		return setCharmRelation{}, errors.Errorf("encoding relation role %q: %w", relation.Role, err)
 	}
 
-	scopeID, err := encodeRelationScope(relation.Scope)
-	if err != nil {
-		return setCharmRelation{}, errors.Errorf("encoding relation scope %q: %w", relation.Scope, err)
-	}
-
 	return setCharmRelation{
 		UUID:      relationUUID.String(),
 		CharmUUID: uuid,
 		Name:      relation.Name,
 		RoleID:    roleID,
 		Interface: relation.Interface,
-		Optional:  relation.Optional,
 		Capacity:  relation.Limit,
-		ScopeID:   scopeID,
+
+		// ScopeID is always hardcoded to 0 (global) for CMR relations. There
+		// isn't a way to express any other type of scope in a CMR relation from
+		// the API.
+		ScopeID: 0,
+
+		// Also there isn't a way to express optional relations, and thus
+		// it is always false.
 	}, nil
 }
 
@@ -392,18 +393,5 @@ func encodeRelationRole(role charm.RelationRole) (int, error) {
 		return 2, nil
 	default:
 		return -1, errors.Errorf("unknown relation role %q", role)
-	}
-}
-
-func encodeRelationScope(scope charm.RelationScope) (int, error) {
-	// This values are hardcoded to match the index relation scope values in the
-	// database.
-	switch scope {
-	case charm.ScopeGlobal:
-		return 0, nil
-	case charm.ScopeContainer:
-		return 1, nil
-	default:
-		return -1, errors.Errorf("unknown relation scope %q", scope)
 	}
 }
