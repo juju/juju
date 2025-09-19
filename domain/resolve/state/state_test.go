@@ -11,12 +11,14 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -83,8 +85,12 @@ func (s *stateSuite) TestResolveUnitNoStatus(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveUnitNotInError(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
@@ -100,8 +106,12 @@ func (s *stateSuite) TestResolveUnitNotInError(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveUnitNoHooks(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -121,8 +131,12 @@ func (s *stateSuite) TestResolveUnitNoHooks(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -142,8 +156,12 @@ func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveUnitAlreadyResolved(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -171,8 +189,12 @@ func (s *stateSuite) TestResolveAllUnitsNoUnits(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
@@ -180,8 +202,13 @@ func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *tc.C) {
 			},
 		},
 	}
+
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
@@ -202,8 +229,12 @@ func (s *stateSuite) TestResolveAllUnitsNoUnitsInError(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -211,8 +242,12 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -220,8 +255,12 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID3 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u3 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID3,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID3,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
@@ -247,8 +286,12 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -256,8 +299,12 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -265,8 +312,12 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID3 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u3 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID3,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID3,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
@@ -292,8 +343,12 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
 }
 
 func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -301,8 +356,12 @@ func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *tc.C) {
 			},
 		},
 	}
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -342,8 +401,12 @@ func (s *stateSuite) TestClearResolvedUnitNotResolved(c *tc.C) {
 }
 
 func (s *stateSuite) TestClearResolvedRetryHooks(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -365,8 +428,12 @@ func (s *stateSuite) TestClearResolvedRetryHooks(c *tc.C) {
 }
 
 func (s *stateSuite) TestClearResolvedNoHooks(c *tc.C) {
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,

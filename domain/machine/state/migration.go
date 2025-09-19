@@ -10,10 +10,36 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// checkIfMachineNameInUse checks the model to see if the provided machine name
+// is in use or not.
+func checkIfMachineNameInUse(
+	ctx context.Context,
+	tx *sqlair.TX,
+	preparer domain.Preparer,
+	mName string,
+) (bool, error) {
+	input := machineName{Name: mName}
+	query := "SELECT &machineName.* FROM machine WHERE name = $machineName.name"
+	stmt, err := preparer.Prepare(query, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
 
 // GetMachinesForExport returns all machines in the model for export.
 func (st *State) GetMachinesForExport(ctx context.Context) ([]machine.ExportMachine, error) {
@@ -78,22 +104,24 @@ func (st *State) InsertMigratingMachine(ctx context.Context, machineName string,
 		return err
 	}
 
-	insertMachineArgs := insertMachineAndNetNodeArgs{
-		machineName: machineName,
-		machineUUID: args.MachineUUID.String(),
-		platform:    args.Platform,
-		nonce:       args.Nonce,
-	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		existingMachineUUID, err := getMachineUUIDFromName(ctx, tx, st, coremachine.Name(machineName))
+		inUse, err := checkIfMachineNameInUse(ctx, tx, st, machineName)
 		if err != nil {
-			return err
+			return errors.Errorf(
+				"checking if machine name %q already in use: %w", machineName, err,
+			)
 		}
-		if existingMachineUUID != "" {
-			return errors.Errorf("machine %q already exists", machineName).Add(machineerrors.MachineAlreadyExists)
+
+		if inUse {
+			return errors.Errorf(
+				"machine %q already exists in model", machineName,
+			).Add(machineerrors.MachineAlreadyExists)
 		}
-		_, err = insertMachineAndNetNode(ctx, tx, st, st.clock, insertMachineArgs)
-		return err
+		return CreateMachineWithName(ctx, tx, st, st.clock, machineName, CreateMachineArgs{
+			MachineUUID: args.MachineUUID.String(),
+			Platform:    args.Platform,
+			Nonce:       args.Nonce,
+		})
 	})
 	return errors.Capture(err)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -1032,24 +1033,25 @@ func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *tc.C) {
 func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_insert")
 	svc := s.setupService(c, factory)
+	machineName := s.createMachine(c)
 
 	s.createIAASApplication(c, svc, "foo",
 		service.AddIAASUnitArg{},
 		service.AddIAASUnitArg{},
 		service.AddIAASUnitArg{
 			AddUnitArg: service.AddUnitArg{
-				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: "0"},
+				Placement: &instance.Placement{Scope: instance.MachineScope, Directive: machineName.String()},
 			},
 		},
 	)
 
 	ctx := c.Context()
-	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, "0")
+	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, machineName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case initial := <-watcher.Changes():
-		c.Assert(initial, tc.SameContents, []string{"foo/0", "foo/2"})
+		c.Assert(initial, tc.SameContents, []string{"foo/2"})
 	case <-ctx.Done():
 		c.Fatalf("timed out waiting for initial change")
 	}
@@ -1706,12 +1708,35 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		nil,
 		providerGetter,
 		caasProviderGetter,
-		service.NewStorageProviderValidator(registryGetter, state),
+		service.NewStoragePoolProvider(registryGetter, state),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+func (s *watcherSuite) createMachine(
+	c *tc.C,
+) coremachine.Name {
+	machineSvc := machineservice.NewProviderService(
+		machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func(ctx context.Context) (machineservice.Provider, error) {
+			return machineservice.NewNoopProvider(), nil
+		},
+		nil,
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+	res1, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return res1.MachineName
 }
 
 func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddIAASUnitArg) coreapplication.ID {

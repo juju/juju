@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentpassword"
@@ -22,6 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -643,8 +645,14 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
+	netNodeUUID := tc.Must(c, network.NewNetNodeUUID)
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
-		Nonce: ptr("foo"),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+		},
+		Nonce:              ptr("foo"),
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        machinetesting.GenUUID(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)

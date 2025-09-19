@@ -32,6 +32,14 @@ type count struct {
 	Count int `db:"count"`
 }
 
+// machineIdentifiers represents a machine's unique identifier values that can
+// be used to reference it within the model.
+type machineIdentifiers struct {
+	Name        string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+	UUID        string `db:"uuid"`
+}
+
 type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
@@ -143,6 +151,14 @@ type unitPassword struct {
 }
 
 type unitUUIDs []coreunit.UUID
+
+// unitUUIDAndNetNode represents the uuid and net node uuid that are associated
+// with a unit in the model. Both these values are expected to come directly
+// from the unit table.
+type unitUUIDAndNetNode struct {
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
 
 type unitLifeAndNetNode struct {
 	NetNodeID string `db:"net_node_uuid"`
@@ -1143,9 +1159,22 @@ type setDeviceConstraintAttribute struct {
 	AttributeValue       string `db:"value"`
 }
 
+// machineName represents the name column from the machine table and can be used
+// to lookup machines based on this unique column.
+type machineName struct {
+	Name string `db:"name"`
+}
+
 type machineNameWithNetNode struct {
 	Name        coremachine.Name `db:"name"`
 	NetNodeUUID string           `db:"net_node_uuid"`
+}
+
+// machineUUIDWithNetNode represents the uuid and net node uuid columns from the
+// machine table.
+type machineUUIDWithNetNode struct {
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
 }
 
 type netNodeUUID struct {
@@ -1205,11 +1234,6 @@ type lifeID struct {
 type getCharmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
-}
-
-type getUnitMachine struct {
-	UnitName    coreunit.Name    `db:"unit_name"`
-	UnitMachine coremachine.Name `db:"machine_name"`
 }
 
 type controllerApplication struct {

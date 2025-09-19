@@ -16,6 +16,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -56,7 +57,9 @@ func (st *State) GetApplicationStorageDirectives(
 	appUUIDInput := entityUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
 SELECT &applicationStorageDirective.*
-FROM   application_storage_directive
+FROM   application_storage_directive asd
+JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
+JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
 WHERE  application_uuid = $entityUUID.uuid
 		`,
 		appUUIDInput, applicationStorageDirective{},
@@ -96,6 +99,7 @@ WHERE  application_uuid = $entityUUID.uuid
 		rval = append(rval, application.StorageDirective{
 			Count:    val.Count,
 			Name:     domainstorage.Name(val.StorageName),
+			Type:     charm.StorageType(val.CharmStorageKind),
 			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
 			Size:     val.SizeMiB,
 		})
@@ -177,7 +181,9 @@ func (st *State) GetUnitStorageDirectives(
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
 SELECT &storageDirective.*
-FROM   unit_storage_directive
+FROM   unit_storage_directive usd
+JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
+JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
 WHERE  unit_uuid = $entityUUID.uuid
 		`,
 		unitUUIDInput, storageDirective{},
@@ -217,6 +223,7 @@ WHERE  unit_uuid = $entityUUID.uuid
 		rval = append(rval, application.StorageDirective{
 			Count:    val.Count,
 			Name:     domainstorage.Name(val.StorageName),
+			Type:     charm.StorageType(val.Kind),
 			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
 			Size:     val.SizeMiB,
 		})
@@ -625,13 +632,13 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 	return nil
 }
 
-// GetProviderTypeOfPool returns the provider type that is in use for the
+// GetProviderTypeForPool returns the provider type that is in use for the
 // given pool.
 //
 // The following error types can be expected:
 // - [storageerrors.PoolNotFoundError] when no storage pool exists for the
 // provided pool uuid.
-func (st *State) GetProviderTypeOfPool(
+func (st *State) GetProviderTypeForPool(
 	ctx context.Context, poolUUID domainstorage.StoragePoolUUID,
 ) (string, error) {
 	db, err := st.DB(ctx)
@@ -688,7 +695,7 @@ func (st *State) makeInsertUnitFilesystemArgs(
 	for i, arg := range args {
 		// If the caller does not provide a filesystem uuid then they don't
 		// expect one to be created.
-		if arg.FilesystemUUID == nil {
+		if arg.Filesystem == nil {
 			continue
 		}
 		argIndexes = append(argIndexes, i)
@@ -727,14 +734,14 @@ func (st *State) makeInsertUnitFilesystemArgs(
 		fsRval = append(fsRval, insertStorageFilesystem{
 			FilesystemID: fmt.Sprintf("%d", fsIDS[i]),
 			LifeID:       int(life.Alive),
-			UUID:         instArg.FilesystemUUID.String(),
+			UUID:         instArg.Filesystem.UUID.String(),
 		})
 		fsInstanceRval = append(fsInstanceRval, insertStorageFilesystemInstance{
 			StorageInstanceUUID:    instArg.UUID.String(),
-			StorageFilesystemUUUID: instArg.FilesystemUUID.String(),
+			StorageFilesystemUUUID: instArg.Filesystem.UUID.String(),
 		})
 		fsStatusRval = append(fsStatusRval, insertStorageFilesystemStatus{
-			FilesystemUUID: instArg.FilesystemUUID.String(),
+			FilesystemUUID: instArg.Filesystem.UUID.String(),
 			StatusID:       fsStatus,
 			UpdateAt:       statusTime,
 		})
@@ -833,6 +840,7 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 			LifeID:          int(life.Alive),
 			RequestSizeMiB:  directive.SizeMiB,
 			StorageID:       storageID,
+			StorageKindID:   int(arg.Kind),
 			StorageName:     arg.Name.String(),
 			StoragePoolUUID: directive.StoragePoolUUID,
 			UUID:            arg.UUID.String(),
@@ -897,7 +905,7 @@ func (st *State) makeInsertUnitVolumeArgs(
 	for i, arg := range args {
 		// If the caller does not provide a volume uuid then they don't
 		// expect one to be created.
-		if arg.VolumeUUID == nil {
+		if arg.Volume == nil {
 			continue
 		}
 		argIndexes = append(argIndexes, i)
@@ -936,14 +944,14 @@ func (st *State) makeInsertUnitVolumeArgs(
 		vRval = append(vRval, insertStorageVolume{
 			VolumeID: fmt.Sprintf("%d", fsIDS[i]),
 			LifeID:   int(life.Alive),
-			UUID:     instArg.VolumeUUID.String(),
+			UUID:     instArg.Volume.UUID.String(),
 		})
 		vInstanceRval = append(vInstanceRval, insertStorageVolumeInstance{
 			StorageInstanceUUID: instArg.UUID.String(),
-			StorageVolumeUUID:   instArg.VolumeUUID.String(),
+			StorageVolumeUUID:   instArg.Volume.UUID.String(),
 		})
 		vStatusRval = append(vStatusRval, insertStorageVolumeStatus{
-			VolumeUUID: instArg.VolumeUUID.String(),
+			VolumeUUID: instArg.Volume.UUID.String(),
 			StatusID:   vStatus,
 			UpdateAt:   statusTime,
 		})

@@ -24,11 +24,13 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalapplication "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -499,6 +501,65 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 	return arg.MachineUUID, nil
 }
 
+// getUnitMachineIdentifiers gets the identifiers of the machine that a unit is
+// attached to.
+//
+// The following errors may be expected:
+// - [applicationerrors.UnitNotFound] when the unit identified by the uuid no
+// longer exists.
+// - [applicationerrors.UnitMachineNotAssigned] when the unit is not assigned to
+// a machine.
+func (st *State) getUnitMachineIdentifiers(
+	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
+) (internalapplication.MachineIdentifiers, error) {
+	var (
+		input = entityUUID{UUID: unitUUID.String()}
+		dbVal machineIdentifiers
+	)
+
+	q := `
+SELECT (m.uuid, m.net_node_uuid, m.name) AS (&machineIdentifiers.*)
+FROM   unit u
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.uuid = $entityUUID.uuid
+`
+
+	stmt, err := st.Prepare(q, input, dbVal)
+	if err != nil {
+		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
+	}
+
+	exists, err := st.checkUnitExists(ctx, tx, unitUUID)
+	if err != nil {
+		return internalapplication.MachineIdentifiers{}, errors.Errorf(
+			"checking unit %q exists", unitUUID,
+		)
+	}
+
+	if !exists {
+		return internalapplication.MachineIdentifiers{}, errors.Errorf(
+			"unit %q does not exist", unitUUID,
+		).Add(applicationerrors.UnitNotFound)
+	}
+
+	err = tx.Query(ctx, stmt, input).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// While we expect the caller had validated this statement we can still
+		// provide a more helpful error message than sql error no rows.
+		return internalapplication.MachineIdentifiers{}, errors.Errorf(
+			"unit %q is not assigned to a machine in the model", unitUUID,
+		).Add(applicationerrors.UnitMachineNotAssigned)
+	} else if err != nil {
+		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
+	}
+
+	return internalapplication.MachineIdentifiers{
+		Name:        coremachine.Name(dbVal.Name),
+		NetNodeUUID: domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		UUID:        coremachine.UUID(dbVal.UUID),
+	}, nil
+}
+
 // AddIAASUnits adds the specified units to the application. Returns the unit
 // names, along with all of the machine names that were created for the
 // units. This machines aren't associated with the units, as this is for a
@@ -538,7 +599,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
+			uName, _, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -595,7 +656,10 @@ func (st *State) AddCAASUnits(
 // The following error types can be expected:
 //   - [applicationerrors.ApplicationNotFound] when the subordinate application
 //     cannot be found.
-//   - [applicationerrors.UnitNotFound] when the unit cannot be found.
+//   - [applicationerrors.UnitNotFound] when the principal unit cannot be found.
+//   - [machineerrors.MachineNotFound] when no machine is attached to the
+//
+// principal unit.
 func (st *State) AddIAASSubordinateUnit(
 	ctx context.Context,
 	arg application.SubordinateUnitArg,
@@ -607,6 +671,7 @@ func (st *State) AddIAASSubordinateUnit(
 
 	var (
 		unitName     coreunit.Name
+		unitUUID     coreunit.UUID
 		machineNames []coremachine.Name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -614,13 +679,14 @@ func (st *State) AddIAASSubordinateUnit(
 		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
 			return errors.Capture(err)
 		}
-		if err := st.checkUnitNotDeadByName(ctx, tx, arg.PrincipalUnitName); err != nil {
+		if err := st.checkUnitNotDead(ctx, tx, arg.PrincipalUnitUUID); err != nil {
 			return errors.Capture(err)
 		}
 
 		// Check this unit does not already have a subordinate unit from this
 		// application.
-		if err := st.checkNoSubordinateExists(ctx, tx, arg.SubordinateAppID, arg.PrincipalUnitName); err != nil {
+		err := st.checkNoSubordinateExists(ctx, tx, arg.SubordinateAppID, arg.PrincipalUnitUUID)
+		if err != nil {
 			return errors.Errorf("checking if subordinate already exists: %w", err)
 		}
 		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, arg.SubordinateAppID)
@@ -632,22 +698,28 @@ func (st *State) AddIAASSubordinateUnit(
 		}
 
 		// Place the subordinate on the same machine as the principal unit.
-		machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
+		machineIdentifiers, err := st.getUnitMachineIdentifiers(
+			ctx, tx, arg.PrincipalUnitUUID,
+		)
 		if err != nil {
-			return errors.Errorf("getting unit machine name: %w", err)
+			return errors.Errorf("getting principal unit machine information: %w", err)
 		}
+
 		addUnitArg := application.AddIAASUnitArg{
+			MachineNetNodeUUID: machineIdentifiers.NetNodeUUID,
+			MachineUUID:        machineIdentifiers.UUID,
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: arg.CreateUnitStorageArg,
+				NetNodeUUID:          arg.NetNodeUUID,
 				Placement: deployment.Placement{
 					Type:      deployment.PlacementTypeMachine,
-					Directive: machineName.String(),
+					Directive: machineIdentifiers.Name.String(),
 				},
 				UnitStatusArg: arg.UnitStatusArg,
 			},
 		}
 
-		unitName, machineNames, err = st.insertIAASUnit(
+		unitName, unitUUID, machineNames, err = st.insertIAASUnit(
 			ctx, tx, arg.SubordinateAppID, charmUUID, addUnitArg,
 		)
 		if err != nil {
@@ -655,7 +727,7 @@ func (st *State) AddIAASSubordinateUnit(
 		}
 
 		// Record the principal/subordinate relationship.
-		if err := st.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitName, unitName); err != nil {
+		if err := st.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitUUID, unitUUID); err != nil {
 			return errors.Errorf("recording principal-subordinate relationship: %w", err)
 		}
 
@@ -713,31 +785,29 @@ WHERE  sub.name = $getPrincipal.subordinate_unit_name
 func (st *State) checkNoSubordinateExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	subordinateAppID coreapplication.ID,
-	unitName coreunit.Name,
+	subordinateAppUUID coreapplication.ID,
+	principalUnitUUID coreunit.UUID,
 ) error {
-	type getSubordinate struct {
-		PrincipalUnitName coreunit.Name      `db:"principal_unit_name"`
-		ApplicationID     coreapplication.ID `db:"application_uuid"`
-	}
-	subordinate := getSubordinate{
-		PrincipalUnitName: unitName,
-		ApplicationID:     subordinateAppID,
-	}
+	var (
+		sAppUUID  = applicationUUID{ApplicationUUID: subordinateAppUUID.String()}
+		pUnitUUID = entityUUID{UUID: principalUnitUUID.String()}
+	)
 
 	stmt, err := st.Prepare(`
-SELECT u1.name AS &getSubordinate.principal_unit_name
-FROM   unit u1
-JOIN   unit_principal up ON up.principal_uuid = u1.uuid
-JOIN   unit u2 ON u2.uuid = up.unit_uuid
-WHERE  u1.name = $getSubordinate.principal_unit_name
-AND    u2.application_uuid = $getSubordinate.application_uuid
-`, subordinate)
+SELECT pu.uuid AS &entityUUID.uuid
+FROM   unit pu
+JOIN   unit_principal up ON up.principal_uuid = pu.uuid
+JOIN   unit su ON su.uuid = up.unit_uuid
+WHERE  pu.uuid = $entityUUID.uuid
+AND    su.application_uuid = $applicationUUID.application_uuid
+`,
+		sAppUUID, pUnitUUID,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, subordinate).Get(&subordinate)
+	err = tx.Query(ctx, stmt, sAppUUID, pUnitUUID).Get(&pUnitUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil
 	} else if err != nil {
@@ -867,10 +937,8 @@ SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap
 		return errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
-
 	unitAgentVersion := unitAgentVersion{
-		UnitUUID: unitUUID.UnitUUID.String(),
+		UnitUUID: uuid.String(),
 		Version:  version.Number.String(),
 	}
 
@@ -888,7 +956,7 @@ UPDATE SET version = excluded.version,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
 		// Check if unit exists and is not dead.
-		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		err := st.checkUnitNotDead(ctx, tx, uuid)
 		if err != nil {
 			return errors.Errorf(
 				"checking unit %q exists: %w", uuid, err,
@@ -1118,6 +1186,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.RegisterUnitStorageArg.CreateUnitStorageArg,
+			NetNodeUUID:          arg.NetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,
@@ -1326,61 +1395,91 @@ func (st *State) insertCAASUnitWithName(
 	return unitUUID, nil
 }
 
+// placeIAASUnitMachine is responsible for making sure that the machine required
+// by the unit being added has been placed.
+func (st *State) placeIAASUnitMachine(
+	ctx context.Context,
+	tx *sqlair.TX,
+	args application.AddIAASUnitArg,
+) ([]coremachine.Name, error) {
+	// If the placement is on to an already existing machine in the model we do
+	// nothing.
+	if args.Placement.Type == deployment.PlacementTypeMachine {
+		return []coremachine.Name{coremachine.Name(args.Placement.Directive)}, nil
+	}
+
+	// Handle the placement of the net node and machines accompanying the unit.
+	placeMachineArgs := domainmachine.PlaceMachineArgs{
+		Constraints: args.Constraints,
+		Directive:   args.Placement,
+		Platform:    args.Platform,
+		Nonce:       args.Nonce,
+		NetNodeUUID: args.MachineNetNodeUUID,
+		MachineUUID: args.MachineUUID,
+	}
+	machineNames, err := machinestate.PlaceMachine(
+		ctx, tx, st, st.clock, placeMachineArgs,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"performing unit placement %+v: %w", args.Placement, err,
+		)
+	}
+
+	return machineNames, nil
+}
+
 func (st *State) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	charmUUID corecharm.ID,
 	args application.AddIAASUnitArg,
-) (coreunit.Name, []coremachine.Name, error) {
+) (coreunit.Name, coreunit.UUID, []coremachine.Name, error) {
 	unitName, err := st.newUnitName(ctx, tx, appUUID)
 	if err != nil {
-		return "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+		return "", "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
 
 	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
-		return "", nil, errors.Capture(err)
+		return "", "", nil, errors.Capture(err)
 	}
 
-	// Handle the placement of the net node and machines accompanying the unit.
-	placeMachineArgs := domainmachine.AddMachineArgs{
-		Constraints: args.Constraints,
-		Directive:   args.Placement,
-		Platform:    args.Platform,
-		Nonce:       args.Nonce,
-	}
-	netNodeUUID, machineNames, err := machinestate.PlaceMachine(ctx, tx, st, st.clock, placeMachineArgs)
+	machineNames, err := st.placeIAASUnitMachine(ctx, tx, args)
 	if err != nil {
-		return "", nil, errors.Errorf("getting net node UUID from placement %+v: %w", args.Placement, err)
+		return "", "", nil, errors.Capture(err)
 	}
 
 	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
 	if err != nil {
-		return "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
+		return "", "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
-		CharmUUID:     charmUUID,
-		UnitName:      unitName,
-		Constraints:   args.Constraints,
-		UnitStatusArg: args.UnitStatusArg,
-	}); err != nil {
-		return "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+	err = st.insertUnit(
+		ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
+			CharmUUID:     charmUUID,
+			UnitName:      unitName,
+			Constraints:   args.Constraints,
+			UnitStatusArg: args.UnitStatusArg,
+		},
+	)
+	if err != nil {
+		return "", "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 
 	unitStorageDirectives, err := st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, charmName, args.StorageDirectives,
 	)
 	if err != nil {
-		return "", nil, errors.Errorf(
+		return "", "", nil, errors.Errorf(
 			"creating storage directives for unit %q: %w", unitName, err,
 		)
 	}
 
 	err = st.insertUnitStorageInstances(ctx, tx, unitStorageDirectives, args.StorageInstances)
 	if err != nil {
-		return "", nil, errors.Errorf(
+		return "", "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,
 		)
 	}
@@ -1389,23 +1488,23 @@ func (st *State) insertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		domainnetwork.NetNodeUUID(netNodeUUID),
+		args.NetNodeUUID,
 		args.StorageToAttach,
 	)
 	if err != nil {
-		return "", nil, errors.Errorf(
+		return "", "", nil, errors.Errorf(
 			"creating storage attachments for unit %q: %w", unitName, err,
 		)
 	}
 
 	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
-		return "", nil, errors.Errorf(
+		return "", "", nil, errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
 		)
 	}
 
-	return unitName, machineNames, nil
+	return unitName, unitUUID, machineNames, nil
 }
 
 type insertUnitArg struct {
@@ -1621,6 +1720,56 @@ func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit
 	}, nil
 }
 
+// GetMachineUUIDAndNetNodeForName is responsible for identifying the uuid
+// and net node for a machine by it's name.
+//
+// The following errors may be expected:
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+// machine exists for the supplied machine name.
+func (st *State) GetMachineUUIDAndNetNodeForName(
+	ctx context.Context, mName string,
+) (coremachine.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var (
+		nameInput = machineName{Name: mName}
+		dbVal     machineUUIDWithNetNode
+	)
+
+	q := `
+SELECT &machineUUIDWithNetNode.*
+FROM   machine
+WHERE  name = $machineName.name
+`
+
+	stmt, err := st.Prepare(q, nameInput, dbVal)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, nameInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"machine with name %q does not exist", mName,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		return err
+	})
+
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return coremachine.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
+}
+
 // GetModelConstraints returns the currently set constraints for the model.
 // The following error types can be expected:
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
@@ -1771,6 +1920,54 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 	return transform.Slice(result, func(r unitName) coreunit.Name {
 		return r.Name
 	}), nil
+}
+
+// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
+// unit matching the supplied name.
+//
+// The following errors may be expected:
+// - [applicationerrors.UnitNotFound] if no unit exists for the supplied
+// name.
+func (st *State) GetUnitUUIDAndNetNodeForName(
+	ctx context.Context, name coreunit.Name,
+) (coreunit.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var (
+		input = unitName{Name: name}
+		dbVal unitUUIDAndNetNode
+	)
+
+	stmt, err := st.Prepare(`
+SELECT &unitUUIDAndNetNode.*
+FROM   unit
+WHERE  name = $unitName.name
+`,
+		input, dbVal,
+	)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit with name %q does not exist", name,
+			).Add(applicationerrors.UnitNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return coreunit.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
 }
 
 // GetUnitNamesForNetNode returns a slice of the unit names for the given net node
@@ -2012,16 +2209,22 @@ func (st *State) newUnitName(
 
 // recordUnitPrincipal records a subordinate-principal relationship between
 // units.
+//
+// It is expected that the caller has already verified that both unit uuids
+// exist in the model.
 func (st *State) recordUnitPrincipal(
 	ctx context.Context,
 	tx *sqlair.TX,
-	principalUnitName, subordinateUnitName coreunit.Name,
+	principalUnitUUID, subordinateUnitUUID coreunit.UUID,
 ) error {
 	type unitPrincipal struct {
-		PrincipalUUID   coreunit.UUID `db:"principal_uuid"`
-		SubordinateUUID coreunit.UUID `db:"unit_uuid"`
+		PrincipalUUID   string `db:"principal_uuid"`
+		SubordinateUUID string `db:"unit_uuid"`
 	}
-	arg := unitPrincipal{}
+	arg := unitPrincipal{
+		PrincipalUUID:   principalUnitUUID.String(),
+		SubordinateUUID: subordinateUnitUUID.String(),
+	}
 	stmt, err := st.Prepare(`
 INSERT INTO unit_principal (*)
 VALUES ($unitPrincipal.*)
@@ -2030,51 +2233,12 @@ VALUES ($unitPrincipal.*)
 		return errors.Capture(err)
 	}
 
-	arg.PrincipalUUID, err = st.getUnitUUIDByName(ctx, tx, principalUnitName)
-	if err != nil {
-		return errors.Errorf("getting principal unit uuid: %w", err)
-	}
-
-	arg.SubordinateUUID, err = st.getUnitUUIDByName(ctx, tx, subordinateUnitName)
-	if err != nil {
-		return errors.Errorf("getting principal unit uuid: %w", err)
-	}
-
 	err = tx.Query(ctx, stmt, arg).Run()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
-}
-
-// getUnitMachineName returns the name of the machine the unit is running on. If
-// the unit is not associated with a machine, the name returned is empty.
-func (st *State) getUnitMachineName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitName coreunit.Name,
-) (coremachine.Name, error) {
-	arg := getUnitMachine{
-		UnitName: unitName,
-	}
-	stmt, err := st.Prepare(`
-SELECT m.name AS &getUnitMachine.machine_name
-FROM   unit u
-JOIN   machine m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.name = $getUnitMachine.unit_name
-`, arg)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.MachineNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return arg.UnitMachine, nil
 }
 
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
@@ -2284,7 +2448,7 @@ ON CONFLICT (unit_uuid) DO NOTHING
 		return errors.Errorf("preparing insert unit constraints query: %w", err)
 	}
 
-	if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: inUnitUUID}); err != nil {
+	if err := st.checkUnitNotDead(ctx, tx, inUnitUUID); err != nil {
 		return errors.Capture(err)
 	}
 

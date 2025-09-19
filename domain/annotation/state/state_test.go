@@ -442,14 +442,21 @@ VALUES (?, ?, ?, ?, ?)
 // ensureStorage inserts a row into the storage_instance table
 func (s *stateSuite) ensureStorage(c *tc.C, name, uuid, charmName string) {
 	poolUUID := storagetesting.GenStoragePoolUUID(c)
+
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
-		poolUUID, "loop", "loop")
+		poolUUID, "loop", "loop",
+	)
 	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance (uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, uuid, name+"/0", poolUUID, 100, charmName, name, 0)
+INSERT INTO storage_instance (uuid, storage_id, storage_pool_uuid,
+                              storage_kind_id, requested_size_mib, charm_name,
+                              storage_name, life_id)
+VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+`,
+		uuid, name+"/0", poolUUID, 100, charmName, name, 0,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -975,7 +975,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) {
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
 		},
-		applicationservicetest.StorageProviderValidator{},
+		applicationservicetest.StoragePoolProvider{},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

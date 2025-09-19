@@ -6,8 +6,8 @@ CREATE TABLE storage_pool_origin (
 );
 
 INSERT INTO storage_pool_origin (id, origin) VALUES
-(1, 'user'),
-(2, 'provider-default');
+(0, 'user'),
+(1, 'provider-default');
 
 CREATE TABLE storage_pool (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -21,7 +21,7 @@ CREATE TABLE storage_pool (
     -- The origin sets to "user" by default for user created pools.
     -- The "built-in" and "provider-default" origins are used
     -- for pools that are created by the system when a model is created.
-    origin_id INT NOT NULL DEFAULT 1,
+    origin_id INT NOT NULL DEFAULT 0,
     CONSTRAINT chk_storage_pool_name_not_empty
     CHECK (name <> ''),
     CONSTRAINT chk_storage_pool_type_not_empty
@@ -108,6 +108,23 @@ CREATE TABLE unit_storage_directive (
 CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
+-- storage_kind defines what type Juju considers a storage instance in the model
+-- to be of. While we have the concept of charm storage kind it is not
+-- necessarily the same as the storage instance. This is even more true when we
+-- are trying to understand the composition of a storage_instance and not the
+-- purpose it may be fulfilling.
+CREATE TABLE storage_kind (
+    id INT PRIMARY KEY,
+    kind TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_storage_kind_kind
+ON storage_kind (kind);
+
+INSERT INTO storage_kind VALUES
+(0, 'block'),
+(1, 'filesystem');
+
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- charm_name is the charm name that this storage instance serves. This
@@ -117,11 +134,15 @@ CREATE TABLE storage_instance (
     -- attachment of this storage instance MUST make this association.
     charm_name TEXT,
     storage_name TEXT NOT NULL,
+    storage_kind_id INT NOT NULL,
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
     storage_pool_uuid TEXT NOT NULL,
     requested_size_mib INT NOT NULL,
+    CONSTRAINT fk_storage_instance_storage_kind
+    FOREIGN KEY (storage_kind_id)
+    REFERENCES storage_kind (id),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),

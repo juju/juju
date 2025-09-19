@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -71,6 +72,16 @@ type UnitState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
+	// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
+	// unit matching the supplied name.
+	//
+	// The following errors may be expected:
+	// - [applicationerrors.UnitNotFound] if no unit exists for the supplied
+	// name.
+	GetUnitUUIDAndNetNodeForName(
+		context.Context, coreunit.Name,
+	) (coreunit.UUID, network.NetNodeUUID, error)
+
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
@@ -95,6 +106,16 @@ type UnitState interface {
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
 	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[string]int, error)
+
+	// GetMachineUUIDAndNetNodeForName is responsible for identifying the uuid
+	// and net node for a machine by it's name.
+	//
+	// The following errors may be expected:
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when no
+	// machine exists for the supplied machine name.
+	GetMachineUUIDAndNetNodeForName(
+		context.Context, string,
+	) (coremachine.UUID, network.NetNodeUUID, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
@@ -176,7 +197,8 @@ type UnitState interface {
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]string, error)
 }
 
-func (s *Service) makeIAASUnitArgs(
+func (s *ProviderService) makeIAASUnitArgs(
+	ctx context.Context,
 	units []AddIAASUnitArg,
 	storageDirectives []application.StorageDirective,
 	platform deployment.Platform,
@@ -189,7 +211,46 @@ func (s *Service) makeIAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		var (
+			machineUUID        coremachine.UUID
+			machineNetNodeUUID network.NetNodeUUID
+		)
+		// If the placement of the unit is on to an already established machine
+		// we need to resolve this to a machine uuid and netnode uuid.
+		if placement.Type == deployment.PlacementTypeMachine {
+			mUUID, mNNUUID, err := s.st.GetMachineUUIDAndNetNodeForName(
+				ctx, placement.Directive,
+			)
+			if err != nil {
+				return nil, errors.Errorf(
+					"getting machine %q for unit placement directive: %w",
+					placement.Directive, err,
+				)
+			}
+			machineUUID = mUUID
+			machineNetNodeUUID = mNNUUID
+		} else {
+			// If the placement is not on to an already established machine we need
+			// to generate a new machine uuid and netnode uuid for the unit.
+			var err error
+			machineUUID, err = coremachine.NewUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new machine uuid for IAAS unit: %w", err,
+				)
+			}
+
+			machineNetNodeUUID, err = network.NewNetNodeUUID()
+			if err != nil {
+				return nil, errors.Errorf(
+					"generating new machine net node uuid for IAAS unit: %w", err,
+				)
+			}
+		}
+
+		unitStorageArgs, err := makeUnitStorageArgs(
+			ctx, s.storagePoolProvider, storageDirectives, nil,
+		)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making storage arguments for IAAS unit: %w", err,
@@ -201,10 +262,14 @@ func (s *Service) makeIAASUnitArgs(
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				Placement:            placement,
-				UnitStatusArg:        s.makeIAASUnitStatusArgs(),
+				// We use the same netnode uuid as the machine for the unit.
+				NetNodeUUID:   machineNetNodeUUID,
+				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			Platform: platform,
-			Nonce:    u.Nonce,
+			Platform:           platform,
+			Nonce:              u.Nonce,
+			MachineNetNodeUUID: machineNetNodeUUID,
+			MachineUUID:        machineUUID,
 		}
 		args[i] = arg
 	}
@@ -212,7 +277,8 @@ func (s *Service) makeIAASUnitArgs(
 	return args, nil
 }
 
-func (s *Service) makeCAASUnitArgs(
+func (s *ProviderService) makeCAASUnitArgs(
+	ctx context.Context,
 	units []AddUnitArg,
 	storageDirectives []application.StorageDirective,
 	constraints constraints.Constraints,
@@ -224,7 +290,16 @@ func (s *Service) makeCAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		unitStorageArgs, err := makeUnitStorageArgs(storageDirectives, nil)
+		netNodeUUID, err := network.NewNetNodeUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"making new net node uuid for caas unit: %w", err,
+			)
+		}
+
+		unitStorageArgs, err := makeUnitStorageArgs(
+			ctx, s.storagePoolProvider, storageDirectives, nil,
+		)
 		if err != nil {
 			return nil, errors.Errorf("making storage for CAAS unit: %w", err)
 		}
@@ -233,6 +308,7 @@ func (s *Service) makeCAASUnitArgs(
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
+				NetNodeUUID:          netNodeUUID,
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},
@@ -274,10 +350,11 @@ func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitSta
 // unit then this is a no-op.
 //
 // The following error types can be expected:
-//   - [applicationerrors.MachineNotFound] when the model type is IAAS and the
-//     principal unit does not have a machine.
-//   - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
-//     already has a subordinate from this application
+// - [applicationerrors.MachineNotFound] when the model type is IAAS and the
+// principal unit does not have a machine.
+// - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
+// already has a subordinate from this application
+// - [applicationerrors.UnitNotFound] when the principal unit does not exist.
 func (s *Service) AddIAASSubordinateUnit(
 	ctx context.Context,
 	subordinateAppID coreapplication.ID,
@@ -300,12 +377,26 @@ func (s *Service) AddIAASSubordinateUnit(
 		return applicationerrors.ApplicationNotSubordinate
 	}
 
+	princiaplUnitUUID, principalNetNodeUUID, err :=
+		s.st.GetUnitUUIDAndNetNodeForName(ctx, principalUnitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf(
+			"principal unit for name %q does not exist", principalUnitName,
+		).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting principal unit %q uuid and netnode: %w",
+			principalUnitName, err,
+		)
+	}
+
 	statusArg := s.makeIAASUnitStatusArgs()
 	unitName, machineNames, err := s.st.AddIAASSubordinateUnit(
 		ctx,
 		application.SubordinateUnitArg{
 			SubordinateAppID:  subordinateAppID,
-			PrincipalUnitName: principalUnitName,
+			NetNodeUUID:       principalNetNodeUUID,
+			PrincipalUnitUUID: princiaplUnitUUID,
 			UnitStatusArg:     statusArg,
 		},
 	)

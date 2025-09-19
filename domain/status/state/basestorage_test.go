@@ -148,8 +148,10 @@ func (s *baseStorageSuite) newStorageInstance(
 	_, err = s.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, requested_size_mib, storage_pool_uuid)
-VALUES (?, ?, ?, ?, 0, 100, ?)
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             storage_kind_id, life_id, requested_size_mib,
+                             storage_pool_uuid)
+VALUES (?, ?, ?, ?, 1, 0, 100, ?)
 `,
 		storageInstanceUUID.String(),
 		charmName,

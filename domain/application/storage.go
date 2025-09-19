@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/juju/domain/application/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
@@ -16,25 +17,52 @@ type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
 // directives on a unit.
 type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
 
+// CreateUnitStorageFilesystemArg describes a set of arguments for a filesystem
+// that should be created as part of a unit's storage.
+type CreateUnitStorageFilesystemArg struct {
+	// UUID describes the unique identifier of the filesystem to
+	// create alongside the storage instance.
+	UUID domainstorageprov.FilesystemUUID
+
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created filesystem.
+	ProvisionScope domainstorageprov.ProvisionScope
+}
+
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
 // storage instance on behalf of a unit.
 type CreateUnitStorageInstanceArg struct {
+	// Filesystem describes the properties of a new filesystem to be created
+	// alongside the  storage instance. If this value is not nil a new
+	// filesystem will be created with the storage instance.
+	Filesystem *CreateUnitStorageFilesystemArg
+
+	// Kind defines the type of storage that is being created.
+	Kind domainstorageprov.Kind
+
 	// Name is the name of the storage and must correspond to the storage name
 	// defined in the charm the unit is running.
 	Name domainstorage.Name
 
+	// Volume describes the properties of a new volume to be created alongside
+	// the storage instance. If this value is not nil a new volume will be
+	// created with the storage instance.
+	Volume *CreateUnitStorageVolumeArg
+
 	// UUID is the unique identifier to associate with the storage instance.
 	UUID domainstorage.StorageInstanceUUID
+}
 
-	// FilesystemUUID describes the unique identifier of the filesystem to
-	// create alongside the storage instance. If this value is nil no file
-	// system will be created.
-	FilesystemUUID *domainstorageprov.FilesystemUUID
+// CreateUnitStorageVolumeArg describes a set of arguments for a volume
+// that should be created as part of a unit's storage.
+type CreateUnitStorageVolumeArg struct {
+	// UUID describes the unique identifier of the volume to
+	// create alongside the storage instance.
+	UUID domainstorageprov.VolumeUUID
 
-	// VolumeUUID describes the unique identifier of the volume to
-	// create alongside the storage instance. If this value is nil no volume
-	// will be created.
-	VolumeUUID *domainstorageprov.VolumeUUID
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created volume.
+	ProvisionScope domainstorageprov.ProvisionScope
 }
 
 // CreateStorageAttachmentArg describes the arguments required for creating a
@@ -104,6 +132,10 @@ type StorageDirective struct {
 	// Count represents the number of storage instances that should be made for
 	// this directive.
 	Count uint32
+
+	// Type represents the storage type of the charm that the directive relates
+	// to.
+	Type charm.StorageType
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name

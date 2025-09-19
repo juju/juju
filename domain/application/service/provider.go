@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
@@ -64,7 +65,7 @@ type ProviderService struct {
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
 
-	storageProviderValidator StorageProviderValidator
+	storagePoolProvider StoragePoolProvider
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -74,7 +75,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
-	storageProviderValidator StorageProviderValidator,
+	storagePoolProvider StoragePoolProvider,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -89,10 +90,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		agentVersionGetter:       agentVersionGetter,
-		provider:                 provider,
-		caasApplicationProvider:  caasApplicationProvider,
-		storageProviderValidator: storageProviderValidator,
+		agentVersionGetter:      agentVersionGetter,
+		provider:                provider,
+		caasApplicationProvider: caasApplicationProvider,
+		storagePoolProvider:     storagePoolProvider,
 	}
 }
 
@@ -291,7 +292,7 @@ func (s *ProviderService) AddIAASUnits(
 	}
 
 	args, err := s.makeIAASUnitArgs(
-		units, storageDirectives, origin.Platform, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, origin.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return nil, nil, errors.Errorf("making IAAS unit args: %w", err)
@@ -357,7 +358,7 @@ func (s *ProviderService) AddCAASUnits(
 	}
 
 	args, err := s.makeCAASUnitArgs(
-		units, storageDirectives, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return nil, errors.Errorf("making CAAS unit args: %w", err)
@@ -467,6 +468,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	if err != nil {
 		return "", "", errors.Errorf("generating unit password: %w", err)
 	}
+
 	registerArgs := application.RegisterCAASUnitArg{
 		ProviderID:   params.ProviderID,
 		PasswordHash: password.AgentPasswordHash(pass),
@@ -488,6 +490,15 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs.UnitName = unitName
 	registerArgs.OrderedId = ord
 	registerArgs.OrderedScale = true
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	if err != nil {
+		return "", "", errors.Errorf(
+			"generating new net node uuid for caas unit %q: %w",
+			unitName, err,
+		)
+	}
+	registerArgs.NetNodeUUID = netNodeUUID
 
 	// Find the pod/unit in the provider.
 	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
@@ -660,7 +671,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 	}
 
 	unitStorageArgs, err := makeUnitStorageArgs(
-		directivesToFollow, existingUnitStorage,
+		ctx, s.storagePoolProvider, directivesToFollow, existingUnitStorage,
 	)
 	if err != nil {
 		return application.RegisterUnitStorageArg{}, errors.Capture(err)
@@ -693,7 +704,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 		// We can safely assume that all CAAS units create filesystems but we
 		// are not in charge of the business logic here. So instead let us just
 		// skip this instance if it does not have a non filesystem uuid.
-		if inst.FilesystemUUID == nil {
+		if inst.Filesystem == nil {
 			continue
 		}
 
@@ -710,7 +721,7 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 
 		// Pop the first unassigned provider id and give it to the new
 		// filesystem.
-		filesystemProviderIDs[*inst.FilesystemUUID] = nameIDs[0]
+		filesystemProviderIDs[inst.Filesystem.UUID] = nameIDs[0]
 		unassignedNameMapping[inst.Name] = nameIDs[1:]
 	}
 
@@ -768,10 +779,11 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	}
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Storage,
 		arg.StorageDirectives,
 	)
 	unitArgs, err := s.makeIAASUnitArgs(
-		units, storageDirectives, arg.Platform, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, arg.Platform, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
@@ -822,9 +834,12 @@ func (s *ProviderService) makeCAASApplicationArg(
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
 	}
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(arg.StorageDirectives)
+	storageDirectives := makeStorageDirectiveFromApplicationArg(
+		charm.Meta().Storage,
+		arg.StorageDirectives,
+	)
 	unitArgs, err := s.makeCAASUnitArgs(
-		units, storageDirectives, constraints.DecodeConstraints(cons),
+		ctx, units, storageDirectives, constraints.DecodeConstraints(cons),
 	)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
@@ -855,7 +870,7 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,
-		s.storageProviderValidator,
+		s.storagePoolProvider,
 	)
 	if err != nil {
 		return errors.Errorf(
