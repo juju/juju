@@ -140,6 +140,9 @@ CREATE TABLE storage_instance (
     life_id INT NOT NULL,
     storage_pool_uuid TEXT NOT NULL,
     requested_size_mib INT NOT NULL,
+    CONSTRAINT fk_storage_instance_storage_kind
+    FOREIGN KEY (storage_kind_id)
+    REFERENCES storage_kind (id),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
