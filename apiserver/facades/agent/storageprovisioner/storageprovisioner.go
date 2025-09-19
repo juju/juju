@@ -1970,25 +1970,8 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentPlanBlockInfo(
 		if !canAccess(machineTag, volumeTag) {
 			return apiservererrors.ErrPerm
 		}
-		if vp.Life != "" {
-			return errors.New(
-				"life field must not be set",
-			).Add(coreerrors.NotValid)
-		}
-		if vp.PlanInfo.DeviceType != "" {
-			return errors.New(
-				"device type field must not be set",
-			).Add(coreerrors.NotValid)
-		}
-		if len(vp.PlanInfo.DeviceAttributes) != 0 {
-			return errors.New(
-				"device attributes field must not be set",
-			).Add(coreerrors.NotValid)
-		}
 		if vp.BlockDevice == nil {
-			return errors.New(
-				"block device must be set",
-			).Add(coreerrors.NotValid)
+			return nil
 		}
 		return s.setVolumeAttachmentPlanBlockInfo(
 			ctx, machineTag, volumeTag, *vp.BlockDevice)
@@ -2014,16 +1997,6 @@ func (s *StorageProvisionerAPIv4) setVolumeAttachmentPlanBlockInfo(
 	volumeTag names.VolumeTag,
 	bd params.BlockDevice,
 ) error {
-	machineUUID, err := s.getMachineUUID(ctx, machineTag)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	planUUID, err := s.getVolumeAttachmentPlanUUID(ctx, volumeTag, machineUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	blockDevice := blockdevice.BlockDevice{
 		DeviceName:      bd.DeviceName,
 		DeviceLinks:     bd.DeviceLinks,
@@ -2038,6 +2011,20 @@ func (s *StorageProvisionerAPIv4) setVolumeAttachmentPlanBlockInfo(
 		MountPoint:      bd.MountPoint,
 		SerialId:        bd.SerialId,
 	}
+	if domainblockdevice.IsEmpty(blockDevice) {
+		return nil
+	}
+
+	machineUUID, err := s.getMachineUUID(ctx, machineTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	planUUID, err := s.getVolumeAttachmentPlanUUID(ctx, volumeTag, machineUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	blockDeviceUUID, err := s.blockDeviceService.MatchOrCreateBlockDevice(
 		ctx, machineUUID, blockDevice)
 	if errors.Is(err, machineerrors.MachineNotFound) {
