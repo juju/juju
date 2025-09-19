@@ -516,6 +516,21 @@ func validateApplicationStorageDirectiveParam(
 			)
 		}
 
+		if !supports &&
+			charmStorageDef.Type == internalcharm.StorageFilesystem {
+			// TODO(storage): unify these checks with
+			// CalculateStorageInstaceComposition.
+			supports, err = poolProvider.CheckPoolSupportsCharmStorage(
+				ctx, *override.PoolUUID, internalcharm.StorageBlock,
+			)
+			if err != nil {
+				return errors.Errorf(
+					"checking storage directive pool %q supports charm storage %q",
+					*override.PoolUUID, internalcharm.StorageBlock,
+				)
+			}
+		}
+
 		if !supports {
 			return errors.Errorf(
 				"storage directive pool %q does not support charm storage %q",
