@@ -568,7 +568,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	}
 
 	if len(vArgs) != 0 {
-		err := tx.Query(ctx, insertStorageVolumeStmt, vInstanceArgs).Run()
+		err := tx.Query(ctx, insertStorageVolumeStmt, vArgs).Run()
 		if err != nil {
 			return errors.Errorf(
 				"creating %d storage volumes: %w",
@@ -578,10 +578,10 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	}
 
 	if len(vInstanceArgs) != 0 {
-		err := tx.Query(ctx, insertStorageVolumeInstStmt, fsInstanceArgs).Run()
+		err := tx.Query(ctx, insertStorageVolumeInstStmt, vInstanceArgs).Run()
 		if err != nil {
 			return errors.Errorf(
-				"setting storafe volume to instance relationship for new volumes: %w",
+				"setting storage volume to instance relationship for new volumes: %w",
 				err,
 			)
 		}
@@ -732,9 +732,10 @@ func (st *State) makeInsertUnitFilesystemArgs(
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		fsRval = append(fsRval, insertStorageFilesystem{
-			FilesystemID: fmt.Sprintf("%d", fsIDS[i]),
-			LifeID:       int(life.Alive),
-			UUID:         instArg.Filesystem.UUID.String(),
+			FilesystemID:     fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:           int(life.Alive),
+			UUID:             instArg.Filesystem.UUID.String(),
+			ProvisionScopeID: int(instArg.Filesystem.ProvisionScope),
 		})
 		fsInstanceRval = append(fsInstanceRval, insertStorageFilesystemInstance{
 			StorageInstanceUUID:    instArg.UUID.String(),
@@ -782,6 +783,33 @@ WHERE storage_instance_uuid IN ($S[:])
 		return nil, errors.Capture(err)
 	}
 
+	// TODO(storage): calculate filesystem attachment provision scope instead of
+	// querying the filesystems they correspond to.
+	fsUUIDs := make(sqlair.S, 0, len(dbVals))
+	for _, v := range dbVals {
+		fsUUIDs = append(fsUUIDs, v.UUID)
+	}
+	filesystemProvisionScopeStmt, err := st.Prepare(`
+SELECT &storageFilesystemProvisionScope.*
+FROM storage_filesystem
+WHERE uuid IN ($S[:])
+`,
+		storageFilesystemProvisionScope{}, fsUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var fsProvisionScopeVals []storageFilesystemProvisionScope
+	err = tx.Query(ctx, filesystemProvisionScopeStmt, fsUUIDs).GetAll(&fsProvisionScopeVals)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	provisionScopes := map[string]int{}
+	for _, v := range fsProvisionScopeVals {
+		provisionScopes[v.UUID] = v.ProvisionScopeID
+	}
+
 	rval := make([]insertStorageFilesystemAttachment, 0, len(dbVals))
 	for _, val := range dbVals {
 		uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
@@ -797,6 +825,7 @@ WHERE storage_instance_uuid IN ($S[:])
 			NetNodeUUID:           netNodeUUID.String(),
 			StorageFilesystemUUID: val.UUID,
 			UUID:                  uuid.String(),
+			ProvisionScopeID:      provisionScopes[val.UUID],
 		})
 	}
 
@@ -935,16 +964,17 @@ func (st *State) makeInsertUnitVolumeArgs(
 		)
 	}
 
-	vRval := make([]insertStorageVolume, len(argIndexes))
-	vInstanceRval := make([]insertStorageVolumeInstance, len(argIndexes))
-	vStatusRval := make([]insertStorageVolumeStatus, len(argIndexes))
+	vRval := make([]insertStorageVolume, 0, len(argIndexes))
+	vInstanceRval := make([]insertStorageVolumeInstance, 0, len(argIndexes))
+	vStatusRval := make([]insertStorageVolumeStatus, 0, len(argIndexes))
 	statusTime := time.Now()
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		vRval = append(vRval, insertStorageVolume{
-			VolumeID: fmt.Sprintf("%d", fsIDS[i]),
-			LifeID:   int(life.Alive),
-			UUID:     instArg.Volume.UUID.String(),
+			VolumeID:         fmt.Sprintf("%d", fsIDS[i]),
+			LifeID:           int(life.Alive),
+			UUID:             instArg.Volume.UUID.String(),
+			ProvisionScopeID: int(instArg.Volume.ProvisionScope),
 		})
 		vInstanceRval = append(vInstanceRval, insertStorageVolumeInstance{
 			StorageInstanceUUID: instArg.UUID.String(),
@@ -992,6 +1022,33 @@ WHERE storage_instance_uuid IN ($S[:])
 		return nil, errors.Capture(err)
 	}
 
+	// TODO(storage): calculate volume attachment provision scope instead of
+	// querying the volume they correspond to.
+	volUUIDs := make(sqlair.S, 0, len(dbVals))
+	for _, v := range dbVals {
+		volUUIDs = append(volUUIDs, v.UUID)
+	}
+	volumeProvisionScopeStmt, err := st.Prepare(`
+SELECT &storageVolumeProvisionScope.*
+FROM storage_volume
+WHERE uuid IN ($S[:])
+`,
+		storageVolumeProvisionScope{}, volUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var volProvisionScopeVals []storageVolumeProvisionScope
+	err = tx.Query(ctx, volumeProvisionScopeStmt, volUUIDs).GetAll(&volProvisionScopeVals)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	provisionScopes := map[string]int{}
+	for _, v := range volProvisionScopeVals {
+		provisionScopes[v.UUID] = v.ProvisionScopeID
+	}
+
 	rval := make([]insertStorageVolumeAttachment, 0, len(dbVals))
 	for _, val := range dbVals {
 		uuid, err := storageprovisioning.NewVolumeAttachmentUUID()
@@ -1007,6 +1064,7 @@ WHERE storage_instance_uuid IN ($S[:])
 			NetNodeUUID:       netNodeUUID.String(),
 			StorageVolumeUUID: val.UUID,
 			UUID:              uuid.String(),
+			ProvisionScopeID:  provisionScopes[val.UUID],
 		})
 	}
 
