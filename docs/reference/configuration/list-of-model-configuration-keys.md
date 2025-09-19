@@ -138,6 +138,15 @@ The `apt-mirror` option is often used to point to a local mirror.
 
 **Default value:** ""
 
+(model-config-container-image-metadata-defaults-disabled)=
+## `container-image-metadata-defaults-disabled`
+
+`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
+
+**Type:** boolean
+
+**Default value:** false
+
 ## `automatically-retry-hooks`
 
 `automatically-retry-hooks` determines whether the uniter should automatically retry failed hooks.
@@ -527,6 +536,15 @@ You may also want to just update the package list to ensure a charm has the late
 **Default value:** false
 
 **Valid values:**
+
+(model-config-image-metadata-defaults-disabled)=
+## `image-metadata-defaults-disabled`
+
+`image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata.
+
+**Type:** boolean
+
+**Default value:** false
 
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
