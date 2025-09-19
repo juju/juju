@@ -1570,16 +1570,22 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 		}
 
 		rval := params.FilesystemParams{
-			// VolumeTag and Attachment params have never been set.
+			// Attachment params have never been set.
 			Attributes:    make(map[string]any, len(fsParams.Attributes)),
 			FilesystemTag: tag.String(),
 			Provider:      fsParams.Provider,
 			SizeMiB:       fsParams.SizeMiB,
 			Tags:          fsModelTags,
 		}
-
 		for k, v := range fsParams.Attributes {
 			rval.Attributes[k] = v
+		}
+
+		// If this fs is backed by a volume, pass that along.
+		if fsParams.BackingVolume != nil {
+			rval.VolumeTag = names.NewVolumeTag(
+				fsParams.BackingVolume.VolumeID,
+			).String()
 		}
 
 		return rval, nil

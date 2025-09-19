@@ -1157,6 +1157,11 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestFilesystemParamsBackingVolume(c *tc.C) {
+	// TODO(storage): test that a filesystem backed by a volume has its tag in
+	// the fs params.
+}
+
 // TestFilesystemAttachmentParamsMachineNotFound tests the case where the
 // filesystem params are requested
 func (s *provisionerSuite) TestFilesystemAttachmentParamsMachineNotFound(c *tc.C) {
