@@ -1,0 +1,226 @@
+wait_until_or_fail() {
+	local iterations=${2:-10}
+
+	local n=0
+	local available=false
+	while [ "$n" -lt "$iterations" ]; do
+		if eval "$1"; then
+			available=true
+			break
+		fi
+		sleep 1
+		n=$((n + 1))
+	done
+	if [ "$available" = false ]; then
+		return 1
+	fi
+}
+
+allow_access_to_api_port() {
+	local instance_id="$1" zone="$2" network_tag="$3"
+	# Create a firewall rule or security group via the provider specific tool
+	# to allow api port access
+	instance_ip=$(curl -s https://checkip.amazonaws.com)
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		aws ec2 authorize-security-group-ingress \
+			--group-name "${network_tag}" \
+			--protocol tcp \
+			--port 17070 \
+			--cidr "${instance_ip}"/32
+		;;
+	"gce")
+		temp_network_tag="temp-${network_tag}"
+		gcloud compute instances add-tags "${instance_id}" \
+			--zone="${zone}" \
+			--tags="${temp_network_tag}"
+		gcloud compute firewall-rules create "${instance_id}-${temp_network_tag}" \
+			--direction=INGRESS \
+			--priority=1000 \
+			--network=default \
+			--action=ALLOW \
+			--rules=tcp:17070 \
+			--source-ranges="${instance_ip}"/32 \
+			--target-tags="${temp_network_tag}"
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+remove_access_to_api_port() {
+	local instance_id="$1" zone="$2" network_tag="$3"
+	# Create a firewall rule via the provider specific tool to allow api port access
+	instance_ip=$(curl -s https://checkip.amazonaws.com)
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		aws ec2 revoke-security-group-ingress \
+			--group-name "${network_tag}" \
+			--protocol tcp \
+			--port 17070 \
+			--cidr "${instance_ip}"/32
+		;;
+	"gce")
+		temp_network_tag="temp-${network_tag}"
+		gcloud compute instances remove-tags "${instance_id}" \
+			--zone="${zone}" \
+			--tags="${temp_network_tag}"
+		gcloud compute firewall-rules delete "${instance_id}-${temp_network_tag}" \
+			--quiet
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+region_or_availability_zone() {
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		juju show-model controller --format json | jq -r '.["controller"]["region"]'
+		;;
+	"gce")
+		juju show-machine -m controller 0 --format=json | jq -r '.["machines"]["0"]["hardware"]' | grep -oP 'availability-zone=\K\S+'
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+instance_network_tag_or_group() {
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		model_uuid=$(juju show-model controller --format json | jq -r '.["controller"]["model-uuid"]')
+		echo "juju-${model_uuid}-0"
+		;;
+	"gce")
+		machine_info="$(juju list-machines -m controller --format=json)"
+		echo "$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+verify_model_network_tag() {
+	local network_tag="$1" sourceRange="$2"
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
+		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		;;
+	"gce")
+		# Ensure only one allowed item, which is ssh port
+		default_rule=$(gcloud compute firewall-rules list \
+			--filter="targetTags.list():${network_tag}" \
+			--format=json)
+		echo "${default_rule}" | jq -r '.[0].allowed[0].ports | length' | check "1"
+		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[0]' | check "22"
+		echo "${default_rule}" | jq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+verify_instance_network_tag() {
+	local network_tag="$1" sourceRange="$2"
+
+	# Ensure two items, one is api port, another for ssh server port
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
+		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		;;
+	"gce")
+		default_rule=$(gcloud compute firewall-rules list \
+			--filter="targetTags.list():${network_tag}" \
+			--format=json)
+		echo "${default_rule}" | jq -r '.[0].allowed[0].ports | length' | check "2"
+		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[0]' | check "17022"
+		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[1]' | check "17070"
+		echo "${default_rule}" | jq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		;;
+	*)
+		echo "Aborting, we shouldn't be here"
+		exit 1
+		;;
+	esac
+}
+
+run_limit_access() {
+	echo
+
+	file="${TEST_DIR}/limit_access.log"
+
+	ensure "limit-access" "${file}"
+
+	juju add-machine
+	wait_for_machine_agent_status "0" "started"
+
+	machine_info="$(juju list-machines -m controller --format=json)"
+	instance_id="$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+	region_or_az=$(region_or_availability_zone)
+	model_uuid=$(juju show-model controller --format json | jq -r '.["controller"]["model-uuid"]')
+	model_network_tag="juju-${model_uuid}"
+	verify_model_network_tag "${model_network_tag}" "0.0.0.0/0"
+
+	network_tag_or_group=$(instance_network_tag_or_group)
+	verify_instance_network_tag "${network_tag_or_group}" "0.0.0.0/0"
+
+	echo "Limit access to controller, which only affects controller instance firewall rule"
+	juju expose -m controller controller --to-cidrs 10.0.0.0/24
+	verify_model_network_tag "${model_network_tag}" "0.0.0.0/0"
+
+	# Dump juju status would timeout due to limited api port access
+	wait_until_or_fail "! timeout 5 juju status"
+	verify_instance_network_tag "${network_tag_or_group}" "10.0.0.0/24"
+
+	echo "Temporarily allow access to the controller to unblock subsequent juju expose calls"
+	allow_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
+	wait_until_or_fail "timeout 5 juju status"
+
+	echo "Allow access to the controller from anywhere"
+	juju expose -m controller controller --to-cidrs 0.0.0.0/0
+
+	# Juju should be able to dump status after removing the temporary network tag
+	# to avoid affecting subsequent tests.
+	remove_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
+	wait_until_or_fail "timeout 5 juju status"
+	verify_instance_network_tag "${network_tag_or_group}" "0.0.0.0/0"
+
+	destroy_model "limit-access"
+}
+
+test_limit_access() {
+	if [ -n "$(skip 'test_limit_access')" ]; then
+		echo "==> SKIP: Asked to skip controller limit-access tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		case "${BOOTSTRAP_PROVIDER:-}" in
+		"ec2" | "gce")
+			run "run_limit_access"
+			;;
+		*)
+			echo "==> TEST SKIPPED: test_limit_access test runs on aws/gce only"
+			;;
+		esac
+	)
+}
