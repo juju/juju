@@ -76,6 +76,9 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 	// Ensure that we don't have any endpoints that are non-global scope.
 	for _, endpoint := range args.Endpoints {
+		if endpoint.Scope == "" {
+			continue
+		}
 		if endpoint.Scope != charm.ScopeGlobal {
 			return internalerrors.Errorf("endpoint %q has non-global scope %q", endpoint.Name, endpoint.Scope).Add(errors.NotValid)
 		}
