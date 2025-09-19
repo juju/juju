@@ -2691,6 +2691,7 @@ func (s *modelStateSuite) createIAASApplication(
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var unitUUID string
@@ -2788,6 +2789,7 @@ func (s *modelStateSuite) createCAASApplication(
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var unitUUID string
