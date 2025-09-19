@@ -121,9 +121,10 @@ type filesystemAttachmentParams struct {
 // filesystemParams represents the attachment params for a filesystem from the
 // model database.
 type filesystemParams struct {
-	FilesystemID string `db:"filesystem_id"`
-	Type         string `db:"type"`
-	SizeMiB      uint64 `db:"size_mib"`
+	FilesystemID string           `db:"filesystem_id"`
+	Type         string           `db:"type"`
+	SizeMiB      uint64           `db:"size_mib"`
+	VolumeID     sql.Null[string] `db:"volume_id"`
 }
 
 // filesystemUUID represents the UUID of a record in the filesystem table.

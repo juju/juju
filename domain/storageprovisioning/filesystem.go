@@ -53,10 +53,11 @@ type Filesystem struct {
 // FilesystemParams defines the set of parameters that a caller needs to know
 // in order to provision a filesystem in the model.
 type FilesystemParams struct {
-	Attributes map[string]string
-	ID         string
-	Provider   string
-	SizeMiB    uint64
+	Attributes    map[string]string
+	ID            string
+	Provider      string
+	SizeMiB       uint64
+	BackingVolume *FilesystemBackingVolume
 }
 
 // FilesystemBackingVolume contains information about the volume that is used
