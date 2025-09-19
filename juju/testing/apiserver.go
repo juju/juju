@@ -670,6 +670,9 @@ func NewTestRegistry() (watcherregistry.WatcherRegistry, error) {
 
 	r := &testRegistry{
 		runner: runner,
+		watcherWrapper: func(w worker.Worker) (worker.Worker, error) {
+			return w, nil
+		},
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
