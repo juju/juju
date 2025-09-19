@@ -18,6 +18,7 @@ import (
 
 // createVolumes creates volumes with the specified parameters.
 func createVolumes(ctx context.Context, deps *dependencies, ops map[names.VolumeTag]*createVolumeOp) error {
+	deps.config.Logger.Tracef(ctx, "createVolumes: %#v", ops)
 	volumeParams := make([]storage.VolumeParams, 0, len(ops))
 	for _, op := range ops {
 		volumeParams = append(volumeParams, op.args)
@@ -111,7 +112,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 		}
 	}
 	for _, v := range volumes {
-		updateVolume(deps, v)
+		updateVolume(ctx, deps, v)
 	}
 	// Note: the storage provisioner that creates a volume is also
 	// responsible for creating the volume attachment. It is therefore
@@ -127,6 +128,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 
 // attachVolumes creates volume attachments with the specified parameters.
 func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*attachVolumeOp) error {
+	deps.config.Logger.Tracef(ctx, "attachVolumes: %#v", ops)
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
@@ -201,6 +203,7 @@ func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 // createVolumeAttachmentPlans creates a volume info plan in state, which notifies the machine
 // agent of the target instance that something has been attached to it.
 func createVolumeAttachmentPlans(ctx context.Context, deps *dependencies, volumeAttachments []storage.VolumeAttachment) error {
+	deps.config.Logger.Tracef(ctx, "createVolumeAttachmentPlans: %#v", volumeAttachments)
 	// NOTE(gsamfira): should we merge this with setVolumeInfo?
 	if len(volumeAttachments) == 0 {
 		return nil
@@ -252,6 +255,7 @@ func volumeAttachmentPlanFromAttachment(attachment storage.VolumeAttachment) par
 
 // removeVolumes destroys or releases volumes with the specified parameters.
 func removeVolumes(ctx context.Context, deps *dependencies, ops map[names.VolumeTag]*removeVolumeOp) error {
+	deps.config.Logger.Tracef(ctx, "removeVolumes: %#v", ops)
 	tags := make([]names.VolumeTag, 0, len(ops))
 	for tag := range ops {
 		tags = append(tags, tag)
@@ -353,6 +357,7 @@ func partitionRemoveVolumeParams(removeTags []names.VolumeTag, removeParams []pa
 
 // detachVolumes destroys volume attachments with the specified parameters.
 func detachVolumes(ctx context.Context, deps *dependencies, ops map[params.MachineStorageId]*detachVolumeOp) error {
+	deps.config.Logger.Tracef(ctx, "detachVolumes: %#v", ops)
 	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
 	for _, op := range ops {
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
@@ -511,6 +516,7 @@ func volumeAttachmentParamsBySource(
 }
 
 func setVolumeAttachmentInfo(ctx context.Context, deps *dependencies, volumeAttachments []storage.VolumeAttachment) error {
+	deps.config.Logger.Tracef(ctx, "setVolumeAttachmentInfo: %#v", volumeAttachments)
 	if len(volumeAttachments) == 0 {
 		return nil
 	}
@@ -539,7 +545,7 @@ func setVolumeAttachmentInfo(ctx context.Context, deps *dependencies, volumeAtta
 			AttachmentTag: volumeAttachments[i].Volume.String(),
 		}
 		deps.volumeAttachments[id] = volumeAttachments[i]
-		removePendingVolumeAttachment(deps, id)
+		removePendingVolumeAttachment(ctx, deps, id)
 	}
 	return nil
 }

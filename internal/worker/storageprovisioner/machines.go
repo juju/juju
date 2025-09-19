@@ -19,7 +19,8 @@ import (
 // watchMachine starts a machine watcher if there is not already one for the
 // specified tag. The watcher will notify the worker when the machine changes,
 // for example when it is provisioned.
-func watchMachine(deps *dependencies, tag names.MachineTag) {
+func watchMachine(ctx context.Context, deps *dependencies, tag names.MachineTag) {
+	deps.config.Logger.Tracef(ctx, "watchMachine: %#v", tag)
 	_, ok := deps.machines[tag]
 	if ok {
 		return
@@ -38,6 +39,7 @@ func watchMachine(deps *dependencies, tag names.MachineTag) {
 // then the machine watcher is stopped and pending entities' parameters are
 // updated. If the machine is not provisioned yet, this method is a no-op.
 func refreshMachine(ctx context.Context, deps *dependencies, tag names.MachineTag) error {
+	deps.config.Logger.Tracef(ctx, "refreshMachine: %#v", tag)
 	w, ok := deps.machines[tag]
 	if !ok {
 		return errors.Errorf("machine %s is not being watched", tag.Id())
@@ -60,34 +62,34 @@ func refreshMachine(ctx context.Context, deps *dependencies, tag names.MachineTa
 		}
 		return errors.Annotate(err, "getting machine instance ID")
 	}
-	machineProvisioned(deps, tag, instance.Id(results[0].Result))
+	machineProvisioned(ctx, deps, tag, instance.Id(results[0].Result))
 	// machine provisioning is the only thing we care about;
 	// stop the watcher.
 	return stopAndRemove()
 }
 
 // machineProvisioned is called when a watched machine is provisioned.
-func machineProvisioned(deps *dependencies, tag names.MachineTag, instanceId instance.Id) {
+func machineProvisioned(ctx context.Context, deps *dependencies, tag names.MachineTag, instanceId instance.Id) {
 	for _, params := range deps.incompleteVolumeParams {
 		if params.Attachment.Machine != tag || params.Attachment.InstanceId != "" {
 			continue
 		}
 		params.Attachment.InstanceId = instanceId
-		updatePendingVolume(deps, params)
+		updatePendingVolume(ctx, deps, params)
 	}
 	for id, params := range deps.incompleteVolumeAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		updatePendingVolumeAttachment(deps, id, params)
+		updatePendingVolumeAttachment(ctx, deps, id, params)
 	}
 	for id, params := range deps.incompleteFilesystemAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		updatePendingFilesystemAttachment(deps, id, params)
+		updatePendingFilesystemAttachment(ctx, deps, id, params)
 	}
 }
 

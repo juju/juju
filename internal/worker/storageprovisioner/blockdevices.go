@@ -19,6 +19,7 @@ import (
 // machine have been seen to have changed. This triggers a refresh of all
 // block devices for attached volumes backing pending filesystems.
 func machineBlockDevicesChanged(ctx context.Context, deps *dependencies) error {
+	deps.config.Logger.Tracef(ctx, "machineBlockDevicesChanged")
 	volumeTags := make([]names.VolumeTag, 0, len(deps.incompleteFilesystemParams))
 	// We must query volumes for both incomplete filesystems
 	// and incomplete filesystem attachments, because even
@@ -149,6 +150,7 @@ func processPendingVolumeBlockDevices(ctx context.Context, deps *dependencies) e
 // refreshVolumeBlockDevices refreshes the block devices for the specified volumes.
 // It returns any volumes which have had the UUID newly set.
 func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTags []names.VolumeTag) ([]names.VolumeTag, error) {
+	deps.config.Logger.Tracef(ctx, "refreshVolumeBlockDevices: %#v", volumeTags)
 	machineTag, ok := deps.config.Scope.(names.MachineTag)
 	if !ok {
 		// This function should only be called by machine-scoped
@@ -177,7 +179,7 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 			deps.volumeBlockDevices[volumeTags[i]] = blockDeviceFromParams(result.Result)
 			for _, params := range deps.incompleteFilesystemParams {
 				if params.Volume == volumeTags[i] {
-					updatePendingFilesystem(deps, params)
+					updatePendingFilesystem(ctx, deps, params)
 				}
 			}
 			for id, params := range deps.incompleteFilesystemAttachmentParams {
@@ -186,7 +188,7 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 					continue
 				}
 				if filesystem.Volume == volumeTags[i] {
-					updatePendingFilesystemAttachment(deps, id, params)
+					updatePendingFilesystemAttachment(ctx, deps, id, params)
 				}
 			}
 		} else if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {

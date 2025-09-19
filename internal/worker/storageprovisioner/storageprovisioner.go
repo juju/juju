@@ -304,12 +304,17 @@ func (w *storageProvisioner) loop() error {
 	filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
 
 	for {
-
 		// Check if block devices need to be refreshed.
 		if err := processPendingVolumeBlockDevices(ctx, &deps); err != nil {
 			return errors.Annotate(err, "processing pending block devices")
 		}
 
+		deps.config.Logger.Tracef(ctx, "loop: incomplete: fs=%d fsa=%d v=%d va=%d complete: fs=%d fsa=%d v=%d va=%d",
+			len(deps.incompleteFilesystemParams), len(deps.incompleteFilesystemAttachmentParams),
+			len(deps.incompleteVolumeParams), len(deps.incompleteVolumeAttachmentParams),
+			len(deps.filesystems), len(deps.filesystemAttachments),
+			len(deps.volumes), len(deps.volumeAttachments),
+		)
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
