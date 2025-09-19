@@ -468,15 +468,10 @@ func (s *ProviderService) RegisterCAASUnit(
 	if err != nil {
 		return "", "", errors.Errorf("generating unit password: %w", err)
 	}
-	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
-	if err != nil {
-		return "", "", errors.Errorf("generating net node uuid: %w", err)
-	}
 
 	registerArgs := application.RegisterCAASUnitArg{
 		ProviderID:   params.ProviderID,
 		PasswordHash: password.AgentPasswordHash(pass),
-		NetNodeUUID:  netNodeUUID,
 	}
 
 	// We don't support anything other that statefulsets.
@@ -495,6 +490,15 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs.UnitName = unitName
 	registerArgs.OrderedId = ord
 	registerArgs.OrderedScale = true
+
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	if err != nil {
+		return "", "", errors.Errorf(
+			"generating new net node uuid for caas unit %q: %w",
+			unitName, err,
+		)
+	}
+	registerArgs.NetNodeUUID = netNodeUUID
 
 	// Find the pod/unit in the provider.
 	caasApplicationProvider, err := s.caasApplicationProvider(ctx)

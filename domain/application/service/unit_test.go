@@ -157,6 +157,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(ctx context.Context, s string, rca application.RegisterCAASUnitArg) error {
 		mc := tc.NewMultiChecker()
 		mc.AddExpr(`_.PasswordHash`, tc.Ignore)
+		mc.AddExpr(`_.NetNodeUUID`, tc.IsNonZeroUUID)
 		c.Assert(rca, mc, arg)
 		return nil
 	})
