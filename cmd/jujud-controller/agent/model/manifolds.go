@@ -445,7 +445,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:       apiCallerName,
 			Clock:               config.Clock,
-			Logger:              config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
+			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
 			StorageRegistryName: providerTrackerName,
 			Model:               modelTag,
 			NewWorker:           storageprovisioner.NewStorageProvisioner,
