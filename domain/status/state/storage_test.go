@@ -198,7 +198,7 @@ func (s *storageSuite) TestSetFilesystemStatusInvalidStatus(c *tc.C) {
 func (s *storageSuite) TestSetFilesystemStatusPendingWhenProvisioned(c *tc.C) {
 	ch0 := s.newCharm(c)
 	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	fsUUID, _ := s.newFilesystemWithStatus(
 		c, status.StorageFilesystemStatusTypePending,
 	)
@@ -345,7 +345,7 @@ func (s *storageSuite) TestSetVolumeStatusInvalidStatus(c *tc.C) {
 func (s *storageSuite) TestSetVolumeStatusPendingWhenProvisioned(c *tc.C) {
 	ch0 := s.newCharm(c)
 	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	vUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypePending)
 	s.newStorageInstanceVolume(c, s0, vUUID)
 	now := time.Now().UTC()
@@ -414,11 +414,11 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Block device storage instance with no owner that is dying.
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.changeStorageInstanceLife(c, s0.String(), life.Dying)
 
 	// Filesystem storage instance with an owning unit that is alive.
-	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
@@ -432,12 +432,14 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 			UUID: s0,
 			ID:   "blk/0",
 			Life: life.Dying,
+			Kind: storage.StorageKindBlock,
 		},
 		{
 			UUID:  s1,
 			ID:    "fs/1",
 			Life:  life.Alive,
 			Owner: &u0n,
+			Kind:  storage.StorageKindFilesystem,
 		},
 	})
 }
@@ -462,7 +464,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s0, u0)
 
 	// Storage instance attachment of a filesystem storage instance with a unit
@@ -471,7 +473,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s1, u1)
 
 	st := s.NewModelState(c)
@@ -509,14 +511,14 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, _ := s.newUnitWithNetNode(c, a0, nn0)
-	s0, s0id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s0, s0id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s0, u0)
 	f0, f0id := s.newFilesystem(c)
 	s.changeFilesystemInfo(c, f0, "my-provider-id-1", 123)
 	s.newStorageInstanceFilesystem(c, s0, f0)
 
 	// Filesystem backed by a volume with size and provider id.
-	s1, s1id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s1, s1id := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	f1, f1id := s.newFilesystem(c)
 	s.changeFilesystemInfo(c, f1, "my-provider-id-2", 456)
 	s.newStorageInstanceFilesystem(c, s1, f1)
@@ -576,7 +578,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s0, u0)
 	f0, _ := s.newFilesystem(c)
 	s.newStorageInstanceFilesystem(c, s0, f0)
@@ -588,7 +590,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID)
+	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s1, u1)
 	f1, _ := s.newFilesystem(c)
 	s.newStorageInstanceFilesystem(c, s1, f1)
@@ -635,7 +637,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, _ := s.newUnitWithNetNode(c, a0, nn0)
-	s0, s0id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, s0id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s0, u0)
 	v0, v0id := s.newVolume(c)
 	s.changeVolumeInfo(c, v0, "my-provider-id-1", 123, "hw0", "wwn0", true)
@@ -645,7 +647,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	a1 := s.newApplication(c, "bar", ch0)
 	nn1 := s.newNetNode(c)
 	u1, _ := s.newUnitWithNetNode(c, a1, nn1)
-	s1, s1id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s1, s1id := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s1, u1)
 	v1, v1id := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s1, v1)
@@ -703,7 +705,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s0, u0)
 	v0, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s0, v0)
@@ -714,7 +716,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s1, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s1, u1)
 	v1, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s1, v1)
@@ -725,7 +727,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn2 := s.newNetNode(c)
 	m2, m2n := s.newMachineWithNetNode(c, nn2)
 	u2, u2n := s.newUnitWithNetNode(c, a2, nn2)
-	s2, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s2, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s2, u2)
 	v2, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s2, v2)
@@ -742,7 +744,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	nn3 := s.newNetNode(c)
 	_, m3n := s.newMachineWithNetNode(c, nn3)
 	u3, u3n := s.newUnitWithNetNode(c, a3, nn3)
-	s3, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID)
+	s3, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s3, u3)
 	v3, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s3, v3)

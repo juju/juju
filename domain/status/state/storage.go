@@ -366,7 +366,7 @@ func (st *ModelState) GetStorageInstances(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT    (si.uuid, si.storage_id, si.life_id) AS (&storageInstanceStatusDetails.*),
+SELECT    (si.uuid, si.storage_id, si.life_id, si.storage_kind_id) AS (&storageInstanceStatusDetails.*),
           u.name AS &storageInstanceStatusDetails.owner_unit_name
 FROM      storage_instance si
 LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
@@ -397,6 +397,7 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid
 		return status.StorageInstance{
 			UUID:  storage.StorageInstanceUUID(v.UUID),
 			ID:    v.ID,
+			Kind:  storage.StorageKind(v.KindID),
 			Life:  life.Life(v.LifeID),
 			Owner: owner,
 		}
