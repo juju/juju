@@ -1698,31 +1698,16 @@ func (s *watcherSuite) newStorageInstance(c *tc.C) (
 	seq := s.nextStorageSequenceNumber(c)
 	storageName := fmt.Sprintf("mystorage-%d", seq)
 	storageID := fmt.Sprintf("mystorage/%d", seq)
+	poolUUID := s.newStoragePool(c, "storage-pool", "test-provider", nil)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
-VALUES (?, ?, 0, 0, 1)`, charmUUID, storageName)
-		if err != nil {
-			return err
-		}
-
-		var charmName string
-		err = tx.QueryRowContext(ctx,
-			"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
-			charmUUID,
-		).Scan(&charmName)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              storage_kind_id, life_id, requested_size_mib,
                              storage_pool_uuid)
 VALUES (?, ?, ?, ?, 1, 0, 100, ?)`,
 			storageInstanceUUID.String(),
-			charmName,
+			"my-charm",
 			storageName,
 			storageID,
 			poolUUID,

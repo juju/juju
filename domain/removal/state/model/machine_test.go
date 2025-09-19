@@ -123,7 +123,7 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&n
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
@@ -155,18 +155,13 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID.String()).Scan(&n
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name1", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
 		}
-<<<<<<< HEAD
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-=======
-		_, err = s.DB().ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
->>>>>>> e89e6377ac (refactor: testing that creates units and storage instances)
 VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name2", 1500, "66:11:22:33:44:56", 0, 0)
 		if err != nil {
 			return err
@@ -204,7 +199,7 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID0.String()).Scan(&
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
 VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-0", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
@@ -217,7 +212,7 @@ SELECT net_node_uuid FROM machine WHERE uuid = ?`, machineUUID1.String()).Scan(&
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
 VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name-1", 1500, "11:11:22:33:44:66", 0, 0)
 		if err != nil {
 			return err
