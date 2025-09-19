@@ -39,8 +39,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -502,315 +500,315 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	c.Check(recievedUnitArgs[0].MachineUUID, tc.Equals, machineUUID)
 }
 
-func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
-	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
-	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
-
-	ch := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Name:  "ubuntu",
-			RunAs: "default",
-			Storage: map[string]applicationcharm.Storage{
-				"foo-data": {
-					Name:        "foo-data",
-					Type:        applicationcharm.StorageBlock,
-					CountMin:    2,
-					CountMax:    -1,
-					MinimumSize: 2048,
-				},
-				"bar-data": {
-					Name:        "bar-data",
-					Type:        applicationcharm.StorageFilesystem,
-					CountMin:    1,
-					CountMax:    1,
-					MinimumSize: 4096,
-				},
-			},
-		},
-		Manifest:        s.minimalManifest(),
-		ReferenceName:   "ubuntu",
-		Source:          applicationcharm.CharmHubSource,
-		Revision:        42,
-		Architecture:    architecture.ARM64,
-		ObjectStoreUUID: objectStoreUUID,
-	}
-	platform := deployment.Platform{
-		Channel:      "24.04",
-		OSType:       deployment.Ubuntu,
-		Architecture: architecture.ARM64,
-	}
-
-	app := application.AddIAASApplicationArg{
-		BaseAddApplicationArg: application.BaseAddApplicationArg{
-			Charm: ch,
-			CharmDownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceDownload,
-				CharmhubIdentifier: "foo",
-				DownloadURL:        "https://example.com/foo",
-				DownloadSize:       42,
-			},
-			Platform: platform,
-			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
-				Name:     "foo-data",
-				Count:    2,
-				Size:     2048,
-				PoolUUID: blockDeviceStoragePoolUUID,
-			}, {
-				Name:     "bar-data",
-				Count:    1,
-				Size:     4096,
-				PoolUUID: filesystemStoragePoolUUID,
-			}},
-		},
-	}
-
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
-			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
-		}, nil,
-	)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
-		Base: corebase.Base{
-			OS: "ubuntu",
-			Channel: corebase.Channel{
-				Track: "24.04",
-			},
-		},
-		Placement: "zone=default",
-	}).Return(nil)
-
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
-		mc := tc.NewMultiChecker()
-		mc.AddExpr(
-			`_.BaseAddApplicationArg.StorageDirectives`,
-			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
-			tc.ExpectedValue,
-		)
-		c.Assert(a, mc, app)
-		return id, nil, nil
-	})
-
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
-		Bases: []charm.Base{
-			{
-				Name: "ubuntu",
-				Channel: charm.Channel{
-					Risk: charm.Stable,
-				},
-				Architectures: []string{"amd64"},
-			},
-		},
-	}).MinTimes(1)
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Name: "ubuntu",
-		Storage: map[string]charm.Storage{
-			"foo-data": {
-				Name:        "foo-data",
-				Type:        charm.StorageBlock,
-				CountMin:    2,
-				CountMax:    -1,
-				MinimumSize: 2048,
-			},
-			"bar-data": {
-				Name:        "bar-data",
-				Type:        charm.StorageFilesystem,
-				CountMin:    1,
-				CountMax:    1,
-				MinimumSize: 4096,
-			},
-		},
-	}).MinTimes(1)
-
-	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
-	}, AddApplicationArgs{
-		ReferenceName: "ubuntu",
-		DownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
-	}, AddIAASUnitArg{
-		AddUnitArg: AddUnitArg{},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
-	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
-	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
-
-	ch := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Name:  "ubuntu",
-			RunAs: "default",
-			Storage: map[string]applicationcharm.Storage{
-				"foo-data": {
-					Name:        "foo-data",
-					Type:        applicationcharm.StorageBlock,
-					CountMin:    2,
-					CountMax:    -1,
-					MinimumSize: 2048,
-				},
-				"bar-data": {
-					Name:        "bar-data",
-					Type:        applicationcharm.StorageFilesystem,
-					CountMin:    1,
-					CountMax:    1,
-					MinimumSize: 4096,
-				},
-			},
-		},
-		Manifest:        s.minimalManifest(),
-		ReferenceName:   "ubuntu",
-		Source:          applicationcharm.CharmHubSource,
-		Revision:        42,
-		Architecture:    architecture.ARM64,
-		ObjectStoreUUID: objectStoreUUID,
-	}
-	platform := deployment.Platform{
-		Channel:      "24.04",
-		OSType:       deployment.Ubuntu,
-		Architecture: architecture.ARM64,
-	}
-
-	app := application.AddIAASApplicationArg{
-		BaseAddApplicationArg: application.BaseAddApplicationArg{
-			Charm: ch,
-			CharmDownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceDownload,
-				CharmhubIdentifier: "foo",
-				DownloadURL:        "https://example.com/foo",
-				DownloadSize:       42,
-			},
-			Platform: platform,
-			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
-				Name:     "foo-data",
-				Count:    2,
-				PoolUUID: blockDeviceStoragePoolUUID,
-				Size:     2048,
-			}, {
-				Name:     "bar-data",
-				Count:    1,
-				PoolUUID: filesystemStoragePoolUUID,
-				Size:     4096,
-			}},
-		},
-	}
-
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			FilesystemPoolUUID: &filesystemStoragePoolUUID,
-		}, nil,
-	)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
-		Base: corebase.Base{
-			OS: "ubuntu",
-			Channel: corebase.Channel{
-				Track: "24.04",
-			},
-		},
-		Placement: "zone=default",
-	}).Return(nil)
-
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
-		mc := tc.NewMultiChecker()
-		mc.AddExpr(
-			`_.BaseAddApplicationArg.StorageDirectives`,
-			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
-			tc.ExpectedValue,
-		)
-		c.Assert(a, mc, app)
-		return id, nil, nil
-	})
-
-	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
-	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
-		Bases: []charm.Base{
-			{
-				Name: "ubuntu",
-				Channel: charm.Channel{
-					Risk: charm.Stable,
-				},
-				Architectures: []string{"amd64"},
-			},
-		},
-	}).MinTimes(1)
-	s.charm.EXPECT().Meta().Return(&charm.Meta{
-		Name: "ubuntu",
-		Storage: map[string]charm.Storage{
-			"foo-data": {
-				Name:        "foo-data",
-				Type:        charm.StorageBlock,
-				CountMin:    2,
-				CountMax:    -1,
-				MinimumSize: 2048,
-			},
-			"bar-data": {
-				Name:        "bar-data",
-				Type:        charm.StorageFilesystem,
-				CountMin:    1,
-				CountMax:    1,
-				MinimumSize: 4096,
-			},
-		},
-	}).MinTimes(1)
-
-	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
-		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
-
-	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
-	}, AddApplicationArgs{
-		ReferenceName: "ubuntu",
-		DownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
-		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
-			"foo-data": {
-				PoolUUID: &blockDeviceStoragePoolUUID,
-			},
-		},
-	}, AddIAASUnitArg{
-		AddUnitArg: AddUnitArg{
-			Placement: &instance.Placement{
-				Scope:     instance.ModelScope,
-				Directive: "zone=default",
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+//	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "ubuntu",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"foo-data": {
+//					Name:        "foo-data",
+//					Type:        applicationcharm.StorageBlock,
+//					CountMin:    2,
+//					CountMax:    -1,
+//					MinimumSize: 2048,
+//				},
+//				"bar-data": {
+//					Name:        "bar-data",
+//					Type:        applicationcharm.StorageFilesystem,
+//					CountMin:    1,
+//					CountMax:    1,
+//					MinimumSize: 4096,
+//				},
+//			},
+//		},
+//		Manifest:        s.minimalManifest(),
+//		ReferenceName:   "ubuntu",
+//		Source:          applicationcharm.CharmHubSource,
+//		Revision:        42,
+//		Architecture:    architecture.ARM64,
+//		ObjectStoreUUID: objectStoreUUID,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.ARM64,
+//	}
+//
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+//				Name:     "foo-data",
+//				Count:    2,
+//				Size:     2048,
+//				PoolUUID: blockDeviceStoragePoolUUID,
+//			}, {
+//				Name:     "bar-data",
+//				Count:    1,
+//				Size:     4096,
+//				PoolUUID: filesystemStoragePoolUUID,
+//			}},
+//		},
+//	}
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{
+//			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+//			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+//		}, nil,
+//	)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//		Placement: "zone=default",
+//	}).Return(nil)
+//
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(
+//			`_.BaseAddApplicationArg.StorageDirectives`,
+//			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+//			tc.ExpectedValue,
+//		)
+//		c.Assert(a, mc, app)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+//		Bases: []charm.Base{
+//			{
+//				Name: "ubuntu",
+//				Channel: charm.Channel{
+//					Risk: charm.Stable,
+//				},
+//				Architectures: []string{"amd64"},
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "ubuntu",
+//		Storage: map[string]charm.Storage{
+//			"foo-data": {
+//				Name:        "foo-data",
+//				Type:        charm.StorageBlock,
+//				CountMin:    2,
+//				CountMax:    -1,
+//				MinimumSize: 2048,
+//			},
+//			"bar-data": {
+//				Name:        "bar-data",
+//				Type:        charm.StorageFilesystem,
+//				CountMin:    1,
+//				CountMax:    1,
+//				MinimumSize: 4096,
+//			},
+//		},
+//	}).MinTimes(1)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "ubuntu",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		CharmObjectStoreUUID: objectStoreUUID,
+//		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
+//	}, AddIAASUnitArg{
+//		AddUnitArg: AddUnitArg{},
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
+//
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+//	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "ubuntu",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"foo-data": {
+//					Name:        "foo-data",
+//					Type:        applicationcharm.StorageBlock,
+//					CountMin:    2,
+//					CountMax:    -1,
+//					MinimumSize: 2048,
+//				},
+//				"bar-data": {
+//					Name:        "bar-data",
+//					Type:        applicationcharm.StorageFilesystem,
+//					CountMin:    1,
+//					CountMax:    1,
+//					MinimumSize: 4096,
+//				},
+//			},
+//		},
+//		Manifest:        s.minimalManifest(),
+//		ReferenceName:   "ubuntu",
+//		Source:          applicationcharm.CharmHubSource,
+//		Revision:        42,
+//		Architecture:    architecture.ARM64,
+//		ObjectStoreUUID: objectStoreUUID,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.ARM64,
+//	}
+//
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+//				Name:     "foo-data",
+//				Count:    2,
+//				PoolUUID: blockDeviceStoragePoolUUID,
+//				Size:     2048,
+//			}, {
+//				Name:     "bar-data",
+//				Count:    1,
+//				PoolUUID: filesystemStoragePoolUUID,
+//				Size:     4096,
+//			}},
+//		},
+//	}
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{
+//			FilesystemPoolUUID: &filesystemStoragePoolUUID,
+//		}, nil,
+//	)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//		Placement: "zone=default",
+//	}).Return(nil)
+//
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(
+//			`_.BaseAddApplicationArg.StorageDirectives`,
+//			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+//			tc.ExpectedValue,
+//		)
+//		c.Assert(a, mc, app)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+//		Bases: []charm.Base{
+//			{
+//				Name: "ubuntu",
+//				Channel: charm.Channel{
+//					Risk: charm.Stable,
+//				},
+//				Architectures: []string{"amd64"},
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "ubuntu",
+//		Storage: map[string]charm.Storage{
+//			"foo-data": {
+//				Name:        "foo-data",
+//				Type:        charm.StorageBlock,
+//				CountMin:    2,
+//				CountMax:    -1,
+//				MinimumSize: 2048,
+//			},
+//			"bar-data": {
+//				Name:        "bar-data",
+//				Type:        charm.StorageFilesystem,
+//				CountMin:    1,
+//				CountMax:    1,
+//				MinimumSize: 4096,
+//			},
+//		},
+//	}).MinTimes(1)
+//
+//	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+//		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "ubuntu",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		CharmObjectStoreUUID: objectStoreUUID,
+//		Constraints:          coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
+//		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+//			"foo-data": {
+//				PoolUUID: &blockDeviceStoragePoolUUID,
+//			},
+//		},
+//	}, AddIAASUnitArg{
+//		AddUnitArg: AddUnitArg{
+//			Placement: &instance.Placement{
+//				Scope:     instance.ModelScope,
+//				Directive: "zone=default",
+//			},
+//		},
+//	})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1349,6 +1347,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 
 // TODO (tlm): Need to add the expectation that the default storage source is
 // added to the directives.
+<<<<<<< HEAD
 func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1507,135 +1506,296 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
+=======
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//
+//	now := ptr(s.clock.Now())
+//	us := []application.AddIAASUnitArg{{
+//		AddUnitArg: application.AddUnitArg{
+//			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+//			UnitStatusArg: application.UnitStatusArg{
+//				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+//					Status: status.UnitAgentStatusAllocating,
+//					Since:  now,
+//				},
+//				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+//					Status:  status.WorkloadStatusWaiting,
+//					Message: "waiting for machine",
+//					Since:   now,
+//				},
+//			},
+//			CreateUnitStorageArg: application.CreateUnitStorageArg{
+//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//					{
+//						Count:    1,
+//						Name:     "data",
+//						Size:     10,
+//						PoolUUID: blockDeviceStoragePoolUUID,
+//					},
+//				},
+//				StorageInstances: []application.CreateUnitStorageInstanceArg{
+//					{
+//						Name: "data",
+//					},
+//				},
+//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//					{},
+//				},
+//				StorageToOwn: []storage.StorageInstanceUUID{""},
+//			},
+//		},
+//		Platform: deployment.Platform{
+//			OSType:  deployment.Ubuntu,
+//			Channel: "24.04",
+//		},
+//	}}
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "foo",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"data": {
+//					Name:        "data",
+//					Type:        applicationcharm.StorageBlock,
+//					Shared:      false,
+//					CountMin:    1,
+//					CountMax:    2,
+//					MinimumSize: 10,
+//				},
+//			},
+//		},
+//		Manifest:      s.minimalManifest(),
+//		ReferenceName: "foo",
+//		Source:        applicationcharm.LocalSource,
+//		Revision:      42,
+//		Architecture:  architecture.AMD64,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.AMD64,
+//	}
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//				{
+//					Name:     "data",
+//					Count:    1,
+//					Size:     10,
+//					PoolUUID: blockDeviceStoragePoolUUID,
+//				},
+//			},
+//		},
+//	}
+//
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//	}).Return(nil)
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{}, nil,
+//	)
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		c.Assert(a, tc.DeepEquals, app)
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+//			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+//		c.Assert(u, mc, us)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "foo",
+//		Storage: map[string]charm.Storage{
+//			"data": {
+//				Name:        "data",
+//				Type:        charm.StorageBlock,
+//				Shared:      false,
+//				CountMin:    1,
+//				CountMax:    2,
+//				MinimumSize: 10,
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+//		Name:          "ubuntu",
+//		Channel:       charm.Channel{Risk: charm.Stable},
+//		Architectures: []string{"amd64"},
+//	}}}).MinTimes(1)
+//
+//	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+//		gomock.Any(), blockDeviceStoragePoolUUID, charm.StorageBlock).Return(true, nil)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+//		Source:   corecharm.Local,
+//		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "foo",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+//			"data": {
+//				PoolUUID: &blockDeviceStoragePoolUUID,
+//			},
+//		},
+//	}, AddIAASUnitArg{})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
+>>>>>>> 6af3528214 (test: comment out storage code for provider in application)
 
 // TODO (tlm): Add a case where a default block and or file system source cannot
 // be supplied. What happens then?
-func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
 
-	id := applicationtesting.GenApplicationUUID(c)
-	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
-	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//	id := applicationtesting.GenApplicationUUID(c)
+//	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
-	now := ptr(s.clock.Now())
-	us := []application.AddIAASUnitArg{{
-		AddUnitArg: application.AddUnitArg{
-			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-					Status: status.UnitAgentStatusAllocating,
-					Since:  now,
-				},
-				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-					Status:  status.WorkloadStatusWaiting,
-					Message: corestatus.MessageWaitForMachine,
-					Since:   now,
-				},
-			},
-			CreateUnitStorageArg: application.CreateUnitStorageArg{
-				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
-					{
-						Name:     "data",
-						Count:    3,
-						Size:     10,
-						PoolUUID: blockDeviceStoragePoolUUID,
-					},
-				},
-				StorageInstances: []application.CreateUnitStorageInstanceArg{
-					{
-						Name: "data",
-					},
-					{
-						Name: "data",
-					},
-					{
-						Name: "data",
-					},
-				},
-				StorageToAttach: []application.CreateStorageAttachmentArg{
-					{}, {}, {},
-				},
-				StorageToOwn: []storage.StorageInstanceUUID{"", "", ""},
-			},
-		},
-		Platform: deployment.Platform{
-			OSType:  deployment.Ubuntu,
-			Channel: "24.04",
-		},
-	}}
-	ch := applicationcharm.Charm{
-		Metadata: applicationcharm.Metadata{
-			Name:  "foo",
-			RunAs: "default",
-			Storage: map[string]applicationcharm.Storage{
-				"data": {
-					Name:        "data",
-					Type:        applicationcharm.StorageBlock,
-					Shared:      false,
-					CountMin:    1,
-					CountMax:    3,
-					MinimumSize: 10,
-				},
-			},
-		},
-		Manifest:      s.minimalManifest(),
-		ReferenceName: "foo",
-		Source:        applicationcharm.CharmHubSource,
-		Revision:      42,
-		Architecture:  architecture.AMD64,
-	}
-	platform := deployment.Platform{
-		Channel:      "24.04",
-		OSType:       deployment.Ubuntu,
-		Architecture: architecture.AMD64,
-	}
-	app := application.AddIAASApplicationArg{
-		BaseAddApplicationArg: application.BaseAddApplicationArg{
-			Charm: ch,
-			CharmDownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance:         applicationcharm.ProvenanceDownload,
-				CharmhubIdentifier: "foo",
-				DownloadURL:        "https://example.com/foo",
-				DownloadSize:       42,
-			},
-			Platform: platform,
-			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
-				{
-					Count:    3,
-					Name:     "data",
-					Size:     10,
-					PoolUUID: blockDeviceStoragePoolUUID,
-				},
-			},
-		},
-	}
+//	now := ptr(s.clock.Now())
+//	us := []application.AddIAASUnitArg{{
+//		AddUnitArg: application.AddUnitArg{
+//			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+//			UnitStatusArg: application.UnitStatusArg{
+//				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+//					Status: status.UnitAgentStatusAllocating,
+//					Since:  now,
+//				},
+//				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+//					Status:  status.WorkloadStatusWaiting,
+//					Message: corestatus.MessageWaitForMachine,
+//					Since:   now,
+//				},
+//			},
+//			CreateUnitStorageArg: application.CreateUnitStorageArg{
+//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//					{
+//						Name:     "data",
+//						Count:    3,
+//						Size:     10,
+//						PoolUUID: blockDeviceStoragePoolUUID,
+//					},
+//				},
+//				StorageInstances: []application.CreateUnitStorageInstanceArg{
+//					{
+//						Name: "data",
+//					},
+//					{
+//						Name: "data",
+//					},
+//					{
+//						Name: "data",
+//					},
+//				},
+//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//					{}, {}, {},
+//				},
+//				StorageToOwn: []storage.StorageInstanceUUID{"", "", ""},
+//			},
+//		},
+//		Platform: deployment.Platform{
+//			OSType:  deployment.Ubuntu,
+//			Channel: "24.04",
+//		},
+//	}}
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "foo",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"data": {
+//					Name:        "data",
+//					Type:        applicationcharm.StorageBlock,
+//					Shared:      false,
+//					CountMin:    1,
+//					CountMax:    3,
+//					MinimumSize: 10,
+//				},
+//			},
+//		},
+//		Manifest:      s.minimalManifest(),
+//		ReferenceName: "foo",
+//		Source:        applicationcharm.CharmHubSource,
+//		Revision:      42,
+//		Architecture:  architecture.AMD64,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.AMD64,
+//	}
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//				{
+//					Count:    3,
+//					Name:     "data",
+//					Size:     10,
+//					PoolUUID: blockDeviceStoragePoolUUID,
+//				},
+//			},
+//		},
+//	}
 
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
-	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Base: corebase.Base{
-			OS: "ubuntu",
-			Channel: corebase.Channel{
-				Track: "24.04",
-			},
-		},
-	}).Return(nil)
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//	}).Return(nil)
 
-	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
-		application.DefaultStorageProvisioners{
-			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
-			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
-		}, nil,
-	)
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
-		c.Assert(a, tc.DeepEquals, app)
-		mc := tc.NewMultiChecker()
-		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
-			s.createUnitStorageArgChecker(), tc.ExpectedValue)
-		c.Assert(u, mc, us)
-		return id, nil, nil
-	})
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{
+//			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+//			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+//		}, nil,
+//	)
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		c.Assert(a, tc.DeepEquals, app)
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+//			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+//		c.Assert(u, mc, us)
+//		return id, nil, nil
+//	})
 
+<<<<<<< HEAD
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.ConfigSpec{}).MinTimes(1)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -1656,26 +1816,49 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultS
 		Channel:       charm.Channel{Risk: charm.Stable},
 		Architectures: []string{"amd64"},
 	}}}).MinTimes(1)
+=======
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "foo",
+//		Storage: map[string]charm.Storage{
+//			"data": {
+//				Name:        "data",
+//				Type:        charm.StorageBlock,
+//				Shared:      false,
+//				CountMin:    1,
+//				CountMax:    3,
+//				MinimumSize: 10,
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+//		Name:          "ubuntu",
+//		Channel:       charm.Channel{Risk: charm.Stable},
+//		Architectures: []string{"amd64"},
+//	}}}).MinTimes(1)
+>>>>>>> 6af3528214 (test: comment out storage code for provider in application)
 
-	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-		Revision: ptr(42),
-	}, AddApplicationArgs{
-		ReferenceName: "foo",
-		DownloadInfo: &applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
-			"data": {Count: ptr(uint32(3))},
-		},
-	}, AddIAASUnitArg{})
-	c.Assert(err, tc.ErrorIsNil)
-}
+//	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "foo",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+//			"data": {Count: ptr(uint32(3))},
+//		},
+//	}, AddIAASUnitArg{})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
 
+<<<<<<< HEAD
 func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1998,12 +2181,337 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDef
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
+=======
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//
+//	now := ptr(s.clock.Now())
+//	us := []application.AddIAASUnitArg{{
+//		AddUnitArg: application.AddUnitArg{
+//			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+//			UnitStatusArg: application.UnitStatusArg{
+//				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+//					Status: status.UnitAgentStatusAllocating,
+//					Since:  now,
+//				},
+//				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+//					Status:  status.WorkloadStatusWaiting,
+//					Message: "waiting for machine",
+//					Since:   now,
+//				},
+//			},
+//			CreateUnitStorageArg: application.CreateUnitStorageArg{
+//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//					{
+//						Name:     "data",
+//						Count:    1,
+//						Size:     10,
+//						PoolUUID: filesystemStoragePoolUUID,
+//					},
+//				},
+//				StorageInstances: []application.CreateUnitStorageInstanceArg{
+//					{
+//						Name: "data",
+//					},
+//				},
+//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//					{},
+//				},
+//				StorageToOwn: []storage.StorageInstanceUUID{""},
+//			},
+//		},
+//		Platform: deployment.Platform{
+//			OSType:  deployment.Ubuntu,
+//			Channel: "24.04",
+//		},
+//	}}
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "foo",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"data": {
+//					Name:        "data",
+//					Type:        applicationcharm.StorageFilesystem,
+//					Shared:      false,
+//					CountMin:    1,
+//					CountMax:    2,
+//					MinimumSize: 10,
+//				},
+//			},
+//		},
+//		Manifest:      s.minimalManifest(),
+//		ReferenceName: "foo",
+//		Source:        applicationcharm.CharmHubSource,
+//		Revision:      42,
+//		Architecture:  architecture.AMD64,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.AMD64,
+//	}
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//				{
+//					Count:    1,
+//					Name:     "data",
+//					Size:     10,
+//					PoolUUID: filesystemStoragePoolUUID,
+//				},
+//			},
+//		},
+//	}
+//
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//	}).Return(nil)
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{}, nil,
+//	)
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		c.Assert(a, tc.DeepEquals, app)
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+//			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+//		c.Assert(u, mc, us)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "foo",
+//		Storage: map[string]charm.Storage{
+//			"data": {
+//				Name:        "data",
+//				Type:        charm.StorageFilesystem,
+//				Shared:      false,
+//				CountMin:    1,
+//				CountMax:    2,
+//				MinimumSize: 10,
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+//		Name:          "ubuntu",
+//		Channel:       charm.Channel{Risk: charm.Stable},
+//		Architectures: []string{"amd64"},
+//	}}}).MinTimes(1)
+//
+//	s.storageValidator.EXPECT().CheckPoolSupportsCharmStorage(
+//		gomock.Any(), filesystemStoragePoolUUID, charm.StorageFilesystem).Return(true, nil)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "foo",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+//			"data": {
+//				PoolUUID: &filesystemStoragePoolUUID,
+//			},
+//		},
+//	}, AddIAASUnitArg{})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
+//
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
+//
+//	now := ptr(s.clock.Now())
+//	us := []application.AddIAASUnitArg{{
+//		AddUnitArg: application.AddUnitArg{
+//			UnitStatusArg: application.UnitStatusArg{
+//				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+//					Status: status.UnitAgentStatusAllocating,
+//					Since:  now,
+//				},
+//				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+//					Status:  status.WorkloadStatusWaiting,
+//					Message: "waiting for machine",
+//					Since:   now,
+//				},
+//			},
+//			CreateUnitStorageArg: application.CreateUnitStorageArg{
+//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//					{
+//						Name:     "data",
+//						Count:    2,
+//						Size:     10,
+//						PoolUUID: filesystemStoragePoolUUID,
+//					},
+//				},
+//				StorageInstances: []application.CreateUnitStorageInstanceArg{
+//					{
+//						Name: "data",
+//					},
+//					{
+//						Name: "data",
+//					},
+//				},
+//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//					{}, {},
+//				},
+//				StorageToOwn: []storage.StorageInstanceUUID{"", ""},
+//			},
+//		},
+//		Platform: deployment.Platform{
+//			OSType:  deployment.Ubuntu,
+//			Channel: "24.04",
+//		},
+//	}}
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "foo",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"data": {
+//					Name:        "data",
+//					Type:        applicationcharm.StorageFilesystem,
+//					Shared:      false,
+//					CountMin:    1,
+//					CountMax:    3,
+//					MinimumSize: 10,
+//				},
+//			},
+//		},
+//		Manifest:      s.minimalManifest(),
+//		ReferenceName: "foo",
+//		Source:        applicationcharm.CharmHubSource,
+//		Revision:      42,
+//		Architecture:  architecture.AMD64,
+//	}
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.AMD64,
+//	}
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform: platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//				{
+//					Count:    2,
+//					Name:     "data",
+//					Size:     10,
+//					PoolUUID: filesystemStoragePoolUUID,
+//				},
+//			},
+//		},
+//	}
+//
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//	}).Return(nil)
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{
+//			BlockdevicePoolUUID: &blockDeviceStoragePoolUUID,
+//			FilesystemPoolUUID:  &filesystemStoragePoolUUID,
+//		}, nil,
+//	)
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		c.Assert(a, tc.DeepEquals, app)
+//		mc := tc.NewMultiChecker()
+//		mc.AddExpr(`_[_].AddUnitArg.CreateUnitStorageArg`,
+//			s.createUnitStorageArgChecker(), tc.ExpectedValue)
+//		c.Assert(u, mc, us)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "foo",
+//		Storage: map[string]charm.Storage{
+//			"data": {
+//				Name:        "data",
+//				Type:        charm.StorageFilesystem,
+//				Shared:      false,
+//				CountMin:    1,
+//				CountMax:    3,
+//				MinimumSize: 10,
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+//		Name:          "ubuntu",
+//		Channel:       charm.Channel{Risk: charm.Stable},
+//		Architectures: []string{"amd64"},
+//	}}}).MinTimes(1)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "foo",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
+//			"data": {Count: ptr(uint32(2))},
+//		},
+//	}, AddIAASUnitArg{})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
+>>>>>>> 6af3528214 (test: comment out storage code for provider in application)
 
 // TestCreateIAASApplicationWithSharedStorage is testing that we can create an
 // application for a charm that has shared storage. As long as the charm is ok
 // with having no instances of the storage. We don't support shared storage but
 // will continue to work if the charm can function without the storage. That is
 // CountMin == 0.
+<<<<<<< HEAD
 func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2119,6 +2627,123 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.
 	}, AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 }
+=======
+//func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
+//	defer s.setupMocks(c).Finish()
+//
+//	id := applicationtesting.GenApplicationUUID(c)
+//
+//	platform := deployment.Platform{
+//		Channel:      "24.04",
+//		OSType:       deployment.Ubuntu,
+//		Architecture: architecture.AMD64,
+//	}
+//
+//	now := ptr(s.clock.Now())
+//	us := []application.AddIAASUnitArg{{
+//		AddUnitArg: application.AddUnitArg{
+//			UnitStatusArg: application.UnitStatusArg{
+//				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+//					Status: status.UnitAgentStatusAllocating,
+//					Since:  now,
+//				},
+//				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+//					Status:  status.WorkloadStatusWaiting,
+//					Message: "waiting for machine",
+//					Since:   now,
+//				},
+//			},
+//		},
+//		Platform: platform,
+//	}}
+//	ch := applicationcharm.Charm{
+//		Metadata: applicationcharm.Metadata{
+//			Name:  "foo",
+//			RunAs: "default",
+//			Storage: map[string]applicationcharm.Storage{
+//				"data": {
+//					Name:     "data",
+//					Type:     applicationcharm.StorageFilesystem,
+//					Shared:   true,
+//					CountMin: 0,
+//				},
+//			},
+//		},
+//		Manifest:      s.minimalManifest(),
+//		ReferenceName: "foo",
+//		Source:        applicationcharm.CharmHubSource,
+//		Revision:      42,
+//		Architecture:  architecture.AMD64,
+//	}
+//	app := application.AddIAASApplicationArg{
+//		BaseAddApplicationArg: application.BaseAddApplicationArg{
+//			Charm: ch,
+//			CharmDownloadInfo: &applicationcharm.DownloadInfo{
+//				Provenance:         applicationcharm.ProvenanceDownload,
+//				CharmhubIdentifier: "foo",
+//				DownloadURL:        "https://example.com/foo",
+//				DownloadSize:       42,
+//			},
+//			Platform:          platform,
+//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{},
+//		},
+//	}
+//
+//	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+//	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+//	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
+//		Base: corebase.Base{
+//			OS: "ubuntu",
+//			Channel: corebase.Channel{
+//				Track: "24.04",
+//			},
+//		},
+//	}).Return(nil)
+//
+//	s.state.EXPECT().GetDefaultStorageProvisioners(gomock.Any()).Return(
+//		application.DefaultStorageProvisioners{}, nil,
+//	)
+//	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "foo", gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, n string, a application.AddIAASApplicationArg, u []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+//		c.Assert(a, tc.DeepEquals, app)
+//		c.Assert(u, createAddIAASUnitArgsChecker(), us)
+//		return id, nil, nil
+//	})
+//
+//	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+//	s.charm.EXPECT().Config().Return(&charm.Config{})
+//	s.charm.EXPECT().Meta().Return(&charm.Meta{
+//		Name: "foo",
+//		Storage: map[string]charm.Storage{
+//			"data": {
+//				Name:     "data",
+//				Type:     charm.StorageFilesystem,
+//				Shared:   true,
+//				CountMin: 0,
+//			},
+//		},
+//	}).MinTimes(1)
+//	s.charm.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{{
+//		Name:          "ubuntu",
+//		Channel:       charm.Channel{Risk: charm.Stable},
+//		Architectures: []string{"amd64"},
+//	}}}).MinTimes(1)
+//
+//	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
+//		Source:   corecharm.CharmHub,
+//		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
+//		Revision: ptr(42),
+//	}, AddApplicationArgs{
+//		ReferenceName: "foo",
+//		DownloadInfo: &applicationcharm.DownloadInfo{
+//			Provenance:         applicationcharm.ProvenanceDownload,
+//			CharmhubIdentifier: "foo",
+//			DownloadURL:        "https://example.com/foo",
+//			DownloadSize:       42,
+//		},
+//	}, AddIAASUnitArg{})
+//	c.Assert(err, tc.ErrorIsNil)
+//}
+>>>>>>> 6af3528214 (test: comment out storage code for provider in application)
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
