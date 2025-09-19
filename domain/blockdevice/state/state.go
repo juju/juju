@@ -357,10 +357,10 @@ func (st *State) removeUnreferencedBlockDevices(
 	}
 
 	selectBlockDevicesStmt, err := st.Prepare(`
-SELECT          bd.uuid AS &entityUUID.uuid
-FROM            block_device bd
-LEFT OUTER JOIN storage_volume_attachment sva ON bd.uuid=sva.block_device_uuid
-WHERE           bd.uuid IN ($blockDeviceUUIDs[:])
+SELECT    bd.uuid AS &entityUUID.uuid
+FROM      block_device bd
+LEFT JOIN storage_volume_attachment sva ON bd.uuid=sva.block_device_uuid
+WHERE     bd.uuid IN ($blockDeviceUUIDs[:]) AND sva.block_device_uuid IS NULL
 `, input, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)

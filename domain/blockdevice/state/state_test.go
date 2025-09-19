@@ -371,6 +371,11 @@ func (s *stateSuite) TestUpdateBlockDevicesRemoves(c *tc.C) {
 	c.Assert(result, tc.HasLen, 0)
 }
 
+func (s *stateSuite) TestUpdateBlockDevicesRemoveFailsQuietly(c *tc.C) {
+	// TODO(storage): when a block device is still referenced by a volume
+	// attachment, we need to ignore the remove. This must test that.
+}
+
 func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
