@@ -74,6 +74,12 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	if len(args.Endpoints) == 0 {
 		return internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)
 	}
+	// Ensure that we don't have any endpoints that are non-global scope.
+	for _, endpoint := range args.Endpoints {
+		if endpoint.Scope != charm.ScopeGlobal {
+			return internalerrors.Errorf("endpoint %q has non-global scope %q", endpoint.Name, endpoint.Scope).Add(errors.NotValid)
+		}
+	}
 
 	// Construct a synthetic charm to represent the remote application charm,
 	// so we can track the endpoints it offers.

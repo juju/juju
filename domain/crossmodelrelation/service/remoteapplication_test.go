@@ -49,7 +49,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 					Name:      "cache",
 					Role:      charm.RoleRequirer,
 					Interface: "cacher",
-					Scope:     charm.ScopeContainer,
+					Scope:     charm.ScopeGlobal,
 				},
 			},
 			Peers: map[string]charm.Relation{},
@@ -79,7 +79,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 			Name:      "cache",
 			Role:      charm.RoleRequirer,
 			Interface: "cacher",
-			Scope:     charm.ScopeContainer,
+			Scope:     charm.ScopeGlobal,
 		}},
 		Macaroon: macaroon,
 	})
@@ -148,4 +148,31 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidOf
 		OffererModelUUID: offererModelUUID,
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidRole(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
+	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
+	macaroon := newMacaroon(c, "test")
+
+	service := s.service(c)
+
+	err := service.AddRemoteApplicationOfferer(c.Context(), "foo", AddRemoteApplicationOffererArgs{
+		OfferUUID:             offerUUID,
+		OffererControllerUUID: offererControllerUUID,
+		OffererModelUUID:      offererModelUUID,
+		Endpoints: []charm.Relation{{
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Interface: "db",
+			Limit:     1,
+			Scope:     charm.ScopeContainer,
+		}},
+		Macaroon: macaroon,
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+
 }
