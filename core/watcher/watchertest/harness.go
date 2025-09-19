@@ -102,7 +102,7 @@ func (h *Harness[T]) Run(c *tc.C, initial ...T) {
 	}
 
 	// Ensure that the initial event is sent by the watcher.
-	h.watcher.Check(SliceAssert[T](initial...))
+	h.watcher.CheckInitial(SliceAssert(initial...))
 	h.idler.AssertChangeStreamIdle(c)
 
 	for i, test := range h.tests {
