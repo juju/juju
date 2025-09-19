@@ -1843,8 +1843,8 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 			// the same storage instance. This could be pushed into the
 			// storageprovisioning service, but that would require it to
 			// understand the provisioned status of a volume.
-			return errors.New("volume backed filesystem not implemented").
-				Add(coreerrors.NotImplemented)
+			s.logger.Warningf(ctx,
+				"TODO(storage): check fs volume tag matches fs vol back")
 		}
 		info := storageprovisioning.FilesystemProvisionedInfo{
 			ProviderID: fs.Info.ProviderId,
