@@ -86,8 +86,18 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		poolUUID, "rootfs", "rootfs")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().Exec(`
-INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id, life_id, storage_pool_uuid, requested_size_mib)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid.String(), "mycharm", "pgdata", "pgdata/0", 0, poolUUID, 666)
+INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
+                             storage_kind_id, life_id, storage_pool_uuid,
+                             requested_size_mib)
+VALUES (?, ?, ?, ?, 1, ?, ?, ?)`,
+		uuid.String(),
+		"mycharm",
+		"pgdata",
+		"pgdata/0",
+		0,
+		poolUUID,
+		666,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")

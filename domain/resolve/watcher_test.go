@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/resolve/service"
@@ -47,8 +49,22 @@ func (s *watcherSuite) TestWatchUnitResolveModeNotFound(c *tc.C) {
 }
 
 func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
-	u1 := application.AddIAASUnitArg{}
-	u2 := application.AddIAASUnitArg{}
+	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	u1 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID1,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID1,
+		},
+	}
+	u2 := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID2,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID2,
+		},
+	}
 	s.createApplication(c, "foo", u1, u2)
 
 	svc := s.setupService(c)

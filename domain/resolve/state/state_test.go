@@ -111,6 +111,7 @@ func (s *stateSuite) TestResolveUnitNoHooks(c *tc.C) {
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -135,6 +136,7 @@ func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,
@@ -159,6 +161,7 @@ func (s *stateSuite) TestResolveUnitAlreadyResolved(c *tc.C) {
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusError,

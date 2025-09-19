@@ -136,13 +136,14 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
-		applicationservice.AddIAASUnitArg{
-			AddUnitArg: applicationservice.AddUnitArg{
-				Placement: instance.MustParsePlacement("0"),
-			},
-		},
 		applicationservice.AddIAASUnitArg{},
 	)
+	_, _, err := svc.AddIAASUnits(c.Context(), "some-app", applicationservice.AddIAASUnitArg{
+		AddUnitArg: applicationservice.AddUnitArg{
+			Placement: instance.MustParsePlacement("0"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	allUnitUUIDs, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
 	c.Assert(allUnitUUIDs, tc.HasLen, 3)
@@ -336,7 +337,7 @@ func (s *applicationSuite) TestApplicationRemovalNotExistsSuccess(c *tc.C) {
 	// It doesn't matter that the application does not exist.
 	// We rely on the worker to handle that fact.
 	row := s.DB().QueryRow(`
-SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for
 FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
 where  r.uuid = ?`, "removal-uuid",
 	)

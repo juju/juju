@@ -1683,7 +1683,7 @@ func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitWithoutMachine(c *
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
 }
 
 func (s *unitStateSubordinateSuite) TestAddIAASSubordinateUnitApplicationNotAlive(c *tc.C) {

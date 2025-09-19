@@ -160,8 +160,13 @@ VALUES ('abc', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name1", 1500, "00:11:22:33:
 		if err != nil {
 			return err
 		}
+<<<<<<< HEAD
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
+=======
+		_, err = s.DB().ExecContext(ctx, `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+>>>>>>> e89e6377ac (refactor: testing that creates units and storage instances)
 VALUES ('def', ?, ?, ?, ?, ?, ?)`, netNodeUUID, "lld-name2", 1500, "66:11:22:33:44:56", 0, 0)
 		if err != nil {
 			return err
@@ -257,11 +262,18 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
+	)
+	_, _, err := svc.AddIAASUnits(
+		context.Background(),
+		"some-app",
 		applicationservice.AddIAASUnitArg{
 			AddUnitArg: applicationservice.AddUnitArg{
 				Placement: instance.MustParsePlacement("0"),
 			},
-		})
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 2)
 
@@ -460,7 +472,7 @@ func (s *machineSuite) TestMachineRemovalNotExistsSuccess(c *tc.C) {
 	// It doesn't matter that the machine does not exist.
 	// We rely on the worker to handle that fact.
 	row := s.DB().QueryRow(`
-SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for
 FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
 where  r.uuid = ?`, "removal-uuid",
 	)

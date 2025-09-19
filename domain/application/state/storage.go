@@ -223,7 +223,7 @@ WHERE  unit_uuid = $entityUUID.uuid
 		rval = append(rval, application.StorageDirective{
 			Count:    val.Count,
 			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.Type),
+			Type:     charm.StorageType(val.Kind),
 			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
 			Size:     val.SizeMiB,
 		})

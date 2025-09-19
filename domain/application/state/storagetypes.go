@@ -124,7 +124,6 @@ type storageDirective struct {
 	SizeMiB         uint64 `db:"size_mib"`
 	StorageName     string `db:"storage_name"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
-	Type            string `db:"type"`
 }
 
 // unitStorageDirective is used to represent the values held in the

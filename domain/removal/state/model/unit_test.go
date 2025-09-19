@@ -199,6 +199,11 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",
 		applicationservice.AddIAASUnitArg{},
+	)
+
+	_, _, err := svc.AddIAASUnits(
+		c.Context(),
+		"some-app",
 		applicationservice.AddIAASUnitArg{
 			AddUnitArg: applicationservice.AddUnitArg{
 				// Place this unit on the same machine as the first one.
@@ -206,6 +211,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 			},
 		},
 	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 2)
@@ -303,7 +309,7 @@ func (s *unitSuite) TestUnitRemovalNotExistsSuccess(c *tc.C) {
 	// It doesn't matter that the unit does not exist.
 	// We rely on the worker to handle that fact.
 	row := s.DB().QueryRow(`
-SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for
 FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
 where  r.uuid = ?`, "removal-uuid",
 	)

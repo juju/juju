@@ -44,6 +44,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -279,7 +280,14 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appID, err := appState.GetApplicationIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{})
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, machine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+		},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]

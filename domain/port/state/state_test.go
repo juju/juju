@@ -153,7 +153,7 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 		MachineNetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 		MachineUUID:        tc.Must(c, machine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
-			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			NetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
 				Directive: machineName.String(),
