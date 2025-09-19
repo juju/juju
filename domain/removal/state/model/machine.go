@@ -476,6 +476,13 @@ WHERE uuid = $node.uuid
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
+		// Delete all tasks related to the machine, and eventually removes
+		// operations if they are empty after tasks deletion.
+		_, err = st.cleanupTasksAndOperationsByMachineUUID(ctx, tx, machineUUIDParam.UUID)
+		if err != nil {
+			return errors.Errorf("deleting operation: %w", err)
+		}
+
 		// Check to see if the machine_cloud_instance is still alive. If it is,
 		// we cannot delete the machine. It is expected that the provisioner
 		// will have removed the instance before calling this method.
