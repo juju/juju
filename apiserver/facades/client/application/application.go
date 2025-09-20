@@ -3167,6 +3167,9 @@ func (api *APIBase) GetApplicationStorage(args params.Entities) (params.Applicat
 	return resp, nil
 }
 
+// GetApplicationStorage isn't on the v21 API.
+func (api *APIv21) GetApplicationStorage(_ struct{}) {}
+
 func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
 	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
 	if err != nil {
@@ -3215,3 +3218,6 @@ func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdat
 
 	return resp, nil
 }
+
+// UpdateApplicationStorage isn't on the v21 API.
+func (api *APIv21) UpdateApplicationStorage(_ struct{}) {}
