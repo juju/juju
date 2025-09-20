@@ -128,6 +128,74 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
 }
 
+func (s *unitSuite) TestEnsureUnitNotAliveDestroyStorage(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	ctx := c.Context()
+
+	// Create a storage pool and a storage instance attached to the app's unit.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(
+			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
+		); err != nil {
+			return err
+		}
+
+		inst := `
+INSERT INTO storage_instance (
+	uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id, storage_kind_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0, 0)`
+		if _, err := tx.ExecContext(ctx, inst); err != nil {
+			return err
+		}
+
+		attach := `
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
+		if _, err := tx.ExecContext(ctx, attach, unitUUID); err != nil {
+			return err
+		}
+
+		owned := "INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES ('instance-uuid', ?)"
+		if _, err := tx.ExecContext(ctx, owned, unitUUID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascade, err := st.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Unit had life "alive" and should now be "dying".
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+
+	// Storage attachment should be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = 'storage-attachment-uuid'")
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	// Storage instance should be "dying".
+	row = s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = 'instance-uuid'")
+	err = row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
+
+	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
+	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
+}
+
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMachine(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	app1UUID := s.createIAASApplication(c, svc, "foo",
