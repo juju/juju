@@ -17,7 +17,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
@@ -40,13 +39,13 @@ func (s *getOperationSuite) TestListOperationsPermissionDenied(c *tc.C) {
 	// Arrange
 	// Authorizer without read permission
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
-	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService, s.BlockCommandService, s.ModelInfoService, s.OperationService, modeltesting.GenModelUUID(c))
-	c.Assert(err, tc.ErrorIsNil)
+	api := s.newActionAPIWithAuthorizer(c, auth)
+
 	// Ensure List is not called
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
-	_, err = api.ListOperations(c.Context(), params.OperationQueryArgs{Applications: []string{"app"}})
+	_, err := api.ListOperations(c.Context(), params.OperationQueryArgs{Applications: []string{"app"}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -57,7 +56,7 @@ func (s *getOperationSuite) TestListOperationsPermissionDenied(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsNoFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
 			c.Check(qp.Receivers.Applications, tc.HasLen, 0)
@@ -82,7 +81,7 @@ func (s *getOperationSuite) TestListOperationsNoFilters(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsApplicationsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	apps := []string{"app-a", "app-b"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
@@ -102,7 +101,7 @@ func (s *getOperationSuite) TestListOperationsApplicationsFilter(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsUnitsFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	units := []string{"app-a/0", "app-b/3"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
@@ -121,7 +120,7 @@ func (s *getOperationSuite) TestListOperationsUnitsFilter(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsMachinesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	machines := []string{"0", "42"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
@@ -138,7 +137,7 @@ func (s *getOperationSuite) TestListOperationsMachinesFilter(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsActionNamesFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	names := []string{"backup", "reindex"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
@@ -155,7 +154,7 @@ func (s *getOperationSuite) TestListOperationsActionNamesFilter(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsStatusFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	status := []corestatus.Status{"running", "completed"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
@@ -173,7 +172,7 @@ func (s *getOperationSuite) TestListOperationsStatusFilter(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsLimitOffset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	limit := 10
 	offset := 20
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -193,7 +192,7 @@ func (s *getOperationSuite) TestListOperationsLimitOffset(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsCombinedFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	apps := []string{"a"}
 	units := []string{"a/0"}
 	machines := []string{"1"}
@@ -223,7 +222,7 @@ func (s *getOperationSuite) TestListOperationsCombinedFilters(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).Return(operation.QueryResult{}, fmt.Errorf("boom"))
 	// Act
 	_, err := api.ListOperations(c.Context(), params.OperationQueryArgs{})
@@ -236,7 +235,7 @@ func (s *getOperationSuite) TestListOperationsServiceError(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsMappingSingleOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	tiM := operation.TaskInfo{ID: "1", ActionName: "m-act"}
 	tiU := operation.TaskInfo{ID: "2", ActionName: "u-act"}
 	qr := operation.QueryResult{Operations: []operation.OperationInfo{{
@@ -270,7 +269,7 @@ func (s *getOperationSuite) TestListOperationsMappingSingleOperation(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsTruncatedPassThrough(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	qr := operation.QueryResult{Truncated: true}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).Return(qr, nil)
 	// Act
@@ -284,7 +283,7 @@ func (s *getOperationSuite) TestListOperationsTruncatedPassThrough(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsOperationErrorMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	qr := operation.QueryResult{Operations: []operation.OperationInfo{{OperationID: "1", Error: fmt.Errorf("op-fail")}}}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).Return(qr, nil)
 	// Act
@@ -301,7 +300,7 @@ func (s *getOperationSuite) TestListOperationsOperationErrorMapping(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	when := time.Date(2025, time.January, 2, 3, 4, 5, 0, time.UTC)
 	log := []operation.TaskLog{{Timestamp: when, Message: "log1"}}
 	ti := operation.TaskInfo{
@@ -344,7 +343,7 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 func (s *getOperationSuite) TestListOperationsEmptyOperations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	qr := operation.QueryResult{Operations: []operation.OperationInfo{}, Truncated: false}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).Return(qr, nil)
 	// Act
@@ -370,15 +369,12 @@ func (s *getOperationSuite) TestOperationsPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
-	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService,
-		s.BlockCommandService, s.ModelInfoService, s.OperationService,
-		modeltesting.GenModelUUID(c))
-	c.Assert(err, tc.ErrorIsNil)
+	api := s.newActionAPIWithAuthorizer(c, auth)
 	// Ensure no call
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
-	_, err = api.Operations(c.Context(), toEntities("operation-1"))
+	_, err := api.Operations(c.Context(), toEntities("operation-1"))
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -389,7 +385,7 @@ func (s *getOperationSuite) TestOperationsPermissionDenied(c *tc.C) {
 func (s *getOperationSuite) TestOperationsAllTagsInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	// No service call expected
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 	arg := toEntities("not-a-tag", "application-foo", "unit-app-0")
@@ -410,7 +406,7 @@ func (s *getOperationSuite) TestOperationsAllTagsInvalid(c *tc.C) {
 func (s *getOperationSuite) TestOperationsMixedValidInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "1").Return(operation.OperationInfo{
 		OperationID: "1",
 		Summary:     "a",
@@ -440,7 +436,7 @@ func (s *getOperationSuite) TestOperationsMixedValidInvalid(c *tc.C) {
 func (s *getOperationSuite) TestOperationsEmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
@@ -455,7 +451,7 @@ func (s *getOperationSuite) TestOperationsEmptyInput(c *tc.C) {
 func (s *getOperationSuite) TestOperationsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "1").Return(
 		operation.OperationInfo{OperationID: "1"}, nil)
 	s.OperationService.EXPECT().GetOperationByID(gomock.Any(), "2").Return(
@@ -476,7 +472,7 @@ func (s *getOperationSuite) TestOperationsServiceError(c *tc.C) {
 func (s *getOperationSuite) TestOperationsLargeBatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	arg := toEntities(
 		"operation-1", "operation-2", "operation-3", "operation-4",
 		"operation-5", "operation-6", "operation-7", "operation-8",

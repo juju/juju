@@ -362,7 +362,7 @@ func (s *pruneBySizeSuite) TestEstimateOperationSizeWithDataBigLog(c *tc.C) {
 	c.Check(avg, tc.Equals, 9/2)
 }
 
-// TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive ensures no pruning occurs when size limit is zero or negative.
+// TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive ensures no pruning occurs when size Limit is zero or negative.
 func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBIgnoresNonPositive(c *tc.C) {
 	// Arrange: add some operations to ensure there is data.
 	op1 := s.addOperation(c)

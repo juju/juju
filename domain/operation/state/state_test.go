@@ -5,7 +5,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -14,15 +16,21 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/domain/operation/internal"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
-type deleteOperationSuite struct {
-	baseSuite
-}
-
 func TestDeleteOperationSuite(t *testing.T) {
 	tc.Run(t, &deleteOperationSuite{})
+}
+
+func TestStateSuite(t *testing.T) {
+	tc.Run(t, &stateSuite{})
+}
+
+type deleteOperationSuite struct {
+	baseSuite
 }
 
 // TestDeleteOperationByUUIDs tests that the delete operation by UUIDs function
@@ -549,4 +557,91 @@ func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForMachineNonExistentUUIDs(c
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(result), tc.Equals, 0)
+}
+
+type stateSuite struct {
+	baseSuite
+}
+
+func (s *stateSuite) TestGetTaskUUIDByID(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "task-1"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "pending")
+
+	// Act
+	taskID, err := s.state.GetTaskUUIDByID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(taskID, tc.Equals, taskUUID)
+}
+
+func (s *stateSuite) TestGetTaskUUIDByIDNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetTaskUUIDByID(c.Context(), "taskID")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.TaskNotFound)
+}
+
+// TestGetPaginatedTaskLogsByUUID test the pagination logic of the method.
+func (s *stateSuite) TestGetPaginatedTaskLogsByUUID(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, "task-1", "running")
+	for _, msg := range []string{"one", "two", "three"} {
+		s.addOperationTaskLog(c, taskUUID, fmt.Sprintf("task %s", msg))
+	}
+	cursor := time.Time{}
+
+	// Act: get the first set of logs.
+	logs, nextCursor, err := s.state.GetLatestTaskLogsByUUID(c.Context(), taskUUID, cursor)
+
+	// Assert: note: order is important with the logs
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nextCursor.After(cursor), tc.IsTrue)
+	c.Check(logs, tc.HasLen, 3)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.Timestamp", tc.Ignore)
+	c.Check(logs, tc.OrderedMatch[[]internal.TaskLogMessage](mc), []internal.TaskLogMessage{
+		{Message: "task one"},
+		{Message: "task two"},
+		{Message: "task three"},
+	})
+
+	// Arrange: add more logs after a partial bit have been added.
+	for _, msg := range []string{"four", "five", "six"} {
+		s.addOperationTaskLog(c, taskUUID, fmt.Sprintf("task %s", msg))
+	}
+
+	// Act: get the newest logs
+	logs, nextCursor, err = s.state.GetLatestTaskLogsByUUID(c.Context(), taskUUID, nextCursor)
+
+	// Assert: note: order is important with the logs
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nextCursor.After(cursor), tc.IsTrue)
+	c.Check(logs, tc.HasLen, 3)
+	c.Check(logs, tc.OrderedMatch[[]internal.TaskLogMessage](mc), []internal.TaskLogMessage{
+		{Message: "task four"},
+		{Message: "task five"},
+		{Message: "task six"},
+	})
+	cursor = nextCursor
+
+	// Act: no new logs, the cursor shouldn't change
+	_, nextCursor, err = s.state.GetLatestTaskLogsByUUID(c.Context(), taskUUID, nextCursor)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nextCursor.Equal(cursor), tc.IsTrue)
+}
+
+func (s *stateSuite) TestGetPaginatedTaskLogsByUUIDNoEntries(c *tc.C) {
+	// Act
+	_, cursor, err := s.state.GetLatestTaskLogsByUUID(c.Context(), "taskID", time.Time{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cursor.Equal(time.Time{}), tc.IsTrue)
 }

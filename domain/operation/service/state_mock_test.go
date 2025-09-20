@@ -203,6 +203,46 @@ func (c *MockStateGetIDsForAbortingTaskOfReceiverCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetLatestTaskLogsByUUID mocks base method.
+func (m *MockState) GetLatestTaskLogsByUUID(ctx context.Context, taskUUID string, cursor time.Time) ([]internal.TaskLogMessage, time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestTaskLogsByUUID", ctx, taskUUID, cursor)
+	ret0, _ := ret[0].([]internal.TaskLogMessage)
+	ret1, _ := ret[1].(time.Time)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetLatestTaskLogsByUUID indicates an expected call of GetLatestTaskLogsByUUID.
+func (mr *MockStateMockRecorder) GetLatestTaskLogsByUUID(ctx, taskUUID, cursor any) *MockStateGetLatestTaskLogsByUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestTaskLogsByUUID", reflect.TypeOf((*MockState)(nil).GetLatestTaskLogsByUUID), ctx, taskUUID, cursor)
+	return &MockStateGetLatestTaskLogsByUUIDCall{Call: call}
+}
+
+// MockStateGetLatestTaskLogsByUUIDCall wrap *gomock.Call
+type MockStateGetLatestTaskLogsByUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetLatestTaskLogsByUUIDCall) Return(arg0 []internal.TaskLogMessage, arg1 time.Time, arg2 error) *MockStateGetLatestTaskLogsByUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetLatestTaskLogsByUUIDCall) Do(f func(context.Context, string, time.Time) ([]internal.TaskLogMessage, time.Time, error)) *MockStateGetLatestTaskLogsByUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetLatestTaskLogsByUUIDCall) DoAndReturn(f func(context.Context, string, time.Time) ([]internal.TaskLogMessage, time.Time, error)) *MockStateGetLatestTaskLogsByUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineUUIDByName mocks base method.
 func (m *MockState) GetMachineUUIDByName(ctx context.Context, n machine.Name) (string, error) {
 	m.ctrl.T.Helper()
@@ -238,46 +278,6 @@ func (c *MockStateGetMachineUUIDByNameCall) Do(f func(context.Context, machine.N
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDByNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetPaginatedTaskLogsByUUID mocks base method.
-func (m *MockState) GetPaginatedTaskLogsByUUID(ctx context.Context, taskUUID string, page int) ([]internal.TaskLogMessage, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPaginatedTaskLogsByUUID", ctx, taskUUID, page)
-	ret0, _ := ret[0].([]internal.TaskLogMessage)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetPaginatedTaskLogsByUUID indicates an expected call of GetPaginatedTaskLogsByUUID.
-func (mr *MockStateMockRecorder) GetPaginatedTaskLogsByUUID(ctx, taskUUID, page any) *MockStateGetPaginatedTaskLogsByUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPaginatedTaskLogsByUUID", reflect.TypeOf((*MockState)(nil).GetPaginatedTaskLogsByUUID), ctx, taskUUID, page)
-	return &MockStateGetPaginatedTaskLogsByUUIDCall{Call: call}
-}
-
-// MockStateGetPaginatedTaskLogsByUUIDCall wrap *gomock.Call
-type MockStateGetPaginatedTaskLogsByUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetPaginatedTaskLogsByUUIDCall) Return(arg0 []internal.TaskLogMessage, arg1 int, arg2 error) *MockStateGetPaginatedTaskLogsByUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetPaginatedTaskLogsByUUIDCall) Do(f func(context.Context, string, int) ([]internal.TaskLogMessage, int, error)) *MockStateGetPaginatedTaskLogsByUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetPaginatedTaskLogsByUUIDCall) DoAndReturn(f func(context.Context, string, int) ([]internal.TaskLogMessage, int, error)) *MockStateGetPaginatedTaskLogsByUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

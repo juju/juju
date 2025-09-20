@@ -6,8 +6,10 @@ package operation_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -19,6 +21,7 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/domain/operation/service"
 	"github.com/juju/juju/domain/operation/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -52,121 +55,6 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		nil, // object store not needed for these tests.
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 	)
-}
-
-// runQuery is a helper method to run SQL queries, copying the pattern from state tests.
-func (s *watcherSuite) runQuery(c *tc.C, query string, args ...interface{}) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, query, args...)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// addUnit creates a unit with all required dependencies, copying the pattern from state tests.
-func (s *watcherSuite) addUnit(c *tc.C, unitName string) internaluuid.UUID {
-	appUUID := internaluuid.MustNewUUID().String()
-	charmUUID := internaluuid.MustNewUUID().String()
-	spaceUUID := internaluuid.MustNewUUID().String()
-	netNodeUUID := internaluuid.MustNewUUID().String()
-
-	// Extract application name from unit name (e.g., "test-app/0" -> "test-app")
-	appName := unitName
-	if slashIndex := strings.Index(unitName, "/"); slashIndex != -1 {
-		appName = unitName[:slashIndex]
-	}
-
-	// Insert net_node first
-	s.runQuery(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)`, netNodeUUID)
-
-	// Insert space first (use unique name to avoid conflicts)
-	spaceName := "test-space-" + spaceUUID[:8]
-	s.runQuery(c, `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`, spaceUUID, spaceName)
-
-	// Insert charm (use unique name to avoid conflicts)
-	charmName := "test-charm-" + charmUUID[:8]
-	s.runQuery(c, `
-INSERT INTO charm (uuid, source_id, reference_name, revision, available)
-VALUES (?, 1, ?, 1, true)`, charmUUID, charmName)
-
-	// Insert application with extracted name from unit name
-	s.runQuery(c, `
-INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
-VALUES (?, ?, ?, ?, ?)`, appUUID, appName, "0", charmUUID, spaceUUID)
-
-	unitUUID := internaluuid.MustNewUUID()
-	// Insert unit
-	s.runQuery(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
-VALUES (?, ?, ?, ?, ?, ?)`, unitUUID.String(), unitName, "0", appUUID, netNodeUUID, charmUUID)
-	return unitUUID
-}
-
-// addMachine creates a machine with all required dependencies, copying the pattern from state tests.
-func (s *watcherSuite) addMachine(c *tc.C, machineName string) internaluuid.UUID {
-	netNodeUUID := internaluuid.MustNewUUID().String()
-
-	// Insert net_node first
-	s.runQuery(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)`, netNodeUUID)
-
-	machineUUID := internaluuid.MustNewUUID()
-	// Insert machine
-	s.runQuery(c, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid)
-VALUES (?, ?, ?, ?)`, machineUUID.String(), machineName, "0", netNodeUUID)
-
-	return machineUUID
-}
-
-// addOperation creates an operation, copying the pattern from state tests.
-func (s *watcherSuite) addOperation(c *tc.C) internaluuid.UUID {
-	uuid := internaluuid.MustNewUUID()
-	s.runQuery(c, `
-INSERT INTO operation (uuid, operation_id, summary, enqueued_at, parallel, execution_group)
-VALUES (?, 1, 'test-operation', datetime('now'), false, 'test-group')`, uuid.String())
-	return uuid
-}
-
-// addOperationTaskWithID creates an operation task with specific ID and status, copying the pattern from state tests.
-func (s *watcherSuite) addOperationTaskWithID(c *tc.C, operationUUID internaluuid.UUID, taskID string, status corestatus.Status) internaluuid.UUID {
-	uuid := internaluuid.MustNewUUID()
-	s.runQuery(c, `
-INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
-VALUES (?, ?, ?, datetime('now'))`, uuid.String(), operationUUID.String(), taskID)
-	s.runQuery(c, `
-INSERT INTO operation_task_status (task_uuid, status_id)
-SELECT ?, id FROM operation_task_status_value WHERE status = ?`, uuid.String(), string(status))
-	return uuid
-}
-
-// addOperationUnitTask links an operation task to a unit, copying the pattern from state tests.
-func (s *watcherSuite) addOperationUnitTask(c *tc.C, taskUUID, unitUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_unit_task (task_uuid, unit_uuid)
-VALUES (?, ?)`, taskUUID.String(), unitUUID.String())
-}
-
-// addOperationMachineTask links an operation task to a machine, copying the pattern from state tests.
-func (s *watcherSuite) addOperationMachineTask(c *tc.C, taskUUID, machineUUID internaluuid.UUID) {
-	s.runQuery(c, `
-INSERT INTO operation_machine_task (task_uuid, machine_uuid)
-VALUES (?, ?)`, taskUUID.String(), machineUUID.String())
-}
-
-// setTaskStatus updates the status of an existing task.
-func (s *watcherSuite) setTaskStatus(c *tc.C, taskUUID internaluuid.UUID, status corestatus.Status) {
-	s.runQuery(c, `
-UPDATE operation_task_status
-SET status_id = (SELECT id FROM operation_task_status_value WHERE status = ?),
-    updated_at = datetime('now')
-WHERE task_uuid = ?
-`, string(status), taskUUID.String())
 }
 
 func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
@@ -352,4 +240,170 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_NotFound(c *tc.C) {
 func (s *watcherSuite) TestWatchMachineTaskNotifications_NotFound(c *tc.C) {
 	_, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name("999"))
 	c.Assert(err, tc.ErrorMatches, `.*machine "999" not found.*`)
+}
+
+func (s *watcherSuite) TestWatchTaskLogs(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "task-0"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running)
+	logMessages := []string{
+		"task one",
+		"task two",
+	}
+	initialLogStrings := []string{}
+	for _, msg := range logMessages {
+		output := s.addOperationTaskLog(c, taskUUID.String(), msg)
+		initialLogStrings = append(initialLogStrings, output)
+	}
+
+	watcher, err := s.svc.WatchTaskLogs(c.Context(), taskID)
+	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	logStrings := []string{}
+	harness.AddTest(c, func(c *tc.C) {
+		for i := range 15 {
+			msg := fmt.Sprintf("task %d", i)
+			output := s.addOperationTaskLog(c, taskUUID.String(), msg)
+			logStrings = append(logStrings, output)
+		}
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](logStrings...),
+		)
+	})
+
+	harness.Run(c, initialLogStrings)
+}
+
+// runQuery is a helper method to run SQL queries, copying the pattern from state tests.
+func (s *watcherSuite) runQuery(c *tc.C, query string, args ...interface{}) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, query, args...)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addUnit creates a unit with all required dependencies, copying the pattern from state tests.
+func (s *watcherSuite) addUnit(c *tc.C, unitName string) internaluuid.UUID {
+	appUUID := internaluuid.MustNewUUID().String()
+	charmUUID := internaluuid.MustNewUUID().String()
+	spaceUUID := internaluuid.MustNewUUID().String()
+	netNodeUUID := internaluuid.MustNewUUID().String()
+
+	// Extract application name from unit name (e.g., "test-app/0" -> "test-app")
+	appName := unitName
+	if slashIndex := strings.Index(unitName, "/"); slashIndex != -1 {
+		appName = unitName[:slashIndex]
+	}
+
+	// Insert net_node first
+	s.runQuery(c, `
+INSERT INTO net_node (uuid)
+VALUES (?)`, netNodeUUID)
+
+	// Insert space first (use unique name to avoid conflicts)
+	spaceName := "test-space-" + spaceUUID[:8]
+	s.runQuery(c, `
+INSERT INTO space (uuid, name)
+VALUES (?, ?)`, spaceUUID, spaceName)
+
+	// Insert charm (use unique name to avoid conflicts)
+	charmName := "test-charm-" + charmUUID[:8]
+	s.runQuery(c, `
+INSERT INTO charm (uuid, source_id, reference_name, revision, available)
+VALUES (?, 1, ?, 1, true)`, charmUUID, charmName)
+
+	// Insert application with extracted name from unit name
+	s.runQuery(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, ?, ?, ?, ?)`, appUUID, appName, "0", charmUUID, spaceUUID)
+
+	unitUUID := internaluuid.MustNewUUID()
+	// Insert unit
+	s.runQuery(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
+VALUES (?, ?, ?, ?, ?, ?)`, unitUUID.String(), unitName, "0", appUUID, netNodeUUID, charmUUID)
+	return unitUUID
+}
+
+// addMachine creates a machine with all required dependencies, copying the pattern from state tests.
+func (s *watcherSuite) addMachine(c *tc.C, machineName string) internaluuid.UUID {
+	netNodeUUID := internaluuid.MustNewUUID().String()
+
+	// Insert net_node first
+	s.runQuery(c, `
+INSERT INTO net_node (uuid)
+VALUES (?)`, netNodeUUID)
+
+	machineUUID := internaluuid.MustNewUUID()
+	// Insert machine
+	s.runQuery(c, `
+INSERT INTO machine (uuid, name, life_id, net_node_uuid)
+VALUES (?, ?, ?, ?)`, machineUUID.String(), machineName, "0", netNodeUUID)
+
+	return machineUUID
+}
+
+// addOperation creates an operation, copying the pattern from state tests.
+func (s *watcherSuite) addOperation(c *tc.C) internaluuid.UUID {
+	uuid := internaluuid.MustNewUUID()
+	s.runQuery(c, `
+INSERT INTO operation (uuid, operation_id, summary, enqueued_at, parallel, execution_group)
+VALUES (?, 1, 'test-operation', datetime('now'), false, 'test-group')`, uuid.String())
+	return uuid
+}
+
+// addOperationTaskWithID creates an operation task with specific ID and status, copying the pattern from state tests.
+func (s *watcherSuite) addOperationTaskWithID(c *tc.C, operationUUID internaluuid.UUID, taskID string, status corestatus.Status) internaluuid.UUID {
+	uuid := internaluuid.MustNewUUID()
+	s.runQuery(c, `
+INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
+VALUES (?, ?, ?, datetime('now'))`, uuid.String(), operationUUID.String(), taskID)
+	s.runQuery(c, `
+INSERT INTO operation_task_status (task_uuid, status_id)
+SELECT ?, id FROM operation_task_status_value WHERE status = ?`, uuid.String(), string(status))
+	return uuid
+}
+
+// addOperationUnitTask links an operation task to a unit, copying the pattern from state tests.
+func (s *watcherSuite) addOperationUnitTask(c *tc.C, taskUUID, unitUUID internaluuid.UUID) {
+	s.runQuery(c, `
+INSERT INTO operation_unit_task (task_uuid, unit_uuid)
+VALUES (?, ?)`, taskUUID.String(), unitUUID.String())
+}
+
+// addOperationMachineTask links an operation task to a machine, copying the pattern from state tests.
+func (s *watcherSuite) addOperationMachineTask(c *tc.C, taskUUID, machineUUID internaluuid.UUID) {
+	s.runQuery(c, `
+INSERT INTO operation_machine_task (task_uuid, machine_uuid)
+VALUES (?, ?)`, taskUUID.String(), machineUUID.String())
+}
+
+// setTaskStatus updates the status of an existing task.
+func (s *watcherSuite) setTaskStatus(c *tc.C, taskUUID internaluuid.UUID, status corestatus.Status) {
+	s.runQuery(c, `
+UPDATE operation_task_status
+SET status_id = (SELECT id FROM operation_task_status_value WHERE status = ?),
+    updated_at = datetime('now')
+WHERE task_uuid = ?
+`, string(status), taskUUID.String())
+}
+
+// addOperationTaskLog inserts a log message for a task.
+func (s *watcherSuite) addOperationTaskLog(c *tc.C, taskUUID, content string) string {
+	date := time.Now().UTC()
+
+	s.runQuery(c, `
+INSERT INTO operation_task_log (task_uuid, content, created_at) VALUES (?, ?, ?)
+`, taskUUID, content, date)
+
+	str, err := internal.TaskLogMessage{
+		Message:   content,
+		Timestamp: date,
+	}.TransformToCore().Encode()
+	c.Check(err, tc.ErrorIsNil)
+	return str
 }

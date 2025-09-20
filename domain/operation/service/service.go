@@ -67,13 +67,13 @@ type State interface {
 	// GetTaskUUIDByID returns the task UUID for the given task ID.
 	GetTaskUUIDByID(ctx context.Context, taskID string) (string, error)
 
-	// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
-	// the page number.
-	GetPaginatedTaskLogsByUUID(
+	// GetLatestTaskLogsByUUID returns a slice of log messages newer than
+	// the cursor provided. A new cursor is returned with the latest value.
+	GetLatestTaskLogsByUUID(
 		ctx context.Context,
 		taskUUID string,
-		page int,
-	) ([]internal.TaskLogMessage, int, error)
+		cursor time.Time,
+	) ([]internal.TaskLogMessage, time.Time, error)
 
 	// InitialWatchStatementUnitTask returns the namespace (table) and an
 	// initial query function which returns the list of non-pending task ids for

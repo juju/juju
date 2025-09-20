@@ -75,3 +75,7 @@ type taskTime struct {
 	TaskID string    `db:"task_id"`
 	Time   time.Time `db:"time"`
 }
+
+type pagination struct {
+	Cursor time.Time `db:"cursor"`
+}

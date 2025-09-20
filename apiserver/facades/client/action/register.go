@@ -31,6 +31,7 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 		domainServices.ModelInfo(),
 		domainServices.Operation(),
 		ctx.ModelUUID(),
+		ctx.WatcherRegistry(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

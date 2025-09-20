@@ -35,7 +35,7 @@ func (st *State) PruneOperations(ctx context.Context, maxAge time.Duration, maxS
 	// Prune by size
 	sizeStorePath, err := st.pruneOperationsToKeepUnderSizeMiB(ctx, maxSizeMB)
 	if err != nil {
-		return nil, errors.Errorf("pruning operation to keep size under the limit: %w", err)
+		return nil, errors.Errorf("pruning operation to keep size under the Limit: %w", err)
 	}
 
 	storePaths, err := st.deleteStoreEntryByUUIDs(ctx, append(ageStorePath, sizeStorePath...))
@@ -107,7 +107,7 @@ func (st *State) getCompletedOperationUUIDsOlderThan(ctx context.Context, tx *sq
 }
 
 // pruneOperationsToKeepUnderSizeMiB prunes operations to ensure the total size of
-// operations stays below the specified limit.
+// operations stays below the specified Limit.
 // It retrieves the database and calculates the total size and average size of
 // operations. If pruning is required, it deletes a calculated number of
 // operations to meet the size constraint.

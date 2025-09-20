@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/collections/transform"
 
@@ -23,6 +24,7 @@ import (
 // WatchTaskLogs starts and returns a StringsWatcher that notifies on new log
 // messages for a specified action being added. The strings are json encoded
 // action messages.
+// Returns TaskNotFound if the task does not exist.
 func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -33,15 +35,15 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 	}
 
 	var (
-		logs []internal.TaskLogMessage
-		page int
+		logs   []internal.TaskLogMessage
+		cursor time.Time
 	)
 
 	initialQuery := func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 		ctx, span := trace.Start(ctx, "WatchTaskLogs.initialQuery")
 		defer span.End()
 
-		logs, page, err = w.st.GetPaginatedTaskLogsByUUID(ctx, taskUUID, 0)
+		logs, cursor, err = w.st.GetLatestTaskLogsByUUID(ctx, taskUUID, cursor)
 		if err != nil {
 			return nil, errors.Errorf("initial query for task %q logs: %q", taskID, err)
 		}
@@ -53,7 +55,7 @@ func (w *WatchableService) WatchTaskLogs(ctx context.Context, taskID string) (wa
 		ctx, span := trace.Start(ctx, "WatchTaskLogs.mapper")
 		defer span.End()
 
-		logs, page, err = w.st.GetPaginatedTaskLogsByUUID(ctx, taskUUID, page)
+		logs, cursor, err = w.st.GetLatestTaskLogsByUUID(ctx, taskUUID, cursor)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}

@@ -13,11 +13,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/operation"
@@ -52,6 +54,10 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
+	// CancelTask attempts to cancel an enqueued task, identified by its
+	// ID.
+	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+
 	// GetOperations returns a list of operations on specified entities, filtered by the
 	// given parameters.
 	GetOperations(ctx context.Context, args operation.QueryArgs) (operation.QueryResult, error)
@@ -59,9 +65,16 @@ type OperationService interface {
 	// GetOperationByID returns an operation by its ID.
 	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
 
+	// GetTask returns the task identified by its ID.
+	GetTask(ctx context.Context, taskID string) (operation.Task, error)
+
 	// StartExecOperation creates an exec operation with tasks for various
 	// machines and units, using the provided parameters.
-	StartExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
+	StartExecOperation(
+		ctx context.Context,
+		target operation.Receivers,
+		args operation.ExecArgs,
+	) (operation.RunResult, error)
 
 	// StartExecOperationOnAllMachines creates an exec operation
 	// based on the provided parameters on all machines.
@@ -72,20 +85,20 @@ type OperationService interface {
 	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
 		args operation.TaskArgs) (operation.RunResult, error)
 
-	// GetTask returns the task identified by its ID.
-	GetTask(ctx context.Context, taskID string) (operation.Task, error)
-
-	// CancelTask attempts to cancel an enqueued task, identified by its
-	// ID.
-	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+	// WatchTaskLogs starts and returns a StringsWatcher that notifies on new log
+	// messages for a specified action being added. The strings are json encoded
+	// action messages.
+	WatchTaskLogs(ctx context.Context, taskID string) (watcher.StringsWatcher, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
-	modelTag           names.ModelTag
-	authorizer         facade.Authorizer
-	check              *common.BlockChecker
-	leadership         leadership.Reader
+	modelTag        names.ModelTag
+	authorizer      facade.Authorizer
+	check           *common.BlockChecker
+	leadership      leadership.Reader
+	watcherRegistry facade.WatcherRegistry
+
 	applicationService ApplicationService
 	modelInfoService   ModelInfoService
 	operationService   OperationService
@@ -104,6 +117,7 @@ func newActionAPI(
 	modelInfoService ModelInfoService,
 	operationService OperationService,
 	modelUUID coremodel.UUID,
+	watcherRegistry facade.WatcherRegistry,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -121,6 +135,7 @@ func newActionAPI(
 		authorizer:         authorizer,
 		check:              common.NewBlockChecker(blockCommandService),
 		leadership:         leaders,
+		watcherRegistry:    watcherRegistry,
 		applicationService: applicationService,
 		modelInfoService:   modelInfoService,
 		operationService:   operationService,
@@ -265,13 +280,28 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		Results: make([]params.StringsWatchResult, len(actions.Entities)),
 	}
 	for i, arg := range actions.Entities {
-		_, err := names.ParseActionTag(arg.Tag)
+		actionTag, err := names.ParseActionTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		results.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("actions in Dqlite"))
+		w, err := api.operationService.WatchTaskLogs(ctx, actionTag.Id())
+		if errors.Is(err, operationerrors.TaskNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("action %q", actionTag.Id()))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		id, initial, err := internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, w)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i].StringsWatcherId = id
+		results.Results[i].Changes = initial
 	}
 	return results, nil
 }
