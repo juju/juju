@@ -14,6 +14,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -139,19 +140,26 @@ func (s *baseSuite) addUnit(c *tc.C, charmUUID string) string {
 	return s.addUnitWithName(c, charmUUID, "")
 }
 
-// addUnit inserts a new unit record into the database and returns the generated unit UUID.
+// addUnitWithName inserts a new unit record into the database and returns the generated unit UUID.
 func (s *baseSuite) addUnitWithName(c *tc.C, charmUUID, name string) string {
+	var unitName coreunit.Name
+	if name != "" {
+		unitName = coreunit.Name(name)
+	} else {
+		// Generate a unique application name to avoid conflicts
+		// Use 'testapp' + ID to comply with Juju naming rules (no hyphens ending with numbers)
+		uniqueAppName := fmt.Sprintf("testapp%s", s.nextID())
+		unitName = coreunit.Name(fmt.Sprintf("%s/0", uniqueAppName))
+	}
+
 	appUUID := internaluuid.MustNewUUID().String()
 	nodeUUID := internaluuid.MustNewUUID().String()
 	unitUUID := internaluuid.MustNewUUID().String()
-	if name == "" {
-		name = unitUUID
-	}
 	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, appUUID, life.Alive, charmUUID, network.AlphaSpaceId)
+		appUUID, unitName.Application(), life.Alive, charmUUID, network.AlphaSpaceId)
 	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
-		unitUUID, name, life.Alive, appUUID, charmUUID, nodeUUID)
+		unitUUID, unitName.String(), life.Alive, appUUID, charmUUID, nodeUUID)
 	return unitUUID
 }
 
