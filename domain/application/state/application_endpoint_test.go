@@ -170,12 +170,13 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointsNoCharmRel
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: noop, no error
-	db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.insertApplicationEndpointBindings(c.Context(), tx, insertApplicationEndpointsParams{
 			appID:    s.appID,
 			bindings: nil,
 		})
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert: Shouldn't have any relation endpoint, default space not updated
 	c.Assert(err, tc.ErrorIsNil)

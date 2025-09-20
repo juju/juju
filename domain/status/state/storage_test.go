@@ -526,10 +526,11 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	s.newStorageInstanceVolume(c, s1, v1)
 
 	st := s.NewModelState(c)
-	st.SetFilesystemStatus(c.Context(), f0, status.StatusInfo[status.StorageFilesystemStatusType]{
+	err := st.SetFilesystemStatus(c.Context(), f0, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttaching,
 		Message: "attaching the filez",
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := st.GetFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -653,10 +654,11 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	s.newStorageInstanceVolume(c, s1, v1)
 
 	st := s.NewModelState(c)
-	st.SetVolumeStatus(c.Context(), v0, status.StatusInfo[status.StorageVolumeStatusType]{
+	err := st.SetVolumeStatus(c.Context(), v0, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttaching,
 		Message: "attaching the volumez",
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	res, err := st.GetVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

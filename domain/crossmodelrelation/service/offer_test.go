@@ -17,21 +17,20 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/internal/errors"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
-type serviceSuite struct {
+type offerServiceSuite struct {
 	baseSuite
 }
 
-func TestServiceSuite(t *testing.T) {
-	tc.Run(t, &serviceSuite{})
+func TestOfferServiceSuite(t *testing.T) {
+	tc.Run(t, &offerServiceSuite{})
 }
 
 // TestOfferCreate tests that Offer creates a new offer and
 // access.
-func (s *serviceSuite) TestOfferCreate(c *tc.C) {
+func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -69,7 +68,7 @@ func (s *serviceSuite) TestOfferCreate(c *tc.C) {
 
 // TestOfferCreateAccessErr tests that Offer, when creating access for the
 // offer fails, the offer is deleted.
-func (s *serviceSuite) TestOfferCreateAccessErr(c *tc.C) {
+func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -109,7 +108,7 @@ func (s *serviceSuite) TestOfferCreateAccessErr(c *tc.C) {
 
 // TestOfferCreateError tests that Offer, when creating an offer fails, no
 // access is created.
-func (s *serviceSuite) TestOfferCreateError(c *tc.C) {
+func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -140,7 +139,7 @@ func (s *serviceSuite) TestOfferCreateError(c *tc.C) {
 }
 
 // TestOfferUpdate tests that Offer creates updates an existing offer.
-func (s *serviceSuite) TestOfferUpdate(c *tc.C) {
+func (s *offerServiceSuite) TestOfferUpdate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -163,7 +162,7 @@ func (s *serviceSuite) TestOfferUpdate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetOffersEmptyFilters(c *tc.C) {
+func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -227,7 +226,7 @@ func (s *serviceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetOffers(c *tc.C) {
+func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -293,7 +292,7 @@ func (s *serviceSuite) TestGetOffers(c *tc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
+func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -403,7 +402,7 @@ func (s *serviceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 
 // TestGetOffersWithAllowedConsumersNotFound tests that if no allowed consumers
 // are found, and the filter has other content. Filter is an OR.
-func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilter(c *tc.C) {
+func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -475,7 +474,7 @@ func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilter(c *
 
 // TestGetOffersWithAllowedConsumersNotFound tests that if no allowed consumers
 // are found, and no other content of the same filter, nothing is returned.
-func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
+func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -496,7 +495,7 @@ func (s *serviceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{})
 }
 
-func (s *serviceSuite) TestGetOfferUUID(c *tc.C) {
+func (s *offerServiceSuite) TestGetOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -513,15 +512,7 @@ func (s *serviceSuite) TestGetOfferUUID(c *tc.C) {
 	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
 }
 
-func (s *serviceSuite) service(c *tc.C) *Service {
-	return &Service{
-		controllerState: s.controllerDBState,
-		modelState:      s.modelDBState,
-		logger:          loggertesting.WrapCheckLog(c),
-	}
-}
-
-func (s *serviceSuite) TestGetOfferUUIDError(c *tc.C) {
+func (s *offerServiceSuite) TestGetOfferUUIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange

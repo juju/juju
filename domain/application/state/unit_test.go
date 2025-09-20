@@ -119,7 +119,7 @@ WHERE u.name=?`,
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var port string
@@ -617,12 +617,12 @@ func (s *unitStateSuite) TestAddIAASUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.AgentStatus.Status), u.UnitStatusArg.AgentStatus.Message,
-		u.UnitStatusArg.AgentStatus.Since, u.UnitStatusArg.AgentStatus.Data)
+		int(u.AgentStatus.Status), u.AgentStatus.Message,
+		u.AgentStatus.Since, u.AgentStatus.Data)
 	s.assertUnitStatus(
 		c, "unit_workload", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.WorkloadStatus.Status), u.UnitStatusArg.WorkloadStatus.Message,
-		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
+		int(u.WorkloadStatus.Status), u.WorkloadStatus.Message,
+		u.WorkloadStatus.Since, u.WorkloadStatus.Data)
 	s.assertUnitConstraints(c, coreunit.UUID(unitUUID), constraints.Constraints{})
 }
 
@@ -667,12 +667,12 @@ func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.AgentStatus.Status), u.UnitStatusArg.AgentStatus.Message,
-		u.UnitStatusArg.AgentStatus.Since, u.UnitStatusArg.AgentStatus.Data)
+		int(u.AgentStatus.Status), u.AgentStatus.Message,
+		u.AgentStatus.Since, u.AgentStatus.Data)
 	s.assertUnitStatus(
 		c, "unit_workload", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.WorkloadStatus.Status), u.UnitStatusArg.WorkloadStatus.Message,
-		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
+		int(u.WorkloadStatus.Status), u.WorkloadStatus.Message,
+		u.WorkloadStatus.Since, u.WorkloadStatus.Data)
 	s.assertUnitConstraints(c, coreunit.UUID(unitUUID), constraints.Constraints{})
 }
 
@@ -914,9 +914,9 @@ func (s *unitStateSuite) TestGetAllUnitNames(c *tc.C) {
 		names = append(names, n)
 	}
 
-	names, err := s.state.GetAllUnitNames(c.Context())
+	got, err := s.state.GetAllUnitNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(names, tc.SameContents, names)
+	c.Assert(got, tc.SameContents, names)
 }
 
 func (s *unitStateSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
@@ -1458,7 +1458,7 @@ func (s *unitStateSuite) assertUnitConstraints(c *tc.C, inUnitUUID coreunit.UUID
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var space applicationSpace
 			if err := rows.Scan(&space.SpaceName, &space.SpaceExclude); err != nil {
@@ -1474,7 +1474,7 @@ func (s *unitStateSuite) assertUnitConstraints(c *tc.C, inUnitUUID coreunit.UUID
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var tag string
 			if err := rows.Scan(&tag); err != nil {
@@ -1490,7 +1490,7 @@ func (s *unitStateSuite) assertUnitConstraints(c *tc.C, inUnitUUID coreunit.UUID
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var zone string
 			if err := rows.Scan(&zone); err != nil {
