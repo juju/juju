@@ -396,6 +396,45 @@ func (c *MockStateGetLatestTaskLogsByUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetMachineTaskIDsWithStatus mocks base method.
+func (m *MockState) GetMachineTaskIDsWithStatus(arg0 context.Context, arg1, arg2 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineTaskIDsWithStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineTaskIDsWithStatus indicates an expected call of GetMachineTaskIDsWithStatus.
+func (mr *MockStateMockRecorder) GetMachineTaskIDsWithStatus(arg0, arg1, arg2 any) *MockStateGetMachineTaskIDsWithStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineTaskIDsWithStatus", reflect.TypeOf((*MockState)(nil).GetMachineTaskIDsWithStatus), arg0, arg1, arg2)
+	return &MockStateGetMachineTaskIDsWithStatusCall{Call: call}
+}
+
+// MockStateGetMachineTaskIDsWithStatusCall wrap *gomock.Call
+type MockStateGetMachineTaskIDsWithStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineTaskIDsWithStatusCall) Return(arg0 []string, arg1 error) *MockStateGetMachineTaskIDsWithStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineTaskIDsWithStatusCall) Do(f func(context.Context, string, string) ([]string, error)) *MockStateGetMachineTaskIDsWithStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineTaskIDsWithStatusCall) DoAndReturn(f func(context.Context, string, string) ([]string, error)) *MockStateGetMachineTaskIDsWithStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineUUIDByName mocks base method.
 func (m *MockState) GetMachineUUIDByName(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()

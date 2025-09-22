@@ -11,6 +11,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	apiServerErrors "github.com/juju/juju/apiserver/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
@@ -28,12 +30,6 @@ func TestFacadeSuite(t *testing.T) {
 
 func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.authTag = names.NewMachineTag("5")
-}
-
-func (*facadeSuite) TestStub(c *tc.C) {
-	c.Skipf(`This suite is missing tests for the following scenarios:
-
-- Test returns the running actions for the machine agent`)
 }
 
 func (s *facadeSuite) TestBeginActions(c *tc.C) {
@@ -177,6 +173,70 @@ func (s *facadeSuite) TestActionsTaskNotPending(c *tc.C) {
 	// Assert
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "action no longer available")
+}
+
+func (s *facadeSuite) TestRunningActionsReturnsActionIDsForMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	machineTag := names.NewMachineTag(s.authTag.Id())
+	s.operationService.EXPECT().GetMachineTaskIDsWithStatus(
+		gomock.Any(), coremachine.Name(s.authTag.Id()), status.Running,
+	).Return([]string{"42", "47"}, nil)
+
+	// Act
+	results := s.getFacade().RunningActions(c.Context(), params.Entities{Entities: []params.Entity{{Tag: machineTag.String()}}})
+
+	// Assert
+	c.Assert(results.Actions, tc.HasLen, 1)
+	c.Check(results.Actions[0].Receiver, tc.Equals, machineTag.String())
+	c.Check(results.Actions[0].Error, tc.IsNil)
+	c.Check(results.Actions[0].Actions, tc.HasLen, 2)
+	c.Check(results.Actions[0].Actions[0].Action.Tag, tc.Equals, names.NewActionTag("42").String())
+	c.Check(results.Actions[0].Actions[1].Action.Tag, tc.Equals, names.NewActionTag("47").String())
+}
+
+func (s *facadeSuite) TestRunningActionsReturnsActionIDsForMachineEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	results := s.getFacade().RunningActions(c.Context(), params.Entities{Entities: []params.Entity{}})
+
+	// Assert
+	c.Assert(results.Actions, tc.HasLen, 0)
+}
+
+func (s *facadeSuite) TestRunningActionsReturnsActionIDsForMachineSeveralEntitiesWithUnexpectedTags(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.operationService.EXPECT().GetMachineTaskIDsWithStatus(
+		gomock.Any(), coremachine.Name(s.authTag.Id()), status.Running,
+	).Return([]string{"42", "47"}, nil)
+
+	// Act
+	results := s.getFacade().RunningActions(c.Context(), params.Entities{Entities: []params.Entity{
+		{
+			Tag: names.NewMachineTag("1/lxd/0").String(),
+		},
+		{
+			Tag: s.authTag.String(),
+		},
+		{
+			Tag: names.NewUnitTag("app/6").String(),
+		},
+	}})
+
+	// Assert
+	c.Assert(results.Actions, tc.HasLen, 3)
+	c.Check(results.Actions[0].Receiver, tc.Equals, "machine-1-lxd-0")
+	c.Check(results.Actions[0].Error, tc.ErrorMatches, apiServerErrors.ErrPerm.Error())
+	c.Check(results.Actions[1].Receiver, tc.Equals, s.authTag.String())
+	c.Check(results.Actions[1].Error, tc.IsNil)
+	c.Check(results.Actions[1].Actions, tc.HasLen, 2)
+	c.Check(results.Actions[1].Actions[0].Action.Tag, tc.Equals, names.NewActionTag("42").String())
+	c.Check(results.Actions[1].Actions[1].Action.Tag, tc.Equals, names.NewActionTag("47").String())
+	c.Check(results.Actions[2].Error, tc.ErrorMatches, apiServerErrors.ErrBadId.Error())
 }
 
 func (s *facadeSuite) getFacade() *Facade {

@@ -186,6 +186,44 @@ func (s *taskSuite) TestStartTaskNotPending(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.TaskNotPending)
 }
 
+func (s *taskSuite) TestGetMachineTaskIDsWithStatusFiltersByMachineAndStatus(c *tc.C) {
+	// Arrange
+	m0 := s.addMachine(c, "0")
+	m1 := s.addMachine(c, "1")
+	op := s.addOperation(c)
+	// tasks on machine 0
+	t1 := s.addOperationTaskWithID(c, op, "running-id-1", corestatus.Running.String())
+	s.addOperationMachineTask(c, t1, m0)
+	t2 := s.addOperationTaskWithID(c, op, "running-id-2", corestatus.Running.String())
+	s.addOperationMachineTask(c, t2, m0)
+	t3 := s.addOperationTaskWithID(c, op, "pending-id", corestatus.Pending.String())
+	s.addOperationMachineTask(c, t3, m0)
+	// task on machine 1 with matching status to ensure filtering by machine
+	s.addOperationMachineTask(c, s.addOperationTask(c, op), m1)
+
+	// Act
+	ids, err := s.state.GetMachineTaskIDsWithStatus(c.Context(), "0", corestatus.Running.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ids, tc.SameContents, []string{"running-id-1", "running-id-2"})
+}
+
+func (s *taskSuite) TestGetMachineTaskIDsWithStatusNoMatch(c *tc.C) {
+	// Arrange
+	m0 := s.addMachine(c, "0")
+	op := s.addOperation(c)
+	t1 := s.addOperationTaskWithID(c, op, "t1", corestatus.Pending.String())
+	s.addOperationMachineTask(c, t1, m0)
+
+	// Act
+	ids, err := s.state.GetMachineTaskIDsWithStatus(c.Context(), "0", corestatus.Running.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ids, tc.HasLen, 0)
+}
+
 func (s *taskSuite) TestFinishTaskNotOperation(c *tc.C) {
 	// Arrange
 	// Add an operation and two tasks, neither have been completed.

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	machine "github.com/juju/juju/core/machine"
+	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	operation "github.com/juju/juju/domain/operation"
 	gomock "go.uber.org/mock/gomock"
@@ -76,6 +77,45 @@ func (c *MockOperationServiceFinishTaskCall) Do(f func(context.Context, operatio
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOperationServiceFinishTaskCall) DoAndReturn(f func(context.Context, operation.CompletedTaskResult) error) *MockOperationServiceFinishTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineTaskIDsWithStatus mocks base method.
+func (m *MockOperationService) GetMachineTaskIDsWithStatus(arg0 context.Context, arg1 machine.Name, arg2 status.Status) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineTaskIDsWithStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineTaskIDsWithStatus indicates an expected call of GetMachineTaskIDsWithStatus.
+func (mr *MockOperationServiceMockRecorder) GetMachineTaskIDsWithStatus(arg0, arg1, arg2 any) *MockOperationServiceGetMachineTaskIDsWithStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineTaskIDsWithStatus", reflect.TypeOf((*MockOperationService)(nil).GetMachineTaskIDsWithStatus), arg0, arg1, arg2)
+	return &MockOperationServiceGetMachineTaskIDsWithStatusCall{Call: call}
+}
+
+// MockOperationServiceGetMachineTaskIDsWithStatusCall wrap *gomock.Call
+type MockOperationServiceGetMachineTaskIDsWithStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceGetMachineTaskIDsWithStatusCall) Return(arg0 []string, arg1 error) *MockOperationServiceGetMachineTaskIDsWithStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceGetMachineTaskIDsWithStatusCall) Do(f func(context.Context, machine.Name, status.Status) ([]string, error)) *MockOperationServiceGetMachineTaskIDsWithStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceGetMachineTaskIDsWithStatusCall) DoAndReturn(f func(context.Context, machine.Name, status.Status) ([]string, error)) *MockOperationServiceGetMachineTaskIDsWithStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
