@@ -12,6 +12,7 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -314,7 +315,19 @@ func (conn *Conn) Close() error {
 	// block will be notified that the server is shutting
 	// down.
 	conn.cancelContext()
-	conn.srvPending.Wait()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.srvPending.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Minute):
+		// A request is refusing to close, so we're blocked. We can't wait
+		// indefinitely, and a minute is a lifetime for any request. Close it,
+		// but warn in the logs that the connection is refusing to go away.
+		logger.Warningf("timed out waiting for outstanding requests, closing anyway")
+	}
 
 	conn.mutex.Lock()
 	if conn.root != nil {
