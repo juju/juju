@@ -3071,7 +3071,8 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 				if knownDetails.willExpire {
 					details[i] = deletedDetails
 				} else {
-					details = append(details[:i], details[i+1:]...)
+					details[i] = details[len(details)-1]
+					details = details[:len(details)-1]
 				}
 				return details, nil
 			}
