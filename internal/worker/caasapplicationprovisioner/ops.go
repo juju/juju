@@ -138,7 +138,7 @@ func reapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASP
 		return errors.Trace(err)
 	}
 
-	return app.DeleteSTSAndApplyNewPVC(info.Filesystems)
+	return app.ReapplySTSWithUpdatedPVC(info.Filesystems)
 }
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
