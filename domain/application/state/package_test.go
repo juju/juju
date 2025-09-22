@@ -425,8 +425,16 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 func (s *baseSuite) createCAASApplicationWithNUnits(
 	c *tc.C, name string, l life.Life, unitCount int,
 ) (coreapplication.ID, []coreunit.UUID) {
+	units := make([]application.AddCAASUnitArg, 0, unitCount)
+	for range unitCount {
+		units = append(units, application.AddCAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			},
+		})
+	}
 	appUUID := s.createCAASApplication(
-		c, name, l, make([]application.AddCAASUnitArg, unitCount)...,
+		c, name, l, units...,
 	)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	uuids, err := state.getApplicationUnits(c.Context(), appUUID)
