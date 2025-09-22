@@ -553,7 +553,13 @@ func (conn *Conn) runRequest(
 	version int,
 	recorder Recorder,
 ) {
-	// If the request causes a panic, ensure we log that before closing the connection.
+	// Close the service pending last, so that if there is a panic in the
+	// request handling, we don't mark the request as done before writing the
+	// error response.
+	defer conn.srvPending.Done()
+
+	// If the request causes a panic, ensure we log that before closing the
+	// connection.
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(
@@ -561,7 +567,6 @@ func (conn *Conn) runRequest(
 			_ = conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
 		}
 	}()
-	defer conn.srvPending.Done()
 
 	// Create a request-specific context, cancelled when the
 	// request returns.
