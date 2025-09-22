@@ -225,6 +225,21 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	}
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+func (t *s3ObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	var files []string
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		var err error
+		files, err = s.ListObjects(ctx, t.rootBucket)
+		return err
+	}); err != nil {
+		return nil, errors.Errorf("listing files: %w", err)
+	}
+
+	return files, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	response := make(chan response)

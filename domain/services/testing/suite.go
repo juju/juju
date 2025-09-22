@@ -413,6 +413,12 @@ func (TestingObjectStore) GetBySHA256Prefix(ctx context.Context, sha256 string) 
 	return nil, 0, errors.Errorf(sha256+" %w", coreerrors.NotFound)
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+func (TestingObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (TestingObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	return "", nil

@@ -264,6 +264,35 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	}
 }
 
+// ListFiles returns a list of all files in the object store, namespaced
+// to the model.
+// This only lists the files that are present in the local file system. This
+// might not be accurate if there are files being added or removed during
+// the listing operation (it's not atomic).
+func (t *fileObjectStore) ListFiles(ctx context.Context) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(t.path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(t.path, path)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("listing files: %w", err)
+	}
+	return files, nil
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) (objectstore.UUID, error) {
 	response := make(chan response, 1)
