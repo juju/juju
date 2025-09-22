@@ -127,6 +127,10 @@ type ReadObjectStore interface {
 	//
 	// If no object is found, an [objectstore.ObjectNotFound] error is returned.
 	GetBySHA256Prefix(context.Context, string) (io.ReadCloser, int64, error)
+
+	// ListFiles returns a list of all files in the object store, namespaced
+	// to the model.
+	ListFiles(context.Context) ([]string, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.
