@@ -470,14 +470,16 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		logger.Errorf("error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
+
+	// Hold the lock whilst checking the closing flag.
 	conn.mutex.Lock()
 	closing := conn.closing
+	conn.mutex.Unlock()
+
 	if !closing {
 		conn.srvPending.Add(1)
 		go conn.runRequest(req, arg, hdr.Version, recorder)
-	}
-	conn.mutex.Unlock()
-	if closing {
+	} else {
 		// We're closing down - no new requests may be initiated.
 		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
 	}
