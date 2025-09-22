@@ -205,3 +205,14 @@ func (s *Service) LogTaskMessage(ctx context.Context, taskID, message string) er
 
 	return errors.Capture(s.st.LogTaskMessage(ctx, taskID, message))
 }
+
+// TaskStatusByID returns the status of the given task.
+func (s *Service) TaskStatusByID(ctx context.Context, taskID string) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", taskID),
+		))
+	defer span.End()
+	
+	return "", coreerrors.NotImplemented
+}

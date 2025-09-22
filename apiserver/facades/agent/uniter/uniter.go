@@ -1173,12 +1173,31 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 
 // ActionStatus returns the status of Actions by Tags passed in.
 func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (params.StringResults, error) {
-	_, err := u.accessUnit(ctx)
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.StringResults{}, err
 	}
 
-	return params.StringResults{}, nil
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		taskID, err := u.authTaskID(ctx, canAccess, entity.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		taskStatus, err := u.operationService.GetTaskStatusByID(ctx, taskID)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = taskStatus
+	}
+
+	return results, nil
 }
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
