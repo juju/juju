@@ -1,21 +1,3 @@
-wait_until_or_fail() {
-	local iterations=${2:-10}
-
-	local n=0
-	local available=false
-	while [ "$n" -lt "$iterations" ]; do
-		if eval "$1"; then
-			available=true
-			break
-		fi
-		sleep 1
-		n=$((n + 1))
-	done
-	if [ "$available" = false ]; then
-		return 1
-	fi
-}
-
 allow_access_to_api_port() {
 	local instance_id="$1" zone="$2" network_tag="$3"
 	# Create a firewall rule or security group via the provider specific tool
@@ -184,12 +166,12 @@ run_limit_access() {
 	verify_model_network_tag "${model_network_tag}" "0.0.0.0/0"
 
 	# Dump juju status would timeout due to limited api port access
-	wait_until_or_fail "! timeout 5 juju status"
+	wait_for_or_fail "! timeout 5 juju status"
 	verify_instance_network_tag "${network_tag_or_group}" "10.0.0.0/24"
 
 	echo "Temporarily allow access to the controller to unblock subsequent juju expose calls"
 	allow_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
-	wait_until_or_fail "timeout 5 juju status"
+	wait_for_or_fail "timeout 5 juju status"
 
 	echo "Allow access to the controller from anywhere"
 	juju expose -m controller controller --to-cidrs 0.0.0.0/0
@@ -197,7 +179,7 @@ run_limit_access() {
 	# Juju should be able to dump status after removing the temporary network tag
 	# to avoid affecting subsequent tests.
 	remove_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
-	wait_until_or_fail "timeout 5 juju status"
+	wait_for_or_fail "timeout 5 juju status"
 	verify_instance_network_tag "${network_tag_or_group}" "0.0.0.0/0"
 
 	destroy_model "limit-access"
