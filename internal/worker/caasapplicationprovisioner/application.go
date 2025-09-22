@@ -438,6 +438,10 @@ func (a *appWorker) loop() error {
 			}
 			shouldRefresh = false
 		case <-storageConstraintsChan:
+			if a.statusOnly {
+				storageConstraintsChan = nil
+				break
+			}
 			err := a.ops.ReapplySTSWithUpdatedPVC(a.name, app, a.facade, a.logger)
 			if err != nil {
 				return errors.Trace(err)

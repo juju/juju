@@ -927,6 +927,41 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *OpsSuite) TestReapplySTSWithUpdatedPVC(c *gc.C) {
+	provisioningInfo := api.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    storage.ProviderType("kubernetes"),
+		}},
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
+	app.EXPECT().ReapplySTSWithUpdatedPVC(provisioningInfo.Filesystems).Return(nil)
+
+	err := caasapplicationprovisioner.AppOps.ReapplySTSWithUpdatedPVC("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReapplySTSWithUpdatedPVCError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, errors.New("something went wrong"))
+
+	err := caasapplicationprovisioner.AppOps.ReapplySTSWithUpdatedPVC("test", app, facade, s.logger)
+	c.Assert(err, gc.NotNil)
+}
+
 func intPtr(i int) *int {
 	return &i
 }
