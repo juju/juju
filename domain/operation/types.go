@@ -57,7 +57,11 @@ type QueryArgs struct {
 // QueryResult contains the result of a query request for operations.
 type QueryResult struct {
 	Operations []OperationInfo
-	Truncated  bool
+
+	// Truncated indicates that there are more results to be fetched, but the whole
+	// result set has been truncated to either the limit passed as a query
+	// parameter or the default limit on the server side.
+	Truncated bool
 }
 
 // OperationInfo represents the information about an operation.
@@ -71,12 +75,7 @@ type OperationInfo struct {
 	Status      corestatus.Status
 	Machines    []MachineTaskResult
 	Units       []UnitTaskResult
-
-	// Truncated indicates that there are more results to be fetched, but the whole
-	// result set has been truncated to either the limit passed as a query
-	// parameter or the default limit on the server side.
-	Truncated bool
-	Error     error
+	Error       error
 }
 
 // ExecArgs represents the parameters used for running exec commands.

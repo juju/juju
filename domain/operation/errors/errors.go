@@ -6,6 +6,9 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// OperationNotFound describes an error that occurs when the given operation does not exist.
+	OperationNotFound = errors.ConstError("operation not found")
+
 	// TaskNotFound describes an error that occurs when the task being
 	// operated on does not exist.
 	TaskNotFound = errors.ConstError("task not found")
