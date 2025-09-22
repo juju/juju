@@ -605,9 +605,13 @@ func (conn *Conn) callRequest(
 		if err := recorder.HandleReply(req.hdr.Request, hdr, rvi); err != nil {
 			logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 		}
+
+		// Guard against concurrent writes to the codec, but ensure that
+		// if there is a panic during WriteMessage we don't hold the lock.
 		conn.sending.Lock()
+		defer conn.sending.Unlock()
+
 		err = conn.codec.WriteMessage(hdr, rvi)
-		conn.sending.Unlock()
 	}
 	if err != nil {
 		// If the message failed due to the other end closing the socket, that
