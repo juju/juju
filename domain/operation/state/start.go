@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
@@ -23,6 +25,14 @@ import (
 
 // AddExecOperation creates an exec operation with tasks for various machines
 // and units, using the provided parameters.
+//
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound]: If the provided application
+// target does not exist.
+// - [applicationerrors.UnitNotFound]: If the provided unit target does not
+// exist.
+// - [machineerrors.MachineNotFound]: If the provided machine target does not
+// exist.
 func (s *State) AddExecOperation(
 	ctx context.Context,
 	operationUUID internaluuid.UUID,
@@ -82,6 +92,10 @@ func (s *State) AddExecOperationOnAllMachines(
 
 // AddActionOperation creates an action operation with tasks for various
 // units using the provided parameters.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound]: If the provided unit target does not
+// exist.
 func (s *State) AddActionOperation(ctx context.Context,
 	operationUUID internaluuid.UUID,
 	targetUnits []coreunit.Name,
@@ -290,7 +304,7 @@ VALUES ($insertOperation.*)
 		return errors.Errorf("preparing insert operation statement: %w", err)
 	}
 
-	return tx.Query(ctx, stmt, args).Run()
+	return errors.Capture(tx.Query(ctx, stmt, args).Run())
 }
 
 func (s *State) insertOperationParameter(ctx context.Context, tx *sqlair.TX, operationUUID, key, value string) error {
@@ -309,7 +323,7 @@ VALUES ($taskParameter.*)
 		return errors.Errorf("preparing insert operation parameter statement: %w", err)
 	}
 
-	return tx.Query(ctx, stmt, param).Run()
+	return errors.Capture(tx.Query(ctx, stmt, param).Run())
 }
 
 // insertOperationAction inserts an operation action with a known
@@ -575,7 +589,7 @@ func (s *State) getUnitsForApplication(ctx context.Context, tx *sqlair.TX, appNa
 SELECT u.name AS &unitResult.name
 FROM   unit u
 JOIN   application a ON u.application_uuid = a.uuid
-WHERE  a.name = $nameArg.name AND u.life_id = 0
+WHERE  a.name = $nameArg.name
 `
 
 	stmt, err := s.Prepare(query, unitResult{}, ident)
@@ -585,7 +599,9 @@ WHERE  a.name = $nameArg.name AND u.life_id = 0
 
 	var results []unitResult
 	err = tx.Query(ctx, stmt, ident).GetAll(&results)
-	if err != nil {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("application %s not found", appName).Add(applicationerrors.ApplicationNotFound)
+	} else if err != nil {
 		return nil, errors.Errorf("querying units for application %s: %w", appName, err)
 	}
 
@@ -611,7 +627,9 @@ WHERE  name = $nameArg.name`
 
 	var result uuid
 	err = tx.Query(ctx, stmt, ident).Get(&result)
-	if err != nil {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("machine %s not found", machineName).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
 		return "", errors.Errorf("querying machine UUID for %s: %w", machineName, err)
 	}
 
@@ -631,7 +649,9 @@ WHERE  name = $nameArg.name`
 
 	var result uuid
 	err = tx.Query(ctx, stmt, ident).Get(&result)
-	if err != nil {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %s not found", unitName).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
 		return "", errors.Errorf("querying unit UUID for %s: %w", unitName, err)
 	}
 
@@ -651,7 +671,9 @@ WHERE  unit.name = $nameArg.name`
 
 	var result charmUUIDResult
 	err = tx.Query(ctx, stmt, ident).Get(&result)
-	if err != nil {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %s not found", unitName).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
 		return "", errors.Errorf("querying charm UUID for unit %s: %w", unitName, err)
 	}
 
