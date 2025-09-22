@@ -3730,6 +3730,149 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *gc.C) {
 	c.Assert(validatingWebhookConfigurations.Items, gc.HasLen, 1)
 }
 
+func (s *applicationSuite) TestReapplySTSWithUpdatedPVC(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	// New filesystem from storage constraints. Size is 500 while current PVC has size of 100.
+	filesystems := []storage.KubernetesFilesystemParams{
+		{
+			StorageName: "database",
+			Size:        500,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		},
+	}
+	// Create the current sts with a pvc of size 100.
+	sts, err := s.client.AppsV1().StatefulSets("test").
+		Create(context.Background(), &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "appuuid",
+				},
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: pointer.Int32Ptr(3),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/name": "gitlab",
+					},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+					},
+					Spec: getPodSpec31(),
+				},
+				VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "gitlab-database-appuuid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							}},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: pointer.StringPtr("test-workload-storage"),
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+								},
+							},
+						},
+					},
+				},
+				PodManagementPolicy: appsv1.ParallelPodManagement,
+				ServiceName:         "gitlab-endpoints",
+			},
+		}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Orphan delete the current sts.
+	statefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", sts)
+	statefulset.OrphanDelete = true
+	s.applier.EXPECT().Delete(statefulset)
+
+	// Now we create a new sts object without the pvc.
+	// Copy the necessary fields from the old sts.
+	newSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        sts.Name,
+			Namespace:   sts.Namespace,
+			Labels:      sts.Labels,
+			Annotations: sts.Annotations,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: sts.Spec.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: sts.Spec.Selector.MatchLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      sts.Spec.Template.ObjectMeta.Labels,
+					Annotations: sts.Spec.Template.ObjectMeta.Annotations,
+				},
+				Spec: sts.Spec.Template.Spec,
+			},
+			PodManagementPolicy: sts.Spec.PodManagementPolicy,
+			ServiceName:         sts.Spec.ServiceName,
+		},
+	}
+
+	// We now want to attach the pvc with size 500 to the sts.
+	storageClassName := "test-workload-storage"
+	pvcSpec := &corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClassName,
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: k8sresource.MustParse("500Mi"),
+			},
+		},
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gitlab-database-appuuid",
+			Labels: map[string]string{
+				"storage.juju.is/name":         "database",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
+			},
+		},
+		Spec: *pvcSpec,
+	}
+
+	newStatefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", newSts)
+	newStatefulset.Spec.VolumeClaimTemplates = append(newStatefulset.Spec.VolumeClaimTemplates, *pvc)
+
+	// Run the applier to create a new sts.
+	s.applier.EXPECT().Apply(newStatefulset)
+	s.applier.EXPECT().Run(gomock.Any(), false).Return(nil)
+
+	err = app.ReapplySTSWithUpdatedPVC(filesystems)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func int64Ptr(a int64) *int64 {
 	return &a
 }
