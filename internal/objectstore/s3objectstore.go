@@ -331,6 +331,36 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+// PruneFile removes the file at path but does not check the metadata. This
+// is used by the pruner to remove files that are not referenced in
+// the metadata.
+func (t *s3ObjectStore) PruneFile(ctx context.Context, path string) error {
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case t.requests <- request{
+		op:       opPrune,
+		path:     path,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case resp := <-response:
+		if resp.err != nil {
+			return errors.Errorf("removing blob: %w", resp.err)
+		}
+		return nil
+	}
+}
+
 // RemoveAll removes all data for the namespaced model. It is destructive and
 // should be used with caution. No objects will be retrievable after this call.
 // This is expected to be used when the model is being removed or when the
@@ -485,6 +515,16 @@ func (t *s3ObjectStore) loop() error {
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
+				}:
+				}
+
+			case opPrune:
+				select {
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
+
+				case req.response <- response{
+					err: t.pruneFile(ctx, req.path),
 				}:
 				}
 
@@ -690,6 +730,15 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 			return errors.Errorf("remove metadata: %w", err)
 		}
 
+		return t.deleteObject(ctx, hash)
+	})
+}
+
+func (t *s3ObjectStore) pruneFile(ctx context.Context, path string) error {
+	t.logger.Debugf(ctx, "pruning object %q from file storage", path)
+
+	hash := filepath.Base(path)
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		return t.deleteObject(ctx, hash)
 	})
 }

@@ -282,6 +282,26 @@ func (o objectStoreFacade) Remove(ctx context.Context, path string) error {
 	return nil
 }
 
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+// The method will block until the fortress is drained or the context
+// is cancelled. If the fortress is draining, the method will return
+// [objectstore.ErrTimeoutWaitingForDraining] error.
+func (o objectStoreFacade) PruneFile(ctx context.Context, path string) error {
+	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
+	defer cancel()
+
+	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
+		return o.ObjectStore.PruneFile(ctx, path)
+	}); errors.Is(visitErr, fortress.ErrAborted) {
+		return coreobjectstore.ErrTimeoutWaitingForDraining
+	} else if visitErr != nil {
+		return errors.Trace(visitErr)
+	}
+	return nil
+}
+
 // RemoveAll removes all the data at path, namespaced to the model.
 // The method will block until the fortress is drained or the context
 // is cancelled. If the fortress is draining, the method will return
