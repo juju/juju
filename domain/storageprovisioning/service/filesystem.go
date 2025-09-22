@@ -150,6 +150,19 @@ type FilesystemState interface {
 		context.Context, string,
 	) (storageprovisioning.FilesystemUUID, error)
 
+	// GetFilesystemAttachmentUUIDForStorageAttachmentUUID returns the filesystem
+	// attachment UUID for the supplied storage attachment UUID.
+	//
+	// The following errors may be returned:
+	// - [storageprovisioningerrors.StorageAttachmentNotFound] when no storage
+	// attachment exists for the provided storage attachment uuid.
+	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no filesystem
+	// attachment exists for the provided values.
+	GetFilesystemAttachmentUUIDForStorageAttachmentUUID(
+		ctx context.Context,
+		storageAttachmentUUID string,
+	) (string, error)
+
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
 	// machine provisioned and the query for getting the current set of machine

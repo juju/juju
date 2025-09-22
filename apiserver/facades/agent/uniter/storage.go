@@ -19,6 +19,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/storage"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -148,8 +149,116 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(ctx context.Context, args par
 
 // StorageAttachments returns the storage attachments with the specified tags.
 func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.StorageAttachmentResults, error) {
+	canAccess, err := s.accessUnit(ctx)
+	if err != nil {
+		return params.StorageAttachmentResults{}, err
+	}
 	result := params.StorageAttachmentResults{
 		Results: make([]params.StorageAttachmentResult, len(args.Ids)),
+	}
+	one := func(arg params.StorageAttachmentId) (params.StorageAttachment, error) {
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+		if !canAccess(unitTag) {
+			return params.StorageAttachment{}, apiservererrors.ErrPerm
+		}
+
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+
+		unitUUID, err := s.getUnitUUID(ctx, unitTag)
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Capture(err)
+		}
+
+		storageAttachmentUUID, err := s.storageProvisioningService.GetStorageAttachmentUUIDForUnit(
+			ctx, storageTag.Id(), unitUUID,
+		)
+		switch {
+		case errors.Is(err, storageprovisioningerrors.StorageInstanceNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage instance not found for %q %q",
+				storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage attachment not found for %q %q",
+				storageTag.Id(), unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case err != nil:
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"getting storage attachment uuid for %q unit %q: %w",
+				storageTag.Id(), arg.UnitTag, err,
+			)
+		}
+
+		attachmentInfo, err := s.storageProvisioningService.GetUnitStorageAttachmentInfo(
+			ctx, storageAttachmentUUID,
+		)
+		switch {
+		case errors.Is(err, storageprovisioningerrors.FilesystemNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"filesystem for storage attachment %q unit %q not found",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"filesystem attachment for storage attachment %q unit %q not found",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"volume attachment for storage attachment %q unit %q not found",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotFound)
+		case errors.Is(err, storageprovisioningerrors.StorageAttachmentNotProvisioned):
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"storage attachment %q for unit %q not fully provisioned",
+				arg.StorageTag, unitTag.Id(),
+			).Add(coreerrors.NotProvisioned)
+		case err != nil:
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"getting storage attachment info for storage %q unit %q: %w",
+				arg.StorageTag, unitTag.Id(), err,
+			)
+		}
+
+		sa := params.StorageAttachment{
+			StorageTag: storageTag.String(),
+			UnitTag:    unitTag.String(),
+			Location:   attachmentInfo.Location,
+		}
+		sa.Life, err = attachmentInfo.Life.Value()
+		if err != nil {
+			return params.StorageAttachment{}, internalerrors.Errorf(
+				"invalid life %q for storage attachment %q unit %q: %w",
+				attachmentInfo.Life, arg.StorageTag, unitTag.Id(), err,
+			)
+		}
+		if attachmentInfo.Owner != nil {
+			sa.OwnerTag = names.NewUnitTag(attachmentInfo.Owner.String()).String()
+		}
+		switch attachmentInfo.Kind {
+		case storage.StorageKindBlock:
+			sa.Kind = params.StorageKindBlock
+		case storage.StorageKindFilesystem:
+			sa.Kind = params.StorageKindFilesystem
+		default:
+			sa.Kind = params.StorageKindUnknown
+		}
+		return sa, nil
+	}
+	for i, arg := range args.Ids {
+		sa, err := one(arg)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = sa
 	}
 	return result, nil
 }

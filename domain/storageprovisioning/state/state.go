@@ -20,6 +20,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
@@ -453,6 +454,31 @@ func (st *State) checkApplicationExists(
 	return true, nil
 }
 
+func (st *State) checkStorageAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	input := storageAttachmentUUID{UUID: uuid}
+
+	checkStmt, err := st.Prepare(`
+SELECT &storageAttachmentUUID.*
+FROM   storage_attachment
+WHERE  uuid = $storageAttachmentUUID.uuid`, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, input).Get(&input)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 //
 // The following errors may be returned:
@@ -589,6 +615,58 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 		return "", errors.Capture(err)
 	}
 	return dbVal.UUID, nil
+}
+
+// GetStorageAttachmentInfo returns information about a storage attachment for
+// the given storage attachment UUID.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
+// attachment does not exist.
+func (st *State) GetStorageAttachmentInfo(
+	ctx context.Context, uuid string,
+) (storageprovisioning.StorageAttachmentInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+
+	input := storageAttachmentUUID{UUID: uuid}
+	var dbVal storageAttachmentInfo
+	stmt, err := st.Prepare(`
+SELECT    (si.life_id, si.storage_kind_id) AS (&storageAttachmentInfo.*),
+          u.name AS &storageAttachmentInfo.owner_unit_name,
+          sa.uuid AS &storageAttachmentInfo.storage_attachment_uuid
+FROM      storage_attachment sa
+JOIN      storage_instance si ON sa.storage_instance_uuid = si.uuid
+LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
+LEFT JOIN unit u ON suo.unit_uuid=u.uuid
+WHERE     sa.uuid = $storageAttachmentUUID.uuid`, input, dbVal)
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"storage attachment with UUID %q does not exist", uuid,
+			).Add(storageprovisioningerrors.StorageAttachmentNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return storageprovisioning.StorageAttachmentInfo{}, errors.Capture(err)
+	}
+	info := storageprovisioning.StorageAttachmentInfo{
+		StorageAttachmentUUID: dbVal.StorageAttachmentUUID,
+		Kind:                  storage.StorageKind(dbVal.KindID),
+		Life:                  dbVal.Life,
+	}
+	if dbVal.OwnerUnitName.Valid {
+		n := coreunit.Name(dbVal.OwnerUnitName.String)
+		info.Owner = &n
+	}
+	return info, nil
 }
 
 // GetStorageAttachmentLife retrieves the life of a storage attachment for a unit

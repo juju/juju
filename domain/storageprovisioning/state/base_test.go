@@ -139,10 +139,10 @@ func (s *baseSuite) newMachineVolume(c *tc.C) (storageprovisioning.VolumeUUID, s
 	vsID := fmt.Sprintf("foo/%s", vsUUID.String())
 
 	_, err := s.DB().Exec(`
-INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
-VALUES (?, ?, 0, 1)
+INSERT INTO storage_volume (uuid, volume_id, life_id, hardware_id, wwn, provision_scope_id)
+VALUES (?, ?, 0, ?, ?, 1)
 	`,
-		vsUUID.String(), vsID)
+		vsUUID.String(), vsID, "blockyhwid", "blockywwn")
 	c.Assert(err, tc.ErrorIsNil)
 
 	return vsUUID, vsID
@@ -261,13 +261,21 @@ VALUES (?, ?, ?, ?)
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
-	c *tc.C, charmUUID, poolUUID, storageName string,
+	c *tc.C, charmUUID, poolUUID, storageName string, storage_kind string,
 ) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
-	var charmName string
+	var storageKindID int
 	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id FROM storage_kind WHERE kind = ?",
+		storage_kind,
+	).Scan(&storageKindID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var charmName string
+	err = s.DB().QueryRowContext(
 		c.Context(),
 		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
 		charmUUID,
@@ -278,13 +286,14 @@ func (s *baseSuite) newStorageInstanceForCharmWithPool(
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              life_id, requested_size_mib, storage_pool_uuid,
                              storage_kind_id)
-VALUES (?, ?, ?, ?, 0, 100, ?, 1)
+VALUES (?, ?, ?, ?, 0, 100, ?, ?)
 `,
 		storageInstanceUUID.String(),
 		charmName,
 		storageName,
 		storageID,
 		poolUUID,
+		storageKindID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -356,6 +365,15 @@ VALUES (?, ?, ?, ?, ?, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return unitUUID, coreunit.Name(unitName)
+}
+
+func (s *baseSuite) newStorageOwner(
+	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID, ownerUUID coreunit.UUID,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_unit_owner(unit_uuid, storage_instance_uuid)
+VALUES (?, ?)`, ownerUUID.String(), storageInstanceUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // newVolumeAttachmentPlan creates a new volume attachment plan. The attachment

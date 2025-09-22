@@ -888,7 +888,7 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 	})
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
 
@@ -919,7 +919,7 @@ func (s *volumeSuite) TestGetVolumeParamsWithVolumeAttachment(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, volID := s.newMachineVolume(c)
 	s.setVolumeProviderID(c, volUUID, "provider-id")
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
@@ -968,7 +968,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, _ := s.newMachineVolume(c)
 	s.setVolumeProviderID(c, volUUID, "provider-id")
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
@@ -1380,6 +1380,95 @@ func (s *volumeSuite) TestGetBlockDeviceForVolumeAttachmentNotFound(c *tc.C) {
 	_, err := st.GetBlockDeviceForVolumeAttachment(c.Context(), vaUUID)
 	c.Assert(err, tc.ErrorIs,
 		storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForStorageAttachmentUUID(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
+
+	volUUID, _ := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+	s.newStorageInstanceVolume(c, suuid, volUUID)
+	storageAttachmentUUID := s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	gotUUID, err := st.GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(gotUUID, tc.Equals, vaUUID.String())
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForStorageAttachmentUUIDWithStorageAttachmentNotFound(c *tc.C) {
+	storageAttachmentUUID := domaintesting.GenStorageAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID.String(),
+	)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.StorageAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentUUIDForStorageAttachmentUUIDWithVolumeAttachmentNotFound(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	s.newMachineCloudInstanceWithID(c, machineUUID, "machine-id-123")
+	poolUUID := s.newStoragePool(c, "thebigpool", "canonical", map[string]string{
+		"foo": "bar",
+	})
+	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
+	storageAttachmentUUID := s.newStorageAttachment(c, suuid, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetVolumeAttachmentUUIDForStorageAttachmentUUID(
+		c.Context(), storageAttachmentUUID,
+	)
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentInfo(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
+	bdUUID := s.newBlockDevice(c, machineUUID, "blocky", "blockyhwid",
+		"blocky:addr", []string{
+			"/dev/a",
+			"/dev/b",
+		})
+	volUUID, _ := s.newMachineVolume(c)
+	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
+	s.changeVolumeAttachmentInfo(c, vaUUID, bdUUID, false)
+
+	st := NewState(s.TxnRunnerFactory())
+	info, err := st.GetVolumeAttachmentInfo(c.Context(), vaUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentInfo{
+		HardwareID:      "blockyhwid",
+		WWN:             "blockywwn",
+		BlockDeviceName: "blocky",
+		BlockDeviceLink: "/dev/a",
+	})
+}
+
+func (s *volumeSuite) TestGetVolumeAttachmentInfoWithVolumeAttachmentNotFound(c *tc.C) {
+	vaUUID := domaintesting.GenVolumeAttachmentUUID(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetVolumeAttachmentInfo(c.Context(), vaUUID.String())
+	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
 
 // changeVolumeLife is a utility function for updating the life value of a
