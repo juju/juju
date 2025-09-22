@@ -866,6 +866,10 @@ func (t *fileObjectStore) pruneFile(ctx context.Context, path string) error {
 
 	hash := filepath.Base(path)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// TODO (stickupkid): Don't delete if the mod time is too recent. This
+		// should prevent accidentally deleting files that are being written.
+		// Although, the locking mechanism should prevent that anyway. It's
+		// just an extra safety measure.
 		return t.deleteObject(ctx, hash)
 	})
 }
