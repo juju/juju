@@ -1099,6 +1099,7 @@ func makeCreateApplicationArgs(
 	return application.BaseAddApplicationArg{
 		Charm:             ch,
 		CharmDownloadInfo: args.DownloadInfo,
+		Constraints:       constraints.DecodeConstraints(args.Constraints),
 		Platform:          platformArg,
 		Channel:           channelArg,
 		EndpointBindings:  args.EndpointBindings,

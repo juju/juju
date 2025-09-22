@@ -36,6 +36,8 @@ type BaseAddApplicationArg struct {
 	// This information is used to download the charm from the charm store if
 	// required.
 	CharmDownloadInfo *domaincharm.DownloadInfo
+	// Constraints contains the application constraints.
+	Constraints constraints.Constraints
 	// Platform contains the platform information for the application. The
 	// operating system and architecture.
 	Platform deployment.Platform
