@@ -90,6 +90,9 @@ type State interface {
 	// query function which returns the list of task ids for the given machine.
 	InitialWatchStatementMachineTask() (string, string)
 
+	// LogTaskMessage stores the message for the given task ID.
+	LogTaskMessage(ctx context.Context, taskID, message string) error
+
 	// StartTask sets the task start time and updates the status to running.
 	// The following errors may be returned:
 	// - [operationerrors.TaskNotFound] if the task does not exist.

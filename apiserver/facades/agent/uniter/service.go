@@ -357,6 +357,9 @@ type OperationService interface {
 	// a pending status.
 	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
 
+	// LogTaskMessage stores the message for the given task ID.
+	LogTaskMessage(ctx context.Context, id, message string) error
+
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
 

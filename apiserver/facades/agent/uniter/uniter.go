@@ -1294,15 +1294,29 @@ func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecuti
 
 // LogActionsMessages records the log messages against the specified actions.
 func (u *UniterAPI) LogActionsMessages(ctx context.Context, args params.ActionMessageParams) (params.ErrorResults, error) {
-	_, err := u.accessUnit(ctx)
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 
-	result := params.ErrorResults{
+	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Messages)),
 	}
-	return result, nil
+
+	for i, arg := range args.Messages {
+		taskID, err := u.authTaskID(ctx, canAccess, arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = u.operationService.LogTaskMessage(ctx, taskID, arg.Value)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results, nil
 }
 
 // RelationById returns information about all given relations,
@@ -2310,8 +2324,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 				return params.NetworkInfo{
 					MACAddress:    dev.MACAddress,
 					InterfaceName: dev.Name,
-					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.
-						InterfaceAddress {
+					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.InterfaceAddress {
 						return params.InterfaceAddress{
 							Hostname: addr.Hostname,
 							Address:  addr.Value,

@@ -555,6 +555,44 @@ func (c *MockStateInitialWatchStatementUnitTaskCall) DoAndReturn(f func() (strin
 	return c
 }
 
+// LogTaskMessage mocks base method.
+func (m *MockState) LogTaskMessage(ctx context.Context, taskID, message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogTaskMessage", ctx, taskID, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogTaskMessage indicates an expected call of LogTaskMessage.
+func (mr *MockStateMockRecorder) LogTaskMessage(ctx, taskID, message any) *MockStateLogTaskMessageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogTaskMessage", reflect.TypeOf((*MockState)(nil).LogTaskMessage), ctx, taskID, message)
+	return &MockStateLogTaskMessageCall{Call: call}
+}
+
+// MockStateLogTaskMessageCall wrap *gomock.Call
+type MockStateLogTaskMessageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateLogTaskMessageCall) Return(arg0 error) *MockStateLogTaskMessageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateLogTaskMessageCall) Do(f func(context.Context, string, string) error) *MockStateLogTaskMessageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateLogTaskMessageCall) DoAndReturn(f func(context.Context, string, string) error) *MockStateLogTaskMessageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForTaskAbortingWatcher mocks base method.
 func (m *MockState) NamespaceForTaskAbortingWatcher() string {
 	m.ctrl.T.Helper()

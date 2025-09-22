@@ -243,6 +243,31 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	s.checkOperationCompleted(c, operationUUID, true)
 }
 
+func (s *taskSuite) TestLogTaskMessage(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "42"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
+	taskMsg := "log message"
+
+	// Act
+	err := s.state.LogTaskMessage(c.Context(), taskID, taskMsg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var obtainedTaskMsg string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT content
+FROM   operation_task_log
+WHERE  task_uuid = ?
+`, taskUUID).Scan(&obtainedTaskMsg)
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(obtainedTaskMsg, tc.Equals, taskMsg)
+}
+
 func (s *taskSuite) checkTaskStatus(c *tc.C, taskUUID, status string) {
 	// Assert: Check that the task status has been set as indicated
 	var task string
