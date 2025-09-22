@@ -43,6 +43,54 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// CheckCAASUnitRegistered checks if a caas unit by the provided name is already
+// registered in the model. False is returned when no unit exists, otherwise
+// the units existing uuid and netnode uuid is returned.
+func (st *State) CheckCAASUnitRegistered(
+	ctx context.Context,
+	uName coreunit.Name,
+) (bool, coreunit.UUID, domainnetwork.NetNodeUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	var (
+		unitNameInput = unitName{Name: uName}
+		dbVal         unitUUIDAndNetNode
+	)
+
+	q := "SELECT &unitUUIDAndNetNode.* FROM unit WHERE name = $unitName.name"
+	stmt, err := st.Prepare(q, unitNameInput, dbVal)
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	var registered bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, unitNameInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err == nil {
+			registered = true
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, "", "", errors.Capture(err)
+	}
+
+	if !registered {
+		return false, "", "", nil
+	}
+
+	return true,
+		coreunit.UUID(dbVal.UUID),
+		domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
+		nil
+}
+
 // checkUnitExists checks if the unit with the given UUID exists in the model.
 // True is returned when the unit is found.
 func (st *State) checkUnitExists(
