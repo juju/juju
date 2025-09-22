@@ -633,10 +633,8 @@ func (st *State) GetStorageAttachmentInfo(
 
 	input := storageAttachmentUUID{UUID: uuid}
 	var dbVal storageAttachmentInfo
-	// TODO: fix the storage kind lookup when the new DDL in place.
 	stmt, err := st.Prepare(`
-SELECT    si.life_id AS &storageAttachmentInfo.life_id,
-          0 AS &storageAttachmentInfo.storage_kind_id,
+SELECT    (si.life_id, si.storage_kind_id) AS (&storageAttachmentInfo.*),
           u.name AS &storageAttachmentInfo.owner_unit_name,
           sa.uuid AS &storageAttachmentInfo.storage_attachment_uuid
 FROM      storage_attachment sa

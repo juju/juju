@@ -888,7 +888,7 @@ func (s *volumeSuite) TestGetVolumeParams(c *tc.C) {
 	})
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, suuid, volUUID)
 
@@ -919,7 +919,7 @@ func (s *volumeSuite) TestGetVolumeParamsWithVolumeAttachment(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, volID := s.newMachineVolume(c)
 	s.setVolumeProviderID(c, volUUID, "provider-id")
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
@@ -968,7 +968,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentParams(c *tc.C) {
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "/var/foo")
 
 	// Construct storage instance, volume, volume attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	volUUID, _ := s.newMachineVolume(c)
 	s.setVolumeProviderID(c, volUUID, "provider-id")
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
@@ -1392,7 +1392,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForStorageAttachmentUUID(c *tc.
 		"foo": "bar",
 	})
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 
 	volUUID, _ := s.newMachineVolume(c)
 	vaUUID := s.newMachineVolumeAttachment(c, volUUID, netNodeUUID)
@@ -1429,7 +1429,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentUUIDForStorageAttachmentUUIDWithVol
 		"foo": "bar",
 	})
 	s.newCharmStorage(c, charmUUID, "mystorage", "block", true, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	storageAttachmentUUID := s.newStorageAttachment(c, suuid, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())

@@ -56,7 +56,7 @@ func (s *filesystemSuite) TestGetFilesystemWithBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	volUUID, volID := s.newMachineVolume(c)
 	s.newStorageInstanceVolume(c, storageInstanceUUID, volUUID)
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
@@ -83,7 +83,7 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "rootfs", "rootfs", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.setFilesystemProviderID(c, fsUUID, "fs-123")
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID, fsUUID)
@@ -869,7 +869,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsUsingPool(c *tc.C) {
 	})
 	charmUUID := s.newCharm(c)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	fsUUID, fsID := s.newMachineFilesystemWithSize(c, 100)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
@@ -925,7 +925,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsMachineAttached(c *tc
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	fsUUID, _ := s.newMachineFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newMachineFilesystemAttachment(c, fsUUID, netNodeUUID)
@@ -969,7 +969,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", true, "/var/foo")
 
 	// Construct storage instance, filesystem, filesystem attachment
-	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	suuid := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	fsUUID, _ := s.newModelFilesystem(c)
 	s.setFilesystemProviderID(c, fsUUID, "provider-id")
 	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
@@ -999,7 +999,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageAttachmentUUI
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	fsUUID, _ := s.newMachineFilesystem(c)
@@ -1031,7 +1031,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForStorageAttachmentUUI
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageAttachmentUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())

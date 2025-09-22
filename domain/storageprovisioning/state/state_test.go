@@ -306,7 +306,7 @@ func (s *stateSuite) TestGetStorageAttachmentIDsForUnit(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
@@ -330,7 +330,7 @@ func (s *stateSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
 	_, charmUUID := s.newApplication(c, "foo")
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -353,7 +353,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -389,7 +389,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageAttachmentNotFound(c *tc.C)
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID.String(), storageInstanceUUID.String())
@@ -404,9 +404,9 @@ func (s *stateSuite) TestInitialWatchStatementForUnitStorageAttachments(c *tc.C)
 	s.newCharmStorage(c, charmUUID, "mystorage-1", "filesystem", false, "")
 	s.newCharmStorage(c, charmUUID, "mystorage-2", "filesystem", false, "")
 	s.newCharmStorage(c, charmUUID, "mystorage-3", "filesystem", false, "")
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1")
-	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2")
-	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-1", "filesystem")
+	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-2", "filesystem")
+	_ = s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage-3", "filesystem")
 	_ = s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
@@ -438,7 +438,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
@@ -456,7 +456,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithStorageAttachmentNotFound(c
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -471,7 +471,7 @@ func (s *stateSuite) TestGetStorageAttachmentUUIDWithUnitNotFound(c *tc.C) {
 	_, charmUUID := s.newApplication(c, "foo")
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	storageID := s.getStorageID(c, storageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -499,14 +499,12 @@ func (s *stateSuite) TestNamespaceForStorageAttachment(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetStorageAttachmentInfoForFilesystemAttachment(c *tc.C) {
-	c.Skip("TODO: enable once the storage kind lookup is fixed.")
-
 	netNodeUUID := s.newNetNode(c)
 	appUUID, charmUUID := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "filesystem")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	s.newStorageOwner(c, storageInstanceUUID, unitUUID)
 
@@ -528,7 +526,7 @@ func (s *stateSuite) TestGetStorageAttachmentInfoForVolumeAttachment(c *tc.C) {
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
 	s.newCharmStorage(c, charmUUID, "mystorage", "filesystem", false, "")
 	poolUUID := s.newStoragePool(c, "foo", "foo", nil)
-	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage")
+	storageInstanceUUID := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "mystorage", "block")
 	saUUID := s.newStorageAttachment(c, storageInstanceUUID, unitUUID)
 	s.newStorageOwner(c, storageInstanceUUID, unitUUID)
 

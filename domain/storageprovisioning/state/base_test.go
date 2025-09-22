@@ -261,13 +261,21 @@ VALUES (?, ?, ?, ?)
 }
 
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
-	c *tc.C, charmUUID, poolUUID, storageName string,
+	c *tc.C, charmUUID, poolUUID, storageName string, storage_kind string,
 ) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
-	var charmName string
+	var storageKindID int
 	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT id FROM storage_kind WHERE kind = ?",
+		storage_kind,
+	).Scan(&storageKindID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var charmName string
+	err = s.DB().QueryRowContext(
 		c.Context(),
 		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
 		charmUUID,
@@ -278,13 +286,14 @@ func (s *baseSuite) newStorageInstanceForCharmWithPool(
 INSERT INTO storage_instance(uuid, charm_name, storage_name, storage_id,
                              life_id, requested_size_mib, storage_pool_uuid,
                              storage_kind_id)
-VALUES (?, ?, ?, ?, 0, 100, ?, 1)
+VALUES (?, ?, ?, ?, 0, 100, ?, ?)
 `,
 		storageInstanceUUID.String(),
 		charmName,
 		storageName,
 		storageID,
 		poolUUID,
+		storageKindID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
