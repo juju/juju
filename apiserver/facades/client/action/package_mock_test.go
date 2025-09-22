@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	model "github.com/juju/juju/core/model"
+	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
 	operation "github.com/juju/juju/domain/operation"
 	charm0 "github.com/juju/juju/internal/charm"
@@ -475,6 +476,45 @@ func (c *MockOperationServiceStartExecOperationOnAllMachinesCall) Do(f func(cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOperationServiceStartExecOperationOnAllMachinesCall) DoAndReturn(f func(context.Context, operation.ExecArgs) (operation.RunResult, error)) *MockOperationServiceStartExecOperationOnAllMachinesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchTaskLogs mocks base method.
+func (m *MockOperationService) WatchTaskLogs(arg0 context.Context, arg1 string) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchTaskLogs", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchTaskLogs indicates an expected call of WatchTaskLogs.
+func (mr *MockOperationServiceMockRecorder) WatchTaskLogs(arg0, arg1 any) *MockOperationServiceWatchTaskLogsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTaskLogs", reflect.TypeOf((*MockOperationService)(nil).WatchTaskLogs), arg0, arg1)
+	return &MockOperationServiceWatchTaskLogsCall{Call: call}
+}
+
+// MockOperationServiceWatchTaskLogsCall wrap *gomock.Call
+type MockOperationServiceWatchTaskLogsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceWatchTaskLogsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockOperationServiceWatchTaskLogsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceWatchTaskLogsCall) Do(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchTaskLogsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceWatchTaskLogsCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[[]string], error)) *MockOperationServiceWatchTaskLogsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -50,15 +52,58 @@ func (st *State) GetIDsForAbortingTaskOfReceiver(
 	return nil, coreerrors.NotImplemented
 }
 
-// GetPaginatedTaskLogsByUUID returns a paginated slice of log messages and
-// the page number.
-func (st *State) GetPaginatedTaskLogsByUUID(
+// GetLatestTaskLogsByUUID returns a slice of log messages newer than
+// the cursor provided. A new cursor is returned with the latest value.
+func (st *State) GetLatestTaskLogsByUUID(
 	ctx context.Context,
 	taskUUID string,
-	page int,
-) ([]internal.TaskLogMessage, int, error) {
-	// TODO: return log messages in order from oldest to newest.
-	return nil, 0, coreerrors.NotImplemented
+	cursor time.Time,
+) ([]internal.TaskLogMessage, time.Time, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, cursor, errors.Capture(err)
+	}
+
+	paging := pagination{
+		Cursor: cursor,
+	}
+	task := taskLogEntry{TaskUUID: taskUUID}
+	query := `
+SELECT * AS &taskLogEntry.*
+FROM   operation_task_log
+WHERE  task_uuid = $taskLogEntry.task_uuid
+AND    created_at > $pagination.cursor
+ORDER BY created_at ASC`
+	stmt, err := st.Prepare(query, paging, task)
+	if err != nil {
+		return nil, cursor, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var results []taskLogEntry
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, task, paging).GetAll(&results)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("querying: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, cursor, errors.Errorf("getting task logs for %q: %w", taskUUID, err)
+	}
+
+	logs := transform.Slice(results, func(in taskLogEntry) internal.TaskLogMessage {
+		return internal.TaskLogMessage{
+			Message:   in.Content,
+			Timestamp: in.CreatedAt,
+		}
+	})
+
+	nextCursor := cursor
+	if len(logs) > 0 {
+		nextCursor = logs[len(logs)-1].Timestamp
+	}
+
+	return logs, nextCursor, nil
 }
 
 // GetTaskIDsByUUIDsFilteredByReceiverUUID returns task IDs of the tasks
@@ -73,7 +118,35 @@ func (st *State) GetTaskIDsByUUIDsFilteredByReceiverUUID(
 
 // GetTaskUUIDByID returns the task UUID for the given task ID.
 func (st *State) GetTaskUUIDByID(ctx context.Context, taskID string) (string, error) {
-	return "", coreerrors.NotImplemented
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	task := taskIdent{ID: taskID}
+	query := `
+SELECT uuid AS &uuid.uuid
+FROM   operation_task
+WHERE  task_id = $taskIdent.task_id`
+	stmt, err := st.Prepare(query, uuid{}, task)
+	if err != nil {
+		return "", errors.Errorf("preparing statement: %w", err)
+	}
+
+	var result uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, task).Get(&result)
+		if errors.Is(err, sql.ErrNoRows) {
+			return operationerrors.TaskNotFound
+		} else if err != nil {
+			return errors.Errorf("querying task: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("getting task UUID for %q: %w", taskID, err)
+	}
+	return result.UUID, nil
 }
 
 // NamespaceForTaskAbortingWatcher returns the namespace for

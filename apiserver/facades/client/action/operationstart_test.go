@@ -19,7 +19,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/unit"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
@@ -45,12 +44,10 @@ func (s *enqueueSuite) TestEnqueuePermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: FakeAuthorizer without write permission should yield ErrPerm
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
-	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService, s.BlockCommandService, s.ModelInfoService,
-		s.OperationService, modeltesting.GenModelUUID(c))
-	c.Assert(err, tc.ErrorIsNil)
+	api := s.newActionAPIWithAuthorizer(c, auth)
 
 	// Act
-	_, err = api.EnqueueOperation(context.Background(), params.Actions{Actions: []params.Action{{Receiver: "app/0", Name: "do"}}})
+	_, err := api.EnqueueOperation(context.Background(), params.Actions{Actions: []params.Action{{Receiver: "app/0", Name: "do"}}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -61,7 +58,7 @@ func (s *enqueueSuite) TestEnqueuePermissionDenied(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueNoActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 
 	// Act
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{})
@@ -75,7 +72,7 @@ func (s *enqueueSuite) TestEnqueueNoActions(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	taskArgs := operation.TaskArgs{
 		ActionName:     "do",
 		Parameters:     map[string]interface{}{"k": "v"},
@@ -124,7 +121,7 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueLeaderReceiver(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	taskArgs := operation.TaskArgs{
 		ActionName: "do",
 	}
@@ -156,7 +153,7 @@ func (s *enqueueSuite) TestEnqueueLeaderReceiver(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	taskArgs := operation.TaskArgs{
 		ActionName:     "do-default",
 		IsParallel:     false,
@@ -182,7 +179,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver,
 			gotParams operation.TaskArgs) (operation.RunResult,
@@ -225,7 +222,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	// Ensure StartActionOperation is not called
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
@@ -257,7 +254,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueSomeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult,
 			error) {
@@ -282,7 +279,7 @@ func (s *enqueueSuite) TestEnqueueSomeInvalid(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueAllInvalid_NoServiceCall(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	// Ensure Run is not called
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
@@ -299,7 +296,7 @@ func (s *enqueueSuite) TestEnqueueAllInvalid_NoServiceCall(c *tc.C) {
 // TestEnqueueServiceError checks that EnqueueOperation returns an error when the OperationService.Run fails.
 func (s *enqueueSuite) TestEnqueueServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "unit-app-0",
 		Name: "do"}}})
@@ -311,7 +308,7 @@ func (s *enqueueSuite) TestEnqueueServiceError(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueUnexpectedExtraResult(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ []operation.ActionReceiver,
 			_ operation.TaskArgs) (operation.RunResult, error) {
@@ -332,7 +329,7 @@ func (s *enqueueSuite) TestEnqueueUnexpectedExtraResult(c *tc.C) {
 // returns an error when results are missing for actions.
 func (s *enqueueSuite) TestEnqueueMissingResultPerActionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	// Arrange
 	s.OperationService.EXPECT().StartActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error) {
@@ -367,7 +364,7 @@ func (s *runSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	// Don't block
 	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("",
 		blockcommanderrors.NotFound).AnyTimes()
-	return s.MockBaseSuite.NewActionAPI(c)
+	return s.MockBaseSuite.newActionAPI(c)
 }
 
 // TestRunBlockOnAllMachines ensures RunOnAllMachines is blocked when a
@@ -375,7 +372,7 @@ func (s *runSuite) NewActionAPI(c *tc.C) *ActionAPI {
 func (s *runSuite) TestRunBlockOnAllMachines(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: Use parent mock action API to handle specifically the block changes
-	client := s.MockBaseSuite.NewActionAPI(c)
+	client := s.MockBaseSuite.newActionAPI(c)
 
 	// block all changes
 	s.blockAllChanges(c, "TestRunBlockOnAllMachines")
@@ -393,7 +390,7 @@ func (s *runSuite) TestRunBlockOnAllMachines(c *tc.C) {
 func (s *runSuite) TestRunBlockMachineAndApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: Use parent mock action API to handle specifically the block changes
-	client := s.MockBaseSuite.NewActionAPI(c)
+	client := s.MockBaseSuite.newActionAPI(c)
 
 	// block all changes
 	s.blockAllChanges(c, "TestRunBlockMachineAndApplication")
@@ -414,15 +411,12 @@ func (s *runSuite) TestRunPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
-	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService,
-		s.BlockCommandService, s.ModelInfoService, s.OperationService,
-		modeltesting.GenModelUUID(c))
-	c.Assert(err, tc.ErrorIsNil)
+	api := s.newActionAPIWithAuthorizer(c, auth)
 	// Ensure the service is not called
 	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
-	_, err = api.Run(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
+	_, err := api.Run(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -585,7 +579,7 @@ func (s *runSuite) TestRunEmptyTarget(c *tc.C) {
 func (s *runSuite) TestRunBlockServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange: use parent mock action API to handle specifically the block changes
-	api := s.MockBaseSuite.NewActionAPI(c)
+	api := s.MockBaseSuite.newActionAPI(c)
 	s.BlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", fmt.Errorf("block-fail"))
 	s.OperationService.EXPECT().StartExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
@@ -626,7 +620,7 @@ func (s *runAllSuite) NewActionAPI(c *tc.C) *ActionAPI {
 		GetModelInfo(gomock.Any()).
 		Return(coremodel.ModelInfo{Type: coremodel.IAAS}, nil).
 		AnyTimes()
-	return s.MockBaseSuite.NewActionAPI(c)
+	return s.MockBaseSuite.newActionAPI(c)
 }
 
 // TestRunOnAllMachinesPermissionDenied verifies admin permission is
@@ -635,15 +629,13 @@ func (s *runAllSuite) TestRunOnAllMachinesPermissionDenied(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	auth := apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("readonly")}
-	api, err := NewActionAPI(auth, s.Leadership, s.ApplicationService,
-		s.BlockCommandService, s.ModelInfoService, s.OperationService,
-		modeltesting.GenModelUUID(c))
-	c.Assert(err, tc.ErrorIsNil)
+	api := s.newActionAPIWithAuthorizer(c, auth)
+
 	// Ensure the operation service is not invoked
 	s.OperationService.EXPECT().StartExecOperationOnAllMachines(gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
-	_, err = api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
+	_, err := api.RunOnAllMachines(c.Context(), params.RunParams{Commands: "echo x", Timeout: time.Second})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -653,8 +645,8 @@ func (s *runAllSuite) TestRunOnAllMachinesPermissionDenied(c *tc.C) {
 // error from the block service and does not call RunOnAllMachines.
 func (s *runSuite) TestRunOnAllMachinesChangeBlockedError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	// Arrange: use parent NewActionAPI to keep standard authorizer setup
-	api := s.MockBaseSuite.NewActionAPI(c)
+	// Arrange: use parent newActionAPI to keep standard authorizer setup
+	api := s.MockBaseSuite.newActionAPI(c)
 	// Force a generic error from block service path used by ChangeAllowed
 	s.BlockCommandService.EXPECT().
 		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
@@ -672,8 +664,8 @@ func (s *runSuite) TestRunOnAllMachinesChangeBlockedError(c *tc.C) {
 // type is not IAAS.
 func (s *runSuite) TestRunOnAllMachinesNonIAASModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
-	api := s.MockBaseSuite.NewActionAPI(c)
+	// Arrange: use parent newActionAPI to keep standard authorizer and modelInfo setup
+	api := s.MockBaseSuite.newActionAPI(c)
 	// Don't block
 	s.BlockCommandService.EXPECT().
 		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
@@ -693,8 +685,8 @@ func (s *runSuite) TestRunOnAllMachinesNonIAASModel(c *tc.C) {
 // fetching model info fails.
 func (s *runAllSuite) TestRunOnAllMachinesModelInfoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	// Arrange: use parent NewActionAPI to keep standard authorizer and modelInfo setup
-	api := s.MockBaseSuite.NewActionAPI(c)
+	// Arrange: use parent newActionAPI to keep standard authorizer and modelInfo setup
+	api := s.MockBaseSuite.newActionAPI(c)
 	// Don't block
 	s.BlockCommandService.EXPECT().
 		GetBlockSwitchedOn(gomock.Any(), gomock.Any()).
