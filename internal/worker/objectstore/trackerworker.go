@@ -120,6 +120,17 @@ func (t *trackerWorker) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	return t.objectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 }
 
+// ListFiles lists all files in the object store for the model.
+func (t *trackerWorker) ListFiles(ctx context.Context) (_ []string, err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return t.objectStore.ListFiles(ctx)
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *trackerWorker) Put(ctx context.Context, path string, r io.Reader, length int64) (uuid objectstore.UUID, err error) {
 	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
@@ -165,6 +176,24 @@ func (t *trackerWorker) Remove(ctx context.Context, path string) (err error) {
 
 	if err := t.objectStore.Remove(ctx, path); err != nil {
 		return errors.Annotatef(err, "removing object %q", path)
+	}
+	return nil
+}
+
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+func (t *trackerWorker) PruneFile(ctx context.Context, path string) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(coretrace.StringAttr("objectstore.path", path)),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := t.objectStore.PruneFile(ctx, path); err != nil {
+		return errors.Annotatef(err, "pruning object %q", path)
 	}
 	return nil
 }

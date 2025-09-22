@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package objectstorepruner
 
 import (
@@ -137,4 +140,41 @@ func (w *Pruner) prune() (int, error) {
 		return -1, errors.Trace(err)
 	}
 
+	metadataPath := make(map[string]struct{})
+	for _, data := range metadata {
+		metadataPath[data.Path] = struct{}{}
+	}
+
+	remove := make(map[string]struct{})
+	for _, filePath := range files {
+		// If the file exists, but isn't in the metadata, it is a candidate for
+		// removal.
+		if _, ok := metadataPath[filePath]; !ok {
+			remove[filePath] = struct{}{}
+		}
+	}
+
+	// Nothing to do.
+	if len(remove) == 0 {
+		return 0, nil
+	}
+
+	w.cfg.Logger.Infof(ctx, "pruning %d unreferenced object store files", len(remove))
+
+	// Attempt to prune all the files we found that are unreferenced.
+	var pruned int
+	for filePath := range remove {
+		err := w.objectStore.PruneFile(ctx, filePath)
+		if errors.Is(err, errors.NotFound) {
+			// Already gone,  nothing to do.
+			continue
+		} else if err != nil {
+			// Log the error, we'll try again next time.
+			w.cfg.Logger.Errorf(ctx, "failed to prune object store file %q: %v", filePath, err)
+			continue
+		}
+		pruned++
+	}
+
+	return pruned, nil
 }

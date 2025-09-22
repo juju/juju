@@ -384,6 +384,36 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+func (t *fileObjectStore) PruneFile(ctx context.Context, path string) error {
+	response := make(chan response, 1)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case t.requests <- request{
+		op:       opPrune,
+		path:     path,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.catacomb.Dying():
+		return t.catacomb.ErrDying()
+	case resp := <-response:
+		if resp.err != nil {
+			return errors.Errorf("pruning file: %w", resp.err)
+		}
+		return nil
+	}
+}
+
 // RemoveAll removes all data for the namespaced model. It is destructive and
 // should be used with caution. No objects will be retrievable after this call.
 // This is expected to be used when the model is being removed or when the
@@ -524,6 +554,16 @@ func (t *fileObjectStore) loop() error {
 
 				case req.response <- response{
 					err: t.remove(ctx, req.path),
+				}:
+				}
+
+			case opPrune:
+				select {
+				case <-t.catacomb.Dying():
+					return t.catacomb.ErrDying()
+
+				case req.response <- response{
+					err: t.pruneFile(ctx, req.path),
 				}:
 				}
 
@@ -817,6 +857,15 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return errors.Errorf("remove metadata: %w", err)
 		}
+		return t.deleteObject(ctx, hash)
+	})
+}
+
+func (t *fileObjectStore) pruneFile(ctx context.Context, path string) error {
+	t.logger.Debugf(ctx, "pruning object %q from file storage", path)
+
+	hash := filepath.Base(path)
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		return t.deleteObject(ctx, hash)
 	})
 }

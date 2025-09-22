@@ -435,6 +435,11 @@ func (TestingObjectStore) Remove(ctx context.Context, path string) error {
 	return nil
 }
 
+// PruneFile removes the file at path, but doesn't check the metadata.
+func (TestingObjectStore) PruneFile(ctx context.Context, path string) error {
+	return nil
+}
+
 // RemoveAll removes data at path, namespaced to the model.
 func (TestingObjectStore) RemoveAll(ctx context.Context) error {
 	return nil

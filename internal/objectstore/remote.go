@@ -112,6 +112,13 @@ func (c *remoteFileObjectStore) Remove(ctx context.Context, path string) error {
 	return c.objectStore.Remove(ctx, path)
 }
 
+// PruneFile removes the file at path, but doesn't check the metadata. This
+// just removes the file from the file system, and is used by the pruner to
+// remove files that are not referenced in the metadata.
+func (c *remoteFileObjectStore) PruneFile(ctx context.Context, path string) error {
+	return c.objectStore.PruneFile(ctx, path)
+}
+
 // RemoveAll removes all data for the namespaced model. It is destructive and
 // should be used with caution. No objects will be retrievable after this call.
 // This is expected to be used when the model is being removed or when the
