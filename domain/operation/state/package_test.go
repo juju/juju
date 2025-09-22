@@ -173,12 +173,12 @@ VALUES (?, ?, ?, ?,?)`, opUUID, opID,
 
 // addOperationTaskWithID adds a new operation task to the database with a specific task ID.
 func (s *baseSuite) addOperationTaskWithID(c *tc.C, operationUUID string, taskID string, status string) string {
-	opUUID := internaluuid.MustNewUUID().String()
+	taskUUID := internaluuid.MustNewUUID().String()
 	s.query(c, `
 INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
-VALUES (?, ?, ?, datetime('now'))`, opUUID, operationUUID, taskID)
-	s.addOperationTaskStatus(c, opUUID, status)
-	return opUUID
+VALUES (?, ?, ?, datetime('now'))`, taskUUID, operationUUID, taskID)
+	s.addOperationTaskStatus(c, taskUUID, status)
+	return taskUUID
 }
 
 // addCompletedOperation inserts an operation with completed_at set to now - completedSince.

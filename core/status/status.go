@@ -348,6 +348,31 @@ func (s Status) KnownTaskStatus() bool {
 	return false
 }
 
+// IsInActiveTaskStatus returns true if status has a known value for
+// a completed task or operation.
+func (s Status) IsInActiveTaskStatus() bool {
+	switch s {
+	case
+		Aborted,
+		Cancelled,
+		Completed,
+		Error,
+		Failed:
+		return true
+	}
+	return false
+}
+
+// ActiveTaskStatuses returns a slice of strings representing
+// the possible statuses of an active task.
+func ActiveTaskStatuses() []string {
+	return []string{
+		Running.String(),
+		Pending.String(),
+		Aborting.String(),
+	}
+}
+
 // KnownAgentStatus returns true if status has a known value for an agent.
 // It includes every status that has ever been valid for a unit or machine agent.
 // This is used by the apiserver client facade to filter out unknown values.

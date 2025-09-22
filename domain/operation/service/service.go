@@ -75,6 +75,12 @@ type State interface {
 		cursor time.Time,
 	) ([]internal.TaskLogMessage, time.Time, error)
 
+	// FinishTask updates the task status to an inactive status value
+	// and saves a reference to its results in the object store. If the
+	// task's operation has no active tasks, mark the completed time for
+	// the operation.
+	FinishTask(context.Context, internal.CompletedTask) error
+
 	// InitialWatchStatementUnitTask returns the namespace (table) and an
 	// initial query function which returns the list of non-pending task ids for
 	// the given unit.

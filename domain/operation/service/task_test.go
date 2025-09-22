@@ -12,9 +12,14 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -105,7 +110,7 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	taskID := "42"
-	expectedAction := operation.Task{
+	expectedTask := operation.Task{
 		TaskInfo: operation.TaskInfo{
 			ID: taskID,
 		},
@@ -115,7 +120,7 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	outputPath := "task-output/test-output.json"
 	outputJSON := `{"result": "success", "message": "Task completed successfully"}`
 
-	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(expectedAction, &outputPath, nil)
+	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(expectedTask, &outputPath, nil)
 	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
 	s.mockObjectStore.EXPECT().Get(gomock.Any(), outputPath).Return(
 		io.NopCloser(strings.NewReader(outputJSON)), int64(len(outputJSON)), nil)
@@ -154,4 +159,178 @@ func (s *serviceSuite) TestStartTaskSuccessFails(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `task start fail`)
+}
+
+func (s *serviceSuite) TestFinishTask(c *tc.C) {
+
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	taskUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
+
+	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
+	storeUUID := objectstoretesting.GenObjectStoreUUID(c)
+	inputJSON := `{"foo":"bar"}`
+	reader := strings.NewReader(inputJSON)
+	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return(storeUUID, nil)
+
+	input := internal.CompletedTask{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID.String(),
+		Status:    corestatus.Completed.String(),
+		Message:   "done",
+	}
+	s.state.EXPECT().FinishTask(gomock.Any(), input).Return(nil)
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Completed.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *serviceSuite) TestFinishTaskError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return("", errors.New("boom"))
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Completed.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestFinishTaskInputStatusNotValid(c *tc.C) {
+	// Arrange
+	arg := operation.CompletedTaskResult{
+		TaskID:  "42",
+		Message: "done",
+		Status:  corestatus.Pending.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestFinishTaskInputIDNotValid(c *tc.C) {
+	// Arrange
+	arg := operation.CompletedTaskResult{}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestFinishTaskFailStorePut(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	taskUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
+
+	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
+	inputJSON := `{"foo":"bar"}`
+	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, gomock.Any(), int64(len(inputJSON))).Return("", errors.New("store put error"))
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Completed.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "putting task result \"42\" in store: failed to store results: store put error")
+}
+
+func (s *serviceSuite) TestFinishTaskFailState(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	taskUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
+
+	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
+	storeUUID := objectstoretesting.GenObjectStoreUUID(c)
+	inputJSON := `{"foo":"bar"}`
+	reader := strings.NewReader(inputJSON)
+	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return(storeUUID, nil)
+
+	input := internal.CompletedTask{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID.String(),
+		Status:    corestatus.Completed.String(),
+		Message:   "done",
+	}
+	s.state.EXPECT().FinishTask(gomock.Any(), input).Return(errors.New("boom"))
+
+	s.mockObjectStore.EXPECT().Remove(c.Context(), taskUUID).Return(nil)
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Completed.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestFinishTaskNoStore(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	taskUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
+
+	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Completed.String(),
+		Results: map[string]interface{}{"foo": "bar"},
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "putting task result \"42\" in store: getting object store: boom")
 }

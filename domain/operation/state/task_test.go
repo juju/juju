@@ -12,6 +12,7 @@ import (
 
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/domain/operation/internal"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -158,7 +159,7 @@ func (s *taskSuite) TestStartTask(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	s.assertStatusRunning(c, taskUUID)
+	s.checkTaskStatus(c, taskUUID, corestatus.Running.String())
 }
 
 func (s *taskSuite) TestStartTaskNotFound(c *tc.C) {
@@ -176,7 +177,7 @@ func (s *taskSuite) TestStartTaskNotPending(c *tc.C) {
 	// Arrange
 	operationUUID := s.addOperation(c)
 	taskID := "42"
-	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
 
 	// Act
 	err := s.state.StartTask(c.Context(), taskID)
@@ -185,8 +186,65 @@ func (s *taskSuite) TestStartTaskNotPending(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.TaskNotPending)
 }
 
-func (s *taskSuite) assertStatusRunning(c *tc.C, taskUUID string) {
-	// Assert: Check that the resource has been remove from the stored blob
+func (s *taskSuite) TestFinishTaskNotOperation(c *tc.C) {
+	// Arrange
+	// Add an operation and two tasks, neither have been completed.
+	operationUUID := s.addOperation(c)
+	s.addOperationTaskStatus(c, s.addOperationTask(c, operationUUID), corestatus.Running.String())
+	taskUUID := s.addOperationTask(c, operationUUID)
+	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
+
+	// Setup the object store data to save
+	storeUUID := s.addFakeMetadataStore(c, 4)
+	s.addMetadataStorePath(c, storeUUID, taskUUID)
+
+	arg := internal.CompletedTask{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID,
+		Status:    corestatus.Completed.String(),
+		Message:   "done",
+	}
+
+	// Act
+	err := s.state.FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkTaskStatus(c, taskUUID, arg.Status)
+	s.checkOperationCompleted(c, operationUUID, false)
+}
+
+func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
+	// Arrange
+	// Add an operation and two tasks, one is finished with
+	// an error state.
+	operationUUID := s.addOperation(c)
+	s.addOperationTaskStatus(c, s.addOperationTask(c, operationUUID), corestatus.Error.String())
+	taskUUID := s.addOperationTask(c, operationUUID)
+	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
+
+	// Setup the object store data to save
+	storeUUID := s.addFakeMetadataStore(c, 4)
+	s.addMetadataStorePath(c, storeUUID, taskUUID)
+
+	arg := internal.CompletedTask{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID,
+		Status:    corestatus.Completed.String(),
+		Message:   "done",
+	}
+
+	// Act
+	err := s.state.FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkTaskStatus(c, taskUUID, arg.Status)
+	s.checkOperationCompleted(c, operationUUID, true)
+}
+
+func (s *taskSuite) checkTaskStatus(c *tc.C, taskUUID, status string) {
+	// Assert: Check that the task status has been set as indicated
 	var task string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
@@ -195,10 +253,25 @@ FROM   operation_task_status AS ots
 JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
 WHERE  ots.task_uuid = ?
 AND    otsv.status = ?
-`, taskUUID, corestatus.Running.String()).Scan(&task)
+`, taskUUID, status).Scan(&task)
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(task, tc.Equals, taskUUID)
+}
+
+func (s *taskSuite) checkOperationCompleted(c *tc.C, operationUUID string, completed bool) {
+	// Assert: Check if the operation completed at time has been set
+	// as indicated indicated by "completed"
+	var completedAt sql.NullTime
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT completed_at
+FROM   operation
+WHERE  uuid = ?
+`, operationUUID).Scan(&completedAt)
+	})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(completedAt.Time.IsZero(), tc.Equals, !completed, tc.Commentf("expected completed at %v", completedAt))
 }
 
 func ptr[T any](v T) *T {

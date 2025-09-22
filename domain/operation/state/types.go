@@ -56,7 +56,9 @@ type taskIdent struct {
 // taskStatus represents a task status for queries on the
 // operation_task_status table.
 type taskStatus struct {
+	TaskUUID  string    `db:"task_uuid"`
 	Status    string    `db:"status"`
+	Message   string    `db:"message"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
@@ -78,4 +80,17 @@ type taskTime struct {
 
 type pagination struct {
 	Cursor time.Time `db:"cursor"`
+}
+
+// taskUUIDTime maps a task UUID and time together
+type taskUUIDTime struct {
+	TaskUUID string    `db:"task_uuid"`
+	Time     time.Time `db:"time"`
+}
+
+// outputStore contains the data to interact with the
+// operation_task_output table.
+type outputStore struct {
+	TaskUUID  string `db:"task_uuid"`
+	StoreUUID string `db:"store_uuid"`
 }

@@ -14,6 +14,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -135,6 +136,156 @@ func verifyOneOutcome(outcome sqlair.Outcome, returnError error) error {
 	if n == 0 {
 		return returnError
 	}
+	return nil
+}
+
+// FinishTask updates the task status to an inactive status value
+// and saves a reference to its results in the object store. If the
+// task's operation has no active tasks, mark the completed time for
+// the operation.
+// Returns [operationerrors.TaskNotFound] if the task does not exist.
+func (st *State) FinishTask(ctx context.Context, task internal.CompletedTask) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	completedTime := time.Now().UTC()
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.updateOperationTaskStatus(ctx, tx, task.TaskUUID, task.Status, task.Message, completedTime); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := st.insertOperationTaskOutput(ctx, tx, task.TaskUUID, task.StoreUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := st.maybeCompleteOperation(ctx, tx, task.TaskUUID, completedTime); err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("%w", err)
+	}
+	return nil
+}
+
+func (st *State) updateOperationTaskStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID, status, message string,
+	completedTime time.Time,
+) error {
+	statusValue := taskStatus{
+		TaskUUID:  taskUUID,
+		Status:    status,
+		Message:   message,
+		UpdatedAt: completedTime,
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE operation_task_status
+SET    message = $taskStatus.message,
+       updated_at = $taskStatus.updated_at,
+       status_id = (
+           SELECT id FROM operation_task_status_value WHERE status = $taskStatus.status
+       )
+WHERE task_uuid = $taskStatus.task_uuid
+`, taskStatus{})
+	if err != nil {
+		return errors.Errorf("preparing update task status statement: %w", err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, statusValue).Get(&outcome)
+	if err != nil {
+		return errors.Errorf("updating task status %q: %w", taskUUID, err)
+	}
+
+	if err := verifyOneOutcome(outcome, operationerrors.TaskNotFound); err != nil {
+		return errors.Errorf("task %q: %w", taskUUID, err)
+	}
+	return nil
+}
+
+func (st *State) insertOperationTaskOutput(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID, storeUUID string,
+) error {
+
+	store := outputStore{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID,
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO operation_task_output (*)
+VALUES ($outputStore.*)
+`, store)
+	if err != nil {
+		return errors.Errorf("preparing insert task output store statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, store).Run()
+	if err != nil {
+		return errors.Errorf("inserting task %q output: %w", taskUUID, err)
+	}
+
+	return nil
+}
+
+func (st *State) maybeCompleteOperation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID string,
+	completedTime time.Time,
+) error {
+	tUUID := taskUUIDTime{
+		TaskUUID: taskUUID,
+		Time:     completedTime,
+	}
+	statuses := corestatus.ActiveTaskStatuses()
+
+	type status []string
+
+	// How many active tasks does this operation have?
+	stmt, err := st.Prepare(`
+WITH
+-- Get the last updated task operation uuid
+task AS (
+    SELECT operation_uuid
+    FROM   operation_task
+    WHERE  uuid = $taskUUIDTime.task_uuid
+),
+-- Check if any of its task is not completed
+not_completed AS (
+    SELECT operation_uuid AS uuid
+    FROM   operation_task AS ot
+    JOIN   operation_task_status AS ots ON ot.uuid = ots.task_uuid
+    JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE  ot.operation_uuid = (SELECT operation_uuid FROM task)
+    AND    otsv.status IN ($status[:])
+    LIMIT  1
+)
+-- update the task operation only if it is completed
+UPDATE operation
+SET    completed_at = $taskUUIDTime.time
+WHERE  operation.uuid = (SELECT operation_uuid FROM task)
+AND    operation.uuid NOT IN not_completed
+`, status{}, taskUUIDTime{})
+	if err != nil {
+		return errors.Errorf("preparing maybe complete operation statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, tUUID, status(statuses)).Run()
+	if err != nil {
+		return errors.Errorf("maybe complete operation : %w", err)
+	}
+
 	return nil
 }
 
