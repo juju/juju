@@ -433,97 +433,56 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.Background(), false)
 }
 
-func (a *app) DeleteSTSAndApplyNewPVC(config caas.ApplicationConfig) error {
+func (a *app) DeleteSTSAndApplyNewPVC(filesystems []jujustorage.KubernetesFilesystemParams) error {
 	sts, getErr := a.getStatefulSet()
 	if getErr != nil {
 		return errors.Trace(getErr)
 	}
-	sts.OrphanDelete = true
-	sts.Spec.VolumeClaimTemplates = nil
 
 	applier := a.newApplier()
+
+	sts.OrphanDelete = true
+	sts.Spec.VolumeClaimTemplates = nil
 	applier.Delete(sts)
 
 	storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-		return sts, getErr
+		return sts, nil
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	podSpec, err := a.ApplicationPodSpec(config)
+	pvcNames, err := a.pvcNames(storageUniqueID)
 	if err != nil {
-		return errors.Annotate(err, "generating application podspec")
+		return errors.Trace(err)
 	}
 
-	var handleVolume handleVolumeFunc = func(v corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
-		if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &corev1.VolumeMount{
-			Name:      v.Name,
-			ReadOnly:  readOnly,
-			MountPath: mountPath,
-		}, nil
-	}
-	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
-		for i := range podSpec.Containers {
-			name := podSpec.Containers[i].Name
-			if name == constants.ApplicationCharmContainer {
-				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
-				continue
-			}
-			for _, mount := range config.Containers[name].Mounts {
-				if mount.StorageName == storageName {
-					volumeMountCopy := m
-					// TODO(sidecar): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
-					// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
-					volumeMountCopy.MountPath = mount.Path
-					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
-				}
-			}
-		}
-		return nil
-	}
+	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
 
 	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var handleStorageClass = func(sc storagev1.StorageClass) error {
-		storageClass := resources.NewStorageClass(a.client.StorageV1().StorageClasses(), sc.Name, &sc)
-		applier.Apply(storageClass)
-		return nil
-	}
-	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
-		err := a.configureStorage(
-			storageUniqueID,
-			config.Filesystems,
-			storageClasses,
-			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
-		)
-		return errors.Trace(err)
+	storageClassMap := make(map[string]resources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
 	}
 
-	if err = configureStorage(
-		storageUniqueID,
-		func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
-			if err := storage.PushUniqueVolumeClaimTemplate(&sts.Spec, pvc); err != nil {
-				return nil, errors.Trace(err)
-			}
-			return &corev1.VolumeMount{
-				Name:      pvc.GetName(),
-				ReadOnly:  readOnly,
-				MountPath: mountPath,
-			}, nil
-		},
-	); err != nil {
-		return errors.Trace(err)
+	for _, fs := range filesystems {
+		name := a.volumeName(fs.StorageName)
+		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = storage.PushUniqueVolumeClaimTemplate(&sts.Spec, *pvc)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	applier.Apply(sts)
-
-	return nil
+	return applier.Run(context.Background(), false)
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {

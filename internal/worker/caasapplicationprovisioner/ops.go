@@ -59,7 +59,7 @@ type ApplicationOps interface {
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
 
-	UpdatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error
+	ReapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
 }
 
 type applicationOps struct {
@@ -120,8 +120,8 @@ func (applicationOps) EnsureScale(appName string, app caas.Application, appLife 
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
-func (applicationOps) UpdatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error {
-	return updatePVC(appName, app, appLife, logger)
+func (applicationOps) ReapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	return reapplySTSWithUpdatedPVC(appName, app, facade, logger)
 }
 
 type Tomb interface {
@@ -129,9 +129,16 @@ type Tomb interface {
 	ErrDying() error
 }
 
-func updatePVC(appName string, app caas.Application, appLife life.Value, logger Logger) error {
+func reapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
 	logger.Debugf("updating application %q pvc", appName)
 
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return app.DeleteSTSAndApplyNewPVC(info.Filesystems)
 }
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the

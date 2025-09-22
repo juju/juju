@@ -58,7 +58,7 @@ type Application interface {
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
 	) error
 
-	DeleteSTSAndApplyNewPVC(config ApplicationConfig) error
+	DeleteSTSAndApplyNewPVC([]storage.KubernetesFilesystemParams) error
 
 	ServiceInterface
 }
