@@ -2593,6 +2593,10 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+			return errors.Capture(err)
+		}
+
 		return st.setApplicationConstraints(ctx, tx, appID, cons)
 	})
 }
@@ -2698,10 +2702,6 @@ ON CONFLICT (application_uuid) DO NOTHING
 	insertAppConstraintsStmt, err := st.Prepare(insertAppConstraintsQuery, setApplicationConstraint{})
 	if err != nil {
 		return errors.Errorf("preparing insert application constraints query: %w", err)
-	}
-
-	if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-		return errors.Capture(err)
 	}
 
 	var containerTypeID containerTypeID
