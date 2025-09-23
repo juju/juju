@@ -55,12 +55,17 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(
 	ctx context.Context,
-	name string, qualifier model.Qualifier,
+	name string,
+	modelCreator names.UserTag,
 	cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
+
+	// At the moment, the model qualifier is set to the user who creates the model.
+	qualifier := model.QualifierFromUserTag(modelCreator)
+
 	if err := qualifier.Validate(); err != nil {
 		return result, errors.Errorf("invalid qualifier %q", qualifier)
 	}
@@ -84,7 +89,7 @@ func (c *Client) CreateModel(
 		CloudCredentialTag: cloudCredentialTag,
 	}
 	if c.BestAPIVersion() < 11 {
-		return c.createModelCompat(ctx, createArgs)
+		return c.createModelCompat(ctx, modelCreator, createArgs)
 	}
 	var modelInfo params.ModelInfo
 	err := c.facade.FacadeCall(ctx, "CreateModel", createArgs, &modelInfo)

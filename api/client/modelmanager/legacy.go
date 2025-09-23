@@ -20,11 +20,12 @@ import (
 // model owner into a model qualifier.
 func (c *Client) createModelCompat(
 	ctx context.Context,
+	modelCreator names.UserTag,
 	createArgs params.ModelCreateArgs,
 ) (base.ModelInfo, error) {
 	createArgsLegacy := params.ModelCreateArgsLegacy{
 		Name:               createArgs.Name,
-		OwnerTag:           names.NewUserTag(createArgs.Qualifier).String(),
+		OwnerTag:           modelCreator.String(),
 		Config:             createArgs.Config,
 		CloudTag:           createArgs.CloudTag,
 		CloudRegion:        createArgs.CloudRegion,

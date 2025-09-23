@@ -23,7 +23,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cmd"
@@ -151,7 +150,8 @@ func (c *addModelCommand) Init(args []string) error {
 type AddModelAPI interface {
 	CreateModel(
 		ctx context.Context,
-		name string, qualifier coremodel.Qualifier,
+		name string,
+		modelCreator names.UserTag,
 		cloudName, cloudRegion string,
 		cloudCredential names.CloudCredentialTag,
 		config map[string]interface{},
@@ -253,9 +253,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	addModelClient := c.newAddModelAPI(root)
-	// At the moment, the model qualifier is set to the user who creates the model.
-	qualifier := coremodel.QualifierFromUserTag(names.NewUserTag(modelCreator))
-	model, err := addModelClient.CreateModel(ctx, c.Name, qualifier, cloudTag.Id(), cloudRegion, credentialTag, attrs)
+	model, err := addModelClient.CreateModel(ctx, c.Name, names.NewUserTag(modelCreator), cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
 		if strings.HasPrefix(errors.Cause(err).Error(), "getting credential") {
 			err = errors.NewNotFound(nil,
