@@ -8,7 +8,7 @@ This document is about our releases of Juju, that is, the `juju` CLI client and 
 - We release new minor version (the 'x' of m.x.p) approximately every 3 months.
 - Patch releases for supported series are released every month
 - Once we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
-- Minor releases are supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
+- Minor releases are supported with bug fixes for a period of 4 months from their release date, and a further 2 months of security fixes. LTS releases will receive security fixes for 12 years.
 - 4.0 is an exception to the rule, as it is still under development. We plan on releasing beta versions that are content driven and not time.
 
 The rest of this document gives detailed information about each release.
@@ -44,13 +44,180 @@ ADD WHEN FIXED.
 
 
 ## ⭐ **Juju 3.6**
-> 30 May 2030: expected end of security fix support
+> April 2036: expected end of security fix support
 >
 > 1 May 2026: expected end of bug fix support
 
 ```{note}
 Juju 3.6 series is LTS
 ```
+
+### 🔸 **Juju 3.6.10**
+🗓️ 23 Sep 2025
+
+For a detailed list of every commit in this release, refer to the [Github Release Notes](https://github.com/juju/juju/releases/tag/v3.6.10).
+
+⚙️ Features:
+
+#### New Google Cloud provider functionality
+The Google Cloud provider gains support for various features already available on other clouds like AWS or Azure.
+Specifically, the following features are now available:<br>
+
+**VPC selection**<br>
+Use the `vpc-id` model config value to select the name of the VPC to use for that model.
+This is supplied when the model is added:<br>
+`juju add-model mymodel --config vpc-id=myvpc`<br>
+or at bootstrap for the controller model:<br>
+`juju bootstrap google mycontroller --config vpc-id=myvpc`
+
+For a VPC to be used when bootstrapping, there must be a firewall ruling allowing SSH traffic.
+
+**Spaces support and subnet placement**<br>
+Compute instances can now be provisioned such that space constraints and subnet placement can be used.
+Subnet placement can use either the subnet name or subnet CIDR.<br>
+eg<br>
+`juju deploy mycharm --constraints="spaces=aspace"`
+`juju deploy mycharm --constraints="subnet=asubnet"`
+`juju deploy mycharm --constraints="subnet=10.142.0.0/16"`
+
+**ssh-allow model config**<br>
+The `ssh-allow` model config value is now supported. When specified, a firewall rule
+is created to control ingress to the ssh port.<br>
+eg<br>
+`juju model-config ssh-allow="192.168.0.0/24"`
+
+**Service account credentials**<br>
+Similar to using instance roles on AWS or managed identities on Azure, it's now possible to use 
+service accounts to confer permissions to Juju controllers such that a credential secret is not required.
+The service account to be used must have the following scopes:
+- `https://www.googleapis.com/auth/compute`
+- `https://www.googleapis.com/auth/devstorage.full_control`
+
+If you are not on a jump host, you must bootstrap using a standard credential and specify the service account like so:<br>
+`juju bootstrap google mycontroller --bootstrap-constraints="instance-role=mydevname@2@developer.gserviceaccount.com"`
+
+If you are on a jump host, you can set up a credential using `juju add-credential google`. Select credential type
+`service-account` and enter the service account email. Then bootstrap as normal:<br>
+`juju bootstrap google mycontroller`
+
+**Constrains with `image-id`**<br>
+The use of the `image-id` constraint value is now supported.<br>
+eg<br>
+`juju deploy mycharm --constraints="image-id=someimageid"`
+
+* feat: add vpc support to the google provider by @wallyworld in https://github.com/juju/juju/pull/20518
+* feat: add support for ssh-allow model config for gce by @adglkh in https://github.com/juju/juju/pull/20511
+* feat: add support for gce service account credentials by @wallyworld in https://github.com/juju/juju/pull/20585
+* feat: add spaces and subnet placement for gce by @wallyworld in https://github.com/juju/juju/pull/20568
+* fix: support image-id constraint for charm deployment on gce by @adglkh in https://github.com/juju/juju/pull/20591
+
+#### Preview: support for `--attach-storage` on Kubernetes models
+For this release, a feature flag needs to be used as the feature is in preview.
+On the client machine used to run the Juju CLI, simply:<br>
+`export JUJU_DEV_FEATURE_FLAGS=k8s-attach-storage`
+
+The primary use case this feature is designed to solve is to provide the ability to re-use volumes that have
+been restored from a backup and attach them to units when deploying or scaling. The basic steps follow the 
+usual import and attach workflow supported already on other clouds:
+1. Import the PV into the Juju model to create a detached storage instance.
+2. Use the imported storage with the `--attach-storage` option for `deploy` or `add-unit`.<br>
+eg
+```shell
+juju import-filesystem kubernetes <mypvname>
+# See the resulting detached storage instance.
+juju status --storage
+juju deploy postgresql-k8s --trust --attach-storage <storagename>
+```
+
+Note that if the PV to be imported still has a reference to a PVC, the `--force` option is needed when importing since the
+existing claim reference will be removed.
+
+* feat: import filesystem force option by @jneo8 in https://github.com/juju/juju/pull/20247
+* feat: caas scale unit attach storage by @jneo8 in https://github.com/juju/juju/pull/20434
+
+#### Removal of charm metrics
+Charm metrics are no longer supported. This means that the `collect-metrics` and `meter-status-changed` hooks
+will no longer fire and the `add-metrics` hook command becomes a no-op. In addition, the Juju CLI commands
+`metrics`, `collect=metrics`, and `set-meter-status` are removed.
+
+* feat: remove metrics and meterstatus functionality by @adisazhar123 in https://github.com/juju/juju/pull/20520
+
+#### Documentation improvements
+Many documentation improvements have been done for this release. Highlights include:
+- better support for diagrams in dark mode
+- visual enhancements to tips and notes
+- removal of command aliases from CLI doc to reduce clutter
+- hook and storage reference doc improvements
+
+* fix: update secret-set hook tool help by @dimaqq in https://github.com/juju/juju/pull/20567
+* docs: update starter pack by @tmihoc in https://github.com/juju/juju/pull/20419
+* docs: break up manage your deployment by @tmihoc in https://github.com/juju/juju/pull/20403
+* docs: update tutorial cf user testing by @tmihoc in https://github.com/juju/juju/pull/20384
+* docs: adds to charms best practices concerning respecting model-config  settings by @addyess in https://github.com/juju/juju/pull/20268
+* docs: fix cli docs -- links and formatting by @tmihoc in https://github.com/juju/juju/pull/20451
+* docs: clean up storage ref doc by @tmihoc in https://github.com/juju/juju/pull/20501
+* docs: 3.6+ update see note style by @tmihoc in https://github.com/juju/juju/pull/20523
+* docs: 3.6+ fix relation images in dark mode by @tmihoc in https://github.com/juju/juju/pull/20539
+* docs: 3.6+ improve structure and look of our hook doc by @tmihoc in https://github.com/juju/juju/pull/20553
+* docs: 3.6+ revisit information foregrounding notes  by @tmihoc in https://github.com/juju/juju/pull/20551
+* docs: add caution banner for 3.5 EOL by @nvinuesa in https://github.com/juju/juju/pull/20570
+* doc: remove command aliases from cli reference doc by @wallyworld in https://github.com/juju/juju/pull/20584
+* feat(docs): export dark-mode SVGs in Excalidraw converter by @anvial in https://github.com/juju/juju/pull/20420
+
+🛠️ Fixes:
+
+#### Openstack
+The 3.6.9 release introduced a [regression](https://github.com/juju/juju/issues/20513) when running on Openstack clouds where security groups are disabled.
+ 
+* fix: gracefully handle error when security group is disabled in openstack by @adisazhar123 in https://github.com/juju/juju/pull/20548
+
+#### Google cloud
+Specifying non-default disk storage using storage pools is fixed.
+Using images configured for pro support is fixed. 
+
+* fix: ensure gce images are correctly configured for pro support by @wallyworld in https://github.com/juju/juju/pull/20417
+* fix: set maintenance policy upon instance creation on GCE by @adglkh in https://github.com/juju/juju/pull/20509
+* fix: use `disk-type` instead of `type` when querying disk type on gce by @adglkh in https://github.com/juju/juju/pull/20557
+
+#### Kubernetes
+Deletion of applications deployed using sidecar charms now also deletes any Kubernetes resources created directly by the charm
+and not managed by Juju. These include:
+- custom resource definitions
+- config maps
+- deployments, daemonsets
+- etc
+
+Adding multiple secrets simultaneously could result in an error and this has been fixed.
+Fixes for issues scaling applications:
+- fix logic to only consider units >= target scale for removal, preventing inappropriate scaling during scale-up scenarios.
+- only initiate scaling when all excess units (>= target) are dead.
+The `credential-get` hook command now works on Kubernetes models for trusted applications the same way as for VM models.
+
+* fix: crd resource cleanup on app removal by @CodingCookieRookie in https://github.com/juju/juju/pull/20385
+* fix: caas reconcile scale up prevention by @jneo8 in https://github.com/juju/juju/pull/20479
+* fix: adding multiple secrets simultaneously error by @CodingCookieRookie in https://github.com/juju/juju/pull/20401
+* fix: crd cleanup on app removal for all other resouces by @CodingCookieRookie in https://github.com/juju/juju/pull/20489
+* fix: allow "credential-get" to work on a K8s model by @benhoyt in https://github.com/juju/juju/pull/20428
+* fix(k8s): call broker.Destroy when NewModel fails for CAAS models by @SimoneDutto in https://github.com/juju/juju/pull/20639
+
+#### LXD
+When a model is deleted, any LXD profiles created for the model and its applications are now removed.
+The profile naming scheme has been updated to include a reference to the model UUID as well as name to ensure
+profiles are fully disambiguated. Upon upgrade to this Juju version, existing profiles are renamed as needed. 
+
+The new profile names are of the form:<br>
+`juju-<model>-<shortid>` or `juju-<model>-<shortid>-<app>-<rev>`
+
+* fix: cleanup LXD profile when a model is deleted by @adisazhar123 in https://github.com/juju/juju/pull/20357
+
+
+🥳 New Contributors:
+* @addyess made their first contribution in https://github.com/juju/juju/pull/20268
+* @iasthc made their first contribution in https://github.com/juju/juju/pull/19765
+* @claudiubelu made their first contribution in https://github.com/juju/juju/pull/19794
+* @adglkh made their first contribution in https://github.com/juju/juju/pull/20509
+* @dimaqq made their first contribution in https://github.com/juju/juju/pull/20567
+
 
 ### 🔸 **Juju 3.6.9**
 🗓️ 20 Aug 2025
@@ -1029,7 +1196,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 ## ⭐ **Juju 2.9**
 > Currently in Security Fix Only support
 >
->  April 2028: expected end of security fix support
+>  April 2032: expected end of security fix support
 
 ### 🔸 **Juju 2.9.52** - 07 July 2025
 
