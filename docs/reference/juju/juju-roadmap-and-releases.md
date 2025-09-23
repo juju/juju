@@ -8,7 +8,7 @@ This document is about our releases of Juju, that is, the `juju` CLI client and 
 - We release new minor version (the 'x' of m.x.p) approximately every 3 months.
 - Patch releases for supported series are released every month
 - Once we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
-- Minor releases are supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
+- Minor releases are supported with bug fixes for a period of 4 months from their release date, and a further 2 months of security fixes. LTS releases will receive security fixes for 12 years.
 - 4.0 is an exception to the rule, as it is still under development. We plan on releasing beta versions that are content driven and not time.
 
 The rest of this document gives detailed information about each release.
@@ -44,7 +44,7 @@ ADD WHEN FIXED.
 
 
 ## ⭐ **Juju 3.6**
-> 30 May 2030: expected end of security fix support
+> April 2036: expected end of security fix support
 >
 > 1 May 2026: expected end of bug fix support
 
@@ -53,7 +53,7 @@ Juju 3.6 series is LTS
 ```
 
 ### 🔸 **Juju 3.6.10**
-🗓️ 26 Sep 2025
+🗓️ 23 Sep 2025
 
 For a detailed list of every commit in this release, refer to the [Github Release Notes](https://github.com/juju/juju/releases/tag/v3.6.10).
 
@@ -1196,7 +1196,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 ## ⭐ **Juju 2.9**
 > Currently in Security Fix Only support
 >
->  April 2028: expected end of security fix support
+>  April 2032: expected end of security fix support
 
 ### 🔸 **Juju 2.9.52** - 07 July 2025
 
