@@ -11,8 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
-	"gopkg.in/check.v1"
+	"go.uber.org/mock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -43,7 +42,7 @@ type actionSuite struct {
 	client   *ActionAPI
 }
 
-func (s *actionSuite) SetUpTest(c *check.C) {
+func (s *actionSuite) SetUpTest(c *tc.C) {
 	s.adminTag = names.NewUserTag("admin")
 }
 
