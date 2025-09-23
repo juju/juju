@@ -25,6 +25,9 @@ func (s *Service) AddExecOperation(
 
 	// Initialize the results with proper size upfront
 	result := operation.RunResult{}
+	// We cannot know the exact number of units in advance (because of
+	// applications), so we initialize it to the size of the leader targets.
+	// This allows us to later consolidate the results.
 	result.Units = make([]operation.UnitTaskResult, len(target.LeaderUnit))
 
 	// Initialize a map to store pointers to the result units, indexed by unit name.
@@ -83,33 +86,38 @@ func (s *Service) AddExecOperation(
 		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
 	}
 
-	targetWithResolvedLeaders := operation.ReceiversWithoutLeader{
+	targetWithResolvedLeaders := operation.ReceiversWithResolvedLeaders{
 		Applications: target.Applications,
 		Machines:     target.Machines,
-		Units:        append(target.Units, leaderUnits...),
+		Units:        target.Units,
+		LeaderUnits:  leaderUnits,
 	}
 	runResult, err := s.st.AddExecOperation(ctx, operationUUID, targetWithResolvedLeaders, args)
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("starting exec operation: %w", err)
 	}
 	result.OperationID = runResult.OperationID
-	// Machine results don't need consolidation because no errors can occur
-	// before the state layer insertion method.
 	result.Machines = runResult.Machines
 
 	// Consolidate the leader unit results from the state layer with our
 	// pre-computed results.
 	for _, unitTaskResult := range runResult.Units {
-		unitResult, ok := leaderUnitsByName[unitTaskResult.ReceiverName]
-		if !ok {
-			// This is a regular unit (not a leader), add it directly to the
-			// result.
-			result.Units = append(result.Units, unitTaskResult)
+		if unitTaskResult.IsLeader {
+			// If this is a leader unit, we first must match with the
+			// pre-computed leader unit result.
+			unitResult, ok := leaderUnitsByName[unitTaskResult.ReceiverName]
+			if !ok {
+				// This should never happen, but if it does, we'll just skip it.
+				continue
+			}
+			// Update the leader unit result with the actual task info from the
+			// state layer.
+			unitResult.TaskInfo = unitTaskResult.TaskInfo
 			continue
 		}
-		// Update the leader unit result with the actual task info from the
-		// state layer.
-		unitResult.TaskInfo = unitTaskResult.TaskInfo
+		// This is a regular unit (not a leader), add it directly to the
+		// result.
+		result.Units = append(result.Units, unitTaskResult)
 	}
 
 	// Mark any missing results (leader units that were expected but not
@@ -156,12 +164,9 @@ func (s *Service) AddActionOperation(
 	result := operation.RunResult{}
 	result.Units = make([]operation.UnitTaskResult, len(target))
 
-	// Initialize a map to store pointers to the result units, indexed by unit name.
-	// This is used to consolidate the results from the state layer.
-	unitResultsByName := make(map[coreunit.Name]*operation.UnitTaskResult)
-
-	// Initialize input unit names to pass to the state layer method.
+	// Build slices to track mapping from input receivers to state layer results.
 	targetUnits := make([]coreunit.Name, 0, len(target))
+	resultSlots := make([]*operation.UnitTaskResult, 0, len(target))
 
 	// Process each target receiver
 	for i, unitOrLeader := range target {
@@ -170,8 +175,8 @@ func (s *Service) AddActionOperation(
 			result.Units[i] = operation.UnitTaskResult{
 				ReceiverName: unitOrLeader.Unit,
 			}
-			unitResultsByName[unitOrLeader.Unit] = &result.Units[i]
 			targetUnits = append(targetUnits, unitOrLeader.Unit)
+			resultSlots = append(resultSlots, &result.Units[i])
 			continue
 		}
 
@@ -214,8 +219,8 @@ func (s *Service) AddActionOperation(
 			ReceiverName: leaderUnitName,
 			IsLeader:     true,
 		}
-		unitResultsByName[leaderUnitName] = &result.Units[i]
 		targetUnits = append(targetUnits, leaderUnitName)
+		resultSlots = append(resultSlots, &result.Units[i])
 	}
 
 	// If no valid units to process, return early.
@@ -234,23 +239,18 @@ func (s *Service) AddActionOperation(
 	}
 	result.OperationID = runResult.OperationID
 
-	// Consolidate the results from the state layer with our pre-computed
-	// results.
-	for _, unitTaskResult := range runResult.Units {
-		unitResult, ok := unitResultsByName[unitTaskResult.ReceiverName]
-		if !ok {
-			// This should not happen, and we cannot error out.
-			continue
+	// Consolidate the results from the state layer with our pre-computed results.
+	for i, unitTaskResult := range runResult.Units {
+		if i < len(resultSlots) {
+			resultSlots[i].TaskInfo = unitTaskResult.TaskInfo
 		}
-		// Update the result with the actual task info from the state layer.
-		unitResult.TaskInfo = unitTaskResult.TaskInfo
 	}
 
 	// Mark any missing results (units that were expected but not returned by
 	// the state layer method).
-	for unitName, unitResult := range unitResultsByName {
-		if unitResult.TaskInfo.ID == "" && unitResult.TaskInfo.Error == nil {
-			unitResult.TaskInfo.Error = errors.Errorf("missing result for unit %s", unitName)
+	for _, slot := range resultSlots {
+		if slot.TaskInfo.ID == "" && slot.TaskInfo.Error == nil {
+			slot.TaskInfo.Error = errors.Errorf("missing result for unit %s", slot.ReceiverName)
 		}
 	}
 

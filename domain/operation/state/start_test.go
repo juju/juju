@@ -53,7 +53,7 @@ func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {
 	_ = s.addMachine(c, "1")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0", "1"},
 	}
 	args := operation.ExecArgs{
@@ -66,8 +66,8 @@ func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 2)
-	c.Check(len(result.Units), tc.Equals, 0)
+	c.Assert(result.Machines, tc.HasLen, 2)
+	c.Assert(result.Units, tc.HasLen, 0)
 
 	// Check first machine result.
 	c.Check(result.Machines[0].ReceiverName, tc.Equals, machine.Name("0"))
@@ -96,7 +96,7 @@ func (s *startSuite) TestAddExecOperationWithUnitsOnly(c *tc.C) {
 	unitUUID := s.addUnitWithName(c, s.addCharm(c), "unit-exec/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Units: []unit.Name{"unit-exec/0"},
 	}
 	args := operation.ExecArgs{
@@ -109,8 +109,8 @@ func (s *startSuite) TestAddExecOperationWithUnitsOnly(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 0)
-	c.Check(len(result.Units), tc.Equals, 1)
+	c.Assert(result.Machines, tc.HasLen, 0)
+	c.Assert(result.Units, tc.HasLen, 1)
 
 	// Check unit result
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("unit-exec/0"))
@@ -134,7 +134,7 @@ func (s *startSuite) TestAddExecOperationWithApplications(c *tc.C) {
 	_ = s.addUnitToApplication(c, charmUUID, appUUID, "test-exec-apps/1")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Applications: []string{"test-exec-apps"},
 	}
 	args := operation.ExecArgs{
@@ -146,8 +146,8 @@ func (s *startSuite) TestAddExecOperationWithApplications(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Units), tc.Equals, 2) // Both units in the app
-	c.Check(len(result.Machines), tc.Equals, 0)
+	c.Assert(result.Units, tc.HasLen, 2) // Both units in the app
+	c.Assert(result.Machines, tc.HasLen, 0)
 
 	// Verify both units are included.
 	unitNames := make(map[string]bool)
@@ -165,7 +165,7 @@ func (s *startSuite) TestAddExecOperationMixedTargets(c *tc.C) {
 	_ = s.addUnitWithName(c, s.addCharm(c), "mixed-exec/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 		Units:    []unit.Name{"mixed-exec/0"},
 	}
@@ -178,8 +178,8 @@ func (s *startSuite) TestAddExecOperationMixedTargets(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 1)
-	c.Check(len(result.Units), tc.Equals, 1)
+	c.Assert(result.Machines, tc.HasLen, 1)
+	c.Assert(result.Units, tc.HasLen, 1)
 
 	c.Check(result.Machines[0].ReceiverName, tc.Equals, machine.Name("0"))
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("mixed-exec/0"))
@@ -187,7 +187,7 @@ func (s *startSuite) TestAddExecOperationMixedTargets(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationEmptyTarget(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{}
+	target := operation.ReceiversWithResolvedLeaders{}
 	args := operation.ExecArgs{
 		Command: "empty target command",
 	}
@@ -195,8 +195,8 @@ func (s *startSuite) TestAddExecOperationEmptyTarget(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 0)
-	c.Check(len(result.Units), tc.Equals, 0)
+	c.Assert(result.Machines, tc.HasLen, 0)
+	c.Assert(result.Units, tc.HasLen, 0)
 
 	// Operation should still be created even with no targets.
 	var opCount int
@@ -209,7 +209,7 @@ func (s *startSuite) TestAddExecOperationEmptyTarget(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationMachineNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"nonexistent"},
 	}
 	args := operation.ExecArgs{
@@ -218,7 +218,7 @@ func (s *startSuite) TestAddExecOperationMachineNotFound(c *tc.C) {
 
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil) // Operation should succeed
-	c.Check(len(result.Machines), tc.Equals, 1)
+	c.Assert(result.Machines, tc.HasLen, 1)
 
 	// The machine task should have an error.
 	c.Check(result.Machines[0].TaskInfo.Error, tc.ErrorMatches, ".*machine UUID.*")
@@ -227,7 +227,7 @@ func (s *startSuite) TestAddExecOperationMachineNotFound(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationUnitNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Units: []unit.Name{"nonexistent/0"},
 	}
 	args := operation.ExecArgs{
@@ -236,7 +236,7 @@ func (s *startSuite) TestAddExecOperationUnitNotFound(c *tc.C) {
 
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil) // Operation should succeed
-	c.Check(len(result.Units), tc.Equals, 1)
+	c.Assert(result.Units, tc.HasLen, 1)
 
 	// The unit task should have an error.
 	c.Check(result.Units[0].TaskInfo.Error, tc.ErrorMatches, ".*unit UUID.*")
@@ -245,7 +245,7 @@ func (s *startSuite) TestAddExecOperationUnitNotFound(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationApplicationNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Applications: []string{"nonexistent-app"},
 	}
 	args := operation.ExecArgs{
@@ -260,7 +260,7 @@ func (s *startSuite) TestAddExecOperationParametersStored(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -301,8 +301,8 @@ func (s *startSuite) TestAddExecOperationOnAllMachines(c *tc.C) {
 	result, err := s.state.AddExecOperationOnAllMachines(c.Context(), operationUUID, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 2)
-	c.Check(len(result.Units), tc.Equals, 0)
+	c.Assert(result.Machines, tc.HasLen, 2)
+	c.Assert(result.Units, tc.HasLen, 0)
 
 	// Check that both machines are included.
 	machineNames := make(map[string]bool)
@@ -324,8 +324,8 @@ func (s *startSuite) TestAddExecOperationOnAllMachinesNoMachines(c *tc.C) {
 	result, err := s.state.AddExecOperationOnAllMachines(c.Context(), operationUUID, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Machines), tc.Equals, 0)
-	c.Check(len(result.Units), tc.Equals, 0)
+	c.Assert(result.Machines, tc.HasLen, 0)
+	c.Assert(result.Units, tc.HasLen, 0)
 
 	var opCount int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -352,7 +352,7 @@ func (s *startSuite) TestAddExecOperationOnAllMachinesWithDeadMachine(c *tc.C) {
 
 	result, err := s.state.AddExecOperationOnAllMachines(c.Context(), operationUUID, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(len(result.Machines), tc.Equals, 1) // Only alive machine should be included
+	c.Assert(result.Machines, tc.HasLen, 1) // Only alive machine should be included
 	c.Check(result.Machines[0].ReceiverName, tc.Equals, machine.Name("0"))
 }
 
@@ -376,8 +376,8 @@ func (s *startSuite) TestAddActionOperationSingleUnit(c *tc.C) {
 	result, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Units), tc.Equals, 1)
-	c.Check(len(result.Machines), tc.Equals, 0)
+	c.Assert(result.Units, tc.HasLen, 1)
+	c.Assert(result.Machines, tc.HasLen, 0)
 
 	// Check unit result
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("single-app/0"))
@@ -415,7 +415,7 @@ func (s *startSuite) TestAddActionOperationMultipleUnits(c *tc.C) {
 	result, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Not(tc.Equals), "")
-	c.Check(len(result.Units), tc.Equals, 2)
+	c.Assert(result.Units, tc.HasLen, 2)
 
 	// Check both units have valid results.
 	unitNames := make(map[string]bool)
@@ -451,7 +451,7 @@ func (s *startSuite) TestAddActionOperationUnitNotFound(c *tc.C) {
 	}
 
 	_, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
-	c.Assert(err, tc.ErrorMatches, ".*no valid unit found for the action test-action")
+	c.Assert(err, tc.ErrorMatches, ".*application \"nonexistent\" not found")
 }
 
 func (s *startSuite) TestAddActionOperationCharmNotFound(c *tc.C) {
@@ -531,7 +531,7 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 
 	result, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(len(result.Units), tc.Equals, 2)
+	c.Assert(result.Units, tc.HasLen, 2)
 
 	// First unit should succeed.
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-action-mixed/0"))
@@ -548,7 +548,7 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 func (s *startSuite) TestOperationAndTaskSequenceIncremental(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -573,7 +573,7 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -590,7 +590,7 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 			result.OperationID).Scan(&summary)
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(summary, tc.Equals, "exec test command")
+	c.Check(summary, tc.Equals, "exec \"test command\"")
 
 	// Test action operation summary.
 	actionCharmUUID := s.addCharm(c)
@@ -612,7 +612,7 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 			actionResult.OperationID).Scan(&actionSummary)
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(actionSummary, tc.Equals, "action test-action")
+	c.Check(actionSummary, tc.Equals, "action \"test-action\"")
 }
 
 func (s *startSuite) TestTaskStatusAndLinksCreated(c *tc.C) {
@@ -620,7 +620,7 @@ func (s *startSuite) TestTaskStatusAndLinksCreated(c *tc.C) {
 	unitUUID := s.addUnitWithName(c, s.addCharm(c), "links-app/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithoutLeader{
+	target := operation.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 		Units:    []unit.Name{"links-app/0"},
 	}
@@ -630,8 +630,8 @@ func (s *startSuite) TestTaskStatusAndLinksCreated(c *tc.C) {
 
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(len(result.Machines), tc.Equals, 1)
-	c.Check(len(result.Units), tc.Equals, 1)
+	c.Assert(result.Machines, tc.HasLen, 1)
+	c.Assert(result.Units, tc.HasLen, 1)
 
 	// Verify task status records were created.
 	var machineTaskStatusCount, unitTaskStatusCount int

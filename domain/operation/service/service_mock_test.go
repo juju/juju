@@ -85,7 +85,7 @@ func (c *MockStateAddActionOperationCall) DoAndReturn(f func(context.Context, uu
 }
 
 // AddExecOperation mocks base method.
-func (m *MockState) AddExecOperation(arg0 context.Context, arg1 uuid.UUID, arg2 operation.ReceiversWithoutLeader, arg3 operation.ExecArgs) (operation.RunResult, error) {
+func (m *MockState) AddExecOperation(arg0 context.Context, arg1 uuid.UUID, arg2 operation.ReceiversWithResolvedLeaders, arg3 operation.ExecArgs) (operation.RunResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddExecOperation", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(operation.RunResult)
@@ -112,13 +112,13 @@ func (c *MockStateAddExecOperationCall) Return(arg0 operation.RunResult, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddExecOperationCall) Do(f func(context.Context, uuid.UUID, operation.ReceiversWithoutLeader, operation.ExecArgs) (operation.RunResult, error)) *MockStateAddExecOperationCall {
+func (c *MockStateAddExecOperationCall) Do(f func(context.Context, uuid.UUID, operation.ReceiversWithResolvedLeaders, operation.ExecArgs) (operation.RunResult, error)) *MockStateAddExecOperationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddExecOperationCall) DoAndReturn(f func(context.Context, uuid.UUID, operation.ReceiversWithoutLeader, operation.ExecArgs) (operation.RunResult, error)) *MockStateAddExecOperationCall {
+func (c *MockStateAddExecOperationCall) DoAndReturn(f func(context.Context, uuid.UUID, operation.ReceiversWithResolvedLeaders, operation.ExecArgs) (operation.RunResult, error)) *MockStateAddExecOperationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

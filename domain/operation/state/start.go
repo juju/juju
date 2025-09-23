@@ -36,7 +36,7 @@ import (
 func (s *State) AddExecOperation(
 	ctx context.Context,
 	operationUUID internaluuid.UUID,
-	target operation.ReceiversWithoutLeader,
+	target operation.ReceiversWithResolvedLeaders,
 	args operation.ExecArgs,
 ) (operation.RunResult, error) {
 	db, err := s.DB(ctx)
@@ -76,7 +76,7 @@ func (s *State) AddExecOperationOnAllMachines(
 			return errors.Capture(err)
 		}
 
-		target := operation.ReceiversWithoutLeader{
+		target := operation.ReceiversWithResolvedLeaders{
 			Machines: machines,
 		}
 
@@ -126,7 +126,7 @@ func (s *State) AddActionOperation(ctx context.Context,
 		err = s.insertOperation(ctx, tx, insertOperation{
 			UUID:           operationUUID.String(),
 			OperationID:    fmt.Sprintf("%d", operationID),
-			Summary:        fmt.Sprintf("action %s", args.ActionName),
+			Summary:        fmt.Sprintf("action %q", args.ActionName),
 			EnqueuedAt:     time.Now().UTC(),
 			Parallel:       args.IsParallel,
 			ExecutionGroup: args.ExecutionGroup,
@@ -135,20 +135,10 @@ func (s *State) AddActionOperation(ctx context.Context,
 			return errors.Errorf("inserting operation: %w", err)
 		}
 
-		// Insert operation action.
-		// We need to find the first valid unit to get the charm UUID, needed
-		// for the operation action.
-		var charmUUID string
-		var validUnitFound bool
-		for _, targetUnit := range targetUnits {
-			charmUUID, err = s.getCharmUUIDByUnit(ctx, tx, targetUnit)
-			if err == nil {
-				validUnitFound = true
-				break
-			}
-		}
-		if !validUnitFound {
-			return errors.Errorf("no valid unit found for the action %s", args.ActionName)
+		// Here we assume that all target units share the same application.
+		charmUUID, err := s.getCharmUUIDByApplication(ctx, tx, targetUnits[0].Application())
+		if err != nil {
+			return errors.Errorf("getting charm UUID for application %q: %w", targetUnits[0].Application(), err)
 		}
 
 		err = s.insertOperationAction(ctx, tx, operationUUID.String(), charmUUID, args.ActionName)
@@ -160,7 +150,7 @@ func (s *State) AddActionOperation(ctx context.Context,
 		for key, value := range args.Parameters {
 			err = s.insertOperationParameter(ctx, tx, operationUUID.String(), key, fmt.Sprintf("%v", value))
 			if err != nil {
-				return errors.Errorf("inserting parameter %s: %w", key, err)
+				return errors.Errorf("inserting parameter %q: %w", key, err)
 			}
 		}
 
@@ -197,7 +187,7 @@ func (s *State) createExecOperation(
 	ctx context.Context,
 	tx *sqlair.TX,
 	operationUUID string,
-	target operation.ReceiversWithoutLeader,
+	target operation.ReceiversWithResolvedLeaders,
 	args operation.ExecArgs,
 ) (operation.RunResult, error) {
 	// Generate the operation ID.
@@ -211,7 +201,7 @@ func (s *State) createExecOperation(
 	err = s.insertOperation(ctx, tx, insertOperation{
 		UUID:           operationUUID,
 		OperationID:    strconv.Itoa(int(operationID)),
-		Summary:        fmt.Sprintf("exec %s", args.Command),
+		Summary:        fmt.Sprintf("exec %q", args.Command),
 		EnqueuedAt:     now,
 		Parallel:       args.Parallel,
 		ExecutionGroup: args.ExecutionGroup,
@@ -259,36 +249,76 @@ func (s *State) createExecOperation(
 	}
 
 	// Tasks targeting units.
-	// Before this, we get all units from the targeted applications, and add
-	// them to the originally targeted units.
-	totalTargettedUnits := target.Units
-	for _, appName := range target.Applications {
-		unitsFromApp, err := s.getUnitsForApplication(ctx, tx, appName)
-		if err != nil {
-			return operation.RunResult{}, errors.Errorf("getting units for application %s: %w", appName, err)
-		}
-		totalTargettedUnits = append(totalTargettedUnits, unitsFromApp...)
-	}
-
-	// Now we can add all the units (from applications or directly from
-	// targeted units).
-	result.Units = make([]operation.UnitTaskResult, len(totalTargettedUnits))
-	for i, targetUnit := range totalTargettedUnits {
+	for _, unitTask := range target.Units {
 		// Create the task UUID.
 		taskUUID, err := internaluuid.NewUUID()
 		if err != nil {
-			result.Units[i] = operation.UnitTaskResult{
-				ReceiverName: targetUnit,
+			taskResult := operation.UnitTaskResult{
+				ReceiverName: unitTask,
 				TaskInfo: operation.TaskInfo{
 					Error: errors.Errorf("generating task UUID: %w", err),
 				},
 			}
+			result.Units = append(result.Units, taskResult)
 			continue
 		}
-		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), targetUnit)
+		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
 		taskResult.IsParallel = args.Parallel
 		taskResult.ExecutionGroup = &args.ExecutionGroup
-		result.Units[i] = taskResult
+		result.Units = append(result.Units, taskResult)
+	}
+
+	// Now we get all units from the targeted applications, and append them to
+	// the originally targeted units.
+	var applicationTargetUnits []coreunit.Name
+	for _, appName := range target.Applications {
+		unitsFromApp, err := s.getUnitsForApplication(ctx, tx, appName)
+		if err != nil {
+			return operation.RunResult{}, errors.Errorf("getting units for application %q: %w", appName, err)
+		}
+		applicationTargetUnits = append(applicationTargetUnits, unitsFromApp...)
+	}
+	// Insert the units from the provided applications.
+	for _, unitTask := range applicationTargetUnits {
+		// Create the task UUID.
+		taskUUID, err := internaluuid.NewUUID()
+		if err != nil {
+			taskResult := operation.UnitTaskResult{
+				ReceiverName: unitTask,
+				TaskInfo: operation.TaskInfo{
+					Error: errors.Errorf("generating task UUID: %w", err),
+				},
+			}
+			result.Units = append(result.Units, taskResult)
+			continue
+		}
+		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
+		taskResult.IsParallel = args.Parallel
+		taskResult.ExecutionGroup = &args.ExecutionGroup
+		result.Units = append(result.Units, taskResult)
+	}
+
+	// Now we can add the leader units.
+	for _, unitTask := range target.LeaderUnits {
+		// Create the task UUID.
+		taskUUID, err := internaluuid.NewUUID()
+		if err != nil {
+			taskResult := operation.UnitTaskResult{
+				ReceiverName: unitTask,
+				TaskInfo: operation.TaskInfo{
+					Error: errors.Errorf("generating task UUID: %w", err),
+				},
+			}
+			result.Units = append(result.Units, taskResult)
+			continue
+		}
+		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
+		taskResult.IsParallel = args.Parallel
+		taskResult.ExecutionGroup = &args.ExecutionGroup
+		// This is a leader unit, so we need to set the leader flag for proper
+		// consolidation of the results.
+		taskResult.IsLeader = true
+		result.Units = append(result.Units, taskResult)
 	}
 
 	return result, nil
@@ -394,7 +424,7 @@ func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, task
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
 			TaskInfo: operation.TaskInfo{
-				Error: errors.Errorf("getting machine UUID for %s: %w", machineName, err),
+				Error: errors.Errorf("getting machine UUID for %q: %w", machineName, err),
 			},
 		}
 	}
@@ -517,7 +547,7 @@ WHERE status = $insertTaskStatus.status`
 func (s *State) insertOperationUnitTask(ctx context.Context, tx *sqlair.TX, taskUUID string, unitName coreunit.Name) error {
 	unitUUID, err := s.getUnitUUID(ctx, tx, unitName)
 	if err != nil {
-		return errors.Errorf("getting unit UUID for %s: %w", unitName, err)
+		return errors.Errorf("getting unit UUID for %q: %w", unitName, err)
 	}
 
 	unitTask := insertUnitTask{
@@ -600,9 +630,9 @@ WHERE  a.name = $nameArg.name
 	var results []unitResult
 	err = tx.Query(ctx, stmt, ident).GetAll(&results)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("application %s not found", appName).Add(applicationerrors.ApplicationNotFound)
+		return nil, errors.Errorf("application %q not found", appName).Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
-		return nil, errors.Errorf("querying units for application %s: %w", appName, err)
+		return nil, errors.Errorf("querying units for application %q: %w", appName, err)
 	}
 
 	units := make([]coreunit.Name, len(results))
@@ -628,9 +658,9 @@ WHERE  name = $nameArg.name`
 	var result uuid
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("machine %s not found", machineName).Add(machineerrors.MachineNotFound)
+		return "", errors.Errorf("machine %q not found", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("querying machine UUID for %s: %w", machineName, err)
+		return "", errors.Errorf("querying machine UUID for %q: %w", machineName, err)
 	}
 
 	return result.UUID, nil
@@ -650,20 +680,20 @@ WHERE  name = $nameArg.name`
 	var result uuid
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("unit %s not found", unitName).Add(applicationerrors.UnitNotFound)
+		return "", errors.Errorf("unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("querying unit UUID for %s: %w", unitName, err)
+		return "", errors.Errorf("querying unit UUID for %q: %w", unitName, err)
 	}
 
 	return result.UUID, nil
 }
 
-func (s *State) getCharmUUIDByUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (string, error) {
-	ident := nameArg{Name: unitName.String()}
+func (s *State) getCharmUUIDByApplication(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {
+	ident := nameArg{Name: appName}
 	query := `
 SELECT charm_uuid AS &charmUUIDResult.charm_uuid
-FROM   unit
-WHERE  unit.name = $nameArg.name`
+FROM   application
+WHERE  application.name = $nameArg.name`
 	stmt, err := s.Prepare(query, charmUUIDResult{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing get charm UUID for action statement: %w", err)
@@ -672,9 +702,9 @@ WHERE  unit.name = $nameArg.name`
 	var result charmUUIDResult
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("unit %s not found", unitName).Add(applicationerrors.UnitNotFound)
+		return "", errors.Errorf("application %q not found", appName).Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("querying charm UUID for unit %s: %w", unitName, err)
+		return "", errors.Errorf("querying charm UUID for application %q: %w", appName, err)
 	}
 
 	return result.CharmUUID, nil

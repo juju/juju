@@ -179,7 +179,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver,
 			gotParams operation.TaskArgs) (operation.RunResult,
@@ -222,7 +222,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	// Ensure AddActionOperation is not called
 	s.OperationService.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
@@ -254,7 +254,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueSomeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, gotReceivers []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult,
 			error) {
@@ -296,7 +296,7 @@ func (s *enqueueSuite) TestEnqueueAllInvalid_NoServiceCall(c *tc.C) {
 // TestEnqueueServiceError checks that EnqueueOperation returns an error when the OperationService.Run fails.
 func (s *enqueueSuite) TestEnqueueServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).Return(operation.RunResult{}, fmt.Errorf("boom"))
 	_, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "unit-app-0",
 		Name: "do"}}})
@@ -308,7 +308,7 @@ func (s *enqueueSuite) TestEnqueueServiceError(c *tc.C) {
 func (s *enqueueSuite) TestEnqueueUnexpectedExtraResult(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ []operation.ActionReceiver,
 			_ operation.TaskArgs) (operation.RunResult, error) {
