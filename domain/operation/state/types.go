@@ -151,3 +151,9 @@ type insertMachineTask struct {
 type charmUUIDResult struct {
 	CharmUUID string `db:"charm_uuid"`
 }
+
+// queryParams represents the parameters for GetOperations query
+type queryParams struct {
+	Limit  int `db:"limit"`
+	Offset int `db:"offset"`
+}

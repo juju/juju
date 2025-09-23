@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	coremachine "github.com/juju/juju/core/machine"
@@ -17,7 +18,86 @@ import (
 // GetOperations returns a list of operations on specified entities, filtered by the
 // given parameters.
 func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
-	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return operation.QueryResult{}, errors.Capture(err)
+	}
+
+	var (
+		ops       []operationResult
+		allTasks  map[string][]taskResult
+		allParams map[string][]taskParameter
+		// map from operation UUID to a map from task ID to its logs.
+		allTaskLogs map[string]map[string][]taskLogEntry
+	)
+	allTasks = make(map[string][]taskResult)
+	allParams = make(map[string][]taskParameter)
+	allTaskLogs = make(map[string]map[string][]taskLogEntry)
+
+	// Pagination set-up.
+	var (
+		limit  int
+		offset int
+	)
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	if params.Offset != nil {
+		offset = *params.Offset
+	}
+
+	// Build the query for operations with filters.
+	query, queryArgs := st.buildOperationsQuery(params, limit, offset)
+	stmt, err := st.Prepare(query, append([]any{operationResult{}}, queryArgs...)...)
+	if err != nil {
+		return operation.QueryResult{}, errors.Errorf("preparing operations query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryArgs...).GetAll(&ops)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		for _, op := range ops {
+			// Get all the tasks, parameters and logs for the given operation.
+			tasks, parameters, taskLogs, err := st.getFullTasksForOperation(ctx, tx, op.UUID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			allTasks[op.UUID] = tasks
+			allParams[op.UUID] = parameters
+			allTaskLogs[op.UUID] = taskLogs
+		}
+		return nil
+	})
+	if err != nil {
+		return operation.QueryResult{}, errors.Capture(err)
+	}
+
+	// Encode results
+	var opInfos []operation.OperationInfo
+	for _, op := range ops {
+		opInfo, err := encodeOperationInfo(
+			op,
+			allTasks[op.UUID],
+			allParams[op.UUID],
+			allTaskLogs[op.UUID],
+		)
+		if err != nil {
+			return operation.QueryResult{}, errors.Errorf("encoding operation info for operation %q: %w", op.OperationID, err)
+		}
+		opInfos = append(opInfos, opInfo)
+	}
+
+	// Truncated: true if we got limit results (could be more)
+	// but only if limit is positive.
+	truncated := limit > 0 && len(opInfos) == limit
+
+	return operation.QueryResult{
+		Operations: opInfos,
+		Truncated:  truncated,
+	}, nil
 }
 
 // GetOperationByID returns an operation by its ID.
@@ -45,26 +125,10 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 			return errors.Capture(err)
 		}
 
-		// Get the operation parameters.
-		parameters, err = st.getOperationParameters(ctx, tx, op.UUID)
+		// Get all the tasks, parameters and logs for the given operation.
+		tasks, parameters, taskLogs, err = st.getFullTasksForOperation(ctx, tx, op.UUID)
 		if err != nil {
 			return errors.Capture(err)
-		}
-
-		// Get all tasks for this operation.
-		tasks, err = st.getOperationTasks(ctx, tx, op.UUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		taskLogs = make(map[string][]taskLogEntry)
-		for _, task := range tasks {
-			// Get the task logs.
-			logs, err := st.getTaskLog(ctx, tx, task.TaskID)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			taskLogs[task.TaskID] = logs
 		}
 
 		return nil
@@ -78,6 +142,34 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 		return operation.OperationInfo{}, errors.Errorf("encoding operation info for operation %q: %w", operationID, err)
 	}
 	return opInfo, nil
+}
+
+// getFullTasksForOperation retrieves all tasks for a given operation,
+// including their logs and the operation parameters.
+func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, opUUID string) ([]taskResult, []taskParameter, map[string][]taskLogEntry, error) {
+	// Get the operation parameters.
+	parameters, err := st.getOperationParameters(ctx, tx, opUUID)
+	if err != nil {
+		return nil, nil, nil, errors.Capture(err)
+	}
+
+	// Get all tasks for this operation.
+	tasks, err := st.getOperationTasks(ctx, tx, opUUID)
+	if err != nil {
+		return nil, nil, nil, errors.Capture(err)
+	}
+
+	taskLogs := make(map[string][]taskLogEntry)
+	for _, task := range tasks {
+		// Get the task logs.
+		logs, err := st.getTaskLog(ctx, tx, task.TaskID)
+		if err != nil {
+			return nil, nil, nil, errors.Capture(err)
+		}
+		taskLogs[task.TaskID] = logs
+	}
+
+	return tasks, parameters, taskLogs, nil
 }
 
 // getOperation retrieves the operation row for a given operation_id.
@@ -162,4 +254,132 @@ func encodeOperationInfo(
 	opInfo.Units = units
 
 	return opInfo, nil
+}
+
+// buildOperationsQuery constructs the SQL query and arguments for filtering operations
+func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset int) (string, []any) {
+	// Define local typed slices for sqlair parameters
+	type actionNames []string
+	type statuses []string
+	type applications []string
+	type machines []string
+	type units []string
+	type leaderApps []string
+
+	var args []any
+
+	// Add pagination parameters
+	paginationParams := queryParams{Limit: limit, Offset: offset}
+	args = append(args, paginationParams)
+
+	// Base query - we need to ensure we join with tasks and their receivers properly
+	query := `
+SELECT DISTINCT o.uuid AS &operationResult.uuid,
+       o.operation_id AS &operationResult.operation_id,
+       o.summary AS &operationResult.summary,
+       o.enqueued_at AS &operationResult.enqueued_at,
+       o.started_at AS &operationResult.started_at,
+       o.completed_at AS &operationResult.completed_at
+FROM   operation o`
+
+	// Build WHERE clauses
+	whereClauses := []string{}
+	joinClauses := []string{}
+	needsTaskJoin := false
+
+	// Check if we need task joins
+	needsTaskJoin = len(params.Status) > 0 ||
+		len(params.Receivers.Applications) > 0 ||
+		len(params.Receivers.Machines) > 0 ||
+		len(params.Receivers.Units) > 0 ||
+		len(params.Receivers.LeaderUnit) > 0
+
+	// ActionNames filter - need to join with operation_action
+	if len(params.ActionNames) > 0 {
+		joinClauses = append(joinClauses, "JOIN operation_action oa ON o.uuid = oa.operation_uuid")
+		whereClauses = append(whereClauses, "oa.charm_action_key IN ($actionNames[:])")
+		args = append(args, actionNames(params.ActionNames))
+	}
+
+	// Add task joins if needed
+	if needsTaskJoin {
+		joinClauses = append(joinClauses, "JOIN operation_task t ON o.uuid = t.operation_uuid")
+	}
+
+	// Status filter - need to compute status from tasks
+	if len(params.Status) > 0 {
+		statusStrings := make([]string, len(params.Status))
+		for i, st := range params.Status {
+			statusStrings[i] = st.String()
+		}
+		joinClauses = append(joinClauses, "JOIN operation_task_status ts ON t.uuid = ts.task_uuid")
+		joinClauses = append(joinClauses, "JOIN operation_task_status_value sv ON ts.status_id = sv.id")
+		whereClauses = append(whereClauses, "sv.status IN ($statuses[:])")
+		args = append(args, statuses(statusStrings))
+	}
+
+	// Receivers filter - need to join with tasks and their targets
+	receiverClauses := []string{}
+
+	if len(params.Receivers.Applications) > 0 {
+		joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
+		joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
+		joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
+		receiverClauses = append(receiverClauses, "a.name IN ($applications[:])")
+		args = append(args, applications(params.Receivers.Applications))
+	}
+
+	if len(params.Receivers.Machines) > 0 {
+		joinClauses = append(joinClauses, "LEFT JOIN operation_machine_task mt ON t.uuid = mt.task_uuid")
+		joinClauses = append(joinClauses, "LEFT JOIN machine m ON mt.machine_uuid = m.uuid")
+		machineNames := make([]string, len(params.Receivers.Machines))
+		for i, name := range params.Receivers.Machines {
+			machineNames[i] = string(name)
+		}
+		receiverClauses = append(receiverClauses, "m.name IN ($machines[:])")
+		args = append(args, machines(machineNames))
+	}
+
+	if len(params.Receivers.Units) > 0 {
+		// If we haven't already joined with unit tables for applications
+		if len(params.Receivers.Applications) == 0 {
+			joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
+			joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
+		}
+		unitNames := make([]string, len(params.Receivers.Units))
+		for i, name := range params.Receivers.Units {
+			unitNames[i] = string(name)
+		}
+		receiverClauses = append(receiverClauses, "u.name IN ($units[:])")
+		args = append(args, units(unitNames))
+	}
+
+	if len(params.Receivers.LeaderUnit) > 0 {
+		// Leader unit filtering is more complex - would need leader election info
+		// For now, we'll treat it as application filtering
+		if len(params.Receivers.Applications) == 0 && len(params.Receivers.Units) == 0 {
+			joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
+			joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
+			joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
+		} else if len(params.Receivers.Applications) == 0 {
+			joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
+		}
+		receiverClauses = append(receiverClauses, "a.name IN ($leaderApps[:])")
+		args = append(args, leaderApps(params.Receivers.LeaderUnit))
+	}
+
+	if len(receiverClauses) > 0 {
+		whereClauses = append(whereClauses, "("+strings.Join(receiverClauses, " OR ")+")")
+	}
+
+	// Assemble the query
+	if len(joinClauses) > 0 {
+		query += "\n" + strings.Join(joinClauses, "\n")
+	}
+	if len(whereClauses) > 0 {
+		query += "\nWHERE " + strings.Join(whereClauses, " AND ")
+	}
+	query += "\nORDER BY o.enqueued_at DESC\nLIMIT $queryParams.limit OFFSET $queryParams.offset"
+
+	return query, args
 }
