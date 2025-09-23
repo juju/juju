@@ -10,17 +10,25 @@ import (
 func NewClientFromCaller(caller base.FacadeCaller) *Client {
 	return &Client{
 		facade:       caller,
-		ClientFacade: &mockClient{},
+		ClientFacade: &mockClient{bestAPIVersion: 11},
 	}
 }
 
 type mockClient struct {
+	bestAPIVersion int
 }
 
 func (m *mockClient) BestAPIVersion() int {
-	return 11
+	return m.bestAPIVersion
 }
 
 func (*mockClient) Close() error {
 	return nil
+}
+
+func NewLegacyClientFromCaller(caller base.FacadeCaller) *Client {
+	return &Client{
+		facade:       caller,
+		ClientFacade: &mockClient{bestAPIVersion: 10},
+	}
 }

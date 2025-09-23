@@ -74,10 +74,6 @@ func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelC
 	if err != nil {
 		return params.ModelInfoLegacy{}, errors.Trace(err)
 	}
-	owner, err := params.ApproximateUserTagFromQualifier(coremodel.Qualifier(info.Qualifier))
-	if err != nil {
-		return params.ModelInfoLegacy{}, errors.Trace(err)
-	}
 	result := params.ModelInfoLegacy{
 		Name:                    info.Name,
 		Type:                    info.Type,
@@ -89,7 +85,7 @@ func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelC
 		CloudRegion:             info.CloudRegion,
 		CloudCredentialTag:      info.CloudCredentialTag,
 		CloudCredentialValidity: info.CloudCredentialValidity,
-		OwnerTag:                owner.String(),
+		OwnerTag:                ownerTag.String(),
 		Life:                    info.Life,
 		Status:                  info.Status,
 		Users:                   info.Users,
