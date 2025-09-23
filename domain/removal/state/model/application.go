@@ -384,6 +384,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"DELETE FROM application_extra_endpoint WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_storage_directive WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_status WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_agent WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_workload_version WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM device_constraint WHERE application_uuid = $entityUUID.uuid",
 	} {
