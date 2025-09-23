@@ -4102,48 +4102,56 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
-	mysqlWatcher, err := s.mysql.WatchStorageConstraints()
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 1),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", oldCh, oldSC)
+
+	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+
+	appWatcher, err := app.WatchStorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, mysqlWatcher)
+	defer testing.AssertStop(c, appWatcher)
 
 	// Initial event.
-	mysqlWc := testing.NewNotifyWatcherC(c, mysqlWatcher)
-	mysqlWc.AssertOneChange()
+	appWc := testing.NewNotifyWatcherC(c, appWatcher)
+	appWc.AssertOneChange()
 
 	// Make one change, check one event.
 	constraints := map[string]state.StorageConstraints{
-		"data": {Count: 1, Size: 1024, Pool: "mypool"},
+		"data0": {Count: 5, Size: 1024, Pool: "loop"},
 	}
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = app.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlWc.AssertOneChange()
+	appWc.AssertOneChange()
 
 	// Upgrade the charm. It should still receive events despite the charm URL changed.
-	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta, 999)
 	cfg := state.SetCharmConfig{
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-
-	err = s.mysql.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make another change, check one event.
 	constraints = map[string]state.StorageConstraints{
-		"data": {Count: 1, Size: 2048, Pool: "mypool"},
+		"data0": {Count: 6, Size: 2048, Pool: "loop"},
 	}
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = app.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlWc.AssertOneChange()
+	appWc.AssertOneChange()
 
 	// Check the watcher does not react when the content remains the same.
-	err = state.UpdateStorageConstraints(s.State, s.mysql, constraints)
+	err = app.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
-	mysqlWc.AssertNoChange()
+	appWc.AssertNoChange()
 
 	// Stop, check closed.
-	testing.AssertStop(c, mysqlWatcher)
-	mysqlWc.AssertClosed()
+	testing.AssertStop(c, appWatcher)
+	appWc.AssertClosed()
 }
 
 func (s *ApplicationSuite) TestWatchStorageConstraintsDoesNotCrossApplications(c *gc.C) {
@@ -4151,31 +4159,31 @@ func (s *ApplicationSuite) TestWatchStorageConstraintsDoesNotCrossApplications(c
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)
 
-	mariadbApp := s.AddTestingApplication(c, "mariadb", s.AddTestingCharm(c, "mariadb"))
+	storageBlockApp := s.AddTestingApplication(c, "storage-block", s.AddTestingCharm(c, "storage-block"))
 
-	mariadbWatcher, err := mariadbApp.WatchStorageConstraints()
+	storageBlockWatcher, err := storageBlockApp.WatchStorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)
 
 	// Initial event.
 	mysqlWc := testing.NewNotifyWatcherC(c, mysqlWatcher)
 	mysqlWc.AssertOneChange()
-	mariadbWc := testing.NewNotifyWatcherC(c, mariadbWatcher)
-	mariadbWc.AssertOneChange()
+	sbWc := testing.NewNotifyWatcherC(c, storageBlockWatcher)
+	sbWc.AssertOneChange()
 
-	// Check mysql watcher does not react when mariadb is updated.
+	// Check mysql watcher does not react when storage block is updated.
 	constraints := map[string]state.StorageConstraints{
-		"data": {Count: 1, Size: 1024, Pool: "mypool"},
+		"data": {Count: 1, Size: 1024, Pool: "loop"},
 	}
-	err = state.UpdateStorageConstraints(s.State, mariadbApp, constraints)
+	err = storageBlockApp.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlWc.AssertNoChange()
 
 	// Stop, check closed.
 	testing.AssertStop(c, mysqlWatcher)
 	mysqlWc.AssertClosed()
-	testing.AssertStop(c, mariadbWatcher)
-	mariadbWc.AssertClosed()
+	testing.AssertStop(c, storageBlockWatcher)
+	sbWc.AssertClosed()
 }
 
 func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
@@ -6018,48 +6026,24 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 
 func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
-		"database": {
-			Pool:  "loop",
-			Size:  100,
-			Count: 1,
-		},
+		"data0": makeStorageCons("loop", 100, 5),
 	}
-	charm := s.AddTestingCharm(c, "cockroachdb")
-	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
 
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["database"].Pool, gc.Equals, "loop")
-	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
-	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
 
 	newSC := map[string]state.StorageConstraints{
-		"database": makeStorageCons("loop", 4096, 1),
+		"data0": makeStorageCons("loop", 4096, 3),
 	}
-
-	charmWithNewURL := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "cockroachdb", URL: "local:quantal/quantal-cockroachdb-1"})
-
-	// set charm to a different url before running replaceStorageConstraintsOp txn
-	defer state.SetBeforeHooks(c, s.State, func() {
-		err := app.SetCharm(state.SetCharmConfig{
-			Charm:       charmWithNewURL,
-			CharmOrigin: defaultCharmOrigin(charmWithNewURL.URL()),
-			StorageConstraints: map[string]state.StorageConstraints{
-				"database": {
-					Pool:  "loop",
-					Size:  2048,
-					Count: 1,
-				},
-				"data": {
-					Pool:  "loop",
-					Size:  1928,
-					Count: 1,
-				},
-			},
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}).Check()
 
 	err = app.UpdateStorageConstraints(newSC)
 	c.Assert(err, jc.ErrorIsNil)
@@ -6067,37 +6051,202 @@ func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 	cons, err = app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["database"].Pool, gc.Equals, "loop")
-	c.Assert(cons["database"].Count, gc.Equals, uint64(1))
-	c.Assert(cons["database"].Size, gc.Equals, uint64(4096))
+	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data0"].Count, gc.Equals, uint64(3))
+	c.Assert(cons["data0"].Size, gc.Equals, uint64(4096))
 }
 
-func (s *ApplicationSuite) TestUpdateStorageConstraintsNotSupported(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) {
 	oldSC := map[string]state.StorageConstraints{
-		"database": {
-			Pool:  "loop",
-			Size:  100,
-			Count: 1,
-		},
+		"data0": makeStorageCons("loop", 100, 5),
 	}
-	charm := s.AddTestingCharm(c, "cockroachdb")
-	app := s.AddTestingApplicationWithStorage(c, "cockroachdb", charm, oldSC)
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
 
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["database"].Pool, gc.Equals, "loop")
-	c.Assert(cons["database"].Count, gc.DeepEquals, uint64(1))
-	c.Assert(cons["database"].Size, gc.Equals, uint64(100))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
+	newSC := map[string]state.StorageConstraints{
+		"wrong-storage-key": makeStorageCons("loop", 4096, 3),
+	}
+
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidCount(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 5),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
+	newSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 4096, 6),
+	}
+
+	// This fails because storage constraint count of storage-constraint1 charm is 1-5.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStorageType(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 5),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(100),
+	})
 
 	newSC := map[string]state.StorageConstraints{
-		"database":       makeStorageCons("loop", 4096, 1),
+		"data0":          makeStorageCons("loop", 4096, 1),
 		"not-supported1": makeStorageCons("loop", 4096, 1),
 		"not-supported2": makeStorageCons("loop", 4096, 1),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 1),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	charm := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", charm, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data0"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["data0"].Size, gc.Equals, uint64(100))
+
+	// Storage constraint count of 5 should work for both storage-constraint1 and storage-constraint2 charms.
+	newSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 4096, 5),
+	}
+
+	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+
+	// Set charm to new charm with storage constraint size
+	// from 6-10 before running replaceStorageConstraintsOp txn.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := app.SetCharm(state.SetCharmConfig{
+			Charm:       newCh,
+			CharmOrigin: defaultCharmOrigin(newCh.URL()),
+			StorageConstraints: map[string]state.StorageConstraints{
+				"database": {
+					Pool:  "loop",
+					Size:  2048,
+					Count: 1,
+				},
+				"data0": {
+					Pool:  "loop",
+					Size:  1928,
+					Count: 7,
+				},
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	// This succeeds because storage constraint count of storage-constraint2 charm is 5-10
+	// and we set it to 5 in the newSC. This works because the value is compatible for both charms.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure storage constraints are updated to newSC.
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data0"].Count, gc.Equals, uint64(5))
+	c.Assert(cons["data0"].Size, gc.Equals, uint64(4096))
+}
+
+func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateIncompatible(c *gc.C) {
+	oldSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 100, 1),
+	}
+	oldMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(1, 5)
+	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
+	app := s.AddTestingApplicationWithStorage(c, "testing", oldCh, oldSC)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
+	c.Assert(cons["data0"].Count, gc.DeepEquals, uint64(1))
+	c.Assert(cons["data0"].Size, gc.Equals, uint64(100))
+
+	// We try to update original application charm storage constraint size to 3.
+	newSC := map[string]state.StorageConstraints{
+		"data0": makeStorageCons("loop", 4096, 3),
+	}
+	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
+	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
+
+	// Set charm to new charm with storage constraint size
+	// from 6-10 before running replaceStorageConstraintsOp txn.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := app.SetCharm(state.SetCharmConfig{
+			Charm:       newCh,
+			CharmOrigin: defaultCharmOrigin(newCh.URL()),
+			StorageConstraints: map[string]state.StorageConstraints{
+				"data0": {
+					Pool:  "loop",
+					Size:  200,
+					Count: 6,
+				},
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	// This should fail since we try to set storage constraint size to 3 in
+	// the new charm with storage constraint size of range 5-10.
+	err = app.UpdateStorageConstraints(newSC)
+	c.Assert(err, gc.NotNil)
+
+	// Charm storage constraints should be updated to new charm
+	// with new storage constraints since the hook update is successful.
+	appCharm, _, _ := app.Charm()
+	c.Assert(appCharm.URL(), gc.Equals, newCh.URL())
+	cons, err = app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(6),
+		Size:  uint64(200),
+	})
 }
 
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {

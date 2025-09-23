@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1218,4 +1219,96 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 		Storage:          arg.Storage,
 		Trust:            arg.Trust,
 	}
+}
+
+// ApplicationStorageInfo contains the storage information for an application.
+type ApplicationStorageInfo struct {
+	Error error
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+}
+
+// GetApplicationStorage retrieves storage information for the specified applications.
+func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStorageInfo, error) {
+	application := names.NewApplicationTag(applicationName)
+	in := params.Entities{Entities: []params.Entity{{Tag: application.String()}}}
+	var out params.ApplicationStorageGetResults
+	err := c.facade.FacadeCall("GetApplicationStorage", in, &out)
+	if err != nil {
+		return ApplicationStorageInfo{}, errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != 1 {
+		return ApplicationStorageInfo{}, errors.Errorf("expected 1 result, got %d", resultsLen)
+	}
+	return applicationInfoFromParams(out.Results[0]), nil
+}
+
+func applicationInfoFromParams(param params.ApplicationStorageGetResult) ApplicationStorageInfo {
+	if param.Error != nil {
+		return ApplicationStorageInfo{
+			Error: apiservererrors.RestoreError(param.Error),
+		}
+	}
+	sc := make(map[string]storage.Constraints)
+	for k, v := range param.StorageConstraints {
+		con := storage.Constraints{
+			Pool: v.Pool,
+		}
+		if v.Size != nil {
+			con.Size = *v.Size
+		}
+		if v.Count != nil {
+			con.Count = *v.Count
+		}
+		sc[k] = con
+	}
+
+	return ApplicationStorageInfo{
+		StorageConstraints: sc,
+	}
+}
+
+// ApplicationStorageUpdate holds the desired storage constraint updates for a single application.
+type ApplicationStorageUpdate struct {
+	ApplicationTag names.ApplicationTag
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+}
+
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationStorageUpdate) error {
+	sc := make(map[string]params.StorageConstraints)
+	for k, v := range applicationStorageUpdate.StorageConstraints {
+		sc[k] = params.StorageConstraints{
+			Pool:  v.Pool,
+			Size:  &v.Size,
+			Count: &v.Count,
+		}
+	}
+	in := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{
+				ApplicationTag:     applicationStorageUpdate.ApplicationTag.String(),
+				StorageConstraints: sc,
+			},
+		},
+	}
+
+	var out params.ErrorResults
+	err := c.facade.FacadeCall("UpdateApplicationStorage", in, &out)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != 1 {
+		return errors.Errorf("expected 1 result, got %d", resultsLen)
+	}
+	if err := out.Results[0].Error; err != nil {
+		return err
+	}
+	return nil
 }
