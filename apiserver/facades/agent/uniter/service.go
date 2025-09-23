@@ -357,18 +357,18 @@ type OperationService interface {
 	// a pending status.
 	GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error)
 
+	// GetReceiverFromTaskID return a receiver string for the task identified.
+	// The string should satisfy the ActionReceiverTag type.
+	GetReceiverFromTaskID(ctx context.Context, id string) (string, error)
+
+	// FinishTask saves the result of a completed Task.
+	FinishTask(context.Context, operation.CompletedTaskResult) error
+
 	// LogTaskMessage stores the message for the given task ID.
 	LogTaskMessage(ctx context.Context, id, message string) error
 
 	// StartTask marks a task as running and logs the time it was started.
 	StartTask(ctx context.Context, id string) error
-
-	// FinishTask saves the result of a completed Task.
-	FinishTask(context.Context, operation.CompletedTaskResult) error
-
-	// ReceiverFromTask return a receiver string for the task identified.
-	// The string should satisfy the ActionReceiverTag type.
-	ReceiverFromTask(ctx context.Context, id string) (string, error)
 
 	// WatchMachineTaskNotifications returns a StringsWatcher that emits task
 	// ids for tasks targeted at the provided machine.

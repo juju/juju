@@ -40,9 +40,9 @@ func (s *facadeSuite) TestBeginActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "42").Return(s.authTag.Id(), nil)
 	s.operationService.EXPECT().StartTask(gomock.Any(), "42").Return(nil)
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "47").Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "47").Return(s.authTag.Id(), nil)
 	s.operationService.EXPECT().StartTask(gomock.Any(), "47").Return(nil)
 
 	// Act
@@ -59,13 +59,13 @@ func (s *facadeSuite) TestFinishActions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "42").Return(s.authTag.Id(), nil)
 	taskOne := operation.CompletedTaskResult{
 		TaskID: "42",
 		Status: status.Completed.String(),
 	}
 	s.operationService.EXPECT().FinishTask(gomock.Any(), taskOne).Return(nil)
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "47").Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "47").Return(s.authTag.Id(), nil)
 	taskTwo := operation.CompletedTaskResult{
 		TaskID: "47",
 		Status: status.Cancelled.String(),
@@ -86,7 +86,7 @@ func (s *facadeSuite) TestAuthTaskID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "42").Return(s.authTag.Id(), nil)
 
 	// Act
 	id, err := s.getFacade().authTaskID(c.Context(), "action-42")
@@ -100,7 +100,7 @@ func (s *facadeSuite) TestAuthTaskIDWrongMachineErrPerm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("16", nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "42").Return("16", nil)
 
 	// Act
 	_, err := s.getFacade().authTaskID(c.Context(), "action-42")
@@ -113,7 +113,7 @@ func (s *facadeSuite) TestAuthTaskIDUnitErrPerm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), "42").Return("ubuntu/7", nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), "42").Return("ubuntu/7", nil)
 
 	// Act
 	_, err := s.getFacade().authTaskID(c.Context(), "action-42")
@@ -127,7 +127,7 @@ func (s *facadeSuite) TestActions(c *tc.C) {
 
 	// Arrange
 	tagOne := names.NewActionTag("42")
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
 	taskOne := operation.TaskArgs{
 		ActionName: "one",
 		Parameters: map[string]interface{}{"foo": "bar"},
@@ -135,7 +135,7 @@ func (s *facadeSuite) TestActions(c *tc.C) {
 	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(taskOne, nil)
 
 	tagTwo := names.NewActionTag("47")
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagTwo.Id()).Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), tagTwo.Id()).Return(s.authTag.Id(), nil)
 	taskTwo := operation.TaskArgs{
 		ActionName: "two",
 		Parameters: map[string]interface{}{"baz": "bar"},
@@ -165,7 +165,7 @@ func (s *facadeSuite) TestActionsTaskNotPending(c *tc.C) {
 
 	// Arrange
 	tagOne := names.NewActionTag("42")
-	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), tagOne.Id()).Return(s.authTag.Id(), nil)
 
 	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(operation.TaskArgs{}, operationerrors.TaskNotPending)
 

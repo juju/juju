@@ -104,9 +104,9 @@ func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results
 	return storeUUID.String(), removeResultsFromStore, nil
 }
 
-// ReceiverFromTask returns a receiver string for the task identified.
+// GetReceiverFromTaskID returns a receiver string for the task identified.
 // The string should satisfy the ActionReceiverTag type.
-func (s *Service) ReceiverFromTask(ctx context.Context, id string) (string, error) {
+func (s *Service) GetReceiverFromTaskID(ctx context.Context, id string) (string, error) {
 	return "", coreerrors.NotImplemented
 }
 
