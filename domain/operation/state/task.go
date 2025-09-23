@@ -570,12 +570,12 @@ LEFT JOIN operation_task_output oto ON t.uuid = oto.task_uuid
 LEFT JOIN v_object_store_metadata os ON oto.store_uuid = os.uuid
 `
 
-func (s *State) getOperationTasks(ctx context.Context, tx *sqlair.TX, operationUUID string) ([]taskResult, error) {
+func (st *State) getOperationTasks(ctx context.Context, tx *sqlair.TX, operationUUID string) ([]taskResult, error) {
 	ident := uuid{UUID: operationUUID}
 	taskQuery := operationTaskBaseQuery + `
 WHERE t.operation_uuid = $uuid.uuid
 `
-	stmt, err := s.Prepare(taskQuery, taskResult{}, ident)
+	stmt, err := st.Prepare(taskQuery, taskResult{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing task query: %w", err)
 	}

@@ -113,7 +113,8 @@ func (s *querySuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *querySuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter)
+	// LeadershipService not needed for these tests.
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, nil)
 }
 
 func (s *querySuite) TestGetOperationByID(c *tc.C) {

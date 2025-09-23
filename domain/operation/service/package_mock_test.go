@@ -474,6 +474,45 @@ func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetOperationByID mocks base method.
+func (m *MockState) GetOperationByID(arg0 context.Context, arg1 string) (operation.OperationInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOperationByID", arg0, arg1)
+	ret0, _ := ret[0].(operation.OperationInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOperationByID indicates an expected call of GetOperationByID.
+func (mr *MockStateMockRecorder) GetOperationByID(arg0, arg1 any) *MockStateGetOperationByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationByID", reflect.TypeOf((*MockState)(nil).GetOperationByID), arg0, arg1)
+	return &MockStateGetOperationByIDCall{Call: call}
+}
+
+// MockStateGetOperationByIDCall wrap *gomock.Call
+type MockStateGetOperationByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetOperationByIDCall) Return(arg0 operation.OperationInfo, arg1 error) *MockStateGetOperationByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetOperationByIDCall) Do(f func(context.Context, string) (operation.OperationInfo, error)) *MockStateGetOperationByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetOperationByIDCall) DoAndReturn(f func(context.Context, string) (operation.OperationInfo, error)) *MockStateGetOperationByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetReceiverFromTaskID mocks base method.
 func (m *MockState) GetReceiverFromTaskID(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()

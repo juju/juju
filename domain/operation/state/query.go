@@ -16,13 +16,16 @@ import (
 
 // GetOperations returns a list of operations on specified entities, filtered by the
 // given parameters.
-func (s *State) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
+func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
 	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
 }
 
 // GetOperationByID returns an operation by its ID.
-func (s *State) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
-	db, err := s.DB(ctx)
+//
+// The following errors may be returned:
+// - [operationerrors.OperationNotFound]: when the operation was not found.
+func (st *State) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.OperationInfo{}, errors.Capture(err)
 	}
@@ -37,19 +40,19 @@ func (s *State) GetOperationByID(ctx context.Context, operationID string) (opera
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get operation the root operation.
-		op, err = s.getOperation(ctx, tx, operationID)
+		op, err = st.getOperation(ctx, tx, operationID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// Get the operation parameters.
-		parameters, err = s.getOperationParameters(ctx, tx, op.UUID)
+		parameters, err = st.getOperationParameters(ctx, tx, op.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// Get all tasks for this operation.
-		tasks, err = s.getOperationTasks(ctx, tx, op.UUID)
+		tasks, err = st.getOperationTasks(ctx, tx, op.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -57,7 +60,7 @@ func (s *State) GetOperationByID(ctx context.Context, operationID string) (opera
 		taskLogs = make(map[string][]taskLogEntry)
 		for _, task := range tasks {
 			// Get the task logs.
-			logs, err := s.getTaskLog(ctx, tx, task.TaskID)
+			logs, err := st.getTaskLog(ctx, tx, task.TaskID)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -78,7 +81,7 @@ func (s *State) GetOperationByID(ctx context.Context, operationID string) (opera
 }
 
 // getOperation retrieves the operation row for a given operation_id.
-func (s *State) getOperation(ctx context.Context, tx *sqlair.TX, oID string) (operationResult, error) {
+func (st *State) getOperation(ctx context.Context, tx *sqlair.TX, oID string) (operationResult, error) {
 	ident := operationID{OperationID: oID}
 	query := `
 SELECT uuid AS &operationResult.uuid,
@@ -91,7 +94,7 @@ FROM   operation
 WHERE  operation_id = $operationID.operation_id
 `
 	var op operationResult
-	stmt, err := s.Prepare(query, operationResult{}, ident)
+	stmt, err := st.Prepare(query, operationResult{}, ident)
 	if err != nil {
 		return operationResult{}, errors.Errorf("preparing operation query: %w", err)
 	}
@@ -136,7 +139,7 @@ func encodeOperationInfo(
 			logs = []taskLogEntry{}
 		}
 
-		encodedTask, err := encodeTask(t.TaskID, t, parameters, logs)
+		encodedTask, err := encodeTask(t, parameters, logs)
 		if err != nil {
 			return operation.OperationInfo{}, errors.Errorf("encoding task %q: %w", t.TaskID, err)
 		}
