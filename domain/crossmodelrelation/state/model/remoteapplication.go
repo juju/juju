@@ -320,14 +320,6 @@ func encodeRelations(uuid string, metadata charm.Metadata) ([]setCharmRelation, 
 		result = append(result, encoded)
 	}
 
-	for _, relation := range metadata.Peers {
-		encoded, err := encodeRelation(uuid, relation)
-		if err != nil {
-			return nil, errors.Errorf("cannot encode peers relation: %w", err)
-		}
-		result = append(result, encoded)
-	}
-
 	return result, nil
 }
 
