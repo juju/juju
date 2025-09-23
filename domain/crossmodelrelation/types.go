@@ -176,3 +176,37 @@ type RemoteApplicationOfferer struct {
 	// consuming.
 	ConsumeVersion int
 }
+
+// AddRemoteApplicationOffererArgs contains the parameters required to add a new
+// remote application offerer.
+type AddRemoteApplicationOffererArgs struct {
+	// ApplicationUUID is the UUID to assign to the synthetic application
+	// representing the remote application.
+	ApplicationUUID string
+
+	// CharmUUID is the UUID to assign to the synthetic charm representing
+	// the remote application.
+	CharmUUID string
+
+	// RemoteApplicationUUID is the UUID of the remote application.
+	RemoteApplicationUUID string
+
+	// Charm is the charm representing the remote application.
+	Charm charm.Charm
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming.
+	OfferUUID string
+
+	// OffererControllerUUID is the UUID of the controller that the remote
+	// application is in.
+	OffererControllerUUID *string
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
+
+	// EncodedMacaroon is the encoded macaroon that the remote application uses
+	// to authenticate with the offerer model.
+	EncodedMacaroon []byte
+}

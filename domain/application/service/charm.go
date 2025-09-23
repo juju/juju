@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"io"
-	"regexp"
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
@@ -20,13 +19,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-)
-
-var (
-	// charmNameRegExp is a regular expression representing charm name.
-	// This is the same one from the names package.
-	charmNameSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
-	charmNameRegExp  = regexp.MustCompile("^" + charmNameSnippet + "$")
 )
 
 // CharmState describes retrieval and persistence methods for charms.
@@ -197,7 +189,7 @@ type CharmStore interface {
 // - [applicationerrors.CharmSourceNotValid] if the source is not valid.
 // - [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *Service) getCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
-	if !isValidCharmName(args.Name) {
+	if !application.IsValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
 
@@ -923,7 +915,7 @@ func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCha
 	// We require a valid charm metadata.
 	if meta := args.Charm.Meta(); meta == nil {
 		return addCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
-	} else if !isValidCharmName(meta.Name) {
+	} else if !application.IsValidCharmName(meta.Name) {
 		return addCharmResult{}, nil, applicationerrors.CharmNameNotValid
 	}
 
@@ -935,7 +927,7 @@ func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCha
 	}
 
 	// If the reference name is provided, it must be valid.
-	if !isValidReferenceName(args.ReferenceName) {
+	if !application.IsValidReferenceName(args.ReferenceName) {
 		return addCharmResult{}, nil, errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
@@ -1031,7 +1023,8 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	if !isValidCharmName(name) {
+
+	if !application.IsValidCharmName(name) {
 		return charm.CharmLocator{}, applicationerrors.CharmNameNotValid
 	}
 
@@ -1098,11 +1091,6 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 		Config:     config,
 		LXDProfile: profile,
 	}, warnings, nil
-}
-
-// isValidCharmName returns whether name is a valid charm name.
-func isValidCharmName(name string) bool {
-	return charmNameRegExp.MatchString(name)
 }
 
 func argsFromLocator(locator charm.CharmLocator) charm.GetCharmArgs {

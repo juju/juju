@@ -264,7 +264,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, nil
 	}
 
-	if !isValidApplicationName(appName) {
+	if !application.IsValidApplicationName(appName) {
 		return nil, nil, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -335,7 +335,7 @@ func (s *ProviderService) AddCAASUnits(
 		return []coreunit.Name{}, nil
 	}
 
-	if !isValidApplicationName(appName) {
+	if !application.IsValidApplicationName(appName) {
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
 

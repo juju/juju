@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
+	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
@@ -20,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -49,6 +50,7 @@ type baseSuite struct {
 	leadershipReader          *MockLeadership
 	deployFromRepo            *MockDeployFromRepository
 	objectStore               *MockObjectStore
+	crossModelRelationService *MockCrossModelRelationService
 
 	charmRepository        *MockRepository
 	charmRepositoryFactory *MockRepositoryFactory
@@ -77,6 +79,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.storageService = NewMockStorageService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
 
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.blockChecker = NewMockBlockChecker(ctrl)
@@ -148,6 +151,7 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 			StorageService:            s.storageService,
 			RelationService:           s.relationService,
 			RemovalService:            s.removalService,
+			CrossModelRelationService: s.crossModelRelationService,
 		},
 		s.authorizer,
 		s.blockChecker,
@@ -164,4 +168,10 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		clock.WallClock,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
+	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	return mac
 }

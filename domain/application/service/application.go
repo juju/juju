@@ -547,14 +547,14 @@ func validateCharmAndApplicationParams(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 ) error {
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
 	}
 
 	// We require a valid charm metadata.
 	if meta := charm.Meta(); meta == nil {
 		return applicationerrors.CharmMetadataNotValid
-	} else if !isValidCharmName(meta.Name) {
+	} else if !application.IsValidCharmName(meta.Name) {
 		return applicationerrors.CharmNameNotValid
 	}
 
@@ -570,7 +570,7 @@ func validateCharmAndApplicationParams(
 	}
 
 	// If the reference name is provided, it must be valid.
-	if !isValidReferenceName(referenceName) {
+	if !application.IsValidReferenceName(referenceName) {
 		return errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
@@ -1002,7 +1002,7 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return "", applicationerrors.ApplicationNameNotValid
 	}
 
@@ -1025,7 +1025,7 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
 	}
 
@@ -1528,7 +1528,7 @@ func (s *Service) GetApplicationTrustSetting(ctx context.Context, appName string
 // application name. If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error) {
-	if !isValidApplicationName(name) {
+	if !application.IsValidApplicationName(name) {
 		return corecharm.Origin{}, applicationerrors.ApplicationNameNotValid
 	}
 

@@ -35,6 +35,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -1299,6 +1300,8 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 
 	controllerUUID := tc.Must(c, uuid.NewUUID).String()
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	macaroon := newMacaroon(c, "test")
 
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerUUID: controllerUUID,
@@ -1308,13 +1311,33 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 		ModelUUIDs:     []string{modelUUID},
 	}
 	s.externalControllerService.EXPECT().UpdateExternalController(gomock.Any(), controllerInfo).Return(nil)
+	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:             offerUUID,
+		OffererControllerUUID: ptr(controllerUUID),
+		OffererModelUUID:      modelUUID,
+		Endpoints: []applicationcharm.Relation{{
+			Name:      "db",
+			Role:      applicationcharm.RoleRequirer,
+			Interface: "db",
+			Limit:     1,
+		}},
+		Macaroon: macaroon,
+	}).Return(nil)
 
 	s.setupAPI(c)
 
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID,
+				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
 			},
 			ControllerInfo: &params.ExternalControllerInfo{
 				ControllerTag: names.NewControllerTag(controllerUUID).String(),
@@ -1322,6 +1345,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 				Addrs:         []string{"10.0.0.1"},
 				CACert:        "cert",
 			},
+			Macaroon: macaroon,
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1334,14 +1358,37 @@ func (s *applicationSuite) TestConsumeNoExternalController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	macaroon := newMacaroon(c, "test")
+
+	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:        offerUUID,
+		OffererModelUUID: modelUUID,
+		Endpoints: []applicationcharm.Relation{{
+			Name:      "db",
+			Role:      applicationcharm.RoleRequirer,
+			Interface: "db",
+			Limit:     1,
+		}},
+		Macaroon: macaroon,
+	}).Return(nil)
 
 	s.setupAPI(c)
 
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID,
+				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
 			},
+			Macaroon: macaroon,
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1357,20 +1404,37 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 	// controller record. The data could be old, so leave it alone.
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	macaroon := newMacaroon(c, "test")
+
+	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:        offerUUID,
+		OffererModelUUID: modelUUID,
+		Endpoints: []applicationcharm.Relation{{
+			Name:      "db",
+			Role:      applicationcharm.RoleRequirer,
+			Interface: "db",
+			Limit:     1,
+		}},
+		Macaroon: macaroon,
+	}).Return(nil)
 
 	s.setupAPI(c)
 
 	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
 		Args: []params.ConsumeApplicationArgV5{{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID,
+				OfferName:      "my-offer",
 				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
 			},
-			ControllerInfo: &params.ExternalControllerInfo{
-				ControllerTag: names.NewControllerTag(s.controllerUUID).String(),
-				Alias:         "alias",
-				Addrs:         []string{"10.0.0.1"},
-				CACert:        "cert",
-			},
+			Macaroon: macaroon,
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1399,6 +1463,40 @@ func (s *applicationSuite) TestConsumeInvalidSourceModelTag(c *tc.C) {
 			Error: &params.Error{
 				Code:    params.CodeBadRequest,
 				Message: `parsing source model tag: "model-bad" is not a valid model tag`,
+			},
+		}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeInvalidEndpointRole(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID,
+				OfferName:      "my-offer",
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "require",
+					Interface: "db",
+					Limit:     1,
+				}},
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{
+				Code:    params.CodeBadRequest,
+				Message: `parsing role for endpoint "db": endpoint role must be "provider" or "requirer", got "require"`,
 			},
 		}},
 	})

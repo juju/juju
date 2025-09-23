@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
@@ -50,6 +51,7 @@ type Services struct {
 	RemovalService            RemovalService
 	ResourceService           ResourceService
 	StorageService            StorageService
+	CrossModelRelationService CrossModelRelationService
 }
 
 // Validate checks that all the services are set.
@@ -87,6 +89,9 @@ func (s Services) Validate() error {
 	if s.RemovalService == nil {
 		return errors.NotValidf("empty RemovalService")
 	}
+	if s.CrossModelRelationService == nil {
+		return errors.NotValidf("empty CrossModelRelationService")
+	}
 	return nil
 }
 
@@ -96,6 +101,17 @@ type ExternalControllerService interface {
 	// UpdateExternalController persists the input controller
 	// record.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// CrossModelRelationService provides access to cross-model relations.
+type CrossModelRelationService interface {
+	// AddRemoteApplicationOfferer adds a new synthetic application representing
+	// an offer from an external model, to this, the consuming model.
+	AddRemoteApplicationOfferer(
+		ctx context.Context,
+		applicationName string,
+		args crossmodelrelationservice.AddRemoteApplicationOffererArgs,
+	) error
 }
 
 // CredentialService provides access to credentials.
