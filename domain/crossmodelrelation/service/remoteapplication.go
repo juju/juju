@@ -117,7 +117,7 @@ func (s *Service) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmode
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {
-	provides, requires, peers, err := splitRelationsByType(endpoints)
+	provides, requires, err := splitRelationsByType(endpoints)
 	if err != nil {
 		return charm.Charm{}, internalerrors.Errorf("parsing relations by type: %w", err)
 	}
@@ -128,18 +128,16 @@ func constructSyntheticCharm(applicationName string, endpoints []charm.Relation)
 			Description: "remote offerer application",
 			Provides:    provides,
 			Requires:    requires,
-			Peers:       peers,
 		},
 		ReferenceName: applicationName,
 		Source:        charm.CMRSource,
 	}, nil
 }
 
-func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation, map[string]charm.Relation, map[string]charm.Relation, error) {
+func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation, map[string]charm.Relation, error) {
 	var (
 		provides = make(map[string]charm.Relation)
 		requires = make(map[string]charm.Relation)
-		peers    = make(map[string]charm.Relation)
 	)
 	for _, relation := range relations {
 		switch relation.Role {
@@ -148,11 +146,13 @@ func splitRelationsByType(relations []charm.Relation) (map[string]charm.Relation
 		case charm.RoleRequirer:
 			requires[relation.Name] = relation
 		case charm.RolePeer:
-			peers[relation.Name] = relation
+			// Peer relations are not supported in CMR, as they represent
+			// intra-model relations.
+			continue
 		default:
-			return nil, nil, nil, internalerrors.Errorf("unknown relation role type: %q", relation.Role)
+			return nil, nil, internalerrors.Errorf("unknown relation role type: %q", relation.Role)
 		}
 	}
 
-	return provides, requires, peers, nil
+	return provides, requires, nil
 }
