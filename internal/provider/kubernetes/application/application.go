@@ -433,6 +433,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.Background(), false)
 }
 
+// ReapplySTSWithUpdatedPVC deletes the existing statefulset with DeletePropagationOrphan policy.
+// It receives the latest filesystems to update the PVCs and reapplies a new statefulset.
 func (a *app) ReapplySTSWithUpdatedPVC(filesystems []jujustorage.KubernetesFilesystemParams) error {
 	sts, getErr := a.getStatefulSet()
 	if getErr != nil {
