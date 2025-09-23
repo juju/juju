@@ -22,10 +22,8 @@ import (
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
-// AddRemoteApplicationOfferer adds a new remote application offerer that
-// is on the consumer side of a cross-model relation. This inserts a
-// synthetic application and charm into the model to represent the remote
-// application.
+// AddRemoteApplicationOfferer adds a new synthetic application representing
+// an offer from an external model, to this, the consuming model.
 func (st *State) AddRemoteApplicationOfferer(
 	ctx context.Context,
 	applicationName string,

@@ -16,13 +16,11 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ModelDBRemoteApplicationState describes retrieval and persistence methods for
+// ModelRemoteApplicationState describes retrieval and persistence methods for
 // cross model relations in the model database.
-type ModelDBRemoteApplicationState interface {
-	// AddRemoteApplicationOfferer adds a new remote application offerer that
-	// is on the consumer side of a cross-model relation. This inserts a
-	// synthetic application and charm into the model to represent the remote
-	// application.
+type ModelRemoteApplicationState interface {
+	// AddRemoteApplicationOfferer adds a new synthetic application representing
+	// an offer from an external model, to this, the consuming model.
 	AddRemoteApplicationOfferer(
 		context.Context,
 		string,
@@ -30,9 +28,8 @@ type ModelDBRemoteApplicationState interface {
 	) error
 }
 
-// AddRemoteApplicationOfferer adds a new remote application offerer that
-// is on the consumer side of a cross-model relation. This enables the tracking
-// of the remote application in the local model.
+// AddRemoteApplicationOfferer adds a new synthetic application representing
+// an offer from an external model, to this, the consuming model.
 func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationName string, args AddRemoteApplicationOffererArgs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
