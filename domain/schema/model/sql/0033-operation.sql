@@ -131,6 +131,9 @@ CREATE TABLE operation_task_log (
     REFERENCES operation_task (uuid)
 );
 
+CREATE INDEX idx_operation_task_log_id
+ON operation_task_log (task_uuid, created_at);
+
 -- operation_parameter holds the parameters passed to an operation.
 -- In the case of an action, these are the user-passed parameters, where the 
 -- keys should match the charm_action's parameters.
