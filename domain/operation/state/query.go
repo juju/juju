@@ -36,7 +36,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 
 	// Pagination set-up.
 	var (
-		limit  int
+		limit  = 10 // Default 10 operations per page.
 		offset int
 	)
 	if params.Limit != nil {
@@ -52,6 +52,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 	if err != nil {
 		return operation.QueryResult{}, errors.Errorf("preparing operations query: %w", err)
 	}
+	st.logger.Debugf(ctx, "executing query: %q, with args %v", query, queryArgs)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryArgs...).GetAll(&ops)
@@ -274,7 +275,7 @@ func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset 
 
 	// Base query - we need to ensure we join with tasks and their receivers properly
 	query := `
-SELECT DISTINCT o.uuid AS &operationResult.uuid,
+SELECT o.uuid AS &operationResult.uuid,
        o.operation_id AS &operationResult.operation_id,
        o.summary AS &operationResult.summary,
        o.enqueued_at AS &operationResult.enqueued_at,

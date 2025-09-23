@@ -4,7 +4,6 @@
 package service
 
 import (
-	context "context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -141,7 +140,7 @@ func (s *querySuite) TestGetOperationByID(c *tc.C) {
 	// The status should be Running (higher priority than Completed)
 	s.state.EXPECT().GetOperationByID(gomock.Any(), operationID).Return(expected, nil)
 
-	got, err := s.service().GetOperationByID(context.Background(), operationID)
+	got, err := s.service().GetOperationByID(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(got.OperationID, tc.Equals, operationID)
 	c.Check(got.Status, tc.Equals, corestatus.Running)
@@ -171,7 +170,7 @@ func (s *querySuite) TestGetOperationByID_Completed(c *tc.C) {
 	// The status should be Running (higher priority than Completed)
 	s.state.EXPECT().GetOperationByID(gomock.Any(), operationID).Return(expected, nil)
 
-	got, err := s.service().GetOperationByID(context.Background(), operationID)
+	got, err := s.service().GetOperationByID(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
 	c.Check(got.OperationID, tc.Equals, operationID)
 	c.Check(got.Status, tc.Equals, corestatus.Completed)
@@ -183,7 +182,7 @@ func (s *querySuite) TestGetOperationByID_Error(c *tc.C) {
 	expectedErr := errors.New("not found")
 	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Return(operation.OperationInfo{}, expectedErr)
 
-	_, err := s.service().GetOperationByID(context.Background(), "unknown")
+	_, err := s.service().GetOperationByID(c.Context(), "unknown")
 	c.Assert(err, tc.ErrorMatches, "not found")
 }
 

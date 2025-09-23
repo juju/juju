@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -224,7 +223,7 @@ func (s *baseSuite) getOrCreateApplication(c *tc.C, charmUUID, appName string) s
 		return existingAppUUID
 	}
 
-	// Create new application if it doesn't exist
+	// Create new application if it doesn't exist.
 	appUUID := internaluuid.MustNewUUID().String()
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
 		appUUID, appName, life.Alive, charmUUID, network.AlphaSpaceId)

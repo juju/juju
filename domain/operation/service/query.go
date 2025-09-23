@@ -30,7 +30,27 @@ var statusOrder = []corestatus.Status{
 // GetOperations returns a list of operations on specified entities, filtered by the
 // given parameters.
 func (s *Service) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
-	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	s.logger.Debugf(ctx, "querying operations with params: %v", params)
+	res, err := s.st.GetOperations(ctx, params)
+	if err != nil {
+		return operation.QueryResult{}, errors.Capture(err)
+	}
+	// Now we must deduce the status each operation.
+	for i, op := range res.Operations {
+		tasks := make([]operation.TaskInfo, 0, len(op.Units)+len(op.Machines))
+		for _, u := range op.Units {
+			tasks = append(tasks, u.TaskInfo)
+		}
+		for _, m := range op.Machines {
+			tasks = append(tasks, m.TaskInfo)
+		}
+		res.Operations[i].Status = operationStatus(tasks)
+	}
+
+	return res, nil
 }
 
 // GetOperationByID returns an operation by its ID.

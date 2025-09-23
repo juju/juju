@@ -444,7 +444,7 @@ func (s *runSuite) TestRunRejectNestedExec(c *tc.C) {
 func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	runParams := params.RunParams{
 		Applications:   []string{"a1", "a2"},
 		Machines:       []string{"0", "42"},
@@ -481,7 +481,7 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 func (s *runSuite) TestRunDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	runParams := params.RunParams{Commands: "whoami", Timeout: time.Second}
 
 	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), operation.ExecArgs{
@@ -741,7 +741,7 @@ func (s *runAllSuite) TestRunOnAllMachinesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
 	// Don't block
-	api := s.NewActionAPI(c)
+	api := s.newActionAPI(c)
 	params := params.RunParams{
 		Commands:       "whoami",
 		Timeout:        time.Second,
