@@ -343,6 +343,23 @@ END;
 	`)
 	})
 
+	// Ensure that a unit cannot be linked to a CMR application.
+	patches = append(patches, func() schema.Patch {
+		return schema.MakePatch(`
+CREATE TRIGGER trg_insert_unit_for_cmr_app
+AFTER INSERT ON unit
+WHEN EXISTS (
+    SELECT 1
+    FROM unit AS u
+    JOIN charm AS c ON u.charm_uuid = c.uuid
+    WHERE u.uuid = NEW.uuid AND c.source_id == 2
+)
+BEGIN
+	SELECT RAISE(ABORT, 'Adding a unit to a CMR application is not allowed');
+END;
+	`)
+	})
+
 	patches = append(patches, customModelTriggers()...)
 
 	modelSchema := schema.New()

@@ -700,6 +700,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 		"trg_insert_machine_task_if_not_unit_task",
 		"trg_insert_unit_task_if_not_machine_task",
+		"trg_insert_unit_for_cmr_app",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")
@@ -764,4 +765,30 @@ VALUES ("abc", "node2", "machine-1", "0");`)
 		`UPDATE machine SET life_id = "0" WHERE uuid = "abc";`,
 		"Cannot transition life for machine backwards",
 	)
+}
+
+func (s *modelSchemaSuite) TestInsertUnitForCMRCharm(c *tc.C) {
+	s.applyDDL(c, ModelDDL())
+
+	id := charmtesting.GenCharmID(c)
+
+	s.assertExecSQL(c, `
+INSERT INTO charm (uuid, reference_name, architecture_id, revision, source_id)
+VALUES (?, 'foo', NULL, 1, 2)
+`, id.String())
+	s.assertExecSQL(c, `
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'foo');`,
+		id)
+	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES ("node2");`)
+	s.assertExecSQL(c, `INSERT INTO space (uuid, name) VALUES ("space1", "space1");`)
+	s.assertExecSQL(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES ("app-1", "app-1", "0", ?, "space1");
+`, id.String())
+
+	s.assertExecSQLError(c, `
+INSERT INTO unit (uuid, net_node_uuid, application_uuid, name, life_id, charm_uuid)
+VALUES ("unit-1", "node2", "app-1", "foo", "0", ?);
+`, "Adding a unit to a CMR application is not allowed", id.String())
 }
