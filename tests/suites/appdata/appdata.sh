@@ -23,7 +23,7 @@ application-config:
     source: default
     type: bool
     value: false
-charm: appdata-source
+charm: juju-qa-appdata-source
 settings:
   token:
     default: ""
@@ -77,7 +77,7 @@ application-config:
     source: default
     type: bool
     value: false
-charm: appdata-source
+charm: juju-qa-appdata-source
 settings:
   token:
     default: ""
