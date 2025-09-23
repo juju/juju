@@ -1394,8 +1394,9 @@ func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUI
 	ident := applicationID{ID: appUUID}
 	query := `
 SELECT &life.*
-FROM application
-WHERE uuid = $applicationID.uuid;
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {

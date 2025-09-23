@@ -2216,6 +2216,23 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	})
 }
 
+func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForSyntheticCMRApplication(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, id)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, err = s.state.GetApplicationConfigAndSettings(c.Context(), id)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
@@ -2720,6 +2737,23 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *tc.C) {
 			},
 		},
 	})
+}
+
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDSyntheticCMRApplication(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, id)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotFound(c *tc.C) {

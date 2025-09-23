@@ -676,6 +676,85 @@ func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 	s.assertUnitConstraints(c, coreunit.UUID(unitUUID), constraints.Constraints{})
 }
 
+func (s *unitStateSuite) TestAddIAASUnitsToSyntheticCMRApplication(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	now := ptr(time.Now())
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	u := application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusExecuting,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+			},
+		},
+	}
+
+	_, _, err = s.state.AddIAASUnits(c.Context(), appID, u)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitStateSuite) TestAddCAASUnitsToSyntheticCMRApplication(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	now := ptr(time.Now())
+	u := application.AddCAASUnitArg{
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status:  status.UnitAgentStatusExecuting,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "test",
+					Data:    []byte(`{"foo": "bar"}`),
+					Since:   now,
+				},
+			},
+		},
+	}
+
+	_, err = s.state.AddCAASUnits(c.Context(), appID, u)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
 
