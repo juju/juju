@@ -6,8 +6,6 @@ package service
 import (
 	"context"
 
-	"gopkg.in/macaroon.v2"
-
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application"
@@ -30,29 +28,6 @@ type ModelDBRemoteApplicationState interface {
 		string,
 		crossmodelrelation.AddRemoteApplicationOffererArgs,
 	) error
-}
-
-// AddRemoteApplicationOffererArgs contains the parameters required to add a new
-// remote application offerer.
-type AddRemoteApplicationOffererArgs struct {
-	// OfferUUID is the UUID of the offer that the remote application is
-	// consuming.
-	OfferUUID string
-
-	// OffererControllerUUID is the UUID of the controller that the remote
-	// application is in.
-	OffererControllerUUID *string
-
-	// OffererModelUUID is the UUID of the model that is offering the
-	// application.
-	OffererModelUUID string
-
-	// Endpoints is the collection of endpoint names offered.
-	Endpoints []charm.Relation
-
-	// Macaroon is the macaroon that the remote application uses to
-	// authenticate with the offerer model.
-	Macaroon *macaroon.Macaroon
 }
 
 // AddRemoteApplicationOfferer adds a new remote application offerer that
