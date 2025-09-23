@@ -35,13 +35,13 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 
 	// Arrange
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
-	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
+	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
 	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -50,9 +50,9 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 	}
 	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
-	s.modelDBState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
+	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
-	s.controllerDBState.EXPECT().CreateOfferAccess(
+	s.controllerState.EXPECT().CreateOfferAccess(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
@@ -73,13 +73,13 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 
 	// Arrange
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
-	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
+	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
 	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -88,16 +88,16 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 	}
 	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
-	s.modelDBState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
+	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
 
 	// Fail creating offer access and delete the newly created offer
-	s.controllerDBState.EXPECT().CreateOfferAccess(
+	s.controllerState.EXPECT().CreateOfferAccess(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
 		gomock.AssignableToTypeOf(uuid.UUID{}),
 		ownerUUID,
 	).Return(errors.Errorf("boom"))
-	s.modelDBState.EXPECT().DeleteFailedOffer(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{})).Return(nil)
+	s.modelState.EXPECT().DeleteFailedOffer(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{})).Return(nil)
 
 	// Act
 	err := s.service(c).Offer(c.Context(), args)
@@ -114,13 +114,13 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	// Arrange
 
 	// Expect to call CreateOffer by receiving OfferNotFound from UpdateOffer.
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().UpdateOffer(gomock.Any(), gomock.Any(), gomock.Any()).Return(crossmodelrelationerrors.OfferNotFound)
 
 	applicationName := "test-application"
 	offerName := "test-offer"
 	ownerName := usertesting.GenNewName(c, "admin")
 	ownerUUID := uuid.MustNewUUID()
-	s.controllerDBState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
+	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
 	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: applicationName,
 		OfferName:       offerName,
@@ -129,7 +129,7 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	}
 	createOfferArgs := internal.MakeCreateOfferArgs(args, uuid.UUID{})
 	m := createOfferArgsMatcher{c: c, expected: createOfferArgs}
-	s.modelDBState.EXPECT().CreateOffer(gomock.Any(), m).Return(errors.Errorf("boom"))
+	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(errors.Errorf("boom"))
 
 	// Act
 	err := s.service(c).Offer(c.Context(), args)
@@ -153,7 +153,7 @@ func (s *offerServiceSuite) TestOfferUpdate(c *tc.C) {
 		OwnerName:       ownerName,
 	}
 
-	s.modelDBState.EXPECT().UpdateOffer(gomock.Any(), offerName, []string{"db"}).Return(nil)
+	s.modelState.EXPECT().UpdateOffer(gomock.Any(), offerName, []string{"db"}).Return(nil)
 
 	// Act
 	err := s.service(c).Offer(c.Context(), createOfferArgs)
@@ -184,7 +184,7 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 			},
 		},
 	}
-	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
 
 	offerUsers := map[string][]crossmodelrelation.OfferUser{
 		offerUUIDs[0]: {
@@ -194,7 +194,7 @@ func (s *offerServiceSuite) TestGetOffersEmptyFilters(c *tc.C) {
 			},
 		},
 	}
-	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
 	filters := []crossmodelrelation.OfferFilter{{}}
 
@@ -248,7 +248,7 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 			},
 		},
 	}
-	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
 
 	offerUsers := map[string][]crossmodelrelation.OfferUser{
 		offerUUIDs[0]: {
@@ -258,7 +258,7 @@ func (s *offerServiceSuite) TestGetOffers(c *tc.C) {
 			},
 		},
 	}
-	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
 	filters := []crossmodelrelation.OfferFilter{{
 		ApplicationName: inputFilter.ApplicationName,
@@ -298,7 +298,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 	// Arrange
 	allowedConsumers := []string{"fred"}
 	offerUUIDs := []string{uuid.MustNewUUID().String(), uuid.MustNewUUID().String()}
-	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(offerUUIDs, nil)
+	s.controllerState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(offerUUIDs, nil)
 
 	inputFilter := internal.OfferFilter{
 		OfferUUIDs: offerUUIDs,
@@ -330,7 +330,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 			},
 		},
 	}
-	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
 
 	offerUsers := map[string][]crossmodelrelation.OfferUser{
 		offerUUIDs[0]: {
@@ -346,7 +346,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumers(c *tc.C) {
 			},
 		},
 	}
-	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
 	filters := []crossmodelrelation.OfferFilter{
 		{
@@ -407,7 +407,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilte
 
 	// Arrange
 	allowedConsumers := []string{"fred"}
-	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
+	s.controllerState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
 
 	offerUUIDs := []string{uuid.MustNewUUID().String()}
 	offerDetails := []*crossmodelrelation.OfferDetail{
@@ -425,7 +425,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilte
 			},
 		},
 	}
-	s.modelDBState.EXPECT().GetOfferDetails(gomock.Any(), internal.OfferFilter{OfferName: "test-offer"}).Return(offerDetails, nil)
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), internal.OfferFilter{OfferName: "test-offer"}).Return(offerDetails, nil)
 
 	offerUsers := map[string][]crossmodelrelation.OfferUser{
 		offerUUIDs[0]: {
@@ -435,7 +435,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFoundMoreInFilte
 			},
 		},
 	}
-	s.controllerDBState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
 	filters := []crossmodelrelation.OfferFilter{
 		{
@@ -479,7 +479,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 
 	// Arrange
 	allowedConsumers := []string{"fred"}
-	s.controllerDBState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
+	s.controllerState.EXPECT().GetOfferUUIDsForUsersWithConsume(gomock.Any(), allowedConsumers).Return(nil, nil)
 
 	filters := []crossmodelrelation.OfferFilter{
 		{
@@ -502,7 +502,7 @@ func (s *offerServiceSuite) TestGetOfferUUID(c *tc.C) {
 	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
 	c.Assert(err, tc.IsNil)
 	offerUUID := uuid.MustNewUUID()
-	s.modelDBState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return(offerUUID.String(), nil)
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return(offerUUID.String(), nil)
 
 	// Act
 	obtainedOfferUUID, err := s.service(c).GetOfferUUID(c.Context(), offerURL)
@@ -518,7 +518,7 @@ func (s *offerServiceSuite) TestGetOfferUUIDError(c *tc.C) {
 	// Arrange
 	offerURL, err := crossmodel.ParseOfferURL("postgresql.db-admin")
 	c.Assert(err, tc.IsNil)
-	s.modelDBState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return("", crossmodelrelationerrors.OfferNotFound)
+	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerURL.Name).Return("", crossmodelrelationerrors.OfferNotFound)
 
 	// Act
 	_, err = s.service(c).GetOfferUUID(c.Context(), offerURL)

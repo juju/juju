@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ModelDBOfferState describes retrieval and persistence methods for cross model
+// ModelOfferState describes retrieval and persistence methods for cross model
 // relations in the model database.
-type ModelDBOfferState interface {
+type ModelOfferState interface {
 	// CreateOffer creates an offer and links the endpoints to it.
 	CreateOffer(
 		context.Context,

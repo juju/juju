@@ -15,16 +15,16 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ModelDBState describes retrieval and persistence methods for cross model
+// ModelState describes retrieval and persistence methods for cross model
 // relations in the model database.
-type ModelDBState interface {
-	ModelDBOfferState
-	ModelDBRemoteApplicationState
+type ModelState interface {
+	ModelOfferState
+	ModelRemoteApplicationState
 }
 
-// ControllerDBState describes retrieval and persistence methods for cross
+// ControllerState describes retrieval and persistence methods for cross
 // model relation access in the controller database.
-type ControllerDBState interface {
+type ControllerState interface {
 	// CreateOfferAccess give the offer owner AdminAccess and EveryoneUserName
 	// ReadAccess for the provided offer.
 	CreateOfferAccess(
@@ -64,15 +64,15 @@ type WatcherFactory interface {
 
 // Service provides the API for working with cross model relations.
 type Service struct {
-	controllerState ControllerDBState
-	modelState      ModelDBState
+	controllerState ControllerState
+	modelState      ModelState
 	logger          logger.Logger
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
-	controllerState ControllerDBState,
-	modelState ModelDBState,
+	controllerState ControllerState,
+	modelState ModelState,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
@@ -90,8 +90,8 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service instance.
 func NewWatchableService(
-	controllerState ControllerDBState,
-	modelState ModelDBState,
+	controllerState ControllerState,
+	modelState ModelState,
 	watcherFactory WatcherFactory,
 	logger logger.Logger,
 ) *WatchableService {
