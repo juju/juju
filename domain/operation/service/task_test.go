@@ -135,6 +135,36 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	c.Check(task.Output["message"], tc.Equals, "Task completed successfully")
 }
 
+func (s *serviceSuite) TestGetReceiverFromTaskID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	expectedReceiver := "app/0"
+	s.state.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskID).Return(expectedReceiver, nil)
+
+	// Act
+	receiver, err := s.service().GetReceiverFromTaskID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(receiver, tc.Equals, expectedReceiver)
+}
+
+func (s *serviceSuite) TestGetReceiverFromTaskIDFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	s.state.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskID).Return("", errors.New("task start fail"))
+
+	// Act
+	_, err := s.service().GetReceiverFromTaskID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `task start fail`)
+}
+
 func (s *serviceSuite) TestStartTask(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -40,6 +40,10 @@ type State interface {
 	// GetUnitUUIDByName returns the unit UUID for the given unit name.
 	GetUnitUUIDByName(ctx context.Context, n coreunit.Name) (string, error)
 
+	// GetReceiverFromTaskID returns a receiver string for the task identified.
+	// The string should satisfy the ActionReceiverTag type.
+	GetReceiverFromTaskID(ctx context.Context, taskID string) (string, error)
+
 	// GetMachineUUIDByName returns the machine UUID for the given machine name.
 	GetMachineUUIDByName(ctx context.Context, n coremachine.Name) (string, error)
 

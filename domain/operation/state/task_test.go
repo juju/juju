@@ -148,6 +148,69 @@ func (s *taskSuite) TestCancelTaskNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*task with ID \"42\" not found`)
 }
 
+func (s *taskSuite) TestGetReceiverFromTaskIDMachine(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+
+	taskUUIDOne := s.addOperationTask(c, operationUUID)
+	unitUUIDOne := s.addUnitWithName(c, s.addCharm(c), "test-app/0")
+	s.addOperationUnitTask(c, taskUUIDOne, unitUUIDOne)
+
+	taskIDTwo := "47"
+	taskUUIDTwo := s.addOperationTaskWithID(c, operationUUID, taskIDTwo, "running")
+	expectedReceiver := "7"
+	machineUUID := s.addMachine(c, expectedReceiver)
+	s.addOperationMachineTask(c, taskUUIDTwo, machineUUID)
+
+	// Act
+	receiver, err := s.state.GetReceiverFromTaskID(c.Context(), taskIDTwo)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(receiver, tc.Equals, expectedReceiver)
+}
+
+func (s *taskSuite) TestGetReceiverFromTaskIDUnit(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+
+	taskUUIDOne := s.addOperationTask(c, operationUUID)
+	unitUUIDOne := s.addUnitWithName(c, s.addCharm(c), "test-app/0")
+	s.addOperationUnitTask(c, taskUUIDOne, unitUUIDOne)
+
+	taskIDTwo := "47"
+	taskUUIDTwo := s.addOperationTaskWithID(c, operationUUID, taskIDTwo, "running")
+	expectedReceiver := "test-app-two/1"
+	unitUUIDTwo := s.addUnitWithName(c, s.addCharm(c), expectedReceiver)
+	s.addOperationUnitTask(c, taskUUIDTwo, unitUUIDTwo)
+
+	// Act
+	receiver, err := s.state.GetReceiverFromTaskID(c.Context(), taskIDTwo)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(receiver, tc.Equals, expectedReceiver)
+}
+
+func (s *taskSuite) TestGetReceiverFromTaskIDNotFound(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+
+	taskUUIDOne := s.addOperationTask(c, operationUUID)
+	unitUUIDOne := s.addUnitWithName(c, s.addCharm(c), "test-app/0")
+	s.addOperationUnitTask(c, taskUUIDOne, unitUUIDOne)
+
+	taskUUIDTwo := s.addOperationTask(c, operationUUID)
+	unitUUIDTwo := s.addUnitWithName(c, s.addCharm(c), "test-app-two/1")
+	s.addOperationUnitTask(c, taskUUIDTwo, unitUUIDTwo)
+
+	// Act
+	_, err := s.state.GetReceiverFromTaskID(c.Context(), "89")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.TaskNotFound)
+}
+
 func (s *taskSuite) TestStartTask(c *tc.C) {
 	// Arrange
 	operationUUID := s.addOperation(c)
