@@ -109,7 +109,6 @@ def main(args):
         if owner.startswith("application"):
             owner = owner.replace("application-", "") + "/leader"
         elif owner.startswith("unit"):
-            print(owner)
             owner = owner.replace("unit-", "") 
             tail = owner.rindex("-")
             owner = owner[:tail] + '/' + owner[tail+1:]
