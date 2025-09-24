@@ -304,7 +304,7 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 func makeActionResult(task operation.Task, receiverTag names.Tag) params.ActionResult {
 	actionTag := names.NewActionTag(task.ID)
 	ac := &params.Action{
-		Tag:            actionTag.Id(),
+		Tag:            actionTag.String(),
 		Name:           task.ActionName,
 		Parameters:     task.Parameters,
 		Receiver:       receiverTag.String(),
