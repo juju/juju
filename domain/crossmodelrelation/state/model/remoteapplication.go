@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -68,6 +69,61 @@ func (st *State) AddRemoteApplicationOfferer(
 	}
 
 	return nil
+}
+
+// GetRemoteApplicationOfferers returns all the current non-dead remote
+// application offerers in the local model.
+func (st *State) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT  a.name AS &remoteApplicationOffererInfo.application_name,
+        aro.life_id AS &remoteApplicationOffererInfo.life_id,
+        aro.application_uuid AS &remoteApplicationOffererInfo.application_uuid,
+        aro.offer_uuid AS &remoteApplicationOffererInfo.offer_uuid,
+        aro.version AS &remoteApplicationOffererInfo.version,
+        aro.offerer_model_uuid AS &remoteApplicationOffererInfo.offerer_model_uuid,
+        aro.macaroon AS &remoteApplicationOffererInfo.macaroon
+FROM    application_remote_offerer AS aro
+JOIN    application AS a ON a.uuid = aro.application_uuid
+WHERE   aro.life_id < 2;`
+	queryStmt, err := st.Prepare(query, remoteApplicationOffererInfo{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var offerers []remoteApplicationOffererInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryStmt).GetAll(&offerers); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("querying remote application offerers: %w", err)
+	}
+
+	result := make([]crossmodelrelation.RemoteApplicationOfferer, len(offerers))
+	for i, offerer := range offerers {
+		macaroon, err := decodeMacaroon(offerer.Macaroon)
+		if err != nil {
+			return nil, errors.Errorf("decoding macaroon for remote application offerer %q: %w", offerer.ApplicationName, err)
+		}
+
+		result[i] = crossmodelrelation.RemoteApplicationOfferer{
+			Life:             life.Life(offerer.LifeID),
+			ApplicationUUID:  offerer.ApplicationUUID,
+			ApplicationName:  offerer.ApplicationName,
+			OfferUUID:        offerer.OfferUUID,
+			ConsumeVersion:   int(offerer.Version),
+			OffererModelUUID: offerer.OffererModelUUID,
+			Macaroon:         macaroon,
+		}
+	}
+
+	return result, nil
 }
 
 func (st *State) insertApplication(
@@ -417,4 +473,16 @@ func encodeRelationRole(role charm.RelationRole) (int, error) {
 	default:
 		return -1, errors.Errorf("role should not be a peer relation, got %q", role)
 	}
+}
+
+func decodeMacaroon(data []byte) (*macaroon.Macaroon, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	var m macaroon.Macaroon
+	if err := m.UnmarshalJSON(data); err != nil {
+		return nil, errors.Errorf("unmarshalling macaroon: %w", err)
+	}
+	return &m, nil
 }

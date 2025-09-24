@@ -150,18 +150,14 @@ type RemoteApplicationConsumer struct {
 	// ConsumeVersion is the version of the offer that the remote application is
 	// consuming.
 	ConsumeVersion int
-
-	// OffererModelUUID is the UUID of the model that is offering the
-	// application.
-	OffererModelUUID string
-
-	// Macaroon is the macaroon that the remote application uses to
-	// authenticate with the offerer model.
-	Macaroon *macaroon.Macaroon
 }
 
 // RemoteApplicationOfferer represents a remote application
 type RemoteApplicationOfferer struct {
+	// ApplicationUUID is the UUID of the synthetic application
+	// representing the remote application.
+	ApplicationUUID string
+
 	// ApplicationName is the name of the remote application.
 	ApplicationName string
 
@@ -175,6 +171,14 @@ type RemoteApplicationOfferer struct {
 	// ConsumeVersion is the version of the offer that the remote application is
 	// consuming.
 	ConsumeVersion int
+
+	// OffererModelUUID is the UUID of the model that is offering the
+	// application.
+	OffererModelUUID string
+
+	// Macaroon is the macaroon that the remote application uses to
+	// authenticate with the offerer model.
+	Macaroon *macaroon.Macaroon
 }
 
 // AddRemoteApplicationOffererArgs contains the parameters required to add a new
