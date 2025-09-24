@@ -9,9 +9,10 @@ import (
 	"io"
 	"strings"
 
-	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -122,8 +123,28 @@ func (s *Service) GetReceiverFromTaskID(ctx context.Context, taskID string) (str
 // The following errors may be returned:
 // - [operationerrors.TaskNotPending] if the task exists but does not have
 // a pending status.
-func (s *Service) GetPendingTaskByTaskID(ctx context.Context, id string) (operation.TaskArgs, error) {
-	return operation.TaskArgs{}, coreerrors.NotImplemented
+func (s *Service) GetPendingTaskByTaskID(ctx context.Context, taskID string) (operation.TaskArgs, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", taskID),
+		))
+	defer span.End()
+
+	task, _, err := s.st.GetTask(ctx, taskID)
+	if err != nil {
+		return operation.TaskArgs{}, errors.Errorf("getting pending task %q: %w", taskID, err)
+	}
+	if task.Status != status.Pending {
+		return operation.TaskArgs{}, errors.Errorf("task %q: %w", taskID, operationerrors.TaskNotPending)
+	}
+
+	retVal := operation.TaskArgs{
+		ActionName:     task.ActionName,
+		ExecutionGroup: deptr(task.ExecutionGroup),
+		IsParallel:     task.IsParallel,
+		Parameters:     task.Parameters,
+	}
+	return retVal, nil
 }
 
 // GetTask returns the task identified by its ID.
@@ -219,4 +240,12 @@ func (s *Service) GetTaskStatusByID(ctx context.Context, taskID string) (string,
 		return "", errors.Errorf("retrieving task status %q: %w", taskID, err)
 	}
 	return status, nil
+}
+
+func deptr[T any](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
 }
