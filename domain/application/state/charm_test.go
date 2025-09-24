@@ -565,11 +565,8 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *tc.C) {
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
+		_, err := insertCharmMetadata(ctx, c, tx, uuid)
+		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -593,9 +590,8 @@ func (s *charmStateSuite) TestGetCharmMetadataName(c *tc.C) {
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		insertCharmMetadata(ctx, c, tx, uuid)
-
-		return nil
+		_, err := insertCharmMetadata(ctx, c, tx, uuid)
+		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -620,9 +616,8 @@ func (s *charmStateSuite) TestGetCharmMetadataDescription(c *tc.C) {
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		insertCharmMetadata(ctx, c, tx, uuid)
-
-		return nil
+		_, err := insertCharmMetadata(ctx, c, tx, uuid)
+		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

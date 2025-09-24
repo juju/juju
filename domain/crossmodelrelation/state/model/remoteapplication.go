@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
@@ -35,6 +36,15 @@ func (st *State) AddRemoteApplicationOfferer(
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the application already exists.
+		if err := st.checkApplicationNameAvailable(ctx, tx, applicationName); err != nil {
+			return errors.Errorf("checking if application %q exists: %w", applicationName, err)
+		}
+		// Check the offer doesn't already exist.
+		if err := st.checkOfferDoesNotExist(ctx, tx, args.OfferUUID); err != nil {
+			return errors.Capture(err)
+		}
+
 		// Insert the application, along with the associated charm.
 		if err := st.insertApplication(ctx, tx, applicationName, args); err != nil {
 			return errors.Capture(err)
@@ -76,11 +86,6 @@ func (st *State) insertApplication(
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	// Check if the application already exists.
-	if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
-		return errors.Errorf("checking if application %q exists: %w", name, err)
 	}
 
 	if err := st.addCharm(ctx, tx, args.CharmUUID, args.Charm); err != nil {
@@ -176,6 +181,30 @@ WHERE name = $applicationDetails.name
 	if result.Count > 0 {
 		return applicationerrors.ApplicationAlreadyExists
 	}
+	return nil
+}
+
+// checkOfferDoesNotExist checks if an offer with the given UUID already
+// exists. It returns true if the offer exists, false if it does not.
+func (st *State) checkOfferDoesNotExist(ctx context.Context, tx *sqlair.TX, offerUUID string) error {
+	var result countResult
+
+	uuid := uuid{UUID: offerUUID}
+	existsQueryStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM application_remote_offerer
+WHERE offer_uuid = $uuid.uuid
+`, uuid, result)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, existsQueryStmt, uuid).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("checking if offer %q exists: %w", offerUUID, err)
+	} else if result.Count > 0 {
+		return crossmodelrelationerrors.OfferAlreadyConsumed
+	}
+
 	return nil
 }
 

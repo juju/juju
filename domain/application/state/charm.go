@@ -47,7 +47,8 @@ SELECT &charmID.*
 FROM charm
 WHERE reference_name = $charmReferenceNameRevisionSource.reference_name
 AND revision = $charmReferenceNameRevisionSource.revision
-AND source_id = $charmReferenceNameRevisionSource.source_id;
+AND source_id = $charmReferenceNameRevisionSource.source_id
+AND source_id < 2;
 `
 	stmt, err := s.Prepare(query, ident, charmRef)
 	if err != nil {
@@ -240,7 +241,7 @@ func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	selectQuery := `
 SELECT &charmID.*
 FROM charm
-WHERE uuid = $charmID.uuid;
+WHERE uuid = $charmID.uuid AND source_id < 2;
 	`
 
 	selectStmt, err := s.Prepare(selectQuery, ident)
@@ -723,7 +724,8 @@ func (s *State) ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, er
 
 	query := `
 SELECT &charmLocator.*
-FROM charm;
+FROM charm
+WHERE source_id < 2;
 `
 	stmt, err := s.Prepare(query, charmLocator{})
 	if err != nil {
@@ -760,7 +762,7 @@ func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([
 	query := `
 SELECT &charmLocator.*
 FROM charm
-WHERE reference_name IN ($nameSelector[:]);
+WHERE reference_name IN ($nameSelector[:]) AND source_id < 2;
 `
 	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
 	if err != nil {

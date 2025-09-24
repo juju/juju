@@ -508,8 +508,10 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &lifeID.* FROM application
-WHERE uuid = $applicationID.uuid
+SELECT a.life_id AS &lifeID.life_id 
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
 `, lifeID{}, ident)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -609,7 +611,8 @@ func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error
 	checkApplicationsStmt, err := st.Prepare(`
 SELECT &applicationName.*
 FROM application
-WHERE life_id != 0
+JOIN charm AS c ON c.uuid = application.charm_uuid
+WHERE life_id != 0 AND c.source_id < 2;
 `, applicationName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -653,9 +656,14 @@ WHERE life_id != 0
 func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appName string) (applicationDetails, error) {
 	app := applicationDetails{Name: appName}
 	query := `
-SELECT &applicationDetails.*
+SELECT a.uuid AS &applicationDetails.uuid,
+	   a.name AS &applicationDetails.name,
+	   a.charm_uuid AS &applicationDetails.charm_uuid,
+	   a.life_id AS &applicationDetails.life_id,
+	   a.space_uuid AS &applicationDetails.space_uuid
 FROM application a
-WHERE name = $applicationDetails.name
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.name = $applicationDetails.name AND c.source_id < 2;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -1110,7 +1118,7 @@ func (st *State) InitialWatchStatementApplicationsWithPendingCharms() (string, e
 SELECT a.uuid AS &applicationID.uuid
 FROM application a
 JOIN charm c ON a.charm_uuid = c.uuid
-WHERE c.available = FALSE
+WHERE c.available = FALSE AND c.source_id < 2;
 `, applicationID{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1144,7 +1152,8 @@ func (st *State) InitialWatchStatementApplicationConfigHash(appName string) (str
 SELECT &applicationConfigHash.*
 FROM application_config_hash ach
 JOIN application a ON a.uuid = ach.application_uuid
-WHERE a.name = $applicationName.name
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.name = $applicationName.name AND c.source_id < 2;
 `, app, applicationConfigHash{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1174,7 +1183,10 @@ WHERE a.name = $applicationName.name
 func (st *State) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT &applicationID.* FROM application
+SELECT a.uuid AS &applicationID.uuid
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE c.source_id < 2;
 `, applicationID{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -2344,7 +2356,8 @@ func (st *State) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName str
 	stmt, err := st.Prepare(`
 SELECT &getCharmUpgradeOnError.*
 FROM   application
-WHERE  name = $getCharmUpgradeOnError.name
+JOIN   charm AS c ON c.uuid = application.charm_uuid
+WHERE  name = $getCharmUpgradeOnError.name AND c.source_id < 2;
 `, arg)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -2373,9 +2386,10 @@ func (st *State) getApplicationName(
 		ID: id,
 	}
 	stmt, err := st.Prepare(`
-SELECT &applicationIDAndName.*
-FROM   application
-WHERE  uuid = $applicationIDAndName.uuid
+SELECT a.name AS &applicationIDAndName.name
+FROM   application AS a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.uuid = $applicationIDAndName.uuid AND c.source_id < 2;
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3069,9 +3083,10 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
 	app := applicationIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
-SELECT uuid AS &applicationIDAndName.uuid
-FROM application
-WHERE name = $applicationIDAndName.name
+SELECT a.uuid AS &applicationIDAndName.uuid
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.name = $applicationIDAndName.name AND c.source_id < 2;
 `, app)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3083,29 +3098,6 @@ WHERE name = $applicationIDAndName.name
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
 	return app.ID, nil
-}
-
-func (st *State) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {
-	query := `
-SELECT COUNT(*) AS &countResult.count
-FROM application
-WHERE uuid = $applicationID.uuid
-AND charm_uuid = $charmID.uuid;
-	`
-	stmt, err := st.Prepare(query, countResult{}, ident, charmID)
-	if err != nil {
-		return errors.Errorf("preparing verification query: %w", err)
-	}
-
-	// Ensure that the charm is the same as the one we're trying to set.
-	var count countResult
-	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); err != nil {
-		return errors.Errorf("verifying charm: %w", err)
-	}
-	if count.Count == 0 {
-		return applicationerrors.ApplicationHasDifferentCharm
-	}
-	return nil
 }
 
 func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {

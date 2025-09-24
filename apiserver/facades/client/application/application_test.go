@@ -35,6 +35,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -1418,6 +1419,49 @@ func (s *applicationSuite) TestConsumeSameController(c *tc.C) {
 		}},
 		Macaroon: macaroon,
 	}).Return(nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID,
+				OfferName:      "my-offer",
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
+			},
+			Macaroon: macaroon,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeSameControllerSameOfferUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, uuid.NewUUID).String()
+	macaroon := newMacaroon(c, "test")
+
+	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:        offerUUID,
+		OffererModelUUID: modelUUID,
+		Endpoints: []applicationcharm.Relation{{
+			Name:      "db",
+			Role:      applicationcharm.RoleRequirer,
+			Interface: "db",
+			Limit:     1,
+		}},
+		Macaroon: macaroon,
+	}).Return(crossmodelrelationerrors.OfferAlreadyConsumed)
 
 	s.setupAPI(c)
 
