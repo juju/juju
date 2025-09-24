@@ -113,18 +113,18 @@ func (mr *MockApplicationOpsMockRecorder) EnsureTrust(arg0, arg1, arg2, arg3 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureTrust", reflect.TypeOf((*MockApplicationOps)(nil).EnsureTrust), arg0, arg1, arg2, arg3)
 }
 
-// ReapplySTSWithUpdatedPVC mocks base method.
-func (m *MockApplicationOps) ReapplySTSWithUpdatedPVC(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
+// ReconcileApplicationStorage mocks base method.
+func (m *MockApplicationOps) ReconcileApplicationStorage(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReapplySTSWithUpdatedPVC", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ReconcileApplicationStorage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReapplySTSWithUpdatedPVC indicates an expected call of ReapplySTSWithUpdatedPVC.
-func (mr *MockApplicationOpsMockRecorder) ReapplySTSWithUpdatedPVC(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// ReconcileApplicationStorage indicates an expected call of ReconcileApplicationStorage.
+func (mr *MockApplicationOpsMockRecorder) ReconcileApplicationStorage(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReapplySTSWithUpdatedPVC", reflect.TypeOf((*MockApplicationOps)(nil).ReapplySTSWithUpdatedPVC), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileApplicationStorage", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileApplicationStorage), arg0, arg1, arg2, arg3)
 }
 
 // ReconcileDeadUnitScale mocks base method.

@@ -442,7 +442,7 @@ func (a *appWorker) loop() error {
 				storageConstraintsChan = nil
 				break
 			}
-			err := a.ops.ReapplySTSWithUpdatedPVC(a.name, app, a.facade, a.logger)
+			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}

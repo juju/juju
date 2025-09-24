@@ -58,9 +58,8 @@ type Application interface {
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
 	) error
 
-	// ReapplySTSWithUpdatedPVC reapplies a statefulset with an updated PVC due to an update
-	// in the storage constraints.
-	ReapplySTSWithUpdatedPVC([]storage.KubernetesFilesystemParams) error
+	// ReconcileVolumes reconciles the volumes with the given filesystems.
+	ReconcileVolumes([]storage.KubernetesFilesystemParams) error
 
 	ServiceInterface
 }

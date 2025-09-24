@@ -3730,7 +3730,7 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *gc.C) {
 	c.Assert(validatingWebhookConfigurations.Items, gc.HasLen, 1)
 }
 
-func (s *applicationSuite) TestReapplySTSWithUpdatedPVC(c *gc.C) {
+func (s *applicationSuite) TestReconcileVolumes(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
@@ -3807,8 +3807,8 @@ func (s *applicationSuite) TestReapplySTSWithUpdatedPVC(c *gc.C) {
 
 	// Orphan delete the current sts.
 	statefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", sts)
-	statefulset.OrphanDelete = true
-	s.applier.EXPECT().Delete(statefulset)
+	statefulsetWithOrphanDelete := &resources.StatefulSetWithOrphanDelete{statefulset}
+	s.applier.EXPECT().Delete(statefulsetWithOrphanDelete)
 
 	// Now we create a new sts object without the pvc.
 	// Copy the necessary fields from the old sts.
@@ -3869,7 +3869,7 @@ func (s *applicationSuite) TestReapplySTSWithUpdatedPVC(c *gc.C) {
 	s.applier.EXPECT().Apply(newStatefulset)
 	s.applier.EXPECT().Run(gomock.Any(), false).Return(nil)
 
-	err = app.ReapplySTSWithUpdatedPVC(filesystems)
+	err = app.ReconcileVolumes(filesystems)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

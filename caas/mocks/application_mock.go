@@ -115,18 +115,18 @@ func (mr *MockApplicationMockRecorder) Exists() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockApplication)(nil).Exists))
 }
 
-// ReapplySTSWithUpdatedPVC mocks base method.
-func (m *MockApplication) ReapplySTSWithUpdatedPVC(arg0 []storage.KubernetesFilesystemParams) error {
+// ReconcileVolumes mocks base method.
+func (m *MockApplication) ReconcileVolumes(arg0 []storage.KubernetesFilesystemParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReapplySTSWithUpdatedPVC", arg0)
+	ret := m.ctrl.Call(m, "ReconcileVolumes", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReapplySTSWithUpdatedPVC indicates an expected call of ReapplySTSWithUpdatedPVC.
-func (mr *MockApplicationMockRecorder) ReapplySTSWithUpdatedPVC(arg0 any) *gomock.Call {
+// ReconcileVolumes indicates an expected call of ReconcileVolumes.
+func (mr *MockApplicationMockRecorder) ReconcileVolumes(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReapplySTSWithUpdatedPVC", reflect.TypeOf((*MockApplication)(nil).ReapplySTSWithUpdatedPVC), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileVolumes", reflect.TypeOf((*MockApplication)(nil).ReconcileVolumes), arg0)
 }
 
 // Scale mocks base method.

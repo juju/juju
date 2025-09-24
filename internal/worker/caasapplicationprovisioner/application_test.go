@@ -251,7 +251,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// storageConsChan fired
-		ops.EXPECT().ReapplySTSWithUpdatedPVC("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+		ops.EXPECT().ReconcileApplicationStorage("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),

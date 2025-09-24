@@ -59,7 +59,7 @@ type ApplicationOps interface {
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
 
-	ReapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
+	ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
 }
 
 type applicationOps struct {
@@ -120,25 +120,13 @@ func (applicationOps) EnsureScale(appName string, app caas.Application, appLife 
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
-func (applicationOps) ReapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
-	return reapplySTSWithUpdatedPVC(appName, app, facade, logger)
+func (applicationOps) ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	return reconcileApplicationStorage(appName, app, facade, logger)
 }
 
 type Tomb interface {
 	Dying() <-chan struct{}
 	ErrDying() error
-}
-
-func reapplySTSWithUpdatedPVC(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
-	logger.Debugf("updating application %q pvc", appName)
-
-	// Get filesystem provisioning info.
-	info, err := facade.FilesystemProvisioningInfo(appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return app.ReapplySTSWithUpdatedPVC(info.Filesystems)
 }
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
@@ -768,6 +756,18 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		return tryAgain
 	}
 	return nil
+}
+
+func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	logger.Debugf("reconciling application %q storage", appName)
+
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return app.ReconcileVolumes(info.Filesystems)
 }
 
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
