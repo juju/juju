@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"maps"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1986,6 +1987,47 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
+// WatchStorageConstraints returns a watcher for observing changes to an
+// application's storage constraints.
+func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
+	current, err := a.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filter := func(id interface{}) bool {
+		id, ok := id.(string)
+		if !ok {
+			return false
+		}
+		localID, err := a.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		parts := strings.Split(localID, "#")
+		if len(parts) != 3 {
+			return false
+		}
+
+		// Construct the key with just the application name.
+		// For e.g. `asc#postgresql` rather than `asc#postgresql#ch:<arch>/postgresql-<rev>`.
+		key := parts[0] + "#" + parts[1] + "#"
+		appMatched := strings.HasPrefix(a.storageConstraintsKey(), key)
+		if !appMatched {
+			return false
+		}
+
+		storageCons, err := a.StorageConstraints()
+		if err != nil {
+			return false
+		}
+		contentChanged := !maps.Equal(current, storageCons)
+		current = storageCons
+		return contentChanged
+	}
+
+	return newNotifyCollWatcher(a.st, storageConstraintsC, filter), nil
+}
+
 // WatchLeaderSettings returns a watcher for observing changed to an application's
 // leader settings.
 func (a *Application) WatchLeaderSettings() NotifyWatcher {
@@ -2114,20 +2156,6 @@ func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 func (u *Unit) WatchApplicationConfigSettingsHash() (StringsWatcher, error) {
 	applicationConfigKey := applicationConfigKey(u.ApplicationName())
 	return newSettingsHashWatcher(u.st, applicationConfigKey), nil
-}
-
-// WatchMeterStatus returns a watcher observing changes that affect the meter status
-// of a unit.
-func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newDocWatcher(u.st, []docKey{
-		{
-			meterStatusC,
-			u.st.docID(u.globalMeterStatusKey()),
-		}, {
-			meterStatusC,
-			metricsManagerKey(u.st),
-		},
-	})
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status

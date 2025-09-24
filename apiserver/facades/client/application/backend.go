@@ -115,10 +115,12 @@ type Application interface {
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error
-	ChangeScale(int) (int, error)
+	ChangeScale(int, []names.StorageTag) (int, error)
 	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
+	StorageConstraints() (map[string]state.StorageConstraints, error)
+	UpdateStorageConstraints(map[string]state.StorageConstraints) error
 }
 
 // Bindings defines a subset of the functionality provided by the

@@ -1,10 +1,11 @@
 (manage-logs)=
 # How to manage logs
 
-> See also: {ref}`log`
+```{ibnote}
+See also: {ref}`log`
+```
 
 ```{tip}
-
 For an integrated solution consider [the Loki charm](https://charmhub.io/loki-k8s).
 ```
 
@@ -89,7 +90,9 @@ A combination of machine and unit filtering uses a logical OR whereas a combinat
 The `--level` option places a limit on logging verbosity (e.g. `--level INFO` will allow messages of levels 'INFO', 'WARNING', and 'ERROR' to be shown).
 -->
 
-> See more: {ref}`command-juju-debug-log`
+```{ibnote}
+See more: {ref}`command-juju-debug-log`
+```
 
 
 <!--
@@ -135,7 +138,9 @@ kubectl -n <model name> logs pods/prometheus-0 -c charm
 kubectl -n <model name> logs pods/prometheus-0 -c prometheus
 ```
 
-> See more: [Kubernetes | `kubectl logs`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/)
+```{ibnote}
+See more: [Kubernetes | `kubectl logs`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/)
+```
 
 View logs from a particular Pebble service with `pebble logs`:
 
@@ -144,7 +149,9 @@ juju ssh --container prometheus prometheus/0 \
   /charm/bin/pebble logs prometheus
 ```
 
-> See more: [Pebble | `pebble logs`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-logs-command)
+```{ibnote}
+See more: [Pebble | `pebble logs`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-logs-command)
+```
 
 View logs for a Pebble service that failed to start with `pebble services` and `pebble tasks`:
 
@@ -171,10 +178,11 @@ Start service "prometheus"
 2023-03-07T21:31:39Z ERROR cannot start service: exited quickly with code 1
 ```
 
-> See more: [Pebble | `pebble services`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-services-command), [Pebble | `pebble tasks`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-tasks-command)
+```{ibnote}
+See more: [Pebble | `pebble services`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-services-command), [Pebble | `pebble tasks`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-tasks-command)
 
+```
 ````
-
 
 ### Configure the logging level
 
@@ -204,10 +212,11 @@ juju model-config logging-config="unit.mysql/0=DEBUG"
 
 ````
 
+```{ibnote}
+See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
+```
 
-> See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
-
-```{caution}
+```{tip}
 **To avoid filling up the database unnecessarily:**
 <br>When verbose logging is no longer needed,  return logging to normal levels!
 ```
@@ -252,14 +261,18 @@ Sample output:
 
 which means that the machine agent (`<root>`) log level is set to `WARNING`, the unit agent (`unit`) log level is set at `DEBUG`, and the `http` label is set to `TRACE`.
 
-> See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
+```{ibnote}
+See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
+```
 
 ### Forward logs to an external logsink
 
 
 You can optionally forward log messages to a remote syslog server over a secure TLS connection, on a per-model basis, as below:
 
-> See [Rsyslog documentation](http://www.rsyslog.com/doc/v8-stable/tutorials/tls_cert_summary.html) for help with security-related files (certificates, keys) and the configuration of the remote syslog server.
+```{ibnote}
+See [Rsyslog documentation](http://www.rsyslog.com/doc/v8-stable/tutorials/tls_cert_summary.html) for help with security-related files (certificates, keys) and the configuration of the remote syslog server.
+```
 
 1. Configure the controller for remote logging by configuring it during controller creation as below:
 
@@ -285,7 +298,9 @@ syslog-client-key: |
 -----END PRIVATE KEY-----
 ```
 
-> See more: {ref}`configure-a-controller`
+```{ibnote}
+See more: {ref}`configure-a-controller`
+```
 
 2. Enable log forwarding for a model by configuring it as below:
 
@@ -295,7 +310,9 @@ juju model-config -m <model> logforward-enabled=True
 
 An initial 100 (maximum) existing log lines will be forwarded.
 
-> See more: {ref}`configure-a-model`
+```{ibnote}
+See more: {ref}`configure-a-model`
+```
 
 ````{tip}
 You can configure remote logging *and* enable log forwarding on *all* the controller's models in one step by running
@@ -307,7 +324,7 @@ juju bootstrap <cloud> --config mylogconfig.yaml --config logforward-enabled=Tru
 
 ## Manage the log files
 
-```{caution}
+```{important}
 Only applicable for machines -- for Kubernetes logs are written directly to `stdout` of the container and can be retrieved with native Kubernetes methods, e.g., `kubectl logs -c <container-name> <pod-name> -n <model-name>` .
 
 ```
@@ -316,7 +333,6 @@ Only applicable for machines -- for Kubernetes logs are written directly to `std
 ### View the log files
 
 To view the Juju log files in a Juju machine:
-
 
 1. Open a shell into the machine:
 
@@ -347,7 +363,9 @@ or, for the MicroK8s cloud:
 microk8s kubectl exec controller-0 -itc api-server -n [namespace] -- bash
 ```
 
-> See more: {ref}`access-a-machine-via-ssh`
+```{ibnote}
+See more: {ref}`access-a-machine-via-ssh`
+```
 
 2. Examine the log files under `/var/log`  with commands such as `cat`, `less`, or `tail -f`, for example:
 
@@ -361,7 +379,6 @@ cat /var/log/juju
 ```
 
 ````{dropdown} Example for a controller machine
-
 
 ```text
 # SSH into machine 0 of the controller model:
@@ -379,10 +396,11 @@ cat audit.log
 
 ````
 
-
 ### Control the log file rotation
 
-> See also: {ref}`list-of-controller-configuration-keys`
+```{ibnote}
+See also: {ref}`list-of-controller-configuration-keys`
+```
 
 Juju has settings to control the rotation of the various log files it produces.
 

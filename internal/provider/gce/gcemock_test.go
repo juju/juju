@@ -253,6 +253,66 @@ func (mr *MockComputeServiceMockRecorder) ListMachineTypes(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMachineTypes", reflect.TypeOf((*MockComputeService)(nil).ListMachineTypes), arg0, arg1)
 }
 
+// MachineType mocks base method.
+func (m *MockComputeService) MachineType(arg0 context.Context, arg1, arg2 string) (*computepb.MachineType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineType", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*computepb.MachineType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineType indicates an expected call of MachineType.
+func (mr *MockComputeServiceMockRecorder) MachineType(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineType", reflect.TypeOf((*MockComputeService)(nil).MachineType), arg0, arg1, arg2)
+}
+
+// Network mocks base method.
+func (m *MockComputeService) Network(arg0 context.Context, arg1 string) (*computepb.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Network", arg0, arg1)
+	ret0, _ := ret[0].(*computepb.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Network indicates an expected call of Network.
+func (mr *MockComputeServiceMockRecorder) Network(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockComputeService)(nil).Network), arg0, arg1)
+}
+
+// NetworkFirewalls mocks base method.
+func (m *MockComputeService) NetworkFirewalls(arg0 context.Context, arg1 string) ([]*computepb.Firewall, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NetworkFirewalls", arg0, arg1)
+	ret0, _ := ret[0].([]*computepb.Firewall)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkFirewalls indicates an expected call of NetworkFirewalls.
+func (mr *MockComputeServiceMockRecorder) NetworkFirewalls(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkFirewalls", reflect.TypeOf((*MockComputeService)(nil).NetworkFirewalls), arg0, arg1)
+}
+
+// NetworkSubnetworks mocks base method.
+func (m *MockComputeService) NetworkSubnetworks(arg0 context.Context, arg1, arg2 string) ([]*computepb.Subnetwork, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NetworkSubnetworks", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*computepb.Subnetwork)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkSubnetworks indicates an expected call of NetworkSubnetworks.
+func (mr *MockComputeServiceMockRecorder) NetworkSubnetworks(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkSubnetworks", reflect.TypeOf((*MockComputeService)(nil).NetworkSubnetworks), arg0, arg1, arg2)
+}
+
 // Networks mocks base method.
 func (m *MockComputeService) Networks(arg0 context.Context) ([]*computepb.Network, error) {
 	m.ctrl.T.Helper()
@@ -330,18 +390,23 @@ func (mr *MockComputeServiceMockRecorder) SetDiskLabels(arg0, arg1, arg2, arg3, 
 }
 
 // Subnetworks mocks base method.
-func (m *MockComputeService) Subnetworks(arg0 context.Context, arg1 string) ([]*computepb.Subnetwork, error) {
+func (m *MockComputeService) Subnetworks(arg0 context.Context, arg1 string, arg2 ...string) ([]*computepb.Subnetwork, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnetworks", arg0, arg1)
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Subnetworks", varargs...)
 	ret0, _ := ret[0].([]*computepb.Subnetwork)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Subnetworks indicates an expected call of Subnetworks.
-func (mr *MockComputeServiceMockRecorder) Subnetworks(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Subnetworks(arg0, arg1 any, arg2 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnetworks", reflect.TypeOf((*MockComputeService)(nil).Subnetworks), arg0, arg1)
+	varargs := append([]any{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnetworks", reflect.TypeOf((*MockComputeService)(nil).Subnetworks), varargs...)
 }
 
 // UpdateFirewall mocks base method.

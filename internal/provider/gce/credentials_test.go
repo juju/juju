@@ -34,7 +34,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.provider, "oauth2", "jsonfile")
+	envtesting.AssertProviderAuthTypes(c, s.provider, "oauth2", "jsonfile", "service-account")
 }
 
 var sampleCredentialAttributes = map[string]string{
@@ -67,6 +67,12 @@ func (s *credentialsSuite) TestJSONFileCredentialsValid(c *gc.C) {
 		// by the credentials schema. That is left to the provider.
 		// The file does need to be an absolute path though and exist.
 		"file": filename,
+	})
+}
+
+func (s *credentialsSuite) TestServiceAccountCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "service-account", map[string]string{
+		"service-account": "foo",
 	})
 }
 

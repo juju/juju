@@ -376,6 +376,14 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
 	}
 
+	// TODO - we want to refactor to allow image-id filtering.
+	// We could filter on cons.ImageID here but that would prevent
+	// users from being able to force Juju to use an image not
+	// included in the published metadata.
+	// if criteria.ImageID != "" {
+	//	all = append(all, bson.DocElem{"image_id", criteria.ImageID})
+	//}
+
 	if len(all.Map()) == 0 {
 		return nil
 	}
@@ -405,6 +413,9 @@ type MetadataFilter struct {
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
+
+	// ImageID stores the image id.
+	ImageID string `json:"image-id,omitempty"`
 }
 
 // SupportedArchitectures implements Storage.SupportedArchitectures.

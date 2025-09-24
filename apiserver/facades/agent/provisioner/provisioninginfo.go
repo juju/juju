@@ -490,7 +490,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			continue
 		}
 
-		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
+		pName := lxdprofile.Name(api.m.Name(), api.m.ModelTag().ShortId(), app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
@@ -618,7 +618,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		lookup.CloudSpec = spec
 	}
 
-	return imagemetadata.NewImageConstraint(lookup)
+	return imagemetadata.NewImageConstraint(lookup, cons.ImageID)
 }
 
 // findImageMetadata returns all image metadata or an error fetching them.
@@ -661,6 +661,9 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 		Arches:   constraint.Arches,
 		Region:   constraint.Region,
 		Stream:   constraint.Stream,
+	}
+	if constraint.ImageID != nil {
+		filter.ImageID = *constraint.ImageID
 	}
 	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {

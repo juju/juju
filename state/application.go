@@ -6,6 +6,7 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"net"
 	"sort"
 	"strconv"
@@ -64,6 +65,13 @@ func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	}
 
 	return false
+}
+
+// UnitAttachmentInfo represents the information about the unit attachement.
+type UnitAttachmentInfo struct {
+	Unit      string
+	VolumeId  string
+	StorageId string
 }
 
 // Application represents the state of an application.
@@ -2190,12 +2198,13 @@ func (a *Application) GetScale() int {
 
 // ChangeScale alters the existing scale by the provided change amount, returning the new amount.
 // This is used on CAAS models.
-func (a *Application) ChangeScale(scaleChange int) (int, error) {
+func (a *Application) ChangeScale(scaleChange int, attachStorage []names.StorageTag) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
 	logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := a.Refresh(); err != nil {
@@ -2212,6 +2221,7 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 				return nil, errors.NotValidf("cannot remove more units than currently exist")
 			}
 		}
+
 		ops := []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
@@ -2223,6 +2233,30 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 			},
 			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
 		}}
+
+		if scaleChange > 0 && len(attachStorage) == 1 {
+			// Since len(attachStorage) will always equal to one at this step,
+			// the unit OrderedId will be equal to a.doc.UnitCount.
+			unitName := a.doc.Name + "/" + strconv.Itoa(a.doc.UnitCount)
+
+			// The operations return should be equal to a.insertCAASUnitOps but
+			// use different OrderedId check since the desired scale
+			// number hasn't been updated.
+			if ps := a.ProvisioningState(); ps != nil && ps.Scaling && a.doc.UnitCount != ps.ScaleTarget+1 {
+				return nil, errors.New("can not scale application because there's already a scaling operation in progress")
+			}
+			insertUnitOps, err := a.insertCAASUnitOps(
+				UpsertCAASUnitParams{AddUnitParams: AddUnitParams{
+					UnitName:      &unitName,
+					AttachStorage: attachStorage,
+				}},
+			)
+
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, insertUnitOps...)
+		}
 
 		cloudSvcDoc := cloudServiceDoc{
 			DocID:                 a.globalKey(),
@@ -2509,7 +2543,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
-	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
 
 	workloadVersionDoc := &statusDoc{
 		Status:  status.Unknown,
@@ -2544,7 +2577,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
-		meterStatusDoc:     meterStatus,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -2873,6 +2905,10 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 		}
 
 		if unit == nil {
+			if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
+				(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
+				return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
+			}
 			return a.insertCAASUnitOps(args)
 		}
 
@@ -2922,11 +2958,6 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, error) {
 	if args.UnitName == nil {
 		return nil, errors.NotValidf("nil unit name")
-	}
-
-	if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
-		(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
-		return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
 	}
 
 	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
@@ -2997,7 +3028,6 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 			Assert: append(observedFieldsMatch, asserts...),
 			Remove: true,
 		},
-		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
@@ -3122,6 +3152,79 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
+}
+
+// GetUnitAttachmentInfos returns storage attachment info for units not yet provisioned,
+// based on DesiredScale and UnitCount.
+// This is only used for CAAS models.
+//
+// This is called by the same worker loop that deploy application && updates scales.
+// So consistency checks can be avoided since provisioning and scale updates are interleaved.
+func (a *Application) GetUnitAttachmentInfos() ([]UnitAttachmentInfo, error) {
+	// CAAS deploy/add-unit attaching storage is rely on add-unit ops.
+	// In this case, the application's DesiredScale will equal to UnitCount.
+	if a.doc.DesiredScale != a.doc.UnitCount {
+		return nil, nil
+	}
+
+	storageAttachmentDocs, err := getStorageAttachmentDocs(
+		a.st.db(),
+		bson.D{{"unitid", 1}, {"storageid", 1}},
+		bson.M{
+			"unitid": fmt.Sprintf("%s/%d", a.doc.Name, a.doc.DesiredScale-1),
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var storageIds []string
+	storageAttachmentDocByStorageId := make(map[string]storageAttachmentDoc)
+	for _, stDoc := range storageAttachmentDocs {
+		storageIds = append(
+			storageIds,
+			stDoc.StorageInstance,
+		)
+		storageAttachmentDocByStorageId[stDoc.StorageInstance] = stDoc
+	}
+
+	volumeDocs, err := getVolumeDocs(
+		a.st.db(),
+		bson.M{
+			"info":      bson.M{"$ne": nil},
+			"storageid": bson.M{"$in": storageIds},
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var unitAttachmentInfos []UnitAttachmentInfo
+	for _, volDoc := range volumeDocs {
+		if stDoc, ok := storageAttachmentDocByStorageId[volDoc.StorageId]; ok {
+			unitAttachmentInfos = append(
+				unitAttachmentInfos,
+				UnitAttachmentInfo{
+					Unit:      stDoc.Unit,
+					StorageId: volDoc.StorageId,
+					VolumeId:  volDoc.Info.VolumeId,
+				},
+			)
+		}
+	}
+	return unitAttachmentInfos, nil
+}
+
+func getStorageAttachmentDocs(db Database, fields interface{}, query interface{}) ([]storageAttachmentDoc, error) {
+	coll, cleanup := db.GetCollection(storageAttachmentsC)
+	defer cleanup()
+
+	var docs []storageAttachmentDoc
+	err := coll.Find(query).Select(fields).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying storageattachments")
+	}
+	return docs, nil
 }
 
 // Relations returns a Relation for every relation the application is in.
@@ -3525,6 +3628,60 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return cons, nil
+}
+
+// UpdateStorageConstraints updates the storage constraints for the application.
+func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
+	if len(cons) == 0 {
+		return nil
+	}
+
+	// Ensure storage constraints have all the necessary fields and validate them.
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		currentCons := maps.Clone(cons)
+
+		storageConstraintsKey := a.storageConstraintsKey()
+
+		// Validate that the charm supports the storage name that was passed in by the client.
+		ch, _, err := a.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if err := addDefaultStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "adding default storage constraints")
+		}
+		if err := validateStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
+			return nil, errors.Annotate(err, "validating storage constraints")
+		}
+
+		storageConstraintsOp := replaceStorageConstraintsOp(
+			storageConstraintsKey, currentCons,
+		)
+		return []txn.Op{storageConstraintsOp}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot update storage constraints")
+	}
+
+	return nil
 }
 
 // DeviceConstraints returns the device constraints for the application.

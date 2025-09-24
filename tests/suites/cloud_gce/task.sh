@@ -11,15 +11,23 @@ test_cloud_gce() {
 		return
 	fi
 
-	echo "==> Checking for dependencies"
+	setup_gcloudcli_credential
 
-	check_dependencies gcloud
+	echo "==> Checking for dependencies"
+	check_dependencies juju gcloud
 
 	file="${TEST_DIR}/test-cloud-gce.log"
 
 	bootstrap "test-cloud-gce" "${file}"
 
 	test_pro_images
+	test_deploy_gpu_instance
+
+	test_create_storage_pool
 
 	destroy_controller "test-cloud-gce"
+
+	# This test bootstraps a custom controller.
+	test_serviceaccount_credential
+
 }

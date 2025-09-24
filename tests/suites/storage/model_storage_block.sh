@@ -5,34 +5,15 @@
 # Juju uses the default storage block type from model configuration.
 run_model_storage_block() {
 	echo
+	shift
+	local block_storage_type=$1
 
 	model_name="model-storage-block"
 	file="${TEST_DIR}/test-${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
-	# Determine block storage type based on provider.
-	block_storage_type=""
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"aws")
-		block_storage_type="ebs"
-		;;
-	"lxd")
-		# Skip block storage for LXD.
-		block_storage_type=""
-		;;
-	*)
-		# Default to loop for other providers.
-		block_storage_type="loop"
-		;;
-	esac
-
-	# Run block storage test for all providers except LXD.
-	if [ -n "${block_storage_type}" ]; then
-		test_default_block_storage "${model_name}" "${block_storage_type}"
-	else
-		echo "Skipping block storage test for ${BOOTSTRAP_PROVIDER:-} provider"
-	fi
+	test_default_block_storage "${model_name}" "${block_storage_type}"
 
 	destroy_model "${model_name}"
 }
@@ -45,7 +26,7 @@ test_default_block_storage() {
 	echo "Testing model config block storage type with ${storage_type}"
 
 	# Set default block storage type in model config.
-	juju model-config -m "${model_name}" storage-default-block-source=${storage_type}
+	juju model-config -m "${model_name}" storage-default-block-source="${storage_type}"
 
 	# Deploy application with block storage without specifying storage type.
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-blk=100M
@@ -71,11 +52,33 @@ test_model_storage_block() {
 		return
 	fi
 
+	# Determine block storage type based on provider.
+	block_storage_type=""
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		block_storage_type="ebs"
+		;;
+	"lxd")
+		# Skip block storage for LXD.
+		block_storage_type=""
+		;;
+	*)
+		# Default to loop for other providers.
+		block_storage_type="loop"
+		;;
+	esac
+
+	# Run block storage test for all providers except LXD.
+	if [ -z "${block_storage_type}" ]; then
+		echo "Skipping block storage test for ${BOOTSTRAP_PROVIDER:-} provider"
+		return
+	fi
+
 	(
 		set_verbosity
 
 		cd .. || exit
 
-		run "run_model_storage_block"
+		run "run_model_storage_block" "${block_storage_type}"
 	)
 }

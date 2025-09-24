@@ -196,6 +196,25 @@ juju_start_unit () {
   juju_agent --post units action=start $args
 }
 
+juju_api_connection_sources () {
+  if [ -x "$(which sudo)" ]; then
+    local num=${1:-10}
+    local port=${2:-17070}
+    echo "Selecting top $num IPs connected to port $port" >&2
+
+    sudo lsof -iTCP -sTCP:ESTABLISHED -nP \
+      | awk '{print $9}' \
+      | awk -F'->' -v port="$port" '{local=$1; remote=$2; split(local,l,":"); split(remote,r,":"); if (l[2]==port) print r[1]}' \
+      | sort \
+      | uniq -c \
+      | sort -nr \
+      | head -$num
+  else
+    echo "requires sudo to run"
+    return 1
+  fi
+}
+
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
 shell=$(ps -p "$$" -o comm --no-headers)
@@ -218,5 +237,6 @@ if [ "$shell" = "bash" ]; then
   export -f juju_unit_status
   export -f juju_start_unit
   export -f juju_stop_unit
+  export -f juju_api_connection_sources
 fi
 `

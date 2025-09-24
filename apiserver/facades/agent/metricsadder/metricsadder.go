@@ -4,9 +4,6 @@
 package metricsadder
 
 import (
-	"github.com/juju/names/v5"
-
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -26,35 +23,9 @@ type MetricsAdderAPI struct {
 var _ MetricsAdder = (*MetricsAdderAPI)(nil)
 
 // AddMetricBatches implements the MetricsAdder interface.
+// This is a noop as of 3.6.10 because metric functionality is removed.
 func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Batches)),
-	}
-	for i, batch := range args.Batches {
-		tag, err := names.ParseUnitTag(batch.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		metrics := make([]state.Metric, len(batch.Batch.Metrics))
-		for j, metric := range batch.Batch.Metrics {
-			metrics[j] = state.Metric{
-				Key:    metric.Key,
-				Value:  metric.Value,
-				Time:   metric.Time,
-				Labels: metric.Labels,
-			}
-		}
-		_, err = api.state.AddMetrics(
-			state.BatchParam{
-				UUID:     batch.Batch.UUID,
-				Created:  batch.Batch.Created,
-				CharmURL: batch.Batch.CharmURL,
-				Metrics:  metrics,
-				Unit:     tag,
-			},
-		)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
+	}, nil
 }

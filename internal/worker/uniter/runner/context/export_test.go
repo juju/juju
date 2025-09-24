@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
@@ -105,15 +106,6 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), ctx.modelType, machPorts, appPortRanges)
 
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-
-	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
 	return ctx, nil
 }
 
@@ -137,14 +129,18 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, modelType model.ModelT
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state State) *HookContext {
+	return NewMockUnitHookContextWithStateAndModelType(mockUnit, state, model.IAAS)
+}
+
+func NewMockUnitHookContextWithStateAndModelType(mockUnit *mocks.MockHookUnit, state State, modelType model.ModelType) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   mockUnit,
 		state:                  state,
 		logger:                 logger,
-		modelType:              model.IAAS,
+		modelType:              modelType,
 		portRangeChanges:       newPortRangeChangeRecorder(logger, mockUnit.Tag(), model.IAAS, nil, nil),
 		secretChanges:          newSecretsChangeRecorder(logger),
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
@@ -268,9 +264,7 @@ type ModelHookContextParams struct {
 	ModelName string
 	UnitName  string
 
-	MeterCode string
-	MeterInfo string
-	SLALevel  string
+	SLALevel string
 
 	AvailZone    string
 	APIAddresses []string
@@ -288,18 +282,14 @@ type ModelHookContextParams struct {
 // The returned value is not otherwise valid.
 func NewModelHookContext(p ModelHookContextParams) *HookContext {
 	return &HookContext{
-		id:                  p.ID,
-		hookName:            p.HookName,
-		unitName:            p.UnitName,
-		uuid:                p.ModelUUID,
-		modelName:           p.ModelName,
-		apiAddrs:            p.APIAddresses,
-		legacyProxySettings: p.LegacyProxySettings,
-		jujuProxySettings:   p.JujuProxySettings,
-		meterStatus: &meterStatus{
-			code: p.MeterCode,
-			info: p.MeterInfo,
-		},
+		id:                     p.ID,
+		hookName:               p.HookName,
+		unitName:               p.UnitName,
+		uuid:                   p.ModelUUID,
+		modelName:              p.ModelName,
+		apiAddrs:               p.APIAddresses,
+		legacyProxySettings:    p.LegacyProxySettings,
+		jujuProxySettings:      p.JujuProxySettings,
 		relationId:             -1,
 		assignedMachineTag:     p.MachineTag,
 		availabilityZone:       p.AvailZone,
@@ -389,4 +379,8 @@ func (ctx *HookContext) PendingSecretRevokes() map[string][]uniter.SecretGrantRe
 
 func (ctx *HookContext) PendingSecretTrackLatest() map[string]bool {
 	return ctx.secretChanges.pendingTrackLatest
+}
+
+func (ctx *HookContext) SetInClusterConfig(inClusterConfig func() (*rest.Config, error)) {
+	ctx.inClusterConfig = inClusterConfig
 }

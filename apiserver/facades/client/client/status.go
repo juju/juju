@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/container"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -653,13 +653,6 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		Data:   aStatus.Data,
 	}
 
-	if info.SLA != "unsupported" {
-		ms := m.MeterStatus()
-		if isColorStatus(ms.Code) {
-			info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
-		}
-	}
-
 	return info, nil
 }
 
@@ -975,9 +968,9 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		if err != nil {
 			continue
 		}
-		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
+		charmProfileName := lxdprofile.Name(model.Name(), model.ModelTag().ShortId(), app.Name(), ch.Revision())
 		if profile := ch.LXDProfile(); profile != nil {
-			lxdProfiles[chName] = &charm.LXDProfile{
+			lxdProfiles[charmProfileName] = &charm.LXDProfile{
 				Description: profile.Description,
 				Config:      profile.Config,
 				Devices:     profile.Devices,
@@ -1369,7 +1362,8 @@ func (context *statusContext) processApplication(application *state.Application)
 	if lxdprofile.NotEmpty(lxdStateCharmProfiler{
 		Charm: applicationCharm,
 	}) {
-		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
+		charmProfileName = lxdprofile.Name(context.model.Name(), context.model.ModelTag().ShortId(),
+			application.Name(), applicationCharm.Revision())
 	}
 
 	mappedExposedEndpoints, err := context.mapExposedEndpointsFromState(application.ExposedEndpoints())
@@ -1442,12 +1436,6 @@ func (context *statusContext) processApplication(application *state.Application)
 	processedStatus.Status.Info = applicationStatus.Message
 	processedStatus.Status.Data = applicationStatus.Data
 	processedStatus.Status.Since = applicationStatus.Since
-
-	metrics := applicationCharm.Metrics()
-	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
-	if planRequired || len(application.MetricCredentials()) > 0 {
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
-	}
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
@@ -1601,28 +1589,6 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 		offers[name] = offerStatus
 	}
 	return offers
-}
-
-func isColorStatus(code state.MeterStatusCode) bool {
-	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
-}
-
-func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]params.MeterStatus {
-	unitsMap := make(map[string]params.MeterStatus)
-	for _, unit := range units {
-		meterStatus, err := unit.GetMeterStatus()
-		if err != nil {
-			continue
-		}
-		if isColorStatus(meterStatus.Code) {
-			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(meterStatus.Code.String()),
-				Message: meterStatus.Info}
-		}
-	}
-	if len(unitsMap) > 0 {
-		return unitsMap
-	}
-	return nil
 }
 
 func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string,

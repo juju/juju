@@ -1,0 +1,33 @@
+# Commands used for uploading this to Charmhub:
+#
+# charmcraft pack
+# charmcraft register juju-qa-credential-get-k8s
+# charmcraft upload juju-qa-credential-get-k8s_amd64.charm
+# charmcraft release juju-qa-credential-get-k8s --revision=1 --channel=stable
+
+type: charm
+name: juju-qa-credential-get-k8s
+title: Juju QA credential-get K8s
+summary: Test charm for integration-testing credential-get on K8s.
+description: Test charm for integration-testing credential-get on K8s.
+
+base: ubuntu@22.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+
+containers: {}
+
+actions:
+  get-credentials:
+    description: Run the credential-get hook command and return the results.
+  hit-k8s-api-default:
+    description: Hit the K8s API using the Python API's default method.
+  hit-k8s-api-credential-get:
+    description: Hit the K8s API using the credential-get credentials.

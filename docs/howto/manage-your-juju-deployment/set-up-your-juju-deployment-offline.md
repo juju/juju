@@ -34,7 +34,9 @@ For an offline (to be more precise, proxy-restricted) deployment:
 
 1. Set up a private cloud.
 
-> See more: {ref}`List of supported clouds <list-of-supported-clouds>`
+```{ibnote}
+See more: {ref}`List of supported clouds <list-of-supported-clouds>`
+```
 
 2. Figure out the list of external services required for your deployment and set up proxies / local mirrors for them. Depending on whether your deployment is on machines or Kubernetes, and on a localhost cloud or not, and which one, these services may include:
 
@@ -57,9 +59,11 @@ For an offline (to be more precise, proxy-restricted) deployment:
 - {ref}`model-config-apt-mirror`
 - {ref}`model-config-apt-no-proxy`
 - {ref}`model-config-container-image-metadata-url`
+- {ref}`model-config-container-image-metadata-defaults-disabled`
 - {ref}`model-config-ftp-proxy`
 - {ref}`model-config-http-proxy`
 - {ref}`model-config-https-proxy`
+- {ref}`model-config-image-metadata-defaults-disabled`
 - {ref}`model-config-image-metadata-url`
 - {ref}`model-config-juju-ftp-proxy`
 - {ref}`model-config-juju-http-proxy`

@@ -456,7 +456,7 @@ func (m *containerManager) AssignLXDProfiles(
 	if err := m.server.UpdateContainerProfiles(instID, profilesNames); err != nil {
 		return report(errors.Trace(err))
 	}
-
+	logger.Debugf("profiles to delete %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
 		if err := m.server.DeleteProfile(name); err != nil {
 			// Most likely the failure is because the profile is already in use.

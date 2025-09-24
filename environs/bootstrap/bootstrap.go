@@ -578,6 +578,9 @@ func bootstrapIAAS(
 			if args.CloudCredential.AuthType() == cloud.ManagedIdentityAuthType {
 				return errors.NotSupportedf("instance role constraint with managed identity credential")
 			}
+			if args.CloudCredential.AuthType() == cloud.ServiceAccountAuthType {
+				return errors.NotSupportedf("instance role constraint with service account credential")
+			}
 		}
 		instanceRoleEnviron, ok := environ.(environs.InstanceRole)
 		if !ok || !instanceRoleEnviron.SupportsInstanceRoles(callCtx) {
@@ -965,7 +968,7 @@ func bootstrapImageMetadata(
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Stream:    environ.Config().ImageStream(),
-	})
+	}, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1127,7 +1130,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	dataSource := fetcher.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
-	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{}, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

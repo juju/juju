@@ -15,10 +15,8 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/internal/worker/metrics/spool"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -413,21 +411,6 @@ func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, uuid.String(), -1, "", names.StorageTag{})
-}
-
-func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
-	uuid := utils.MustNewUUID()
-	paths := runnertesting.NewRealPaths(c)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", true, s.metricsDefinition("pings"), paths)
-	reader, err := spool.NewJSONMetricReader(
-		paths.GetMetricsSpoolDir(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush("some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	batches, err := reader.Read()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batches, gc.HasLen, 0)
 }
 
 func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {

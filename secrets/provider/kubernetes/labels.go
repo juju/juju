@@ -6,8 +6,8 @@ package kubernetes
 import (
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
 
 const (

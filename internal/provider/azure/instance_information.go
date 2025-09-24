@@ -26,7 +26,7 @@ func (env *azureEnviron) InstanceTypes(ctx context.ProviderCallContext, c constr
 		result[i] = iType
 		i++
 	}
-	result, err = instances.MatchingInstanceTypes(result, "", c)
+	result, err = instances.MatchingInstanceTypes(result, env.cloud.Region, c)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}

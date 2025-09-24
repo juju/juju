@@ -13,8 +13,9 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 (model-config-cloud-specific-key)=
 ## `<cloud-specific key>`
 
-> See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
-
+```{ibnote}
+See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
+```
 
 (model-config-agent-metadata-url)=
 ## `agent-metadata-url`
@@ -24,7 +25,6 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 **Type:** string
 
 **Default value:** ""
-
 
 ## `agent-stream`
 
@@ -40,7 +40,9 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 
 `agent-version` is the desired Juju agent version to use.
 
-> See more: {ref}`agent`
+```{ibnote}
+See more: {ref}`agent`
+```
 
 **Type:** string
 
@@ -135,6 +137,15 @@ The `apt-mirror` option is often used to point to a local mirror.
 **Type:** string
 
 **Default value:** ""
+
+(model-config-container-image-metadata-defaults-disabled)=
+## `container-image-metadata-defaults-disabled`
+
+`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
+
+**Type:** boolean
+
+**Default value:** false
 
 ## `automatically-retry-hooks`
 
@@ -526,6 +537,15 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Valid values:**
 
+(model-config-image-metadata-defaults-disabled)=
+## `image-metadata-defaults-disabled`
+
+`image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata.
+
+**Type:** boolean
+
+**Default value:** false
+
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
 
@@ -633,7 +653,9 @@ The currently supported labels are:
 | `#cmr-auth` | Authentication for cross model relations |
 | `#secrets` | Juju secrets |
 
-> See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
+```{ibnote}
+See more: [https://github.com/juju/juju/blob/main/core/logger/labels.go](https://github.com/juju/juju/blob/main/core/logger/labels.go)
+```
 
 and where `<verbosity level>` can be, in decreasing order of severity:
 
@@ -649,7 +671,9 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
 
 
-> See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```{ibnote}
+See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```
 
 **Examples:**
 
@@ -808,7 +832,7 @@ juju model-config provisioner-harvest-mode=none
 
 **Default value:** false
 
-
+(model-config-resource-tags)=
 ## `resource-tags`
 
 `resource-tags` is a space-separated list of key=value pairs used to apply as tags on supported cloud models.

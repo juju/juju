@@ -135,9 +135,10 @@ func OfficialDataSources(dataSourceFactory simplestreams.DataSourceFactory, stre
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
 	simplestreams.LookupParams
+	ImageID *string
 }
 
-func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
+func NewImageConstraint(params simplestreams.LookupParams, imageID *string) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
 		workloadVersions, err := corebase.AllWorkloadVersions()
 		if err != nil {
@@ -148,7 +149,7 @@ func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, er
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
 	}
-	return &ImageConstraint{LookupParams: params}, nil
+	return &ImageConstraint{LookupParams: params, ImageID: imageID}, nil
 }
 
 const (
@@ -244,6 +245,10 @@ func Fetch(fetcher SimplestreamsFetcher, sources []simplestreams.DataSource, con
 	if err != nil {
 		return nil, resolveInfo, err
 	}
+	// TODO - we want to refactor to allow image-id filtering.
+	// We could filter on cons.ImageID here but that would prevent
+	// users from being able to force Juju to use an image not
+	// included in the published metadata.
 	metadata := make([]*ImageMetadata, len(items))
 	for i, md := range items {
 		metadata[i] = md.(*ImageMetadata)

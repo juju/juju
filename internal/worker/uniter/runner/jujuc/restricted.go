@@ -4,8 +4,6 @@
 package jujuc
 
 import (
-	"time"
-
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -138,14 +136,6 @@ func (*RestrictedContext) LeaderSettings() (map[string]string, error) {
 
 // WriteLeaderSettings implements hooks.Context.
 func (*RestrictedContext) WriteLeaderSettings(map[string]string) error { return ErrRestrictedContext }
-
-// AddMetric implements hooks.Context.
-func (*RestrictedContext) AddMetric(string, string, time.Time) error { return ErrRestrictedContext }
-
-// AddMetricLabels implements hooks.Context.
-func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]string) error {
-	return ErrRestrictedContext
-}
 
 // StorageTags implements hooks.Context.
 func (*RestrictedContext) StorageTags() ([]names.StorageTag, error) { return nil, ErrRestrictedContext }

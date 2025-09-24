@@ -3367,7 +3367,7 @@
     {
         "Name": "InstanceMutater",
         "Description": "",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -3382,7 +3382,7 @@
                             "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmProfilingInfoResult"
+                            "$ref": "#/definitions/CharmProfilingInfoResultV4"
                         }
                     }
                 },
@@ -3505,7 +3505,7 @@
                         "devices"
                     ]
                 },
-                "CharmProfilingInfoResult": {
+                "CharmProfilingInfoResultV4": {
                     "type": "object",
                     "properties": {
                         "current-profiles": {
@@ -3523,6 +3523,9 @@
                         "model-name": {
                             "type": "string"
                         },
+                        "model-uuid": {
+                            "type": "string"
+                        },
                         "profile-changes": {
                             "type": "array",
                             "items": {
@@ -3534,6 +3537,7 @@
                     "required": [
                         "instance-id",
                         "model-name",
+                        "model-uuid",
                         "profile-changes",
                         "current-profiles",
                         "error"

@@ -35,6 +35,7 @@
 - {ref}`application`
 - {ref}`bundle`
 - {ref}`charm`
+- {ref}`client`
 - {ref}`cloud`
 - {ref}`configuration`
 - {ref}`cloud`

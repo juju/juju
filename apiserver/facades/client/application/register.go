@@ -31,10 +31,32 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Application", 20, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV20(ctx) // Remove remote space
 	}, reflect.TypeOf((*APIv20)(nil)))
+	registry.MustRegister("Application", 21, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV21(ctx) // Added ScaleApplication attach storage support
+	}, reflect.TypeOf((*APIv21)(nil)))
+	registry.MustRegister("Application", 22, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV22(ctx) // Added GetApplicationStorage and UpdateApplicationStorage storage constraints support
+	}, reflect.TypeOf((*APIv22)(nil)))
+}
+
+func newFacadeV22(ctx facade.Context) (*APIv22, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv22{api}, nil
+}
+
+func newFacadeV21(ctx facade.Context) (*APIv21, error) {
+	api, err := newFacadeV22(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv21{api}, nil
 }
 
 func newFacadeV20(ctx facade.Context) (*APIv20, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := newFacadeV21(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

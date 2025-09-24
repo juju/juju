@@ -1,8 +1,9 @@
 (space)=
 # Space
 
-> See also: {ref}`manage-spaces`
-
+```{ibnote}
+See also: {ref}`manage-spaces`
+```
 
 A Juju **(network) space** is a logical grouping of {ref}`subnets <subnet>` that can communicate with one another.
 

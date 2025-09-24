@@ -101,9 +101,9 @@ Sets the location to search for interface-layers. If no interface is found in th
 
 -->
 
-## Internal Use only
+## Internal use only
 
-These exist for developmental purposes only.
+These exist for development purposes only.
 
 ### `JUJU_DUMMY_DELAY`
 

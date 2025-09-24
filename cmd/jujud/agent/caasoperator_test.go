@@ -20,9 +20,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	jujuworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/logsender"
 	coretesting "github.com/juju/juju/testing"

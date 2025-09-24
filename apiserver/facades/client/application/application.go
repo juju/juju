@@ -29,8 +29,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -48,6 +46,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
+	k8s "github.com/juju/juju/internal/provider/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -63,9 +63,19 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
+// APIv22 provides the Application API facade for version 22.
+type APIv22 struct {
+	*APIBase
+}
+
+// APIv21 provides the Application API facade for version 21.
+type APIv21 struct {
+	*APIv22
+}
+
 // APIv20 provides the Application API facade for version 20.
 type APIv20 struct {
-	*APIBase
+	*APIv21
 }
 
 // APIv19 provides the Application API facade for version 19.
@@ -299,6 +309,20 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
+func (api *APIv20) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
+	// APIv20 does not support attach storage.
+	for _, appArgs := range args.Applications {
+		if len(appArgs.AttachStorage) > 0 {
+			return params.ErrorResults{}, errors.Errorf(
+				"AttachStorage may not be specified for container models",
+			)
+		}
+	}
+	return api.APIv21.Deploy(args)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
 func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -457,11 +481,6 @@ func (c caasDeployParams) precheck(
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
-	if len(c.attachStorage) > 0 {
-		return errors.Errorf(
-			"AttachStorage may not be specified for container models",
-		)
-	}
 	if len(c.placement) > 1 {
 		return errors.Errorf(
 			"only 1 placement directive is supported for container models, got %d",
@@ -1856,7 +1875,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 }
 
 // ScaleApplications scales the specified application to the requested number of units.
-func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParamsV2) (params.ScaleApplicationResults, error) {
 	if api.modelType != state.ModelTypeCAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
@@ -1866,7 +1885,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
-	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
+	scaleApplication := func(arg params.ScaleApplicationParamsV2) (*params.ScaleApplicationInfo, error) {
 		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
 		} else if arg.Scale != 0 && arg.ScaleChange != 0 {
@@ -1897,9 +1916,18 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 		}
 
+		storageTags, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, arg.ScaleChange)
+		if len(attachStorageErrs) > 0 {
+			var errStrings []string
+			for _, err := range attachStorageErrs {
+				errStrings = append(errStrings, err.Error())
+			}
+			return nil, errors.Errorf("failed to scale a application: %s", strings.Join(errStrings, ", "))
+		}
+
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
-			newScale, err := app.ChangeScale(arg.ScaleChange)
+			newScale, err := app.ChangeScale(arg.ScaleChange, storageTags)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1924,6 +1952,24 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	return params.ScaleApplicationResults{
 		Results: results,
 	}, nil
+}
+
+// ScaleApplications scales the specified application to the requested number of units.
+func (api *APIv20) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+	v2Args := params.ScaleApplicationsParamsV2{
+		Applications: make([]params.ScaleApplicationParamsV2, len(args.Applications)),
+	}
+	for i, app := range args.Applications {
+		v2Args.Applications[i] = params.ScaleApplicationParamsV2{
+			ApplicationTag: app.ApplicationTag,
+			Scale:          app.Scale,
+			ScaleChange:    app.ScaleChange,
+			Force:          app.Force,
+			// APIv20 does not support attage storage.
+			AttachStorage: nil,
+		}
+	}
+	return api.APIv21.ScaleApplications(v2Args)
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -3076,3 +3122,102 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 		Results: results,
 	}, nil
 }
+
+func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageConstraints, error) {
+	appTag, err := names.ParseTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := api.backend.Application(appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageConstraints, err := app.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	sc := make(map[string]params.StorageConstraints)
+	for key, cons := range storageConstraints {
+		sc[key] = params.StorageConstraints{
+			Pool:  cons.Pool,
+			Size:  &cons.Size,
+			Count: &cons.Count,
+		}
+	}
+	return sc, nil
+}
+
+// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+func (api *APIBase) GetApplicationStorage(args params.Entities) (params.ApplicationStorageGetResults, error) {
+	resp := params.ApplicationStorageGetResults{
+		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
+	}
+	if err := api.checkCanRead(); err != nil {
+		return resp, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		sc, err := api.getOneApplicationStorage(entity)
+		if err != nil {
+			resp.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		resp.Results[i].StorageConstraints = sc
+	}
+	return resp, nil
+}
+
+// GetApplicationStorage isn't on the v21 API.
+func (api *APIv21) GetApplicationStorage(_ struct{}) {}
+
+func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
+	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := api.backend.Application(appTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	sCons := make(map[string]state.StorageConstraints)
+	for storageName, con := range storageUpdate.StorageConstraints {
+		sc := state.StorageConstraints{
+			Pool: con.Pool,
+		}
+		if con.Size != nil {
+			sc.Size = *con.Size
+		}
+		if con.Count != nil {
+			sc.Count = *con.Count
+		}
+		sCons[storageName] = sc
+	}
+
+	return app.UpdateStorageConstraints(sCons)
+}
+
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
+// We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
+// application deployment. The storage constraints passed are validated against the charm's declared storage meta.
+// The following apiserver codes can be returned in each ErrorResult:
+//   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+	resp := params.ErrorResults{}
+	if err := api.checkCanWrite(); err != nil {
+		return resp, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.ApplicationStorageUpdates))
+	resp.Results = res
+
+	for i, storageUpdate := range args.ApplicationStorageUpdates {
+		err := api.updateOneApplicationStorage(storageUpdate)
+		res[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return resp, nil
+}
+
+// UpdateApplicationStorage isn't on the v21 API.
+func (api *APIv21) UpdateApplicationStorage(_ struct{}) {}

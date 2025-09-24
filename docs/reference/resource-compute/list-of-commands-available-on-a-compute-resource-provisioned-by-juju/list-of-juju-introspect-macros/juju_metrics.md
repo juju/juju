@@ -38,7 +38,7 @@ go_memstats_alloc_bytes 2.3154496e+07
 # and many more
 ```
 
-## Interesting Output
+## Interesting output
 
 * `process_open_fds`: how many file descriptors are open. This should not grow over time in a stable Juju deployment.
 

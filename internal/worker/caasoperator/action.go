@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/internal/provider/kubernetes/exec Executor
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/internal/worker/uniter ProviderIDGetter
 func getNewRunnerExecutor(logger Logger, execClient exec.Executor) uniter.NewRunnerExecutorFunc {
 	return func(providerIDGetter uniter.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {

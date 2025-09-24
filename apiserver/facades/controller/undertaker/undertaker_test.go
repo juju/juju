@@ -15,6 +15,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
@@ -40,7 +41,9 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 		Controller: true,
 	}
 
-	st := newMockState(names.NewUserTag("admin"), modelName, isSystem)
+	modelCfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
+	c.Assert(err, gc.IsNil)
+	st := newMockState(names.NewUserTag("admin"), modelName, isSystem, *modelCfg)
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
@@ -57,18 +60,21 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 			},
 		}, secretsConfigError
 	}
+
 	api, err := undertaker.NewUndertaker(st, nil, authorizer, secretBackendConfigGetter, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
 }
 
 func (s *undertakerSuite) TestNoPerms(c *gc.C) {
+	modelCfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
+	c.Assert(err, gc.IsNil)
 	for _, authorizer := range []apiservertesting.FakeAuthorizer{{
 		Tag: names.NewMachineTag("0"),
 	}, {
 		Tag: names.NewUserTag("bob"),
 	}} {
-		st := newMockState(names.NewUserTag("admin"), "admin", true)
+		st := newMockState(names.NewUserTag("admin"), "admin", true, *modelCfg)
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,

@@ -1127,7 +1127,7 @@
     {
         "Name": "Application",
         "Description": "",
-        "Version": 20,
+        "Version": 22,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -1285,6 +1285,17 @@
                         }
                     }
                 },
+                "GetApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationStorageGetResults"
+                        }
+                    }
+                },
                 "GetCharmURLOrigin": {
                     "type": "object",
                     "properties": {
@@ -1355,7 +1366,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ScaleApplicationsParams"
+                            "$ref": "#/definitions/ScaleApplicationsParamsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ScaleApplicationResults"
@@ -1446,6 +1457,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/UpdateChannelArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "UpdateApplicationStorage": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationStorageUpdateRequest"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -2095,6 +2117,78 @@
                         "force",
                         "force-units",
                         "force-base"
+                    ]
+                },
+                "ApplicationStorageGetResult": {
+                    "type": "object",
+                    "properties": {
+                        "Error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "storage-constraints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-constraints",
+                        "Error"
+                    ]
+                },
+                "ApplicationStorageGetResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationStorageGetResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ApplicationStorageUpdate": {
+                    "type": "object",
+                    "properties": {
+                        "application-tag": {
+                            "type": "string"
+                        },
+                        "storage-constraints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageConstraints"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-tag",
+                        "storage-constraints"
+                    ]
+                },
+                "ApplicationStorageUpdateRequest": {
+                    "type": "object",
+                    "properties": {
+                        "storage-updates": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationStorageUpdate"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-updates"
                     ]
                 },
                 "ApplicationUnexpose": {
@@ -3139,11 +3233,17 @@
                         "num-units"
                     ]
                 },
-                "ScaleApplicationParams": {
+                "ScaleApplicationParamsV2": {
                     "type": "object",
                     "properties": {
                         "application-tag": {
                             "type": "string"
+                        },
+                        "attach-storage": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "force": {
                             "type": "boolean"
@@ -3186,13 +3286,13 @@
                     },
                     "additionalProperties": false
                 },
-                "ScaleApplicationsParams": {
+                "ScaleApplicationsParamsV2": {
                     "type": "object",
                     "properties": {
                         "applications": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ScaleApplicationParams"
+                                "$ref": "#/definitions/ScaleApplicationParamsV2"
                             }
                         }
                     },
@@ -11115,217 +11215,6 @@
                         }
                     },
                     "additionalProperties": false
-                }
-            }
-        }
-    },
-    {
-        "Name": "MetricsDebug",
-        "Description": "",
-        "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "GetMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MetricResults"
-                        }
-                    }
-                },
-                "SetMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MeterStatusParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                }
-            },
-            "definitions": {
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "EntityMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "metrics": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MetricResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "MeterStatusParam": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "code"
-                    ]
-                },
-                "MeterStatusParams": {
-                    "type": "object",
-                    "properties": {
-                        "statues": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MeterStatusParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "statues"
-                    ]
-                },
-                "MetricResult": {
-                    "type": "object",
-                    "properties": {
-                        "key": {
-                            "type": "string"
-                        },
-                        "labels": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "unit": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "time",
-                        "key",
-                        "value",
-                        "unit",
-                        "labels"
-                    ]
-                },
-                "MetricResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/EntityMetrics"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
                 }
             }
         }

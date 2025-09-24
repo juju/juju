@@ -1082,6 +1082,12 @@ func (fw *Firewaller) flushModel() error {
 		return errors.Trace(err)
 	}
 
+	// Substrates that do not support IPV6 CIDRs will complain if we pass
+	// an IPV6 CIDR.
+	if !fw.envIPV6CIDRSupport {
+		want = want.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	}
+
 	ctx := stdcontext.Background()
 	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
 	if err != nil {

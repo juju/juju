@@ -5,6 +5,7 @@ package lxd
 
 import (
 	stdcontext "context"
+	"fmt"
 	"net"
 	"net/url"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
@@ -30,7 +32,13 @@ import (
 
 var _ environs.HardwareCharacteristicsDetector = (*environ)(nil)
 
-const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
+const (
+	bootstrapMessage = `To configure your system to better support LXD containers, please see: https://documentation.ubuntu.com/lxd/en/latest/explanation/performance_tuning/`
+	// profileNotFound is needed because LXD doesn't have typed errors.
+	profileNotFound = "Profile not found"
+	// profileCannotBeDeleted is needed because LXD doesn't have typed errors.
+	profileCannotBeDeleted = "profile cannot be deleted"
+)
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
@@ -134,7 +142,7 @@ func (env *environ) initProfile() error {
 }
 
 func (env *environ) profileName() string {
-	return "juju-" + env.Name()
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewModelTag(env.uuid).ShortId())
 }
 
 // Name returns the name of the environ.
@@ -231,6 +239,11 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
+	if err := env.DestroyProfiles(); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Annotate(err, "destroying LXD profiles for model")
+	}
+
 	return nil
 }
 
@@ -274,6 +287,36 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	logger.Debugf("removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
+}
+
+// DestroyProfiles deletes the LXD profiles associated with this model.
+// It includes the: model profile `juju-<modelname>-<id>`and
+// charm profiles `juju-<modelname>-<id>-<appname>-<rev>`.
+func (env *environ) DestroyProfiles() error {
+	server := env.server()
+	profiles, err := server.GetProfileNames()
+	if err != nil {
+		return errors.Annotate(err, "get profiles")
+	}
+
+	for _, profile := range profiles {
+		if !strings.HasPrefix(profile, env.profileName()) {
+			continue
+		}
+
+		err := server.DeleteProfile(profile)
+		if err != nil {
+			if strings.Contains(err.Error(), profileNotFound) {
+				continue
+			}
+
+			logger.Errorf("failed to delete profile %q due to %s, it may need to be deleted manually through the provider", profile, err.Error())
+		}
+
+		logger.Infof("deleted profile %q", profile)
+	}
+
+	return nil
 }
 
 // lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
@@ -489,6 +532,7 @@ func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, pro
 		return report(errors.Trace(err))
 	}
 
+	logger.Debugf("profiles to delete  %+v", deleteProfiles)
 	for _, name := range deleteProfiles {
 		if err := server.DeleteProfile(name); err != nil {
 			// most likely the failure is because the profile is already in use

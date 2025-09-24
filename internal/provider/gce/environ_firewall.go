@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
+var openCIDRs = set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
+
 // globalFirewallName returns the name to use for the global firewall.
 func (env *environ) globalFirewallName() string {
 	return common.EnvFullName(env.uuid)
@@ -28,13 +30,11 @@ func (env *environ) globalFirewallName() string {
 // and returns a computepb.Firewall for the provided name.
 func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *computepb.Firewall {
 	if len(sourceCIDRs) == 0 {
-		sourceCIDRs = []string{"0.0.0.0/0"}
+		sourceCIDRs = []string{firewall.AllNetworksIPV4CIDR}
 	}
 	firewall := computepb.Firewall{
-		// Allowed is set below.
-		// Description is not set.
-		Name: &name,
-		// Network: (defaults to global)
+		Name:        &name,
+		Description: ptr(fmt.Sprintf("created by Juju with target %s", target)),
 		// SourceTags is not set.
 		TargetTags:   []string{target},
 		SourceRanges: sourceCIDRs,
@@ -62,7 +62,6 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 // If a rule matching a set of source ranges doesn't
 // already exist, it will be created - the name will be made unique
 // using a random suffix.
-
 func (env *environ) OpenPorts(ctx context.ProviderCallContext, target string, rules firewall.IngressRules) error {
 	err := env.openPorts(ctx, target, rules)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
@@ -71,9 +70,9 @@ func (env *environ) OpenPorts(ctx context.ProviderCallContext, target string, ru
 // randomSuffixNamer tries to find a unique name for the firewall by
 // appending a random suffix.
 var randomSuffixNamer = func(sourceCIDRs []string, prefix string, existingNames set.Strings) (string, error) {
-	// For backwards compatibility, open rules for "0.0.0.0/0"
+	// For backwards compatibility, open rules for "0.0.0.0/0" or ::/0
 	// do not use any suffix in the name.
-	if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 && sourceCIDRs[0] == "0.0.0.0/0" {
+	if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 && openCIDRs.Contains(sourceCIDRs[0]) {
 		return prefix, nil
 	}
 	data := make([]byte, 4)
@@ -132,6 +131,10 @@ func (env *environ) openPorts(ctx stdcontext.Context, target string, rules firew
 		}
 
 		if !ok {
+			vpcLink, _, err := env.getVpcInfo(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			// Create a new firewall.
 			name, err := randomSuffixNamer(inputFirewall.SourceCIDRs, target, allNames)
 			if err != nil {
@@ -139,13 +142,14 @@ func (env *environ) openPorts(ctx stdcontext.Context, target string, rules firew
 			}
 			allNames.Add(name)
 			spec := firewallSpec(name, target, inputFirewall.SourceCIDRs, inputFirewall.AllowedPorts)
+			spec.Network = vpcLink
 			if err := env.gce.AddFirewall(ctx, spec); err != nil {
 				return errors.Annotatef(err, "adding firewall %q opening port(s) %+v", name, rules)
 			}
 			continue
 		}
 
-		// An existing firewall exists with either same same ports or the same source
+		// An existing firewall exists with either the same ports or the same source
 		// CIDRs as what we have been asked to open. Either way, we just need to update
 		// the existing firewall.
 
@@ -260,4 +264,22 @@ func (env *environ) IngressRules(ctx context.ProviderCallContext, target string)
 func (env *environ) cleanupFirewall(ctx context.ProviderCallContext) error {
 	err := env.gce.RemoveFirewall(ctx, env.globalFirewallName())
 	return google.HandleCredentialError(errors.Trace(err), ctx)
+}
+
+// OpenModelPorts opens the given port ranges on the model firewall
+func (env *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	err := env.openPorts(ctx, env.globalFirewallName(), rules)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
+}
+
+// CloseModelPorts Closes the given port ranges on the model firewall
+func (env *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	err := env.closePorts(ctx, env.globalFirewallName(), rules)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
+}
+
+// ModelIngressRules returns the set of ingress rules on the model firewall
+func (env *environ) ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	rules, err := env.IngressRules(ctx, env.globalFirewallName())
+	return rules, google.HandleCredentialError(errors.Trace(err), ctx)
 }

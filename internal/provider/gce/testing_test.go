@@ -68,6 +68,7 @@ var (
 		"type":            "gce",
 		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
+		"vpc-id":          "some-vpc",
 	})
 )
 
@@ -131,6 +132,19 @@ func (s *BaseSuite) Prefix(env *environ) string {
 	return env.namespace.Prefix()
 }
 
+func (s *BaseSuite) SetVpcInfo(env *environ, vpcLink *string, autosubnets bool) {
+	env.vpcURL = vpcLink
+	env.autoSubnets = autosubnets
+}
+
+func (s *BaseSuite) SetVpcID(env *environ, vpcID *string) {
+	if vpcID == nil {
+		delete(env.ecfg.attrs, vpcIDKey)
+		return
+	}
+	env.ecfg.attrs[vpcIDKey] = *vpcID
+}
+
 func (s *BaseSuite) SetupEnv(c *gc.C, gce *MockComputeService) *environ {
 	cfg := s.NewConfig(c, nil)
 	ecfg, err := newConfig(cfg, nil)
@@ -146,6 +160,7 @@ func (s *BaseSuite) SetupEnv(c *gc.C, gce *MockComputeService) *environ {
 		gce:       gce,
 		ecfg:      ecfg,
 		uuid:      cfg.UUID(),
+		vpcURL:    ptr("/path/to/vpc"),
 	}
 	return env
 }
@@ -222,4 +237,8 @@ func (s *BaseSuite) GoogleInstance(c *gc.C, inst instances.Instance) *computepb.
 	envInst, ok := inst.(*environInstance)
 	c.Assert(ok, jc.IsTrue)
 	return envInst.base
+}
+
+func (s *BaseSuite) SetCredential(env *environ, cred cloud.Credential) {
+	env.cloud.Credential = &cred
 }

@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
@@ -38,15 +39,6 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	// Validate availability zone.
-	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
-	if err != nil {
-		return nil, environs.ZoneIndependentError(err)
-	}
-	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	inst, err := env.startInstance(ctx, args, spec.Image.Id, spec.InstanceType.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -55,7 +47,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(spec, envInst)
-	logger.Infof("started instance %q in zone %q", inst.Name, *hwc.AvailabilityZone)
+	logger.Infof("started instance %q in zone %q", inst.GetName(), *hwc.AvailabilityZone)
 	result := environs.StartInstanceResult{
 		Instance: envInst,
 		Hardware: hwc,
@@ -85,8 +77,8 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec, err := findInstanceSpec(
-		env, &instances.InstanceConstraint{
+	spec, err := env.findInstanceSpec(
+		&instances.InstanceConstraint{
 			Region:      env.cloud.Region,
 			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
@@ -96,15 +88,6 @@ func (env *environ) buildInstanceSpec(ctx context.ProviderCallContext, args envi
 		instTypesAndCosts.InstanceTypes,
 	)
 	return spec, errors.Trace(err)
-}
-
-var findInstanceSpec = func(
-	env *environ,
-	ic *instances.InstanceConstraint,
-	imageMetadata []*imagemetadata.ImageMetadata,
-	allInstanceTypes []instances.InstanceType,
-) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(ic, imageMetadata, allInstanceTypes)
 }
 
 // findInstanceSpec initializes a new instance spec for the given
@@ -121,7 +104,9 @@ func (env *environ) findInstanceSpec(
 }
 
 func (env *environ) imageURLBase(os ostype.OSType) (string, error) {
+	env.lock.Lock()
 	base, useCustomPath := env.ecfg.baseImagePath()
+	env.lock.Unlock()
 	if useCustomPath {
 		return base, nil
 	}
@@ -164,6 +149,48 @@ func formatMachineType(zone, name string) string {
 	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
 }
 
+func (env *environ) serviceAccount(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+	var serviceAccount string
+
+	// For controllers, the service account can come from the credential.
+	if args.InstanceConfig.IsController() {
+		if args.InstanceConfig.Bootstrap != nil && args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+			serviceAccount = *args.InstanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
+			if serviceAccount != "" {
+				logger.Debugf("using bootstrap service account: %s", serviceAccount)
+			}
+		} else if env.cloud.Credential.AuthType() == cloud.ServiceAccountAuthType {
+			serviceAccount = env.cloud.Credential.Attributes()[credServiceAccount]
+			if serviceAccount != "" {
+				logger.Debugf("using credential service account: %s", serviceAccount)
+			}
+		}
+	}
+	if serviceAccount != "" {
+		return serviceAccount, nil
+	}
+
+	// Next use the constraint value if supplied.
+	if args.Constraints.HasInstanceRole() {
+		serviceAccount = *args.Constraints.InstanceRole
+		if serviceAccount != "" {
+			logger.Debugf("using constraints service account: %s", serviceAccount)
+		}
+	}
+	if serviceAccount != "" {
+		return serviceAccount, nil
+	}
+
+	// Fallback to the project default.
+	var err error
+	serviceAccount, err = env.gce.DefaultServiceAccount(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	logger.Debugf("using project service account: %s", serviceAccount)
+	return serviceAccount, nil
+}
+
 // startInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
@@ -200,36 +227,69 @@ func (env *environ) startInstance(
 	if args.Constraints.HasAllocatePublicIP() {
 		allocatePublicIP = *args.Constraints.AllocatePublicIP
 	}
-	nic := &computepb.NetworkInterface{
-		Network: ptr(fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName)),
+
+	var nics []*computepb.NetworkInterface
+	vpcLink, subnets, err := env.subnetsForInstance(ctx, args)
+	if err != nil {
+		return nil, environs.ZoneIndependentError(err)
+	}
+	if len(subnets) == 0 {
+		nics = []*computepb.NetworkInterface{{
+			Network: vpcLink,
+		}}
+	} else {
+		for _, subnet := range subnets {
+			if err := isSubnetReady(subnet); err != nil {
+				return nil, environs.ZoneIndependentError(err)
+			}
+			nics = append(nics, &computepb.NetworkInterface{
+				Network:    vpcLink,
+				Subnetwork: ptr(subnet.GetSelfLink()),
+			})
+		}
 	}
 
 	if allocatePublicIP {
-		nic.AccessConfigs = []*computepb.AccessConfig{{
-			Name: ptr("ExternalNAT"),
+		nics[0].AccessConfigs = []*computepb.AccessConfig{{
+			Name: ptr(google.ExternalNetworkName),
 			Type: ptr(google.NetworkAccessOneToOneNAT),
 		}}
 	}
 
-	serviceAccount, err := env.gce.DefaultServiceAccount(ctx)
+	serviceAccount, err := env.serviceAccount(ctx, args)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	logger.Debugf("using project service account: %s", serviceAccount)
+
+	hasAccelerator, err := env.hasAccelerator(ctx, args.AvailabilityZone, instanceTypeName)
+	if err != nil {
+		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+	logger.Debugf("Accelerator support in zone %s for instance type %s: %t",
+		args.AvailabilityZone, args.Constraints.InstanceType, hasAccelerator)
 
 	instArg := &computepb.Instance{
 		Name:              &hostname,
 		Zone:              &args.AvailabilityZone,
 		MachineType:       ptr(formatMachineType(args.AvailabilityZone, instanceTypeName)),
 		Disks:             disks,
-		NetworkInterfaces: []*computepb.NetworkInterface{nic},
+		NetworkInterfaces: nics,
 		Metadata:          packMetadata(metadata),
 		Tags:              &computepb.Tags{Items: tags},
 	}
 	if serviceAccount != "" {
 		instArg.ServiceAccounts = []*computepb.ServiceAccount{{
-			Email: &serviceAccount,
+			Email:  &serviceAccount,
+			Scopes: google.Scopes,
 		}}
+	}
+
+	// For the instance types which don't support live migration E.g. gpu instance
+	// https://cloud.google.com/compute/docs/instances/live-migration-process#limitations
+	if hasAccelerator {
+		instArg.Scheduling = &computepb.Scheduling{
+			OnHostMaintenance: ptr(google.HostMaintenanceTerminate),
+		}
 	}
 	inst, err := env.gce.AddInstance(ctx, instArg)
 	if err != nil {
@@ -308,6 +368,25 @@ func getDisks(imageURL string, cons constraints.Value, os ostype.OSType) ([]*com
 	return []*computepb.AttachedDisk{disk}, nil
 }
 
+// hasAccelerator checks if the given instance type has any accelerators (e.g., GPUs).
+func (env *environ) hasAccelerator(ctx context.ProviderCallContext, zone string, instanceType string) (bool, error) {
+	if len(instanceType) == 0 {
+		return false, nil
+	}
+
+	mt, err := env.gce.MachineType(ctx, zone, instanceType)
+	if err != nil {
+		return false, google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+
+	for _, accelerator := range mt.GetAccelerators() {
+		if accelerator != nil && accelerator.GuestAcceleratorCount != nil && *accelerator.GuestAcceleratorCount > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
@@ -344,13 +423,13 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 		google.StatusUp,
 	}
 	filters := append(instStatuses, nonLiveStatuses...)
-	instances, err := getInstances(env, ctx, filters...)
+	instances, err := env.instances(ctx, filters...)
 	return instances, errors.Trace(err)
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
 func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	instances, err := getInstances(env, ctx)
+	instances, err := env.instances(ctx)
 	return instances, errors.Trace(err)
 }
 

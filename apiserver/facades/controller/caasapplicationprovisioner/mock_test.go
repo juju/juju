@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -215,23 +215,25 @@ func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
 type mockApplication struct {
 	testing.Stub
 	state.Authenticator
-	life                 state.Life
-	tag                  names.Tag
-	password             string
-	base                 state.Base
-	charm                caasapplicationprovisioner.Charm
-	units                []*mockUnit
-	constraints          constraints.Value
-	storageConstraints   map[string]state.StorageConstraints
-	deviceConstraints    map[string]state.DeviceConstraints
-	charmModifiedVersion int
-	config               coreconfig.ConfigAttributes
-	scale                int
-	unitsWatcher         *statetesting.MockStringsWatcher
-	unitsChanges         chan []string
-	watcher              *statetesting.MockNotifyWatcher
-	charmPending         bool
-	provisioningState    *state.ApplicationProvisioningState
+	life                      state.Life
+	tag                       names.Tag
+	password                  string
+	base                      state.Base
+	charm                     caasapplicationprovisioner.Charm
+	units                     []*mockUnit
+	constraints               constraints.Value
+	storageConstraints        map[string]state.StorageConstraints
+	deviceConstraints         map[string]state.DeviceConstraints
+	charmModifiedVersion      int
+	config                    coreconfig.ConfigAttributes
+	scale                     int
+	unitsWatcher              *statetesting.MockStringsWatcher
+	unitsChanges              chan []string
+	watcher                   *statetesting.MockNotifyWatcher
+	storageConstraintsWatcher *statetesting.MockNotifyWatcher
+	charmPending              bool
+	provisioningState         *state.ApplicationProvisioningState
+	unitAttachmentInfos       []state.UnitAttachmentInfo
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -363,6 +365,11 @@ func (a *mockApplication) Watch() state.NotifyWatcher {
 	return a.watcher
 }
 
+func (a *mockApplication) WatchStorageConstraints() (state.NotifyWatcher, error) {
+	a.MethodCall(a, "WatchStorageConstraints")
+	return a.storageConstraintsWatcher, a.NextErr()
+}
+
 func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningState) error {
 	a.MethodCall(a, "SetProvisioningState", ps)
 	err := a.NextErr()
@@ -375,6 +382,11 @@ func (a *mockApplication) SetProvisioningState(ps state.ApplicationProvisioningS
 func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningState {
 	a.MethodCall(a, "ProvisioningState")
 	return a.provisioningState
+}
+
+func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error) {
+	a.MethodCall(a, "GetUnitAttachmentInfos")
+	return a.unitAttachmentInfos, a.NextErr()
 }
 
 type mockCharm struct {

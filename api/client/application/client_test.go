@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -956,8 +955,8 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
 			{ApplicationTag: "application-foo", Scale: 5, Force: true},
 		}}
 	result := new(params.ScaleApplicationResults)
@@ -969,7 +968,11 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
 
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
 	res, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
@@ -981,12 +984,129 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestScaleApplicationAttachStorage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
+			{ApplicationTag: "application-foo", ScaleChange: 1, Force: true, AttachStorage: []string{"foo/1"}},
+		}}
+	result := new(params.ScaleApplicationResults)
+	results := params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{
+			{Info: &params.ScaleApplicationInfo{Scale: 1}},
+		},
+	}
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	res, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     1,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 1},
+	})
+}
+
+func (s *applicationSuite) TestScaleApplicationAttachStorageMultipleUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     2,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot attach existing storage when more than one unit is requested")
+}
+
+func (s *applicationSuite) TestScaleApplicationAttachStorageAPIVersionNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(20).AnyTimes()
+
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     1,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, gc.ErrorMatches, "scale application with attach storage on this version of Juju not implemented")
+}
+
+func (s *applicationSuite) TestScaleApplicationV21WithAttachStorage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
+			{
+				ApplicationTag: "application-foo",
+				ScaleChange:    1,
+				Force:          true,
+				AttachStorage:  []string{"foo/1"},
+			},
+		}}
+	result := new(params.ScaleApplicationResults)
+	results := params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{
+			{Info: &params.ScaleApplicationInfo{Scale: 2}},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
+
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
+
+	res, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     1,
+		Force:           true,
+		AttachStorage:   []string{"foo/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 2},
+	})
+}
+
 func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
 			{ApplicationTag: "application-foo", ScaleChange: 5},
 		}}
 	result := new(params.ScaleApplicationResults)
@@ -998,7 +1118,11 @@ func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
 
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
 	res, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		ScaleChange:     5,
@@ -1013,8 +1137,8 @@ func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
 			{ApplicationTag: "application-foo", Scale: 5},
 		}}
 	result := new(params.ScaleApplicationResults)
@@ -1027,7 +1151,11 @@ func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
 
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
 	_, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
@@ -1074,14 +1202,18 @@ func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
 			{Error: &params.Error{Message: "boom"}},
 		},
 	}
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
 			{ApplicationTag: "application-foo", Scale: 5},
 		}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(nil)
 
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
 	_, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
@@ -1095,14 +1227,18 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
 
 	result := new(params.ScaleApplicationResults)
 	results := params.ScaleApplicationResults{}
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{
+	args := params.ScaleApplicationsParamsV2{
+		Applications: []params.ScaleApplicationParamsV2{
 			{ApplicationTag: "application-foo", Scale: 5},
 		}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ScaleApplications", args, result).SetArg(2, results).Return(errors.New("boom"))
 
+	mockClientFacade := mocks.NewMockClientFacade(ctrl)
+	mockClientFacade.EXPECT().BestAPIVersion().Return(21).AnyTimes()
+
 	client := application.NewClientFromCaller(mockFacadeCaller)
+	client.ClientFacade = mockClientFacade
 	_, err := client.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: "foo",
 		Scale:           5,
@@ -1388,69 +1524,164 @@ func (s *applicationSuite) TestLeader(c *gc.C) {
 	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
 }
 
-func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
+func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.DeployFromRepositoryArgs{
-		Args: []params.DeployFromRepositoryArg{{
-			ApplicationName: "jammy",
-			CharmName:       "ubuntu",
-			Base: &params.Base{
-				Name:    "ubuntu",
-				Channel: "22.04",
-			},
-		}},
-	}
-	stable := "stable"
-	candidate := "candidate"
-	result := new(params.DeployFromRepositoryResults)
-	results := params.DeployFromRepositoryResults{
-		Results: []params.DeployFromRepositoryResult{{
-			Errors: []*params.Error{
-				{Message: "one"},
-				{Message: "two"},
-				{Message: "three"},
-			},
-			Info: params.DeployFromRepositoryInfo{
-				Channel:      candidate,
-				Architecture: "arm64",
-				Base: params.Base{
-					Name:    "ubuntu",
-					Channel: "22.04",
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+		}}
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				StorageConstraints: map[string]params.StorageConstraints{
+					"storage-block": {
+						Pool:  "loop",
+						Size:  &sbSize,
+						Count: &sbCount,
+					},
 				},
-				EffectiveChannel: &stable,
-				Name:             "ubuntu",
-				Revision:         7,
 			},
-			PendingResourceUploads: nil,
-		}},
+		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("DeployFromRepository", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
-	arg := application.DeployFromRepositoryArg{
-		CharmName:       "ubuntu",
-		ApplicationName: "jammy",
-		Base:            &corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	info, err := client.GetApplicationStorage("storage-block")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
+		"storage-block": {
+			Pool:  "loop",
+			Size:  uint64(5),
+			Count: uint64(1),
+		},
+	})
+}
+
+func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-storage-block"},
+		}}
+
+	result := new(params.ApplicationStorageGetResults)
+	results := params.ApplicationStorageGetResults{
+		Results: []params.ApplicationStorageGetResult{
+			{
+				Error: &params.Error{
+					Code:    params.CodeNotFound,
+					Message: "Not Found Error",
+				},
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	info, err := client.GetApplicationStorage("storage-block")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Error, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  &sbSize,
+					Count: &sbCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: nil,
+			},
+		},
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
+
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
+		},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, _, errs := client.DeployFromRepository(arg)
-	c.Assert(errs, gc.HasLen, 3)
-	c.Assert(errs[0], gc.ErrorMatches, "one")
-	c.Assert(errs[1], gc.ErrorMatches, "two")
-	c.Assert(errs[2], gc.ErrorMatches, "three")
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
-	c.Assert(info, gc.DeepEquals, application.DeployInfo{
-		Channel:      candidate,
-		Architecture: "arm64",
-		Base: corebase.Base{
-			OS:      "ubuntu",
-			Channel: corebase.Channel{Track: "22.04", Risk: "stable"},
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	sbSize := uint64(5)
+	sbCount := uint64(1)
+
+	args := params.ApplicationStorageUpdateRequest{
+		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+				"storage-block": {
+					Pool:  "loop",
+					Size:  &sbSize,
+					Count: &sbCount,
+				},
+			}},
+		}}
+
+	result := new(params.ErrorResults)
+	results := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Message: "test error1", Code: params.CodeNotFound},
+			},
 		},
-		EffectiveChannel: &stable,
-		Name:             "ubuntu",
-		Revision:         7,
-	})
+	}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
+	applicationStorageUpdate := application.ApplicationStorageUpdate{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+			"storage-block": {
+				Pool:  "loop",
+				Size:  uint64(5),
+				Count: uint64(1),
+			},
+		},
+	}
+
+	client := application.NewClientFromCaller(mockFacadeCaller)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
+
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.DeepEquals, "test error1")
 }

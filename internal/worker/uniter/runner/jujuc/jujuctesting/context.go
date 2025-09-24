@@ -18,7 +18,6 @@ type ContextInfo struct {
 	Instance
 	NetworkInterface
 	Leadership
-	Metrics
 	Storage
 	Relations
 	RelationHook
@@ -64,7 +63,6 @@ type Context struct {
 	ContextInstance
 	ContextNetworking
 	ContextLeader
-	ContextMetrics
 	ContextStorage
 	ContextResources
 	ContextPayloads
@@ -89,8 +87,6 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextNetworking.info = &info.NetworkInterface
 	ctx.ContextLeader.stub = stub
 	ctx.ContextLeader.info = &info.Leadership
-	ctx.ContextMetrics.stub = stub
-	ctx.ContextMetrics.info = &info.Metrics
 	ctx.ContextStorage.stub = stub
 	ctx.ContextStorage.info = &info.Storage
 	ctx.ContextResources.stub = stub

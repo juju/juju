@@ -83,8 +83,9 @@ run_reboot_monitor_state_cleanup() {
 	ensure "${model_name}" "${file}"
 
 	juju deploy juju-qa-test --base ubuntu@22.04
-	juju deploy juju-qa-dummy-subordinate
-	juju integrate juju-qa-test dummy-subordinate
+	juju deploy juju-qa-dummy-subordinate --base ubuntu@22.04
+	juju config dummy-subordinate token=becomegreen
+	juju integrate juju-qa-test:juju-info dummy-subordinate:juju-info
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
 	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
 

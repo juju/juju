@@ -113,7 +113,9 @@ Install `juju`. For example, on a Linux with `snapd`:
 sudo snap install juju
 ```
 
-> See more: {ref}`manage-juju`
+```{ibnote}
+See more: {ref}`manage-juju`
+```
 
 Set up your cloud, add it to `juju`, then bootstrap a controller into the cloud:
 

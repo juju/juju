@@ -7,7 +7,9 @@ An interactive pseudo-terminal (pty) is enabled by default. For the OpenSSH clie
 Remote commands can be run as expected. For example: `juju ssh 1 lsb_release -c`. For complex commands the recommended method is by way of the `run` command.
 -->
 
-> See also: {ref}`machine`
+```{ibnote}
+See also: {ref}`machine`
+```
 
 This document shows how to manage machines.
 
@@ -25,19 +27,20 @@ The command also provides many options. By using them you can customize many thi
 
 Machines provisioned via `add-machine` can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`).
 
-> See more: {ref}`command-juju-add-machine`
+```{ibnote}
+See more: {ref}`command-juju-add-machine`
+```
 
-
-```{note}
-Issues during machine provisioning can occur at any stage in the following sequence:
-
-> Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start `jujud`.
+````{note}
+Issues during machine provisioning can occur at any stage in the following sequence: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
 
 To troubleshoot, try to gather more information until you understand what caused the issue.
 
-> See more: {ref}`troubleshoot-your-deployment`
-
+```{ibnote}
+See more: {ref}`troubleshoot-your-deployment`
 ```
+
+````
 
 ## Retry provisioning for a failed machine
 
@@ -47,8 +50,9 @@ To retry provisioning (a ) machine(s) (e.g., for a failed `deploy`, `add-unit`, 
 juju retry-provisioning 3 27 57
 ```
 
-> See more: {ref}`command-juju-retry-provisioning`
-
+```{ibnote}
+See more: {ref}`command-juju-retry-provisioning`
+```
 
 ## List all machines
 
@@ -66,8 +70,9 @@ Machine  State    Address         Inst id        Base          AZ  Message
 1        started  10.136.136.62   juju-552e37-1  ubuntu@22.04      Running
 ```
 
-> See more: {ref}`command-juju-machines`
-
+```{ibnote}
+See more: {ref}`command-juju-machines`
+```
 
 ## View details about a machine
 
@@ -116,8 +121,9 @@ machines:
 
 ````
 
-> See more: {ref}`command-juju-show-machine`
-
+```{ibnote}
+See more: {ref}`command-juju-show-machine`
+```
 
 ## View the status of a machine
 
@@ -148,12 +154,15 @@ Machine  State    Address  Inst id  Base          AZ  Message
 
 ````
 
-> See more: {ref}`command-juju-status`
-
+```{ibnote}
+See more: {ref}`command-juju-status`
+```
 
 ## Manage constraints for a machine
-> See also: {ref}`constraint`
 
+```{ibnote}
+See also: {ref}`constraint`
+```
 
 **Set values.** You can set constraint values for an individual machine when you create it manually, by using the `add-machine` command with the `constraints` flag followed by a quotes-enclosed list of your desired key-value pairs, for example:
 
@@ -189,7 +198,9 @@ machines:
 ````
 
 
-> See more: {ref}`command-juju-add-machine`, {ref}`add-a-machine`
+```{ibnote}
+See more: {ref}`command-juju-add-machine`, {ref}`add-a-machine`
+```
 
 **Get values.** You can get constraint values for for an individual machine by viewing details about the command with the `show-machine` command, for example:
 
@@ -237,7 +248,9 @@ machines:
 
 ````
 
-> See more: {ref}`command-juju-show-machine`
+```{ibnote}
+See more: {ref}`command-juju-show-machine`
+```
 
 ## Execute a command inside a machine
 
@@ -255,13 +268,14 @@ juju exec --unit ubuntu/0 echo "hi"
 
 The `exec` command can take many other flags, allowing you to specify an output file, run the commands sequentially (since `juju v.3.0`, the default is to run them in parallel), etc.
 
-> See more: {ref}`command-juju-exec` (before `juju v.3.0`, `juju run`)
+```{ibnote}
+See more: {ref}`command-juju-exec` (before `juju v.3.0`, `juju run`)
+```
 
 (access-a-machine-via-ssh)=
 ## Access a machine via SSH
 
 There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client. The former is more secure as it allows access solely from a Juju user with `admin` model access.
-
 
 ### Use the `juju ssh` command
 
@@ -294,7 +308,9 @@ juju ssh 0 echo hello
 
 By passing further arguments and options, you can also run this on behalf of a different qualified user (other than the current user) or pass a private SSH key instead.
 
-> See more: {ref}`command-juju-ssh`
+```{ibnote}
+See more: {ref}`command-juju-ssh`
+```
 
 <!--
 Alternatively, you can pass a private key. The easiest way to ensure it is used is to have it stored as `~/.ssh/id_rsa`. Otherwise, you can do one of two things:
@@ -325,13 +341,12 @@ Then, to connect to a machine via the OpenSSH client, use the OpenSSH `ssh` comm
 ```text
 ssh ubuntu@10.149.29.143
 ```
-> See more: [OpenSSH](https://www.openssh.com/)
 
-<!--HOW DOES ONE FIND THE MACHINE IP ADDRESS?-->
-
+```{ibnote}
+See more: [OpenSSH](https://www.openssh.com/)
+```
 
 ## Copy files securely between machines
-
 
 The `scp` command copies files securely to and from machines.
 
@@ -365,12 +380,16 @@ juju scp -m testing foo.txt apache2/1:
 Juju cannot transfer files between two remote units because it uses public key authentication exclusively and the native (OpenSSH) `scp` command disables agent forwarding by default. Either the destination or the source must be local (to the Juju client).
 ```
 
-> See more: {ref}`command-juju-scp`
+```{ibnote}
+See more: {ref}`command-juju-scp`
+```
 
 (upgrade-a-machine)=
 ## Upgrade a machine
 
-> See also: `upgrading-things`
+```{ibnote}
+See also: `upgrading-things`
+```
 
 The process for how to upgrade a machine depends on whether the machine is a controller machine or a workload machine.
 
@@ -385,12 +404,15 @@ It is not possible to upgrade a controller machine. Instead, you must bootstrap 
 juju bootstrap aws aws-new --bootstrap-base=<base>
 ```
 
-> See more: {ref}`bootstrap-a-controller`, {ref}`command-juju-bootstrap` > `--bootstrap-base`
+```{ibnote}
+See more: {ref}`bootstrap-a-controller`, {ref}`command-juju-bootstrap` > `--bootstrap-base`
+```
 
 **2. Migrate your existing models to the new controller.**
 
-> See more: {ref}`migrate-a-model`
-
+```{ibnote}
+See more: {ref}`migrate-a-model`
+```
 
 **3. Configure the migrated models such that all new machines have the new base.**
 
@@ -446,10 +468,15 @@ juju upgrade-machine 3 complete
 
 Done! The upgraded machine is again available for charm deployments.
 
-> See more: {ref}`command-juju-upgrade-machine` (before Juju 3, `upgrade-series`)
+```{ibnote}
+See more: {ref}`command-juju-upgrade-machine` (before Juju 3, `upgrade-series`)
+```
 
 ## Remove a machine
-> See also: {ref}`removing-things`
+
+```{ibnote}
+See also: {ref}`removing-things`
+```
 
 To remove a machine, use the `remove-machine` command followed by the machine ID. For example:
 
@@ -467,7 +494,9 @@ In some situations, even with the `--force` option, the machine on the backing c
 
 By using various options, you can also customize various other things, for example, the model or whether to keep the running cloud instance or not.
 
-> See more: {ref}`command-juju-remove-machine`
+```{ibnote}
+See more: {ref}`command-juju-remove-machine`
+```
 
 <!--
 By default, when a machine is removed, the backing system, typically a cloud instance, is also destroyed. The for example, `--keep-instance` option overrides this; it allows the instance to be left running.

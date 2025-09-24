@@ -1,12 +1,6 @@
 (list-of-supported-clouds)=
 # List of supported clouds
 
-```{important}
-
-Starting with Juju 3, providers Rackspace and CloudSigma are no longer supported.
-
-```
-
 ```{toctree}
 :hidden:
 
@@ -29,26 +23,27 @@ VMware vSphere <the-vmware-vsphere-cloud-and-juju>
 
 Juju supports all of the following clouds. Click to find out more about using your cloud(s) of interest with Juju.
 
-|                                             | machine cloud | {ref}`Kubernetes cloud <kubernetes-clouds-and-juju>` |
-|---------------------------------------------|---------------|------------------------------------------------------|
-| {ref}`Amazon EC2 <cloud-ec2>`               | &#x2611;      |                                                      |
-| {ref}`Amazon EKS <cloud-kubernetes-eks>`    |               | &#x2611;                                             |
-| {ref}`Canonical K8s <cloud-canonical-k8s>`  |               | &#x2611;                                             |
-| {ref}`Equinix Metal <cloud-equinix>`        | &#x2611;      |                                                      |
-| {ref}`Google GCE <cloud-gce>`               | &#x2611;      |                                                      |
-| {ref}`Google GKE <cloud-kubernetes-gke>`    |               | &#x2611;                                             |
-| {ref}`LXD <cloud-lxd>`                      | &#x2611;      |                                                      |
-| {ref}`MAAS <cloud-maas>`                    | &#x2611;      |                                                      |
-| {ref}`Manual <cloud-manual>`                | &#x2611;      |                                                      |
-| {ref}`MicroK8s <cloud-kubernetes-microk8s>` |               | &#x2611;                                             |
-| {ref}`Microsoft Azure <cloud-azure>`        | &#x2611;      |                                                      |
-| {ref}`Microsoft AKS <cloud-kubernetes-aks>` |               | &#x2611;                                             |
-| {ref}`OpenStack <cloud-openstack>`          | &#x2611;      |                                                      |
-| {ref}`Oracle OCI <cloud-oci>`               | &#x2611;      |                                                      |
-| {ref}`VMware vSphere <cloud-vsphere>`       | &#x2611;      |                                                      |
+(list-of-supported-machine-clouds)=
+## List of supported machine clouds
 
-<!--
-(see also [the OpenStack website](https://docs.openstack.org/project-deploy-guide/charm-deployment-guide/latest/install-juju.html); or [MicroStack](https://microstack.run/))
--->
+- {ref}`Amazon EC2 <cloud-ec2>`
+- {ref}`Equinix Metal <cloud-equinix>`
+- {ref}`Google GCE <cloud-gce>`
+- {ref}`LXD <cloud-lxd>`
+- {ref}`MAAS <cloud-maas>`
+- {ref}`Manual <cloud-manual>`
+- {ref}`Microsoft Azure <cloud-azure>`
+- {ref}`OpenStack <cloud-openstack>`
+- {ref}`Oracle OCI <cloud-oci>`
+- {ref}`VMware vSphere <cloud-vsphere>`
 
+(list-of-supported-kubernetes-clouds)=
+## List of supported Kubernetes clouds
 
+> See also: {ref}`kubernetes-clouds-and-juju`
+
+- {ref}`Amazon EKS <cloud-kubernetes-eks>`
+- {ref}`Canonical K8s <cloud-canonical-k8s>`
+- {ref}`Google GKE <cloud-kubernetes-gke>`
+- {ref}`MicroK8s <cloud-kubernetes-microk8s>`
+- {ref}`Microsoft AKS <cloud-kubernetes-aks>`

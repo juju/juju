@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/caas"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -257,6 +257,49 @@ func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.Notify
 	return result, nil
 }
 
+// WatchStorageConstraints provides a watcher for changes that affect an application's
+// storage constraint.
+func (a *API) WatchStorageConstraints(args params.Entities) (params.NotifyWatchResults, error) {
+	var result params.NotifyWatchResults
+	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		appName, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		res, err := a.watchStorageConstraints(appName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].NotifyWatcherId = res.NotifyWatcherId
+	}
+	return result, nil
+}
+
+func (a *API) watchStorageConstraints(appName names.ApplicationTag) (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	app, err := a.state.Application(appName.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	w, err := app.WatchStorageConstraints()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if _, ok := <-w.Changes(); ok {
+		result.NotifyWatcherId = a.resources.Register(w)
+	} else {
+		return result, watcher.EnsureErr(w)
+	}
+
+	return result, nil
+}
+
 // ProvisioningInfo returns the info needed to provision a caas application.
 func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProvisioningInfoResults, error) {
 	var result params.CAASApplicationProvisioningInfoResults
@@ -393,6 +436,49 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
 		Scale:                app.GetScale(),
 	}, nil
+}
+
+// FilesystemProvisioningInfo returns the filesystem info needed to provision a caas application.
+func (a *API) FilesystemProvisioningInfo(args params.Entity) (params.CAASApplicationFilesystemProvisioningInfo, error) {
+	var result params.CAASApplicationFilesystemProvisioningInfo
+	appTag, err := names.ParseApplicationTag(args.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	// TODO(jneo8): investigate refactoring to converge deploy and scale workflows.
+	// We should be able to use the same code paths for both operations.
+	// The filesystem related code in ProvisioningInfo() might only be for
+	// old style charms, so for sidecar only, we may be able to drop it.
+	cfg, err := a.ctrlSt.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	model, err := a.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	filesystemUnitAttachmentParams, err := a.applicationFilesystemUnitAttachmentParams(app)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Filesystems = filesystemParams
+	result.FilesystemUnitAttachments = filesystemUnitAttachmentParams
+	return result, nil
 }
 
 // SetOperatorStatus sets the status of each given entity.
@@ -553,6 +639,34 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+func (a *API) applicationFilesystemUnitAttachmentParams(app Application) (
+	map[string][]params.KubernetesFilesystemUnitAttachmentParams, error,
+) {
+	unitAttachmentInfos, err := app.GetUnitAttachmentInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(unitAttachmentInfos) == 0 {
+		return nil, nil
+	}
+
+	filesystemUnitAttachments := make(map[string][]params.KubernetesFilesystemUnitAttachmentParams, len(unitAttachmentInfos))
+	for _, info := range unitAttachmentInfos {
+		storageName, err := names.StorageName(info.StorageId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemUnitAttachments[storageName] = append(
+			filesystemUnitAttachments[storageName],
+			params.KubernetesFilesystemUnitAttachmentParams{
+				UnitTag:  names.NewUnitTag(info.Unit).String(),
+				VolumeId: info.VolumeId,
+			},
+		)
+	}
+	return filesystemUnitAttachments, nil
 }
 
 func (a *API) applicationFilesystemParams(

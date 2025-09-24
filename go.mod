@@ -33,7 +33,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gliderlabs/ssh v0.3.8
-	github.com/go-goose/goose/v5 v5.1.2
+	github.com/go-goose/goose/v5 v5.1.3
 	github.com/go-logr/logr v1.4.3
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/google/gnostic-models v0.6.8
@@ -50,7 +50,7 @@ require (
 	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v12 v12.1.1
 	github.com/juju/clock v1.1.1
-	github.com/juju/cmd/v3 v3.2.0
+	github.com/juju/cmd/v3 v3.2.2
 	github.com/juju/collections v1.0.4
 	github.com/juju/description/v9 v9.0.0
 	github.com/juju/errors v1.0.0

@@ -261,10 +261,12 @@ run_deploy_charmhub_bundle() {
 
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
 	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 1)"
-	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"
-	wait_for "ntp-focal" "$(idle_subordinate_condition "ntp-focal" "juju-qa-test-focal")"
+	# Relying on hardcoded app index is fragile should a change in their order occur.
+	# We should find time to refactor this.
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 2)"
+	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 3)"
+	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
+	wait_for "dummy-subordinate-focal" "$(idle_subordinate_condition "dummy-subordinate-focal" "juju-qa-test-focal")"
 
 	destroy_model "${model_name}"
 }
@@ -293,7 +295,10 @@ run_deploy_lxd_profile_bundle() {
 		wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
 	done
 
-	lxd_profile_name="juju-${model_name}-lxd-profile"
+	short_uuid=$(juju models --format json |
+		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	lxd_profile_name="juju-${model_name}-${short_uuid}-lxd-profile"
+
 	for i in 0 1 2 3; do
 		machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
 		juju status --format=json | jq "${machine_n_lxd0}" | check "${lxd_profile_name}"

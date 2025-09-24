@@ -558,6 +558,20 @@ func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
+func (s *modelManagerSuite) TestCreateCAASModelBrokerDestroyWhenError(c *gc.C) {
+	// the first 4 state calls are before we call broker.Create, the first error will be returned
+	// when we call state.NewModel.
+	s.caasSt.SetErrors(nil, nil, nil, nil, errors.NotFoundf("error"))
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+		CloudTag: "cloud-some-unknown-cloud",
+	}
+	_, err := s.caasApi.CreateModel(args)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	s.caasBroker.CheckCallNames(c, "Create", "Destroy")
+}
+
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
 	results, err := s.api.ModelDefaultsForClouds(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},

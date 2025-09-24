@@ -63,7 +63,6 @@ const (
 var (
 	BinarystorageNew              = &binarystorageNew
 	MachineIdLessThan             = machineIdLessThan
-	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	RegionSettingsGlobalKey       = regionSettingsGlobalKey
@@ -229,10 +228,6 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
-func AddTestingCharmFromRepo(c *gc.C, st *State, name string, repo *repo.CharmRepo) *Charm {
-	return addCharm(c, st, "quantal", repo.CharmDir(name))
-}
-
 func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
 	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
@@ -343,6 +338,22 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
+func AddTestingApplicationWithAttachStorage(
+	c *gc.C, st *State, name string, ch *Charm,
+	numUnits int,
+	storage map[string]StorageConstraints,
+	attachStorage []names.StorageTag,
+) *Application {
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:            st,
+		name:          name,
+		ch:            ch,
+		attachStorage: attachStorage,
+		numUnits:      numUnits,
+		storage:       storage,
+	})
+}
+
 func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
@@ -362,14 +373,15 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Char
 }
 
 type addTestingApplicationParams struct {
-	st       *State
-	name     string
-	ch       *Charm
-	origin   *CharmOrigin
-	bindings map[string]string
-	storage  map[string]StorageConstraints
-	devices  map[string]DeviceConstraints
-	numUnits int
+	st            *State
+	name          string
+	ch            *Charm
+	origin        *CharmOrigin
+	bindings      map[string]string
+	storage       map[string]StorageConstraints
+	devices       map[string]DeviceConstraints
+	numUnits      int
+	attachStorage []names.StorageTag
 }
 
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
@@ -410,6 +422,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
+		AttachStorage:    params.attachStorage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app

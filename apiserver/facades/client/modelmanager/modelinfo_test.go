@@ -665,16 +665,6 @@ type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
 }
 
-// metricSender defines methods required by the metricsender package.
-type metricSender interface {
-	MetricsManager() (*state.MetricsManager, error)
-	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
-	SetMetricBatchesSent(batchUUIDs []string) error
-	CountOfUnsentMetrics() (int, error)
-	CountOfSentMetrics() (int, error)
-	CleanupOldMetrics() error
-}
-
 type mockCaasBroker struct {
 	jujutesting.Stub
 	caas.Broker
@@ -690,6 +680,11 @@ func (m *mockCaasBroker) Create(context.ProviderCallContext, environs.CreatePara
 	return nil
 }
 
+func (m *mockCaasBroker) Destroy(context.ProviderCallContext) error {
+	m.MethodCall(m, "Destroy")
+	return nil
+}
+
 type mockState struct {
 	jujutesting.Stub
 
@@ -697,7 +692,6 @@ type mockState struct {
 	common.APIHostPortsForAgentsGetter
 	common.ToolsStorageGetter
 	common.BlockGetter
-	metricSender
 	unitRetriever
 
 	controllerCfg   *controller.Config
@@ -1037,11 +1031,6 @@ func (st *mockState) SetModelMeterStatus(level, message string) error {
 func (st *mockState) ModelConfig() (*config.Config, error) {
 	st.MethodCall(st, "ModelConfig")
 	return st.modelConfig, st.NextErr()
-}
-
-func (st *mockState) MetricsManager() (*state.MetricsManager, error) {
-	st.MethodCall(st, "MetricsManager")
-	return nil, errors.New("nope")
 }
 
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {

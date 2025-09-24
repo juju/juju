@@ -872,20 +872,6 @@ func (mr *MockModelMockRecorder) Life() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockModel)(nil).Life))
 }
 
-// MeterStatus mocks base method.
-func (m *MockModel) MeterStatus() state.MeterStatus {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MeterStatus")
-	ret0, _ := ret[0].(state.MeterStatus)
-	return ret0
-}
-
-// MeterStatus indicates an expected call of MeterStatus.
-func (mr *MockModelMockRecorder) MeterStatus() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeterStatus", reflect.TypeOf((*MockModel)(nil).MeterStatus))
-}
-
 // Name mocks base method.
 func (m *MockModel) Name() string {
 	m.ctrl.T.Helper()

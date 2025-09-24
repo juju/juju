@@ -34,7 +34,7 @@ func ValidateImageMetadata(fetcher SimplestreamsFetcher, params *simplestreams.M
 		Releases: []string{params.Release},
 		Arches:   params.Architectures,
 		Stream:   params.Stream,
-	})
+	}, nil)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

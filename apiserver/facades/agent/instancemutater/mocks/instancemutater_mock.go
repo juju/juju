@@ -173,6 +173,20 @@ func (mr *MockInstanceMutaterStateMockRecorder) ModelName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelName", reflect.TypeOf((*MockInstanceMutaterState)(nil).ModelName))
 }
 
+// ModelUUID mocks base method.
+func (m *MockInstanceMutaterState) ModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ModelUUID indicates an expected call of ModelUUID.
+func (mr *MockInstanceMutaterStateMockRecorder) ModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockInstanceMutaterState)(nil).ModelUUID))
+}
+
 // Unit mocks base method.
 func (m *MockInstanceMutaterState) Unit(arg0 string) (instancemutater.Unit, error) {
 	m.ctrl.T.Helper()

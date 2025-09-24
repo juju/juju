@@ -9,22 +9,36 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/provider/gce/internal/google"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := env.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone); err != nil {
+	if _, err := env.DeriveAvailabilityZones(ctx, environs.StartInstanceParams{
+		Placement:         args.Placement,
+		VolumeAttachments: args.VolumeAttachments,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
 	if args.Constraints.HasInstanceType() {
 		if !env.checkInstanceType(ctx, args.Constraints) {
 			return errors.Errorf("invalid GCE instance type %q", *args.Constraints.InstanceType)
+		}
+	}
+
+	vpcLink, autosubnets, err := env.getVpcInfo(ctx)
+	if err != nil {
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+	if !autosubnets && vpcLink != nil {
+		subnetworks, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(subnetworks) == 0 {
+			return ErrNoSubnets
 		}
 	}
 

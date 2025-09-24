@@ -24,8 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	k8stesting "github.com/juju/juju/caas/kubernetes/testing"
 	"github.com/juju/juju/charmhub/transport"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
+	provider "github.com/juju/juju/internal/provider/kubernetes"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -60,7 +60,6 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	c.Assert(s.State.SetSLA("essential", "test-user", []byte("")), jc.ErrorIsNil)
-	c.Assert(s.State.SetModelMeterStatus("GREEN", "goo"), jc.ErrorIsNil)
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,8 +67,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.Type, gc.Equals, "iaas")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Model.SLA, gc.Equals, "essential")
-	c.Check(status.Model.MeterStatus.Color, gc.Equals, "green")
-	c.Check(status.Model.MeterStatus.Message, gc.Equals, "goo")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Offers, gc.HasLen, 0)
@@ -88,13 +85,10 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {
 	s.addMachine(c)
 	c.Assert(s.State.SetSLA("unsupported", "test-user", []byte("")), jc.ErrorIsNil)
-	c.Assert(s.State.SetModelMeterStatus("RED", "nope"), jc.ErrorIsNil)
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.SLA, gc.Equals, "unsupported")
-	c.Check(status.Model.MeterStatus.Color, gc.Equals, "")
-	c.Check(status.Model.MeterStatus.Message, gc.Equals, "")
 }
 
 func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
@@ -299,141 +293,6 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 	c.Check(ok, jc.IsTrue)
 
 	c.Check(mStatus.Containers, gc.HasLen, 1)
-}
-
-var testUnits = []struct {
-	unitName       string
-	setStatus      *state.MeterStatus
-	expectedStatus *params.MeterStatus
-}{{
-	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterAmber, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "amber", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterRed, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "red", Message: "test information"},
-}, {
-	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
-}, {},
-}
-
-func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
-	c.Assert(s.State.SetSLA("advanced", "test-user", nil), jc.ErrorIsNil)
-	c.Assert(s.State.SetModelMeterStatus("RED", "thing"), jc.ErrorIsNil)
-
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	modelMeterStatus := status.Model.MeterStatus
-	c.Assert(modelMeterStatus.Color, gc.Equals, "red")
-	c.Assert(modelMeterStatus.Message, gc.Equals, "thing")
-}
-
-func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
-	for _, unit := range testUnits {
-		unitStatus, ok := appStatus.MeterStatuses[unit.unitName]
-
-		if unit.expectedStatus != nil {
-			c.Assert(ok, gc.Equals, true)
-			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
-		} else {
-			c.Assert(ok, gc.Equals, false)
-		}
-	}
-}
-
-func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, 0)
-}
-
-func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
-	c.Assert(app.SetMetricCredentials([]byte("magic-ticket")), jc.ErrorIsNil)
-
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 0)
-
-	for i, unit := range testUnits {
-		u, err := app.AddUnit(state.AddUnitParams{})
-		testUnits[i].unitName = u.Name()
-		c.Assert(err, jc.ErrorIsNil)
-		if unit.setStatus != nil {
-			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
-
-	c.Assert(appStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
-	for _, unit := range testUnits {
-		unitStatus, ok := appStatus.MeterStatuses[unit.unitName]
-
-		if unit.expectedStatus != nil {
-			c.Assert(ok, gc.Equals, true)
-			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
-		} else {
-			c.Assert(ok, gc.Equals, false)
-		}
-	}
 }
 
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {

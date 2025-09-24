@@ -74,6 +74,10 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.OAuth2AuthType, cloud.JSONFileAuthType:
+	case cloud.ServiceAccountAuthType:
+		if spec.Credential.Attributes()[credServiceAccount] == "" {
+			return errors.NotValidf("missing service account name")
+		}
 	default:
 		return errors.NotSupportedf("%q auth-type", authType)
 	}

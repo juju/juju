@@ -2,9 +2,7 @@
 # `juju_stop_unit`
 
 ```{caution}
-
-**For Kubernetes charms:** <br> This is not currently supported. (In the future it may be supported through Pebble.) 
-
+**For Kubernetes charms:** <br> This is not currently supported. (In the future it may be supported through Pebble.)
 ```
 
 The `juju_stop_unit` introspection function was introduced in 2.9.

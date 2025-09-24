@@ -77,7 +77,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"16.04"},
 			Stream:   "released",
-		},
+		}, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
@@ -104,7 +104,7 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"16.04"},
 			Stream:   "released",
-		},
+		}, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)

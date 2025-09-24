@@ -4,6 +4,7 @@ import yaml
 import sys
 
 sys.path.append('./')
+sys.path.append(os.path.abspath("./scripts"))
 
 # Configuration for the Sphinx documentation builder.
 # All configuration specific to your project should be done in this file.
@@ -277,8 +278,7 @@ linkcheck_retries = 3
 # NOTE: By default, the following MyST extensions are enabled:
 #       substitution, deflist, linkify
 
-# myst_enable_extensions = set()
-
+myst_enable_extensions = set(["colon_fence",])
 
 # Custom Sphinx extensions; see
 # https://www.sphinx-doc.org/en/master/usage/extensions/index.html
@@ -314,6 +314,7 @@ extensions = [
     # new_tab_link_show_external_link_icon must also be set to True
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
+    'ibnote',
     ]
 
 # Extension configs:
@@ -343,6 +344,7 @@ exclude_patterns = [
 html_css_files = [
     "css/pdf.css",
     "css/cookie-banner.css",
+    "css/ibnote.css",
 ]
 
 

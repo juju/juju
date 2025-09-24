@@ -125,18 +125,18 @@ func (mr *MockApplicationMockRecorder) ApplicationTag() *gomock.Call {
 }
 
 // ChangeScale mocks base method.
-func (m *MockApplication) ChangeScale(arg0 int) (int, error) {
+func (m *MockApplication) ChangeScale(arg0 int, arg1 []names.StorageTag) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeScale", arg0)
+	ret := m.ctrl.Call(m, "ChangeScale", arg0, arg1)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ChangeScale indicates an expected call of ChangeScale.
-func (mr *MockApplicationMockRecorder) ChangeScale(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) ChangeScale(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeScale", reflect.TypeOf((*MockApplication)(nil).ChangeScale), arg0, arg1)
 }
 
 // Charm mocks base method.
@@ -483,6 +483,21 @@ func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetScale", reflect.TypeOf((*MockApplication)(nil).SetScale), arg0, arg1, arg2)
 }
 
+// StorageConstraints mocks base method.
+func (m *MockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageConstraints")
+	ret0, _ := ret[0].(map[string]state.StorageConstraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StorageConstraints indicates an expected call of StorageConstraints.
+func (mr *MockApplicationMockRecorder) StorageConstraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageConstraints", reflect.TypeOf((*MockApplication)(nil).StorageConstraints))
+}
+
 // UnsetExposeSettings mocks base method.
 func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
 	m.ctrl.T.Helper()
@@ -537,6 +552,20 @@ func (m *MockApplication) UpdateCharmConfig(arg0 string, arg1 charm.Settings) er
 func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmConfig", reflect.TypeOf((*MockApplication)(nil).UpdateCharmConfig), arg0, arg1)
+}
+
+// UpdateStorageConstraints mocks base method.
+func (m *MockApplication) UpdateStorageConstraints(arg0 map[string]state.StorageConstraints) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStorageConstraints", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStorageConstraints indicates an expected call of UpdateStorageConstraints.
+func (mr *MockApplicationMockRecorder) UpdateStorageConstraints(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStorageConstraints", reflect.TypeOf((*MockApplication)(nil).UpdateStorageConstraints), arg0)
 }
 
 // MockCharm is a mock of Charm interface.

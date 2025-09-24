@@ -24,7 +24,7 @@ func (c *Connection) AvailabilityZones(ctx context.Context, region string) ([]*c
 		req.Filter = &filter
 	}
 	iter := c.zones.List(ctx, req)
-	return fetchResults[computepb.Zone](iter.Next, "availability zones")
+	return fetchResults[computepb.Zone](iter.All(), "availability zones")
 }
 
 // AddInstance creates a new instance based on the spec's data and
@@ -208,7 +208,16 @@ func (c *Connection) ListMachineTypes(ctx context.Context, zone string) ([]*comp
 		Project: c.projectID,
 		Zone:    zone,
 	})
-	return fetchResults[computepb.MachineType](iter.Next, "machine types")
+	return fetchResults[computepb.MachineType](iter.All(), "machine types")
+}
+
+// MachineType retrieves the machine type definition for the specified instance type.
+func (c *Connection) MachineType(ctx context.Context, zone, instanceType string) (*computepb.MachineType, error) {
+	return c.machineTypes.Get(ctx, &computepb.GetMachineTypeRequest{
+		Project:     c.projectID,
+		Zone:        zone,
+		MachineType: instanceType,
+	})
 }
 
 func (c *Connection) updateInstanceMetadata(ctx context.Context, instance *computepb.Instance, key, value string) error {

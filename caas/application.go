@@ -48,6 +48,16 @@ type Application interface {
 	// Service returns the service associated with the application.
 	Service() (*Service, error)
 
+	// EnsurePVCs ensures that Persistent Volume Claims (PVCs) are created for the given
+	// filesystems and unit attachments. It creates PVCs based on the provided filesystem
+	// parameters and handles volume attachments for StatefulSet applications. Returns a
+	// cleanup function that can be used to delete the created PVCs if rollback is needed,
+	// and any error encountered during the process.
+	EnsurePVCs(
+		[]storage.KubernetesFilesystemParams,
+		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+	) error
+
 	ServiceInterface
 }
 

@@ -50,12 +50,12 @@ func VolumeParams(
 		return params.VolumeParams{}, errors.Trace(err)
 	}
 	return params.VolumeParams{
-		v.Tag().String(),
-		size,
-		string(providerType),
-		cfg.Attrs(),
-		volumeTags,
-		nil, // attachment params set by the caller
+		VolumeTag:  v.Tag().String(),
+		Size:       size,
+		Provider:   string(providerType),
+		Attributes: cfg.Attrs(),
+		Tags:       volumeTags,
+		Attachment: nil, // attachment params set by the caller
 	}, nil
 }
 
@@ -104,12 +104,12 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 		return names.VolumeTag{}, state.VolumeInfo{}, errors.Trace(err)
 	}
 	return volumeTag, state.VolumeInfo{
-		v.Info.HardwareId,
-		v.Info.WWN,
-		v.Info.Size,
-		"", // pool is set by state
-		v.Info.VolumeId,
-		v.Info.Persistent,
+		HardwareId: v.Info.HardwareId,
+		WWN:        v.Info.WWN,
+		Size:       v.Info.Size,
+		Pool:       "", // pool is set by state
+		VolumeId:   v.Info.VolumeId,
+		Persistent: v.Info.Persistent,
 	}, nil
 }
 
@@ -120,20 +120,20 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 		return params.Volume{}, errors.Trace(err)
 	}
 	return params.Volume{
-		v.VolumeTag().String(),
-		VolumeInfoFromState(info),
+		VolumeTag: v.VolumeTag().String(),
+		Info:      VolumeInfoFromState(info),
 	}, nil
 }
 
 // VolumeInfoFromState converts a state.VolumeInfo to params.VolumeInfo.
 func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
 	return params.VolumeInfo{
-		info.VolumeId,
-		info.HardwareId,
-		info.WWN,
-		info.Pool,
-		info.Size,
-		info.Persistent,
+		VolumeId:   info.VolumeId,
+		HardwareId: info.HardwareId,
+		WWN:        info.WWN,
+		Pool:       info.Pool,
+		Size:       info.Size,
+		Persistent: info.Persistent,
 	}
 }
 
@@ -189,9 +189,9 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 		return params.VolumeAttachment{}, errors.Trace(err)
 	}
 	return params.VolumeAttachment{
-		v.Volume().String(),
-		v.Host().String(),
-		VolumeAttachmentInfoFromState(info),
+		VolumeTag:  v.Volume().String(),
+		MachineTag: v.Host().String(),
+		Info:       VolumeAttachmentInfoFromState(info),
 	}, nil
 }
 
@@ -205,11 +205,11 @@ func VolumeAttachmentInfoFromState(info state.VolumeAttachmentInfo) params.Volum
 		planInfo = nil
 	}
 	return params.VolumeAttachmentInfo{
-		info.DeviceName,
-		info.DeviceLink,
-		info.BusAddress,
-		info.ReadOnly,
-		planInfo,
+		DeviceName: info.DeviceName,
+		DeviceLink: info.DeviceLink,
+		BusAddress: info.BusAddress,
+		ReadOnly:   info.ReadOnly,
+		PlanInfo:   planInfo,
 	}
 }
 
@@ -296,11 +296,11 @@ func VolumeAttachmentInfoToState(in params.VolumeAttachmentInfo) state.VolumeAtt
 		planInfo = nil
 	}
 	return state.VolumeAttachmentInfo{
-		in.DeviceName,
-		in.DeviceLink,
-		in.BusAddress,
-		in.ReadOnly,
-		planInfo,
+		DeviceName: in.DeviceName,
+		DeviceLink: in.DeviceLink,
+		BusAddress: in.BusAddress,
+		ReadOnly:   in.ReadOnly,
+		PlanInfo:   planInfo,
 	}
 }
 

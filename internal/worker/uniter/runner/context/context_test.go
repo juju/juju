@@ -5,6 +5,8 @@ package context_test
 
 import (
 	stdcontext "context"
+	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
@@ -113,14 +116,6 @@ func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
 	name, err := ctx.RemoteUnitName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "u/123")
-}
-
-func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
-	ctx := s.GetContext(c, 1, "u/123", names.StorageTag{})
-	err := ctx.AddMetric("key", "123", time.Now())
-	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
-	err = ctx.AddMetricLabels("key", "123", time.Now(), map[string]string{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
 }
 
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
@@ -2016,4 +2011,71 @@ func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storage, gc.NotNil)
 	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")
+}
+
+func (s *mockHookContextSuite) TestHookCloudSpecMachine(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().CloudSpec().Return(&params.CloudSpec{
+		Type: "lxd",
+		Credential: &params.CloudCredential{
+			AuthType: "authtype",
+		},
+	}, nil)
+
+	ctx := context.NewMockUnitHookContextWithStateAndModelType(s.mockUnit, st, model.IAAS)
+
+	spec, err := ctx.CloudSpec()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.Type, gc.Equals, "lxd")
+	c.Assert(spec.Credential.AuthType, gc.Equals, "authtype")
+}
+
+func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	st.EXPECT().CloudSpec().Return(&params.CloudSpec{
+		Type:   "kubernetes",
+		Name:   "myk8s",
+		Region: "myregion",
+		Credential: &params.CloudCredential{
+			AuthType: "overridden",
+		},
+		IsControllerCloud: true,
+	}, nil)
+
+	tempDir := c.MkDir()
+	caFile := path.Join(tempDir, "ca.crt")
+	err := os.WriteFile(caFile, []byte("start\ncadata\nend\n"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := context.NewMockUnitHookContextWithStateAndModelType(s.mockUnit, st, model.CAAS)
+	ctx.SetInClusterConfig(func() (*rest.Config, error) {
+		return &rest.Config{
+			Host:        "https://localhost:1234",
+			BearerToken: "bearertoken",
+			TLSClientConfig: rest.TLSClientConfig{
+				CAFile: caFile,
+			},
+		}, nil
+	})
+
+	spec, err := ctx.CloudSpec()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.DeepEquals, &params.CloudSpec{
+		Type:     "kubernetes",
+		Name:     "myk8s",
+		Region:   "myregion",
+		Endpoint: "https://localhost:1234",
+		Credential: &params.CloudCredential{
+			AuthType:   "oauth2",
+			Attributes: map[string]string{"Token": "bearertoken"},
+		},
+		CACertificates:    []string{"start\ncadata\nend\n"},
+		IsControllerCloud: true,
+	})
 }

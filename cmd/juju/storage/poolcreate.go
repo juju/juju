@@ -4,16 +4,17 @@
 package storage
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/keyvalues"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -21,6 +22,10 @@ type PoolCreateAPI interface {
 	Close() error
 	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
 }
+
+// disallowedAttrKeys defines storage attribute keys that users are not allowed to set
+// as these keys are reserved for internal use.
+var disallowedAttrKeys = []string{"name", "type"}
 
 const poolCreateCommandDoc = `
 Further reading:
@@ -100,6 +105,9 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 		return nil
 	}
 	for key, value := range options {
+		if slices.Contains(disallowedAttrKeys, key) {
+			return errors.NotValidf("attribute %q", key)
+		}
 		c.attrs[key] = value
 	}
 	return nil

@@ -1,7 +1,9 @@
 (charm)=
 # Charm
 
-> See also: {ref}`manage-charms`
+```{ibnote}
+See also: {ref}`manage-charms`
+```
 
 ```{toctree}
 :hidden:
@@ -168,18 +170,20 @@ A **12-Factor app charm** is a charm that has been created using certain coordin
 
 When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a [`rockcraft.yaml`](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) file pre-populated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
 
-> See more:
-> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Django app <write-your-first-kubernetes-charm-for-a-django-app>`
-> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a FastAPI app <write-your-first-kubernetes-charm-for-a-fastapi-app>`
-> - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/tutorial/flask/)
-> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Go app <write-your-first-kubernetes-charm-for-a-go-app>`
+```{ibnote}
+See more:
+
+ - [Charmcraft | Write your first Kubernetes charm for a Django app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-django/)
+ - [Charmcraft | Write your first Kubernetes charm for a FastAPI app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-fastapi/)
+ - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-flask/)
+ - [Charmcraft | Write your first Kubernetes charm for a Go app](https://documentation.ubuntu.com/charmcraft/stable/tutorial/kubernetes-charm-go/)
+```
 
 (reactive-charm)=
 #### Reactive charm
 > Superseded by {ref}`Ops <ops-charm>`.
 
 A **Reactive charm** is a charm developed using the [Reactive](https://charmsreactive.readthedocs.io/en/latest/) framework.
-
 
 Examples:
 - [Prometheus2](https://charmhub.io/prometheus2) (obsolete; replaced by [Prometheus K8s](https://charmhub.io/prometheus-k8s))

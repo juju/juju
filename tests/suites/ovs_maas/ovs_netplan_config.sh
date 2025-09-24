@@ -37,15 +37,3 @@ test_ovs_netplan_config() {
 		run "run_ovs_netplan_config" "$@"
 	)
 }
-
-# get_unit_index(app_name)
-#
-# Lookup and return the unit index for app_name.
-get_unit_index() {
-	local app_name
-
-	app_name=${1}
-
-	index=$(juju status | grep "${app_name}/" | cut -d' ' -f1 | cut -d'/' -f2 | cut -d'*' -f1)
-	echo "$index"
-}

@@ -37,7 +37,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		return nil, environs.ErrNoInstances
 	}
 
-	all, err := getInstances(env, ctx)
+	all, err := env.instances(ctx)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -66,10 +66,6 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		err = environs.ErrPartialInstances
 	}
 	return results, err
-}
-
-var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
-	return env.instances(ctx, statusFilters...)
 }
 
 func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]*computepb.Instance, error) {
@@ -165,28 +161,31 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	return nil
 }
 
+type gcePlacement struct {
+	zone       string
+	subnetSpec string
+}
+
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*computepb.Zone, error) {
+func (env *environ) parsePlacement(placement string) (gcePlacement, error) {
 	if placement == "" {
-		return nil, nil
+		return gcePlacement{}, nil
 	}
 
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
-		return nil, errors.Errorf("unknown placement directive: %v", placement)
+		return gcePlacement{}, errors.Errorf("unknown placement directive: %v", placement)
 	}
 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "subnet":
+		return gcePlacement{subnetSpec: value}, nil
 	case "zone":
-		zone, err := env.availZoneUp(ctx, value)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return zone, nil
+		return gcePlacement{zone: value}, nil
 	}
-	return nil, errors.Errorf("unknown placement directive: %v", placement)
+	return gcePlacement{}, errors.Errorf("unknown placement directive: %v", placement)
 }
 
 // checkInstanceType is used to ensure the provided constraints

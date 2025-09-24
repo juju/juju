@@ -75,9 +75,6 @@ func (d *deployCharm) deploy(
 		if err != nil {
 			continue
 		}
-		if len(d.attachStorage) > 0 {
-			return errors.NotSupportedf("attaching storage to %s container", string(t))
-		}
 		for _, s := range d.storage {
 			if !provider.AllowedContainerProvider(storage.ProviderType(s.Pool)) {
 				return errors.NotSupportedf("adding storage of type %q to %s container", s.Pool, string(t))

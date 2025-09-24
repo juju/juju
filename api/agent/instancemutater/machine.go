@@ -214,6 +214,7 @@ func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
 // any changes are required to a machine's lxd profiles.
 type UnitProfileInfo struct {
 	ModelName       string
+	ModelUUID       string
 	InstanceId      instance.Id
 	ProfileChanges  []UnitProfileChanges
 	CurrentProfiles []string
@@ -229,7 +230,7 @@ type UnitProfileChanges struct {
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
 func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
-	var result params.CharmProfilingInfoResult
+	var result params.CharmProfilingInfoResultV4
 	args := params.Entity{Tag: m.tag.String()}
 	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
 	if err != nil {
@@ -241,6 +242,7 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	returnResult := &UnitProfileInfo{
 		InstanceId:      result.InstanceId,
 		ModelName:       result.ModelName,
+		ModelUUID:       result.ModelUUID,
 		CurrentProfiles: result.CurrentProfiles,
 	}
 	profileChanges := make([]UnitProfileChanges, len(result.ProfileChanges))

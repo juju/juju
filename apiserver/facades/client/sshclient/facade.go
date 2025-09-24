@@ -15,7 +15,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
+	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
