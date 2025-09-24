@@ -133,7 +133,7 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	c.Check(task.Output["message"], tc.Equals, "Task completed successfully")
 }
 
-func (s *serviceSuite) TestStartTaskSuccess(c *tc.C) {
+func (s *serviceSuite) TestStartTask(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -147,7 +147,7 @@ func (s *serviceSuite) TestStartTaskSuccess(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *serviceSuite) TestStartTaskSuccessFails(c *tc.C) {
+func (s *serviceSuite) TestStartTaskFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -162,7 +162,6 @@ func (s *serviceSuite) TestStartTaskSuccessFails(c *tc.C) {
 }
 
 func (s *serviceSuite) TestFinishTask(c *tc.C) {
-
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -193,6 +192,20 @@ func (s *serviceSuite) TestFinishTask(c *tc.C) {
 
 	// Act
 	err := s.service().FinishTask(c.Context(), arg)
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *serviceSuite) TestLogTaskMessage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	msg := "log message"
+	s.state.EXPECT().LogTaskMessage(gomock.Any(), taskID, msg).Return(nil)
+
+	// Act
+	err := s.service().LogTaskMessage(c.Context(), taskID, msg)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -333,4 +346,20 @@ func (s *serviceSuite) TestFinishTaskNoStore(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "putting task result \"42\" in store: getting object store: boom")
+}
+
+func (s *serviceSuite) TestLogTaskMessageError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Assert
+	taskID := "42"
+	msg := "log message"
+	expectedError := errors.New("boom")
+	s.state.EXPECT().LogTaskMessage(gomock.Any(), taskID, msg).Return(expectedError)
+
+	// Act
+	err := s.service().LogTaskMessage(c.Context(), taskID, msg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `boom`)
 }

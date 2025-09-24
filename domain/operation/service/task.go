@@ -187,3 +187,14 @@ func (s *Service) CancelTask(ctx context.Context, taskID string) (operation.Task
 
 	return task, nil
 }
+
+// LogTaskMessage stores the message for the given task ID.
+func (s *Service) LogTaskMessage(ctx context.Context, taskID, message string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", taskID),
+		))
+	defer span.End()
+
+	return errors.Capture(s.st.LogTaskMessage(ctx, taskID, message))
+}

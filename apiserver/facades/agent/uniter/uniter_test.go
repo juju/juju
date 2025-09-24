@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
@@ -1278,6 +1279,42 @@ func (s *uniterSuite) TestAuthTaskIDUnitErrPerm(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+func (s *uniterSuite) TestLogActionsMessages(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange, 3 task logs with one authentication failure.
+	s.badTag = names.NewUnitTag("foo/0")
+
+	taskIDOne := "42"
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), taskIDOne).Return("bar/0", nil)
+	msgOne := "message one"
+	s.operationService.EXPECT().LogTaskMessage(gomock.Any(), taskIDOne, msgOne).Return(nil)
+
+	taskIDTwo := "47"
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), taskIDTwo).Return("bar/0", nil)
+	msgTwo := "message two"
+	s.operationService.EXPECT().LogTaskMessage(gomock.Any(), taskIDTwo, msgTwo).Return(nil)
+
+	taskIDThree := "8"
+	s.operationService.EXPECT().ReceiverFromTask(gomock.Any(), taskIDThree).Return("", coreerrors.NotFound)
+	msgThree := "message three"
+
+	// Act
+	results, err := s.uniter.LogActionsMessages(c.Context(), params.ActionMessageParams{Messages: []params.EntityString{
+		{Tag: "action-42", Value: msgOne},
+		{Tag: "action-47", Value: msgTwo},
+		{Tag: "action-8", Value: msgThree},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+		{},
+		{},
+		{Error: &params.Error{Message: "not found", Code: "not found"}},
+	}})
 }
 
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {

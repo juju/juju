@@ -2902,6 +2902,44 @@ func (c *MockOperationServiceGetPendingTaskByTaskIDCall) DoAndReturn(f func(cont
 	return c
 }
 
+// LogTaskMessage mocks base method.
+func (m *MockOperationService) LogTaskMessage(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogTaskMessage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogTaskMessage indicates an expected call of LogTaskMessage.
+func (mr *MockOperationServiceMockRecorder) LogTaskMessage(arg0, arg1, arg2 any) *MockOperationServiceLogTaskMessageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogTaskMessage", reflect.TypeOf((*MockOperationService)(nil).LogTaskMessage), arg0, arg1, arg2)
+	return &MockOperationServiceLogTaskMessageCall{Call: call}
+}
+
+// MockOperationServiceLogTaskMessageCall wrap *gomock.Call
+type MockOperationServiceLogTaskMessageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceLogTaskMessageCall) Return(arg0 error) *MockOperationServiceLogTaskMessageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceLogTaskMessageCall) Do(f func(context.Context, string, string) error) *MockOperationServiceLogTaskMessageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceLogTaskMessageCall) DoAndReturn(f func(context.Context, string, string) error) *MockOperationServiceLogTaskMessageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReceiverFromTask mocks base method.
 func (m *MockOperationService) ReceiverFromTask(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
