@@ -23,6 +23,12 @@ import (
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
+// NamespaceRemoteApplicationOfferers returns the remote application
+// offerers.
+func (st *State) NamespaceRemoteApplicationOfferers() string {
+	return "application_remote_offerer"
+}
+
 // AddRemoteApplicationOfferer adds a new synthetic application representing
 // an offer from an external model, to this, the consuming model.
 func (st *State) AddRemoteApplicationOfferer(

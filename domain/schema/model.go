@@ -25,6 +25,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/operation-triggers.gen.go -package=triggers -tables=operation_task_log
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/crossmodelrelation-triggers.gen.go -package=triggers -tables=application_remote_offerer
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -91,7 +92,7 @@ const (
 	tableIpAddress
 	tableApplicationEndpoint
 	tableOperationTaskLog
-	tableOperationTaskStatus
+	tableCrossModelRelationApplicationRemoteOfferers
 )
 
 // ModelDDL is used to create model databases.
@@ -149,8 +150,10 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForUnitResolved("unit_uuid", tableUnitResolved),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
 		triggers.ChangeLogTriggersForPortRange("unit_uuid", tablePortRange),
-		triggers.ChangeLogTriggersForApplicationExposedEndpointSpace("application_uuid", tableApplicationExposedEndpointSpace),
-		triggers.ChangeLogTriggersForApplicationExposedEndpointCidr("application_uuid", tableApplicationExposedEndpointCIDR),
+		triggers.ChangeLogTriggersForApplicationExposedEndpointSpace("application_uuid",
+			tableApplicationExposedEndpointSpace),
+		triggers.ChangeLogTriggersForApplicationExposedEndpointCidr("application_uuid",
+			tableApplicationExposedEndpointCIDR),
 		triggers.ChangeLogTriggersForSecretDeletedValueRef("revision_uuid", tableSecretDeletedValueRef),
 		triggers.ChangeLogTriggersForApplication("uuid", tableApplication),
 		triggers.ChangeLogTriggersForRemoval("uuid", tableRemoval),
@@ -168,6 +171,8 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIpAddress),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
 		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
+		triggers.ChangeLogTriggersForApplicationRemoteOfferer("uuid",
+			tableCrossModelRelationApplicationRemoteOfferers),
 	)
 
 	// Generic triggers.

@@ -413,6 +413,44 @@ func (c *MockModelStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// NamespaceRemoteApplicationOfferers mocks base method.
+func (m *MockModelState) NamespaceRemoteApplicationOfferers() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceRemoteApplicationOfferers")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceRemoteApplicationOfferers indicates an expected call of NamespaceRemoteApplicationOfferers.
+func (mr *MockModelStateMockRecorder) NamespaceRemoteApplicationOfferers() *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceRemoteApplicationOfferers", reflect.TypeOf((*MockModelState)(nil).NamespaceRemoteApplicationOfferers))
+	return &MockModelStateNamespaceRemoteApplicationOfferersCall{Call: call}
+}
+
+// MockModelStateNamespaceRemoteApplicationOfferersCall wrap *gomock.Call
+type MockModelStateNamespaceRemoteApplicationOfferersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) Return(arg0 string) *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) Do(f func() string) *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateNamespaceRemoteApplicationOfferersCall) DoAndReturn(f func() string) *MockModelStateNamespaceRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateOffer mocks base method.
 func (m *MockModelState) UpdateOffer(arg0 context.Context, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
