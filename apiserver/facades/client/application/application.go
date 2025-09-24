@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/resolve"
@@ -1498,21 +1499,20 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 		}
 	}
 
-	// TODO (stickupkid): Handle the following case:
-	//
-	// If a remote application with the same name and endpoints from the same
-	// source model already exists, we will use that one. If the status was
-	// "terminated", the offer had been removed, so we'll replace the terminated
-	// application with a fresh copy.
-	//
-
-	return api.crossModelRelationService.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+	if err := api.crossModelRelationService.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:             offer.OfferUUID,
 		OffererControllerUUID: offererControllerUUID,
 		OffererModelUUID:      offererModelUUID,
 		Endpoints:             remoteEps,
 		Macaroon:              macaroon,
-	})
+	}); errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
+		return apiservererrors.ServerError(errors.AlreadyExistsf("application %q", applicationName))
+	} else if errors.Is(err, crossmodelrelationerrors.OfferAlreadyConsumed) {
+		return nil
+	} else if err != nil {
+		return internalerrors.Errorf("saving remote application offerer %q: %w", applicationName, err)
+	}
+	return nil
 }
 
 func encodeRelationRole(role charm.RelationRole) (domaincharm.RelationRole, error) {

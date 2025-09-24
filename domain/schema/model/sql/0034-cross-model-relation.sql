@@ -30,6 +30,14 @@ CREATE TABLE application_remote_offerer (
     REFERENCES life (id)
 );
 
+-- Ensure that an offer can only be consumed once in a model.
+CREATE UNIQUE INDEX idx_application_remote_offerer_offer_uuid
+ON application_remote_offerer (offer_uuid);
+
+-- Ensure that an application can only be used once as a remote offerer.
+CREATE UNIQUE INDEX idx_application_remote_offerer_application_uuid
+ON application_remote_offerer (application_uuid);
+
 -- application_remote_consumer represents a remote consumer application
 -- inside of the offering model.
 CREATE TABLE application_remote_consumer (

@@ -13,4 +13,8 @@ const (
 	// OfferNotFound describes an error that occurs when the offer
 	// being operated on does not exist.
 	OfferNotFound = errors.ConstError("offer not found")
+
+	// OfferAlreadyConsumed describes an error that occurs when trying to
+	// create an offer that already exists for the same UUID.
+	OfferAlreadyConsumed = errors.ConstError("offer already consumed")
 )
