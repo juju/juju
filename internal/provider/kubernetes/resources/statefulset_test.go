@@ -109,6 +109,35 @@ func (s *statefulSetSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 }
 
+func (s *statefulSetSuite) TestDeleteWithOrphan(c *gc.C) {
+	sts := appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sts1",
+			Namespace: "test",
+		},
+	}
+	_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(), &sts, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "sts1", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.GetName(), gc.Equals, `sts1`)
+
+	stsResource := resources.NewStatefulSet(s.client.AppsV1().StatefulSets(sts.Namespace), "test", "sts1", &sts)
+	stsWithOrphanDeleteResource := &resources.StatefulSetWithOrphanDelete{stsResource}
+	err = stsWithOrphanDeleteResource.Delete(context.TODO())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = stsWithOrphanDeleteResource.Delete(context.TODO())
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+
+	err = stsWithOrphanDeleteResource.Get(context.TODO())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "sts1", metav1.GetOptions{})
+	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+}
+
 func (s *statefulSetSuite) TestListStatefulSets(c *gc.C) {
 	// Set up labels for model and app to list resource
 	controllerUUID, err := utils.NewUUID()

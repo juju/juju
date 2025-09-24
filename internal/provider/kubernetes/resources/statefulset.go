@@ -25,7 +25,12 @@ import (
 type StatefulSet struct {
 	client v1.StatefulSetInterface
 	appsv1.StatefulSet
-	OrphanDelete bool
+}
+
+// StatefulSetWithOrphanDelete is a wrapper around [StatefulSet] that overrides
+// the [StatefulSet.Delete] method to use DeletePropagationOrphan.
+type StatefulSetWithOrphanDelete struct {
+	*StatefulSet
 }
 
 // NewStatefulSet creates a new statefulset resource.
@@ -35,7 +40,7 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &StatefulSet{client, *in, false}
+	return &StatefulSet{client, *in}
 }
 
 // Clone returns a copy of the resource.
@@ -109,13 +114,9 @@ func (ss *StatefulSet) Get(ctx context.Context) error {
 
 // Delete removes the resource.
 func (ss *StatefulSet) Delete(ctx context.Context) error {
-	option := metav1.DeleteOptions{
+	err := ss.client.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-	}
-	if ss.OrphanDelete {
-		option.PropagationPolicy = k8sconstants.DeletePropagationOrphan()
-	}
-	err := ss.client.Delete(ctx, ss.Name, option)
+	})
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}
@@ -131,6 +132,16 @@ func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string
 		return "", status.Active, now, nil
 	}
 	return "", status.Waiting, now, nil
+}
+
+func (s *StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
+	err := s.client.Delete(ctx, s.Name, metav1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DeletePropagationOrphan(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return errors.NewNotFound(err, "k8s statefulset for deletion")
+	}
+	return errors.Trace(err)
 }
 
 // ListStatefulSets returns a list of statefulsets.
