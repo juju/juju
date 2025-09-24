@@ -147,6 +147,7 @@ func main() {
 			}
 		}
 
+		var lineBuildUp strings.Builder
 		for {
 			select {
 			case <-ctx.Done():
@@ -171,23 +172,32 @@ func main() {
 				return
 			}
 
-			// Process the input query.
-			result, err := processQuery(ctx, db, input)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Error: ", err)
-			} else {
-				line.AppendHistory(input)
-				if result != "" {
-					fmt.Println()
-					fmt.Println(result)
-				}
-
-				// This can fail, so we don't care if it errors out.
-				if file != nil {
-					fmt.Fprintln(file, input)
-					_ = file.Sync()
-				}
+			lineBuildUp.WriteString(input + " ")
+			if !strings.HasSuffix(strings.TrimSpace(input), ";") {
+				continue
 			}
+
+			func() {
+				defer lineBuildUp.Reset()
+				defer line.AppendHistory(lineBuildUp.String())
+
+				// Process the input query.
+				result, err := processQuery(ctx, db, lineBuildUp.String())
+				if err != nil {
+					fmt.Fprintln(os.Stderr, "Error: ", err)
+				} else {
+					if result != "" {
+						fmt.Println()
+						fmt.Println(result)
+					}
+
+					// This can fail, so we don't care if it errors out.
+					if file != nil {
+						fmt.Fprintln(file, lineBuildUp.String())
+						_ = file.Sync()
+					}
+				}
+			}()
 		}
 	}()
 
