@@ -1507,9 +1507,7 @@ func (api *APIBase) saveRemoteApplicationOfferer(
 		Macaroon:              macaroon,
 	}); errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 		return apiservererrors.ServerError(errors.AlreadyExistsf("application %q", applicationName))
-	} else if errors.Is(err, crossmodelrelationerrors.OfferAlreadyConsumed) {
-		return nil
-	} else if err != nil {
+	} else if err != nil && !errors.Is(err, crossmodelrelationerrors.OfferAlreadyConsumed) {
 		return internalerrors.Errorf("saving remote application offerer %q: %w", applicationName, err)
 	}
 	return nil
