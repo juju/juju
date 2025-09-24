@@ -489,13 +489,14 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	conn.mutex.Unlock()
 
-	if !closing {
-		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, hdr.Version, recorder)
-	} else {
+	if closing {
 		// We're closing down - no new requests may be initiated.
 		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
 	}
+
+	conn.srvPending.Add(1)
+	go conn.runRequest(req, arg, hdr.Version, recorder)
+
 	return nil
 }
 
