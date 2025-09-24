@@ -1183,9 +1183,9 @@ WHERE a.name = $applicationName.name AND c.source_id < 2;
 func (st *State) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT &applicationID.* 
-FROM application
-JOIN charm AS c ON c.uuid = application.charm_uuid
+SELECT a.uuid AS &applicationID.uuid
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
 WHERE c.source_id < 2;
 `, applicationID{})
 		if err != nil {
