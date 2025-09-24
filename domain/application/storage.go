@@ -38,7 +38,7 @@ type CreateUnitStorageInstanceArg struct {
 	Filesystem *CreateUnitStorageFilesystemArg
 
 	// Kind defines the type of storage that is being created.
-	Kind domainstorageprov.Kind
+	Kind domainstorage.StorageKind
 
 	// Name is the name of the storage and must correspond to the storage name
 	// defined in the charm the unit is running.

@@ -590,12 +590,12 @@ func makeStorageAttachmentArgs(
 // type to storage kind.
 func encodeStorageKindFromCharmStorageType(
 	storageType charm.StorageType,
-) (domainstorageprov.Kind, error) {
+) (domainstorage.StorageKind, error) {
 	switch storageType {
 	case charm.StorageBlock:
-		return domainstorageprov.KindBlock, nil
+		return domainstorage.StorageKindBlock, nil
 	case charm.StorageFilesystem:
-		return domainstorageprov.KindFilesystem, nil
+		return domainstorage.StorageKindFilesystem, nil
 	default:
 		return -1, errors.Errorf(
 			"no mapping exists from charm storage type %q to storage kind",

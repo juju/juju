@@ -4,6 +4,7 @@
 package storageprovisioning
 
 import (
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -33,7 +34,7 @@ type StorageProvider interface {
 // that is to be created and coming up with a composition that can be achieved
 // with the current provider.
 func CalculateStorageInstanceComposition(
-	kind Kind,
+	kind domainstorage.StorageKind,
 	provider StorageProvider,
 ) (StorageInstanceComposition, error) {
 	// There exists some edge cases in this func. We purposely don't try and
@@ -67,14 +68,14 @@ func CalculateStorageInstanceComposition(
 	switch {
 	// If the provider supports creating block devices and a block device is
 	// requested.
-	case kind == KindBlock &&
+	case kind == domainstorage.StorageKindBlock &&
 		provider.Supports(internalstorage.StorageKindBlock):
 		rval.VolumeRequired = true
 		rval.VolumeProvisionScope = pScope
 
 	// If the provider supports creating filesystems directly and a filesystem
 	// is requested.
-	case kind == KindFilesystem &&
+	case kind == domainstorage.StorageKindFilesystem &&
 		provider.Supports(internalstorage.StorageKindFilesystem):
 		rval.FilesystemRequired = true
 		rval.FilesystemProvisionScope = pScope
@@ -82,7 +83,7 @@ func CalculateStorageInstanceComposition(
 	// If the provider supports creating block devices and a filesystem is
 	// requested then we can create the filesystem on top of the block device
 	// (volume).
-	case kind == KindFilesystem &&
+	case kind == domainstorage.StorageKindFilesystem &&
 		provider.Supports(internalstorage.StorageKindBlock):
 		// If the provider only supports block devices then we must make sure
 		// the provision scope of the filesystem is machine as it has to be made
