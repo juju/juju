@@ -293,11 +293,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	var supportsOIDCLogin bool
 	var sessionToken string
 
-	// we set up a login provider that will first try to log in using
-	// oauth device flow, failing that it will try to log in using
-	// user-pass or macaroons.
-	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
+	loginProviders := []api.LoginProvider{
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
@@ -307,6 +303,31 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 			},
 		),
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+	}
+
+	// If client id and client secret provided, we prepend the clientcredentialprovider
+	// to the login providers slice and try this first.
+	if os.Getenv("JUJU_CLIENT_ID") != "" && os.Getenv("JUJU_CLIENT_SECRET") != "" {
+		// Set oidclogin, so we can check this in addition to the client id and secret
+		// for new connections.
+		supportsOIDCLogin = true
+		loginProviders = append(
+			[]api.LoginProvider{
+				api.NewClientCredentialsLoginProvider(
+					os.Getenv("JUJU_CLIENT_ID"),
+					os.Getenv("JUJU_CLIENT_SECRET"),
+				),
+			},
+			loginProviders...,
+		)
+	}
+
+	// we set up a login provider that will first try to log in using
+	// oauth device flow, failing that it will try to log in using
+	// user-pass or macaroons.
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
+		loginProviders...,
 	)
 
 	conn, err := c.apiOpen(&api.Info{
