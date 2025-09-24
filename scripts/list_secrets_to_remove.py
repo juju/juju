@@ -1,20 +1,3 @@
-# Copyright 2025 Canonical Ltd.
-# Licensed under the AGPLv3, see LICENCE file for details.
-
-"""This generates commands that can be run to cleanup unused secrets from a juju controller.
-
-The script uses `juju ssh -m controller 0` to run some mongo commands to get a
-dump of all the obsolete revisions for all applications across all models, and
-then turns that into bash lines that can be used to `juju exec ... secret-remove` to actually
-trigger the secrets being cleaned up.
-
-Note that at present, `secret-remove` will only ever schedule a single revision to be cleaned
-up, so we have to run many batches. Though you could run some of these commands
-in parallel to speed up the execution.
-
-This command does actually remove any secrets directly.
-"""
-
 import json
 import subprocess
 import tempfile
@@ -119,6 +102,7 @@ def main(args):
     p.add_argument("--batch", default=0, type=int, help="when printing out loops, do batches no larger than this (<=0 does all)")
     opts = p.parse_args(args)
     raw = read_revisions(opts)
+    total_count = 0
     for r in raw:
         model = r["_id"]["model"]
         owner = r["_id"]["owner"]
@@ -128,10 +112,11 @@ def main(args):
             print(owner)
             owner = owner.replace("unit-", "") 
             tail = owner.rindex("-")
-            owner = owner[:tail] + '/' + owner[tail:]
+            owner = owner[:tail] + '/' + owner[tail+1:]
         secret = r["_id"]["secret"]
         revs = r["revs"]
         revs.sort()
+        total_count += len(revs)
         if opts.bash_compress:
             if opts.batch > 0:
                 for i in range(0, len(revs), opts.batch):
@@ -142,6 +127,7 @@ def main(args):
         else:
             for r in revs:
                 print(f"juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision {r}")
+    print("Total Count:", total_count)
             
 
 
