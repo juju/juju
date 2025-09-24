@@ -179,13 +179,13 @@ func main() {
 
 			func() {
 				defer lineBuildUp.Reset()
+				defer line.AppendHistory(lineBuildUp.String())
 
 				// Process the input query.
 				result, err := processQuery(ctx, db, lineBuildUp.String())
 				if err != nil {
 					fmt.Fprintln(os.Stderr, "Error: ", err)
 				} else {
-					line.AppendHistory(lineBuildUp.String())
 					if result != "" {
 						fmt.Println()
 						fmt.Println(result)
