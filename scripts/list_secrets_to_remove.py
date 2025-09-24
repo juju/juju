@@ -106,26 +106,40 @@ def main(args):
     for r in raw:
         model = r["_id"]["model"]
         owner = r["_id"]["owner"]
+        is_model_secret = False
         if owner.startswith("application"):
             owner = owner.replace("application-", "") + "/leader"
         elif owner.startswith("unit"):
             owner = owner.replace("unit-", "") 
             tail = owner.rindex("-")
             owner = owner[:tail] + '/' + owner[tail+1:]
+        elif owner.startswith("model"):
+            owner = owner.replace("model-", "")
+            is_model_secret = True
         secret = r["_id"]["secret"]
         revs = r["revs"]
         revs.sort()
         total_count += len(revs)
         if opts.bash_compress:
             if opts.batch > 0:
-                for i in range(0, len(revs), opts.batch):
-                    local_revs = revs[i:i+opts.batch]
-                    print(f"for r in {' '.join(map(str, local_revs))}; do juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision $r; done")
+                batch = opts.batch
             else:
-                print(f"for r in {' '.join(map(str, revs))}; do juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision $r; done")
+                batch = len(revs)
         else:
-            for r in revs:
-                print(f"juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision {r}")
+            batch = 1
+        for i in range(0, len(revs), batch):
+            local_revs = revs[i:i+batch]
+            local_rev_str = ' '.join(map(str, local_revs))
+            if is_model_secret:
+                if len(local_revs) == 1:
+                    print(f"juju remove-secret -m {model} secret:{secret} --revision {local_rev_str}")
+                else:
+                    print(f"for r in {local_rev_str}; do juju remove-secret -m {model} secret:{secret} --revision $r; done")
+            else:
+                if len(local_revs) == 1:
+                    print(f"juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision {local_rev_str}")
+                else:
+                    print(f"for r in {local_rev_str}; do juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision $r; done")
     print("Total Count:", total_count)
             
 
