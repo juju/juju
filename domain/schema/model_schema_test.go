@@ -644,6 +644,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_machine_insert_life_start_time",
 		"trg_log_machine_update_life_start_time",
 		"trg_log_machine_delete_life_start_time",
+
+		"trg_log_application_remote_offerer_delete",
+		"trg_log_application_remote_offerer_insert",
+		"trg_log_application_remote_offerer_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
