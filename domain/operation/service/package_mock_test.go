@@ -671,17 +671,17 @@ func (c *MockStateInitialWatchStatementUnitTaskCall) DoAndReturn(f func() (strin
 }
 
 // LogTaskMessage mocks base method.
-func (m *MockState) LogTaskMessage(ctx context.Context, taskID, message string) error {
+func (m *MockState) LogTaskMessage(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LogTaskMessage", ctx, taskID, message)
+	ret := m.ctrl.Call(m, "LogTaskMessage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LogTaskMessage indicates an expected call of LogTaskMessage.
-func (mr *MockStateMockRecorder) LogTaskMessage(ctx, taskID, message any) *MockStateLogTaskMessageCall {
+func (mr *MockStateMockRecorder) LogTaskMessage(arg0, arg1, arg2 any) *MockStateLogTaskMessageCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogTaskMessage", reflect.TypeOf((*MockState)(nil).LogTaskMessage), ctx, taskID, message)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogTaskMessage", reflect.TypeOf((*MockState)(nil).LogTaskMessage), arg0, arg1, arg2)
 	return &MockStateLogTaskMessageCall{Call: call}
 }
 

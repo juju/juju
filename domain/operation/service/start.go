@@ -184,6 +184,11 @@ func (s *Service) AddActionOperation(
 		}
 	}
 
+	operationUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
+	}
+
 	// Initialize the results with proper size upfront
 	result := operation.RunResult{}
 	result.Units = make([]operation.UnitTaskResult, len(target))
@@ -252,17 +257,20 @@ func (s *Service) AddActionOperation(
 		return result, nil
 	}
 
-	operationUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
-	}
-
 	runResult, err := s.st.AddActionOperation(ctx, operationUUID, targetUnits, args)
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("adding action operation: %w", err)
 	}
 	result.OperationID = runResult.OperationID
 
+	// Make sure that we have the same number of result slots as the
+	// pre-computed results. This is a sanity check.
+	if len(runResult.Units) > len(resultSlots) {
+		s.logger.Errorf(ctx, "more state layer results than result slots: %d > %d", len(runResult.Units), len(resultSlots))
+		// This should never happen, but if it does, we'll just truncate the
+		// state layer results to match the result slots.
+		runResult.Units = runResult.Units[:len(resultSlots)]
+	}
 	// Consolidate the results from the state layer with our pre-computed results.
 	for i, unitTaskResult := range runResult.Units {
 		resultSlots[i].TaskInfo = unitTaskResult.TaskInfo

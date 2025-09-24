@@ -180,7 +180,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			response.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		response.Results[i] = makeActionResult(task, receiverTag)
+		response.Results[i] = toActionResult(receiverTag, task.TaskInfo)
 	}
 
 	return response, nil
@@ -217,7 +217,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		response.Results[i] = makeActionResult(cancelledAction, receiverTag)
+		response.Results[i] = toActionResult(receiverTag, cancelledAction.TaskInfo)
 	}
 	return response, nil
 }
@@ -299,36 +299,6 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		results.Results[i].Changes = initial
 	}
 	return results, nil
-}
-
-func makeActionResult(task operation.Task, receiverTag names.Tag) params.ActionResult {
-	actionTag := names.NewActionTag(task.ID)
-	ac := &params.Action{
-		Tag:            actionTag.String(),
-		Name:           task.ActionName,
-		Parameters:     task.Parameters,
-		Receiver:       receiverTag.String(),
-		Parallel:       &task.IsParallel,
-		ExecutionGroup: task.ExecutionGroup,
-	}
-
-	result := params.ActionResult{
-		Action:    ac,
-		Enqueued:  task.Enqueued,
-		Status:    task.Status.String(),
-		Output:    task.Output,
-		Started:   task.Started,
-		Completed: task.Completed,
-		Message:   task.Message,
-	}
-	for _, log := range task.Log {
-		result.Log = append(result.Log, params.ActionMessage{
-			Message:   log.Message,
-			Timestamp: log.Timestamp,
-		})
-	}
-
-	return result
 }
 
 // makeOperationReceivers creates a Receivers from the given application names, machine names and unit names.
