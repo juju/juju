@@ -40,9 +40,17 @@ type QueryArgs struct {
 	// If empty, all operations will be retrieved among exec or actions operations
 	ActionNames []string
 
-	// Receivers defines a filter on which receiver(s) we want to retrieve operations.
-	// if empty, operations from all receivers will be retrieved.
-	Receivers Receivers
+	// Applications defines the specific applications to which the operations
+	// will be filtered on. All units of the application are taken in this case.
+	Applications []string
+
+	// Machines defines the specific machines to which the operations will be
+	// filtered on.
+	Machines []machine.Name
+
+	// Units defines the specific units to which the operations will be filtered
+	// on.
+	Units []unit.Name
 
 	// Status defines which specific status we want to retrieve.
 	// If empty, operations with any status will be retrieved.

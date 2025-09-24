@@ -523,7 +523,7 @@ func (st *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (ope
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	logEntries, err := st.getTaskLog(ctx, tx, taskID)
+	logEntries, err := st.getTaskLogs(ctx, tx, taskID)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
@@ -570,11 +570,14 @@ LEFT JOIN operation_task_output oto ON t.uuid = oto.task_uuid
 LEFT JOIN v_object_store_metadata os ON oto.store_uuid = os.uuid
 `
 
-func (st *State) getOperationTasks(ctx context.Context, tx *sqlair.TX, operationUUID string) ([]taskResult, error) {
-	ident := uuid{UUID: operationUUID}
+// getOperationTasks retrieves all tasks for the given operation UUIDs,
+// returning a map of operation UUID to a slice of raw taskResult structs.
+func (st *State) getOperationTasks(ctx context.Context, tx *sqlair.TX, operationUUIDs []string) (map[string][]taskResult, error) {
+	type opUUIDs []string
 	taskQuery := operationTaskBaseQuery + `
-WHERE t.operation_uuid = $uuid.uuid
+WHERE t.operation_uuid IN ($opUUIDs[:])
 `
+	ident := opUUIDs(operationUUIDs)
 	stmt, err := st.Prepare(taskQuery, taskResult{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing task query: %w", err)
@@ -611,22 +614,25 @@ WHERE t.task_id = $taskIdent.task_id
 	return result, nil
 }
 
-func (st *State) getOperationParameters(ctx context.Context, tx *sqlair.TX, operationUUIDStr string) ([]taskParameter, error) {
-	opUUID := uuid{UUID: operationUUIDStr}
+// getOperationParameters retrieves all parameters for the given operation
+// UUIDs, returning a map of operation UUID to a slice of parameters.
+func (st *State) getOperationParameters(ctx context.Context, tx *sqlair.TX, operationUUIDStr []string) (map[string][]taskParameter, error) {
+	type opUUIDs []string
 
 	query := `
 SELECT * AS &taskParameter.*
 FROM   operation_parameter
-WHERE  operation_uuid = $uuid.uuid
+WHERE  operation_uuid IN ($opUUIDs[:])
 `
+	ident := opUUIDs(operationUUIDStr)
 
-	stmt, err := st.Prepare(query, taskParameter{}, opUUID)
+	stmt, err := st.Prepare(query, taskParameter{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing parameters statement: %w", err)
 	}
 
 	var parameters []taskParameter
-	err = tx.Query(ctx, stmt, opUUID).GetAll(&parameters)
+	err = tx.Query(ctx, stmt, ident).GetAll(&parameters)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Errorf("querying task parameters: %w", err)
 	}
@@ -634,8 +640,10 @@ WHERE  operation_uuid = $uuid.uuid
 	return parameters, nil
 }
 
-func (st *State) getTaskLog(ctx context.Context, tx *sqlair.TX, taskID string) ([]taskLogEntry, error) {
-	ident := taskIdent{ID: taskID}
+// getTaskLogs retrieves all log entries for the given task IDs, returning
+// a map of task ID to a slice of log entries.
+func (st *State) getTaskLogs(ctx context.Context, tx *sqlair.TX, taskIDs []string) (map[string][]taskLogEntry, error) {
+	type tasks []string
 
 	query := `
 SELECT task_uuid AS &taskLogEntry.task_uuid,
@@ -643,10 +651,11 @@ SELECT task_uuid AS &taskLogEntry.task_uuid,
        created_at AS &taskLogEntry.created_at
 FROM   operation_task_log
 JOIN   operation_task AS ot ON operation_task_log.task_uuid = ot.uuid
-WHERE  ot.task_id = $taskIdent.task_id
+WHERE  ot.task_id IN ($tasks[:])
 ORDER BY created_at ASC
 `
-	stmt, err := st.Prepare(query, taskLogEntry{}, taskIdent{})
+	ident := tasks(taskIDs)
+	stmt, err := st.Prepare(query, taskLogEntry{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing log statement: %w", err)
 	}

@@ -24,10 +24,12 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 	}
 
 	var (
-		ops       []operationResult
-		allTasks  map[string][]taskResult
+		ops []operationResult
+		// Map from operation UUID to its tasks.
+		allTasks map[string][]taskResult
+		// Map from operation UUID to its parameters.
 		allParams map[string][]taskParameter
-		// map from operation UUID to a map from task ID to its logs.
+		// Map from operation UUID to a map from task ID to its logs.
 		allTaskLogs map[string]map[string][]taskLogEntry
 	)
 	allTasks = make(map[string][]taskResult)
@@ -147,7 +149,7 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 
 // getFullTasksForOperation retrieves all tasks for a given operation,
 // including their logs and the operation parameters.
-func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, opUUID string) ([]taskResult, []taskParameter, map[string][]taskLogEntry, error) {
+func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, opUUID []string) (map[string][]taskResult, map[string][]taskParameter, map[string]map[string][]taskLogEntry, error) {
 	// Get the operation parameters.
 	parameters, err := st.getOperationParameters(ctx, tx, opUUID)
 	if err != nil {
@@ -163,7 +165,7 @@ func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, op
 	taskLogs := make(map[string][]taskLogEntry)
 	for _, task := range tasks {
 		// Get the task logs.
-		logs, err := st.getTaskLog(ctx, tx, task.TaskID)
+		logs, err := st.getTaskLogs(ctx, tx, task.TaskID)
 		if err != nil {
 			return nil, nil, nil, errors.Capture(err)
 		}
@@ -265,7 +267,6 @@ func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset 
 	type applications []string
 	type machines []string
 	type units []string
-	type leaderApps []string
 
 	var args []any
 
@@ -290,10 +291,9 @@ FROM   operation o`
 
 	// Check if we need task joins
 	needsTaskJoin = len(params.Status) > 0 ||
-		len(params.Receivers.Applications) > 0 ||
-		len(params.Receivers.Machines) > 0 ||
-		len(params.Receivers.Units) > 0 ||
-		len(params.Receivers.LeaderUnit) > 0
+		len(params.Applications) > 0 ||
+		len(params.Machines) > 0 ||
+		len(params.Units) > 0
 
 	// ActionNames filter - need to join with operation_action
 	if len(params.ActionNames) > 0 {
@@ -322,51 +322,37 @@ FROM   operation o`
 	// Receivers filter - need to join with tasks and their targets
 	receiverClauses := []string{}
 
-	if len(params.Receivers.Applications) > 0 {
+	if len(params.Applications) > 0 {
 		joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
 		joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
 		joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
 		receiverClauses = append(receiverClauses, "a.name IN ($applications[:])")
-		args = append(args, applications(params.Receivers.Applications))
+		args = append(args, applications(params.Applications))
 	}
 
-	if len(params.Receivers.Machines) > 0 {
+	if len(params.Machines) > 0 {
 		joinClauses = append(joinClauses, "LEFT JOIN operation_machine_task mt ON t.uuid = mt.task_uuid")
 		joinClauses = append(joinClauses, "LEFT JOIN machine m ON mt.machine_uuid = m.uuid")
-		machineNames := make([]string, len(params.Receivers.Machines))
-		for i, name := range params.Receivers.Machines {
+		machineNames := make([]string, len(params.Machines))
+		for i, name := range params.Machines {
 			machineNames[i] = string(name)
 		}
 		receiverClauses = append(receiverClauses, "m.name IN ($machines[:])")
 		args = append(args, machines(machineNames))
 	}
 
-	if len(params.Receivers.Units) > 0 {
+	if len(params.Units) > 0 {
 		// If we haven't already joined with unit tables for applications
-		if len(params.Receivers.Applications) == 0 {
+		if len(params.Applications) == 0 {
 			joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
 			joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
 		}
-		unitNames := make([]string, len(params.Receivers.Units))
-		for i, name := range params.Receivers.Units {
+		unitNames := make([]string, len(params.Units))
+		for i, name := range params.Units {
 			unitNames[i] = string(name)
 		}
 		receiverClauses = append(receiverClauses, "u.name IN ($units[:])")
 		args = append(args, units(unitNames))
-	}
-
-	if len(params.Receivers.LeaderUnit) > 0 {
-		// Leader unit filtering is more complex - would need leader election info
-		// For now, we'll treat it as application filtering
-		if len(params.Receivers.Applications) == 0 && len(params.Receivers.Units) == 0 {
-			joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
-			joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
-			joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
-		} else if len(params.Receivers.Applications) == 0 {
-			joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
-		}
-		receiverClauses = append(receiverClauses, "a.name IN ($leaderApps[:])")
-		args = append(args, leaderApps(params.Receivers.LeaderUnit))
 	}
 
 	if len(receiverClauses) > 0 {

@@ -13,6 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	coreoperation "github.com/juju/juju/core/operation"
 	corestatus "github.com/juju/juju/core/status"
@@ -176,12 +177,20 @@ func (a *ActionAPI) ListOperations(ctx context.Context, arg params.OperationQuer
 			return corestatus.Status(f)
 		})
 	}
+	machineQueries := transform.Slice(arg.Machines, func(m string) coremachine.Name {
+		return coremachine.Name(m)
+	})
+	unitQueries := transform.Slice(arg.Units, func(u string) unit.Name {
+		return unit.Name(u)
+	})
 	args := operation.QueryArgs{
-		Receivers:   makeOperationReceivers(arg.Applications, arg.Machines, arg.Units),
-		ActionNames: arg.ActionNames,
-		Status:      status,
-		Limit:       arg.Limit,
-		Offset:      arg.Offset,
+		ActionNames:  arg.ActionNames,
+		Applications: arg.Applications,
+		Machines:     machineQueries,
+		Units:        unitQueries,
+		Status:       status,
+		Limit:        arg.Limit,
+		Offset:       arg.Offset,
 	}
 	result, err := a.operationService.GetOperations(ctx, args)
 	if err != nil {

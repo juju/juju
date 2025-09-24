@@ -27,7 +27,7 @@ func (s *querySuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 }
 
-func (s *querySuite) TestGetOperationByID_UnitAndMachineTasks(c *tc.C) {
+func (s *querySuite) TestGetOperationByIDUnitAndMachineTasks(c *tc.C) {
 	// Arrange: create an operation with both unit and machine tasks
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -82,7 +82,7 @@ func (s *querySuite) TestGetOperationByID_UnitAndMachineTasks(c *tc.C) {
 	c.Check(machineTask.Log[0].Message, tc.Equals, "machine log entry")
 }
 
-func (s *querySuite) TestGetOperationByID_NotFound(c *tc.C) {
+func (s *querySuite) TestGetOperationByIDNotFound(c *tc.C) {
 	// Act
 	_, err := s.state.GetOperationByID(c.Context(), "non-existent-id")
 
@@ -91,7 +91,7 @@ func (s *querySuite) TestGetOperationByID_NotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `operation "non-existent-id" not found`)
 }
 
-func (s *querySuite) TestGetOperations_EmptyResult(c *tc.C) {
+func (s *querySuite) TestGetOperationsEmptyResult(c *tc.C) {
 	// Act - query with no operations in database
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{})
 
@@ -101,7 +101,7 @@ func (s *querySuite) TestGetOperations_EmptyResult(c *tc.C) {
 	c.Check(result.Truncated, tc.Equals, false)
 }
 
-func (s *querySuite) TestGetOperations_AllOperations(c *tc.C) {
+func (s *querySuite) TestGetOperationsAllOperations(c *tc.C) {
 	// Arrange - create multiple operations
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -128,12 +128,12 @@ func (s *querySuite) TestGetOperations_AllOperations(c *tc.C) {
 	c.Assert(result.Operations, tc.HasLen, 2)
 	c.Check(result.Truncated, tc.Equals, false)
 
-	// Check operations are ordered by enqueued_at DESC (newest first)
+	// Check operations are ordered by enqueued_at DESC (newest first).
 	op1, op2 := result.Operations[0], result.Operations[1]
 	c.Check(op1.Enqueued.After(op2.Enqueued) || op1.Enqueued.Equal(op2.Enqueued), tc.Equals, true)
 }
 
-func (s *querySuite) TestGetOperations_FilterByActionNames(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByActionNames(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -164,7 +164,7 @@ func (s *querySuite) TestGetOperations_FilterByActionNames(c *tc.C) {
 	c.Check(result.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
 }
 
-func (s *querySuite) TestGetOperations_FilterByMultipleActionNames(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -204,7 +204,7 @@ func (s *querySuite) TestGetOperations_FilterByMultipleActionNames(c *tc.C) {
 	c.Check(actionNames, tc.DeepEquals, []string{"other-action", "test-action"}) // Ordered by enqueued_at DESC
 }
 
-func (s *querySuite) TestGetOperations_FilterByStatus(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByStatus(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -233,7 +233,7 @@ func (s *querySuite) TestGetOperations_FilterByStatus(c *tc.C) {
 	c.Check(result.Operations[0].Units[0].Status, tc.Equals, corestatus.Completed)
 }
 
-func (s *querySuite) TestGetOperations_FilterByUnits(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByUnits(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -254,9 +254,7 @@ func (s *querySuite) TestGetOperations_FilterByUnits(c *tc.C) {
 
 	// Act - filter by unit test-app/0
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Receivers: operation.Receivers{
-			Units: []coreunit.Name{"test-app/0"},
-		},
+		Units: []coreunit.Name{"test-app/0"},
 	})
 
 	// Assert
@@ -265,7 +263,7 @@ func (s *querySuite) TestGetOperations_FilterByUnits(c *tc.C) {
 	c.Check(result.Operations[0].Units[0].ReceiverName, tc.Equals, coreunit.Name("test-app/0"))
 }
 
-func (s *querySuite) TestGetOperations_FilterByMachines(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByMachines(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -286,9 +284,7 @@ func (s *querySuite) TestGetOperations_FilterByMachines(c *tc.C) {
 
 	// Act - filter by machine 0
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Receivers: operation.Receivers{
-			Machines: []coremachine.Name{"0"},
-		},
+		Machines: []coremachine.Name{"0"},
 	})
 
 	// Assert
@@ -297,7 +293,7 @@ func (s *querySuite) TestGetOperations_FilterByMachines(c *tc.C) {
 	c.Check(result.Operations[0].Machines[0].ReceiverName, tc.Equals, coremachine.Name("0"))
 }
 
-func (s *querySuite) TestGetOperations_FilterByApplications(c *tc.C) {
+func (s *querySuite) TestGetOperationsFilterByApplications(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -320,9 +316,7 @@ func (s *querySuite) TestGetOperations_FilterByApplications(c *tc.C) {
 
 	// Act - filter by app1
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Receivers: operation.Receivers{
-			Applications: []string{"app1"},
-		},
+		Applications: []string{"app1"},
 	})
 
 	// Assert
@@ -331,32 +325,7 @@ func (s *querySuite) TestGetOperations_FilterByApplications(c *tc.C) {
 	c.Check(string(result.Operations[0].Units[0].ReceiverName), tc.Matches, "app1/.*")
 }
 
-func (s *querySuite) TestGetOperations_FilterByLeaderUnit(c *tc.C) {
-	// Arrange
-	charmUUID := s.addCharm(c)
-	s.addCharmAction(c, charmUUID)
-
-	// Operation targeting app1 leader
-	opUUID1 := s.addOperation(c)
-	s.addOperationAction(c, opUUID1, charmUUID, "test-action")
-	unitUUID1 := s.addUnitWithName(c, charmUUID, "app1/0")
-	taskUUID1 := s.addOperationTask(c, opUUID1)
-	s.addOperationUnitTask(c, taskUUID1, unitUUID1)
-
-	// Act - filter by leader of app1
-	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Receivers: operation.Receivers{
-			LeaderUnit: []string{"app1"},
-		},
-	})
-
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 1)
-	c.Check(string(result.Operations[0].Units[0].ReceiverName), tc.Matches, "app1/.*")
-}
-
-func (s *querySuite) TestGetOperations_CombinedFilters(c *tc.C) {
+func (s *querySuite) TestGetOperationsCombinedFilters(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -384,11 +353,9 @@ func (s *querySuite) TestGetOperations_CombinedFilters(c *tc.C) {
 
 	// Act - filter by test-action AND app1 AND completed status
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		ActionNames: []string{"test-action"},
-		Status:      []corestatus.Status{corestatus.Completed},
-		Receivers: operation.Receivers{
-			Applications: []string{"app1"},
-		},
+		ActionNames:  []string{"test-action"},
+		Status:       []corestatus.Status{corestatus.Completed},
+		Applications: []string{"app1"},
 	})
 
 	// Assert - should only return operation 1
@@ -399,7 +366,7 @@ func (s *querySuite) TestGetOperations_CombinedFilters(c *tc.C) {
 	c.Check(result.Operations[0].Units[0].ReceiverName.String(), tc.Matches, "app1/.*")
 }
 
-func (s *querySuite) TestGetOperations_Pagination(c *tc.C) {
+func (s *querySuite) TestGetOperationsPagination(c *tc.C) {
 	// Arrange - create 5 operations
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -456,7 +423,7 @@ func (s *querySuite) TestGetOperations_Pagination(c *tc.C) {
 	c.Check(allOpIDs, tc.HasLen, 5)
 }
 
-func (s *querySuite) TestGetOperations_PaginationEdgeCases(c *tc.C) {
+func (s *querySuite) TestGetOperationsPaginationEdgeCases(c *tc.C) {
 	// Act - test with offset beyond available data
 	offset := 1000
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -480,7 +447,7 @@ func (s *querySuite) TestGetOperations_PaginationEdgeCases(c *tc.C) {
 	c.Check(result2.Truncated, tc.Equals, false)
 }
 
-func (s *querySuite) TestGetOperations_CompleteDataVerification(c *tc.C) {
+func (s *querySuite) TestGetOperationsCompleteDataVerification(c *tc.C) {
 	// Arrange - create operation with all data types
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -535,7 +502,7 @@ func (s *querySuite) TestGetOperations_CompleteDataVerification(c *tc.C) {
 	c.Check(machineTask.Log[0].Message, tc.Equals, "machine log message")
 }
 
-func (s *querySuite) TestGetOperations_NoMatchingFilters(c *tc.C) {
+func (s *querySuite) TestGetOperationsNoMatchingFilters(c *tc.C) {
 	// Arrange - create operations but filter for non-existent data
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -558,25 +525,19 @@ func (s *querySuite) TestGetOperations_NoMatchingFilters(c *tc.C) {
 		{
 			name: "non-existent unit",
 			filter: operation.QueryArgs{
-				Receivers: operation.Receivers{
-					Units: []coreunit.Name{"non-existent/0"},
-				},
+				Units: []coreunit.Name{"non-existent/0"},
 			},
 		},
 		{
 			name: "non-existent machine",
 			filter: operation.QueryArgs{
-				Receivers: operation.Receivers{
-					Machines: []coremachine.Name{"999"},
-				},
+				Machines: []coremachine.Name{"999"},
 			},
 		},
 		{
 			name: "non-existent application",
 			filter: operation.QueryArgs{
-				Receivers: operation.Receivers{
-					Applications: []string{"non-existent-app"},
-				},
+				Applications: []string{"non-existent-app"},
 			},
 		},
 		{
@@ -600,8 +561,9 @@ func (s *querySuite) TestGetOperations_NoMatchingFilters(c *tc.C) {
 // correctly when combined with an action name filter. It creates multiple
 // operations tagged with two different actions and then pages through the
 // filtered result set using limit+offset.
-func (s *querySuite) TestGetOperations_PaginationWithActionFilter(c *tc.C) {
-	// Arrange - create 5 operations: 3 with "test-action" and 2 with "other-action"
+func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
+	// Arrange - create 5 operations: 3 with "test-action" and 2 with
+	// "other-action".
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "test-app/0")
@@ -651,7 +613,8 @@ func (s *querySuite) TestGetOperations_PaginationWithActionFilter(c *tc.C) {
 	c.Check(resultPage2.Truncated, tc.Equals, false)
 	c.Check(resultPage2.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
 
-	// Verify that concatenating pages yields unique operation IDs and matches the expected count.
+	// Verify that concatenating pages yields unique operation IDs and matches
+	// the expected count.
 	allOpIDs := make(map[string]bool)
 	for _, op := range append(resultPage1.Operations, resultPage2.Operations...) {
 		c.Check(allOpIDs[op.OperationID], tc.Equals, false, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
@@ -663,7 +626,7 @@ func (s *querySuite) TestGetOperations_PaginationWithActionFilter(c *tc.C) {
 // TestGetOperations_PaginationWithCombinedFilters verifies pagination works
 // in combination with receiver filters (applications) and offset. This ensures
 // that LIMIT/OFFSET are applied to the filtered result set.
-func (s *querySuite) TestGetOperations_PaginationWithCombinedFilters(c *tc.C) {
+func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 	// Arrange - create operations across two applications
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
@@ -688,20 +651,20 @@ func (s *querySuite) TestGetOperations_PaginationWithCombinedFilters(c *tc.C) {
 		s.addOperationUnitTask(c, taskUUID, unitBeta)
 	}
 
-	// Act - query for application "alpha" with limit=1 and offset=1 (should get the 2nd of 3)
+	// Act - query for application "alpha" with limit=1 and offset=1 (should
+	// get the 2nd of 3).
 	limit := 1
 	offset := 1
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Receivers: operation.Receivers{
-			Applications: []string{"alpha"},
-		},
-		Limit:  &limit,
-		Offset: &offset,
+		Applications: []string{"alpha"},
+		Limit:        &limit,
+		Offset:       &offset,
 	})
 	c.Assert(err, tc.IsNil)
 	// Expect exactly 1 operation returned
 	c.Assert(result.Operations, tc.HasLen, 1)
-	// There are more alpha operations beyond this page, so truncated should be true.
+	// There are more alpha operations beyond this page, so truncated should be
+	// true.
 	c.Check(result.Truncated, tc.Equals, true)
 	// Ensure the returned operation targets "alpha"
 	c.Check(result.Operations[0].Units[0].ReceiverName.String(), tc.Matches, "alpha/.*")
