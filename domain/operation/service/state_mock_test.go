@@ -164,6 +164,44 @@ func (c *MockStateFilterTaskUUIDsForUnitCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// FinishTask mocks base method.
+func (m *MockState) FinishTask(arg0 context.Context, arg1 internal.CompletedTask) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FinishTask", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FinishTask indicates an expected call of FinishTask.
+func (mr *MockStateMockRecorder) FinishTask(arg0, arg1 any) *MockStateFinishTaskCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishTask", reflect.TypeOf((*MockState)(nil).FinishTask), arg0, arg1)
+	return &MockStateFinishTaskCall{Call: call}
+}
+
+// MockStateFinishTaskCall wrap *gomock.Call
+type MockStateFinishTaskCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateFinishTaskCall) Return(arg0 error) *MockStateFinishTaskCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateFinishTaskCall) Do(f func(context.Context, internal.CompletedTask) error) *MockStateFinishTaskCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateFinishTaskCall) DoAndReturn(f func(context.Context, internal.CompletedTask) error) *MockStateFinishTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetIDsForAbortingTaskOfReceiver mocks base method.
 func (m *MockState) GetIDsForAbortingTaskOfReceiver(ctx context.Context, receiverUUID uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()

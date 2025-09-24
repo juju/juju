@@ -298,8 +298,8 @@ WHERE  %q IN ($uuids[:])`, table, field), uuidToDelete)
 }
 
 // GetUnitUUIDByName returns the unit UUID for the given unit name.
-func (s *State) GetUnitUUIDByName(ctx context.Context, unitName coreunit.Name) (string, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetUnitUUIDByName(ctx context.Context, unitName coreunit.Name) (string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -309,7 +309,7 @@ func (s *State) GetUnitUUIDByName(ctx context.Context, unitName coreunit.Name) (
 SELECT uuid AS &uuid.uuid 
 FROM   unit 
 WHERE  name = $nameArg.name`
-	stmt, err := s.Prepare(query, uuid{}, unitIdent)
+	stmt, err := st.Prepare(query, uuid{}, unitIdent)
 	if err != nil {
 		return "", errors.Errorf("preparing statement: %w", err)
 	}
@@ -332,8 +332,8 @@ WHERE  name = $nameArg.name`
 }
 
 // GetMachineUUIDByName returns the machine UUID for the given machine name.
-func (s *State) GetMachineUUIDByName(ctx context.Context, machineName coremachine.Name) (string, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetMachineUUIDByName(ctx context.Context, machineName coremachine.Name) (string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -343,7 +343,7 @@ func (s *State) GetMachineUUIDByName(ctx context.Context, machineName coremachin
 SELECT uuid AS &uuid.uuid 
 FROM   machine 
 WHERE  name = $nameArg.name`
-	stmt, err := s.Prepare(query, uuid{}, machineIdent)
+	stmt, err := st.Prepare(query, uuid{}, machineIdent)
 	if err != nil {
 		return "", errors.Errorf("preparing statement: %w", err)
 	}
@@ -368,7 +368,7 @@ WHERE  name = $nameArg.name`
 // InitialWatchStatementUnitTask returns the namespace and an initial query
 // function which returns the list of (only PENDING or ABORTING status) task ids
 // for the given unit.
-func (s *State) InitialWatchStatementUnitTask() (string, string) {
+func (st *State) InitialWatchStatementUnitTask() (string, string) {
 	return "custom_operation_task_status_pending_or_aborting", `
 SELECT t.task_id
 FROM   operation_task AS t
@@ -386,7 +386,7 @@ AND    (
 // InitialWatchStatementMachineTask returns the namespace and an initial
 // query function which returns the list of (only PENDING status) task ids for
 // the given machine.
-func (s *State) InitialWatchStatementMachineTask() (string, string) {
+func (st *State) InitialWatchStatementMachineTask() (string, string) {
 	return "custom_operation_task_status_pending", `
 SELECT t.task_id
 FROM   operation_task AS t
@@ -404,8 +404,8 @@ AND    sv.status = 'pending'`
 // Although the status check is needed for the notification watcher, we already
 // have a custom changelog trigger, which only fires on PENDING and ABORTING
 // statuses, which makes this filter only needed for unit UUID filtering.
-func (s *State) FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error) {
-	db, err := s.DB(ctx)
+func (st *State) FilterTaskUUIDsForUnit(ctx context.Context, tUUIDs []string, unitUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -419,7 +419,7 @@ FROM   operation_task AS t
 JOIN   operation_unit_task AS ut ON t.uuid = ut.task_uuid
 WHERE  t.uuid IN ($taskUUIDs[:])
 AND    ut.unit_uuid = $uuid.uuid`
-	stmt, err := s.Prepare(query, taskIdent{}, taskInputUUIDs, unitIdent)
+	stmt, err := st.Prepare(query, taskIdent{}, taskInputUUIDs, unitIdent)
 	if err != nil {
 		return nil, errors.Errorf("preparing statement: %w", err)
 	}
@@ -450,8 +450,8 @@ AND    ut.unit_uuid = $uuid.uuid`
 // Although the status check is needed for the notification watcher, we already
 // have a custom changelog trigger, which only fires on PENDING status, which
 // makes this filter only needed for machine UUID filtering.
-func (s *State) FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error) {
-	db, err := s.DB(ctx)
+func (st *State) FilterTaskUUIDsForMachine(ctx context.Context, tUUIDs []string, machineUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -465,7 +465,7 @@ FROM   operation_task AS t
 JOIN   operation_machine_task AS mt ON t.uuid = mt.task_uuid
 WHERE  t.uuid IN ($taskUUIDs[:])
 AND    mt.machine_uuid = $uuid.uuid`
-	stmt, err := s.Prepare(query, taskIdent{}, taskInputUUIDs, machineIdent)
+	stmt, err := st.Prepare(query, taskIdent{}, taskInputUUIDs, machineIdent)
 	if err != nil {
 		return nil, errors.Errorf("preparing statement: %w", err)
 	}

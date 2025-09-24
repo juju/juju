@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strings"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -27,7 +29,79 @@ func (s *Service) StartTask(ctx context.Context, taskID string) error {
 
 // FinishTask saves the result of a completed task.
 func (s *Service) FinishTask(ctx context.Context, result operation.CompletedTaskResult) error {
-	return coreerrors.NotImplemented
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", result.TaskID),
+		))
+	defer span.End()
+
+	if err := result.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Use the task's UUID as the path in the object store for
+	// it's results
+	taskUUID, err := s.st.GetTaskUUIDByID(ctx, result.TaskID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	storeUUID, removeResultsFromStore, err := s.storeTaskResults(ctx, taskUUID, result.Results)
+	if err != nil {
+		return errors.Errorf("putting task result %q in store: %w", result.TaskID, err)
+	}
+
+	defer func() {
+		if err != nil && removeResultsFromStore != nil {
+			removeResultsFromStore()
+		}
+	}()
+
+	err = s.st.FinishTask(ctx, internal.CompletedTask{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID,
+		Status:    result.Status,
+		Message:   result.Message,
+	})
+	return errors.Capture(err)
+}
+
+func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results map[string]interface{}) (string, func(), error) {
+	if results == nil {
+		return "", nil, nil
+	}
+
+	object, err := json.Marshal(results)
+	if err != nil {
+		return "", nil, errors.Errorf("failed to serialize results: %w", err)
+	}
+
+	// Save output
+	store, err := s.objectStoreGetter.GetObjectStore(ctx)
+	if err != nil {
+		return "", nil, errors.Errorf("getting object store: %w", err)
+	}
+
+	size := int64(len(object))
+	reader := strings.NewReader(string(object))
+	storeUUID, err := store.Put(
+		ctx,
+		taskUUID,
+		reader,
+		size,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf("failed to store results: %w", err)
+	}
+
+	removeResultsFromStore := func() {
+		rErr := store.Remove(ctx, taskUUID)
+		if rErr != nil {
+			s.logger.Errorf(ctx, "removing task result %s from store: %w", rErr)
+		}
+	}
+
+	return storeUUID.String(), removeResultsFromStore, nil
 }
 
 // ReceiverFromTask returns a receiver string for the task identified.

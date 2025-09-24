@@ -22,3 +22,11 @@ func (t TaskLogMessage) TransformToCore() coreoperation.TaskLogMessage {
 		Timestamp: t.Timestamp,
 	}
 }
+
+// CompletedTask is the data required to finish a task.
+type CompletedTask struct {
+	TaskUUID  string
+	StoreUUID string
+	Status    string
+	Message   string
+}

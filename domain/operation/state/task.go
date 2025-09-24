@@ -14,6 +14,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -24,8 +25,8 @@ import (
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *string, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetTask(ctx context.Context, taskID string) (operation.Task, *string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
@@ -37,7 +38,7 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 
-		result, outputPath, err = s.getTask(ctx, tx, taskID)
+		result, outputPath, err = st.getTask(ctx, tx, taskID)
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -50,8 +51,8 @@ func (s *State) GetTask(ctx context.Context, taskID string) (operation.Task, *st
 // StartTask sets the task start time and updates the status to running.
 // Returns [operationerrors.TaskNotFound] if the task does not exist,
 // and [operationerrors.TaskNotPending] if the task is not pending.
-func (s *State) StartTask(ctx context.Context, taskID string) error {
-	db, err := s.DB(ctx)
+func (st *State) StartTask(ctx context.Context, taskID string) error {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -60,7 +61,7 @@ func (s *State) StartTask(ctx context.Context, taskID string) error {
 		TaskID: taskID,
 		Time:   time.Now().UTC(),
 	}
-	updateStartedStmt, err := s.Prepare(`
+	updateStartedStmt, err := st.Prepare(`
 UPDATE operation_task
 SET    started_at = $taskTime.time
 WHERE  task_id = $taskTime.task_id
@@ -79,7 +80,7 @@ WHERE  task_id = $taskTime.task_id
 	}
 	startingStatus := status{Status: corestatus.Pending.String()}
 
-	updateStatusStmt, err := s.Prepare(`
+	updateStatusStmt, err := st.Prepare(`
 UPDATE operation_task_status
 SET    status_id = (
            SELECT id FROM operation_task_status_value WHERE status = $taskStatus.status
@@ -138,13 +139,163 @@ func verifyOneOutcome(outcome sqlair.Outcome, returnError error) error {
 	return nil
 }
 
+// FinishTask updates the task status to an inactive status value
+// and saves a reference to its results in the object store. If the
+// task's operation has no active tasks, mark the completed time for
+// the operation.
+// Returns [operationerrors.TaskNotFound] if the task does not exist.
+func (st *State) FinishTask(ctx context.Context, task internal.CompletedTask) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	completedTime := time.Now().UTC()
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.updateOperationTaskStatus(ctx, tx, task.TaskUUID, task.Status, task.Message, completedTime); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := st.insertOperationTaskOutput(ctx, tx, task.TaskUUID, task.StoreUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := st.maybeCompleteOperation(ctx, tx, task.TaskUUID, completedTime); err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("%w", err)
+	}
+	return nil
+}
+
+func (st *State) updateOperationTaskStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID, status, message string,
+	completedTime time.Time,
+) error {
+	statusValue := taskStatus{
+		TaskUUID:  taskUUID,
+		Status:    status,
+		Message:   message,
+		UpdatedAt: completedTime,
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE operation_task_status
+SET    message = $taskStatus.message,
+       updated_at = $taskStatus.updated_at,
+       status_id = (
+           SELECT id FROM operation_task_status_value WHERE status = $taskStatus.status
+       )
+WHERE task_uuid = $taskStatus.task_uuid
+`, taskStatus{})
+	if err != nil {
+		return errors.Errorf("preparing update task status statement: %w", err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, stmt, statusValue).Get(&outcome)
+	if err != nil {
+		return errors.Errorf("updating task status %q: %w", taskUUID, err)
+	}
+
+	if err := verifyOneOutcome(outcome, operationerrors.TaskNotFound); err != nil {
+		return errors.Errorf("task %q: %w", taskUUID, err)
+	}
+	return nil
+}
+
+func (st *State) insertOperationTaskOutput(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID, storeUUID string,
+) error {
+
+	store := outputStore{
+		TaskUUID:  taskUUID,
+		StoreUUID: storeUUID,
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO operation_task_output (*)
+VALUES ($outputStore.*)
+`, store)
+	if err != nil {
+		return errors.Errorf("preparing insert task output store statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, store).Run()
+	if err != nil {
+		return errors.Errorf("inserting task %q output: %w", taskUUID, err)
+	}
+
+	return nil
+}
+
+func (st *State) maybeCompleteOperation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	taskUUID string,
+	completedTime time.Time,
+) error {
+	tUUID := taskUUIDTime{
+		TaskUUID: taskUUID,
+		Time:     completedTime,
+	}
+	statuses := corestatus.ActiveTaskStatuses()
+
+	type status []string
+
+	// How many active tasks does this operation have?
+	stmt, err := st.Prepare(`
+WITH
+-- Get the last updated task operation uuid
+task AS (
+    SELECT operation_uuid
+    FROM   operation_task
+    WHERE  uuid = $taskUUIDTime.task_uuid
+),
+-- Check if any of its task is not completed
+not_completed AS (
+    SELECT operation_uuid AS uuid
+    FROM   operation_task AS ot
+    JOIN   operation_task_status AS ots ON ot.uuid = ots.task_uuid
+    JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE  ot.operation_uuid = (SELECT operation_uuid FROM task)
+    AND    otsv.status IN ($status[:])
+    LIMIT  1
+)
+-- update the task operation only if it is completed
+UPDATE operation
+SET    completed_at = $taskUUIDTime.time
+WHERE  operation.uuid = (SELECT operation_uuid FROM task)
+AND    operation.uuid NOT IN not_completed
+`, status{}, taskUUIDTime{})
+	if err != nil {
+		return errors.Errorf("preparing maybe complete operation statement: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, tUUID, status(statuses)).Run()
+	if err != nil {
+		return errors.Errorf("maybe complete operation : %w", err)
+	}
+
+	return nil
+}
+
 // CancelTask attempts to cancel an enqueued task, identified by its
 // ID.
 //
 // The following errors may be returned:
 // - [operationerrors.TaskNotFound] when the task does not exists.
-func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
-	db, err := s.DB(ctx)
+func (st *State) CancelTask(ctx context.Context, taskID string) (operation.Task, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.Task{}, errors.Capture(err)
 	}
@@ -152,12 +303,12 @@ func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, 
 	var result operation.Task
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Attempt to cancel the task.
-		err = s.cancelTask(ctx, tx, taskID)
+		err = st.cancelTask(ctx, tx, taskID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		result, _, err = s.getTask(ctx, tx, taskID)
+		result, _, err = st.getTask(ctx, tx, taskID)
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -168,7 +319,7 @@ func (s *State) CancelTask(ctx context.Context, taskID string) (operation.Task, 
 }
 
 // cancelTask updates a specific task to cancelled status.
-func (s *State) cancelTask(ctx context.Context, tx *sqlair.TX, taskID string) error {
+func (st *State) cancelTask(ctx context.Context, tx *sqlair.TX, taskID string) error {
 	taskIDParam := taskIdent{ID: taskID}
 
 	currentStatusQuery := `
@@ -178,7 +329,7 @@ JOIN   operation_task_status AS ots ON ots.task_uuid = ot.uuid
 JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
 WHERE  ot.task_id = $taskIdent.task_id
 `
-	currentStatusStmt, err := s.Prepare(currentStatusQuery, taskStatus{}, taskIDParam)
+	currentStatusStmt, err := st.Prepare(currentStatusQuery, taskStatus{}, taskIDParam)
 	if err != nil {
 		return errors.Errorf("preparing retrieve current status statement for task ID %q: %w", taskID, err)
 	}
@@ -200,13 +351,13 @@ FROM   operation_task AS ot
 WHERE  operation_task_status.task_uuid = ot.uuid
 AND    ot.task_id = $taskIdent.task_id
 `
-	updateStatusStmt, err := s.Prepare(updateStatusQuery, taskStatus{}, taskIDParam)
+	updateStatusStmt, err := st.Prepare(updateStatusQuery, taskStatus{}, taskIDParam)
 	if err != nil {
 		return errors.Errorf("preparing update status statement for task ID %q: %w", taskID, err)
 	}
 
 	// If the status is Completed, Cancelled, Failed, Aborted or Error then
-	// there's nothing to do.
+	// there'st nothing to do.
 	if currentStatus.Status == corestatus.Completed.String() ||
 		currentStatus.Status == corestatus.Cancelled.String() ||
 		currentStatus.Status == corestatus.Failed.String() ||
@@ -236,18 +387,18 @@ AND    ot.task_id = $taskIdent.task_id
 	return nil
 }
 
-func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.Task, *string, error) {
-	result, err := s.getOperationTask(ctx, tx, taskID)
+func (st *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (operation.Task, *string, error) {
+	result, err := st.getOperationTask(ctx, tx, taskID)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	parameters, err := s.getOperationParameters(ctx, tx, result.OperationUUID)
+	parameters, err := st.getOperationParameters(ctx, tx, result.OperationUUID)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	logEntries, err := s.getTaskLog(ctx, tx, taskID)
+	logEntries, err := st.getTaskLog(ctx, tx, taskID)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
@@ -265,7 +416,7 @@ func (s *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (oper
 	return task, outputPath, nil
 }
 
-func (s *State) getOperationTask(ctx context.Context, tx *sqlair.TX, taskID string) (taskResult, error) {
+func (st *State) getOperationTask(ctx context.Context, tx *sqlair.TX, taskID string) (taskResult, error) {
 	ident := taskIdent{ID: taskID}
 
 	query := `
@@ -293,7 +444,7 @@ LEFT JOIN operation_task_output AS oto ON ot.uuid = oto.task_uuid
 LEFT JOIN v_object_store_metadata AS os ON oto.store_uuid = os.uuid
 WHERE ot.task_id = $taskIdent.task_id
 `
-	stmt, err := s.Prepare(query, taskResult{}, ident)
+	stmt, err := st.Prepare(query, taskResult{}, ident)
 	if err != nil {
 		return taskResult{}, errors.Errorf("preparing get task statement: %w", err)
 	}
@@ -309,7 +460,7 @@ WHERE ot.task_id = $taskIdent.task_id
 	return result, nil
 }
 
-func (s *State) getOperationParameters(ctx context.Context, tx *sqlair.TX, operationUUIDStr string) ([]taskParameter, error) {
+func (st *State) getOperationParameters(ctx context.Context, tx *sqlair.TX, operationUUIDStr string) ([]taskParameter, error) {
 	opUUID := uuid{UUID: operationUUIDStr}
 
 	query := `
@@ -318,7 +469,7 @@ FROM   operation_parameter
 WHERE  operation_uuid = $uuid.uuid
 `
 
-	stmt, err := s.Prepare(query, taskParameter{}, opUUID)
+	stmt, err := st.Prepare(query, taskParameter{}, opUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing parameters statement: %w", err)
 	}
@@ -332,7 +483,7 @@ WHERE  operation_uuid = $uuid.uuid
 	return parameters, nil
 }
 
-func (s *State) getTaskLog(ctx context.Context, tx *sqlair.TX, taskID string) ([]taskLogEntry, error) {
+func (st *State) getTaskLog(ctx context.Context, tx *sqlair.TX, taskID string) ([]taskLogEntry, error) {
 	ident := taskIdent{ID: taskID}
 
 	query := `
@@ -344,7 +495,7 @@ JOIN   operation_task AS ot ON operation_task_log.task_uuid = ot.uuid
 WHERE  ot.task_id = $taskIdent.task_id
 ORDER BY created_at ASC
 `
-	stmt, err := s.Prepare(query, taskLogEntry{}, taskIdent{})
+	stmt, err := st.Prepare(query, taskLogEntry{}, taskIdent{})
 	if err != nil {
 		return nil, errors.Errorf("preparing log statement: %w", err)
 	}
