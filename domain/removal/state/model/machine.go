@@ -54,7 +54,9 @@ WHERE  uuid = $entityUUID.uuid`, machineUUID)
 // running on the same parent machine. The returned units and child machines
 // uuids can then be used to ensure the units and machines are correctly
 // cascaded to the dying state.
-func (st *State) EnsureMachineNotAliveCascade(ctx context.Context, mUUID string, force bool) (units, childMachines []string, err error) {
+func (st *State) EnsureMachineNotAliveCascade(
+	ctx context.Context, mUUID string, force bool,
+) (units, childMachines []string, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
@@ -122,17 +124,8 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 		return nil, nil, errors.Errorf("preparing unit selection query: %w", err)
 	}
 
-	updateUnitStmt, err := st.Prepare(`
-UPDATE unit
-SET    life_id = 1
-WHERE  uuid IN ($uuids[:])
-AND    life_id = 0;`, uuids{})
-	if err != nil {
-		return nil, nil, errors.Errorf("preparing unit life update: %w", err)
-	}
-
 	var (
-		unitUUIDs    []entityUUID
+		unitUUIDs    []string
 		machineUUIDs []entityUUID
 	)
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -185,39 +178,39 @@ AND    life_id = 0;`, uuids{})
 			}
 		}
 
-		numAffected := len(parentUnitUUIDs) + len(childUnitUUIDs)
-		if numAffected == 0 {
-			// If there are no units to update, we can return early.
+		// If there are no units to update, we can return early.
+		if len(parentUnitUUIDs)+len(childUnitUUIDs) == 0 {
 			return nil
 		}
 
-		// Combine the parent and child unit UUIDs.
-		unitUUIDs = make([]entityUUID, 0, numAffected)
-		unitUUIDs = append(unitUUIDs, parentUnitUUIDs...)
-		unitUUIDs = append(unitUUIDs, childUnitUUIDs...)
-
-		s := transform.Slice(unitUUIDs, func(u entityUUID) string {
+		const (
+			checkEmptyMachine = false
+			destroyStorage    = false
+		)
+		unitUUIDs = transform.Slice(append(parentUnitUUIDs, childUnitUUIDs...), func(u entityUUID) string {
 			return u.UUID
 		})
-		if err := tx.Query(ctx, updateUnitStmt, uuids(s)).Run(); err != nil {
-			return errors.Errorf("advancing unit life: %w", err)
+		for _, u := range unitUUIDs {
+			_, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
+			if err != nil {
+				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
+			}
 		}
+
+		// TODO (manadart 2025-09-18): Kill machine-scoped storage instances
+		// on the machines.
 
 		return nil
 	})); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Capture(err)
 	}
 
-	units = make([]string, len(unitUUIDs))
-	for i, u := range unitUUIDs {
-		units[i] = u.UUID
-	}
 	childMachines = make([]string, len(machineUUIDs))
 	for i, m := range machineUUIDs {
 		childMachines[i] = m.UUID
 	}
 
-	return units, childMachines, nil
+	return unitUUIDs, childMachines, nil
 }
 
 // MachineScheduleRemoval schedules a removal job for the machine with the
