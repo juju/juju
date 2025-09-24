@@ -61,12 +61,6 @@ type ManifoldConfig struct {
 
 	Logger logger.Logger
 	Clock  clock.Clock
-
-	// Active indicates if the worker should be started. This is only here so
-	// that we can work on implementing cross-model relations behind a flag,
-	// which prevents the dependency engine from starting the worker because
-	// of other errors.
-	Active bool
 }
 
 // Validate is called by start to check for bad configuration.
@@ -115,10 +109,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Start: func(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
-			}
-
-			if !config.Active {
-				return nil, dependency.ErrUninstall
 			}
 
 			var apiConn api.Connection

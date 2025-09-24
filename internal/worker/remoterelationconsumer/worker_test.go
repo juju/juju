@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/uuid"
 )
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -34,7 +35,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationConsumers(gomock.Any()).
+	s.crossModelRelationService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -55,17 +56,20 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferer{{
+				ApplicationUUID: appUUID,
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -91,67 +95,7 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 		c.Fatalf("timed out waiting for application to be started")
 	}
 
-	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"foo"})
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ch := make(chan struct{})
-
-	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
-			return watchertest.NewMockNotifyWatcher(ch), nil
-		})
-
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
-				ApplicationName: "foo",
-				Life:            life.Alive,
-				OfferUUID:       "offer-uuid",
-				ConsumeVersion:  0,
-			}}, nil
-		})
-
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
-				ApplicationName: "foo",
-				Life:            life.Dead,
-				OfferUUID:       "offer-uuid",
-				ConsumeVersion:  0,
-			}}, nil
-		})
-
-	started := make(chan string, 1)
-
-	w := s.newWorker(c, started)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
-	}
-
-	select {
-	case appName := <-started:
-		c.Check(appName, tc.Equals, "foo")
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for application to be started")
-	}
-
-	select {
-	case ch <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
-	}
-
-	waitForEmptyRunner(c, w.runner)
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{appUUID})
 
 	workertest.CleanKill(c, w)
 }
@@ -159,17 +103,20 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferer{{
+				ApplicationUUID: appUUID,
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -177,9 +124,9 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{}, nil
+	exp.GetRemoteApplicationOfferers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferer{}, nil
 		})
 
 	started := make(chan string, 1)
@@ -214,17 +161,20 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationConsumers(gomock.Any()).
+	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferer{{
+				ApplicationUUID: appUUID,
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -232,9 +182,10 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationConsumers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-			return []crossmodelrelation.RemoteApplicationConsumer{{
+	exp.GetRemoteApplicationOfferers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+			return []crossmodelrelation.RemoteApplicationOfferer{{
+				ApplicationUUID: appUUID,
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -260,7 +211,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 		c.Fatalf("timed out waiting for application to be started")
 	}
 
-	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"foo"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{appUUID})
 
 	select {
 	case ch <- struct{}{}:
@@ -275,7 +226,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 		c.Fatalf("timed out waiting for application to be started")
 	}
 
-	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{"foo"})
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{appUUID})
 
 	workertest.CleanKill(c, w)
 }
