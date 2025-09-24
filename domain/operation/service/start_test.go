@@ -554,6 +554,130 @@ func (s *startSuite) TestStartActionOperationWithLeaderUnits(c *tc.C) {
 	c.Check(result.Units[2].TaskInfo.ID, tc.Equals, "53")
 }
 
+func (s *startSuite) TestStartActionOperationMixedLeaderResults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	target := []operation.ActionReceiver{
+		{
+			LeaderUnit: "good-app",
+		},
+		{
+			LeaderUnit: "bad-app",
+		},
+		{
+			Unit: unit.Name("regular-unit/0"),
+		},
+	}
+	args := operation.TaskArgs{
+		ActionName: "leader-action",
+		IsParallel: true,
+	}
+	s.mockLeadershipService.EXPECT().ApplicationLeader("good-app").Return("good-app/0", nil)
+	s.mockLeadershipService.EXPECT().ApplicationLeader("bad-app").Return("", errors.New("leadership error"))
+
+	expectedStateTarget := []unit.Name{"good-app/0", "regular-unit/0"}
+
+	expectedResult := operation.RunResult{
+		OperationID: "42",
+		Units: []operation.UnitTaskResult{
+			{
+				TaskInfo: operation.TaskInfo{
+					ID: "44",
+				},
+				ReceiverName: "good-app/0",
+				IsLeader:     true,
+			},
+			{
+				TaskInfo: operation.TaskInfo{
+					ID: "43",
+				},
+				ReceiverName: "regular-unit/0",
+			},
+		},
+	}
+
+	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedStateTarget, args).Return(expectedResult, nil)
+
+	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	c.Assert(err, tc.IsNil)
+	c.Check(result.OperationID, tc.Equals, "42")
+	c.Assert(result.Units, tc.HasLen, 3) // 2 leader units + 1 regular unit from state
+
+	// Check that first leader unit has success from state layer,
+	// second is in error.
+	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("good-app/0"))
+	c.Check(result.Units[0].IsLeader, tc.Equals, true)
+	c.Check(result.Units[0].TaskInfo.Error, tc.IsNil)
+	c.Check(result.Units[0].TaskInfo.ID, tc.Equals, "44")
+
+	c.Check(result.Units[1].ReceiverName, tc.Equals, unit.Name("bad-app/0"))
+	c.Check(result.Units[1].IsLeader, tc.Equals, true)
+	c.Check(result.Units[1].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for bad-app:.*leadership error")
+
+	// Regular unit from state layer (appended at the end).
+	c.Check(result.Units[2].ReceiverName, tc.Equals, unit.Name("regular-unit/0"))
+	c.Check(result.Units[2].IsLeader, tc.Equals, false)
+	c.Check(result.Units[2].TaskInfo.ID, tc.Equals, "43")
+}
+
+func (s *startSuite) TestStartActionOperationMixedFailedLeaderResults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	target := []operation.ActionReceiver{
+		{
+			LeaderUnit: "bad-app",
+		},
+		{
+			LeaderUnit: "worse-app",
+		},
+		{
+			Unit: unit.Name("regular-unit/0"),
+		},
+	}
+	args := operation.TaskArgs{
+		ActionName: "leader-action",
+		IsParallel: true,
+	}
+	s.mockLeadershipService.EXPECT().ApplicationLeader("bad-app").Return("", errors.New("leadership error"))
+	s.mockLeadershipService.EXPECT().ApplicationLeader("worse-app").Return("", errors.New("leadership error"))
+
+	expectedStateTarget := []unit.Name{"regular-unit/0"}
+
+	expectedResult := operation.RunResult{
+		OperationID: "42",
+		Units: []operation.UnitTaskResult{
+			{
+				TaskInfo: operation.TaskInfo{
+					ID: "43",
+				},
+				ReceiverName: "regular-unit/0",
+			},
+		},
+	}
+
+	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedStateTarget, args).Return(expectedResult, nil)
+
+	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	c.Assert(err, tc.IsNil)
+	c.Check(result.OperationID, tc.Equals, "42")
+	c.Assert(result.Units, tc.HasLen, 3) // 2 leader units + 1 regular unit from state
+
+	// Check that first leader unit has success from state layer,
+	// second is in error.
+	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("bad-app/0"))
+	c.Check(result.Units[0].IsLeader, tc.Equals, true)
+	c.Check(result.Units[0].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for bad-app:.*leadership error")
+
+	c.Check(result.Units[1].ReceiverName, tc.Equals, unit.Name("worse-app/0"))
+	c.Check(result.Units[1].IsLeader, tc.Equals, true)
+	c.Check(result.Units[1].TaskInfo.Error, tc.ErrorMatches, "getting leader unit for worse-app:.*leadership error")
+
+	// Regular unit from state layer (appended at the end).
+	c.Check(result.Units[2].ReceiverName, tc.Equals, unit.Name("regular-unit/0"))
+	c.Check(result.Units[2].IsLeader, tc.Equals, false)
+	c.Check(result.Units[2].TaskInfo.ID, tc.Equals, "43")
+}
+
 func (s *startSuite) TestStartActionOperationMixedTargets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

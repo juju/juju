@@ -265,9 +265,7 @@ func (s *Service) AddActionOperation(
 
 	// Consolidate the results from the state layer with our pre-computed results.
 	for i, unitTaskResult := range runResult.Units {
-		if i < len(resultSlots) {
-			resultSlots[i].TaskInfo = unitTaskResult.TaskInfo
-		}
+		resultSlots[i].TaskInfo = unitTaskResult.TaskInfo
 	}
 
 	// Mark any missing results (units that were expected but not returned by
