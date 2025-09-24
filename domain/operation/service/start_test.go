@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
+	internal "github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	uuid "github.com/juju/juju/internal/uuid"
@@ -60,7 +60,7 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 		ExecutionGroup: "test-group",
 	}
 
-	expectedStateTarget := operation.ReceiversWithResolvedLeaders{
+	expectedStateTarget := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0", "1"},
 		Units:    []unit.Name{"test-app/0", "test-app/1"},
 	}
@@ -70,17 +70,13 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 		Machines: []operation.MachineTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "43",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "43",
 				},
 				ReceiverName: "0",
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "44",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "44",
 				},
 				ReceiverName: "1",
 			},
@@ -88,17 +84,13 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 		Units: []operation.UnitTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "45",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "45",
 				},
 				ReceiverName: "test-app/0",
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "46",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "46",
 				},
 				ReceiverName: "test-app/1",
 			},
@@ -106,7 +98,7 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 	}
 
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
-		func(_ context.Context, _ uuid.UUID, actualTarget operation.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, _ uuid.UUID, actualTarget internal.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
 			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
 			c.Assert(actualTarget.Machines, tc.DeepEquals, expectedStateTarget.Machines)
 			c.Assert(actualTarget.Units, tc.DeepEquals, expectedStateTarget.Units)
@@ -130,7 +122,7 @@ func (s *startSuite) TestStartExecOperationWithLeaderUnitsSuccess(c *tc.C) {
 		LeaderUnit: []string{"test-app", "other-app"},
 		// We manually provide a unit which happens to be the same as the first
 		// target unit. In this case, we should still get 3 results back.
-		Units: []coreunit.Name{coreunit.Name("test-app/0")},
+		Units: []unit.Name{unit.Name("test-app/0")},
 	}
 	args := operation.ExecArgs{
 		Command: "leader-action",
@@ -139,7 +131,7 @@ func (s *startSuite) TestStartExecOperationWithLeaderUnitsSuccess(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("test-app/0", nil)
 	s.mockLeadershipService.EXPECT().ApplicationLeader("other-app").Return("other-app/1", nil)
 
-	expectedStateTarget := operation.ReceiversWithResolvedLeaders{
+	expectedStateTarget := internal.ReceiversWithResolvedLeaders{
 		Units:       []unit.Name{"test-app/0"},
 		LeaderUnits: []unit.Name{"test-app/0", "other-app/1"},
 	}
@@ -149,27 +141,21 @@ func (s *startSuite) TestStartExecOperationWithLeaderUnitsSuccess(c *tc.C) {
 		Units: []operation.UnitTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "43",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "43",
 				},
 				ReceiverName: "test-app/0",
 				IsLeader:     true,
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "44",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "44",
 				},
 				ReceiverName: "other-app/1",
 				IsLeader:     true,
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "45",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "45",
 				},
 				ReceiverName: "test-app/0",
 			},
@@ -177,7 +163,7 @@ func (s *startSuite) TestStartExecOperationWithLeaderUnitsSuccess(c *tc.C) {
 	}
 
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
-		func(_ context.Context, _ uuid.UUID, actualTarget operation.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, _ uuid.UUID, actualTarget internal.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
 			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
 			c.Assert(actualTarget.Machines, tc.DeepEquals, expectedStateTarget.Machines)
 			c.Assert(actualTarget.Units, tc.DeepEquals, expectedStateTarget.Units)
@@ -239,16 +225,10 @@ func (s *startSuite) TestStartExecOperationLeaderResolutionError(c *tc.C) {
 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("", errors.New("leadership error"))
 
-	expectedResult := operation.RunResult{
-		OperationID: "42",
-		Units:       []operation.UnitTaskResult{},
-	}
-
-	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(expectedResult, nil)
-
+	// Return early since there are no valid targets to pass to state layer.
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "42")
+	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
 	c.Check(result.Units[0].IsLeader, tc.Equals, true)
@@ -267,16 +247,10 @@ func (s *startSuite) TestStartExecOperationLeaderUnitNameParsingError(c *tc.C) {
 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("invalid-unit-name", nil)
 
-	expectedResult := operation.RunResult{
-		OperationID: "42",
-		Units:       []operation.UnitTaskResult{},
-	}
-
-	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(expectedResult, nil)
-
+	// Return early since there are no valid targets to pass to state layer.
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "42")
+	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
 	c.Check(result.Units[0].IsLeader, tc.Equals, true)
@@ -297,7 +271,7 @@ func (s *startSuite) TestStartExecOperationMixedLeaderResults(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("good-app").Return("good-app/0", nil)
 	s.mockLeadershipService.EXPECT().ApplicationLeader("bad-app").Return("", errors.New("leadership error"))
 
-	expectedStateTarget := operation.ReceiversWithResolvedLeaders{
+	expectedStateTarget := internal.ReceiversWithResolvedLeaders{
 		LeaderUnits: []unit.Name{"good-app/0"},
 		Units:       []unit.Name{"regular-unit/0"},
 	}
@@ -307,18 +281,14 @@ func (s *startSuite) TestStartExecOperationMixedLeaderResults(c *tc.C) {
 		Units: []operation.UnitTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "44",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "44",
 				},
 				ReceiverName: "good-app/0",
 				IsLeader:     true,
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "43",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "43",
 				},
 				ReceiverName: "regular-unit/0",
 			},
@@ -326,7 +296,7 @@ func (s *startSuite) TestStartExecOperationMixedLeaderResults(c *tc.C) {
 	}
 
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
-		func(_ context.Context, _ uuid.UUID, actualTarget operation.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, _ uuid.UUID, actualTarget internal.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
 			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
 			c.Assert(actualTarget.Machines, tc.DeepEquals, expectedStateTarget.Machines)
 			c.Assert(actualTarget.Units, tc.DeepEquals, expectedStateTarget.Units)
@@ -380,7 +350,7 @@ func (s *startSuite) TestStartExecOperationOnlyLeaderUnits(c *tc.C) {
 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("test-app/0", nil)
 
-	expectedStateTarget := operation.ReceiversWithResolvedLeaders{
+	expectedStateTarget := internal.ReceiversWithResolvedLeaders{
 		LeaderUnits: []unit.Name{"test-app/0"},
 	}
 
@@ -389,9 +359,7 @@ func (s *startSuite) TestStartExecOperationOnlyLeaderUnits(c *tc.C) {
 		Units: []operation.UnitTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "43",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "43",
 				},
 				ReceiverName: "test-app/0",
 				IsLeader:     true,
@@ -400,7 +368,7 @@ func (s *startSuite) TestStartExecOperationOnlyLeaderUnits(c *tc.C) {
 	}
 
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
-		func(_ context.Context, _ uuid.UUID, actualTarget operation.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
+		func(_ context.Context, _ uuid.UUID, actualTarget internal.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
 			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
 			c.Assert(actualTarget.Machines, tc.DeepEquals, expectedStateTarget.Machines)
 			c.Assert(actualTarget.Units, tc.DeepEquals, expectedStateTarget.Units)
@@ -421,27 +389,10 @@ func (s *startSuite) TestStartExecOperationEmptyTarget(c *tc.C) {
 	target := operation.Receivers{}
 	args := operation.ExecArgs{Command: "echo hello"}
 
-	expectedStateTarget := operation.ReceiversWithResolvedLeaders{
-		Applications: []string{},
-		Machines:     []machine.Name{},
-		Units:        []unit.Name{},
-	}
-	expectedResult := operation.RunResult{
-		OperationID: "42",
-	}
-
-	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
-		func(_ context.Context, _ uuid.UUID, actualTarget operation.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
-			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
-			c.Assert(actualTarget.Machines, tc.DeepEquals, expectedStateTarget.Machines)
-			c.Assert(actualTarget.Units, tc.DeepEquals, expectedStateTarget.Units)
-			c.Assert(actualTarget.LeaderUnits, tc.DeepEquals, expectedStateTarget.LeaderUnits)
-			return expectedResult, nil
-		})
-
+	// Return early without calling state layer.
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "42")
+	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 0)
 	c.Check(result.Machines, tc.HasLen, 0)
 }
@@ -461,17 +412,13 @@ func (s *startSuite) TestStartExecOperationOnAllMachinesSuccess(c *tc.C) {
 		Machines: []operation.MachineTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "48",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "48",
 				},
 				ReceiverName: "0",
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:       "49",
-					Enqueued: time.Now().UTC(),
-					Status:   corestatus.Pending,
+					ID: "49",
 				},
 				ReceiverName: "1",
 			},
@@ -558,7 +505,7 @@ func (s *startSuite) TestStartActionOperationWithLeaderUnits(c *tc.C) {
 		{LeaderUnit: "other-app"},
 		// We manually provide a unit which happens to be the same as the first
 		// target unit. In this case, we should still get 3 results back.
-		{Unit: coreunit.Name("test-app/0")},
+		{Unit: unit.Name("test-app/0")},
 	}
 	args := operation.TaskArgs{
 		ActionName: "leader-action",
@@ -574,22 +521,19 @@ func (s *startSuite) TestStartActionOperationWithLeaderUnits(c *tc.C) {
 		Units: []operation.UnitTaskResult{
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:     "51",
-					Status: corestatus.Pending,
+					ID: "51",
 				},
 				ReceiverName: "test-app/0",
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:     "52",
-					Status: corestatus.Pending,
+					ID: "52",
 				},
 				ReceiverName: "other-app/1",
 			},
 			{
 				TaskInfo: operation.TaskInfo{
-					ID:     "53",
-					Status: corestatus.Pending,
+					ID: "53",
 				},
 				ReceiverName: "test-app/0",
 			},

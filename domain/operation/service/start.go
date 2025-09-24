@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -23,6 +24,11 @@ func (s *Service) AddExecOperation(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	operationUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
+	}
+
 	// Initialize the results with proper size upfront
 	result := operation.RunResult{}
 	// We cannot know the exact number of units in advance (because of
@@ -30,11 +36,12 @@ func (s *Service) AddExecOperation(
 	// This allows us to later consolidate the results.
 	result.Units = make([]operation.UnitTaskResult, len(target.LeaderUnit))
 
-	// Initialize a map to store pointers to the result units, indexed by unit name.
+	// Initialize a map to store pointers from the leader unit names to the
+	// result units, indexed by unit name.
 	// This is used to consolidate the results from the state layer.
 	leaderUnitsByName := make(map[coreunit.Name]*operation.UnitTaskResult)
 
-	// Initialize input unit names to pass to the state layer method.
+	// Initialize leader unit names to pass to the state layer method.
 	leaderUnits := make([]coreunit.Name, 0, len(target.LeaderUnit))
 
 	// Process each leader unit target - need to resolve the actual leader units
@@ -81,17 +88,24 @@ func (s *Service) AddExecOperation(
 		leaderUnits = append(leaderUnits, leaderUnitName)
 	}
 
-	operationUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
-	}
-
-	targetWithResolvedLeaders := operation.ReceiversWithResolvedLeaders{
+	targetWithResolvedLeaders := internal.ReceiversWithResolvedLeaders{
 		Applications: target.Applications,
 		Machines:     target.Machines,
 		Units:        target.Units,
 		LeaderUnits:  leaderUnits,
 	}
+	// If there are no targets to process, return early.
+	if (targetWithResolvedLeaders.Applications == nil ||
+		len(targetWithResolvedLeaders.Applications) == 0) &&
+		(targetWithResolvedLeaders.Machines == nil ||
+			len(targetWithResolvedLeaders.Machines) == 0) &&
+		(targetWithResolvedLeaders.Units == nil ||
+			len(targetWithResolvedLeaders.Units) == 0) &&
+		(targetWithResolvedLeaders.LeaderUnits == nil ||
+			len(targetWithResolvedLeaders.LeaderUnits) == 0) {
+		return result, nil
+	}
+
 	runResult, err := s.st.AddExecOperation(ctx, operationUUID, targetWithResolvedLeaders, args)
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("starting exec operation: %w", err)
@@ -107,6 +121,7 @@ func (s *Service) AddExecOperation(
 			// pre-computed leader unit result.
 			unitResult, ok := leaderUnitsByName[unitTaskResult.ReceiverName]
 			if !ok {
+				s.logger.Warningf(ctx, "missing results by leader unit for unit %q", unitTaskResult.ReceiverName)
 				// This should never happen, but if it does, we'll just skip it.
 				continue
 			}
@@ -133,7 +148,10 @@ func (s *Service) AddExecOperation(
 
 // AddExecOperationOnAllMachines creates an exec operation with tasks based on
 // the provided parameters on all machines.
-func (s *Service) AddExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error) {
+func (s *Service) AddExecOperationOnAllMachines(
+	ctx context.Context,
+	args operation.ExecArgs,
+) (operation.RunResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -159,6 +177,12 @@ func (s *Service) AddActionOperation(
 ) (operation.RunResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	for _, t := range target {
+		if err := t.Validate(); err != nil {
+			return operation.RunResult{}, errors.Errorf("validating action receiver %v: %w", t, err)
+		}
+	}
 
 	// Initialize the results with proper size upfront
 	result := operation.RunResult{}

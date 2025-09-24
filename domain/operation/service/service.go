@@ -113,7 +113,7 @@ type State interface {
 
 	// AddExecOperation creates an exec operation with tasks for various machines
 	// and units, using the provided parameters.
-	AddExecOperation(ctx context.Context, operationUUID internaluuid.UUID, target operation.ReceiversWithResolvedLeaders, args operation.ExecArgs) (operation.RunResult, error)
+	AddExecOperation(ctx context.Context, operationUUID internaluuid.UUID, target internal.ReceiversWithResolvedLeaders, args operation.ExecArgs) (operation.RunResult, error)
 
 	// AddExecOperationOnAllMachines creates an exec operation with tasks based
 	// on the provided parameters on all machines.

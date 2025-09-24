@@ -6,7 +6,9 @@ package internal
 import (
 	"time"
 
+	"github.com/juju/juju/core/machine"
 	coreoperation "github.com/juju/juju/core/operation"
+	"github.com/juju/juju/core/unit"
 )
 
 // TaskLogMessage is a timestamped message logged for a task.
@@ -29,4 +31,12 @@ type CompletedTask struct {
 	StoreUUID string
 	Status    string
 	Message   string
+}
+
+// ReceiversWithResolvedLeaders represents receivers with matched leaders.
+type ReceiversWithResolvedLeaders struct {
+	Applications []string
+	Machines     []machine.Name
+	Units        []unit.Name
+	LeaderUnits  []unit.Name
 }

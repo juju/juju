@@ -15,6 +15,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -30,30 +31,12 @@ func (s *startSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 }
 
-// addApplication creates a new application and returns its UUID
-func (s *startSuite) addApplication(c *tc.C, charmUUID, appName string) string {
-	appUUID := internaluuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, appName, 0, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
-	return appUUID
-}
-
-// addUnitToApplication creates a unit for an existing application
-func (s *startSuite) addUnitToApplication(c *tc.C, charmUUID, appUUID, unitName string) string {
-	nodeUUID := internaluuid.MustNewUUID().String()
-	unitUUID := internaluuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
-	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
-		unitUUID, unitName, 0, appUUID, charmUUID, nodeUUID)
-	return unitUUID
-}
-
 func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {
 	machineUUID := s.addMachine(c, "0")
 	_ = s.addMachine(c, "1")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0", "1"},
 	}
 	args := operation.ExecArgs{
@@ -76,12 +59,8 @@ func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {
 	c.Check(result.Machines[0].TaskInfo.Error, tc.IsNil)
 
 	// Verify operation was stored in database.
-	var opCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow("SELECT COUNT(*) FROM operation WHERE uuid = ?", operationUUID.String()).Scan(&opCount)
-	})
-	c.Assert(err, tc.IsNil)
-	c.Check(opCount, tc.Equals, 1)
+	count := s.getRowCountByField(c, "uuid", operationUUID.String(), "operation")
+	c.Check(count, tc.Equals, 1)
 
 	// Verify machine tasks were created.
 	var machineTaskCount int
@@ -96,7 +75,7 @@ func (s *startSuite) TestAddExecOperationWithUnitsOnly(c *tc.C) {
 	unitUUID := s.addUnitWithName(c, s.addCharm(c), "unit-exec/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Units: []unit.Name{"unit-exec/0"},
 	}
 	args := operation.ExecArgs{
@@ -134,7 +113,7 @@ func (s *startSuite) TestAddExecOperationWithApplications(c *tc.C) {
 	_ = s.addUnitToApplication(c, charmUUID, appUUID, "test-exec-apps/1")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Applications: []string{"test-exec-apps"},
 	}
 	args := operation.ExecArgs{
@@ -165,7 +144,7 @@ func (s *startSuite) TestAddExecOperationMixedTargets(c *tc.C) {
 	_ = s.addUnitWithName(c, s.addCharm(c), "mixed-exec/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 		Units:    []unit.Name{"mixed-exec/0"},
 	}
@@ -187,7 +166,7 @@ func (s *startSuite) TestAddExecOperationMixedTargets(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationEmptyTarget(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{}
+	target := internal.ReceiversWithResolvedLeaders{}
 	args := operation.ExecArgs{
 		Command: "empty target command",
 	}
@@ -199,17 +178,13 @@ func (s *startSuite) TestAddExecOperationEmptyTarget(c *tc.C) {
 	c.Assert(result.Units, tc.HasLen, 0)
 
 	// Operation should still be created even with no targets.
-	var opCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow("SELECT COUNT(*) FROM operation WHERE uuid = ?", operationUUID.String()).Scan(&opCount)
-	})
-	c.Assert(err, tc.IsNil)
-	c.Check(opCount, tc.Equals, 1)
+	count := s.getRowCountByField(c, "uuid", operationUUID.String(), "operation")
+	c.Check(count, tc.Equals, 1)
 }
 
 func (s *startSuite) TestAddExecOperationMachineNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"nonexistent"},
 	}
 	args := operation.ExecArgs{
@@ -227,7 +202,7 @@ func (s *startSuite) TestAddExecOperationMachineNotFound(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationUnitNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Units: []unit.Name{"nonexistent/0"},
 	}
 	args := operation.ExecArgs{
@@ -245,7 +220,7 @@ func (s *startSuite) TestAddExecOperationUnitNotFound(c *tc.C) {
 
 func (s *startSuite) TestAddExecOperationApplicationNotFound(c *tc.C) {
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Applications: []string{"nonexistent-app"},
 	}
 	args := operation.ExecArgs{
@@ -260,7 +235,7 @@ func (s *startSuite) TestAddExecOperationParametersStored(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -327,12 +302,8 @@ func (s *startSuite) TestAddExecOperationOnAllMachinesNoMachines(c *tc.C) {
 	c.Assert(result.Machines, tc.HasLen, 0)
 	c.Assert(result.Units, tc.HasLen, 0)
 
-	var opCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow("SELECT COUNT(*) FROM operation WHERE uuid = ?", operationUUID.String()).Scan(&opCount)
-	})
-	c.Assert(err, tc.IsNil)
-	c.Check(opCount, tc.Equals, 1)
+	count := s.getRowCountByField(c, "uuid", operationUUID.String(), "operation")
+	c.Check(count, tc.Equals, 1)
 }
 
 func (s *startSuite) TestAddExecOperationOnAllMachinesWithDeadMachine(c *tc.C) {
@@ -386,11 +357,7 @@ func (s *startSuite) TestAddActionOperationSingleUnit(c *tc.C) {
 	c.Check(result.Units[0].TaskInfo.Error, tc.IsNil)
 
 	// Verify operation action was stored.
-	var actionCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow("SELECT COUNT(*) FROM operation_action WHERE operation_uuid = ?",
-			operationUUID.String()).Scan(&actionCount)
-	})
+	actionCount := s.getRowCountByField(c, "operation_uuid", operationUUID.String(), "operation_action")
 	c.Assert(err, tc.IsNil)
 	c.Check(actionCount, tc.Equals, 1)
 }
@@ -418,15 +385,27 @@ func (s *startSuite) TestAddActionOperationMultipleUnits(c *tc.C) {
 	c.Assert(result.Units, tc.HasLen, 2)
 
 	// Check both units have valid results.
-	unitNames := make(map[string]bool)
-	for _, unit := range result.Units {
-		unitNames[unit.ReceiverName.String()] = true
-		c.Check(unit.TaskInfo.Error, tc.IsNil)
-		c.Check(unit.TaskInfo.Status, tc.Equals, corestatus.Pending)
-		c.Check(unit.TaskInfo.ID, tc.Not(tc.Equals), "")
-	}
-	c.Check(unitNames["test-action-multi/0"], tc.Equals, true)
-	c.Check(unitNames["test-action-multi/1"], tc.Equals, true)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_[_].Error", tc.IsNil)
+	mc.AddExpr("_.ID", tc.Not(tc.Equals), "")
+	mc.AddExpr("_.Status", tc.Equals, corestatus.Pending)
+	mc.AddExpr(`_[_]._`, tc.Ignore)
+	c.Check(result.Units, mc, []operation.UnitTaskResult{
+		{
+			ReceiverName: unit.Name("test-action-multi/0"),
+			TaskInfo: operation.TaskInfo{
+				ID:     "1",
+				Status: corestatus.Pending,
+			},
+		},
+		{
+			ReceiverName: unit.Name("test-action-multi/1"),
+			TaskInfo: operation.TaskInfo{
+				ID:     "2",
+				Status: corestatus.Pending,
+			},
+		},
+	})
 }
 
 func (s *startSuite) TestAddActionOperationEmptyTargetUnits(c *tc.C) {
@@ -465,7 +444,7 @@ func (s *startSuite) TestAddActionOperationCharmNotFound(c *tc.C) {
 	}
 
 	_, err := s.state.AddActionOperation(c.Context(), operationUUID, targetUnits, args)
-	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+	c.Assert(err, tc.ErrorMatches, ".*inserting action \"nonexistent-action\" for charm.*")
 }
 
 func (s *startSuite) TestAddActionOperationParametersStored(c *tc.C) {
@@ -548,7 +527,7 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 func (s *startSuite) TestOperationAndTaskSequenceIncremental(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -573,7 +552,7 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 	}
 	args := operation.ExecArgs{
@@ -620,7 +599,7 @@ func (s *startSuite) TestTaskStatusAndLinksCreated(c *tc.C) {
 	unitUUID := s.addUnitWithName(c, s.addCharm(c), "links-app/0")
 
 	operationUUID := internaluuid.MustNewUUID()
-	target := operation.ReceiversWithResolvedLeaders{
+	target := internal.ReceiversWithResolvedLeaders{
 		Machines: []machine.Name{"0"},
 		Units:    []unit.Name{"links-app/0"},
 	}

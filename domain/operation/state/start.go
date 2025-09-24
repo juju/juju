@@ -18,6 +18,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
+	"github.com/juju/juju/domain/operation/internal"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -33,13 +34,13 @@ import (
 // exist.
 // - [machineerrors.MachineNotFound]: If the provided machine target does not
 // exist.
-func (s *State) AddExecOperation(
+func (st *State) AddExecOperation(
 	ctx context.Context,
 	operationUUID internaluuid.UUID,
-	target operation.ReceiversWithResolvedLeaders,
+	target internal.ReceiversWithResolvedLeaders,
 	args operation.ExecArgs,
 ) (operation.RunResult, error) {
-	db, err := s.DB(ctx)
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.RunResult{}, errors.Capture(err)
 	}
@@ -47,11 +48,11 @@ func (s *State) AddExecOperation(
 	var result operation.RunResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = s.createExecOperation(ctx, tx, operationUUID.String(), target, args)
+		result, err = st.addExecOperation(ctx, tx, operationUUID.String(), target, args)
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.RunResult{}, errors.Errorf("starting exec operation: %w", err)
+		return operation.RunResult{}, errors.Errorf("adding exec operation: %w", err)
 	}
 
 	return result, nil
@@ -59,32 +60,32 @@ func (s *State) AddExecOperation(
 
 // AddExecOperationOnAllMachines creates an exec operation with tasks based
 // on the provided parameters on all machines.
-func (s *State) AddExecOperationOnAllMachines(
+func (st *State) AddExecOperationOnAllMachines(
 	ctx context.Context,
 	operationUUID internaluuid.UUID,
 	args operation.ExecArgs,
 ) (operation.RunResult, error) {
-	db, err := s.DB(ctx)
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.RunResult{}, errors.Capture(err)
 	}
 
 	var result operation.RunResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machines, err := s.getAllMachines(ctx, tx)
+		machines, err := st.getAllMachines(ctx, tx)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		target := operation.ReceiversWithResolvedLeaders{
+		target := internal.ReceiversWithResolvedLeaders{
 			Machines: machines,
 		}
 
-		result, err = s.createExecOperation(ctx, tx, operationUUID.String(), target, args)
+		result, err = st.addExecOperation(ctx, tx, operationUUID.String(), target, args)
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return operation.RunResult{}, errors.Errorf("starting exec operation on all machines: %w", err)
+		return operation.RunResult{}, errors.Errorf("adding exec operation on all machines: %w", err)
 	}
 
 	return result, nil
@@ -96,7 +97,7 @@ func (s *State) AddExecOperationOnAllMachines(
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound]: If the provided unit target does not
 // exist.
-func (s *State) AddActionOperation(ctx context.Context,
+func (st *State) AddActionOperation(ctx context.Context,
 	operationUUID internaluuid.UUID,
 	targetUnits []coreunit.Name,
 	args operation.TaskArgs,
@@ -106,7 +107,7 @@ func (s *State) AddActionOperation(ctx context.Context,
 		return operation.RunResult{}, errors.Errorf("no target units provided")
 	}
 
-	db, err := s.DB(ctx)
+	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.RunResult{}, errors.Capture(err)
 	}
@@ -116,16 +117,16 @@ func (s *State) AddActionOperation(ctx context.Context,
 		var err error
 
 		// Generate the operation ID.
-		operationID, err := sequencestate.NextValue(ctx, s, tx, operation.OperationSequenceNamespace)
+		operationID, err := sequencestate.NextValue(ctx, st, tx, operation.OperationSequenceNamespace)
 		if err != nil {
 			return errors.Errorf("generating operation ID: %w", err)
 		}
-		result.OperationID = strconv.Itoa(int(operationID))
+		result.OperationID = strconv.FormatUint(operationID, 10)
 
 		// Insert the operation first.
-		err = s.insertOperation(ctx, tx, insertOperation{
+		err = st.insertOperation(ctx, tx, insertOperation{
 			UUID:           operationUUID.String(),
-			OperationID:    fmt.Sprintf("%d", operationID),
+			OperationID:    strconv.FormatUint(operationID, 10),
 			Summary:        fmt.Sprintf("action %q", args.ActionName),
 			EnqueuedAt:     time.Now().UTC(),
 			Parallel:       args.IsParallel,
@@ -136,19 +137,19 @@ func (s *State) AddActionOperation(ctx context.Context,
 		}
 
 		// Here we assume that all target units share the same application.
-		charmUUID, err := s.getCharmUUIDByApplication(ctx, tx, targetUnits[0].Application())
+		charmUUID, err := st.getCharmUUIDByApplication(ctx, tx, targetUnits[0].Application())
 		if err != nil {
 			return errors.Errorf("getting charm UUID for application %q: %w", targetUnits[0].Application(), err)
 		}
 
-		err = s.insertOperationAction(ctx, tx, operationUUID.String(), charmUUID, args.ActionName)
+		err = st.insertOperationAction(ctx, tx, operationUUID.String(), charmUUID, args.ActionName)
 		if err != nil {
 			return errors.Errorf("inserting operation action: %w", err)
 		}
 
 		// Insert operation parameters.
 		for key, value := range args.Parameters {
-			err = s.insertOperationParameter(ctx, tx, operationUUID.String(), key, fmt.Sprintf("%v", value))
+			err = st.insertOperationParameter(ctx, tx, operationUUID.String(), key, fmt.Sprintf("%v", value))
 			if err != nil {
 				return errors.Errorf("inserting parameter %q: %w", key, err)
 			}
@@ -171,36 +172,64 @@ func (s *State) AddActionOperation(ctx context.Context,
 				}
 				continue
 			}
-			result.Units[i] = s.createUnitTask(ctx, tx, operationUUID.String(), taskUUID.String(), targetUnit)
+			result.Units[i] = st.addUnitTask(ctx, tx, operationUUID.String(), taskUUID.String(), targetUnit)
 		}
 		return nil
 	})
 	if err != nil {
-		return operation.RunResult{}, errors.Errorf("starting action operation: %w", err)
+		return operation.RunResult{}, errors.Errorf("adding action operation: %w", err)
 	}
 
 	return result, nil
 }
 
-// createExecOperation creates the exec operation for the provided receivers.
-func (s *State) createExecOperation(
+// // addMachineExecTargets inserts a list of machine tasks for the provided target
+// // and operation UUID.
+// func (st *State) addMachineExecTargets(
+// 	ctx context.Context,
+// 	tx *sqlair.TX,
+// 	operationUUID string,
+// 	machineTargets []machine.UUID,
+// ) []operation.MachineTaskResult {
+// 	for _, machineTask := range machineTargets {
+// 		// Create the task UUID.
+// 		taskUUID, err := internaluuid.NewUUID()
+// 		if err != nil {
+// 			taskResult := operation.MachineTaskResult{
+// 				ReceiverName: machineTask,
+// 				TaskInfo: operation.TaskInfo{
+// 					Error: errors.Errorf("generating task UUID: %w", err),
+// 				},
+// 			}
+// 			result.Machines = append(result.Machines, taskResult)
+// 			continue
+// 		}
+// 		taskResult := st.addMachineTask(ctx, tx, operationUUID, taskUUID.String(), machineTask)
+// 		taskResult.IsParallel = args.Parallel
+// 		taskResult.ExecutionGroup = &args.ExecutionGroup
+// 		result.Machines = append(result.Machines, taskResult)
+// 	}
+// }
+
+// addExecOperation creates the exec operation for the provided receivers.
+func (st *State) addExecOperation(
 	ctx context.Context,
 	tx *sqlair.TX,
 	operationUUID string,
-	target operation.ReceiversWithResolvedLeaders,
+	target internal.ReceiversWithResolvedLeaders,
 	args operation.ExecArgs,
 ) (operation.RunResult, error) {
 	// Generate the operation ID.
-	operationID, err := sequencestate.NextValue(ctx, s, tx, operation.OperationSequenceNamespace)
+	operationID, err := sequencestate.NextValue(ctx, st, tx, operation.OperationSequenceNamespace)
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("generating operation ID: %w", err)
 	}
 
 	now := time.Now().UTC()
 	// Insert the operation first.
-	err = s.insertOperation(ctx, tx, insertOperation{
+	err = st.insertOperation(ctx, tx, insertOperation{
 		UUID:           operationUUID,
-		OperationID:    strconv.Itoa(int(operationID)),
+		OperationID:    strconv.FormatUint(operationID, 10),
 		Summary:        fmt.Sprintf("exec %q", args.Command),
 		EnqueuedAt:     now,
 		Parallel:       args.Parallel,
@@ -211,17 +240,13 @@ func (s *State) createExecOperation(
 	}
 
 	// Exec operations have command and timeout parameters.
-	err = s.insertOperationParameter(ctx, tx, operationUUID, "command", args.Command)
+	err = st.addExecParameters(ctx, tx, operationUUID, args.Command, args.Timeout.String())
 	if err != nil {
-		return operation.RunResult{}, errors.Errorf("inserting command parameter: %w", err)
-	}
-	err = s.insertOperationParameter(ctx, tx, operationUUID, "timeout", args.Timeout.String())
-	if err != nil {
-		return operation.RunResult{}, errors.Errorf("inserting timeout parameter: %w", err)
+		return operation.RunResult{}, errors.Capture(err)
 	}
 
 	var result operation.RunResult
-	result.OperationID = fmt.Sprintf("%d", operationID)
+	result.OperationID = strconv.FormatUint(operationID, 10)
 
 	// Insert tasks.
 	// NOTE: We don't return the error here because we insert all the tasks
@@ -242,7 +267,7 @@ func (s *State) createExecOperation(
 			result.Machines = append(result.Machines, taskResult)
 			continue
 		}
-		taskResult := s.createMachineTask(ctx, tx, operationUUID, taskUUID.String(), machineTask)
+		taskResult := st.addMachineTask(ctx, tx, operationUUID, taskUUID.String(), machineTask)
 		taskResult.IsParallel = args.Parallel
 		taskResult.ExecutionGroup = &args.ExecutionGroup
 		result.Machines = append(result.Machines, taskResult)
@@ -262,7 +287,7 @@ func (s *State) createExecOperation(
 			result.Units = append(result.Units, taskResult)
 			continue
 		}
-		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
+		taskResult := st.addUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
 		taskResult.IsParallel = args.Parallel
 		taskResult.ExecutionGroup = &args.ExecutionGroup
 		result.Units = append(result.Units, taskResult)
@@ -271,12 +296,11 @@ func (s *State) createExecOperation(
 	// Now we get all units from the targeted applications, and append them to
 	// the originally targeted units.
 	var applicationTargetUnits []coreunit.Name
-	for _, appName := range target.Applications {
-		unitsFromApp, err := s.getUnitsForApplication(ctx, tx, appName)
+	if len(target.Applications) != 0 {
+		applicationTargetUnits, err = st.getUnitsForApplications(ctx, tx, target.Applications)
 		if err != nil {
-			return operation.RunResult{}, errors.Errorf("getting units for application %q: %w", appName, err)
+			return operation.RunResult{}, errors.Errorf("getting units for applications %v: %w", target.Applications, err)
 		}
-		applicationTargetUnits = append(applicationTargetUnits, unitsFromApp...)
 	}
 	// Insert the units from the provided applications.
 	for _, unitTask := range applicationTargetUnits {
@@ -292,7 +316,7 @@ func (s *State) createExecOperation(
 			result.Units = append(result.Units, taskResult)
 			continue
 		}
-		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
+		taskResult := st.addUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
 		taskResult.IsParallel = args.Parallel
 		taskResult.ExecutionGroup = &args.ExecutionGroup
 		result.Units = append(result.Units, taskResult)
@@ -312,7 +336,7 @@ func (s *State) createExecOperation(
 			result.Units = append(result.Units, taskResult)
 			continue
 		}
-		taskResult := s.createUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
+		taskResult := st.addUnitTask(ctx, tx, operationUUID, taskUUID.String(), unitTask)
 		taskResult.IsParallel = args.Parallel
 		taskResult.ExecutionGroup = &args.ExecutionGroup
 		// This is a leader unit, so we need to set the leader flag for proper
@@ -324,12 +348,26 @@ func (s *State) createExecOperation(
 	return result, nil
 }
 
-func (s *State) insertOperation(ctx context.Context, tx *sqlair.TX, args insertOperation) error {
+// addExecParameters inserts the exec operation parameters, which must
+// contain the actual command and a timeout.
+func (st *State) addExecParameters(ctx context.Context, tx *sqlair.TX, operationUUID string, command string, timeout string) error {
+	err := st.insertOperationParameter(ctx, tx, operationUUID, "command", command)
+	if err != nil {
+		return errors.Errorf("inserting command parameter: %w", err)
+	}
+	err = st.insertOperationParameter(ctx, tx, operationUUID, "timeout", timeout)
+	if err != nil {
+		return errors.Errorf("inserting timeout parameter: %w", err)
+	}
+	return nil
+}
+
+func (st *State) insertOperation(ctx context.Context, tx *sqlair.TX, args insertOperation) error {
 	query := `
 INSERT INTO operation (uuid, operation_id, summary, enqueued_at, parallel, execution_group)
 VALUES ($insertOperation.*)
 `
-	stmt, err := s.Prepare(query, args)
+	stmt, err := st.Prepare(query, args)
 	if err != nil {
 		return errors.Errorf("preparing insert operation statement: %w", err)
 	}
@@ -358,7 +396,7 @@ VALUES ($taskParameter.*)
 
 // insertOperationAction inserts an operation action with a known
 // charm UUID.
-func (s *State) insertOperationAction(ctx context.Context, tx *sqlair.TX, operationUUID string, charmUUID string, actionName string) error {
+func (st *State) insertOperationAction(ctx context.Context, tx *sqlair.TX, operationUUID string, charmUUID string, actionName string) error {
 	action := insertOperationAction{
 		OperationUUID:  operationUUID,
 		CharmUUID:      charmUUID,
@@ -369,22 +407,29 @@ func (s *State) insertOperationAction(ctx context.Context, tx *sqlair.TX, operat
 INSERT INTO operation_action (operation_uuid, charm_uuid, charm_action_key)
 VALUES ($insertOperationAction.*)
 `
-	stmt, err := s.Prepare(query, action)
+	stmt, err := st.Prepare(query, action)
 	if err != nil {
 		return errors.Errorf("preparing insert operation action statement: %w", err)
 	}
 
-	return errors.Capture(tx.Query(ctx, stmt, action).Run())
+	err = tx.Query(ctx, stmt, action).Run()
+	if err != nil {
+		// We know that we can have a FK error here if the charm action (
+		// charm_action_key) does not exist for the provided charm, so we return
+		// a user error.
+		return errors.Errorf("inserting action %q for charm %q and operation %q", actionName, charmUUID, operationUUID)
+	}
+	return nil
 }
 
-func (s *State) createMachineTask(
+func (st *State) addMachineTask(
 	ctx context.Context,
 	tx *sqlair.TX,
 	operationUUID string,
 	taskUUID string,
 	machineName machine.Name,
 ) operation.MachineTaskResult {
-	taskID, err := sequencestate.NextValue(ctx, s, tx, operation.OperationSequenceNamespace)
+	taskID, err := sequencestate.NextValue(ctx, st, tx, operation.OperationSequenceNamespace)
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -394,13 +439,13 @@ func (s *State) createMachineTask(
 		}
 	}
 
-	return s.createMachineTaskWithID(ctx, tx, fmt.Sprintf("%d", taskID), taskUUID, operationUUID, machineName)
+	return st.addMachineTaskWithID(ctx, tx, strconv.FormatUint(taskID, 10), taskUUID, operationUUID, machineName)
 }
 
-func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, machineName machine.Name) operation.MachineTaskResult {
+func (st *State) addMachineTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, machineName machine.Name) operation.MachineTaskResult {
 	now := time.Now().UTC()
 
-	err := s.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
+	err := st.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -409,7 +454,7 @@ func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, task
 			},
 		}
 	}
-	err = s.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
+	err = st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -419,7 +464,7 @@ func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, task
 		}
 	}
 
-	machineUUID, err := s.getMachineUUID(ctx, tx, machineName)
+	machineUUID, err := st.getMachineUUID(ctx, tx, machineName)
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -428,7 +473,7 @@ func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, task
 			},
 		}
 	}
-	err = s.insertOperationMachineTask(ctx, tx, taskUUID, machineUUID)
+	err = st.insertOperationMachineTask(ctx, tx, taskUUID, machineUUID)
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -448,8 +493,8 @@ func (s *State) createMachineTaskWithID(ctx context.Context, tx *sqlair.TX, task
 	}
 }
 
-func (s *State) createUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID string, taskUUID string, unitName coreunit.Name) operation.UnitTaskResult {
-	taskID, err := sequencestate.NextValue(ctx, s, tx, operation.OperationSequenceNamespace)
+func (st *State) addUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID string, taskUUID string, unitName coreunit.Name) operation.UnitTaskResult {
+	taskID, err := sequencestate.NextValue(ctx, st, tx, operation.OperationSequenceNamespace)
 	if err != nil {
 		return operation.UnitTaskResult{
 			ReceiverName: unitName,
@@ -459,13 +504,13 @@ func (s *State) createUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID
 		}
 	}
 
-	return s.createUnitTaskWithID(ctx, tx, fmt.Sprintf("%d", taskID), taskUUID, operationUUID, unitName)
+	return st.addUnitTaskWithID(ctx, tx, strconv.FormatUint(taskID, 10), taskUUID, operationUUID, unitName)
 }
 
-func (s *State) createUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, unitName coreunit.Name) operation.UnitTaskResult {
+func (st *State) addUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, unitName coreunit.Name) operation.UnitTaskResult {
 	now := time.Now().UTC()
 
-	err := s.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
+	err := st.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
 	if err != nil {
 		return operation.UnitTaskResult{
 			ReceiverName: unitName,
@@ -475,7 +520,7 @@ func (s *State) createUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID 
 		}
 	}
 
-	err = s.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
+	err = st.insertOperationTaskStatus(ctx, tx, taskUUID, corestatus.Pending)
 	if err != nil {
 		return operation.UnitTaskResult{
 			ReceiverName: unitName,
@@ -485,7 +530,7 @@ func (s *State) createUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID 
 		}
 	}
 
-	err = s.insertOperationUnitTask(ctx, tx, taskUUID, unitName)
+	err = st.insertOperationUnitTask(ctx, tx, taskUUID, unitName)
 	if err != nil {
 		return operation.UnitTaskResult{
 			ReceiverName: unitName,
@@ -505,7 +550,7 @@ func (s *State) createUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID 
 	}
 }
 
-func (s *State) insertOperationTask(ctx context.Context, tx *sqlair.TX, taskUUID, operationUUID, taskID string, enqueuedAt time.Time) error {
+func (st *State) insertOperationTask(ctx context.Context, tx *sqlair.TX, taskUUID, operationUUID, taskID string, enqueuedAt time.Time) error {
 	task := insertOperationTask{
 		UUID:          taskUUID,
 		OperationUUID: operationUUID,
@@ -517,7 +562,7 @@ func (s *State) insertOperationTask(ctx context.Context, tx *sqlair.TX, taskUUID
 INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
 VALUES ($insertOperationTask.*)
 `
-	stmt, err := s.Prepare(query, task)
+	stmt, err := st.Prepare(query, task)
 	if err != nil {
 		return errors.Errorf("preparing insert operation task statement: %w", err)
 	}
@@ -525,18 +570,19 @@ VALUES ($insertOperationTask.*)
 	return errors.Capture(tx.Query(ctx, stmt, task).Run())
 }
 
-func (s *State) insertOperationTaskStatus(ctx context.Context, tx *sqlair.TX, taskUUID string, status corestatus.Status) error {
+func (st *State) insertOperationTaskStatus(ctx context.Context, tx *sqlair.TX, taskUUID string, status corestatus.Status) error {
 	statusValue := insertTaskStatus{
-		TaskUUID: taskUUID,
-		Status:   status.String(),
+		TaskUUID:  taskUUID,
+		Status:    string(status),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	query := `
-INSERT INTO operation_task_status (task_uuid, status_id) 
-SELECT $insertTaskStatus.task_uuid, id 
+INSERT INTO operation_task_status (task_uuid, status_id, updated_at) 
+SELECT $insertTaskStatus.task_uuid, id, $insertTaskStatus.updated_at
 FROM operation_task_status_value 
 WHERE status = $insertTaskStatus.status`
-	stmt, err := s.Prepare(query, statusValue)
+	stmt, err := st.Prepare(query, statusValue)
 	if err != nil {
 		return errors.Errorf("preparing insert operation task status statement: %w", err)
 	}
@@ -544,8 +590,8 @@ WHERE status = $insertTaskStatus.status`
 	return errors.Capture(tx.Query(ctx, stmt, statusValue).Run())
 }
 
-func (s *State) insertOperationUnitTask(ctx context.Context, tx *sqlair.TX, taskUUID string, unitName coreunit.Name) error {
-	unitUUID, err := s.getUnitUUID(ctx, tx, unitName)
+func (st *State) insertOperationUnitTask(ctx context.Context, tx *sqlair.TX, taskUUID string, unitName coreunit.Name) error {
+	unitUUID, err := st.getUnitUUID(ctx, tx, unitName)
 	if err != nil {
 		return errors.Errorf("getting unit UUID for %q: %w", unitName, err)
 	}
@@ -559,7 +605,7 @@ func (s *State) insertOperationUnitTask(ctx context.Context, tx *sqlair.TX, task
 INSERT INTO operation_unit_task (task_uuid, unit_uuid)
 VALUES ($insertUnitTask.*)
 `
-	stmt, err := s.Prepare(query, insertUnitTask{})
+	stmt, err := st.Prepare(query, insertUnitTask{})
 	if err != nil {
 		return errors.Errorf("preparing insert operation unit task statement: %w", err)
 	}
@@ -567,7 +613,7 @@ VALUES ($insertUnitTask.*)
 	return errors.Capture(tx.Query(ctx, stmt, unitTask).Run())
 }
 
-func (s *State) insertOperationMachineTask(ctx context.Context, tx *sqlair.TX, taskUUID, machineUUID string) error {
+func (st *State) insertOperationMachineTask(ctx context.Context, tx *sqlair.TX, taskUUID, machineUUID string) error {
 	machineTask := insertMachineTask{
 		TaskUUID:    taskUUID,
 		MachineUUID: machineUUID,
@@ -577,7 +623,7 @@ func (s *State) insertOperationMachineTask(ctx context.Context, tx *sqlair.TX, t
 INSERT INTO operation_machine_task (task_uuid, machine_uuid)
 VALUES ($insertMachineTask.*)
 `
-	stmt, err := s.Prepare(query, insertMachineTask{})
+	stmt, err := st.Prepare(query, insertMachineTask{})
 	if err != nil {
 		return errors.Errorf("preparing insert operation machine task statement: %w", err)
 	}
@@ -585,12 +631,12 @@ VALUES ($insertMachineTask.*)
 	return errors.Capture(tx.Query(ctx, stmt, machineTask).Run())
 }
 
-func (s *State) getAllMachines(ctx context.Context, tx *sqlair.TX) ([]machine.Name, error) {
+func (st *State) getAllMachines(ctx context.Context, tx *sqlair.TX) ([]machine.Name, error) {
 	query := `
 SELECT name AS &nameArg.name 
 FROM   machine 
 WHERE  life_id = 0`
-	stmt, err := s.Prepare(query, nameArg{})
+	stmt, err := st.Prepare(query, nameArg{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get all machines statement: %w", err)
 	}
@@ -609,20 +655,21 @@ WHERE  life_id = 0`
 	return machines, nil
 }
 
-func (s *State) getUnitsForApplication(ctx context.Context, tx *sqlair.TX, appName string) ([]coreunit.Name, error) {
+func (st *State) getUnitsForApplications(ctx context.Context, tx *sqlair.TX, appNames []string) ([]coreunit.Name, error) {
 	// We need to alias the nameArg generic struct because we are already using
 	// it as input for the query.
 	type unitResult nameArg
 
-	ident := nameArg{Name: appName}
+	type names []string
 	query := `
 SELECT u.name AS &unitResult.name
 FROM   unit u
 JOIN   application a ON u.application_uuid = a.uuid
-WHERE  a.name = $nameArg.name
+WHERE  a.name IN ($names[:])
 `
+	ident := names(appNames)
 
-	stmt, err := s.Prepare(query, unitResult{}, ident)
+	stmt, err := st.Prepare(query, unitResult{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing get units for application statement: %w", err)
 	}
@@ -630,9 +677,9 @@ WHERE  a.name = $nameArg.name
 	var results []unitResult
 	err = tx.Query(ctx, stmt, ident).GetAll(&results)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("application %q not found", appName).Add(applicationerrors.ApplicationNotFound)
+		return nil, errors.Errorf("no application found").Add(applicationerrors.ApplicationNotFound)
 	} else if err != nil {
-		return nil, errors.Errorf("querying units for application %q: %w", appName, err)
+		return nil, errors.Errorf("querying units for applications %v: %w", appNames, err)
 	}
 
 	units := make([]coreunit.Name, len(results))
@@ -643,14 +690,14 @@ WHERE  a.name = $nameArg.name
 	return units, nil
 }
 
-func (s *State) getMachineUUID(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (string, error) {
+func (st *State) getMachineUUID(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (string, error) {
 	ident := nameArg{Name: string(machineName)}
 
 	query := `
 SELECT uuid AS &uuid.uuid 
 FROM   machine 
 WHERE  name = $nameArg.name`
-	stmt, err := s.Prepare(query, uuid{}, ident)
+	stmt, err := st.Prepare(query, uuid{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing get machine UUID statement: %w", err)
 	}
@@ -666,13 +713,13 @@ WHERE  name = $nameArg.name`
 	return result.UUID, nil
 }
 
-func (s *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (string, error) {
+func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (string, error) {
 	ident := nameArg{Name: unitName.String()}
 	query := `
 SELECT uuid AS &uuid.uuid 
 FROM   unit 
 WHERE  name = $nameArg.name`
-	stmt, err := s.Prepare(query, uuid{}, ident)
+	stmt, err := st.Prepare(query, uuid{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing get unit UUID statement: %w", err)
 	}
@@ -688,13 +735,13 @@ WHERE  name = $nameArg.name`
 	return result.UUID, nil
 }
 
-func (s *State) getCharmUUIDByApplication(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {
+func (st *State) getCharmUUIDByApplication(ctx context.Context, tx *sqlair.TX, appName string) (string, error) {
 	ident := nameArg{Name: appName}
 	query := `
 SELECT charm_uuid AS &charmUUIDResult.charm_uuid
 FROM   application
 WHERE  application.name = $nameArg.name`
-	stmt, err := s.Prepare(query, charmUUIDResult{}, ident)
+	stmt, err := st.Prepare(query, charmUUIDResult{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing get charm UUID for action statement: %w", err)
 	}

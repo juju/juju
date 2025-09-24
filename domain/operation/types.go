@@ -157,17 +157,21 @@ type Receivers struct {
 	LeaderUnit   []string
 }
 
-// ReceiversWithResolvedLeaders represents receivers with matched leaders.
-type ReceiversWithResolvedLeaders struct {
-	Applications []string
-	Machines     []machine.Name
-	Units        []unit.Name
-	LeaderUnits  []unit.Name
-}
-
 // ActionReceiver allows running an action on a specific unit or a leader unit of an application
 // only one of both fields should be set.
 type ActionReceiver struct {
 	Unit       unit.Name
 	LeaderUnit string
+}
+
+// Validate checks that the ActionReceiver is correctly configured, i.e. only
+// one of Unit or LeaderUnit is set, and at least one is set.
+func (a *ActionReceiver) Validate() error {
+	if a.Unit != "" && a.LeaderUnit != "" {
+		return errors.Errorf("only one of Unit or LeaderUnit should be set")
+	}
+	if a.Unit == "" && a.LeaderUnit == "" {
+		return errors.Errorf("one of Unit or LeaderUnit must be set")
+	}
+	return nil
 }

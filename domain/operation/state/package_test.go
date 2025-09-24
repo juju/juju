@@ -82,6 +82,18 @@ func (s *baseSuite) getRowCount(c *tc.C, table string) int {
 	return obtained
 }
 
+// getRowCountByField returns the number of rows in a table where field equals
+// value.
+func (s *baseSuite) getRowCountByField(c *tc.C, field, value, table string) int {
+	var obtained int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s = %q", table, field, value)
+		return tx.QueryRowContext(ctx, query).Scan(&obtained)
+	})
+	c.Assert(err, tc.IsNil, tc.Commentf("counting rows in table %q for the field %q and value %q", table, field, value))
+	return obtained
+}
+
 // selectDistinctValues retrieves distinct values for a given field from a table.
 func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
 	var obtained []string
@@ -292,4 +304,22 @@ func (s *baseSuite) addOperationTaskLog(c *tc.C, taskUUID, content string) {
 // addOperationParameter inserts a parameter key/value for an operation.
 func (s *baseSuite) addOperationParameter(c *tc.C, operationUUID, key, value string) {
 	s.query(c, `INSERT INTO operation_parameter (operation_uuid, "key", value) VALUES (?, ?, ?)`, operationUUID, key, value)
+}
+
+// addApplication creates a new application and returns its UUID
+func (s *startSuite) addApplication(c *tc.C, charmUUID, appName string) string {
+	appUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appName, 0, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	return appUUID
+}
+
+// addUnitToApplication creates a unit for an existing application
+func (s *startSuite) addUnitToApplication(c *tc.C, charmUUID, appUUID, unitName string) string {
+	nodeUUID := internaluuid.MustNewUUID().String()
+	unitUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitName, 0, appUUID, charmUUID, nodeUUID)
+	return unitUUID
 }
