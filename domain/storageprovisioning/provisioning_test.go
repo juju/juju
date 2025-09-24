@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -49,7 +50,9 @@ func (s *provisioningSuite) TestBlockCompositionVolumeBackedModelScoped(c *tc.C)
 	).Return(true).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
 
-	comp, err := CalculateStorageInstanceComposition(KindBlock, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindBlock, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		VolumeProvisionScope: ProvisionScopeModel,
@@ -71,7 +74,9 @@ func (s *provisioningSuite) TestBlockCompositionVolumeBackedMachineScoped(c *tc.
 	).Return(true).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeMachine)
 
-	comp, err := CalculateStorageInstanceComposition(KindBlock, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindBlock, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		VolumeProvisionScope: ProvisionScopeMachine,
@@ -93,7 +98,9 @@ func (s *provisioningSuite) TestBlockCompositionVolumesNotSupported(c *tc.C) {
 	).Return(false).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeMachine)
 
-	_, err := CalculateStorageInstanceComposition(KindBlock, s.storageProvider)
+	_, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindBlock, s.storageProvider,
+	)
 	c.Check(err, tc.NotNil)
 }
 
@@ -111,7 +118,9 @@ func (s *provisioningSuite) TestFilesystemCompositionFilesystemBackedMachineScop
 	).Return(false).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeMachine)
 
-	comp, err := CalculateStorageInstanceComposition(KindFilesystem, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindFilesystem, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		FilesystemProvisionScope: ProvisionScopeMachine,
@@ -133,7 +142,9 @@ func (s *provisioningSuite) TestFilesystemCompositionFilesystemBackedModelScoped
 	).Return(false).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
 
-	comp, err := CalculateStorageInstanceComposition(KindFilesystem, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindFilesystem, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		FilesystemProvisionScope: ProvisionScopeModel,
@@ -164,7 +175,9 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsFilesystemAndVolume
 	).Return(true).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
 
-	comp, err := CalculateStorageInstanceComposition(KindFilesystem, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindFilesystem, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		FilesystemProvisionScope: ProvisionScopeModel,
@@ -187,7 +200,9 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsVolumeMachineScoped
 	).Return(true).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
 
-	comp, err := CalculateStorageInstanceComposition(KindFilesystem, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindFilesystem, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		FilesystemProvisionScope: ProvisionScopeMachine,
@@ -212,7 +227,9 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsVolumeModelScoped(c
 	).Return(true).AnyTimes()
 	s.storageProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
 
-	comp, err := CalculateStorageInstanceComposition(KindFilesystem, s.storageProvider)
+	comp, err := CalculateStorageInstanceComposition(
+		domainstorage.StorageKindFilesystem, s.storageProvider,
+	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
 		FilesystemProvisionScope: ProvisionScopeMachine,
