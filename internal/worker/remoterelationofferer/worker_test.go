@@ -34,7 +34,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
+	s.crossModelRelationService.EXPECT().WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -58,14 +58,14 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationOfferers(gomock.Any()).
+	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -102,14 +102,14 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationOfferers(gomock.Any()).
+	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -117,9 +117,9 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Dead,
 				OfferUUID:       "offer-uuid",
@@ -162,14 +162,14 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationOfferers(gomock.Any()).
+	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -177,9 +177,9 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{}, nil
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{}, nil
 		})
 
 	started := make(chan string, 1)
@@ -217,14 +217,14 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 	ch := make(chan struct{})
 
 	exp := s.crossModelRelationService.EXPECT()
-	exp.WatchRemoteApplicationOfferers(gomock.Any()).
+	exp.WatchRemoteApplicationConsumers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",
@@ -232,9 +232,9 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 			}}, nil
 		})
 
-	exp.GetRemoteApplicationOfferers(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
-			return []crossmodelrelation.RemoteApplicationOfferer{{
+	exp.GetRemoteApplicationConsumers(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
+			return []crossmodelrelation.RemoteApplicationConsumer{{
 				ApplicationName: "foo",
 				Life:            life.Alive,
 				OfferUUID:       "offer-uuid",

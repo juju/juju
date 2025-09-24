@@ -45,13 +45,13 @@ type RemoteApplicationWorker interface {
 // CrossModelRelationService is an interface that defines the methods for
 // managing cross-model relations directly on the local model database.
 type CrossModelRelationService interface {
-	// WatchRemoteApplicationOfferers watches the changes to remote
+	// WatchRemoteApplicationConsumers watches the changes to remote
 	// application consumers and notifies the worker of any changes.
-	WatchRemoteApplicationOfferers(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchRemoteApplicationConsumers(ctx context.Context) (watcher.NotifyWatcher, error)
 
-	// GetRemoteApplicationOfferers returns the current state of all remote
+	// GetRemoteApplicationConsumers returns the current state of all remote
 	// application consumers in the local model.
-	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
+	GetRemoteApplicationConsumers(context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error)
 }
 
 // Config defines the operation of a Worker.
@@ -154,7 +154,7 @@ func (w *Worker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.crossModelRelationService.WatchRemoteApplicationOfferers(ctx)
+	watcher, err := w.crossModelRelationService.WatchRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -183,7 +183,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 
 	// Fetch the current state of each of the remote applications that have
 	// changed.
-	results, err := w.crossModelRelationService.GetRemoteApplicationOfferers(ctx)
+	results, err := w.crossModelRelationService.GetRemoteApplicationConsumers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -243,7 +243,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicationOfferer) (bool, error) {
+func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicationConsumer) (bool, error) {
 	appName := remoteApp.ApplicationName
 
 	// If the worker for the name doesn't exist then that's ok, we just return
