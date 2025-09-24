@@ -27,6 +27,10 @@ type ModelRemoteApplicationState interface {
 		crossmodelrelation.AddRemoteApplicationOffererArgs,
 	) error
 
+	// GetRemoteApplicationOfferers returns all the current non-dead remote
+	// application offerers in the local model.
+	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
+
 	// NamespaceRemoteApplicationOfferers returns the database namespace
 	// for remote application offerers.
 	NamespaceRemoteApplicationOfferers() string
@@ -102,18 +106,18 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	})
 }
 
+// GetRemoteApplicationOfferers returns all the current non-dead remote
+// application offerers in the local model.
+func (s *Service) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.GetRemoteApplicationOfferers(ctx)
+}
+
 // GetRemoteApplicationConsumers returns the current state of all remote
 // application consumers in the local model.
 func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationConsumer, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return nil, errors.NotImplemented
-}
-
-// GetRemoteApplicationOfferers returns all application proxies for offers
-// consumed in this model.
-func (s *Service) GetRemoteApplicationOfferers(ctx context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
