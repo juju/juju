@@ -134,6 +134,9 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				"":         "default",
 				"provider": "beta",
 			},
+			Constraints: constraints.Constraints{
+				Arch: ptr("arm64"),
+			},
 		},
 		Scale: 1,
 	}
@@ -323,6 +326,11 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 				DownloadSize:       42,
 			},
 			Platform: platform,
+			Constraints: constraints.Constraints{
+				CpuCores: ptr(uint64(4)),
+				CpuPower: ptr(uint64(75)),
+				Arch:     ptr("arm64"),
+			},
 		},
 	}
 
@@ -422,6 +430,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 				DownloadSize:       42,
 			},
 			Platform: platform,
+			Constraints: constraints.Constraints{
+				CpuCores: ptr(uint64(4)),
+				CpuPower: ptr(uint64(75)),
+				Arch:     ptr("arm64"),
+			},
 		},
 	}
 
@@ -915,6 +928,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 			},
 			Platform:         platform,
 			PendingResources: []resource.UUID{resourceUUID},
+			Constraints: constraints.Constraints{
+				CpuCores: ptr(uint64(4)),
+				CpuPower: ptr(uint64(75)),
+				Arch:     ptr("arm64"),
+			},
 		},
 	}
 

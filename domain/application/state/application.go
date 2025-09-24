@@ -341,6 +341,9 @@ func (st *State) insertApplication(
 	if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
 		return errors.Errorf("inserting peer relation for application %q: %w", name, err)
 	}
+	if err := st.setApplicationConstraints(ctx, tx, appDetails.UUID, args.Constraints); err != nil {
+		return errors.Errorf("setting constraints for application %q: %w", name, err)
+	}
 	if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
 		return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
 	}
@@ -2603,6 +2606,22 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 		return errors.Capture(err)
 	}
 
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+			return errors.Capture(err)
+		}
+
+		return st.setApplicationConstraints(ctx, tx, appID, cons)
+	})
+}
+
+func (st *State) setApplicationConstraints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	cons constraints.Constraints,
+) error {
+
 	cUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Capture(err)
@@ -2699,95 +2718,89 @@ ON CONFLICT (application_uuid) DO NOTHING
 		return errors.Errorf("preparing insert application constraints query: %w", err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+	var containerTypeID containerTypeID
+	if cons.Container != nil {
+		err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
+			return applicationerrors.InvalidApplicationConstraints
+		}
+		if err != nil {
 			return errors.Capture(err)
 		}
+	}
 
-		var containerTypeID containerTypeID
-		if cons.Container != nil {
-			err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+	// First check if the constraint already exists, in that case
+	// we need to update it, unsetting the nil values.
+	var retrievedConstraintUUID constraintUUID
+	err = tx.Query(ctx, selectConstraintUUIDStmt, applicationUUID{ApplicationUUID: appID.String()}).Get(&retrievedConstraintUUID)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if err == nil {
+		cUUIDStr = retrievedConstraintUUID.ConstraintUUID
+	}
+
+	// Cleanup tags, spaces and zones from their join tables.
+	if err := tx.Query(ctx, deleteConstraintTagsStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteConstraintSpacesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteConstraintZonesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	constraints := encodeConstraints(cUUIDStr, cons, containerTypeID.ID)
+
+	if err := tx.Query(ctx, insertConstraintsStmt, constraints).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if cons.Tags != nil {
+		for _, tag := range *cons.Tags {
+			constraintTag := setConstraintTag{ConstraintUUID: cUUIDStr, Tag: tag}
+			if err := tx.Query(ctx, insertConstraintTagsStmt, constraintTag).Run(); err != nil {
+				return errors.Capture(err)
+			}
+		}
+	}
+
+	if cons.Spaces != nil {
+		for _, space := range *cons.Spaces {
+			// Make sure the space actually exists.
+			var spaceUUID spaceUUID
+			err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
 			if errors.Is(err, sqlair.ErrNoRows) {
-				st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
+				st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
 				return applicationerrors.InvalidApplicationConstraints
 			}
 			if err != nil {
 				return errors.Capture(err)
 			}
-		}
 
-		// First check if the constraint already exists, in that case
-		// we need to update it, unsetting the nil values.
-		var retrievedConstraintUUID constraintUUID
-		err := tx.Query(ctx, selectConstraintUUIDStmt, applicationUUID{ApplicationUUID: appID.String()}).Get(&retrievedConstraintUUID)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		} else if err == nil {
-			cUUIDStr = retrievedConstraintUUID.ConstraintUUID
-		}
-
-		// Cleanup tags, spaces and zones from their join tables.
-		if err := tx.Query(ctx, deleteConstraintTagsStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, deleteConstraintSpacesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, deleteConstraintZonesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-
-		constraints := encodeConstraints(cUUIDStr, cons, containerTypeID.ID)
-
-		if err := tx.Query(ctx, insertConstraintsStmt, constraints).Run(); err != nil {
-			return errors.Capture(err)
-		}
-
-		if cons.Tags != nil {
-			for _, tag := range *cons.Tags {
-				constraintTag := setConstraintTag{ConstraintUUID: cUUIDStr, Tag: tag}
-				if err := tx.Query(ctx, insertConstraintTagsStmt, constraintTag).Run(); err != nil {
-					return errors.Capture(err)
-				}
+			constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space.SpaceName, Exclude: space.Exclude}
+			if err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run(); err != nil {
+				return errors.Capture(err)
 			}
 		}
+	}
 
-		if cons.Spaces != nil {
-			for _, space := range *cons.Spaces {
-				// Make sure the space actually exists.
-				var spaceUUID spaceUUID
-				err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
-				if errors.Is(err, sqlair.ErrNoRows) {
-					st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
-					return applicationerrors.InvalidApplicationConstraints
-				}
-				if err != nil {
-					return errors.Capture(err)
-				}
-
-				constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space.SpaceName, Exclude: space.Exclude}
-				if err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run(); err != nil {
-					return errors.Capture(err)
-				}
+	if cons.Zones != nil {
+		for _, zone := range *cons.Zones {
+			constraintZone := setConstraintZone{ConstraintUUID: cUUIDStr, Zone: zone}
+			if err := tx.Query(ctx, insertConstraintZonesStmt, constraintZone).Run(); err != nil {
+				return errors.Capture(err)
 			}
 		}
+	}
 
-		if cons.Zones != nil {
-			for _, zone := range *cons.Zones {
-				constraintZone := setConstraintZone{ConstraintUUID: cUUIDStr, Zone: zone}
-				if err := tx.Query(ctx, insertConstraintZonesStmt, constraintZone).Run(); err != nil {
-					return errors.Capture(err)
-				}
-			}
-		}
-
-		return errors.Capture(
-			tx.Query(ctx, insertAppConstraintsStmt, setApplicationConstraint{
-				ApplicationUUID: appID.String(),
-				ConstraintUUID:  cUUIDStr,
-			}).Run(),
-		)
-	})
+	return errors.Capture(
+		tx.Query(ctx, insertAppConstraintsStmt, setApplicationConstraint{
+			ApplicationUUID: appID.String(),
+			ConstraintUUID:  cUUIDStr,
+		}).Run(),
+	)
 }
 
 // GetDeviceConstraints returns the device constraints for an application.

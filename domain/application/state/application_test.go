@@ -73,6 +73,11 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	}
 	ctx := c.Context()
 
+	cons := constraints.Constraints{
+		CpuCores: ptr(uint64(42)),
+		Mem:      ptr(uint64(3072)),
+	}
+
 	id, machineNames, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
@@ -90,7 +95,8 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 				DownloadURL:        "http://example.com/charm",
 				DownloadSize:       666,
 			},
-			Channel: channel,
+			Channel:     channel,
+			Constraints: cons,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,6 +118,11 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
+
+	// Constraints should be set.
+	constraints, err := s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(constraints, tc.DeepEquals, cons)
 }
 
 func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
@@ -127,6 +138,10 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 	}
 	ctx := c.Context()
 
+	cons := constraints.Constraints{
+		CpuCores: ptr(uint64(42)),
+		Mem:      ptr(uint64(3072)),
+	}
 	id, err := s.state.CreateCAASApplication(ctx, "666", application.AddCAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Platform: platform,
@@ -144,7 +159,8 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 				DownloadURL:        "http://example.com/charm",
 				DownloadSize:       666,
 			},
-			Channel: channel,
+			Channel:     channel,
+			Constraints: cons,
 		},
 		Scale: 1,
 	}, nil)
@@ -165,6 +181,11 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 	c.Check(sts, tc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
+
+	// Constraints should be set.
+	constraints, err := s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(constraints, tc.DeepEquals, cons)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc.C) {
@@ -2922,13 +2943,29 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, addZoneConsStmt, "constraint-uuid", "zone1")
-		if err != nil {
-			return err
-		}
-
-		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
 		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		AllocatePublicIP: ptr(true),
+		Arch:             ptr("amd64"),
+		CpuCores:         ptr(uint64(2)),
+		CpuPower:         ptr(uint64(42)),
+		Mem:              ptr(uint64(8)),
+		ImageID:          ptr("image-id"),
+		Tags:             ptr([]string{"tag0", "tag1"}),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space0", Exclude: false},
+			{SpaceName: "space1", Exclude: true},
+		}),
+		Zones:          ptr([]string{"zone0", "zone1"}),
+		RootDisk:       ptr(uint64(256)),
+		RootDiskSource: ptr("root-disk-source"),
+		InstanceRole:   ptr("instance-role"),
+		InstanceType:   ptr("instance-type"),
+		Container:      ptr(instance.LXD),
+		VirtType:       ptr("virt-type"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2957,15 +2994,11 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid, arch, cpu_cores, allocate_public_ip, image_id) VALUES (?, ?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", "amd64", 2, true, "image-id")
-		if err != nil {
-			return err
-		}
-		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
-		return err
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		AllocatePublicIP: ptr(true),
+		Arch:             ptr("amd64"),
+		CpuCores:         ptr(uint64(2)),
+		ImageID:          ptr("image-id"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2982,15 +3015,8 @@ func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
 func (s *applicationStateSuite) TestConstraintSingleValue(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		addConstraintStmt := `INSERT INTO "constraint" (uuid, cpu_cores) VALUES (?, ?)`
-		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", 2)
-		if err != nil {
-			return err
-		}
-		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
-		return err
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		CpuCores: ptr(uint64(2)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

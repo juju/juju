@@ -777,6 +777,10 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing IAAS application args: %w", err)
 	}
+	addIAASApplicationArgs := application.AddIAASApplicationArg{
+		BaseAddApplicationArg: arg,
+	}
+	addIAASApplicationArgs.Constraints = constraints.DecodeConstraints(cons)
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
 		charm.Meta().Storage,
@@ -789,9 +793,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making IAAS unit args: %w", err)
 	}
 
-	return appName, application.AddIAASApplicationArg{
-		BaseAddApplicationArg: arg,
-	}, unitArgs, nil
+	return appName, addIAASApplicationArgs, unitArgs, nil
 }
 
 func (s *ProviderService) makeCAASApplicationArg(
@@ -833,6 +835,11 @@ func (s *ProviderService) makeCAASApplicationArg(
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
 	}
+	addCAASApplicationArg := application.AddCAASApplicationArg{
+		BaseAddApplicationArg: arg,
+		Scale:                 len(units),
+	}
+	addCAASApplicationArg.Constraints = constraints.DecodeConstraints(cons)
 
 	storageDirectives := makeStorageDirectiveFromApplicationArg(
 		charm.Meta().Storage,
@@ -844,10 +851,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
 	}
-	return appName, application.AddCAASApplicationArg{
-		BaseAddApplicationArg: arg,
-		Scale:                 len(units),
-	}, unitArgs, nil
+	return appName, addCAASApplicationArg, unitArgs, nil
 }
 
 func (s *ProviderService) validateCreateApplicationArgs(
@@ -1099,6 +1103,7 @@ func makeCreateApplicationArgs(
 	return application.BaseAddApplicationArg{
 		Charm:             ch,
 		CharmDownloadInfo: args.DownloadInfo,
+		Constraints:       constraints.DecodeConstraints(args.Constraints),
 		Platform:          platformArg,
 		Channel:           channelArg,
 		EndpointBindings:  args.EndpointBindings,
