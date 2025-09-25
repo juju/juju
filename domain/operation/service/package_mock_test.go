@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	set "github.com/juju/collections/set"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	operation "github.com/juju/juju/domain/operation"
@@ -198,44 +197,6 @@ func (c *MockStateCancelTaskCall) Do(f func(context.Context, string) (operation.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockStateCancelTaskCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CheckMachinesByNameExist mocks base method.
-func (m *MockState) CheckMachinesByNameExist(arg0 context.Context, arg1 set.Strings) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckMachinesByNameExist", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckMachinesByNameExist indicates an expected call of CheckMachinesByNameExist.
-func (mr *MockStateMockRecorder) CheckMachinesByNameExist(arg0, arg1 any) *MockStateCheckMachinesByNameExistCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckMachinesByNameExist", reflect.TypeOf((*MockState)(nil).CheckMachinesByNameExist), arg0, arg1)
-	return &MockStateCheckMachinesByNameExistCall{Call: call}
-}
-
-// MockStateCheckMachinesByNameExistCall wrap *gomock.Call
-type MockStateCheckMachinesByNameExistCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateCheckMachinesByNameExistCall) Return(arg0 error) *MockStateCheckMachinesByNameExistCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateCheckMachinesByNameExistCall) Do(f func(context.Context, set.Strings) error) *MockStateCheckMachinesByNameExistCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckMachinesByNameExistCall) DoAndReturn(f func(context.Context, set.Strings) error) *MockStateCheckMachinesByNameExistCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -509,6 +470,45 @@ func (c *MockStateGetMachineUUIDByNameCall) Do(f func(context.Context, machine.N
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachines mocks base method.
+func (m *MockState) GetMachines(arg0 context.Context, arg1 []machine.Name) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachines", arg0, arg1)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachines indicates an expected call of GetMachines.
+func (mr *MockStateMockRecorder) GetMachines(arg0, arg1 any) *MockStateGetMachinesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachines", reflect.TypeOf((*MockState)(nil).GetMachines), arg0, arg1)
+	return &MockStateGetMachinesCall{Call: call}
+}
+
+// MockStateGetMachinesCall wrap *gomock.Call
+type MockStateGetMachinesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachinesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesCall) Do(f func(context.Context, []machine.Name) ([]machine.Name, error)) *MockStateGetMachinesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesCall) DoAndReturn(f func(context.Context, []machine.Name) ([]machine.Name, error)) *MockStateGetMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

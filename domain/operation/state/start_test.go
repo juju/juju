@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/machine"
@@ -32,39 +31,74 @@ func (s *startSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 }
 
-func (s *startSuite) TestCheckMachinesExistAllExist(c *tc.C) {
+func (s *startSuite) TestGetMachinesAllExist(c *tc.C) {
 	_ = s.addMachine(c, "0")
 	_ = s.addMachine(c, "1")
+	_ = s.addMachine(c, "2")
 
-	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "1"))
+	names := []machine.Name{"0", "1", "2"}
+	machines, err := s.state.GetMachines(c.Context(), names)
+
 	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 3)
+	c.Check(machines, tc.DeepEquals, []machine.Name{"0", "1", "2"})
 }
 
-func (s *startSuite) TestCheckMachinesExistSomeMissing(c *tc.C) {
+func (s *startSuite) TestGetMachinesSomeMissing(c *tc.C) {
+	_ = s.addMachine(c, "0")
+	_ = s.addMachine(c, "2")
+
+	names := []machine.Name{"0", "1", "2"}
+	machines, err := s.state.GetMachines(c.Context(), names)
+
+	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 2)
+	c.Check(machines, tc.DeepEquals, []machine.Name{"0", "2"})
+}
+
+func (s *startSuite) TestGetMachinesNoneExist(c *tc.C) {
+	names := []machine.Name{"foo", "bar"}
+	machines, err := s.state.GetMachines(c.Context(), names)
+
+	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 0)
+}
+
+func (s *startSuite) TestGetMachinesEmptyList(c *tc.C) {
+	machines, err := s.state.GetMachines(c.Context(), []machine.Name{})
+
+	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 0)
+}
+
+func (s *startSuite) TestGetMachinesDuplicateNames(c *tc.C) {
 	_ = s.addMachine(c, "0")
 
-	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "missing"))
-	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
-}
+	names := []machine.Name{"0", "0"}
+	machines, err := s.state.GetMachines(c.Context(), names)
 
-func (s *startSuite) TestCheckMachinesExistNoneExist(c *tc.C) {
-	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("foo", "bar"))
-	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
-}
-
-func (s *startSuite) TestCheckMachinesExistEmptyList(c *tc.C) {
-	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings())
 	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 1)
+	c.Check(machines[0], tc.Equals, machine.Name("0"))
 }
 
-func (s *startSuite) TestCheckMachinesExistContainerNames(c *tc.C) {
+func (s *startSuite) TestGetMachinesContainerNames(c *tc.C) {
 	_ = s.addMachine(c, "0")
 	_ = s.addMachine(c, "0/lxd/1")
 
-	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "0/lxd/1"))
+	names := []machine.Name{"0", "0/lxd/1"}
+	machines, err := s.state.GetMachines(c.Context(), names)
+
 	c.Assert(err, tc.IsNil)
-	err = s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "missing/lxd/1"))
-	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
+	c.Assert(machines, tc.HasLen, 2)
+	c.Check(machines, tc.DeepEquals, []machine.Name{"0", "0/lxd/1"})
+
+	// Missing container
+	names = []machine.Name{"0", "missing/lxd/1"}
+	machines, err = s.state.GetMachines(c.Context(), names)
+	c.Assert(err, tc.IsNil)
+	c.Assert(machines, tc.HasLen, 1)
+	c.Check(machines, tc.DeepEquals, []machine.Name{"0"})
 }
 
 func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {

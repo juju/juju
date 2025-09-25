@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -40,12 +39,9 @@ type State interface {
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
 
-	// CheckMachinesByNameExist checks if all given machine names exist in the
-	// database.
-	//
-	// The following errors may be returned:
-	// - [machineerrors.MachineNotFound]: if one or more machines are not found.
-	CheckMachinesByNameExist(ctx context.Context, machineNames set.Strings) error
+	// GetMachines returns the list of machine names from the input list that exist
+	// in the database.
+	GetMachines(ctx context.Context, machineNames []coremachine.Name) ([]coremachine.Name, error)
 
 	// FilterTaskUUIDsForMachine returns a list of task IDs that corresponds to the
 	// filtered list of task UUIDs from the provided list that target the given

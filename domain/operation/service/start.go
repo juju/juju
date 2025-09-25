@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
@@ -27,18 +27,6 @@ func (s *Service) AddExecOperation(
 ) (operation.RunResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	// Validate that the machine target receivers actually exist.
-	// NOTE: Applications don't need to be validated here, because they are
-	// directly passed to the state layer method, which implicitly validates them when retrieving their units.
-	if len(target.Machines) > 0 {
-		machineNamesStr := transform.Slice(target.Machines, func(m machine.Name) string {
-			return m.String()
-		})
-		if err := s.st.CheckMachinesByNameExist(ctx, set.NewStrings(machineNamesStr...)); err != nil {
-			return operation.RunResult{}, errors.Errorf("validating machine targets: %w", err)
-		}
-	}
 
 	operationUUID, err := internaluuid.NewUUID()
 	if err != nil {
@@ -104,9 +92,46 @@ func (s *Service) AddExecOperation(
 		leaderUnits = append(leaderUnits, leaderUnitName)
 	}
 
+	// Initialize the machine results.
+	var (
+		allMachines      []machine.Name
+		existingMachines map[machine.Name]*operation.MachineTaskResult
+	)
+	if len(target.Machines) > 0 {
+		result.Machines = make([]operation.MachineTaskResult, len(target.Machines))
+		existingMachines = make(map[machine.Name]*operation.MachineTaskResult)
+		allMachines, err = s.st.GetMachines(ctx, target.Machines)
+		if err != nil {
+			return operation.RunResult{}, errors.Errorf("validating that target machines exist: %w", err)
+		}
+		// Validate that the machine target receivers actually exist.
+		allMachinesSet := set.NewStrings(
+			transform.Slice(allMachines, func(m machine.Name) string {
+				return string(m)
+			})...)
+		for i, machineName := range target.Machines {
+			if !allMachinesSet.Contains(string(machineName)) {
+				result.Machines[i] = operation.MachineTaskResult{
+					ReceiverName: machineName,
+					TaskInfo: operation.TaskInfo{
+						Error: errors.Errorf("machine %q not found", machineName).Add(machineerrors.MachineNotFound),
+					},
+				}
+			} else {
+				result.Machines[i] = operation.MachineTaskResult{
+					ReceiverName: machineName,
+				}
+				existingMachines[machineName] = &result.Machines[i]
+			}
+		}
+	}
+
+	// NOTE: Applications don't need to be validated here, because they are
+	// directly passed to the state layer method, which implicitly validates
+	// them when retrieving their units.
 	targetWithResolvedLeaders := internal.ReceiversWithResolvedLeaders{
 		Applications: target.Applications,
-		Machines:     target.Machines,
+		Machines:     allMachines,
 		Units:        target.Units,
 		LeaderUnits:  leaderUnits,
 	}
@@ -127,7 +152,6 @@ func (s *Service) AddExecOperation(
 		return operation.RunResult{}, errors.Errorf("starting exec operation: %w", err)
 	}
 	result.OperationID = runResult.OperationID
-	result.Machines = runResult.Machines
 
 	// Consolidate the leader unit results from the state layer with our
 	// pre-computed results.
@@ -156,6 +180,37 @@ func (s *Service) AddExecOperation(
 	for unitName, unitResult := range leaderUnitsByName {
 		if unitResult.TaskInfo.ID == "" && unitResult.TaskInfo.Error == nil {
 			unitResult.TaskInfo.Error = errors.Errorf("missing result for unit %s", unitName)
+		}
+	}
+
+	// Make sure that we have the same number of result slots as the
+	// pre-computed results. This is a sanity check.
+	if len(runResult.Machines) > len(existingMachines) {
+		s.logger.Errorf(ctx, "more state layer results than result slots: %d > %d", len(runResult.Units), len(existingMachines))
+		// This should never happen, but if it does, we'll just truncate the
+		// state layer results to match the result slots.
+		runResult.Machines = runResult.Machines[:len(existingMachines)]
+	}
+
+	// Consolidate the machine results from the state layer with our
+	// pre-computed results.
+	for _, machineTaskResult := range runResult.Machines {
+		machineResult, ok := existingMachines[machineTaskResult.ReceiverName]
+		if !ok {
+			s.logger.Warningf(ctx, "missing results by machine for machine %q", machineTaskResult.ReceiverName)
+			// This should never happen, but if it does, we'll just skip it.
+			continue
+		}
+		// Update the machine result with the actual task info from the
+		// state layer.
+		machineResult.TaskInfo = machineTaskResult.TaskInfo
+	}
+
+	// Mark any missing results (machines that were expected but not
+	// returned by the state layer method).
+	for machineName, machineResult := range existingMachines {
+		if machineResult.TaskInfo.ID == "" && machineResult.TaskInfo.Error == nil {
+			machineResult.TaskInfo.Error = errors.Errorf("missing result for machine %s", machineName)
 		}
 	}
 

@@ -11,12 +11,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -366,43 +366,46 @@ WHERE  name = $nameArg.name`
 	return result.UUID, nil
 }
 
-// CheckMachinesByNameExist checks if all given machine names exist in the
-// database.
-//
-// The following errors may be returned:
-// - [machineerrors.MachineNotFound]: if one or more machines are not found.
-func (st *State) CheckMachinesByNameExist(ctx context.Context, machineNames set.Strings) error {
+// GetMachines returns the list of machine names from the input list that exist
+// in the database.
+func (st *State) GetMachines(ctx context.Context, machineNames []machine.Name) ([]machine.Name, error) {
 	if len(machineNames) == 0 {
-		return nil
+		return nil, nil
 	}
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	type names []string
-	nameStrs := machineNames.Values()
+	nameStrs := transform.Slice(machineNames, func(n machine.Name) string {
+		return n.String()
+	})
 
 	stmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+SELECT name AS &nameArg.name
 FROM machine
-WHERE name IN ($names[:])`, countResult{}, names(nameStrs))
+WHERE name IN ($names[:])`, nameArg{}, names(nameStrs))
 	if err != nil {
-		return errors.Errorf("preparing statement: %w", err)
+		return nil, errors.Errorf("preparing statement: %w", err)
 	}
 
-	var res countResult
+	var res []nameArg
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, names(nameStrs)).Get(&res)
+		err := tx.Query(ctx, stmt, names(nameStrs)).GetAll(&res)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("querying machines: %w", err)
+		}
+
+		return nil
 	})
 	if err != nil {
-		return errors.Errorf("querying machines: %w", err)
+		return nil, errors.Capture(err)
 	}
 
-	if res.Count != len(machineNames) {
-		return errors.Errorf("one or more machines not found").Add(machineerrors.MachineNotFound)
-	}
-	return nil
+	return transform.Slice(res, func(r nameArg) machine.Name {
+		return machine.Name(r.Name)
+	}), nil
 }
 
 // InitialWatchStatementUnitTask returns the namespace and an initial query

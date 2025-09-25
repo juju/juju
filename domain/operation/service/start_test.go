@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	set "github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -67,8 +66,8 @@ func (s *startSuite) TestAddExecOperationMachineTargetsAllExist(c *tc.C) {
 		},
 	}
 
-	// Simulate all machines exist
-	s.state.EXPECT().CheckMachinesByNameExist(gomock.Any(), set.NewStrings("0", "1")).Return(nil)
+	// Simulate all machines exist.
+	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return(target.Machines, nil)
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(expectedResult, nil)
 
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
@@ -79,42 +78,42 @@ func (s *startSuite) TestAddExecOperationMachineTargetsAllExist(c *tc.C) {
 	c.Check(result.Machines[1].ReceiverName, tc.Equals, machine.Name("1"))
 }
 
-func (s *startSuite) TestAddExecOperationMachineTargetsSomeMissing(c *tc.C) {
+func (s *startSuite) TestAddExecOperationMachineValidationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	target := operation.Receivers{
-		Machines: []machine.Name{"0", "missing"},
+		Machines: []machine.Name{"0", "42"},
 	}
 	args := operation.ExecArgs{
 		Command: "echo hello",
 	}
 
-	// Simulate missing machine
-	s.state.EXPECT().CheckMachinesByNameExist(gomock.Any(), set.NewStrings("0", "missing")).Return(errors.New("boom"))
+	// Error validating machines.
+	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return([]machine.Name{"0"}, errors.New("boom"))
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
-	c.Check(err, tc.ErrorMatches, ".*validating machine targets.*")
-	c.Check(result.OperationID, tc.Equals, "")
-	c.Check(result.Machines, tc.HasLen, 0)
+	_, err := s.service().AddExecOperation(c.Context(), target, args)
+	c.Assert(err, tc.ErrorMatches, "validating that target machines exist: boom")
 }
 
 func (s *startSuite) TestAddExecOperationMachineTargetsNoneExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	target := operation.Receivers{
-		Machines: []machine.Name{"foo", "bar"},
+		Machines: []machine.Name{"0", "1"},
 	}
 	args := operation.ExecArgs{
 		Command: "echo hello",
 	}
 
-	// Simulate no machines exist
-	s.state.EXPECT().CheckMachinesByNameExist(gomock.Any(), set.NewStrings("foo", "bar")).Return(errors.New("boom"))
+	// Simulate no machines exist.
+	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return(nil, nil)
 
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
-	c.Check(err, tc.ErrorMatches, ".*validating machine targets.*")
+	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "")
-	c.Check(result.Machines, tc.HasLen, 0)
+	c.Check(result.Machines, tc.HasLen, 2)
+	c.Check(result.Machines[0].Error, tc.ErrorMatches, ".*machine \"0\" not found.*")
+	c.Check(result.Machines[1].Error, tc.ErrorMatches, ".*machine \"1\" not found.*")
 }
 
 func (s *startSuite) TestAddExecOperationMachineTargetsEmptyList(c *tc.C) {
@@ -195,7 +194,7 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().CheckMachinesByNameExist(gomock.Any(), set.NewStrings("0", "1")).Return(nil)
+	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return(target.Machines, nil)
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(expectedStateTarget), args).DoAndReturn(
 		func(_ context.Context, _ uuid.UUID, actualTarget internal.ReceiversWithResolvedLeaders, actualArgs operation.ExecArgs) (operation.RunResult, error) {
 			c.Assert(actualTarget.Applications, tc.DeepEquals, expectedStateTarget.Applications)
@@ -433,7 +432,7 @@ func (s *startSuite) TestStartExecOperationStateError(c *tc.C) {
 	}
 	args := operation.ExecArgs{Command: "echo hello"}
 
-	s.state.EXPECT().CheckMachinesByNameExist(gomock.Any(), set.NewStrings("0")).Return(nil)
+	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return(target.Machines, nil)
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(operation.RunResult{}, errors.New("database error"))
 
 	_, err := s.service().AddExecOperation(c.Context(), target, args)
