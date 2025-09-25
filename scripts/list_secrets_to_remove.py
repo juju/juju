@@ -5,18 +5,13 @@ import tempfile
 
 mongoExecCmds = '''
 conf=/var/lib/juju/agents/machine-*/agent.conf
-user=$(sudo awk '/tag/ {print $2}' ${conf})
+user=$(sudo grep '^tag:' ${conf} | cut -d ' ' -f2)
 password=$(sudo awk '/statepassword/ {print $2}' ${conf})
-if [ -f /snap/bin/juju-db.mongo ]; then
-    client=/snap/bin/juju-db.mongo
-elif [ -f /usr/lib/juju/mongo*/bin/mongo ]; then
-    client=/usr/lib/juju/mongo*/bin/mongo
-else
-    client=/usr/bin/mongo
-fi
+client=/snap/bin/juju-db.mongo
+# We use `--eval "$(cat exec.js)"` to get around snap confinement issues
 ${client} 127.0.0.1:37017/juju --authenticationDatabase admin \
     --ssl --sslAllowInvalidCertificates \
-    --username "${user}" --password "${password}" exec.js
+    --username "${user}" --password "${password}" --eval "$(cat /home/ubuntu/exec.js)"
 '''
 
 
@@ -121,12 +116,12 @@ def format_juju_remove(model, uuid, secret, owner, local_revs, is_model_secret):
 def format_db_remove(model, uuid, secret, owner, local_revs, is_model_secret):
     if len(local_revs) == 1:
         secret_id = f"{uuid}:{secret}/{local_revs[0]}"
-        print(f'db.secretRevisions.deleteOne({{ "_id": "{secret_id}" }})')
+        print(f'd.secretRevisions.deleteOne({{ "_id": "{secret_id}" }})')
     else:
         # This is the regex that deleteSecrets uses to delete many revs of one secret
         regexTail = '|'.join([f"({rev})" for rev in local_revs])
-        regex = f"^{uuid}:{secret}/{regexTail}$"
-        print(f'db.secretRevisions.deleteMany({{ "_id": {{ $regex: "{regex}" }} }})')
+        regex = f"^{uuid}:{secret}/({regexTail})$"
+        print(f'd.secretRevisions.deleteMany({{ "_id": {{ $regex: "{regex}" }} }})')
 
 
     
@@ -144,6 +139,9 @@ def main(args):
     formatter = format_juju_remove
     if opts.db:
         formatter = format_db_remove
+        print('s = db.getMongo().startSession()')
+        print('s.startTransaction()')
+        print('d = s.getDatabase("juju")')
     for r in raw:
         model = r["_id"]["model"]
         uuid = r["_id"]["uuid"]
@@ -170,6 +168,9 @@ def main(args):
         for i in range(0, len(revs), batch):
             local_revs = revs[i:i+batch]
             formatter(model, uuid, secret, owner, local_revs, is_model_secret)
+    if opts.db:
+        print('s.commitTransaction()')
+        print('s.endSession()')
     print("Total Count:", total_count)
             
 
