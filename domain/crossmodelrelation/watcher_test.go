@@ -5,6 +5,7 @@ package crossmodelrelation_test
 
 import (
 	"context"
+	"database/sql"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -48,6 +49,9 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 	watcher, err := svc.WatchRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
+	db, err := s.GetWatchableDB(c.Context(), s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
 	harness := watchertest.NewHarness(s.modelIdler, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(c, func(c *tc.C) {
@@ -62,6 +66,20 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 			Macaroon: newMacaroon(c, "offer-macaroon"),
 		})
 		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+DELETE FROM application_remote_offerer
+WHERE application_uuid = (SELECT uuid FROM application WHERE name = ?)
+`, "foo")
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
