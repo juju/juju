@@ -87,5 +87,5 @@ $ juju debug-log -m dst40:moveme2
 <!-- Replace #19267 with an issue reference or link, otherwise remove this line. -->
 **Issue:** Fixes #19267.
 
-<!-- Add a Jira card reference or link, otherwise remove this line. -->
-**Jira card:** JUJU-
+<!-- Place JIRA number in both places below. -->
+**Jira card:** [JUJU-](https://warthogs.atlassian.net/browse/JUJU-)
