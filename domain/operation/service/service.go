@@ -56,6 +56,11 @@ type State interface {
 	// store.
 	GetTask(ctx context.Context, taskID string) (operation.Task, *string, error)
 
+	// GetMachineTaskIDsWithStatus retrieves all task IDs associated with a specific
+	//machine and filtered by a given status.
+	GetMachineTaskIDsWithStatus(ctx context.Context, machineName string, statusFilter string) ([]string,
+		error)
+
 	// GetTaskIDsByUUIDsFilteredByReceiverUUID returns task IDs of the tasks
 	// provided having the given receiverUUID.
 	GetTaskIDsByUUIDsFilteredByReceiverUUID(

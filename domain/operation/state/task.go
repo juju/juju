@@ -48,6 +48,52 @@ func (st *State) GetTask(ctx context.Context, taskID string) (operation.Task, *s
 	return result, outputPath, nil
 }
 
+// GetMachineTaskIDsWithStatus retrieves all task IDs for a machine specified by
+// name and a status filter.
+func (s *State) GetMachineTaskIDsWithStatus(ctx context.Context, machineName string, statusFilter string) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type search struct {
+		Machine string `db:"machine"`
+		Status  string `db:"status"`
+	}
+
+	term := search{
+		Machine: machineName,
+		Status:  statusFilter,
+	}
+
+	stmt, err := s.Prepare(`
+SELECT ot.task_id AS &taskIdent.task_id
+FROM   operation_task AS ot
+JOIN   operation_machine_task AS omt ON ot.uuid = omt.task_uuid
+JOIN   operation_task_status AS ots ON ot.uuid = ots.task_uuid
+JOIN   operation_task_status_value AS status ON ots.status_id = status.id
+JOIN   machine ON omt.machine_uuid = machine.uuid
+WHERE  machine.name = $search.machine
+AND    status.status = $search.status`, term, taskIdent{})
+	if err != nil {
+		return nil, errors.Errorf("preparing statement for fetching tasks with status %q for machine %q: %w", statusFilter, machineName, err)
+	}
+
+	var tasks []taskIdent
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if qerr := tx.Query(ctx, stmt, term).GetAll(&tasks); qerr != nil && !errors.Is(qerr, sqlair.ErrNoRows) {
+			return errors.Capture(qerr)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("fetching tasks with status %q for machine %q: %w", statusFilter, machineName, err)
+	}
+	return transform.Slice(tasks, func(task taskIdent) string {
+		return task.ID
+	}), nil
+}
+
 // StartTask sets the task start time and updates the status to running.
 // Returns [operationerrors.TaskNotFound] if the task does not exist,
 // and [operationerrors.TaskNotPending] if the task is not pending.
