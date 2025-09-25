@@ -4,7 +4,6 @@
 package usermanager
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -76,7 +76,15 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 				SecretKey: user.SecretKey(),
 			}
 		}
-
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogUser(
+			securitylog.UserSecurityEvent{
+				Actor:  api.apiUser.Id(),
+				Target: arg.Username,
+				Action: securitylog.UserActionCreated,
+				Access: string(permission.LoginAccess),
+			},
+		)
 	}
 	return result, nil
 }
@@ -133,6 +141,16 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 			continue
 		}
 		deletions.Results[i].Error = nil
+
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogUser(
+			securitylog.UserSecurityEvent{
+				Actor:  api.apiUser.Id(),
+				Target: user.Id(),
+				Action: securitylog.UserActionDeleted,
+				Access: string(permission.NoAccess),
+			},
+		)
 	}
 	return deletions, nil
 }
@@ -368,9 +386,14 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
-			fmt.Println("here 112345")
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogPasswordChange(
+			securitylog.PasswordChangeSecurityEvent{
+				User: api.apiUser.Name(),
+			},
+		)
 	}
 	return result, nil
 }
@@ -434,6 +457,12 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 		} else {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
+		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
+		securitylog.LogPasswordChange(
+			securitylog.PasswordChangeSecurityEvent{
+				User: api.apiUser.Name(),
+			},
+		)
 	}
 	return result, nil
 }
