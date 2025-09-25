@@ -15,6 +15,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -716,4 +717,25 @@ func (s *baseSuite) setUnitLife(c *tc.C, uuid coreunit.UUID, life life.Life) {
 		uuid.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addSpaceReturningName ensures a space with the given name exists in the database,
+// creating it if necessary, and returns its name.
+func (s *baseSuite) addSpaceReturningName(c *tc.C, name string) network.SpaceName {
+	s.addSpace(c, name)
+	return network.SpaceName(name)
+}
+
+// addSpace ensures a space with the given name exists in the database,
+// creating it if necessary, and returns its name.
+func (s *baseSuite) addSpace(c *tc.C, name string) string {
+	spaceUUID := networktesting.GenSpaceUUID(c).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO space (uuid, name)
+VALUES (?, ?)`, spaceUUID, name)
+		return errors.Capture(err)
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) Failed to add a space: %v", err))
+	return spaceUUID
 }

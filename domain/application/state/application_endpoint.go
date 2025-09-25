@@ -140,13 +140,13 @@ JOIN   application a ON a.uuid = aee.application_uuid
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]network.SpaceUUID, error) {
+func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result map[string]network.SpaceUUID
+	var result map[string]string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = st.getEndpointBindings(ctx, tx, appUUID)
@@ -363,10 +363,10 @@ func (st *State) insertApplicationRelationEndpointBindings(
 		return nil
 	}
 
-	insertApplicationEndpointStmt, err := st.Prepare(
-		`INSERT INTO application_endpoint (*) VALUES ($setApplicationEndpointBinding.*)`,
-		setApplicationEndpointBinding{},
-	)
+	insertApplicationEndpointStmt, err := st.Prepare(`
+INSERT INTO application_endpoint (*)
+VALUES ($setApplicationEndpointBinding.*)
+	`, setApplicationEndpointBinding{})
 	if err != nil {
 		return errors.Errorf("preparing insert application endpoint bindings: %w", err)
 	}
@@ -415,10 +415,10 @@ func (st *State) insertApplicationExtraBindings(
 		return nil
 	}
 
-	insertStmt, err := st.Prepare(
-		`INSERT INTO application_extra_endpoint (*) VALUES ($setApplicationExtraEndpointBinding.*)`,
-		setApplicationExtraEndpointBinding{},
-	)
+	insertStmt, err := st.Prepare(`
+INSERT INTO application_extra_endpoint (*)
+VALUES ($setApplicationExtraEndpointBinding.*)
+	`, setApplicationExtraEndpointBinding{})
 	if err != nil {
 		return errors.Errorf("preparing insert application extra endpoint bindings: %w", err)
 	}
@@ -718,28 +718,17 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 // getEndpointBindings gets a map of endpoint names to space UUIDs. This
 // includes the application endpoints, and the application extra endpoints. An
 // endpoint name of "" is used to record the default application space.
-func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]network.SpaceUUID, error) {
-	// Query application endpoints.
-	id := applicationID{ID: appUUID}
-	endpointStmt, err := st.Prepare(`
-SELECT (ae.space_uuid, cr.name) AS (&endpointBinding.*)
-FROM   application_endpoint ae
-JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
-WHERE  ae.application_uuid = $applicationID.uuid
-`, endpointBinding{}, id)
+func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]string, error) {
+	appIdent := applicationID{ID: appUUID}
+
+	relationEndpoints, err := st.getRelationEndpointBindings(ctx, tx, appIdent)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("getting application relation endpoints: %w", err)
 	}
 
-	// Query application extra endpoints.
-	extraEndpointStmt, err := st.Prepare(`
-SELECT (aee.space_uuid, ceb.name) AS (&endpointBinding.*)
-FROM   application_extra_endpoint aee
-JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
-WHERE  aee.application_uuid = $applicationID.uuid
-`, endpointBinding{}, id)
+	extraEndpoints, err := st.getExtraEndpointBindings(ctx, tx, appIdent)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("getting application extra endpoints: %w", err)
 	}
 
 	// Query default endpoint for application.
@@ -748,49 +737,75 @@ WHERE  aee.application_uuid = $applicationID.uuid
 SELECT space_uuid AS &spaceUUID.uuid
 FROM   application 
 WHERE  uuid = $applicationID.uuid
-`, defaultSpaceUUID, id)
+`, defaultSpaceUUID, appIdent)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	// Get application endpoints.
-	var dbEndpoints []endpointBinding
-	err = tx.Query(ctx, endpointStmt, id).GetAll(&dbEndpoints)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("getting application endpoints: %w", err)
-	}
-
-	// Get application extra endpoints.
-	var dbExtraEndpoints []endpointBinding
-	err = tx.Query(ctx, extraEndpointStmt, id).GetAll(&dbExtraEndpoints)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("getting application endpoints: %w", err)
-	}
-
 	// Get application default endpoint.
-	err = tx.Query(ctx, defaultEndpointStmt, id).Get(&defaultSpaceUUID)
+	err = tx.Query(ctx, defaultEndpointStmt, appIdent).Get(&defaultSpaceUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, applicationerrors.ApplicationNotFound
 	} else if err != nil {
 		return nil, errors.Errorf("getting application endpoints: %w", err)
 	}
 
-	endpoints := make(map[string]network.SpaceUUID, len(dbEndpoints)+len(dbExtraEndpoints)+1)
-	for _, e := range dbEndpoints {
+	endpoints := make(map[string]string, len(relationEndpoints)+len(extraEndpoints)+1)
+	for _, e := range relationEndpoints {
 		if e.SpaceUUID.Valid {
 			endpoints[e.EndpointName] = e.SpaceUUID.V
 		} else {
-			endpoints[e.EndpointName] = network.SpaceUUID(defaultSpaceUUID.UUID)
+			endpoints[e.EndpointName] = defaultSpaceUUID.UUID
 		}
 	}
-	for _, e := range dbExtraEndpoints {
+	for _, e := range extraEndpoints {
 		if e.SpaceUUID.Valid {
 			endpoints[e.EndpointName] = e.SpaceUUID.V
 		} else {
-			endpoints[e.EndpointName] = network.SpaceUUID(defaultSpaceUUID.UUID)
+			endpoints[e.EndpointName] = defaultSpaceUUID.UUID
 		}
 	}
-	endpoints[""] = network.SpaceUUID(defaultSpaceUUID.UUID)
+	endpoints[""] = defaultSpaceUUID.UUID
+
+	return endpoints, nil
+}
+
+func (st *State) getRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID) ([]endpointBinding, error) {
+	stmt, err := st.Prepare(`
+SELECT (ae.space_uuid, cr.name) AS (&endpointBinding.*)
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = $applicationID.uuid
+`, endpointBinding{}, appIdent)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []endpointBinding
+	err = tx.Query(ctx, stmt, appIdent).GetAll(&endpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting application endpoints: %w", err)
+	}
+
+	return endpoints, nil
+}
+
+func (st *State) getExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID) ([]endpointBinding, error) {
+	stmt, err := st.Prepare(`
+SELECT (aee.space_uuid, ceb.name) AS (&endpointBinding.*)
+FROM   application_extra_endpoint aee
+JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
+WHERE  aee.application_uuid = $applicationID.uuid
+`, endpointBinding{}, appIdent)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []endpointBinding
+	err = tx.Query(ctx, stmt, appIdent).GetAll(&endpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting application endpoints: %w", err)
+	}
 
 	return endpoints, nil
 }
@@ -931,4 +946,192 @@ FROM   requested_spaces
 	return nil, errors.
 		Errorf("space(s) %q not found", strings.Join(spaceNames.Values(), ",")).
 		Add(networkerrors.SpaceNotFound)
+}
+
+func (st *State) refreshApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	if err := st.refreshApplicationRelationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
+		return errors.Errorf("refreshing application relation endpoint bindings: %w", err)
+	}
+	if err := st.refreshApplicationExtraEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
+		return errors.Errorf("refreshing application extra endpoint bindings: %w", err)
+	}
+	return nil
+}
+
+func (st *State) refreshApplicationRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	mapCharmRelationStmt, err := st.Prepare(`
+WITH given_charm_relations AS (
+    SELECT uuid, name FROM charm_relation
+    WHERE  charm_uuid = $charmID.uuid
+)
+SELECT    cr1.uuid AS &mapCharmRelation.source_charm_relation_uuid,
+          cr2.uuid AS &mapCharmRelation.destination_charm_relation_uuid
+FROM      application_endpoint AS ae
+JOIN      charm_relation AS cr1 ON ae.charm_relation_uuid = cr1.uuid
+LEFT JOIN given_charm_relations AS cr2 ON cr1.name = cr2.name
+WHERE     ae.application_uuid = $applicationID.uuid
+	`, mapCharmRelation{}, appIdent, charmIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removeApplicationEndpointStmt, err := st.Prepare(`
+DELETE FROM application_endpoint
+WHERE application_uuid = $applicationID.uuid
+AND charm_relation_uuid = $entityUUID.uuid
+	`, appIdent, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	refreshApplicationEndpointStmt, err := st.Prepare(`
+UPDATE application_endpoint
+SET    charm_relation_uuid = $refreshBinding.destination_charm_relation_uuid
+WHERE  application_uuid = $refreshBinding.application_uuid
+AND    charm_relation_uuid = $refreshBinding.source_charm_relation_uuid
+	`, refreshBinding{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	additionalRelationsStmt, err := st.Prepare(`
+WITH ep_names AS (
+    SELECT cr.name
+    FROM application_endpoint AS ae
+    JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+    WHERE ae.application_uuid = $applicationID.uuid
+)
+SELECT &entityUUID.*
+FROM charm_relation
+WHERE charm_uuid = $charmID.uuid
+AND name NOT IN ep_names
+	`, entityUUID{}, appIdent, charmIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertAdditionalRelationBindingsStmt, err := st.Prepare(`
+INSERT INTO application_endpoint (*)
+VALUES ($setApplicationEndpointBinding.*)
+	`, setApplicationEndpointBinding{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	charmRelationPairs := []mapCharmRelation{}
+	err = tx.Query(ctx, mapCharmRelationStmt, appIdent, charmIdent).GetAll(&charmRelationPairs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	}
+
+	for _, pair := range charmRelationPairs {
+		if !pair.DestinationCharmRelationUUID.Valid {
+			// We don't need to verify these can be removed, since we have already pre-checked relations
+			// in this transaction.
+			err := tx.Query(ctx, removeApplicationEndpointStmt, appIdent, entityUUID{UUID: pair.SourceCharmRelationUUID}).Run()
+			if err != nil {
+				return errors.Errorf("removing application endpoint: %w", err)
+			}
+		} else {
+			err := tx.Query(ctx, refreshApplicationEndpointStmt, refreshBinding{
+				ApplicationID:                appIdent.ID.String(),
+				SourceCharmRelationUUID:      pair.SourceCharmRelationUUID,
+				DestinationCharmRelationUUID: pair.DestinationCharmRelationUUID.V,
+			}).Run()
+			if err != nil {
+				return errors.Errorf("refreshing application endpoint: %w", err)
+			}
+		}
+	}
+
+	additionalRelations := []entityUUID{}
+	err = tx.Query(ctx, additionalRelationsStmt, appIdent, charmIdent).GetAll(&additionalRelations)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	}
+	inserts := make([]setApplicationEndpointBinding, len(additionalRelations))
+	for i, relation := range additionalRelations {
+		uuid, err := corerelation.NewEndpointUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		inserts[i] = setApplicationEndpointBinding{
+			UUID:          uuid,
+			ApplicationID: appIdent.ID,
+			RelationUUID:  relation.UUID,
+			// New relations should inherit the default space. If a binding is
+			// specified, it will be set later
+			Space: sql.Null[string]{},
+		}
+	}
+
+	if len(inserts) > 0 {
+		err = tx.Query(ctx, insertAdditionalRelationBindingsStmt, inserts).Run()
+		if err != nil {
+			return errors.Errorf("failed to insert additional relation bindings: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// refreshApplicationExtraEndpointBindings updates the extra endpoint bindings
+// for the specified application to the extra endpoints for the specified charm.
+//
+// application_extra_endpoint is not the target of any foreign key constraints,
+// it does not have a uuid primary key column. So we can achieve this be clearing
+// the table and inserting the new bindings.
+func (st *State) refreshApplicationExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+	extraEndpointBindings, err := st.getExtraEndpointBindings(ctx, tx, appIdent)
+	if err != nil {
+		return errors.Errorf("getting existing extra endpoint bindings: %w", err)
+	}
+	extraBindingsMap := transform.SliceToMap(extraEndpointBindings, func(e endpointBinding) (string, sql.Null[string]) {
+		return e.EndpointName, e.SpaceUUID
+	})
+
+	charmExtraBindings, err := st.getCharmExtraBindings(ctx, tx, charmIdent)
+	if err != nil {
+		return errors.Errorf("getting new charm extra bindings: %w", err)
+	}
+
+	clearExtraBindingsStmt, err := st.Prepare(`
+DELETE FROM application_extra_endpoint
+WHERE application_uuid = $applicationID.uuid
+	`, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO application_extra_endpoint (*)
+VALUES ($setApplicationExtraEndpointBinding.*)
+	`, setApplicationExtraEndpointBinding{})
+	if err != nil {
+		return errors.Errorf("preparing insert application extra endpoint bindings: %w", err)
+	}
+
+	if err := tx.Query(ctx, clearExtraBindingsStmt, appIdent).Run(); err != nil {
+		return errors.Errorf("clearing extra endpoint bindings: %w", err)
+	}
+
+	refreshedExtraBindings := make([]setApplicationExtraEndpointBinding, 0, len(extraEndpointBindings))
+	for _, charmExtraBinding := range charmExtraBindings {
+		originalboundSpaceUUID, _ := extraBindingsMap[charmExtraBinding.Name]
+
+		refreshedExtraBindings = append(refreshedExtraBindings, setApplicationExtraEndpointBinding{
+			ApplicationID: appIdent.ID,
+			RelationUUID:  charmExtraBinding.UUID,
+			Space:         originalboundSpaceUUID,
+		})
+	}
+
+	if len(refreshedExtraBindings) > 0 {
+		err = tx.Query(ctx, insertStmt, refreshedExtraBindings).Run()
+		if err != nil {
+			return errors.Errorf("inserting refreshed extra endpoint bindings: %w", err)
+		}
+	}
+
+	return nil
 }

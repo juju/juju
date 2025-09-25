@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/transform"
 	"github.com/juju/description/v10"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -253,10 +251,6 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, modelType c
 		return description.ApplicationArgs{}, errors.Errorf("checking if application %q is exposed: %w", app.Name, err)
 	}
 
-	endpointBindings := transform.Map(app.EndpointBindings, func(k string, v network.SpaceUUID) (string, string) {
-		return k, v.String()
-	})
-
 	args := description.ApplicationArgs{
 		Name:                 app.Name,
 		Type:                 mType,
@@ -268,7 +262,7 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, modelType c
 		Exposed:              isExposed,
 		// EndpointBindings is a map of endpoint names to space UUIDs. In 3.6
 		// endpoints were mapped to space IDs, in 4.0+, space UUIDs.
-		EndpointBindings: endpointBindings,
+		EndpointBindings: app.EndpointBindings,
 
 		// Create a provisioning state for the application, incase a non-scaling
 		// application is being exported and someone tries to access the

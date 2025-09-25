@@ -61,12 +61,12 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]network.SpaceUUID{
-				"":          network.AlphaSpaceId,
-				"endpoint":  network.AlphaSpaceId,
-				"extra":     network.AlphaSpaceId,
-				"juju-info": network.AlphaSpaceId,
-				"misc":      network.AlphaSpaceId,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId.String(),
+				"endpoint":  network.AlphaSpaceId.String(),
+				"extra":     network.AlphaSpaceId.String(),
+				"juju-info": network.AlphaSpaceId.String(),
+				"misc":      network.AlphaSpaceId.String(),
 			},
 		},
 	})
@@ -94,12 +94,12 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]network.SpaceUUID{
-				"":          network.AlphaSpaceId,
-				"endpoint":  network.AlphaSpaceId,
-				"extra":     network.AlphaSpaceId,
-				"juju-info": network.AlphaSpaceId,
-				"misc":      network.AlphaSpaceId,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId.String(),
+				"endpoint":  network.AlphaSpaceId.String(),
+				"extra":     network.AlphaSpaceId.String(),
+				"juju-info": network.AlphaSpaceId.String(),
+				"misc":      network.AlphaSpaceId.String(),
 			},
 		})
 	}
@@ -137,12 +137,12 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]network.SpaceUUID{
-				"":          network.AlphaSpaceId,
-				"endpoint":  network.AlphaSpaceId,
-				"extra":     network.AlphaSpaceId,
-				"misc":      network.AlphaSpaceId,
-				"juju-info": network.AlphaSpaceId,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId.String(),
+				"endpoint":  network.AlphaSpaceId.String(),
+				"extra":     network.AlphaSpaceId.String(),
+				"misc":      network.AlphaSpaceId.String(),
+				"juju-info": network.AlphaSpaceId.String(),
 			},
 		},
 		{
@@ -156,12 +156,12 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *tc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]network.SpaceUUID{
-				"":          network.AlphaSpaceId,
-				"endpoint":  network.AlphaSpaceId,
-				"extra":     network.AlphaSpaceId,
-				"misc":      network.AlphaSpaceId,
-				"juju-info": network.AlphaSpaceId,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId.String(),
+				"endpoint":  network.AlphaSpaceId.String(),
+				"extra":     network.AlphaSpaceId.String(),
+				"misc":      network.AlphaSpaceId.String(),
+				"juju-info": network.AlphaSpaceId.String(),
 			},
 		},
 	}
@@ -329,12 +329,12 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *tc
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
-			EndpointBindings: map[string]network.SpaceUUID{
-				"":          network.AlphaSpaceId,
-				"endpoint":  spaceUUID1,
-				"misc":      spaceUUID2,
-				"extra":     network.AlphaSpaceId,
-				"juju-info": network.AlphaSpaceId,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId.String(),
+				"endpoint":  spaceUUID1.String(),
+				"misc":      spaceUUID2.String(),
+				"extra":     network.AlphaSpaceId.String(),
+				"juju-info": network.AlphaSpaceId.String(),
 			},
 		},
 	})

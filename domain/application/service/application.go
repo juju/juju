@@ -353,7 +353,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]network.SpaceUUID, error)
+	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
 
 	// GetApplicationsBoundToSpace returns the names of the applications bound to
 	// the given space.
@@ -1748,7 +1748,10 @@ func (s *Service) GetApplicationEndpointBindings(ctx context.Context, appName st
 	}
 
 	bindings, err := s.st.GetApplicationEndpointBindings(ctx, appID)
-	return bindings, errors.Capture(err)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Map(bindings, func(k, v string) (string, network.SpaceUUID) { return k, network.SpaceUUID(v) }), nil
 }
 
 // GetApplicationsBoundToSpace returns the names of the applications bound to

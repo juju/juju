@@ -1119,7 +1119,7 @@ func (s *applicationServiceSuite) TestGetApplicationEndpointBindings(c *tc.C) {
 	appID := applicationtesting.GenApplicationUUID(c)
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
-	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]network.SpaceUUID{
+	s.state.EXPECT().GetApplicationEndpointBindings(gomock.Any(), appID).Return(map[string]string{
 		"foo": "bar",
 	}, nil)
 

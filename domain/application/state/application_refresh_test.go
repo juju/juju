@@ -32,8 +32,8 @@ import (
 type applicationRefreshSuite struct {
 	baseSuite
 
-	state         *State
-	otherAppCount int
+	state   *State
+	counter int
 }
 
 func TestApplicationRefreshSuite(t *testing.T) {
@@ -159,6 +159,31 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*charm has no corresponding relation "established"`)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmErrorsWithPeerRelationSuppressed(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name:      "peer",
+				Role:      charm.RolePeer,
+				Interface: "interf",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"peer": s.addSpaceReturningName(c, "beta"),
+		},
+	})
+	s.establishPeerRelation(c, appID, "peer")
+	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*charm has no corresponding peer relation "peer".*`)
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRelationRoleMismatch(c *tc.C) {
@@ -315,7 +340,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMergesEndpointBindings(
 		},
 	}})
 
-	spaceUUID := networktesting.GenSpaceUUID(c)
+	spaceUUID := networktesting.GenSpaceUUID(c).String()
 	spaceName := network.SpaceName("beta")
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -338,6 +363,210 @@ VALUES (?, ?)`, spaceUUID, spaceName)
 	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bindings["established"], tc.Equals, spaceUUID)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRelationEndpointBindings(c *tc.C) {
+	// Arrange
+	beta := s.addSpace(c, "beta")
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name:      "rel",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"rel": "beta",
+		},
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		relations: []charm.Relation{
+			{
+				Name:      "rel",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	space, ok := bindings["rel"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(space, tc.Equals, beta)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRemovesRelationEndpointBindings(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		relations: []charm.Relation{
+			{
+				Name:      "rel",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"rel": s.addSpaceReturningName(c, "beta"),
+		},
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, ok := bindings["rel"]
+	c.Assert(ok, tc.IsFalse)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmAddsRelationEndpointBindings(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		relations: []charm.Relation{
+			{
+				Name:      "rel",
+				Role:      charm.RoleProvider,
+				Interface: "interf",
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	space, ok := bindings["rel"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(space, tc.Equals, network.AlphaSpaceId.String())
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsExtraEndpointBindings(c *tc.C) {
+	// Arrange
+	beta := s.addSpace(c, "beta")
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		extraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "foo",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"foo": "beta",
+		},
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		extraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "foo",
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	space, ok := bindings["foo"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(space, tc.Equals, beta)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmRemovesExtraEndpointBindings(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		extraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "foo",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"foo": s.addSpaceReturningName(c, "beta"),
+		},
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, ok := bindings["foo"]
+	c.Assert(ok, tc.IsFalse)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmAddsExtraEndpointBindings(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		appName: "my-app",
+		extraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "foo",
+			},
+		},
+		endpointBindings: map[string]network.SpaceName{
+			"foo": s.addSpaceReturningName(c, "beta"),
+		},
+	})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		extraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "foo",
+			},
+			"bar": {
+				Name: "bar",
+			},
+		},
+	})
+
+	// Act
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	// - binding falls back to default
+	c.Assert(err, tc.ErrorIsNil)
+
+	bindings, err := s.state.GetApplicationEndpointBindings(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	space, ok := bindings["bar"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(space, tc.Equals, network.AlphaSpaceId.String())
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.C) {
@@ -558,10 +787,11 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 
 	originalCharm := charm.Charm{
 		Metadata: charm.Metadata{
-			Name:     appName,
-			Provides: args.relationMap(c, charm.RoleProvider),
-			Requires: args.relationMap(c, charm.RoleRequirer),
-			Peers:    args.relationMap(c, charm.RolePeer),
+			Name:          appName,
+			Provides:      args.relationMap(c, charm.RoleProvider),
+			Requires:      args.relationMap(c, charm.RoleRequirer),
+			Peers:         args.relationMap(c, charm.RolePeer),
+			ExtraBindings: args.extraBindings,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
@@ -580,6 +810,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 			Settings: application.ApplicationSettings{
 				Trust: args.trust,
 			},
+			EndpointBindings: args.endpointBindings,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
@@ -591,10 +822,11 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) corecharm.ID {
 	ch := charm.Charm{
 		Metadata: charm.Metadata{
-			Name:     args.name,
-			Provides: args.relationMap(c, charm.RoleProvider),
-			Requires: args.relationMap(c, charm.RoleRequirer),
-			Peers:    args.relationMap(c, charm.RolePeer),
+			Name:          args.name,
+			Provides:      args.relationMap(c, charm.RoleProvider),
+			Requires:      args.relationMap(c, charm.RoleRequirer),
+			Peers:         args.relationMap(c, charm.RolePeer),
+			ExtraBindings: args.extraBindings,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
@@ -611,7 +843,7 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 // and another, created on the fly, based on the given parameters.
 func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID coreapplication.ID, relationName string,
 	role charm.RelationRole) {
-	s.otherAppCount++
+	s.counter++
 	// Create relation metadata based on the role.
 	relations := []charm.Relation{
 		{
@@ -624,7 +856,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 
 	// Create application args with the appropriate relation type.
 	args := createApplicationArgs{
-		appName:   fmt.Sprintf("some-other-app-%d", s.otherAppCount),
+		appName:   fmt.Sprintf("some-other-app-%d", s.counter),
 		relations: relations,
 	}
 
@@ -664,7 +896,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO relation (uuid, life_id, relation_id, scope_id)
 			VALUES (?, 0, ?, 0)
-		`, relUUID, s.otherAppCount)
+		`, relUUID, s.counter)
 		if err != nil {
 			return errors.Errorf("inserting relation: %w", err)
 		}
@@ -688,19 +920,76 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *applicationRefreshSuite) establishPeerRelation(c *tc.C, appID coreapplication.ID, relationName string) {
+	s.counter++
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get the application endpoint for the application
+		var appEndpointUUID string
+
+		getEndpointUUIDQuery := `
+			SELECT ae.uuid
+			FROM application_endpoint AS ae
+			JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid 
+			WHERE ae.application_uuid = ?
+			AND cr.name = ?
+		`
+		// Get the endpoint for the original application.
+		err := tx.QueryRowContext(ctx, getEndpointUUIDQuery, appID.String(), relationName).Scan(&appEndpointUUID)
+		if err != nil {
+			return errors.Errorf("getting original endpoint UUID: %w", err)
+		}
+
+		// Generate a required uuids.
+		relUUID := uuid.MustNewUUID().String()
+		endpointUUID1 := uuid.MustNewUUID().String()
+
+		// Insert the relation.
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+			VALUES (?, 0, ?, 0)
+		`, relUUID, s.counter)
+		if err != nil {
+			return errors.Errorf("inserting relation: %w", err)
+		}
+
+		// Insert relation endpoints for the application.
+		insertRelationEndpointQuery := `
+			INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+			VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertRelationEndpointQuery, endpointUUID1, relUUID, appEndpointUUID)
+		if err != nil {
+			return errors.Errorf("inserting first relation endpoint: %w", err)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // createApplicationArgs represents the arguments required to create a
 // new application.
 type createApplicationArgs struct {
 	// appName specifies the name of the application.
 	appName string
-	// relations define the list of relations associated with the application.
+
+	// relations define the list of relations associated with the charm.
 	relations []charm.Relation
+
+	// extraBindings define the list of extra relations associated with the charm
+	extraBindings map[string]charm.ExtraBinding
+
 	// charmConfig defines the config for the charm on this application
 	charmConfig charm.Config
+
 	// applicationConfig defines the config for the application
 	applicationConfig map[string]application.ApplicationConfig
+
 	// trust specifies whether the application should be trusted.
 	trust bool
+
+	// endpointBindings defines the list of endpoint bindings associated with the
+	// application.
+	endpointBindings map[string]network.SpaceName
 }
 
 // relationMap processes the relations of a createApplicationArgs instance,
@@ -741,8 +1030,13 @@ func (caa createApplicationArgs) relationMap(
 // createCharmArgs holds the arguments required for creating a charm in tests, including its relations.
 type createCharmArgs struct {
 	name string
+
 	// relations define the list of relations associated with the application.
 	relations []charm.Relation
+
+	// extraBindings define the list of extra relations associated with the charm
+	extraBindings map[string]charm.ExtraBinding
+
 	// charmConfig defines the config for the charm on this application
 	charmConfig charm.Config
 }
