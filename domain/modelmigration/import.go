@@ -80,7 +80,7 @@ func ImportOperations(
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
-	crossmodelrelation.RegisterImport(coordinator, logger.Child("crossmodelrelation"))
+	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	access.RegisterOfferAccessImport(coordinator, logger.Child("offeraccess"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))

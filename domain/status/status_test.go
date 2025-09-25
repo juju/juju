@@ -29,7 +29,7 @@ func (s *statusSuite) TestK8sPodStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM k8s_pod_status_value")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	dbValues := make(map[K8sPodStatusType]string)
 	for rows.Next() {
@@ -56,7 +56,7 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM unit_agent_status_value")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	dbValues := make(map[UnitAgentStatusType]string)
 	for rows.Next() {
@@ -86,7 +86,7 @@ func (s *statusSuite) TestWorkloadStatusDBValues(c *tc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM workload_status_value")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	dbValues := make(map[WorkloadStatusType]string)
 	for rows.Next() {
@@ -117,7 +117,7 @@ func (s *statusSuite) TestMachineStatusValues(c *tc.C) {
 	// the instance status values in core status.
 	rows, err := db.QueryContext(c.Context(), "SELECT id, status FROM machine_status_value ORDER BY id")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var statusValues []struct {
 		ID   int
 		Name string
@@ -172,7 +172,7 @@ func (s *statusSuite) TestMachineStatusValuesAgainstDB(c *tc.C) {
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var status string
@@ -273,7 +273,7 @@ func (s *statusSuite) TestInstanceStatusValuesAgainstDB(c *tc.C) {
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var status string

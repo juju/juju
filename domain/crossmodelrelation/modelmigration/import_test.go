@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -85,6 +86,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
 		importService: s.importService,
+		clock:         clock.WallClock,
 		logger:        loggertesting.WrapCheckLog(c),
 	}
 }

@@ -71,6 +71,7 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	s.assertApplicationRemoteOfferer(c, applicationUUID)
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+	s.assertApplicationRemoteOffererStatus(c, applicationUUID)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsApplicationAndCharmWithNoRelations(c *tc.C) {
@@ -381,6 +382,25 @@ WHERE a.uuid=?`, uuid).
 	c.Check(gotLifeID, tc.Equals, 0)
 	c.Check(gotVersion, tc.Equals, 0)
 	c.Check(gotMacaroon, tc.Equals, "encoded macaroon")
+}
+
+func (s *modelRemoteApplicationSuite) assertApplicationRemoteOffererStatus(c *tc.C, uuid string) {
+	var gotStatusID int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT aros.status_id 
+FROM application_remote_offerer_status AS aros
+JOIN application_remote_offerer AS aro ON aros.application_remote_offerer_uuid = aro.uuid
+JOIN application AS a ON aro.application_uuid = a.uuid
+WHERE a.uuid=?`, uuid).
+			Scan(&gotStatusID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotStatusID, tc.Equals, 1)
 }
 
 func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {

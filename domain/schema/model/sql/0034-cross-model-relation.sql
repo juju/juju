@@ -38,6 +38,22 @@ ON application_remote_offerer (offer_uuid);
 CREATE UNIQUE INDEX idx_application_remote_offerer_application_uuid
 ON application_remote_offerer (application_uuid);
 
+-- application_remote_offerer_status represents the status of the remote
+-- offerer application inside of the consumer model.
+CREATE TABLE application_remote_offerer_status (
+    application_remote_offerer_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    data TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_application_remote_offerer_status
+    FOREIGN KEY (application_remote_offerer_uuid)
+    REFERENCES application_remote_offerer (uuid),
+    CONSTRAINT fk_workload_status_value_status
+    FOREIGN KEY (status_id)
+    REFERENCES workload_status_value (id)
+);
+
 -- application_remote_consumer represents a remote consumer application
 -- inside of the offering model.
 CREATE TABLE application_remote_consumer (

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -198,4 +199,12 @@ type remoteApplicationOffererInfo struct {
 	// Macaroon is the serialized macaroon that can be used to
 	// authenticate to the offerer controller.
 	Macaroon []byte `db:"macaroon"`
+}
+
+type remoteApplicationStatus struct {
+	RemoteApplicationUUID string     `db:"application_remote_offerer_uuid"`
+	StatusID              int        `db:"status_id"`
+	Message               string     `db:"message"`
+	Data                  []byte     `db:"data"`
+	UpdatedAt             *time.Time `db:"updated_at"`
 }
