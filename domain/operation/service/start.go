@@ -6,6 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
+
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
@@ -23,6 +27,18 @@ func (s *Service) AddExecOperation(
 ) (operation.RunResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	// Validate that the machine target receivers actually exist.
+	// NOTE: Applications don't need to be validated here, because they are
+	// directly passed to the state layer method, which implicitly validates them when retrieving their units.
+	if len(target.Machines) > 0 {
+		machineNamesStr := transform.Slice(target.Machines, func(m machine.Name) string {
+			return m.String()
+		})
+		if err := s.st.CheckMachinesByNameExist(ctx, set.NewStrings(machineNamesStr...)); err != nil {
+			return operation.RunResult{}, errors.Errorf("validating machine targets: %w", err)
+		}
+	}
 
 	operationUUID, err := internaluuid.NewUUID()
 	if err != nil {

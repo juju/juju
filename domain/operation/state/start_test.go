@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/machine"
@@ -29,6 +30,41 @@ func TestStartSuite(t *testing.T) {
 
 func (s *startSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
+}
+
+func (s *startSuite) TestCheckMachinesExistAllExist(c *tc.C) {
+	_ = s.addMachine(c, "0")
+	_ = s.addMachine(c, "1")
+
+	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "1"))
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *startSuite) TestCheckMachinesExistSomeMissing(c *tc.C) {
+	_ = s.addMachine(c, "0")
+
+	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "missing"))
+	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
+}
+
+func (s *startSuite) TestCheckMachinesExistNoneExist(c *tc.C) {
+	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("foo", "bar"))
+	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
+}
+
+func (s *startSuite) TestCheckMachinesExistEmptyList(c *tc.C) {
+	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings())
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *startSuite) TestCheckMachinesExistContainerNames(c *tc.C) {
+	_ = s.addMachine(c, "0")
+	_ = s.addMachine(c, "0/lxd/1")
+
+	err := s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "0/lxd/1"))
+	c.Assert(err, tc.IsNil)
+	err = s.state.CheckMachinesByNameExist(c.Context(), set.NewStrings("0", "missing/lxd/1"))
+	c.Check(err, tc.ErrorMatches, ".*one or more machines not found.*")
 }
 
 func (s *startSuite) TestAddExecOperationWithMachinesOnly(c *tc.C) {

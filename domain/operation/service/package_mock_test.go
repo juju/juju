@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	set "github.com/juju/collections/set"
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	operation "github.com/juju/juju/domain/operation"
@@ -197,6 +198,44 @@ func (c *MockStateCancelTaskCall) Do(f func(context.Context, string) (operation.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCancelTaskCall) DoAndReturn(f func(context.Context, string) (operation.Task, error)) *MockStateCancelTaskCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CheckMachinesByNameExist mocks base method.
+func (m *MockState) CheckMachinesByNameExist(arg0 context.Context, arg1 set.Strings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckMachinesByNameExist", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckMachinesByNameExist indicates an expected call of CheckMachinesByNameExist.
+func (mr *MockStateMockRecorder) CheckMachinesByNameExist(arg0, arg1 any) *MockStateCheckMachinesByNameExistCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckMachinesByNameExist", reflect.TypeOf((*MockState)(nil).CheckMachinesByNameExist), arg0, arg1)
+	return &MockStateCheckMachinesByNameExistCall{Call: call}
+}
+
+// MockStateCheckMachinesByNameExistCall wrap *gomock.Call
+type MockStateCheckMachinesByNameExistCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckMachinesByNameExistCall) Return(arg0 error) *MockStateCheckMachinesByNameExistCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckMachinesByNameExistCall) Do(f func(context.Context, set.Strings) error) *MockStateCheckMachinesByNameExistCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckMachinesByNameExistCall) DoAndReturn(f func(context.Context, set.Strings) error) *MockStateCheckMachinesByNameExistCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

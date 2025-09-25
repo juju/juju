@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -363,6 +364,45 @@ WHERE  name = $nameArg.name`
 		return "", errors.Errorf("getting machine UUID for %q: %w", machineName.String(), err)
 	}
 	return result.UUID, nil
+}
+
+// CheckMachinesByNameExist checks if all given machine names exist in the
+// database.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound]: if one or more machines are not found.
+func (st *State) CheckMachinesByNameExist(ctx context.Context, machineNames set.Strings) error {
+	if len(machineNames) == 0 {
+		return nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type names []string
+	nameStrs := machineNames.Values()
+
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM machine
+WHERE name IN ($names[:])`, countResult{}, names(nameStrs))
+	if err != nil {
+		return errors.Errorf("preparing statement: %w", err)
+	}
+
+	var res countResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, names(nameStrs)).Get(&res)
+	})
+	if err != nil {
+		return errors.Errorf("querying machines: %w", err)
+	}
+
+	if res.Count != len(machineNames) {
+		return errors.Errorf("one or more machines not found").Add(machineerrors.MachineNotFound)
+	}
+	return nil
 }
 
 // InitialWatchStatementUnitTask returns the namespace and an initial query

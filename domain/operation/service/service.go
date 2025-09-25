@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -23,9 +24,28 @@ import (
 // State describes the methods that a state implementation must provide to manage
 // operation for a model.
 type State interface {
+	// AddExecOperation creates an exec operation with tasks for various machines
+	// and units, using the provided parameters.
+	AddExecOperation(ctx context.Context, operationUUID internaluuid.UUID, target internal.ReceiversWithResolvedLeaders, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddExecOperationOnAllMachines creates an exec operation with tasks based
+	// on the provided parameters on all machines.
+	AddExecOperationOnAllMachines(ctx context.Context, operationUUID internaluuid.UUID, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddActionOperation creates an action operation with tasks for various
+	// units using the provided parameters.
+	AddActionOperation(ctx context.Context, operationUUID internaluuid.UUID, targetUnits []coreunit.Name, args operation.TaskArgs) (operation.RunResult, error)
+
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
+
+	// CheckMachinesByNameExist checks if all given machine names exist in the
+	// database.
+	//
+	// The following errors may be returned:
+	// - [machineerrors.MachineNotFound]: if one or more machines are not found.
+	CheckMachinesByNameExist(ctx context.Context, machineNames set.Strings) error
 
 	// FilterTaskUUIDsForMachine returns a list of task IDs that corresponds to the
 	// filtered list of task UUIDs from the provided list that target the given
@@ -122,18 +142,6 @@ type State interface {
 	// PruneOperations deletes operations that are older than maxAge and larger than maxSizeMB (in megabytes).
 	// It returns the paths from objectStore that should be freed
 	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error)
-
-	// AddExecOperation creates an exec operation with tasks for various machines
-	// and units, using the provided parameters.
-	AddExecOperation(ctx context.Context, operationUUID internaluuid.UUID, target internal.ReceiversWithResolvedLeaders, args operation.ExecArgs) (operation.RunResult, error)
-
-	// AddExecOperationOnAllMachines creates an exec operation with tasks based
-	// on the provided parameters on all machines.
-	AddExecOperationOnAllMachines(ctx context.Context, operationUUID internaluuid.UUID, args operation.ExecArgs) (operation.RunResult, error)
-
-	// AddActionOperation creates an action operation with tasks for various
-	// units using the provided parameters.
-	AddActionOperation(ctx context.Context, operationUUID internaluuid.UUID, targetUnits []coreunit.Name, args operation.TaskArgs) (operation.RunResult, error)
 }
 
 // LeadershipService describes the methods for managing (application)
