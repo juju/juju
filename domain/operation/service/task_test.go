@@ -16,6 +16,7 @@ import (
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
+	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -76,6 +77,77 @@ func (s *serviceSuite) TestGetTaskError(c *tc.C) {
 
 	_, err := s.service().GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `retrieving task ".*": task not found`)
+}
+
+func (s *serviceSuite) TestGetPendingTaskByTaskID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	result := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			ID:         taskID,
+			ActionName: "fortune",
+			Parameters: map[string]interface{}{
+				"key": "value",
+			},
+			Status: corestatus.Pending,
+		},
+		Receiver: "test-app/0",
+	}
+	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(result, nil, nil)
+
+	expectedTaskArgs := operation.TaskArgs{
+		ActionName: "fortune",
+		Parameters: map[string]interface{}{
+			"key": "value",
+		},
+	}
+
+	// Act
+	task, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(task, tc.DeepEquals, expectedTaskArgs)
+}
+
+func (s *serviceSuite) TestGetPendingTaskByTaskIDFailNotPending(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	result := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			Status: corestatus.Running,
+		},
+	}
+	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(result, nil, nil)
+
+	// Act
+	_, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, operationerrors.TaskNotPending)
+}
+
+func (s *serviceSuite) TestGetPendingTaskByTaskIDFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	result := operation.Task{
+		TaskInfo: operation.TaskInfo{
+			Status: corestatus.Running,
+		},
+	}
+	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(result, nil, errors.New("boom"))
+
+	// Act
+	_, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `getting pending task "42": boom`)
 }
 
 func (s *serviceSuite) TestCancelTaskSuccess(c *tc.C) {
