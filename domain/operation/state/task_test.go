@@ -342,6 +342,29 @@ func (s *taskSuite) TestFinishTaskNotOperation(c *tc.C) {
 	s.checkOperationCompleted(c, operationUUID, false)
 }
 
+func (s *taskSuite) TestFinishTaskNotOperationNoStoredOutput(c *tc.C) {
+	// Arrange
+	// Add an operation and two tasks, neither have been completed.
+	operationUUID := s.addOperation(c)
+	s.addOperationTaskStatus(c, s.addOperationTask(c, operationUUID), corestatus.Aborting.String())
+	taskUUID := s.addOperationTask(c, operationUUID)
+	s.addOperationTaskStatus(c, taskUUID, corestatus.Aborting.String())
+
+	arg := internal.CompletedTask{
+		TaskUUID: taskUUID,
+		Status:   corestatus.Aborted.String(),
+		Message:  "done",
+	}
+
+	// Act
+	err := s.state.FinishTask(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkTaskStatus(c, taskUUID, arg.Status)
+	s.checkOperationCompleted(c, operationUUID, false)
+}
+
 func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	// Arrange
 	// Add an operation and two tasks, one is finished with

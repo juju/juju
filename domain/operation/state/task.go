@@ -242,7 +242,7 @@ func (st *State) FinishTask(ctx context.Context, task internal.CompletedTask) er
 			return errors.Capture(err)
 		}
 
-		if err := st.insertOperationTaskOutput(ctx, tx, task.TaskUUID, task.StoreUUID); err != nil {
+		if err := st.insertOperationTaskOutputIfAny(ctx, tx, task.TaskUUID, task.StoreUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -296,11 +296,15 @@ WHERE task_uuid = $taskStatus.task_uuid
 	return nil
 }
 
-func (st *State) insertOperationTaskOutput(
+func (st *State) insertOperationTaskOutputIfAny(
 	ctx context.Context,
 	tx *sqlair.TX,
 	taskUUID, storeUUID string,
 ) error {
+	// If the task failed, there may not be output saved.
+	if storeUUID == "" {
+		return nil
+	}
 
 	store := outputStore{
 		TaskUUID:  taskUUID,

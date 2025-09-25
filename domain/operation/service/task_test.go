@@ -300,6 +300,33 @@ func (s *serviceSuite) TestFinishTask(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
+func (s *serviceSuite) TestFinishTaskTaskFailed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	taskUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
+
+	input := internal.CompletedTask{
+		TaskUUID: taskUUID,
+		Status:   corestatus.Failed.String(),
+		Message:  "done",
+	}
+	s.state.EXPECT().FinishTask(gomock.Any(), input).Return(nil)
+
+	arg := operation.CompletedTaskResult{
+		TaskID:  taskID,
+		Message: "done",
+		Status:  corestatus.Failed.String(),
+	}
+
+	// Act
+	err := s.service().FinishTask(c.Context(), arg)
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *serviceSuite) TestLogTaskMessage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

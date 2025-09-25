@@ -68,7 +68,7 @@ func (s *Service) FinishTask(ctx context.Context, result operation.CompletedTask
 }
 
 func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results map[string]interface{}) (string, func(), error) {
-	if results == nil {
+	if len(results) == 0 {
 		return "", nil, nil
 	}
 
