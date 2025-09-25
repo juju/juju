@@ -108,6 +108,9 @@ type State interface {
 	// - [operationerrors.TaskNotPending] if the task is not pending.
 	StartTask(ctx context.Context, taskID string) error
 
+	// GetTaskStatusByID returns the status of the given task.
+	GetTaskStatusByID(ctx context.Context, taskID string) (string, error)
+
 	// NamespaceForTaskAbortingWatcher returns the name space to be used
 	// for the TaskAbortingWatcher.
 	NamespaceForTaskAbortingWatcher() string

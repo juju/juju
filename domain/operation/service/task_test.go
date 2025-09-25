@@ -243,6 +243,36 @@ func (s *serviceSuite) TestLogTaskMessage(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
+func (s *serviceSuite) TestGetTaskStatusByID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	expectedStatus := corestatus.Aborting.String()
+	s.state.EXPECT().GetTaskStatusByID(gomock.Any(), taskID).Return(expectedStatus, nil)
+
+	// Act
+	status, err := s.service().GetTaskStatusByID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(status, tc.Equals, expectedStatus)
+}
+
+func (s *serviceSuite) TestGetTaskStatusByIDFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	taskID := "42"
+	s.state.EXPECT().GetTaskStatusByID(gomock.Any(), taskID).Return("", errors.New("task start fail"))
+
+	// Act
+	_, err := s.service().GetTaskStatusByID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `retrieving task status "42": task start fail`)
+}
+
 func (s *serviceSuite) TestFinishTaskError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

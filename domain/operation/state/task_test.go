@@ -211,6 +211,33 @@ func (s *taskSuite) TestGetReceiverFromTaskIDNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.TaskNotFound)
 }
 
+func (s *taskSuite) TestGetTaskStatusByID(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "42"
+	s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
+
+	// Act
+	obtainedStatus, err := s.state.GetTaskStatusByID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedStatus, tc.Equals, corestatus.Running.String())
+}
+
+func (s *taskSuite) TestGetTaskStatusByIDNotFound(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID := "42"
+	s.addOperationTask(c, operationUUID)
+
+	// Act
+	_, err := s.state.GetTaskStatusByID(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, errors.TaskNotFound)
+}
+
 func (s *taskSuite) TestStartTask(c *tc.C) {
 	// Arrange
 	operationUUID := s.addOperation(c)
