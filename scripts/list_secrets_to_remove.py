@@ -24,7 +24,9 @@ mongoScript = '''
 cursor = db.secretRevisions.aggregate([
   {
     "$match": {
-      obsolete: true
+      obsolete: true,
+      "value-reference": { $exists: false },
+      "data": { $exists: true }
     }
   },
   {
@@ -36,9 +38,12 @@ cursor = db.secretRevisions.aggregate([
     }
   },
   { $unwind: "$model" },
-    {
+  {
     $addFields: {
       secret: {
+        // _id is of the form <model-uuid>:<secret-id>/<secret-revision>
+        // we want to grab the part from the ':' to the '/'.
+        // so split on ':' taking the second part, and '/' taking the first part
         $arrayElemAt: [
           { $split: [ { $arrayElemAt: [ { $split: ["$_id", ":"] }, 1 ] }, "/" ] },
           0
@@ -49,7 +54,8 @@ cursor = db.secretRevisions.aggregate([
   {
     $group: {
       "_id": {
-        "model": "$model.name",
+        model: "$model.name",
+        uuid: "$model-uuid",
         secret: "$secret",
         owner: "$owner-tag"
       },
@@ -59,6 +65,11 @@ cursor = db.secretRevisions.aggregate([
       revs: {
         $addToSet: "$revision"
       }
+    }
+  },
+  {
+    $match: {
+      count: { $gte: 1 },
     }
   }
 ]);
@@ -92,19 +103,47 @@ def read_revisions(opts):
     revisions = json.loads(exec_mongo_request(opts, mongoExecCmds))
     return revisions
 
+
+def format_juju_remove(model, uuid, secret, owner, local_revs, is_model_secret):
+    local_rev_str = ' '.join(map(str, local_revs))
+    if is_model_secret:
+        if len(local_revs) == 1:
+            print(f"juju remove-secret -m {model} secret:{secret} --revision {local_rev_str}")
+        else:
+            print(f"for r in {local_rev_str}; do juju remove-secret -m {model} secret:{secret} --revision $r; done")
+    else:
+        if len(local_revs) == 1:
+            print(f"juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision {local_rev_str}")
+        else:
+            print(f"for r in {local_rev_str}; do juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision $r; done")
+
+
+def format_db_remove(model, uuid, secret, owner, local_revs, is_model_secret):
+    secret_ids = [f"{uuid}:{secret}/{rev}" for rev in local_revs]
+    if len(secret_ids) == 1:
+        print(f'db.secretRevisions.deleteOne({{ "_id": "{secret_ids[0]}" }})')
+    else:
+        print(f'db.secretRevisions.deleteMany({{ "_id": {{ $in: {secret_ids} }} }})')
+
+
     
 def main(args):
     import argparse
     p = argparse.ArgumentParser("simple script for removing a lot of secrets")
     p.add_argument("--controller", default="0", type=str, help="Juju controller machine id")
     p.add_argument("--secret-list", default=None, type=str, help="Path to a database output, rather than shelling out to mongo")
-    p.add_argument("--bash-compress", default=False, action="store_true", help="Output for loops in bash, rather than individual commands")
-    p.add_argument("--batch", default=0, type=int, help="when printing out loops, do batches no larger than this (<=0 does all)")
+    p.add_argument("--batch", default=1, type=int, help="when printing out loops, do batches no larger than this (<=0 does all)")
+    p.add_argument("--min", default=1, type=int, help="only request a cleanup if there are more than 'min' unused secrets")
+    p.add_argument("--db", default=False, action="store_true", help="output mongodb cleanup rather than `juju remove` commands")
     opts = p.parse_args(args)
     raw = read_revisions(opts)
     total_count = 0
+    formatter = format_juju_remove
+    if opts.db:
+        formatter = format_db_remove
     for r in raw:
         model = r["_id"]["model"]
+        uuid = r["_id"]["uuid"]
         owner = r["_id"]["owner"]
         is_model_secret = False
         if owner.startswith("application"):
@@ -120,26 +159,14 @@ def main(args):
         revs = r["revs"]
         revs.sort()
         total_count += len(revs)
-        if opts.bash_compress:
-            if opts.batch > 0:
-                batch = opts.batch
-            else:
-                batch = len(revs)
-        else:
-            batch = 1
+        batch = opts.batch
+        if opts.batch <= 0:
+            batch = len(revs)
+        if len(revs) < opts.min:
+            continue
         for i in range(0, len(revs), batch):
             local_revs = revs[i:i+batch]
-            local_rev_str = ' '.join(map(str, local_revs))
-            if is_model_secret:
-                if len(local_revs) == 1:
-                    print(f"juju remove-secret -m {model} secret:{secret} --revision {local_rev_str}")
-                else:
-                    print(f"for r in {local_rev_str}; do juju remove-secret -m {model} secret:{secret} --revision $r; done")
-            else:
-                if len(local_revs) == 1:
-                    print(f"juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision {local_rev_str}")
-                else:
-                    print(f"for r in {local_rev_str}; do juju exec -m {model} --unit {owner} -- secret-remove {secret} --revision $r; done")
+            formatter(model, uuid, secret, owner, local_revs, is_model_secret)
     print("Total Count:", total_count)
             
 
