@@ -418,9 +418,9 @@ func (st *State) deleteDeviceConstraintAttributes(ctx context.Context, tx *sqlai
 	deleteDeviceConstraintAttributesStmt, err := st.Prepare(`
 DELETE FROM device_constraint_attribute
 WHERE device_constraint_uuid IN (
-    SELECT device_constraint_uuid
-    FROM device_constraint
-    WHERE application_uuid = $entityUUID.uuid
+	SELECT uuid
+	FROM device_constraint
+	WHERE application_uuid = $entityUUID.uuid
 )`, appID)
 	if err != nil {
 		return errors.Capture(err)

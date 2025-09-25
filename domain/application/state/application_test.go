@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"maps"
 	"slices"
 	stdtesting "testing"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -1116,6 +1118,34 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
+}
+
+// TestUpsertAnotherCloudServiceNotWipingIpAddresses is a regression test where
+// calling UpsertCloudService on an application would wipe out any IP address.
+func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresses(c *tc.C) {
+	appName := "foo"
+	s.createCAASApplication(c, appName, life.Alive, application.AddCAASUnitArg{})
+	err := s.state.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)), application.UpdateCAASUnitParams{
+		ProviderID: ptr("provider-id-unit"),
+		Address:    ptr("10.0.0.2"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	k8sPodInfo, err := s.state.GetUnitK8sPodInfo(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(k8sPodInfo.Address, tc.Equals, "10.0.0.2")
+	err = s.state.UpsertCloudService(c.Context(), appName, "provider-id",
+		network.ProviderAddresses{
+			{
+				MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	k8sPodInfo, err = s.state.GetUnitK8sPodInfo(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(k8sPodInfo.Address, tc.Equals, "10.0.0.2")
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *tc.C) {

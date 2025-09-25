@@ -6,6 +6,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -695,6 +696,54 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 
 	// The charm isn't removed because the application still references it.
 	s.checkCharmsCount(c, 1)
+}
+
+// TestDeleteCAASUnitNotAffectingOtherUnits is a regression test where deleting a CAAS unit
+// would remove the k8s pod info for other units.
+func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
+	// Create two CAAS applications, each with one unit.
+	// Update the k8s pod info for each unit to have different addresses.
+	svc := s.setupApplicationService(c)
+	app1 := "some-app"
+	appUUID1 := s.createCAASApplication(c, svc, app1, applicationservice.AddUnitArg{})
+
+	err := svc.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", app1)), applicationservice.UpdateCAASUnitParams{
+		ProviderID: ptr("provider-id"),
+		Address:    ptr("10.0.0.1"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	k8sPodInfoApp1, err := svc.GetUnitK8sPodInfo(c.Context(), unit.Name(fmt.Sprintf("%s/0", app1)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(k8sPodInfoApp1.Address, tc.Equals, "10.0.0.1")
+
+	app2 := "some-otherapp"
+	s.createCAASApplication(c, svc, app2, applicationservice.AddUnitArg{})
+	err = svc.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", app2)), applicationservice.UpdateCAASUnitParams{
+		ProviderID: ptr("provider-id-2"),
+		Address:    ptr("10.0.0.2"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	// delete the first unit
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should be gone.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Fetching the k8s pod info for the second unit should still work.
+	k8sPodInfoApp2, err := svc.GetUnitK8sPodInfo(c.Context(), "some-otherapp/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(k8sPodInfoApp2.Address, tc.Equals, "10.0.0.2")
 }
 
 func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUID(c *tc.C) {

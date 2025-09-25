@@ -915,9 +915,8 @@ func (st *State) upsertCloudServiceAddresses(
 	queryLinkLayerDeviceFromServiceStmt, err := st.Prepare(`
 SELECT lld.uuid AS &dbUUID.uuid
 FROM   link_layer_device AS lld
-JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
-WHERE  nn.uuid = $cloudService.net_node_uuid
-		`, linkLayerDeviceUUID, serviceInfo)
+WHERE  lld.net_node_uuid = $cloudService.net_node_uuid
+			`, linkLayerDeviceUUID, serviceInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -988,12 +987,11 @@ func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX,
 	deleteAddressStmt, err := st.Prepare(`
 DELETE FROM ip_address
 WHERE device_uuid IN (
-    SELECT device_uuid
-    FROM   link_layer_device AS lld
-    JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
-    JOIN   k8s_service AS ks ON ks.net_node_uuid = nn.uuid
-    WHERE  ks.application_uuid = $cloudService.application_uuid
-    AND    ks.provider_id = $cloudService.provider_id
+	SELECT lld.uuid
+	FROM   link_layer_device AS lld
+	JOIN   k8s_service AS ks ON ks.net_node_uuid = lld.net_node_uuid
+	WHERE  ks.application_uuid = $cloudService.application_uuid
+	AND    ks.provider_id = $cloudService.provider_id
 );
 `, cloudService)
 	if err != nil {
