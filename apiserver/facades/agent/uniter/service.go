@@ -361,6 +361,9 @@ type OperationService interface {
 	// The string should satisfy the ActionReceiverTag type.
 	GetReceiverFromTaskID(ctx context.Context, id string) (string, error)
 
+	// GetTaskStatusByID returns the status of the given task.
+	GetTaskStatusByID(ctx context.Context, id string) (string, error)
+
 	// FinishTask saves the result of a completed Task.
 	FinishTask(context.Context, operation.CompletedTaskResult) error
 

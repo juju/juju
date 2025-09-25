@@ -1250,6 +1250,39 @@ func (s *uniterSuite) TestActionsTaskNotPending(c *tc.C) {
 	c.Check(results.Results[0].Error, tc.ErrorMatches, "action no longer available")
 }
 
+func (s *uniterSuite) TestActionStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange, 3 task status with one authentication failure.
+	s.badTag = names.NewUnitTag("foo/0")
+
+	taskIDOne := "42"
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskIDOne).Return("bar/0", nil)
+	s.operationService.EXPECT().GetTaskStatusByID(gomock.Any(), taskIDOne).Return(status.Pending.String(), nil)
+
+	taskIDTwo := "47"
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskIDTwo).Return("bar/0", nil)
+	s.operationService.EXPECT().GetTaskStatusByID(gomock.Any(), taskIDTwo).Return(status.Running.String(), nil)
+
+	taskIDThree := "8"
+	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskIDThree).Return("", coreerrors.NotFound)
+
+	// Act
+	results, err := s.uniter.ActionStatus(c.Context(), params.Entities{Entities: []params.Entity{
+		{Tag: "action-42"},
+		{Tag: "action-47"},
+		{Tag: "action-8"},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.StringResults{Results: []params.StringResult{
+		{Result: status.Pending.String()},
+		{Result: status.Running.String()},
+		{Error: &params.Error{Message: "not found", Code: "not found"}},
+	}})
+}
+
 func (s *uniterSuite) TestAuthTaskID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

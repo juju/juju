@@ -205,3 +205,18 @@ func (s *Service) LogTaskMessage(ctx context.Context, taskID, message string) er
 
 	return errors.Capture(s.st.LogTaskMessage(ctx, taskID, message))
 }
+
+// GetTaskStatusByID returns the status of the given task.
+func (s *Service) GetTaskStatusByID(ctx context.Context, taskID string) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(),
+		trace.WithAttributes(
+			trace.StringAttr("task.id", taskID),
+		))
+	defer span.End()
+
+	status, err := s.st.GetTaskStatusByID(ctx, taskID)
+	if err != nil {
+		return "", errors.Errorf("retrieving task status %q: %w", taskID, err)
+	}
+	return status, nil
+}

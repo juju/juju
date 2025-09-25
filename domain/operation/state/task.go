@@ -94,6 +94,45 @@ AND    status.status = $search.status`, term, taskIdent{})
 	}), nil
 }
 
+// GetTaskStatusByID returns the status of the given task.
+func (st *State) GetTaskStatusByID(ctx context.Context, taskID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(
+		`
+SELECT otsv.status AS &taskStatus.*
+FROM   operation_task AS ot
+JOIN   operation_task_status AS ots ON ot.uuid = ots.task_uuid
+JOIN   operation_task_status_value AS otsv ON ots.status_id = otsv.id
+WHERE  ot.task_id = $taskIdent.task_id
+`, taskIdent{}, taskStatus{})
+	if err != nil {
+		return "", errors.Errorf("preparing task status statement: %w", err)
+	}
+
+	var status taskStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		ident := taskIdent{ID: taskID}
+
+		err = tx.Query(ctx, stmt, ident).Get(&status)
+		if errors.Is(err, sql.ErrNoRows) {
+			return operationerrors.TaskNotFound
+		} else if err != nil {
+			return errors.Errorf("getting task status: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("task %q: %w", taskID, err)
+	}
+
+	return status.Status, nil
+}
+
 // StartTask sets the task start time and updates the status to running.
 // Returns [operationerrors.TaskNotFound] if the task does not exist,
 // and [operationerrors.TaskNotPending] if the task is not pending.

@@ -2941,6 +2941,45 @@ func (c *MockOperationServiceGetReceiverFromTaskIDCall) DoAndReturn(f func(conte
 	return c
 }
 
+// GetTaskStatusByID mocks base method.
+func (m *MockOperationService) GetTaskStatusByID(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTaskStatusByID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTaskStatusByID indicates an expected call of GetTaskStatusByID.
+func (mr *MockOperationServiceMockRecorder) GetTaskStatusByID(arg0, arg1 any) *MockOperationServiceGetTaskStatusByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskStatusByID", reflect.TypeOf((*MockOperationService)(nil).GetTaskStatusByID), arg0, arg1)
+	return &MockOperationServiceGetTaskStatusByIDCall{Call: call}
+}
+
+// MockOperationServiceGetTaskStatusByIDCall wrap *gomock.Call
+type MockOperationServiceGetTaskStatusByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationServiceGetTaskStatusByIDCall) Return(arg0 string, arg1 error) *MockOperationServiceGetTaskStatusByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationServiceGetTaskStatusByIDCall) Do(f func(context.Context, string) (string, error)) *MockOperationServiceGetTaskStatusByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationServiceGetTaskStatusByIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockOperationServiceGetTaskStatusByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // LogTaskMessage mocks base method.
 func (m *MockOperationService) LogTaskMessage(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
