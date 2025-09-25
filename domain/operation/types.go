@@ -163,3 +163,15 @@ type ActionReceiver struct {
 	Unit       unit.Name
 	LeaderUnit string
 }
+
+// Validate checks that the ActionReceiver is correctly configured, i.e. only
+// one of Unit or LeaderUnit is set, and at least one is set.
+func (a *ActionReceiver) Validate() error {
+	if a.Unit != "" && a.LeaderUnit != "" {
+		return errors.Errorf("only one of Unit or LeaderUnit should be set")
+	}
+	if a.Unit == "" && a.LeaderUnit == "" {
+		return errors.Errorf("one of Unit or LeaderUnit must be set")
+	}
+	return nil
+}

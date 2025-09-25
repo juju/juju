@@ -49,11 +49,25 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
 
+	// We are going to check that all the provided action targets are units
+	// from the same application.
+	var applicationName string
 	for i, action := range arg.Actions {
+
 		if strings.HasSuffix(action.Receiver, leader) {
 			receiver := strings.TrimSuffix(action.Receiver, leader)
+
+			// Now check if the leader application is the same as the previous
+			// ones.
+			if applicationName == "" {
+				applicationName = receiver
+			} else if applicationName != receiver {
+				return params.EnqueuedActions{}, errors.New("actions must be run on units from the same application")
+			}
+
 			actionResultByUnitName[action.Receiver] = &actionResults[i]
 			receivers = append(receivers, operation.ActionReceiver{LeaderUnit: receiver})
+
 			continue
 		}
 
@@ -62,6 +76,13 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 			actionResults[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// Now check if the application is the same as the previous ones.
+		if applicationName == "" {
+			applicationName = unit.Name(unitTag.Id()).Application()
+		} else if applicationName != unit.Name(unitTag.Id()).Application() {
+			return params.EnqueuedActions{}, errors.New("actions must be run on units from the same application")
+		}
+
 		actionResultByUnitName[unitTag.Id()] = &actionResults[i]
 		receivers = append(receivers, operation.ActionReceiver{Unit: unit.Name(unitTag.Id())})
 	}
@@ -71,7 +92,7 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 		return params.EnqueuedActions{Actions: actionResults}, nil
 	}
 
-	result, err := a.operationService.StartActionOperation(ctx, receivers, taskParams)
+	result, err := a.operationService.AddActionOperation(ctx, receivers, taskParams)
 	if err != nil {
 		return params.EnqueuedActions{}, errors.Capture(err)
 	}
@@ -211,7 +232,7 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.StartExecOperation(ctx, target, args)
+	result, err := a.operationService.AddExecOperation(ctx, target, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}
@@ -243,7 +264,7 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Capture(err)
 	}
 
-	result, err := a.operationService.StartExecOperationOnAllMachines(ctx, args)
+	result, err := a.operationService.AddExecOperationOnAllMachines(ctx, args)
 	if err != nil {
 		return results, errors.Capture(err)
 	}

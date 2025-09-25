@@ -21,6 +21,7 @@ type pruneSuite struct {
 	state                 *MockState
 	mockObjectStoreGetter *MockModelObjectStoreGetter
 	mockObjectStore       *MockObjectStore
+	mockLeadershipService *MockLeadershipService
 }
 
 func TestPruneSuite(t *testing.T) {
@@ -33,11 +34,12 @@ func (s *pruneSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.clock = clock.WallClock
 	s.mockObjectStore = NewMockObjectStore(ctrl)
 	s.mockObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
+	s.mockLeadershipService = NewMockLeadershipService(ctrl)
 	return ctrl
 }
 
 func (s *pruneSuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter)
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, s.mockLeadershipService)
 }
 
 // TestPruneOperationsSuccess verifies that the Service.PruneOperations method

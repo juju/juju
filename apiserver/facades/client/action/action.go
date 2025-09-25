@@ -54,6 +54,18 @@ type ModelInfoService interface {
 
 // OperationService provides access to operations (actions and execs).
 type OperationService interface {
+	// AddExecOperation creates an exec operation with tasks for various machines
+	// and units, using the provided parameters.
+	AddExecOperation(ctx context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddExecOperationOnAllMachines creates an exec operation with tasks based on
+	// the provided parameters on all machines.
+	AddExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddActionOperation creates an action operation with tasks for various units
+	// using the provided parameters.
+	AddActionOperation(ctx context.Context, target []operation.ActionReceiver, args operation.TaskArgs) (operation.RunResult, error)
+
 	// CancelTask attempts to cancel an enqueued task, identified by its
 	// ID.
 	CancelTask(ctx context.Context, taskID string) (operation.Task, error)
@@ -67,23 +79,6 @@ type OperationService interface {
 
 	// GetTask returns the task identified by its ID.
 	GetTask(ctx context.Context, taskID string) (operation.Task, error)
-
-	// StartExecOperation creates an exec operation with tasks for various
-	// machines and units, using the provided parameters.
-	StartExecOperation(
-		ctx context.Context,
-		target operation.Receivers,
-		args operation.ExecArgs,
-	) (operation.RunResult, error)
-
-	// StartExecOperationOnAllMachines creates an exec operation
-	// based on the provided parameters on all machines.
-	StartExecOperationOnAllMachines(ctx context.Context, args operation.ExecArgs) (operation.RunResult, error)
-
-	// StartActionOperation creates an action operation with tasks for various
-	// units using the provided parameters.
-	StartActionOperation(ctx context.Context, target []operation.ActionReceiver,
-		args operation.TaskArgs) (operation.RunResult, error)
 
 	// WatchTaskLogs starts and returns a StringsWatcher that notifies on new log
 	// messages for a specified action being added. The strings are json encoded
@@ -185,7 +180,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			response.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		response.Results[i] = makeActionResult(task, receiverTag)
+		response.Results[i] = toActionResult(receiverTag, task.TaskInfo)
 	}
 
 	return response, nil
@@ -222,7 +217,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		response.Results[i] = makeActionResult(cancelledAction, receiverTag)
+		response.Results[i] = toActionResult(receiverTag, cancelledAction.TaskInfo)
 	}
 	return response, nil
 }
@@ -304,36 +299,6 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 		results.Results[i].Changes = initial
 	}
 	return results, nil
-}
-
-func makeActionResult(task operation.Task, receiverTag names.Tag) params.ActionResult {
-	actionTag := names.NewActionTag(task.ID)
-	ac := &params.Action{
-		Tag:            actionTag.Id(),
-		Name:           task.ActionName,
-		Parameters:     task.Parameters,
-		Receiver:       receiverTag.String(),
-		Parallel:       &task.IsParallel,
-		ExecutionGroup: task.ExecutionGroup,
-	}
-
-	result := params.ActionResult{
-		Action:    ac,
-		Enqueued:  task.Enqueued,
-		Status:    task.Status.String(),
-		Output:    task.Output,
-		Started:   task.Started,
-		Completed: task.Completed,
-		Message:   task.Message,
-	}
-	for _, log := range task.Log {
-		result.Log = append(result.Log, params.ActionMessage{
-			Message:   log.Message,
-			Timestamp: log.Timestamp,
-		})
-	}
-
-	return result
 }
 
 // makeOperationReceivers creates a Receivers from the given application names, machine names and unit names.

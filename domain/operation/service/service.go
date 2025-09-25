@@ -106,9 +106,29 @@ type State interface {
 	// NamespaceForTaskLogWatcher returns the name space for watching task
 	// log messages.
 	NamespaceForTaskLogWatcher() string
+
 	// PruneOperations deletes operations that are older than maxAge and larger than maxSizeMB (in megabytes).
 	// It returns the paths from objectStore that should be freed
 	PruneOperations(ctx context.Context, maxAge time.Duration, maxSizeMB int) ([]string, error)
+
+	// AddExecOperation creates an exec operation with tasks for various machines
+	// and units, using the provided parameters.
+	AddExecOperation(ctx context.Context, operationUUID internaluuid.UUID, target internal.ReceiversWithResolvedLeaders, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddExecOperationOnAllMachines creates an exec operation with tasks based
+	// on the provided parameters on all machines.
+	AddExecOperationOnAllMachines(ctx context.Context, operationUUID internaluuid.UUID, args operation.ExecArgs) (operation.RunResult, error)
+
+	// AddActionOperation creates an action operation with tasks for various
+	// units using the provided parameters.
+	AddActionOperation(ctx context.Context, operationUUID internaluuid.UUID, targetUnits []coreunit.Name, args operation.TaskArgs) (operation.RunResult, error)
+}
+
+// LeadershipService describes the methods for managing (application)
+// leadership.
+type LeadershipService interface {
+	// ApplicationLeader returns the leader unit name for the input application.
+	ApplicationLeader(appName string) (string, error)
 }
 
 // Service provides the API for managing operation
@@ -117,6 +137,7 @@ type Service struct {
 	clock             clock.Clock
 	logger            logger.Logger
 	objectStoreGetter objectstore.ModelObjectStoreGetter
+	leadershipService LeadershipService
 }
 
 // NewService returns a new Service for managing operation
@@ -125,12 +146,14 @@ func NewService(
 	clock clock.Clock,
 	logger logger.Logger,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	leadershipService LeadershipService,
 ) *Service {
 	return &Service{
 		st:                st,
 		clock:             clock,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
+		leadershipService: leadershipService,
 	}
 }
 
@@ -161,6 +184,7 @@ func NewWatchableService(
 	clock clock.Clock,
 	logger logger.Logger,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	leadershipService LeadershipService,
 	wf WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
@@ -168,6 +192,7 @@ func NewWatchableService(
 			st:                st,
 			clock:             clock,
 			objectStoreGetter: objectStoreGetter,
+			leadershipService: leadershipService,
 			logger:            logger,
 		},
 		watcherFactory: wf,

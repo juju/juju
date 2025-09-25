@@ -403,7 +403,7 @@ func (st *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (ope
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	task, err := encodeTask(result, parameters, logEntries)
+	task, err := encodeTask(taskID, result, parameters, logEntries)
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
@@ -509,9 +509,10 @@ ORDER BY created_at ASC
 	return logEntries, nil
 }
 
-func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
+func encodeTask(taskID string, task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
 	result := operation.Task{
 		TaskInfo: operation.TaskInfo{
+			ID:       taskID,
 			Enqueued: task.EnqueuedAt,
 			Status:   corestatus.Status(task.Status),
 		},
