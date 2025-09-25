@@ -16,7 +16,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -368,7 +367,7 @@ WHERE  name = $nameArg.name`
 
 // GetMachines returns the list of machine names from the input list that exist
 // in the database.
-func (st *State) GetMachines(ctx context.Context, machineNames []machine.Name) ([]machine.Name, error) {
+func (st *State) GetMachines(ctx context.Context, machineNames []coremachine.Name) ([]coremachine.Name, error) {
 	if len(machineNames) == 0 {
 		return nil, nil
 	}
@@ -378,7 +377,7 @@ func (st *State) GetMachines(ctx context.Context, machineNames []machine.Name) (
 	}
 
 	type names []string
-	nameStrs := transform.Slice(machineNames, func(n machine.Name) string {
+	nameStrs := transform.Slice(machineNames, func(n coremachine.Name) string {
 		return n.String()
 	})
 
@@ -403,8 +402,8 @@ WHERE name IN ($names[:])`, nameArg{}, names(nameStrs))
 		return nil, errors.Capture(err)
 	}
 
-	return transform.Slice(res, func(r nameArg) machine.Name {
-		return machine.Name(r.Name)
+	return transform.Slice(res, func(r nameArg) coremachine.Name {
+		return coremachine.Name(r.Name)
 	}), nil
 }
 

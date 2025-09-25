@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"

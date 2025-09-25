@@ -136,7 +136,3 @@ type insertMachineTask struct {
 type charmUUIDResult struct {
 	CharmUUID string `db:"charm_uuid"`
 }
-
-type countResult struct {
-	Count int `db:"count"`
-}

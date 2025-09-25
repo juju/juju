@@ -274,7 +274,6 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 
 // toEnqueuedActions converts an operation.RunResult to a params.EnqueuedActions.
 func toEnqueuedActions(result operation.RunResult) params.EnqueuedActions {
-
 	machineResult := transform.Slice(result.Machines, func(f operation.MachineTaskResult) params.ActionResult {
 		result := toActionResult(names.NewMachineTag(f.ReceiverName.String()), f.TaskInfo)
 		return result
@@ -284,6 +283,14 @@ func toEnqueuedActions(result operation.RunResult) params.EnqueuedActions {
 		return result
 	})
 
+	// Since no machines nor units were finally valid, no task has been
+	// enqueued and therefore we haven't got any operation ID from the
+	// service.
+	// However, we must return a valid operation ID for the client to get
+	// the tag from. We therefore return an empty operation with the 0 ID.
+	if result.OperationID == "" {
+		result.OperationID = "0"
+	}
 	return params.EnqueuedActions{
 		OperationTag: names.NewOperationTag(result.OperationID).String(),
 		Actions:      append(machineResult, unitResults...),

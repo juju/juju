@@ -454,6 +454,35 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 		Parallel:       ptr(false),
 		ExecutionGroup: ptr("eg-1"),
 	}
+
+	resultOp := operation.RunResult{
+		OperationID: "1",
+		Machines: []operation.MachineTaskResult{
+			{
+				ReceiverName: "0",
+				TaskInfo: operation.TaskInfo{
+					ID:         "3",
+					ActionName: coreoperation.JujuExecActionName,
+				},
+			},
+			{
+				ReceiverName: "42",
+				TaskInfo: operation.TaskInfo{
+					ID:         "3",
+					ActionName: coreoperation.JujuExecActionName,
+				},
+			},
+		},
+		Units: []operation.UnitTaskResult{
+			{
+				ReceiverName: "app/1",
+				TaskInfo: operation.TaskInfo{
+					ID:         "4",
+					ActionName: coreoperation.JujuExecActionName,
+				},
+			},
+		},
+	}
 	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error) {
 			c.Check(target.Applications, tc.DeepEquals, []string{"a1", "a2"})
@@ -465,7 +494,7 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 				Parallel:       *runParams.Parallel,
 				ExecutionGroup: *runParams.ExecutionGroup,
 			})
-			return operation.RunResult{OperationID: "1"}, nil
+			return resultOp, nil
 		})
 
 	// Act
@@ -474,7 +503,7 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res.OperationTag, tc.Equals, "operation-1")
-	c.Check(len(res.Actions), tc.Equals, 0)
+	c.Check(len(res.Actions), tc.Equals, 3)
 }
 
 // TestRunDefaults verifies defaulting for Parallel and ExecutionGroup.
@@ -484,12 +513,24 @@ func (s *runSuite) TestRunDefaults(c *tc.C) {
 	api := s.NewActionAPI(c)
 	runParams := params.RunParams{Commands: "whoami", Timeout: time.Second}
 
+	resultOp := operation.RunResult{
+		OperationID: "2",
+		Machines: []operation.MachineTaskResult{
+			{
+				ReceiverName: "2",
+				TaskInfo: operation.TaskInfo{
+					ID:         "3",
+					ActionName: coreoperation.JujuExecActionName,
+				},
+			},
+		},
+	}
 	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), operation.ExecArgs{
 		Command:        runParams.Commands,
 		Timeout:        runParams.Timeout,
 		Parallel:       false,
 		ExecutionGroup: "",
-	}).Return(operation.RunResult{OperationID: "2"}, nil)
+	}).Return(resultOp, nil)
 	// Act
 	res, err := api.Run(c.Context(), runParams)
 
@@ -572,6 +613,41 @@ func (s *runSuite) TestRunEmptyTarget(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "no target")
+}
+
+// TestRunNoValidTarget gets an empty result from the service even though
+// machine targets were specified. This error simulates the machine not being
+// found.
+func (s *runSuite) TestRunNoValidTarget(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	api := s.NewActionAPI(c)
+	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, target operation.Receivers, _ operation.ExecArgs) (operation.RunResult, error) {
+			c.Check(target.Applications, tc.HasLen, 0)
+			c.Check(target.Machines, tc.HasLen, 1)
+			c.Check(target.Units, tc.HasLen, 0)
+			return operation.RunResult{
+				Machines: []operation.MachineTaskResult{
+					{
+						TaskInfo: operation.TaskInfo{
+							Error: errors.New("machine \"42\" not found"),
+						},
+					},
+				},
+			}, nil
+		})
+
+	// Act
+	res, err := api.Run(c.Context(), params.RunParams{
+		Commands: "true",
+		Timeout:  time.Second,
+		Machines: []string{"42"},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(res.OperationTag, tc.Equals, "operation-0") // zero ID when no operation created
 }
 
 // TestRunBlockServiceError ensures a non-NotFound block service error
@@ -748,13 +824,25 @@ func (s *runAllSuite) TestRunOnAllMachinesSuccess(c *tc.C) {
 		Parallel:       ptr(true),
 		ExecutionGroup: ptr("test"),
 	}
+
+	resultOp := operation.RunResult{
+		OperationID: "77",
+		Machines: []operation.MachineTaskResult{
+			{
+				ReceiverName: "2",
+				TaskInfo: operation.TaskInfo{
+					ID:         "3",
+					ActionName: coreoperation.JujuExecActionName,
+				},
+			},
+		},
+	}
 	s.OperationService.EXPECT().AddExecOperationOnAllMachines(gomock.Any(), operation.ExecArgs{
 		Command:        params.Commands,
 		Timeout:        params.Timeout,
 		Parallel:       *params.Parallel,
 		ExecutionGroup: *params.ExecutionGroup,
-	}).Return(
-		operation.RunResult{OperationID: "77"}, nil)
+	}).Return(resultOp, nil)
 
 	// Act
 	res, err := api.RunOnAllMachines(c.Context(), params)
