@@ -1,4 +1,4 @@
-<!-- 
+<!--
 The PR title should match: <type>(optional <scope>): <description>.
 
 Please also ensure all commits in this PR comply with our conventional commits specification:
@@ -31,4 +31,5 @@ https://github.com/juju/juju/blob/main/docs/contributor/reference/conventional-c
 
 **Launchpad bug:** https://bugs.launchpad.net/juju/+bug/
 
-**Jira card:** JUJU-
+<!-- Place JIRA number in both places below. -->
+**Jira card:** [JUJU-](https://warthogs.atlassian.net/browse/JUJU-)
