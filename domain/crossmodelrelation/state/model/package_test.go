@@ -181,3 +181,10 @@ func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
 	c.Assert(err, tc.ErrorIsNil)
 	return mac
 }
+
+func nilEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

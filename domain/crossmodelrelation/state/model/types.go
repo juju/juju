@@ -208,3 +208,16 @@ type remoteApplicationStatus struct {
 	Data                  []byte     `db:"data"`
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
+
+type setApplicationEndpointBinding struct {
+	UUID          string `db:"uuid"`
+	ApplicationID string `db:"application_uuid"`
+	RelationUUID  string `db:"charm_relation_uuid"`
+}
+
+// charmRelationName represents is used to fetch relation of a charm when only
+// the name is required
+type charmRelationName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
