@@ -335,6 +335,42 @@ AND    operation.uuid NOT IN not_completed
 	return nil
 }
 
+// GetReceiverFromTaskID returns a receiver string for the task identified.
+// The string should satisfy the ActionReceiverTag type.
+// Returns [operationerrors.TaskNotFound] if the task does not exist.
+func (st *State) GetReceiverFromTaskID(ctx context.Context, taskID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT    COALESCE(u.name, m.name) AS &nameArg.name
+FROM      operation_task AS ot
+LEFT JOIN operation_unit_task AS out ON ot.uuid = out.task_uuid
+LEFT JOIN unit AS u ON out.unit_uuid = u.uuid
+LEFT JOIN operation_machine_task AS omt ON ot.uuid = omt.task_uuid
+LEFT JOIN machine AS m ON omt.machine_uuid = m.uuid
+WHERE     ot.task_id = $taskIdent.task_id
+`, taskIdent{}, nameArg{})
+	if err != nil {
+		return "", errors.Errorf("preparing task receiver statement: %w", err)
+	}
+
+	var receiver nameArg
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, taskIdent{ID: taskID}).Get(&receiver)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("task %q: %w", taskID, operationerrors.TaskNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Errorf("getting receiver for task %q: %w", taskID, err)
+	}
+	return receiver.Name, nil
+}
+
 // CancelTask attempts to cancel an enqueued task, identified by its
 // ID.
 //

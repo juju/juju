@@ -1249,7 +1249,7 @@ func (u *UniterAPI) authTaskID(ctx context.Context, canAccess common.AuthFunc, t
 	if err != nil {
 		return "", err
 	}
-	receiverStr, err := u.operationService.ReceiverFromTask(ctx, actionTag.Id())
+	receiverStr, err := u.operationService.GetReceiverFromTaskID(ctx, actionTag.Id())
 	if err != nil {
 		return "", err
 	}
