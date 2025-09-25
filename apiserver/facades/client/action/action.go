@@ -343,6 +343,12 @@ func toOperationResult(op operation.OperationInfo) params.OperationResult {
 
 // toActionResult converts an operation.TaskInfo to a params.ActionResult.
 func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionResult {
+	if info.Error != nil {
+		return params.ActionResult{
+			Error: apiservererrors.ServerError(info.Error),
+		}
+	}
+
 	var logs []params.ActionMessage
 	if len(info.Log) > 0 {
 		logs = transform.Slice(info.Log, func(l operation.TaskLog) params.ActionMessage {

@@ -329,12 +329,6 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	acts := res.Results[0].Actions
 	c.Assert(acts, tc.HasLen, 1)
 	ar := acts[0]
-	c.Check(ar.Status, tc.Equals, "running")
-	c.Check(ar.Message, tc.Equals, "in progress")
-	c.Check(ar.Log, tc.HasLen, 1)
-	c.Check(ar.Log[0].Timestamp.Equal(when), tc.Equals, true)
-	c.Check(ar.Log[0].Message, tc.Equals, "log1")
-	c.Check(ar.Output["k"], tc.Equals, "v")
 	c.Assert(ar.Error, tc.NotNil)
 	c.Check(ar.Error.Message, tc.Matches, ".*task-fail.*")
 }
