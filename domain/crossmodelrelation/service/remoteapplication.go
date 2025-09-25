@@ -7,11 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/errors"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -94,7 +96,7 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		return internalerrors.Errorf("creating charm uuid: %w", err)
 	}
 
-	return s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
+	if err := s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
 		RemoteApplicationUUID: remoteApplicationUUID.String(),
 		ApplicationUUID:       applicationUUID.String(),
 		CharmUUID:             charmUUID.String(),
@@ -103,7 +105,30 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		OffererControllerUUID: args.OffererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
 		EncodedMacaroon:       encodedMacaroon,
-	})
+	}); err != nil {
+		return internalerrors.Errorf("inserting remote application offerer: %w", err)
+	}
+
+	s.recordInitRemoteApplicationStatusHistory(ctx, applicationName)
+
+	return nil
+}
+
+// recordInitRemoteApplicationStatusHistory records the initial status history
+// for the remote application. The status is set to Unknown, and the Since time
+// is set to the current time.
+func (s *Service) recordInitRemoteApplicationStatusHistory(
+	ctx context.Context,
+	applicationName string,
+) {
+	statusInfo := corestatus.StatusInfo{
+		Status: corestatus.Unknown,
+		Since:  ptr(s.clock.Now()),
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.RemoteApplication.WithID(applicationName), statusInfo); err != nil {
+		s.logger.Warningf(ctx, "recording remote application %q status history: %w", applicationName, err)
+	}
 }
 
 // GetRemoteApplicationOfferers returns all the current non-dead remote

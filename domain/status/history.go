@@ -32,4 +32,7 @@ var (
 
 	// ModelNamespace is the namespace for model status.
 	ModelNamespace = statushistory.Namespace{Kind: status.KindModel}
+
+	// RemoteApplication is the namespace for remote application status.
+	RemoteApplication = statushistory.Namespace{Kind: status.KindSAAS}
 )

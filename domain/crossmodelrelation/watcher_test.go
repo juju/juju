@@ -103,6 +103,8 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		controllerState,
 		modelState,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }
