@@ -91,7 +91,7 @@ func decodeRunAs(runAs string) (charm.RunAs, error) {
 		return charm.RunAsRoot, nil
 	case "sudoer":
 		return charm.RunAsSudoer, nil
-	case "user":
+	case "non-root":
 		return charm.RunAsNonRoot, nil
 	default:
 		return "", errors.Errorf("unknown run as value %q", runAs)

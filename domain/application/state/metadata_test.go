@@ -61,6 +61,28 @@ var metadataDecodeTestCases = [...]struct {
 		},
 	},
 	{
+		name: "non-root user",
+		input: charmMetadata{
+			Name:           "foo",
+			Summary:        "summary",
+			Description:    "description",
+			MinJujuVersion: "2.0.0",
+			RunAs:          "non-root",
+			Subordinate:    true,
+			Assumes:        []byte("null"),
+		},
+		inputArgs: decodeMetadataArgs{},
+		output: charm.Metadata{
+			Name:           "foo",
+			Summary:        "summary",
+			Description:    "description",
+			MinJujuVersion: semversion.MustParse("2.0.0"),
+			RunAs:          charm.RunAsNonRoot,
+			Subordinate:    true,
+			Assumes:        []byte("null"),
+		},
+	},
+	{
 		name:  "tags",
 		input: charmMetadata{},
 		inputArgs: decodeMetadataArgs{
