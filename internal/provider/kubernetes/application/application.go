@@ -2397,7 +2397,7 @@ func (a *app) ReconcileVolumes(filesystems []jujustorage.KubernetesFilesystemPar
 	}
 
 	applier := a.newApplier()
-
+	logger.Infof("[adis] orphan deleting sts %q", sts.Name)
 	// Orphan delete the sts here.
 	applier.Delete(sts)
 
@@ -2467,6 +2467,8 @@ func (a *app) ReconcileVolumes(filesystems []jujustorage.KubernetesFilesystemPar
 	}
 
 	// Reapply the new sts with the updated pvc.
+	logger.Infof("[adis] reapply sts %q", newStatefulset.Name)
+	logger.Infof("[adis] sts %+v", newStatefulset)
 	applier.Apply(newStatefulset)
 	return applier.Run(context.Background(), false)
 }
