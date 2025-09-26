@@ -416,12 +416,14 @@ WHERE application_uuid = $entityUUID.uuid
 func (st *State) deleteDeviceConstraintAttributes(ctx context.Context, tx *sqlair.TX, aUUID string) error {
 	appID := entityUUID{UUID: aUUID}
 	deleteDeviceConstraintAttributesStmt, err := st.Prepare(`
+WITH constraint_uuids AS (
+	SELECT uuid
+	FROM device_constraint
+	WHERE application_uuid = $entityUUID.uuid
+)
 DELETE FROM device_constraint_attribute
-WHERE device_constraint_uuid IN (
-    SELECT device_constraint_uuid
-    FROM device_constraint
-    WHERE application_uuid = $entityUUID.uuid
-)`, appID)
+WHERE device_constraint_uuid IN constraint_uuids
+`, appID)
 	if err != nil {
 		return errors.Capture(err)
 	}

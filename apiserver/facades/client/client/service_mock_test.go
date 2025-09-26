@@ -210,6 +210,45 @@ func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitsK8sPodInfo mocks base method.
+func (m *MockApplicationService) GetUnitsK8sPodInfo(arg0 context.Context) (map[unit.Name]application.K8sPodInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitsK8sPodInfo", arg0)
+	ret0, _ := ret[0].(map[unit.Name]application.K8sPodInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitsK8sPodInfo indicates an expected call of GetUnitsK8sPodInfo.
+func (mr *MockApplicationServiceMockRecorder) GetUnitsK8sPodInfo(arg0 any) *MockApplicationServiceGetUnitsK8sPodInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitsK8sPodInfo", reflect.TypeOf((*MockApplicationService)(nil).GetUnitsK8sPodInfo), arg0)
+	return &MockApplicationServiceGetUnitsK8sPodInfoCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitsK8sPodInfoCall wrap *gomock.Call
+type MockApplicationServiceGetUnitsK8sPodInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitsK8sPodInfoCall) Return(arg0 map[unit.Name]application.K8sPodInfo, arg1 error) *MockApplicationServiceGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitsK8sPodInfoCall) Do(f func(context.Context) (map[unit.Name]application.K8sPodInfo, error)) *MockApplicationServiceGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitsK8sPodInfoCall) DoAndReturn(f func(context.Context) (map[unit.Name]application.K8sPodInfo, error)) *MockApplicationServiceGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockBlockDeviceService is a mock of BlockDeviceService interface.
 type MockBlockDeviceService struct {
 	ctrl     *gomock.Controller

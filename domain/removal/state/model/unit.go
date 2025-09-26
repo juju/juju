@@ -595,11 +595,12 @@ func (st *State) deletedK8sPodAddresses(ctx context.Context, tx *sqlair.TX, netN
 	netNodeIDRec := entityUUID{UUID: netNodeID}
 
 	deleteAddressStmt, err := st.Prepare(`
-DELETE FROM ip_address
-WHERE device_uuid IN (
-    SELECT device_uuid FROM link_layer_device lld
-    WHERE lld.net_node_uuid = $entityUUID.uuid
+WITH devices AS (
+	SELECT lld.uuid FROM link_layer_device lld
+	WHERE lld.net_node_uuid = $entityUUID.uuid
 )
+DELETE FROM ip_address
+WHERE device_uuid IN devices
 `, netNodeIDRec)
 	if err != nil {
 		return errors.Capture(err)

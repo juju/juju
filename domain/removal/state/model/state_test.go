@@ -280,6 +280,7 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 
 func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
 	ch := &stubCharm{name: "test-charm"}
+	s.createSubnetForCAASModel(c)
 	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -315,6 +316,29 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 	s.setCharmObjectStoreMetadata(c, appID)
 
 	return appID
+}
+
+func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Only insert the subnet it if doesn't exist.
+		var rowCount int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM subnet`).Scan(&rowCount); err != nil {
+			return err
+		}
+		if rowCount != 0 {
+			return nil
+		}
+
+		subnetUUID := uuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "0.0.0.0/0")
+		if err != nil {
+			return err
+		}
+		subnetUUID2 := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID2, "::/0")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.ID) {
@@ -760,6 +784,11 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Scope:     internalcharm.ScopeGlobal,
 			},
 		},
+		Devices: map[string]internalcharm.Device{
+			"bitcoinminer": {
+				Type: "nvidia.com/gpu",
+			},
+		},
 	}
 }
 
@@ -822,6 +851,8 @@ type caasApplication struct {
 func (caasApplication) Units() ([]caas.Unit, error) {
 	return []caas.Unit{{
 		Id: "some-app-0",
+	}, {
+		Id: "some-otherapp-0",
 	}}, nil
 }
 

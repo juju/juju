@@ -664,6 +664,27 @@ func (s *unitServiceSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	c.Check(info.Ports, tc.DeepEquals, ports)
 }
 
+func (s *unitServiceSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitInfos := map[coreunit.Name]application.K8sPodInfo{
+		"foo/666": {
+			ProviderID: "some-id",
+			Address:    "10.0.0.1",
+			Ports:      []string{"666", "668"},
+		},
+	}
+
+	s.state.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(unitInfos, nil)
+
+	infos, err := s.service.GetUnitsK8sPodInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.HasLen, 1)
+	c.Check(infos["foo/666"].ProviderID, tc.Equals, network.Id("some-id"))
+	c.Check(infos["foo/666"].Address, tc.Equals, "10.0.0.1")
+	c.Check(infos["foo/666"].Ports, tc.DeepEquals, []string{"666", "668"})
+}
+
 func (s *unitServiceSuite) TestGetUnitK8sPodInfoUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

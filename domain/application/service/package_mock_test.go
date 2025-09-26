@@ -3926,6 +3926,45 @@ func (c *MockStateGetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetUnitsK8sPodInfo mocks base method.
+func (m *MockState) GetUnitsK8sPodInfo(arg0 context.Context) (map[unit.Name]application0.K8sPodInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitsK8sPodInfo", arg0)
+	ret0, _ := ret[0].(map[unit.Name]application0.K8sPodInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitsK8sPodInfo indicates an expected call of GetUnitsK8sPodInfo.
+func (mr *MockStateMockRecorder) GetUnitsK8sPodInfo(arg0 any) *MockStateGetUnitsK8sPodInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitsK8sPodInfo", reflect.TypeOf((*MockState)(nil).GetUnitsK8sPodInfo), arg0)
+	return &MockStateGetUnitsK8sPodInfoCall{Call: call}
+}
+
+// MockStateGetUnitsK8sPodInfoCall wrap *gomock.Call
+type MockStateGetUnitsK8sPodInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitsK8sPodInfoCall) Return(arg0 map[unit.Name]application0.K8sPodInfo, arg1 error) *MockStateGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitsK8sPodInfoCall) Do(f func(context.Context) (map[unit.Name]application0.K8sPodInfo, error)) *MockStateGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitsK8sPodInfoCall) DoAndReturn(f func(context.Context) (map[unit.Name]application0.K8sPodInfo, error)) *MockStateGetUnitsK8sPodInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementApplicationConfigHash mocks base method.
 func (m *MockState) InitialWatchStatementApplicationConfigHash(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()

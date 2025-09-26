@@ -194,6 +194,12 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService, c.statusService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
+	if context.model.Type == model.CAAS {
+		if context.podsInfo, err = c.applicationService.GetUnitsK8sPodInfo(ctx); err != nil {
+			return noStatus, internalerrors.Errorf("could not fetch pods info: %w", err)
+		}
+	}
+
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
 		if context.leaders, err = c.leadershipReader.Leaders(); err != nil {
 			// Leader information is additive for status.
@@ -387,6 +393,7 @@ type statusContext struct {
 	relations                 map[string][]relationStatus
 	relationsByID             map[int]relationStatus
 	leaders                   map[string]string
+	podsInfo                  map[coreunit.Name]application.K8sPodInfo
 
 	// Information about all spaces.
 	spaceInfos network.SpaceInfos
@@ -1063,9 +1070,8 @@ func (c *statusContext) processUnit(ctx context.Context, unitName coreunit.Name,
 		result.PublicAddress = c.unitPublicAddress(unit)
 	} else if unit.K8sProviderID != nil {
 		// For CAAS units we want to provide the container address.
-		// TODO (stickupkid): Get the K8s pod address once link layer devices
-		// are available.
 		result.ProviderId = *unit.K8sProviderID
+		result.Address = c.podsInfo[unitName].Address
 	}
 	if !unit.Subordinate && unit.MachineName != nil {
 		result.Machine = unit.MachineName.String()

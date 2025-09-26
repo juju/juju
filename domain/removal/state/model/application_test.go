@@ -13,15 +13,19 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -580,6 +584,82 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*still has 1 unit.*`)
 }
 
+// TestDeleteApplicationNotWipingDevices is a regression test for where deleting an application
+// would wipe the device_constraint_attribute table.
+func (s *applicationSuite) TestDeleteApplicationNotWipingDeviceConstraints(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	app1ID, err := svc.CreateIAASApplication(c.Context(), "app1", &stubCharm{name: "test-charm"}, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: "app1",
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: ptr(42),
+			Origin:   charmresource.OriginStore,
+		}},
+		Devices: map[string]devices.Constraints{
+			"bitcoinminer": {
+				Type:  "nvidia.com/gpu",
+				Count: 10,
+				Attributes: map[string]string{
+					"model": "tesla",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = svc.CreateIAASApplication(c.Context(), "app2", &stubCharm{name: "test-charm"}, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: "app2",
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: ptr(42),
+			Origin:   charmresource.OriginStore,
+		}},
+		Devices: map[string]devices.Constraints{
+			"bitcoinminer": {
+				Type:  "nvidia.com/gpu",
+				Count: 20,
+				Attributes: map[string]string{
+					"model": "tesla",
+				},
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceApplicationLife(c, app1ID, life.Dead)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), app1ID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetApplicationLife(c.Context(), "app1")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+
+	devices, err := svc.GetDeviceConstraints(c.Context(), "app2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devices, tc.HasLen, 1)
+	c.Assert(devices["bitcoinminer"].Count, tc.Equals, 20)
+}
 func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C) {
 	// Arrange: Two apps that share a resource object
 	appSvc := s.setupApplicationService(c)

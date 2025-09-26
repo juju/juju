@@ -48,6 +48,9 @@ type ApplicationService interface {
 	// endpoints are indexed by the application name for the application which they
 	// belong to.
 	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
+
+	// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
+	GetUnitsK8sPodInfo(ctx context.Context) (map[unit.Name]application.K8sPodInfo, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
