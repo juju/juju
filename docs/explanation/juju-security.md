@@ -5,72 +5,71 @@
 See also: {ref}`harden-your-deployment`
 ```
 
-Juju is a distributed system where users interact with clients to reach controllers that will contact clouds and Charmhub to provision infrastructure and to deploy Juju unit agents, charms, and -- through them -- to deploy and operate workloads on that infrastructure.
+Juju is a distributed system where users interact with clients to reach controllers that will contact clouds and Charmhub to provision infrastructure and to deploy and operate workloads on that infrastructure through charms.
 
 Whether inadvertently or maliciously, any of these assets and the data flows between them can be compromised.
 
 This document describes example threats and the available controls in each case.
 
+(security-assets)=
 ## Assets
 
 This section lists all the main assets along with example threats and the types of controls Juju makes available.
 
-<!--
+Note: Juju groups these assets under various abstractions: {ref}`controllers <controller>`, {ref}`clouds <cloud>`, {ref}`models <model>`, {ref}`applications <application>`, {ref}`units <unit>`, etc. Juju's permission model also refers to these abstractions (see {ref}`user-access-levels`: a user can have read, write, or admin access to controllers, clouds, models, or application offers). Below we allude to them in the "Owned by" and "Used by" fields as needed.
+
 (assets-agents)=
 ### Agents
 
-Juju is an agent-based system.
-
-The controller agent needs root access and can access the database.
-
-The Juju unit agent in an application unit typically needs root access too, except if the charm next to which it is deployed is a 'rootless charm' -- i.e., a charm whose `charmcraft.yaml > containers > uid` and `gid` fields are not 0 (do not require root access). Note: Rootless charms are currently supported only for Kubernetes charms.
+Agents are Juju software that lives on every machine or unit managed by Juju and helps reconcile local state with the goal state as represented in the Juju database.
 
 ```{ibnote}
-See more: [Charmcraft | File `charmcraft.yaml` > `containers`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#containers)
+See more: {ref}`Agents <agent>`
 ```
 
-Example threats:
-- {ref}`threats-availability`:
-- {ref}`threats-confidentiality`:
-- {ref}`threats-integrity`:
+In this document the term "agent" will denote only machine, container, and unit agents; for the controller agent see {ref}`the controller asset <assets-controller>`.
 
-Available controls: {ref}`controls-`
+Owned by: Controller.
 
-(assets-applications)=
-## Applications
+Used by: Models.
 
-A Juju application unit consists of a Juju unit agent, charm code (e.g., from deploying the `postgresql-k8s` charm), and the workload the charm code brings in (e.g., the PostgreSQL application).
+(assets-unit-agents)=
+#### Unit agents
 
-Depending on the charm, a charmed application on either a machine or a Kubernetes cloud can operate in high availability mode.
+Unit agents are deployed next to each charm. They periodically check local state against the Juju controller and work to reconcile state by executing the deployed charm, which in turn reacts, typically by performing an operation on their workload.
 
-Example threats:
-- {ref}`threats-availability`:
-- {ref}`threats-confidentiality`:
-- {ref}`threats-integrity`:
+Privileges: Unit agents typically have root access on the machine or container where they are deployed.
 
-Available controls: {ref}`controls-`
--->
+Controls: {ref}`controls-rootless-charms`
 
 ### Blob storage
 
-[TBA]
+Owned by: Controller.
+
+Used by: Models.
+
+Storage for large objects, e.g., charm resources, backups, etc.
 
 Example threats:
 - {ref}`threats-availability`: An attacker could launch a denial-of-service (DoS) attack on Juju's blob storage, rendering it unavailable for legitimate users and processes.
 - {ref}`threats-confidentiality`: If an attacker gains unauthorized access to Juju's blob storage, they could potentially view and extract sensitive data stored in the blobs, such as configuration files or application data.
 - {ref}`threats-integrity`: An attacker who gains access to Juju's blob storage could modify or corrupt stored data, such as altering configuration files and injecting malicious code into application data.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (assets-charms)=
 ### Charms
 
 Charms are the operational code Juju deploys and manages.
 
+Owned by: External entity.
+
+Used by: Models.
+
 Example threats:
 - {ref}`threats-confidentiality`: Charms may need to use sensitive information such as database credentials, API keys, or encryption keys to function properly. If these secrets are not managed securely, they can be exposed to unauthorized users or entities.
 
-Available controls: {ref}`controls-secrets`, {ref}`controls-secret-backends-can-be-external`
+Controls: {ref}`controls-secrets`, {ref}`controls-secret-backends-can-be-external`, {ref}`controls-charm-development-best-practices`
 
 <!--TBA
 (assets-charmhub)=
@@ -83,7 +82,7 @@ Example threats:
 - {ref}`threats-confidentiality`:
 - {ref}`threats-integrity`:
 
-Available controls: {ref}`controls-`
+Controls: {ref}`controls-`
 -->
 
 (assets-clients)=
@@ -95,32 +94,32 @@ Overview: Juju {ref}`clients <client>` interact with the API server via client i
 
 When you install the `juju` CLI you also get the agent binaries necessary for deploying Juju agents during controller bootstrap, infrastructure provisioning, or application deployment. -->
 
+Owned by: Client, controller.
+
+Used by: Models.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could target the availability of Juju clients by disrupting their operation, such as through a denial-of-service (DoS) attack on the JAAS service or by corrupting local client installations.
 - {ref}`threats-confidentiality`: If communication between Juju clients and the Juju controller is not encrypted, an attacker could intercept the data, leading to the exposure of sensitive information, such as credentials, configuration details, or command history.
 - {ref}`threats-integrity`: An attacker with access to the Juju client environment could modify configuration files or scripts, leading to unauthorized or malicious actions being executed by the Juju clients.
 
-Available controls: {ref}`controls-user-authentication`
+Controls: {ref}`controls-user-authentication`
 
 (assets-cloud-credentials)=
 ### Cloud credentials
 
 Overview: Cloud credentials allow Juju to interact with various cloud providers for deploying and managing resources.
 
-In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your client nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure).
+Owned by: Client, controller. Alternatively, for clouds that support instance profiles or a managed identity, owned externally.
 
-```{ibnote}
-See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
-```
-
-If a charm must be deployed with `--trust`, it will gain access to cloud credentials too.
+Used by: Models. If a charm must be deployed with `--trust`, it will gain access to cloud credentials too.
 
 Example threats:
 - {ref}`threats-availability`: If cloud credentials are lost, deleted, or become unavailable, Juju may be unable to interact with cloud resources, leading to disruptions in deployments or scaling operations.
 - {ref}`threats-confidentiality`: If an attacker gains unauthorized access to Juju cloud credentials, they could potentially control cloud resources, create or destroy instances, and access sensitive data stored in the cloud environment.
 - {ref}`threats-integrity`: An attacker could modify Juju cloud credentials, such as altering access keys or API tokens, which could either lock out legitimate users or allow unauthorized access to cloud resources.
 
-Available controls: {ref}`controls-filesystem-permissions`
+Controls: {ref}`controls-filesystem-permissions`, {ref}`controls-no-cloud-credentials-in-juju`
 
 (assets-cloud-providers)=
 ### Cloud providers
@@ -136,20 +135,24 @@ Example threats:
 - {ref}`threats-confidentiality`: If an attacker gains unauthorized access to a cloud provider account used by Juju, they could potentially view and extract sensitive data from the cloud environment, including virtual machines, storage, and network configurations.
 - {ref}`threats-integrity`: An attacker with access to the cloud provider account could modify or delete resources, such as altering virtual machine configurations, modifying storage contents, or changing network settings.
 
-Available controls: {ref}`controls-filesystem-permissions`, {ref}`controls-no-plaintext-passwords-in-the-database`
+Controls: {ref}`controls-filesystem-permissions`, {ref}`controls-no-plaintext-passwords-in-the-database`
 
 (assets-cloud-images)=
 ### Cloud images
 
 Overview: Cloud images are retrieved from cloud-images.ubuntu.com.
 
+Owned by: External entity.
+
+Used by: Models.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could launch a Denial of Service (DoS) attack on cloud-images.canonical.com, rendering it unavailable for Juju to download necessary cloud images.
 - {ref}`threats-integrity`: When Juju accesses cloud-images.canonical.com to download cloud images, an attacker could perform a Man-in-the-Middle (MitM) attack. In this scenario, the attacker intercepts the connection between Juju and the image repository, potentially injecting or modifying the images being downloaded.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
-<!--
+<!--?TODO?
 ### Cloud resources
 
 Cloud resources are any machines or containers provisioned implicitly or explicitly through Juju for the purpose of hosting a Juju controller or other applications.
@@ -159,9 +162,19 @@ By default, these resources run Ubuntu.
 For the controller, this is always the latest Ubuntu LTS.
 -->
 
-<!-- ### Container registry
+(assets-container-registry)=
+### Container registry
 
-TBA -->
+Owned by: External entity.
+
+Used by: Models.
+
+Example threats:
+- {ref}`threats-availability`: An attacker could launch a denial-of-service (DoS) attack against the Juju container registry, making it unavailable to users who need to pull images for deployments.
+- {ref}`threats-confidentiality`: If an attacker gains unauthorized access to the Juju container registry, they could download private container images that may contain sensitive information, such as proprietary application code, embedded secrets, or configuration details.
+- {ref}`threats-integrity`: An attacker could potentially push malicious container images to the Juju container registry, replacing legitimate images or adding new ones. If these tampered images are deployed, they could compromise the security and integrity of the applications running in the Juju environment.
+
+Controls: {ref}`controls-tls-encryption`
 
 (assets-controller)=
 ### Controller
@@ -174,119 +187,198 @@ A controller on a machine cloud can operate in high availability mode.
 
 For machine controllers, Juju also provides tools to help with controller backups. This can help restore healthy state in the case of an attack affecting data integrity. -->
 
+Owned by: Controller.
+
+Used by: Controller.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could flood the API server with requests, overwhelming its capacity and rendering it unavailable to legitimate users. Or, improper resource management might lead to exhaustion of system resources (e.g., CPU, memory), causing the API server to crash or become unresponsive.
 - {ref}`threats-confidentiality`:  If user credentials are compromised, unauthorized individuals could gain access to sensitive data via API server.
 - {ref}`threats-integrity`: An attacker who gains unauthorized access to the APIserver could alter critical data, such as configuration settings or deployment scripts. Malicious users could exploit vulnerabilities in the API to execute injection attacks, such as SQL injection or command injection, altering the behavior of the API server.
 
-Available controls:  {ref}`controls-vpn`, {ref}`controls-user-authentication`, {ref}`controls-time-limited-tokens`, {ref}`controls-filesystem-permissions`, {ref}`controls-rate-limiting`, {ref}`controls-regular-backups`
+Controls:  {ref}`controls-vpn`, {ref}`controls-user-authentication`, {ref}`controls-time-limited-tokens`, {ref}`controls-filesystem-permissions`, {ref}`controls-rate-limiting`, {ref}`controls-regular-backups`
 
 (assets-controller-ca)=
 ### Controller CA
 
 Overview: Juju configures everything that talks to the API to trust certificates that have been signed by the CA that the controller manages. This establishes trust for both clients and agents.
 
+Owned by: Controller.
+
+Used by: Client, agents.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could launch a denial-of-service (DoS) attack against the controller CA, making it unavailable to issue or renew certificates.
 - {ref}`threats-confidentiality`: If an attacker gains unauthorized access to the private keys of the controller CA, they could use these keys to issue fraudulent certificates. This would allow them to impersonate legitimate Juju controllers or services, leading to a breach of confidentiality as they could decrypt secure communications or authenticate unauthorized systems.
 - {ref}`threats-integrity`: An attacker who compromises the controller CA could issue fraudulent certificates to malicious entities, allowing them to impersonate legitimate services within the Juju environment.
 
-Available controls: {ref}`controls-database-authentication`
+Controls: {ref}`controls-database-authentication`
 
 (assets-controller-charm)=
 ### Controller charm
 
 Overview: https://charmhub.io/juju-controller : A charm responsible for some of the operational logic of a Juju controller.
 
+Owned by: Controller.
+
+Used by: Controller model.
+
 Example threats:
 - {ref}`threats-availability`: A misconfiguration in the Juju controller charm could lead to service disruptions, such as the controller becoming unresponsive or unable to manage deployed applications.
 - {ref}`threats-confidentiality`: If an attacker gains unauthorized access to the Juju controller charm, they could potentially view sensitive configuration data, including credentials, API keys, and other secrets managed by the charm.
 - {ref}`threats-integrity`:  An attacker who gains access to the Juju controller charm could modify the charm's code or configuration, potentially introducing vulnerabilities, backdoors, or malicious behavior.
 
-Available controls: {ref}`controls-user-authentication`
+Controls: {ref}`controls-user-authentication`
 
 (assets-database)=
 ### Database
 
 Overview: Juju stores all its state and operational data in a database powered by Dqlite or MongoDB. This includes model configurations, status of applications, and historical logs. This database can only be accessed by authorized entities (controllers, agents, or administrators), following proper authentication. All passwords saved in the database are hashed and salted. Juju is careful not to store sensitive information in logs.
 
+Owned by: Controller.
+
+Used by: Controller.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could overwhelm the database with requests, rendering it unavailable to legitimate users and disrupting the operations of the Juju-managed environment.
 - {ref}`threats-confidentiality`: If unauthorized users gain access to the Juju database, they can read sensitive data stored in it, such as configuration details, user credentials, or operational data.
 - {ref}`threats-integrity`: If unauthorized users gain access to the Juju database, they can read sensitive data stored in it, such as configuration details, user credentials, or operational data.
 
-Available controls: {ref}`controls-high-availability`, {ref}`controls-database-authentication`, {ref}`controls-filesystem-permissions`, {ref}`controls-no-plaintext-passwords-in-the-database`, {ref}`controls-regular-backups`
+Controls: {ref}`controls-high-availability`, {ref}`controls-database-authentication`, {ref}`controls-filesystem-permissions`, {ref}`controls-no-plaintext-passwords-in-the-database`, {ref}`controls-regular-backups`
 
 (assets-image-registry)=
 ### Image registry
 
 Managed by CPC, keeps the official record of what Ubuntu images exist in what regions of AWS, Azure, Google Cloud, Oracle, etc.
 
+Owned by: External entity.
+
+Used by: Models.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could launch a Denial of Service (DoS) attack against the Juju image registry, overwhelming it with traffic or requests, rendering it unavailable.
 - {ref}`threats-integrity`: An attacker could gain unauthorized access to the Juju image registry and inject malicious images or alter existing images.
 
-Available controls: {ref}`controls-filesystem-permissions`
+Controls: {ref}`controls-filesystem-permissions`
 
 (assets-logging-and-monitoring-systems)=
 ### Logging and monitoring systems
 
 Overview: Any systems that capture operational data and alerts for Juju's activities.
 
+Owned by: Controller.
+
+Used by: Controller, models.
+
 Example threats:
 
 - {ref}`threats-confidentiality`: Juju's logging and monitoring system might inadvertently capture sensitive information, such as passwords, API keys, or personally identifiable information (PII), within log files. If these logs are not properly secured, unauthorized users could access them, leading to a confidentiality breach.
 
-Available controls: {ref}`controls-no-sensitive-information-in-logs`
+Controls: {ref}`controls-no-sensitive-information-in-logs`
+
+<!-- TODO
+(assets-pebble)=
+### Pebble
+
+
+Example threats:
+- {ref}`threats-availability`:
+- {ref}`threats-confidentiality`:
+- {ref}`threats-integrity`:
+
+Controls: {ref}`controls-`
+-->
 
 (assets-secrets)=
 ### Secrets
 
 Overview: Juju's mechanism for storing and managing sensitive information such as credentials and API keys.
 
+Owned by: Controller.
+
+Used by: Models.
+
 Example threats:
 - {ref}`threats-availability`: An attacker could potentially launch a denial-of-service attack on the secrets management component, preventing legitimate users or charms from accessing the secrets they require.
 - {ref}`threats-confidentiality`: If a malicious actor gains unauthorized access to the secrets stored within the Juju model, they could potentially extract sensitive information such as API keys, passwords, or encryption keys.
 - {ref}`threats-integrity`: An attacker could modify the secrets stored in the Juju model.
 
-Available controls: {ref}`controls-secrets`, {ref}`controls-secret-backend-can-be-external`, {ref}`controls-user-authentication`
+Controls: {ref}`controls-secrets`, {ref}`controls-secret-backend-can-be-external`, {ref}`controls-user-authentication`
 
-(assets-ssh-keys-and-credentials)=
-### SSH keys and credentials
+(assets-ssh-keys-and-agent-credentials)=
+### SSH keys and agent credentials
 
-Overview: SSH keys are used for secure communication and access to machines managed by Juju.
+Overview: SSH keys are used for secure communication and access to machines managed by Juju. Agent credentials (e.g., macaroons) are used by agents to communicate wth external controllers (in cross-model-relation scenarios).
 
 Example threats:
 - {ref}`threats-availability`: If SSH keys or credentials are lost or become unavailable, administrators may be unable to manage or access critical resources, leading to operational disruptions.
 - {ref}`threats-confidentiality`: If an attacker gains access to Juju SSH keys or credentials, they can potentially access and control machines or services managed by Juju.
 - {ref}`threats-integrity`: An attacker might alter SSH keys or credentials, replacing them with their own, which could allow them unauthorized access or disrupt the normal operations of Juju-managed resources.
 
-Available controls: {ref}`controls-user-authentication`, {ref}`controls-filesystem-permissions`
+Controls: {ref}`controls-user-authentication`, {ref}`controls-filesystem-permissions`
 
 (assets-simplestreams)=
 ### Simplestreams
 
-Hosts the Juju agent binaries.
+Overview: Hosts the Juju agent binaries.
+
+Owned by: External entity.
+
+Used by: Controller, models.
 
 Example threats:
 - {ref}`threats-integrity`: When Juju accesses streams.canonical.com to retrieve images, charm metadata, or other critical resources, an attacker could perform a Man-in-the-Middle (MitM) attack. In such a scenario, the attacker intercepts the communication between Juju and streams.canonical.com and injects or modifies the data being transmitted.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (assets-users)=
 ### Users
 
-Overview: Any person who can log in to a Juju controller (where a user with controller superuser access is also known as the 'administrator').
+Any person who can log in to a Juju controller.
 
-Possible threats and provided controls:
+#### Juju administrator
+
+A user with controller `superuser` access.
+
+Owned by: Controller.
+
+Used by: Controller.
+
+Privileges: Full access.
 
 Example threats:
 - {ref}`threats-availability`: An administrator might accidentally or maliciously misconfigure critical components of the Juju environment, such as disabling key services or misallocating resources, leading to downtime or degraded service performance.
 - {ref}`threats-confidentiality`: If an attacker gains access to the credentials of a Juju administrator, they can potentially access and control the entire Juju environment, including sensitive configuration data, user permissions, and operational commands. Or, a Juju user might inadvertently or maliciously expose sensitive data within the Juju model or applications. This could occur if the user accesses sensitive configuration details, logs, or secrets and then shares this information in an unsecured manner, such as storing it in an unprotected location or sending it over an insecure channel.
 - {ref}`threats-integrity`: An attacker with access to an administrator's account might make unauthorized changes to the Juju configuration, such as altering model settings, modifying charm configurations, or changing user permissions.
 
-Available controls: {ref}`controls-user-authentication`,  {ref}`controls-granular-access`, {ref}`controls-no-plaintext-passwords-in-the-database`
+Controls: {ref}`controls-user-authentication`, {ref}`controls-no-plaintext-passwords-in-the-database`
 
+#### Juju user
+
+A user with access less than controller `superuser` access.
+
+Owned by: Controller.
+
+Used by: Client.
+
+Privileges: As permitted by their access level.
+
+Example threats:
+
+- {ref}`threats-confidentiality`: A Juju user might inadvertently or maliciously expose sensitive data within the Juju model or applications. This could occur if the user accesses sensitive configuration details, logs, or secrets and then shares this information in an unsecured manner, such as storing it in an unprotected location or sending it over an insecure channel.
+
+Controls: {ref}`controls-user-authentication`,  {ref}`controls-granular-access`, {ref}`controls-no-plaintext-passwords-in-the-database`
+
+(assets-workloads)=
+### Workloads
+
+The workloads installed and operated through charms.
+
+Owned by: External entity.
+
+Privileges: As defined by the external entity.
+
+(security-data-flows)=
 ## Data flows
 
 This section lists all the main data flows between assets in Juju, along with example threats and the types of controls Juju provides.
@@ -301,7 +393,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If logs and monitoring data are transmitted from Juju agents or controllers to a logging and monitoring system without encryption or proper access controls, sensitive information such as usernames, IP addresses, API tokens, or configuration details could be exposed.
 - {ref}`threats-integrity`: If the data flow between Juju administrators and logging/monitoring systems is not protected with integrity checks (e.g., using cryptographic hashes or signatures), an attacker could manipulate the logs or monitoring data in transit.
 
-Available controls: [TBA]
+Controls: [TBA]
 
 (data-flows-agent-controller)=
 ### Agent - Controller
@@ -313,7 +405,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If an attacker intercepts communication between an agent and the Juju controller, they could potentially capture sensitive data being transmitted, such as authentication tokens, configuration details, or secrets stored within the data flow. If communication is not encrypted using TLS, the attacker can read the data in transit, compromising its confidentiality.
 - {ref}`threats-integrity`: An attacker intercepts and modifies API requests or responses between an agent and the Juju controller. For instance, modifying a request to deploy a specific application or configuration, resulting in unintended actions being performed on the target environment. Without proper cryptographic integrity checks, the controller might not detect that the data was altered.
 
-Available controls: {ref}`controls-agent-authentication`, {ref}`controls-rate-limiting`
+Controls: {ref}`controls-agent-authentication`, {ref}`controls-rate-limiting`
 
 (data-flows-agent-secret)=
 ### Agent - Secret
@@ -325,7 +417,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If the communication between Juju agents (machine / container / unit) and the Juju secrets management system is not properly secured (e.g., using weak encryption or no encryption at all), an attacker could intercept the network traffic and gain unauthorized access to sensitive secrets (e.g., API keys, database credentials, and certificates).
 - {ref}`threats-integrity`: If there is no mechanism in place to verify the integrity of the data flow between Juju agents and secrets, an attacker who gains access to the communication channel could tamper with the secrets data. For example, an attacker could modify API keys, certificates, or configuration settings being fetched by an agent, causing the agent to use compromised or incorrect data, leading to a breach or operational failure.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 
 (data-flows-agent-charms)=
@@ -338,7 +430,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If data sent from Juju agents (machine / container / unit) to charms is not encrypted or properly protected, sensitive information such as operational metrics, log data, or configuration states could be intercepted by an attacker. For example, if a unit agent sends unencrypted logs containing sensitive information like access credentials or internal configurations to a charm, an attacker monitoring the network could capture and misuse this data.
 - {ref}`threats-integrity`: If the communication from agents to charms lacks integrity checks (such as digital signatures or message digests), an attacker could intercept and modify the data in transit. For instance, an attacker could alter the operational metrics or status information being sent from a unit agent to a charm.
 
-Available controls: [TBA]
+Controls: [TBA]
 
 (data-flows-client-controller)=
 ### Client - Controller
@@ -349,7 +441,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If clients communicate with the controller / API server over an unsecured channel (e.g., HTTP instead of HTTPS), an attacker could intercept the credentials (such as API tokens, passwords, etc.) being sent from the client to the API server. This could lead to unauthorized access to the Juju environment, allowing the attacker to perform malicious operations or gain access to sensitive information.
 - {ref}`threats-integrity`: If the data sent from clients to the controller / API server is not properly sanitized or validated, an attacker could inject malicious commands or data into the API calls. For example, by manipulating Python scripts, CLI commands, or Terraform configurations, an attacker could craft requests that alter the system state, modify deployment configurations, or execute unauthorized commands on the Juju environment.
 
-Available controls: {ref}`controls-user-authentication`
+Controls: {ref}`controls-user-authentication`
 
 (data-flows-client-simplestreams)=
 ### Client - Simplestreams
@@ -361,7 +453,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If a client retrieves images, charms, or other resources from streams.canonical.com over an unencrypted channel (e.g., HTTP instead of HTTPS), an attacker could intercept the data.
 - {ref}`threats-integrity`: If the data flow between the clients and streams.canonical.com does not include integrity verification (e.g., checksums or digital signatures), an attacker could intercept and modify the data in transit.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-controller-blob-storage)=
 ### Controller - Blob storage
@@ -373,7 +465,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If the Juju controller / API server interacts with a blog storage service to store or retrieve content (e.g., for documentation, user-generated content, or logs), and the communication is not encrypted, an attacker could intercept the data.
 - {ref}`threats-integrity`: If the data flow between the controller / API server and the blog storage service does not include integrity checks (e.g., using digital signatures, checksums, or message digests), an attacker could manipulate the content in transit.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-controller-cloud-provider)=
 ### Controller - Cloud provider
@@ -383,7 +475,7 @@ Overview: Involves the controller interacting directly with the cloud provider's
 Example threats:
 - {ref}`threats-availability`: An attacker could exploit this dependency by launching a Denial of Service (DoS) attack on the cloud provider's API endpoints.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-controller-container-registry)=
 ### Controller - Container registry
@@ -394,7 +486,7 @@ Example threats:
 - {ref}`threats-availability`: An attacker could target the communication between the controller / API server and the container registry by sending a high volume of requests or malformed requests.
 - {ref}`threats-integrity`: If the data flow between the controller / API server and the container registry does not implement strong integrity verification mechanisms (such as digital signatures or checksums for images), an attacker could intercept and tamper with the images in transit.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-controller-controller)=
 ### Controller - Controller
@@ -408,7 +500,7 @@ Example threats:
 - {ref}`threats-confidentiality`: When multiple Juju controllers communicate with each other (e.g., in a high-availability (HA) setup for state synchronization or leader election), if the communication is not encrypted (e.g., using HTTP instead of HTTPS or an insecure channel), an attacker could intercept the data.
 - {ref}`threats-integrity`: If the communication between Juju controllers does not have proper integrity checks (e.g., digital signatures, message digests), an attacker could intercept and modify the data being transmitted.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-controller-database)=
 ### Controller - Database
@@ -420,7 +512,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If the communication between the controller / API server and Juju DB is not encrypted properly, an attacker could intercept sensitive information. For instance, an attacker could listen to the network traffic and capture sensitive data such as database credentials, configuration details, or operational commands.
 - {ref}`threats-integrity`: An attacker who gains access to the communication channel between the controller / API server and Juju DB could alter the data being transmitted. This could involve modifying commands or data results, leading to incorrect operations, misconfigurations, or corrupt state in Juju DB.
 
-Available controls: {ref}`controls-database-authentication`
+Controls: {ref}`controls-database-authentication`
 
 (data-flows-simplestreams)=
 ### Controller - Simplestreams
@@ -432,7 +524,7 @@ Example threats:
 - {ref}`threats-confidentiality`: When a Juju controller / API server interacts with streams.canonical.com to fetch images, charms, or other resources, if the communication channel is not encrypted (e.g., using plain HTTP instead of HTTPS), an attacker could intercept the data.
 - {ref}`threats-integrity`: If the data flow between the controller / API server and streams.canonical.com lacks integrity verification (such as cryptographic hashes or digital signatures), an attacker could perform a Man-in-the-Middle (MitM) attack.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-database-database)=
 ### Database - Database
@@ -444,7 +536,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If the communication between Juju DB instances is not encrypted (e.g., using plain TCP connections instead of TLS), an attacker could intercept the data being replicated or synchronized between the databases.
 - {ref}`threats-integrity`: Without proper integrity checks (e.g., digital signatures, hashes, or cryptographic checksums), an attacker could perform a MitM attack, intercepting and modifying the data being transferred between Juju DB instances.
 
-Available controls: {ref}`controls-tls-encryption`
+Controls: {ref}`controls-tls-encryption`
 
 (data-flows-ssh-key-or-credential-agent)=
 ### SSH key or credential - Agent
@@ -456,8 +548,9 @@ Example threats:
 - {ref}`threats-confidentiality`: If the transfer of SSH keys and credentials to Juju agents (machine / container / unit) is not encrypted or properly secured, an attacker could intercept the transmission and gain access to sensitive authentication materials. For example, if an attacker captures SSH private keys or passwords in transit, they could use them to gain unauthorized access to the machines or containers managed by Juju agents.
 - {ref}`threats-integrity`: If the data flow of SSH keys and credentials to the agents is not protected with integrity checks (e.g., digital signatures, checksums), an attacker could modify the data in transit. For instance, an attacker could intercept the transmission and replace the legitimate SSH key with a malicious one, allowing them to gain unauthorized access to the agent-managed systems or impersonate legitimate users.
 
-Available controls: {ref}`controls-filesystem-permissions`
+Controls: {ref}`controls-filesystem-permissions`
 
+(security-threats-details)=
 ## Threats -- detail
 
 This section defines the threat types mentioned for the assets and data flows above.
@@ -499,6 +592,17 @@ Juju offers auditing and logging capabilities to help administrators track user 
 See more: {ref}`Logs <log>`
 ```
 
+(controls-charm-development-best-practices)=
+### Charm development best practices
+
+Charm SDK developers support charm authors with documentation on best practices.
+
+While any charm can be published on Charmhub, only charms that have passed formal review will be publicly listed in search results.
+
+```{ibnote}
+See more: [Ops | Publish your charm](https://documentation.ubuntu.com/ops/latest/howto/manage-charms/#publish-your-charm) and references therein.
+```
+
 (controls-database-authentication)=
 ### Database authentication
 
@@ -525,11 +629,6 @@ See more: [JAAS | Authorization](https://documentation.ubuntu.com/jaas/v3/explan
 
 ```
 
-(controls-charm-best-practices)=
-### Guided, tested, and maintained operations code
-
-Juju encourages developers to follow best practices in creating software operators ('charms'). This includes secure coding guidelines, testing, and regular maintenance to address potential security vulnerabilities.
-
 (controls-high-availability)=
 ### High availability
 
@@ -537,6 +636,15 @@ A controller on a machine cloud can operate in high availability mode. Depending
 
 ```{ibnote}
 See more: {ref}`high-availability`
+```
+
+(no-cloud-credentials-in-juju)
+### No cloud credentials in Juju
+
+In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your client nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure).
+
+```{ibnote}
+See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
 ```
 
 (controls-no-plaintext-passwords-in-the-database)=
@@ -566,6 +674,15 @@ Canonical releases updates and security patches for Juju to address vulnerabilit
 
 ```{ibnote}
 See more: {ref}`juju-roadmap-and-releases`
+```
+
+(controls-rootless-charms)=
+### Rootless charms
+
+Kubernetes charms can be set up to not require root access.
+
+```{ibnote}
+See more: [Charmcraft | File `charmcraft.yaml` > `charm-user`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#charm-user), [Charmcraft | File `charmcraft.yaml` > `containers`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#containers)
 ```
 
 (controls-secret-backends-can-be-external)=
