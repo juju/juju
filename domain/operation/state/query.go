@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
@@ -30,11 +31,11 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 		// Map from operation UUID to its parameters.
 		allParams map[string][]taskParameter
 		// Map from operation UUID to a map from task ID to its logs.
-		allTaskLogs map[string]map[string][]taskLogEntry
+		allTaskLogs map[string]map[string][]taskLogEntryByOperation
 	)
 	allTasks = make(map[string][]taskResult)
 	allParams = make(map[string][]taskParameter)
-	allTaskLogs = make(map[string]map[string][]taskLogEntry)
+	allTaskLogs = make(map[string]map[string][]taskLogEntryByOperation)
 
 	// Pagination set-up.
 	var (
@@ -62,15 +63,14 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 			return errors.Capture(err)
 		}
 
-		for _, op := range ops {
-			// Get all the tasks, parameters and logs for the given operation.
-			tasks, parameters, taskLogs, err := st.getFullTasksForOperation(ctx, tx, op.UUID)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			allTasks[op.UUID] = tasks
-			allParams[op.UUID] = parameters
-			allTaskLogs[op.UUID] = taskLogs
+		// Get the list of operation UUIDs to fetch related data.
+		opUUIDs := transform.Slice(ops, func(op operationResult) string {
+			return op.UUID
+		})
+		// Get all the tasks, parameters and logs for the given operation.
+		allTasks, allParams, allTaskLogs, err = st.getFullTasksForOperation(ctx, tx, opUUIDs)
+		if err != nil {
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -119,7 +119,7 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 		parameters []taskParameter
 		// logs is a map from task ID to a list of log entries. We need it
 		// as such to be passed at the end to the encode function.
-		taskLogs map[string][]taskLogEntry
+		taskLogs map[string][]taskLogEntryByOperation
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get operation the root operation.
@@ -129,10 +129,13 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 		}
 
 		// Get all the tasks, parameters and logs for the given operation.
-		tasks, parameters, taskLogs, err = st.getFullTasksForOperation(ctx, tx, op.UUID)
+		tasksByOp, parametersByOp, taskLogsByOp, err := st.getFullTasksForOperation(ctx, tx, []string{op.UUID})
 		if err != nil {
 			return errors.Capture(err)
 		}
+		tasks = tasksByOp[op.UUID]
+		parameters = parametersByOp[op.UUID]
+		taskLogs = taskLogsByOp[op.UUID]
 
 		return nil
 	})
@@ -149,30 +152,26 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 
 // getFullTasksForOperation retrieves all tasks for a given operation,
 // including their logs and the operation parameters.
-func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, opUUID []string) (map[string][]taskResult, map[string][]taskParameter, map[string]map[string][]taskLogEntry, error) {
+func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, opUUIDs []string) (map[string][]taskResult, map[string][]taskParameter, map[string]map[string][]taskLogEntryByOperation, error) {
 	// Get the operation parameters.
-	parameters, err := st.getOperationParameters(ctx, tx, opUUID)
+	parameters, err := st.getOperationParameters(ctx, tx, opUUIDs)
 	if err != nil {
 		return nil, nil, nil, errors.Capture(err)
 	}
 
 	// Get all tasks for this operation.
-	tasks, err := st.getOperationTasks(ctx, tx, opUUID)
+	tasks, err := st.getOperationTasks(ctx, tx, opUUIDs)
 	if err != nil {
 		return nil, nil, nil, errors.Capture(err)
 	}
 
-	taskLogs := make(map[string][]taskLogEntry)
-	for _, task := range tasks {
-		// Get the task logs.
-		logs, err := st.getTaskLogs(ctx, tx, task.TaskID)
-		if err != nil {
-			return nil, nil, nil, errors.Capture(err)
-		}
-		taskLogs[task.TaskID] = logs
+	// Get the task logs.
+	logsByOperationAndTask, err := st.getTaskLogs(ctx, tx, opUUIDs)
+	if err != nil {
+		return nil, nil, nil, errors.Capture(err)
 	}
 
-	return tasks, parameters, taskLogs, nil
+	return tasks, parameters, logsByOperationAndTask, nil
 }
 
 // getOperation retrieves the operation row for a given operation_id.
@@ -208,7 +207,7 @@ func encodeOperationInfo(
 	op operationResult,
 	tasks []taskResult,
 	parameters []taskParameter,
-	taskLogs map[string][]taskLogEntry,
+	taskLogs map[string][]taskLogEntryByOperation,
 ) (operation.OperationInfo, error) {
 	var opInfo operation.OperationInfo
 	opInfo.OperationID = op.OperationID
@@ -228,12 +227,7 @@ func encodeOperationInfo(
 	var units []operation.UnitTaskResult
 	for _, t := range tasks {
 		// Retrieve the logs for the task.
-		logs, ok := taskLogs[t.TaskID]
-		if !ok {
-			// We don't break if we don't have logs for a particular task.
-			logs = []taskLogEntry{}
-		}
-
+		logs := taskLogs[t.TaskID]
 		encodedTask, err := encodeTask(t, parameters, logs)
 		if err != nil {
 			return operation.OperationInfo{}, errors.Errorf("encoding task %q: %w", t.TaskID, err)
@@ -369,4 +363,29 @@ FROM   operation o`
 	query += "\nORDER BY o.enqueued_at DESC\nLIMIT $queryParams.limit OFFSET $queryParams.offset"
 
 	return query, args
+}
+
+// accumulateToMap transforms a slice of elements into a map of keys to slices
+// of values using the provided transform function.
+func accumulateToMap[F any, K comparable, V any](from []F, transform func(F) (K, V)) map[K][]V {
+	to := make(map[K][]V)
+	for _, oneFrom := range from {
+		k, v := transform(oneFrom)
+		to[k] = append(to[k], v)
+	}
+	return to
+}
+
+// accumulateToMapOfMap transforms a slice of elements into a map of keys to
+// maps of keys to slices of values using the provided transform function.
+func accumulateToMapOfMap[F any, K1 comparable, K2 comparable, V any](from []F, transform func(F) (K1, K2, V)) map[K1]map[K2][]V {
+	to := make(map[K1]map[K2][]V)
+	for _, oneFrom := range from {
+		k1, k2, v := transform(oneFrom)
+		if to[k1] == nil {
+			to[k1] = make(map[K2][]V)
+		}
+		to[k1][k2] = append(to[k1][k2], v)
+	}
+	return to
 }

@@ -518,17 +518,17 @@ func (st *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (ope
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	parameters, err := st.getOperationParameters(ctx, tx, result.OperationUUID)
+	parameters, err := st.getOperationParameters(ctx, tx, []string{result.OperationUUID})
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	logEntries, err := st.getTaskLogs(ctx, tx, taskID)
+	logEntries, err := st.getTaskLogs(ctx, tx, []string{result.OperationUUID})
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
 
-	task, err := encodeTask(result, parameters, logEntries)
+	task, err := encodeTask(result, parameters[result.OperationUUID], logEntries[result.OperationUUID][result.TaskID])
 	if err != nil {
 		return operation.Task{}, nil, errors.Capture(err)
 	}
@@ -544,7 +544,7 @@ func (st *State) getTask(ctx context.Context, tx *sqlair.TX, taskID string) (ope
 // getTasks retrieves all tasks for a given operation UUID, returning a slice
 // of raw taskResult structs.
 const operationTaskBaseQuery = `
-SELECT
+SELECT DISTINCT
     t.task_id AS &taskResult.task_id,
     o.uuid AS &taskResult.operation_uuid,
     m.name AS &taskResult.machine_name,
@@ -589,7 +589,11 @@ WHERE t.operation_uuid IN ($opUUIDs[:])
 		return nil, errors.Errorf("querying operation tasks: %w", err)
 	}
 
-	return tasks, nil
+	// Accumulate tasks by operation UUID.
+	tasksByOp := accumulateToMap(tasks, func(t taskResult) (string, taskResult) {
+		return t.OperationUUID, t
+	})
+	return tasksByOp, nil
 }
 
 func (st *State) getOperationTask(ctx context.Context, tx *sqlair.TX, taskID string) (taskResult, error) {
@@ -637,46 +641,63 @@ WHERE  operation_uuid IN ($opUUIDs[:])
 		return nil, errors.Errorf("querying task parameters: %w", err)
 	}
 
-	return parameters, nil
+	// Accumulate parameters by operation UUID.
+	res := accumulateToMap(parameters, func(p taskParameter) (string, taskParameter) {
+		return p.OperationUUID, p
+	})
+	return res, nil
 }
 
-// getTaskLogs retrieves all log entries for the given task IDs, returning
-// a map of task ID to a slice of log entries.
-func (st *State) getTaskLogs(ctx context.Context, tx *sqlair.TX, taskIDs []string) (map[string][]taskLogEntry, error) {
-	type tasks []string
+// getTaskLogs retrieves all log entries for the given opearation UUIDs,
+// returning a map keyed by operation UUID, each containing a map keyed by task
+// ID to a slice of log entries.
+func (st *State) getTaskLogs(ctx context.Context, tx *sqlair.TX, opUUIDs []string) (map[string]map[string][]taskLogEntryByOperation, error) {
+	type operations []string
 
 	query := `
-SELECT task_uuid AS &taskLogEntry.task_uuid,
-       content AS &taskLogEntry.content,
-       created_at AS &taskLogEntry.created_at
-FROM   operation_task_log
-JOIN   operation_task AS ot ON operation_task_log.task_uuid = ot.uuid
-WHERE  ot.task_id IN ($tasks[:])
+SELECT o.uuid AS &taskLogEntryByOperation.operation_uuid,
+       ot.task_id AS &taskLogEntryByOperation.task_id,
+       content AS &taskLogEntryByOperation.content,
+       created_at AS &taskLogEntryByOperation.created_at
+FROM   operation_task AS ot 
+JOIN   operation AS o ON ot.operation_uuid = o.uuid
+JOIN   operation_task_log AS otl ON otl.task_uuid = ot.uuid
+WHERE  o.uuid IN ($operations[:])
 ORDER BY created_at ASC
 `
-	ident := tasks(taskIDs)
-	stmt, err := st.Prepare(query, taskLogEntry{}, ident)
+	ident := operations(opUUIDs)
+	stmt, err := st.Prepare(query, taskLogEntryByOperation{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing log statement: %w", err)
 	}
 
-	var logEntries []taskLogEntry
+	var logEntries []taskLogEntryByOperation
 	err = tx.Query(ctx, stmt, ident).GetAll(&logEntries)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Errorf("querying task log entries: %w", err)
 	}
+	// Accumulate log entries by operation UUID and task ID.
+	logs := accumulateToMapOfMap(logEntries, func(entry taskLogEntryByOperation) (string, string, taskLogEntryByOperation) {
+		return entry.OperationUUID, entry.TaskID, entry
+	})
 
-	return logEntries, nil
+	return logs, nil
 }
 
-func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry) (operation.Task, error) {
+func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntryByOperation) (operation.Task, error) {
 	result := operation.Task{
 		TaskInfo: operation.TaskInfo{
 			ID:       task.TaskID,
 			Enqueued: task.EnqueuedAt,
 			Status:   corestatus.Status(task.Status),
 		},
-		Receiver: task.Receiver,
+	}
+
+	// Tasks can have either a unit or a machine as receiver.
+	if task.UnitName.Valid {
+		result.Receiver = task.UnitName.String
+	} else {
+		result.Receiver = task.MachineName.String
 	}
 
 	if task.Name.Valid {

@@ -202,12 +202,10 @@ func (s *baseSuite) addUnitWithName(c *tc.C, charmUUID, name string) string {
 		unitName = coreunit.Name(fmt.Sprintf("%s/0", uniqueAppName))
 	}
 
-	appUUID := internaluuid.MustNewUUID().String()
+	appUUID := s.getOrCreateApplication(c, charmUUID, unitName.Application())
 	nodeUUID := internaluuid.MustNewUUID().String()
 	unitUUID := internaluuid.MustNewUUID().String()
 	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
-	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, unitName.Application(), life.Alive, charmUUID, network.AlphaSpaceId)
 	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
 		unitUUID, unitName.String(), life.Alive, appUUID, charmUUID, nodeUUID)
 	return unitUUID

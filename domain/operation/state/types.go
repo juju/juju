@@ -16,7 +16,6 @@ type uuids []string
 type taskResult struct {
 	TaskID         string         `db:"task_id"`
 	OperationUUID  string         `db:"operation_uuid"`
-	Receiver       string         `db:"receiver"`
 	MachineName    sql.NullString `db:"machine_name"`
 	UnitName       sql.NullString `db:"unit_name"`
 	Name           sql.NullString `db:"name"`
@@ -51,6 +50,15 @@ type taskLogEntry struct {
 	TaskUUID  string    `db:"task_uuid"`
 	Content   string    `db:"content"`
 	CreatedAt time.Time `db:"created_at"`
+}
+
+// taskLogEntryByOperation represents a log entry joined with its task and
+// operation.
+type taskLogEntryByOperation struct {
+	OperationUUID string    `db:"operation_uuid"`
+	TaskID        string    `db:"task_id"`
+	Content       string    `db:"content"`
+	CreatedAt     time.Time `db:"created_at"`
 }
 
 // operationResult represents the operation row for GetOperationByID.
