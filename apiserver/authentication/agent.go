@@ -40,6 +40,10 @@ type AgentPasswordService interface {
 
 	// MatchesApplicationPasswordHash checks if the password is valid or not.
 	MatchesApplicationPasswordHash(context.Context, string, string) (bool, error)
+
+	// MatchModelPassword checks if the password hash is valid or not against the
+	// password hash stored for the model's agent.
+	MatchesModelPasswordHash(ctx context.Context, hash string) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -96,7 +100,7 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 		return a.authenticateApplication(ctx, authParams.AuthTag.(names.ApplicationTag), authParams.Credentials)
 
 	case names.ModelTagKind:
-		return nil, errors.NotImplemented
+		return a.authenticateModel(ctx, authParams.AuthTag.(names.ModelTag), authParams.Credentials)
 	}
 	return nil, apiservererrors.ErrBadRequest
 }
@@ -209,4 +213,31 @@ func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag na
 	}
 
 	return tag, nil
+}
+
+// authenticateModel authenticates a model using the provided credentials (password).
+// The model tag is not passed down to the service because the state which the credentials
+// are checked against is already tied to a specific model.
+func (a *agentAuthenticator) authenticateModel(ctx context.Context, modelTag names.ModelTag, credentials string) (names.Tag, error) {
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.agentPasswordService.MatchesModelPasswordHash(ctx, credentials)
+	if errors.Is(err, agentpassworderrors.EmptyPassword) {
+		return nil, errors.Trace(fmt.Errorf("model authentication: %w", apiservererrors.ErrBadRequest))
+	}
+	if errors.Is(err, agentpassworderrors.InvalidPassword) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !valid {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	return modelTag, nil
 }
