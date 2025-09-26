@@ -62,9 +62,9 @@ func (s *querySuite) TestGetOperationByIDUnitAndMachineTasks(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.OperationID, tc.Equals, opID)
-	c.Check(info.Enqueued.IsZero(), tc.Equals, false)
-	c.Check(info.Started.IsZero(), tc.Equals, true)   // Not yet started.
-	c.Check(info.Completed.IsZero(), tc.Equals, true) // Not yet completed.
+	c.Check(info.Enqueued.IsZero(), tc.IsFalse)
+	c.Check(info.Started.IsZero(), tc.IsTrue)   // Not yet started.
+	c.Check(info.Completed.IsZero(), tc.IsTrue) // Not yet completed.
 	c.Assert(info.Units, tc.HasLen, 1)
 	c.Assert(info.Machines, tc.HasLen, 1)
 
@@ -105,7 +105,7 @@ func (s *querySuite) TestGetOperationsEmptyResult(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsAllOperations(c *tc.C) {
@@ -131,11 +131,7 @@ func (s *querySuite) TestGetOperationsAllOperations(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 2)
-	c.Check(result.Truncated, tc.Equals, false)
-
-	// Check operations are ordered by enqueued_at DESC (newest first).
-	op1, op2 := result.Operations[0], result.Operations[1]
-	c.Check(op1.Enqueued.After(op2.Enqueued) || op1.Enqueued.Equal(op2.Enqueued), tc.Equals, true)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsFilterByActionNames(c *tc.C) {
@@ -169,37 +165,13 @@ func (s *querySuite) TestGetOperationsFilterByActionNames(c *tc.C) {
 	c.Check(result.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
 }
 
-func (s *querySuite) TestGetOperationsPaginationLimitZero(c *tc.C) {
-	// Arrange - create 3 operations
-	charmUUID := s.addCharm(c)
-	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "limit-zero-app/0")
-
-	for i := 0; i < 3; i++ {
-		opUUID := s.addOperation(c)
-		s.addOperationAction(c, opUUID, charmUUID, "test-action")
-		taskUUID := s.addOperationTask(c, opUUID)
-		s.addOperationUnitTask(c, taskUUID, unitUUID)
-	}
-
-	// Act - query with limit 0
-	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Limit: func(i int) *int { return &i }(0),
-	})
-
-	// Assert - should return empty results but truncated should be false since limit is 0
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
-}
-
-func (s *querySuite) TestGetOperationsTruncatedFlagLimitLessThanAvailable(c *tc.C) {
+func (s *querySuite) TestGetOperationsTruncatedFlagLimit(c *tc.C) {
 	// Arrange - create exactly 5 operations
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "truncated-less-app/0")
+	unitUUID := s.addUnitWithName(c, charmUUID, "truncated-equal-app/0")
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -207,40 +179,15 @@ func (s *querySuite) TestGetOperationsTruncatedFlagLimitLessThanAvailable(c *tc.
 	}
 
 	// Act
-	limit := 3
+	limit := 4
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Limit: &limit,
 	})
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 3)
-	c.Check(result.Truncated, tc.Equals, true)
-}
-
-func (s *querySuite) TestGetOperationsTruncatedFlagLimitEqualToAvailable(c *tc.C) {
-	// Arrange - create exactly 5 operations
-	charmUUID := s.addCharm(c)
-	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "truncated-equal-app/0")
-
-	for i := 0; i < 5; i++ {
-		opUUID := s.addOperation(c)
-		s.addOperationAction(c, opUUID, charmUUID, "test-action")
-		taskUUID := s.addOperationTask(c, opUUID)
-		s.addOperationUnitTask(c, taskUUID, unitUUID)
-	}
-
-	// Act
-	limit := 5
-	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Limit: &limit,
-	})
-
-	// Assert - Could be more, so truncated=true
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 5)
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Assert(result.Operations, tc.HasLen, 4)
+	c.Check(result.Truncated, tc.IsTrue)
 }
 
 func (s *querySuite) TestGetOperationsTruncatedFlagLimitGreaterThanAvailable(c *tc.C) {
@@ -249,7 +196,7 @@ func (s *querySuite) TestGetOperationsTruncatedFlagLimitGreaterThanAvailable(c *
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "truncated-greater-app/0")
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -265,7 +212,7 @@ func (s *querySuite) TestGetOperationsTruncatedFlagLimitGreaterThanAvailable(c *
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 5)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsComplexFilterCombination(c *tc.C) {
@@ -325,7 +272,7 @@ func (s *querySuite) TestGetOperationsEmptyActionNamesSlice(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "empty-actions-app/0")
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -346,7 +293,7 @@ func (s *querySuite) TestGetOperationsEmptyApplicationsSlice(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "empty-apps-app/0")
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -367,7 +314,7 @@ func (s *querySuite) TestGetOperationsEmptyStatusSlice(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "empty-status-app/0")
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -401,7 +348,7 @@ func (s *querySuite) TestGetOperationsNonExistentAction(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNonExistentApplication(c *tc.C) {
@@ -423,7 +370,7 @@ func (s *querySuite) TestGetOperationsNonExistentApplication(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNonExistentUnit(c *tc.C) {
@@ -445,7 +392,7 @@ func (s *querySuite) TestGetOperationsNonExistentUnit(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNonExistentMachine(c *tc.C) {
@@ -467,7 +414,7 @@ func (s *querySuite) TestGetOperationsNonExistentMachine(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNonMatchingStatus(c *tc.C) {
@@ -489,45 +436,7 @@ func (s *querySuite) TestGetOperationsNonMatchingStatus(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
-}
-
-func (s *querySuite) TestGetOperationsOrderVerification(c *tc.C) {
-	// Arrange - create operations with known timing
-	charmUUID := s.addCharm(c)
-	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "ordertest-app/0")
-
-	var operationIDs []string
-
-	// Create 3 operations with slight delays to ensure different timestamps
-	for i := 0; i < 3; i++ {
-		opUUID := s.addOperationWithExecutionGroup(c, fmt.Sprintf("order-test-%d", i))
-		s.addOperationAction(c, opUUID, charmUUID, "test-action")
-		taskUUID := s.addOperationTask(c, opUUID)
-		s.addOperationUnitTask(c, taskUUID, unitUUID)
-
-		opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
-		operationIDs = append(operationIDs, opID)
-
-		// Small delay to ensure different enqueued_at timestamps
-		time.Sleep(time.Millisecond)
-	}
-
-	// Act
-	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{})
-
-	// Assert - should be ordered by enqueued_at DESC (newest first)
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 3)
-
-	// Verify chronological order (newest first)
-	for i := 0; i < len(result.Operations)-1; i++ {
-		current := result.Operations[i].Enqueued
-		next := result.Operations[i+1].Enqueued
-		c.Check(current.After(next) || current.Equal(next), tc.Equals, true,
-			tc.Commentf("Operation %d should be newer than operation %d", i, i+1))
-	}
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationByIDWithTimestamps(c *tc.C) {
@@ -553,9 +462,9 @@ func (s *querySuite) TestGetOperationByIDWithTimestamps(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.OperationID, tc.Equals, opID)
-	c.Check(info.Enqueued.IsZero(), tc.Equals, false)
-	c.Check(info.Started.IsZero(), tc.Equals, false)
-	c.Check(info.Completed.IsZero(), tc.Equals, false)
+	c.Check(info.Enqueued.IsZero(), tc.IsFalse)
+	c.Check(info.Started.IsZero(), tc.IsFalse)
+	c.Check(info.Completed.IsZero(), tc.IsFalse)
 
 	// Verify timestamp precision (within reasonable delta due to database precision)
 	c.Check(info.Started.Unix(), tc.Equals, startedAt.Unix())
@@ -640,7 +549,7 @@ func (s *querySuite) TestGetOperationsWithManyTasks(c *tc.C) {
 	var unitUUIDs []string
 	var machineUUIDs []string
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		unitUUID := s.addUnitWithName(c, charmUUID, fmt.Sprintf("manytasks-app/unit-%d", i))
 		unitUUIDs = append(unitUUIDs, unitUUID)
 
@@ -693,12 +602,12 @@ func (s *querySuite) TestGetOperationsWithManyTasks(c *tc.C) {
 }
 
 func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset0(c *tc.C) {
-	// Arrange - create exactly 15 operations for offset testing
+	// Arrange - create exactly 50 operations for offset testing.
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "offset-default-0-app/0")
 
-	for i := 0; i < 15; i++ {
+	for range 50 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -713,17 +622,18 @@ func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset0(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 10)
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Assert(result.Operations, tc.HasLen, 50)
+	// Since we are at offset 0, and we have 50 results, truncated is false.
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
-func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset5(c *tc.C) {
-	// Arrange - create exactly 15 operations for offset testing
+func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset1(c *tc.C) {
+	// Arrange - create exactly 50 operations for offset testing.
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "offset-default-5-app/0")
+	unitUUID := s.addUnitWithName(c, charmUUID, "offset-default-1-app/0")
 
-	for i := 0; i < 15; i++ {
+	for range 50 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -731,49 +641,25 @@ func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset5(c *tc.C) {
 	}
 
 	// Act
-	offset := 5
+	offset := 1
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Offset: &offset,
 	})
 
-	// Assert - Still 10 results at limit, could be more
+	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 10)
-	c.Check(result.Truncated, tc.Equals, true)
-}
-
-func (s *querySuite) TestGetOperationsWithOffsetDefaultLimitOffset10(c *tc.C) {
-	// Arrange - create exactly 15 operations for offset testing
-	charmUUID := s.addCharm(c)
-	s.addCharmAction(c, charmUUID)
-	unitUUID := s.addUnitWithName(c, charmUUID, "offset-default-10-app/0")
-
-	for i := 0; i < 15; i++ {
-		opUUID := s.addOperation(c)
-		s.addOperationAction(c, opUUID, charmUUID, "test-action")
-		taskUUID := s.addOperationTask(c, opUUID)
-		s.addOperationUnitTask(c, taskUUID, unitUUID)
-	}
-
-	// Act
-	offset := 10
-	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Offset: &offset,
-	})
-
-	// Assert - Only 5 left
-	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 5)
-	c.Check(result.Truncated, tc.Equals, false)
+	// We get 49 results, since offset 1 skips the first operation.
+	c.Assert(result.Operations, tc.HasLen, 49)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsWithOffsetCustomLimitWithOffset(c *tc.C) {
-	// Arrange - create exactly 15 operations for offset testing
+	// Arrange - create exactly 50 operations for limit/offset testing.
 	charmUUID := s.addCharm(c)
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "offset-custom-app/0")
 
-	for i := 0; i < 15; i++ {
+	for range 50 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -781,17 +667,17 @@ func (s *querySuite) TestGetOperationsWithOffsetCustomLimitWithOffset(c *tc.C) {
 	}
 
 	// Act
-	limit := 7
-	offset := 3
+	limit := 9
+	offset := 40
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Limit:  &limit,
 		Offset: &offset,
 	})
 
-	// Assert - 7 out of remaining 12
+	// Assert - 9 out of remaining 10 operations
 	c.Assert(err, tc.IsNil)
-	c.Assert(result.Operations, tc.HasLen, 7)
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Assert(result.Operations, tc.HasLen, 9)
+	c.Check(result.Truncated, tc.IsTrue)
 }
 
 func (s *querySuite) TestGetOperationsLimitNegative(c *tc.C) {
@@ -800,7 +686,7 @@ func (s *querySuite) TestGetOperationsLimitNegative(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "limit-negative-app/0")
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -816,7 +702,7 @@ func (s *querySuite) TestGetOperationsLimitNegative(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 3)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsLimitVeryLarge(c *tc.C) {
@@ -825,7 +711,7 @@ func (s *querySuite) TestGetOperationsLimitVeryLarge(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "limit-large-app/0")
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -841,7 +727,7 @@ func (s *querySuite) TestGetOperationsLimitVeryLarge(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 3)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsLimitOne(c *tc.C) {
@@ -866,7 +752,7 @@ func (s *querySuite) TestGetOperationsLimitOne(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 1)
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Check(result.Truncated, tc.IsTrue)
 }
 
 func (s *querySuite) TestGetOperationByIDOperationWithoutParameters(c *tc.C) {
@@ -933,12 +819,12 @@ func (s *querySuite) TestGetOperationsSQLInjectionActionName(c *tc.C) {
 	taskUUID := s.addOperationTask(c, opUUID)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	// Act - SQL injection attempt in action name
+	// Act - SQL injection attempt in action name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		ActionNames: []string{"'; DROP TABLE operation; --"},
 	})
 
-	// Assert - Should not panic or cause SQL errors
+	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
 }
@@ -954,12 +840,12 @@ func (s *querySuite) TestGetOperationsSQLInjectionApplicationName(c *tc.C) {
 	taskUUID := s.addOperationTask(c, opUUID)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	// Act - SQL injection attempt in application name
+	// Act - SQL injection attempt in application name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Applications: []string{"app'; DELETE FROM operation; --"},
 	})
 
-	// Assert - Should not panic or cause SQL errors
+	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
 }
@@ -975,12 +861,12 @@ func (s *querySuite) TestGetOperationsSQLInjectionUnitName(c *tc.C) {
 	taskUUID := s.addOperationTask(c, opUUID)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	// Act - SQL injection attempt in unit name
+	// Act - SQL injection attempt in unit name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Units: []unit.Name{"unit/'; TRUNCATE operation; --"},
 	})
 
-	// Assert - Should not panic or cause SQL errors
+	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
 }
@@ -996,12 +882,12 @@ func (s *querySuite) TestGetOperationsSQLInjectionMachineName(c *tc.C) {
 	taskUUID := s.addOperationTask(c, opUUID)
 	s.addOperationUnitTask(c, taskUUID, unitUUID)
 
-	// Act - SQL injection attempt in machine name
+	// Act - SQL injection attempt in machine name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
 		Machines: []machine.Name{"machine'; DROP DATABASE; --"},
 	})
 
-	// Assert - Should not panic or cause SQL errors
+	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
 }
@@ -1023,7 +909,7 @@ func (s *querySuite) TestGetOperationsVeryLongStrings(c *tc.C) {
 		Applications: []string{strings.Repeat("b", 10000)},
 	})
 
-	// Assert - Should not panic or cause SQL errors
+	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
 }
@@ -1099,8 +985,8 @@ func (s *querySuite) TestGetOperationsMultipleStatusFilter(c *tc.C) {
 	for _, op := range result.Operations {
 		foundStatuses[op.Units[0].Status] = true
 	}
-	c.Check(foundStatuses[corestatus.Running], tc.Equals, true)
-	c.Check(foundStatuses[corestatus.Completed], tc.Equals, true)
+	c.Check(foundStatuses[corestatus.Running], tc.IsTrue)
+	c.Check(foundStatuses[corestatus.Completed], tc.IsTrue)
 }
 
 func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
@@ -1140,7 +1026,7 @@ func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 2)
 	actionNames := []string{result.Operations[0].Units[0].ActionName, result.Operations[1].Units[0].ActionName}
-	c.Check(actionNames, tc.DeepEquals, []string{"other-action", "test-action"}) // Ordered by enqueued_at DESC
+	c.Check(actionNames, tc.SameContents, []string{"other-action", "test-action"})
 }
 
 func (s *querySuite) TestGetOperationsFilterByStatus(c *tc.C) {
@@ -1327,7 +1213,7 @@ func (s *querySuite) TestGetOperationsPagination(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 2)
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Check(result.Truncated, tc.IsTrue)
 
 	// Act - get next 2 operations
 	offset := 2
@@ -1339,7 +1225,7 @@ func (s *querySuite) TestGetOperationsPagination(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Check(result2.Operations, tc.HasLen, 2)
-	c.Check(result2.Truncated, tc.Equals, true)
+	c.Check(result2.Truncated, tc.IsTrue)
 
 	// Act - get last operation
 	offset = 4
@@ -1351,12 +1237,12 @@ func (s *querySuite) TestGetOperationsPagination(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Check(result3.Operations, tc.HasLen, 1)
-	c.Check(result3.Truncated, tc.Equals, false) // Less than limit, so not truncated
+	c.Check(result3.Truncated, tc.IsFalse) // Less than limit, so not truncated
 
 	// Verify no duplicates between pages
 	allOpIDs := make(map[string]bool)
 	for _, op := range append(append(result.Operations, result2.Operations...), result3.Operations...) {
-		c.Check(allOpIDs[op.OperationID], tc.Equals, false, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
+		c.Check(allOpIDs[op.OperationID], tc.IsFalse, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
 		allOpIDs[op.OperationID] = true
 	}
 	c.Check(allOpIDs, tc.HasLen, 5)
@@ -1372,7 +1258,7 @@ func (s *querySuite) TestGetOperationsPaginationEdgeCases(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 
 	// Act - test with zero limit
 	limit := 0
@@ -1383,7 +1269,7 @@ func (s *querySuite) TestGetOperationsPaginationEdgeCases(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Check(result2.Operations, tc.HasLen, 0)
-	c.Check(result2.Truncated, tc.Equals, false)
+	c.Check(result2.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsCompleteDataVerification(c *tc.C) {
@@ -1416,7 +1302,7 @@ func (s *querySuite) TestGetOperationsCompleteDataVerification(c *tc.C) {
 
 	op := result.Operations[0]
 	c.Check(op.OperationID, tc.Not(tc.Equals), "")
-	c.Check(op.Enqueued.IsZero(), tc.Equals, false)
+	c.Check(op.Enqueued.IsZero(), tc.IsFalse)
 
 	// Verify unit task
 	c.Assert(op.Units, tc.HasLen, 1)
@@ -1459,7 +1345,7 @@ func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentAction(c *tc.C
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentUnit(c *tc.C) {
@@ -1480,7 +1366,7 @@ func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentUnit(c *tc.C) 
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentMachine(c *tc.C) {
@@ -1501,7 +1387,7 @@ func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentMachine(c *tc.
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentApplication(c *tc.C) {
@@ -1522,7 +1408,7 @@ func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentApplication(c 
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
 func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentStatus(c *tc.C) {
@@ -1543,10 +1429,10 @@ func (s *querySuite) TestGetOperationsNoMatchingFiltersNonExistentStatus(c *tc.C
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 0)
-	c.Check(result.Truncated, tc.Equals, false)
+	c.Check(result.Truncated, tc.IsFalse)
 }
 
-// TestGetOperations_PaginationWithActionFilter verifies that pagination works
+// TestGetOperationsPaginationWithActionFilter verifies that pagination works
 // correctly when combined with an action name filter. It creates multiple
 // operations tagged with two different actions and then pages through the
 // filtered result set using limit+offset.
@@ -1557,7 +1443,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "paginationaction-test-app/0")
 
-	// Create 3 operations with "test-action"
+	// Create 3 operations with "test-action".
 	for range 3 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
@@ -1565,7 +1451,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 		s.addOperationUnitTask(c, taskUUID, unitUUID)
 	}
 
-	// Create 2 operations with "other-action"
+	// Create 2 operations with "other-action".
 	for range 2 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "other-action")
@@ -1580,10 +1466,10 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 		Limit:       &limit,
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(resultPage1.Operations, tc.HasLen, 2)
+	c.Assert(resultPage1.Operations, tc.HasLen, 2)
 	// There are 3 operations matching the filter, so the first page (len==limit)
 	// should be marked truncated.
-	c.Check(resultPage1.Truncated, tc.Equals, true)
+	c.Check(resultPage1.Truncated, tc.IsTrue)
 	for _, op := range resultPage1.Operations {
 		c.Check(op.Units[0].ActionName, tc.Equals, "test-action")
 	}
@@ -1597,22 +1483,22 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 	// Only one remaining operation should be returned.
-	c.Check(resultPage2.Operations, tc.HasLen, 1)
+	c.Assert(resultPage2.Operations, tc.HasLen, 1)
 	// Since fewer than limit were returned, truncated must be false.
-	c.Check(resultPage2.Truncated, tc.Equals, false)
+	c.Check(resultPage2.Truncated, tc.IsFalse)
 	c.Check(resultPage2.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
 
 	// Verify that concatenating pages yields unique operation IDs and matches
 	// the expected count.
 	allOpIDs := make(map[string]bool)
 	for _, op := range append(resultPage1.Operations, resultPage2.Operations...) {
-		c.Check(allOpIDs[op.OperationID], tc.Equals, false, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
+		c.Check(allOpIDs[op.OperationID], tc.IsFalse, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
 		allOpIDs[op.OperationID] = true
 	}
 	c.Check(allOpIDs, tc.HasLen, 3)
 }
 
-// TestGetOperations_PaginationWithCombinedFilters verifies pagination works
+// TestGetOperationsPaginationWithCombinedFilters verifies pagination works
 // in combination with receiver filters (applications) and offset. This ensures
 // that LIMIT/OFFSET are applied to the filtered result set.
 func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
@@ -1654,7 +1540,7 @@ func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 	c.Assert(result.Operations, tc.HasLen, 1)
 	// There are more alpha operations beyond this page, so truncated should be
 	// true.
-	c.Check(result.Truncated, tc.Equals, true)
+	c.Check(result.Truncated, tc.IsTrue)
 	// Ensure the returned operation targets "alpha"
 	c.Check(result.Operations[0].Units[0].ReceiverName.String(), tc.Matches, "alpha/.*")
 }

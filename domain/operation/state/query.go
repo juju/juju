@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -15,6 +16,8 @@ import (
 	operationerrors "github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+const defaultOperationsLimit = 50
 
 // GetOperations returns a list of operations on specified entities, filtered by the
 // given parameters.
@@ -32,6 +35,8 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 		allParams map[string][]taskParameter
 		// Map from operation UUID to a map from task ID to its logs.
 		allTaskLogs map[string]map[string][]taskLogEntryByOperation
+		// Were the results truncated.
+		truncated bool
 	)
 	allTasks = make(map[string][]taskResult)
 	allParams = make(map[string][]taskParameter)
@@ -39,7 +44,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 
 	// Pagination set-up.
 	var (
-		limit  = 10 // Default 10 operations per page.
+		limit  int
 		offset int
 	)
 	if params.Limit != nil {
@@ -51,16 +56,28 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 
 	// Build the query for operations with filters.
 	query, queryArgs := st.buildOperationsQuery(params, limit, offset)
+	st.logger.Tracef(ctx, "preparing operations query: \n %q \n with arguments: %+v", query, queryArgs)
+
 	stmt, err := st.Prepare(query, append([]any{operationResult{}}, queryArgs...)...)
 	if err != nil {
 		return operation.QueryResult{}, errors.Errorf("preparing operations query: %w", err)
 	}
-	st.logger.Debugf(ctx, "executing query: %q, with args %v", query, queryArgs)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryArgs...).GetAll(&ops)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
+		}
+		// Since we are returning one more element than the limit to check for
+		// truncation, we trim the results here if needed.
+		// The limit is either the user provided limit (capped at 50) or
+		// the default limit of 50.
+		if limit <= 0 || limit > defaultOperationsLimit {
+			limit = defaultOperationsLimit
+		}
+		if len(ops) > limit {
+			ops = ops[:limit]
+			truncated = true
 		}
 
 		// Get the list of operation UUIDs to fetch related data.
@@ -92,10 +109,6 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 		}
 		opInfos = append(opInfos, opInfo)
 	}
-
-	// Truncated: true if we got limit results (could be more)
-	// but only if limit is positive.
-	truncated := limit > 0 && len(opInfos) == limit
 
 	return operation.QueryResult{
 		Operations: opInfos,
@@ -264,69 +277,97 @@ func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset 
 
 	var args []any
 
-	// Add pagination parameters
-	paginationParams := queryParams{Limit: limit, Offset: offset}
-	args = append(args, paginationParams)
+	// Add pagination parameters only if they are set by the user.
+	paginationParams := queryParams{}
+	if limit > 0 && limit < defaultOperationsLimit {
+		paginationParams.Limit = limit + 1
+	}
+	if offset > 0 {
+		// We have to add one element to the limit to check for truncation.
+		paginationParams.Offset = offset
+	}
+	if paginationParams.Limit > 0 || paginationParams.Offset > 0 {
+		args = append(args, paginationParams)
+	}
 
-	// Base query - we need to ensure we join with tasks and their receivers properly
+	// Default and max limit is 50, we fetch one extra to check for truncation.
+	limitStr := "LIMIT " + strconv.FormatInt(defaultOperationsLimit+1, 10)
+	if limit > 0 && limit <= defaultOperationsLimit {
+		// We fetch one extra to check for truncation.
+		limitStr = "LIMIT $queryParams.limit"
+	}
+	// Explicit offset.
+	offsetStr := "OFFSET 0"
+	if offset > 0 {
+		offsetStr = "OFFSET $queryParams.offset"
+	}
+	// Base query: selecting from operation.
 	query := `
-SELECT o.uuid AS &operationResult.uuid,
+WITH
+ops AS (
+	SELECT *
+	FROM   operation AS o
+    ` + limitStr + `
+    ` + offsetStr + `
+)
+SELECT DISTINCT
+       o.uuid AS &operationResult.uuid,
        o.operation_id AS &operationResult.operation_id,
        o.summary AS &operationResult.summary,
        o.enqueued_at AS &operationResult.enqueued_at,
        o.started_at AS &operationResult.started_at,
        o.completed_at AS &operationResult.completed_at
-FROM   operation o`
+FROM ops AS o
+`
 
-	// Build WHERE clauses
+	// Build WHERE clauses.
 	whereClauses := []string{}
 	joinClauses := []string{}
-	needsTaskJoin := false
 
-	// Check if we need task joins
-	needsTaskJoin = len(params.Status) > 0 ||
+	// Check if we need task joins.
+	needsTaskJoin := len(params.Status) > 0 ||
 		len(params.Applications) > 0 ||
 		len(params.Machines) > 0 ||
 		len(params.Units) > 0
 
-	// ActionNames filter - need to join with operation_action
+	// Add task joins if needed.
+	if needsTaskJoin {
+		joinClauses = append(joinClauses, "JOIN operation_task AS t ON o.uuid = t.operation_uuid")
+	}
+
+	// ActionNames filter - need to join with operation_action.
 	if len(params.ActionNames) > 0 {
-		joinClauses = append(joinClauses, "JOIN operation_action oa ON o.uuid = oa.operation_uuid")
+		joinClauses = append(joinClauses, "JOIN operation_action AS oa ON o.uuid = oa.operation_uuid")
 		whereClauses = append(whereClauses, "oa.charm_action_key IN ($actionNames[:])")
 		args = append(args, actionNames(params.ActionNames))
 	}
 
-	// Add task joins if needed
-	if needsTaskJoin {
-		joinClauses = append(joinClauses, "JOIN operation_task t ON o.uuid = t.operation_uuid")
-	}
-
-	// Status filter - need to compute status from tasks
+	// Status filter - need to compute status from tasks.
 	if len(params.Status) > 0 {
 		statusStrings := make([]string, len(params.Status))
 		for i, st := range params.Status {
 			statusStrings[i] = st.String()
 		}
-		joinClauses = append(joinClauses, "JOIN operation_task_status ts ON t.uuid = ts.task_uuid")
-		joinClauses = append(joinClauses, "JOIN operation_task_status_value sv ON ts.status_id = sv.id")
+		joinClauses = append(joinClauses, "JOIN operation_task_status AS ts ON t.uuid = ts.task_uuid")
+		joinClauses = append(joinClauses, "JOIN operation_task_status_value AS sv ON ts.status_id = sv.id")
 		whereClauses = append(whereClauses, "sv.status IN ($statuses[:])")
 		args = append(args, statuses(statusStrings))
 	}
 
-	// Receivers filter - need to join with tasks and their targets
+	// Receivers filter - need to join with tasks and their targets.
 	receiverClauses := []string{}
 
 	if len(params.Applications) > 0 {
-		joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
-		joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
-		joinClauses = append(joinClauses, "LEFT JOIN application a ON u.application_uuid = a.uuid")
+		joinClauses = append(joinClauses, "JOIN operation_unit_task AS ut ON t.uuid = ut.task_uuid")
+		joinClauses = append(joinClauses, "JOIN unit AS u ON ut.unit_uuid = u.uuid")
+		joinClauses = append(joinClauses, "JOIN application AS a ON u.application_uuid = a.uuid")
 		receiverClauses = append(receiverClauses, "a.name IN ($applications[:])")
 		args = append(args, applications(params.Applications))
 	}
 
 	if len(params.Machines) > 0 {
-		joinClauses = append(joinClauses, "LEFT JOIN operation_machine_task mt ON t.uuid = mt.task_uuid")
-		joinClauses = append(joinClauses, "LEFT JOIN machine m ON mt.machine_uuid = m.uuid")
+		joinClauses = append(joinClauses, "JOIN operation_machine_task mt ON t.uuid = mt.task_uuid")
+		joinClauses = append(joinClauses, "JOIN machine m ON mt.machine_uuid = m.uuid")
 		machineNames := make([]string, len(params.Machines))
 		for i, name := range params.Machines {
 			machineNames[i] = string(name)
@@ -338,8 +379,8 @@ FROM   operation o`
 	if len(params.Units) > 0 {
 		// If we haven't already joined with unit tables for applications
 		if len(params.Applications) == 0 {
-			joinClauses = append(joinClauses, "LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
-			joinClauses = append(joinClauses, "LEFT JOIN unit u ON ut.unit_uuid = u.uuid")
+			joinClauses = append(joinClauses, "JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
+			joinClauses = append(joinClauses, "JOIN unit u ON ut.unit_uuid = u.uuid")
 		}
 		unitNames := make([]string, len(params.Units))
 		for i, name := range params.Units {
@@ -360,7 +401,6 @@ FROM   operation o`
 	if len(whereClauses) > 0 {
 		query += "\nWHERE " + strings.Join(whereClauses, " AND ")
 	}
-	query += "\nORDER BY o.enqueued_at DESC\nLIMIT $queryParams.limit OFFSET $queryParams.offset"
 
 	return query, args
 }
