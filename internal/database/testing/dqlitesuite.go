@@ -227,8 +227,8 @@ func (s *DqliteSuite) DumpTable(c *tc.C, table string, additionalTables ...strin
 // provided database.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func (s *DqliteSuite) DumpTableForDB(c *tc.C, db *sql.DB, table string, additionalTables ...string) {
-	DumpTable(c, db, table, additionalTables...)
+func (s *DqliteSuite) DumpTableForDB(c *tc.C, queryable Queryable, table string, additionalTables ...string) {
+	DumpTable(c, queryable, table, additionalTables...)
 }
 
 // isVerbose checks the JUJU_TEST_VERBOSE environment variable to determine

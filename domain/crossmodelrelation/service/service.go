@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -111,8 +113,17 @@ func (w *WatchableService) WatchRemoteApplicationConsumers(ctx context.Context) 
 	return nil, errors.NotImplemented
 }
 
-// WatchRemoteApplicationOfferers watches the changes to remote
-// application offerers and notifies the worker of any changes.
+// WatchRemoteApplicationOfferers watches the changes to remote application
+// offerer applications and notifies the worker of any changes.
 func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotImplemented
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table := w.modelState.NamespaceRemoteApplicationOfferers()
+
+	return w.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch remote application offerer",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }

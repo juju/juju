@@ -15,12 +15,17 @@ import (
 	"github.com/juju/tc"
 )
 
+// Queryable is an interface that can be used to query a database.
+type Queryable interface {
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
 // DumpTable dumps the contents of the given table to stdout.
 // This is useful for debugging tests. It is not intended for use
 // in production code.
-func DumpTable(c *tc.C, db *sql.DB, table string, extraTables ...string) {
+func DumpTable(c *tc.C, queryable Queryable, table string, extraTables ...string) {
 	for _, t := range append([]string{table}, extraTables...) {
-		rows, err := db.Query(fmt.Sprintf("SELECT * FROM %q", t))
+		rows, err := queryable.Query(fmt.Sprintf("SELECT * FROM %q", t))
 		c.Assert(err, tc.ErrorIsNil)
 		defer func() { _ = rows.Close() }()
 

@@ -26,6 +26,10 @@ type ModelRemoteApplicationState interface {
 		string,
 		crossmodelrelation.AddRemoteApplicationOffererArgs,
 	) error
+
+	// NamespaceRemoteApplicationOfferers returns the database namespace
+	// for remote application offerers.
+	NamespaceRemoteApplicationOfferers() string
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing
@@ -42,6 +46,9 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 	if !uuid.IsValidUUIDString(args.OffererModelUUID) {
 		return internalerrors.Errorf("offerer model UUID %q is not a valid UUID", args.OffererModelUUID).Add(errors.NotValid)
+	}
+	if args.Macaroon == nil {
+		return internalerrors.New("macaroon cannot be nil").Add(errors.NotValid)
 	}
 	if len(args.Endpoints) == 0 {
 		return internalerrors.New("endpoints cannot be empty").Add(errors.NotValid)
