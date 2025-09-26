@@ -159,12 +159,12 @@ def main(args):
         secret = r["_id"]["secret"]
         revs = r["revs"]
         revs.sort()
-        total_count += len(revs)
         batch = opts.batch
         if opts.batch <= 0:
             batch = len(revs)
         if len(revs) < opts.min:
             continue
+        total_count += len(revs)
         for i in range(0, len(revs), batch):
             local_revs = revs[i:i+batch]
             formatter(model, uuid, secret, owner, local_revs, is_model_secret)
