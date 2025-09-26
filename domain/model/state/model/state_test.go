@@ -126,6 +126,18 @@ func (s *modelSuite) TestCreateAndReadModel(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(lifeID, tc.Equals, 0)
+
+	// Ensure that we have a model agent record.
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM model_agent WHERE model_uuid = $1`, id.String()).Scan(&count)
+		if err != nil {
+			return errors.Errorf("getting model agent: %w", err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 1)
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {

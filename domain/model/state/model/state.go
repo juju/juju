@@ -78,6 +78,11 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		return errors.Capture(err)
 	}
 
+	modelAgent, err := s.Prepare(`DELETE FROM model_agent WHERE model_uuid = $dbUUID.uuid;`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Once we get to this point, the model is hosed. We don't expect the
 	// model to be in use. The model migration will reinforce the schema once
 	// the migration is tried again. Failure to do that will result in the
@@ -89,6 +94,10 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, modelLife, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting model life %q: %w", uuid, err)
+		}
+
+		if err := tx.Query(ctx, modelAgent, mUUID).Run(); err != nil {
 			return errors.Errorf("deleting model life %q: %w", uuid, err)
 		}
 
@@ -1176,6 +1185,11 @@ func InsertModelInfo(
 		return errors.Capture(err)
 	}
 
+	modelAgentStmt, err := preparer.Prepare("INSERT INTO model_agent (model_uuid) VALUES ($dbUUID.uuid)", mID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	ml := dbModelLife{
 		UUID: args.UUID,
 		Life: life.Alive,
@@ -1192,6 +1206,10 @@ func InsertModelInfo(
 
 	if err := tx.Query(ctx, versionStmt, modelAgentVersion).Run(); err != nil {
 		return errors.Errorf("creating agent_version record for %q: %w", args.UUID, err)
+	}
+
+	if err := tx.Query(ctx, modelAgentStmt, mID).Run(); err != nil {
+		return errors.Errorf("creating model_agent record for %q: %w", args.UUID, err)
 	}
 
 	if err := tx.Query(ctx, mlStmt, ml).Run(); err != nil {

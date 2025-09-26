@@ -54,6 +54,14 @@ type ModelState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
+
+	// SetModelPasswordHash sets the password hash for the model overriding any
+	// previously set value.
+	SetModelPasswordHash(ctx context.Context, passwordHash agentpassword.PasswordHash) error
+
+	// MatchesModelPasswordHash checks if the password is valid or not against the
+	// password hash stored for the model's agent.
+	MatchesModelPasswordHash(ctx context.Context, passwordHash agentpassword.PasswordHash) (bool, error)
 }
 
 // ControllerState gets and sets the state of the controller node service.
@@ -146,6 +154,32 @@ func (s *Service) SetMachinePassword(ctx context.Context, machineName machine.Na
 	}
 
 	return s.modelState.SetMachinePasswordHash(ctx, machineUUID, hashPassword(password))
+}
+
+// SetModelPassword sets the password for the model overriding any previously
+// set value.
+func (s *Service) SetModelPassword(ctx context.Context, password string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.modelState.SetModelPasswordHash(ctx, hashPassword(password))
+}
+
+// MatchModelPassword checks if the password is valid or not against the
+// password hash stored for the model's agent.
+func (s *Service) MatchesModelPasswordHash(ctx context.Context, password string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.modelState.MatchesModelPasswordHash(ctx, hashPassword(password))
 }
 
 // MatchesMachinePasswordHashWithNonce checks if the password with a nonce is
