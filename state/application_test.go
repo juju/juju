@@ -6093,9 +6093,11 @@ func (s *ApplicationSuite) TestUpdateStorageConstraints(c *gc.C) {
 	cons, err = app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
-	c.Assert(cons["data0"].Count, gc.Equals, uint64(3))
-	c.Assert(cons["data0"].Size, gc.Equals, uint64(4096))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(3),
+		Size:  uint64(4096),
+	})
 }
 
 func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) {
@@ -6115,7 +6117,7 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidStoreKey(c *gc.C) 
 		Size:  uint64(100),
 	})
 	newSC := map[string]state.StorageConstraints{
-		"wrong-storage-key": makeStorageCons("loop", 4096, 3),
+		"wrong-storage-name": makeStorageCons("loop", 4096, 3),
 	}
 
 	err = app.UpdateStorageConstraints(newSC)
@@ -6142,7 +6144,7 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsInvalidCount(c *gc.C) {
 		"data0": makeStorageCons("loop", 4096, 6),
 	}
 
-	// This fails because storage constraint count of storage-constraint1 charm is 1-5.
+	// This fails because storage constraint count of first mysql charm is 1-5.
 	err = app.UpdateStorageConstraints(newSC)
 	c.Assert(err, gc.NotNil)
 }
@@ -6185,11 +6187,13 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
-	c.Assert(cons["data0"].Count, gc.DeepEquals, uint64(1))
-	c.Assert(cons["data0"].Size, gc.Equals, uint64(100))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(1),
+		Size:  uint64(100),
+	})
 
-	// Storage constraint count of 5 should work for both storage-constraint1 and storage-constraint2 charms.
+	// Storage constraint count of 5 should work for both old and new mysql charms.
 	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 5),
 	}
@@ -6197,7 +6201,7 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 
-	// Set charm to new charm with storage constraint size
+	// Set charm to new charm with storage constraint count
 	// from 6-10 before running replaceStorageConstraintsOp txn.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := app.SetCharm(state.SetCharmConfig{
@@ -6228,9 +6232,11 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdate(c *
 	cons, err = app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
-	c.Assert(cons["data0"].Count, gc.Equals, uint64(5))
-	c.Assert(cons["data0"].Size, gc.Equals, uint64(4096))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(5),
+		Size:  uint64(4096),
+	})
 }
 
 func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateIncompatible(c *gc.C) {
@@ -6244,18 +6250,20 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateInco
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.HasLen, 1)
-	c.Assert(cons["data0"].Pool, gc.Equals, "loop")
-	c.Assert(cons["data0"].Count, gc.DeepEquals, uint64(1))
-	c.Assert(cons["data0"].Size, gc.Equals, uint64(100))
+	c.Assert(cons["data0"], jc.DeepEquals, state.StorageConstraints{
+		Pool:  "loop",
+		Count: uint64(1),
+		Size:  uint64(100),
+	})
 
-	// We try to update original application charm storage constraint size to 3.
+	// We try to update original application charm storage constraint count to 3.
 	newSC := map[string]state.StorageConstraints{
 		"data0": makeStorageCons("loop", 4096, 3),
 	}
 	newMeta := mysqlBaseMeta + oneRequiredStorageMeta + storageRange(5, 10)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 
-	// Set charm to new charm with storage constraint size
+	// Set charm to new charm with storage constraint count
 	// from 6-10 before running replaceStorageConstraintsOp txn.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := app.SetCharm(state.SetCharmConfig{
@@ -6272,10 +6280,10 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateInco
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	// This should fail since we try to set storage constraint size to 3 in
-	// the new charm with storage constraint size of range 5-10.
+	// This should fail since we try to set storage constraint count to 3 in
+	// the new charm with storage constraint count of range 5-10.
 	err = app.UpdateStorageConstraints(newSC)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `.* 5 instances required, 3 specified`)
 
 	// Charm storage constraints should be updated to new charm
 	// with new storage constraints since the hook update is successful.

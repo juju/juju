@@ -1590,10 +1590,9 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, err := client.GetApplicationStorage("storage-block")
+	_, err := client.GetApplicationStorage("storage-block")
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Error, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
