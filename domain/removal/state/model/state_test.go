@@ -784,6 +784,11 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Scope:     internalcharm.ScopeGlobal,
 			},
 		},
+		Devices: map[string]internalcharm.Device{
+			"bitcoinminer": {
+				Type: "nvidia.com/gpu",
+			},
+		},
 	}
 }
 
