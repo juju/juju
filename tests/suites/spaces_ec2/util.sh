@@ -40,36 +40,20 @@ add_multi_nic_machine() {
 	done
 }
 
-# configure_multi_mic_netplan()
+# expect_multi_nic_machine()
 #
-# Patch the netplan settings for the new interface, apply the new plan,
-# restart the machine agent and wait for juju to detect the new interface
-# before returning.
-configure_multi_nic_netplan() {
-	local juju_machine_id hotplug_iface
+# Restart the machine agent and wait for juju to detect 2
+# network interfaces before returning.
+# NICs are automatically setup on Ubuntu 24.04+ by cloud-init's hotplug module.
+# See https://repost.aws/knowledge-center/ec2-ubuntu-secondary-network-interface
+# as a reference. If provisioning older Ubuntu releases, additional steps
+# with netplan are required.
+expect_multi_nic_machine() {
+	local juju_machine_id
 	juju_machine_id=$1
-	hotplug_iface=$2
 
-	juju ssh "${juju_machine_id}" "sudo apt install yq -y"
-
-	# Add an entry to netplan and apply it so the second interface comes online
-	echo "[+] updating netplan and restarting machine agent"
-
-	add_routes_yq='.network.ethernets[].routes = [{\"to\": \"default\", \"via\": \"$(ip route | grep default | cut -d " " -f3)\"}]'
-	add_routes_cmd="sudo yq -i -y \"${add_routes_yq}\" /etc/netplan/50-cloud-init.yaml"
-
-	add_dhcp4_eth_yq=".network.ethernets.${hotplug_iface}.dhcp4 = true"
-	add_dhcp4_eth_cmd="sudo yq -i -y \"${add_dhcp4_eth_yq}\" /etc/netplan/50-cloud-init.yaml"
-
-	juju ssh ${juju_machine_id} "${add_routes_cmd}"
-	juju ssh ${juju_machine_id} "${add_dhcp4_eth_cmd}"
-
-	echo "[+] Reconfiguring netplan:"
-	juju ssh ${juju_machine_id} 'sudo cat /etc/netplan/50-cloud-init.yaml'
-	juju ssh ${juju_machine_id} 'sudo netplan apply' || true
-
-	echo "[+] Applied"
-	juju ssh ${juju_machine_id} 'sudo systemctl restart jujud-machine-*'
+	echo "[+] restarting machine agent on ${juju_machine_id}..."
+	juju ssh "${juju_machine_id}" 'sudo systemctl restart jujud-machine-*'
 
 	# Wait for the interface to be detected by juju
 	echo "[+] waiting for juju to detect added NIC"
