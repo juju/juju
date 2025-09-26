@@ -628,6 +628,7 @@ func (s *runSuite) TestRunNoValidTarget(c *tc.C) {
 			c.Check(target.Machines, tc.HasLen, 1)
 			c.Check(target.Units, tc.HasLen, 0)
 			return operation.RunResult{
+				OperationID: "1",
 				Machines: []operation.MachineTaskResult{
 					{
 						TaskInfo: operation.TaskInfo{
@@ -647,7 +648,9 @@ func (s *runSuite) TestRunNoValidTarget(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Check(res.OperationTag, tc.Equals, "operation-0") // zero ID when no operation created
+	c.Check(res.OperationTag, tc.Equals, "operation-1")
+	c.Assert(res.Actions, tc.HasLen, 1)
+	c.Check(res.Actions[0].Error, tc.ErrorMatches, ".*machine \"42\" not found.*")
 }
 
 // TestRunBlockServiceError ensures a non-NotFound block service error

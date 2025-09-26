@@ -107,10 +107,14 @@ func (s *startSuite) TestAddExecOperationMachineTargetsNoneExist(c *tc.C) {
 
 	// Simulate no machines exist.
 	s.state.EXPECT().GetMachines(gomock.Any(), target.Machines).Return(nil, nil)
+	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(
+		operation.RunResult{
+			OperationID: "1",
+		}, nil)
 
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
+	c.Check(result.OperationID, tc.Equals, "1")
 	c.Check(result.Machines, tc.HasLen, 2)
 	c.Check(result.Machines[0].Error, tc.ErrorMatches, ".*machine \"0\" not found.*")
 	c.Check(result.Machines[1].Error, tc.ErrorMatches, ".*machine \"1\" not found.*")
@@ -322,11 +326,15 @@ func (s *startSuite) TestStartExecOperationLeaderResolutionError(c *tc.C) {
 	}
 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("", errors.New("leadership error"))
+	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(
+		operation.RunResult{
+			OperationID: "1",
+		}, nil)
 
 	// Return early since there are no valid targets to pass to state layer.
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
+	c.Check(result.OperationID, tc.Equals, "1")
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
 	c.Check(result.Units[0].IsLeader, tc.Equals, true)
@@ -344,11 +352,15 @@ func (s *startSuite) TestStartExecOperationLeaderUnitNameParsingError(c *tc.C) {
 	}
 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("invalid-unit-name", nil)
+	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(
+		operation.RunResult{
+			OperationID: "1",
+		}, nil)
 
 	// Return early since there are no valid targets to pass to state layer.
 	result, err := s.service().AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
+	c.Check(result.OperationID, tc.Equals, "1")
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
 	c.Check(result.Units[0].IsLeader, tc.Equals, true)

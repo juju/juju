@@ -29,6 +29,14 @@ func (s *Service) AddExecOperation(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Return early if no targets were provided.
+	if len(target.Applications) == 0 &&
+		len(target.Machines) == 0 &&
+		len(target.Units) == 0 &&
+		len(target.LeaderUnit) == 0 {
+		return operation.RunResult{}, nil
+	}
+
 	operationUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
@@ -136,18 +144,9 @@ func (s *Service) AddExecOperation(
 		Units:        target.Units,
 		LeaderUnits:  leaderUnits,
 	}
-	// If there are no targets to process, return early.
-	if (targetWithResolvedLeaders.Applications == nil ||
-		len(targetWithResolvedLeaders.Applications) == 0) &&
-		(targetWithResolvedLeaders.Machines == nil ||
-			len(targetWithResolvedLeaders.Machines) == 0) &&
-		(targetWithResolvedLeaders.Units == nil ||
-			len(targetWithResolvedLeaders.Units) == 0) &&
-		(targetWithResolvedLeaders.LeaderUnits == nil ||
-			len(targetWithResolvedLeaders.LeaderUnits) == 0) {
-		return result, nil
-	}
-
+	// NOTE: Even if we don't have any left valid targets to add at this point,
+	// we still add the exec operation on the db. This is how legacy versions
+	// worked as well. In this case no tasks will be created.
 	runResult, err := s.st.AddExecOperation(ctx, operationUUID, targetWithResolvedLeaders, args)
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("starting exec operation: %w", err)

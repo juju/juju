@@ -371,7 +371,6 @@ func toActionResult(receiver names.Tag, info operation.TaskInfo) params.ActionRe
 		Message:   info.Message,
 		Log:       logs,
 		Output:    info.Output,
-		Error:     apiservererrors.ServerError(info.Error),
 	}
 }
 
