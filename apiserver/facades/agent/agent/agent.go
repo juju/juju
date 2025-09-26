@@ -47,6 +47,9 @@ type AgentPasswordService interface {
 	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	IsMachineController(ctx context.Context, machineName machine.Name) (bool, error)
+	// SetModelPassword sets the password for the model overriding any previously
+	// set value.
+	SetModelPassword(ctx context.Context, password string) error
 }
 
 // ControllerConfigService is the interface that gets ControllerConfig form DB.

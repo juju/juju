@@ -520,3 +520,42 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	return ctrl
 }
+
+func (s *serviceSuite) TestSetModelPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().SetModelPasswordHash(gomock.Any(), hashPassword(password)).Return(nil)
+	service := NewService(s.modelState, s.controllerState)
+	err = service.SetModelPassword(c.Context(), password)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetModelPasswordInvalidPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	service := NewService(s.modelState, s.controllerState)
+	err := service.SetModelPassword(c.Context(), "foo")
+	c.Assert(err, tc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password.*")
+}
+
+func (s *serviceSuite) TestMatchesModelPasswordHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password, err := internalpassword.RandomPassword()
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelState.EXPECT().MatchesModelPasswordHash(gomock.Any(), hashPassword(password)).Return(true, nil)
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.MatchesModelPasswordHash(c.Context(), password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestMatchesModelPasswordHashInvalidPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	service := NewService(s.modelState, s.controllerState)
+	_, err := service.MatchesModelPasswordHash(c.Context(), "foo")
+	c.Assert(err, tc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password.*")
+}

@@ -31,6 +31,10 @@ type AgentPasswordService interface {
 	// SetMachinePassword sets the password hash for the given machine.
 	SetMachinePassword(context.Context, coremachine.Name, string) error
 
+	// SetModelPassword sets the password for the model overriding any previously
+	// set value.
+	SetModelPassword(ctx context.Context, password string) error
+
 	// SetControllerNodePassword sets the password hash for the given
 	// controller node.
 	SetControllerNodePassword(context.Context, string, string) error
@@ -117,9 +121,13 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 		}
 		return nil
 
-	// TODO: Handle the following password setting:
-	//  - model
-
+	case names.ModelTagKind:
+		modelTag := tag.(names.ModelTag)
+		modelUUID := modelTag.Id()
+		if err := pc.agentPasswordService.SetModelPassword(ctx, password); err != nil {
+			return internalerrors.Errorf("setting password for model %q: %w", modelUUID, err)
+		}
+		return nil
 	default:
 		return errors.Errorf("unsupported tag %s", tag)
 	}
