@@ -646,6 +646,7 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		"DELETE FROM unit_workload_status WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM unit_workload_version WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM unit_principal WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM unit_resolved WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM unit_resource WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM k8s_pod_status WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM port_range WHERE unit_uuid = $entityUUID.uuid",
