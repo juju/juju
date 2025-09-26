@@ -1,0 +1,54 @@
+name: SBOM and secscan
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scan:
+    name: SBOM generation
+    runs-on: [self-hosted, self-hosted-linux-amd64-jammy-private-endpoint-medium]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libapt-pkg-dev
+          sudo apt install -y python3-apt
+      - name: Checkout security scanner
+        uses: actions/checkout@v5
+        with:
+          repository: canonical/sbomber
+          path: scanner
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6  # v6.6.1
+      - name: Install secscan cli
+        run: |
+          sudo snap install canonical-secscan-client
+          sudo snap connect canonical-secscan-client:home system:home
+      - name: Prepare the artifacts
+        run: |
+          cd scanner
+          ./sbomber prepare ../.sbomber-manifest.yaml
+      - name: Submit the artifacts
+        run: |
+          cd scanner
+          ./sbomber submit
+      - name: Wait for the scans to finish
+        run: |
+          cd scanner
+          ./sbomber poll --wait --timeout 30
+      - name: Download the reports
+        run: |
+          cd scanner && ./sbomber download
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: secscan-report-upload
+          path: ./scanner/reports/

@@ -1,0 +1,20 @@
+# this manifest is used in `.github/workflows/sbom-secscan.yaml` workflow
+# to generate SBOM and run security scans on the specified artifacts.
+
+clients:
+  sbom:
+    service_url: https://sbom-request.canonical.com
+    department: charm_engineering
+    email: vitaly.antonenko@canonical.com
+    team: juju
+  secscan: {}
+
+
+artifacts:
+  - name: 'juju'
+    type: 'snap'
+    ssdlc_params:
+      name: 'juju'
+      version: ''
+      channel: 'stable'
+      cycle: '25.10'
