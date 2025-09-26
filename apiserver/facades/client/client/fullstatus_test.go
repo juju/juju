@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	domainnetwork "github.com/juju/juju/domain/network"
+	service "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/testhelpers"
 	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -56,6 +59,109 @@ func (s *fullStatusSuite) SetUpTest(c *tc.C) {
 		s.clock = nil
 		s.modelUUID = ""
 	})
+}
+
+// TestFullStatusOffersIncluded tests that network interfaces are included in the
+// machine status.
+func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	client := s.client(false)
+	s.expectCheckCanRead(client, true)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Cloud:     "dummy",
+		CloudType: "dummy",
+		Type:      model.IAAS,
+	}, nil)
+
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status:  status.Available,
+		Message: "testing",
+	}, nil)
+
+	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
+		"0": {
+			Name:        "0",
+			IPAddresses: []string{"172.16.0.0"},
+			InstanceID:  "i-12345",
+		},
+	}, nil)
+
+	macAddr := "aa:bb:cc:dd:ee:ff"
+	gatewayAddr := "10.0.0.1"
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(map[machine.Name][]domainnetwork.NetInterface{
+		"0": {
+			// eth0 has an empty mac and gateway address.
+			{
+				Name: "eth0",
+				Addrs: []domainnetwork.NetAddr{
+					{
+						AddressValue: "172.16.0.0",
+						AddressType:  "ipv4",
+						Space:        "",
+					},
+				},
+				MACAddress:     nil,
+				GatewayAddress: nil,
+				DNSAddresses:   nil,
+				IsEnabled:      false,
+			},
+			// eth1 has a valid mac and gateway address.
+			{
+				Name: "eth1",
+				Addrs: []domainnetwork.NetAddr{
+					{
+						AddressValue: "172.16.0.1",
+						AddressType:  "ipv4",
+						Space:        "space1",
+					},
+				},
+				MACAddress:     &macAddr,
+				GatewayAddress: &gatewayAddr,
+				DNSAddresses:   []string{"8.8.8.8"},
+				IsEnabled:      true,
+			},
+		},
+	}, nil)
+
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(nil, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	s.expectCheckIsAdmin(client, true)
+
+	// Act
+	output, err := client.FullStatus(c.Context(), params.StatusParams{})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	machine0 := output.Machines["0"]
+
+	c.Check(machine0.NetworkInterfaces, tc.DeepEquals,
+		map[string]params.NetworkInterface{
+			"eth0": {
+				IPAddresses:    []string{"172.16.0.0"},
+				MACAddress:     "",
+				Gateway:        "",
+				DNSNameservers: nil,
+				Space:          "",
+				IsUp:           false,
+			},
+			"eth1": {
+				IPAddresses:    []string{"172.16.0.1"},
+				MACAddress:     macAddr,
+				Gateway:        gatewayAddr,
+				DNSNameservers: []string{"8.8.8.8"},
+				Space:          "space1",
+				IsUp:           true,
+			},
+		},
+	)
 }
 
 // TestFullStatusOffersIncluded tests that offers are included if the

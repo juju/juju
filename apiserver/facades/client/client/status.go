@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -744,13 +745,6 @@ func (c *statusContext) makeMachineStatus(
 		// }
 		// status.DNSName = addr.Value
 
-		// for _, mAddr := range c.ipAddresses[machineName] {
-		// 	switch mAddr.Scope {
-		// 	case network.ScopeMachineLocal, network.ScopeLinkLocal:
-		// 		continue
-		// 	}
-		// 	status.IPAddresses = append(status.IPAddresses, mAddr.AddressValue)
-		// }
 		// if len(status.IPAddresses) == 0 {
 		// 	logger.Debugf(ctx, "no IP addresses fetched for machine %q", instanceID)
 		// 	// At least give it the newly created DNSName address, if it exists.
@@ -759,21 +753,28 @@ func (c *statusContext) makeMachineStatus(
 		// 	}
 		// }
 
-		// linkLayerDevices := c.linkLayerDevices[machineName]
-		// status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
-		// 	spaces := set.NewStrings()
-		// 	for _, addr := range llDev.Addrs {
-		// 		spaces.Add(addr.Space)
-		// 	}
-		// 	return llDev.Name, params.NetworkInterface{
-		// 		IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
-		// 		MACAddress:     unptr(llDev.MACAddress),
-		// 		Gateway:        unptr(llDev.GatewayAddress),
-		// 		DNSNameservers: llDev.DNSAddresses,
-		// 		Space:          strings.Join(spaces.Values(), " "),
-		// 		IsUp:           llDev.IsEnabled}
-		// })
-		// logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
+		linkLayerDevices := c.linkLayerDevices[machineName]
+		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
+			spaces := set.NewStrings()
+			for _, addr := range llDev.Addrs {
+				spaces.Add(addr.Space)
+			}
+			var mac, gw string
+			if llDev.MACAddress != nil {
+				mac = *llDev.MACAddress
+			}
+			if llDev.GatewayAddress != nil {
+				gw = *llDev.GatewayAddress
+			}
+			return llDev.Name, params.NetworkInterface{
+				IPAddresses:    transform.Slice(llDev.Addrs, func(net domainnetwork.NetAddr) string { return net.AddressValue }),
+				MACAddress:     mac,
+				Gateway:        gw,
+				DNSNameservers: llDev.DNSAddresses,
+				Space:          strings.Join(spaces.Values(), " "),
+				IsUp:           llDev.IsEnabled}
+		})
+		logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
 	}
