@@ -119,7 +119,7 @@ def format_db_remove(model, uuid, secret, owner, local_revs, is_model_secret):
         print(f'd.secretRevisions.deleteOne({{ "_id": "{secret_id}" }})')
     else:
         # This is the regex that deleteSecrets uses to delete many revs of one secret
-        regexTail = '|'.join([f"({rev})" for rev in local_revs])
+        regexTail = '|'.join([f"{rev}" for rev in local_revs])
         regex = f"^{uuid}:{secret}/({regexTail})$"
         print(f'd.secretRevisions.deleteMany({{ "_id": {{ $regex: "{regex}" }} }})')
 

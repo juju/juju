@@ -634,7 +634,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			}
 			revisionRegexp := fmt.Sprintf("(%s)", strings.Join(revs, "|"))
 			_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
-				"_id", bson.D{{"$regex", fmt.Sprintf("%s/(%s)", uri.ID, revisionRegexp)}},
+				"_id", bson.D{{"$regex", fmt.Sprintf("%s/%s", uri.ID, revisionRegexp)}},
 			}})
 			if err != nil {
 				return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
