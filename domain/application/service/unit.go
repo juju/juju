@@ -148,6 +148,9 @@ type UnitState interface {
 	// - [applicationerrors.UnitIsDead] if the unit is dead
 	GetUnitK8sPodInfo(context.Context, coreunit.Name) (application.K8sPodInfo, error)
 
+	// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
+	GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]application.K8sPodInfo, error)
+
 	// GetAllUnitNames returns a slice of all unit names in the model.
 	GetAllUnitNames(context.Context) ([]coreunit.Name, error)
 
@@ -688,6 +691,14 @@ func (s *Service) GetUnitK8sPodInfo(ctx context.Context, name coreunit.Name) (ap
 	}
 
 	return s.st.GetUnitK8sPodInfo(ctx, name)
+}
+
+// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
+func (s *Service) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]application.K8sPodInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetUnitsK8sPodInfo(ctx)
 }
 
 // GetUnitSubordinates returns the names of all the subordinate units of the

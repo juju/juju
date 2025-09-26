@@ -1277,3 +1277,14 @@ type bindingToTable struct {
 	UUID        string       `db:"uuid"`
 	BindingType bindingTable `db:"binding_type"`
 }
+
+type infoQuerydb struct {
+	LifeID int `db:"life_id"`
+}
+
+type unitK8sPodInfoWithName struct {
+	UnitName   string               `db:"name"`
+	ProviderID sql.Null[network.Id] `db:"provider_id"`
+	Address    sql.Null[string]     `db:"address"`
+	Ports      string               `db:"ports"`
+}

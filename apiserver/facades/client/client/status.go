@@ -195,7 +195,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if context.model.Type == model.CAAS {
-		if context.podsInfo, err = fetchPodsInfo(ctx, c.applicationService, context.units); err != nil {
+		if context.podsInfo, err = c.applicationService.GetUnitsK8sPodInfo(ctx); err != nil {
 			return noStatus, internalerrors.Errorf("could not fetch pods info: %w", err)
 		}
 	}
@@ -1481,20 +1481,4 @@ func processStorage(
 		}
 	}
 	return storageResult, filesystemResult, volumeResult, nil
-}
-
-// fetchPodsInfo retrieves the k8s pod information for all units in the provided
-// units map. It returns a map of coreunit.Name to statusservice.PodInfo.
-func fetchPodsInfo(ctx context.Context, applicationService ApplicationService, units map[coreunit.Name]statusservice.Unit) (map[coreunit.Name]application.K8sPodInfo, error) {
-	podsK8sInfo := make(map[coreunit.Name]application.K8sPodInfo)
-	logger.Errorf(ctx, "fetching k8s pod info for %d units", len(units))
-	for name := range units {
-		podK8sInfo, err := applicationService.GetUnitK8sPodInfo(ctx, name)
-		if err != nil {
-			return nil, internalerrors.Errorf("fetching k8s pod info for unit %q: %w", name, err)
-		}
-		podsK8sInfo[name] = podK8sInfo
-	}
-	logger.Errorf(ctx, "fetched k8s pod info for %+v", podsK8sInfo)
-	return podsK8sInfo, nil
 }

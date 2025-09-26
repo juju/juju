@@ -1163,6 +1163,68 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
+	// Arrange: 2 applications with 1 unit each, and a third application with a dead unit.
+	app1UUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "foo-id",
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Value: "10.6.6.6/24",
+			}),
+		},
+	})
+	uuids, err := s.state.getApplicationUnits(c.Context(), app1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	unitNameApp1, err := s.state.GetUnitNameForUUID(c.Context(), uuids[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	app2UUID := s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "bar-id",
+			Ports:      ptr([]string{"777"}),
+			Address: ptr(application.ContainerAddress{
+				Value: "10.6.6.7/24",
+			}),
+		},
+	})
+	uuids, err = s.state.getApplicationUnits(c.Context(), app2UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	unitNameApp2, err := s.state.GetUnitNameForUUID(c.Context(), uuids[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	app1UUID3 := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
+		CloudContainer: &application.CloudContainer{
+			ProviderID: "zoo-id",
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Value: "10.6.6.8/24",
+			}),
+		},
+	})
+	uuids, err = s.state.getApplicationUnits(c.Context(), app1UUID3)
+	c.Assert(err, tc.ErrorIsNil)
+	// Set the unit for the third app to Dead, to verify it is not returned.
+	s.setUnitLife(c, uuids[0], life.Dead)
+
+	// Act:
+	infos, err := s.state.GetUnitsK8sPodInfo(c.Context())
+	// Assert: only the 2 alive units are returned.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.HasLen, 2)
+	c.Check(infos[unitNameApp1], tc.DeepEquals, application.K8sPodInfo{
+		ProviderID: "foo-id",
+		Address:    "10.6.6.6/24",
+		Ports:      []string{"666", "668"},
+	})
+	c.Check(infos[unitNameApp2], tc.DeepEquals, application.K8sPodInfo{
+		ProviderID: "bar-id",
+		Address:    "10.6.6.7/24",
+		Ports:      []string{"777"},
+	})
+
+}
+
 func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	// Arrange:
 	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{

@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -2239,6 +2240,73 @@ VALUES ($unitPrincipal.*)
 	}
 
 	return nil
+}
+
+// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
+// If any of the requested pieces of data are not present yet, zero values will
+// be returned in their place.
+func (st *State) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]application.K8sPodInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	infoQuerydb := infoQuerydb{
+		LifeID: int(life.Dead),
+	}
+
+	infoQuery := `
+SELECT
+	u.name AS &unitK8sPodInfoWithName.name,
+	k.provider_id AS &unitK8sPodInfoWithName.provider_id,
+	ip.address_value AS &unitK8sPodInfoWithName.address,
+	COALESCE(
+		GROUP_CONCAT(kpp.port, ','), 
+		''
+	) AS &unitK8sPodInfoWithName.ports
+FROM
+	unit AS u
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
+LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
+LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
+WHERE
+	u.life_id != $infoQuerydb.life_id
+GROUP BY
+	u.name
+`
+	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, infoQuerydb)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var infos []unitK8sPodInfoWithName
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, infoQuerydb).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[coreunit.Name]application.K8sPodInfo)
+	for _, info := range infos {
+		ports := make([]k8sPodPort, 0)
+		for _, p := range strings.Split(info.Ports, ",") {
+			ports = append(ports, k8sPodPort{Port: p})
+		}
+		result[coreunit.Name(info.UnitName)] = encodeK8sPodInfo(
+			unitK8sPodInfo{
+				ProviderID: info.ProviderID,
+				Address:    info.Address,
+			},
+			ports,
+		)
+	}
+	return result, nil
 }
 
 // GetUnitK8sPodInfo returns information about the k8s pod for the given unit.

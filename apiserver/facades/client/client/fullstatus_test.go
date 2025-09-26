@@ -66,6 +66,7 @@ func (s *fullStatusSuite) TestFullStatusOffersIncluded(c *tc.C) {
 	// Arrange
 	client := s.client(false)
 	s.expectCheckCanRead(client, true)
+	s.applicationService.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(nil, nil)
 
 	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
 		Cloud:     "k8s",
@@ -101,7 +102,6 @@ func (s *fullStatusSuite) TestFullStatusOffersIncluded(c *tc.C) {
 
 	// Act
 	output, err := client.FullStatus(c.Context(), params.StatusParams{})
-
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(output.Offers, tc.DeepEquals,
@@ -140,6 +140,7 @@ func (s *fullStatusSuite) TestFullStatusOffersNotIncluded(c *tc.C) {
 		Message: "testing",
 	}, nil)
 	s.expectEmptyModelModuloOffers(c)
+	s.applicationService.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(nil, nil)
 
 	// Act
 	output, err := client.FullStatus(c.Context(), params.StatusParams{})

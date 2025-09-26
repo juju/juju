@@ -49,10 +49,8 @@ type ApplicationService interface {
 	// belong to.
 	GetAllEndpointBindings(ctx context.Context) (map[string]map[string]network.SpaceName, error)
 
-	// GetUnitK8sPodInfo returns information about the k8s pod for the given unit.
-	// The following errors may be returned:
-	// - [applicationerrors.UnitNotFound] if the unit does not exist
-	GetUnitK8sPodInfo(context.Context, unit.Name) (application.K8sPodInfo, error)
+	// GetUnitsK8sPodInfo returns information about the k8s pods for all alive units.
+	GetUnitsK8sPodInfo(ctx context.Context) (map[unit.Name]application.K8sPodInfo, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
