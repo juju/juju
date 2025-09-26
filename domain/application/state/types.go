@@ -1299,3 +1299,7 @@ type unitK8sPodInfoWithName struct {
 	Address    sql.Null[string]     `db:"address"`
 	Ports      string               `db:"ports"`
 }
+
+type charmModifiedVersion struct {
+	Version uint64 `db:"charm_modified_version"`
+}

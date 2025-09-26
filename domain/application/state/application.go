@@ -38,6 +38,8 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -346,6 +348,12 @@ func (st *State) insertApplication(
 	}
 	if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
 		return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
+	}
+	charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
+		application.ApplicationCharmSequenceNamespace, appDetails.UUID.String(),
+	)
+	if _, err := sequencestate.NextValue(ctx, st, tx, charmModifiedVersionNamespace); err != nil {
+		return errors.Errorf("initialising charm modified version sequence: %w", err)
 	}
 
 	// The channel is optional for local charms. Although, it would be
@@ -1535,6 +1543,15 @@ WHERE uuid = $applicationID.uuid
 		return errors.Capture(err)
 	}
 
+	updateCharmModifiedVersionStmt, err := st.Prepare(`
+UPDATE application
+SET    charm_modified_version = $charmModifiedVersion.charm_modified_version
+WHERE  uuid = $applicationID.uuid
+`, charmModifiedVersion{}, appIdent)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
@@ -1565,6 +1582,20 @@ WHERE uuid = $applicationID.uuid
 
 		if err := st.refreshApplicationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
 			return errors.Errorf("refreshing application endpoint bindings: %w", err)
+		}
+
+		charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
+			application.ApplicationCharmSequenceNamespace, appIdent.ID.String(),
+		)
+		nextCharmModifiedVersion, err := sequencestate.NextValue(ctx, st, tx, charmModifiedVersionNamespace)
+		if err != nil {
+			return errors.Errorf("getting next charm modified version for application %q: %w", appIdent.ID, err)
+		}
+
+		if err := tx.Query(
+			ctx, updateCharmModifiedVersionStmt, appIdent, charmModifiedVersion{Version: nextCharmModifiedVersion},
+		).Run(); err != nil {
+			return errors.Errorf("updating charm modified version: %w", err)
 		}
 
 		return nil

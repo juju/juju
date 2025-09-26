@@ -9,6 +9,11 @@ const (
 	// CharmSequenceNamespace is the namespace for charm sequences.
 	CharmSequenceNamespace = sequence.StaticNamespace("charm")
 
-	// ApplicationSequenceNamespace is the namespace for application unit sequences.
+	// ApplicationSequenceNamespace is the namespace for application unit
+	// sequences.
 	ApplicationSequenceNamespace = sequence.StaticNamespace("application")
+
+	// ApplicationCharmSequenceNamespace is the namespace for application charm
+	// sequences.
+	ApplicationCharmSequenceNamespace = sequence.StaticNamespace("application_charm")
 )

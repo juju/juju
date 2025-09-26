@@ -19,9 +19,12 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -1009,30 +1012,44 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 // application associated with a resource.
 func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID coreresource.UUID) error {
 	resID := resourceIdentity{UUID: resourceUUID.String()}
-	updateCharmModifiedVersionStmt, err := st.Prepare(`
-UPDATE application
-SET    charm_modified_version = IFNULL(charm_modified_version ,0) + 1
-WHERE  uuid IN (
-    SELECT application_uuid
-    FROM   application_resource
-    WHERE  resource_uuid = $resourceIdentity.uuid
-)
-`, resID)
+	getApplicationUUIDsStmt, err := st.Prepare(`
+SELECT &applicationUUID.*
+FROM   application_resource
+WHERE  resource_uuid = $resourceIdentity.uuid
+	`, applicationUUID{}, resID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateCharmModifiedVersionStmt, resID).Get(&outcome)
+	updateCharmModifiedVersionStmt, err := st.Prepare(`
+UPDATE application
+SET    charm_modified_version = $charmModifiedVersion.charm_modified_version
+WHERE  uuid = $applicationUUID.application_uuid
+`, charmModifiedVersion{}, applicationUUID{})
 	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var appUUID applicationUUID
+	err = tx.Query(ctx, getApplicationUUIDsStmt, resID).Get(&appUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("no application found for resource %q: %w", resID, resourceerrors.ApplicationNotFound)
+	} else if err != nil {
 		return errors.Errorf("updating charm modified version: %w", err)
 	}
 
-	rows, err := outcome.Result().RowsAffected()
+	charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
+		domainapplication.ApplicationCharmSequenceNamespace, appUUID.UUID,
+	)
+	nextCharmModifiedVersion, err := sequencestate.NextValue(ctx, st, tx, charmModifiedVersionNamespace)
 	if err != nil {
-		return errors.Capture(err)
-	} else if rows != 1 {
-		return errors.Errorf("updating charm modified version: expected 1 row affected, got %d", rows)
+		return errors.Errorf("getting next charm modified version for application %q: %w", appUUID.UUID, err)
+	}
+	err = tx.Query(
+		ctx, updateCharmModifiedVersionStmt, charmModifiedVersion{Version: nextCharmModifiedVersion}, appUUID,
+	).Run()
+	if err != nil {
+		return errors.Errorf("updating charm modified version: %w", err)
 	}
 
 	return nil
