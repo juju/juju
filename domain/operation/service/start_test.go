@@ -494,20 +494,6 @@ func (s *startSuite) TestStartExecOperationOnlyLeaderUnits(c *tc.C) {
 	c.Check(result.Units[0].TaskInfo.ID, tc.Equals, "43")
 }
 
-func (s *startSuite) TestStartExecOperationEmptyTarget(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	target := operation.Receivers{}
-	args := operation.ExecArgs{Command: "echo hello"}
-
-	// Return early without calling state layer.
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
-	c.Assert(err, tc.IsNil)
-	c.Check(result.OperationID, tc.Equals, "")
-	c.Assert(result.Units, tc.HasLen, 0)
-	c.Check(result.Machines, tc.HasLen, 0)
-}
-
 func (s *startSuite) TestStartExecOperationOnAllMachinesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

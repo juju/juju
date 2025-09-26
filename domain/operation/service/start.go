@@ -29,14 +29,6 @@ func (s *Service) AddExecOperation(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Return early if no targets were provided.
-	if len(target.Applications) == 0 &&
-		len(target.Machines) == 0 &&
-		len(target.Units) == 0 &&
-		len(target.LeaderUnit) == 0 {
-		return operation.RunResult{}, nil
-	}
-
 	operationUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return operation.RunResult{}, errors.Errorf("generating operation UUID: %w", err)
