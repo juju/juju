@@ -1221,37 +1221,35 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 	}
 }
 
-// ApplicationStorageInfo contains the storage information for an application.
-type ApplicationStorageInfo struct {
-	Error error
+// ApplicationStorageDirectives contains the storage information for an application.
+type ApplicationStorageDirectives struct {
 	// StorageConstraints is a map of storage names to storage constraints to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+	StorageConstraints map[string]storage.Constraints
 }
 
 // GetApplicationStorage retrieves storage information for the specified applications.
-func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStorageInfo, error) {
+func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStorageDirectives, error) {
 	application := names.NewApplicationTag(applicationName)
 	in := params.Entities{Entities: []params.Entity{{Tag: application.String()}}}
 	var out params.ApplicationStorageGetResults
 	err := c.facade.FacadeCall("GetApplicationStorage", in, &out)
 	if err != nil {
-		return ApplicationStorageInfo{}, errors.Trace(err)
+		return ApplicationStorageDirectives{}, errors.Trace(err)
 	}
 	if resultsLen := len(out.Results); resultsLen != 1 {
-		return ApplicationStorageInfo{}, errors.Errorf("expected 1 result, got %d", resultsLen)
+		return ApplicationStorageDirectives{}, errors.Errorf("expected 1 result, got %d", resultsLen)
 	}
-	return applicationInfoFromParams(out.Results[0]), nil
+	res := out.Results[0]
+	if res.Error != nil {
+		return ApplicationStorageDirectives{}, apiservererrors.RestoreError(res.Error)
+	}
+	return makeApplicationStorageDirectiveInfo(res), nil
 }
 
-func applicationInfoFromParams(param params.ApplicationStorageGetResult) ApplicationStorageInfo {
-	if param.Error != nil {
-		return ApplicationStorageInfo{
-			Error: apiservererrors.RestoreError(param.Error),
-		}
-	}
-	sc := make(map[string]storage.Constraints)
+func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResult) ApplicationStorageDirectives {
+	sc := make(map[string]storage.Constraints, len(param.StorageConstraints))
 	for k, v := range param.StorageConstraints {
 		con := storage.Constraints{
 			Pool: v.Pool,
@@ -1265,7 +1263,7 @@ func applicationInfoFromParams(param params.ApplicationStorageGetResult) Applica
 		sc[k] = con
 	}
 
-	return ApplicationStorageInfo{
+	return ApplicationStorageDirectives{
 		StorageConstraints: sc,
 	}
 }
@@ -1277,7 +1275,7 @@ type ApplicationStorageUpdate struct {
 	// StorageConstraints is a map of storage names to storage constraints to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+	StorageConstraints map[string]storage.Constraints
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.

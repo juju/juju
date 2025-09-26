@@ -230,3 +230,9 @@ func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) m
 	c.SetClientStore(store)
 	return c
 }
+
+func NewStorageCommandForTest(api StorageConstraintsAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &storageConfigCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
