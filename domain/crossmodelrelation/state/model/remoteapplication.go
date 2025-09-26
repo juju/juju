@@ -113,7 +113,7 @@ WHERE   aro.life_id < 2;`
 		}
 
 		result[i] = crossmodelrelation.RemoteApplicationOfferer{
-			Life:             life.Life(offerer.LifeID),
+			Life:             offerer.LifeID,
 			ApplicationUUID:  offerer.ApplicationUUID,
 			ApplicationName:  offerer.ApplicationName,
 			OfferUUID:        offerer.OfferUUID,
