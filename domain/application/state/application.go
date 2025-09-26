@@ -1286,7 +1286,7 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 
 	var (
 		spaceAddresses   []spaceAddress
-		endpointBindings map[string]network.SpaceUUID
+		endpointBindings map[string]string
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -1344,7 +1344,7 @@ WHERE     nn.uuid = $netNodeUUID.uuid;
 // closure to the watcher, but this would have required to create new service
 // layer structs that match exactly the ones in state, which is not a desirable
 // pattern.
-func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]network.SpaceUUID) (string, error) {
+func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]string) (string, error) {
 	if len(addresses) == 0 && len(endpointBindings) == 0 {
 		return "", nil
 	}
@@ -1561,6 +1561,10 @@ WHERE uuid = $applicationID.uuid
 
 		if err := st.refreshApplicationConfig(ctx, tx, appIdent, charmIdent); err != nil {
 			return errors.Errorf("refreshing application config: %w", err)
+		}
+
+		if err := st.refreshApplicationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
+			return errors.Errorf("refreshing application endpoint bindings: %w", err)
 		}
 
 		return nil
@@ -3395,12 +3399,12 @@ func decodeChannel(track string, risk sql.NullString, branch string) (*deploymen
 	}, nil
 }
 
-// getAllNonPeerRelationInfo retrieves metadata for all non-peer relations of a
-// given application.
+// getAllRelationInfo retrieves metadata for all relations of a given
+// application.
 // It returns a slice of relationInfo containing all relevant information from
 // charm_relation and the count of applications linked through this relation to
 // the current one.
-func (st *State) getAllNonPeerRelationInfo(ctx context.Context, tx *sqlair.TX, id coreapplication.ID) ([]relationInfo, error) {
+func (st *State) getAllRelationInfo(ctx context.Context, tx *sqlair.TX, id coreapplication.ID) ([]relationInfo, error) {
 	type application dbUUID
 	app := application{UUID: id.String()}
 
@@ -3420,7 +3424,6 @@ JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid
 JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  ae.application_uuid = $application.uuid
-AND    vcr.role != 'peer'
 GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional, vcr.capacity, vcr.scope -- for count
 `, app, relationInfo{})
 	if err != nil {
@@ -3454,14 +3457,18 @@ func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, app
 		indexedCharmRelations[rel.Name] = rel
 	}
 
-	appRelations, err := st.getAllNonPeerRelationInfo(ctx, tx, appIdent.ID)
+	appRelations, err := st.getAllRelationInfo(ctx, tx, appIdent.ID)
 	if err != nil {
 		return errors.Errorf("fetching all relation for application %q: %w", appIdent.ID, err)
 	}
 
 	for _, appRelation := range appRelations {
 		if charmRelation, ok := indexedCharmRelations[appRelation.Name]; !ok {
-			return errors.Errorf("charm has no corresponding relation %q", appRelation.Name)
+			if appRelation.Role == string(charm.RolePeer) {
+				return errors.Errorf("charm has no corresponding peer relation %q. Please scale down to 0 units to refresh", appRelation.Name)
+			} else {
+				return errors.Errorf("charm has no corresponding relation %q", appRelation.Name)
+			}
 		} else if charmRelation.Role != appRelation.Role {
 			return errors.Errorf("cannot change role of relation %q from %s to %s", appRelation.Name, appRelation.Role, charmRelation.Role)
 		} else if charmRelation.Interface != appRelation.Interface {

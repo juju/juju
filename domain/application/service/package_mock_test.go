@@ -1378,10 +1378,10 @@ func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Cont
 }
 
 // GetApplicationEndpointBindings mocks base method.
-func (m *MockState) GetApplicationEndpointBindings(arg0 context.Context, arg1 application.ID) (map[string]network.SpaceUUID, error) {
+func (m *MockState) GetApplicationEndpointBindings(arg0 context.Context, arg1 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationEndpointBindings", arg0, arg1)
-	ret0, _ := ret[0].(map[string]network.SpaceUUID)
+	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1399,19 +1399,19 @@ type MockStateGetApplicationEndpointBindingsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationEndpointBindingsCall) Return(arg0 map[string]network.SpaceUUID, arg1 error) *MockStateGetApplicationEndpointBindingsCall {
+func (c *MockStateGetApplicationEndpointBindingsCall) Return(arg0 map[string]string, arg1 error) *MockStateGetApplicationEndpointBindingsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID) (map[string]network.SpaceUUID, error)) *MockStateGetApplicationEndpointBindingsCall {
+func (c *MockStateGetApplicationEndpointBindingsCall) Do(f func(context.Context, application.ID) (map[string]string, error)) *MockStateGetApplicationEndpointBindingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]network.SpaceUUID, error)) *MockStateGetApplicationEndpointBindingsCall {
+func (c *MockStateGetApplicationEndpointBindingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]string, error)) *MockStateGetApplicationEndpointBindingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

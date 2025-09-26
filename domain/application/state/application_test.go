@@ -3724,12 +3724,12 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 	// The hash should be consistent regardless of the order of the addresses.
 	c.Check(hash0, tc.Equals, hash1)
 
-	hash0, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]network.SpaceUUID{
+	hash0, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
 		"foo": "bar",
 		"foz": "baz",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	hash1, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]network.SpaceUUID{
+	hash1, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
 		"foz": "baz",
 		"foo": "bar",
 	})

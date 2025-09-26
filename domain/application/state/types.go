@@ -481,6 +481,11 @@ type setCharmExtraBinding struct {
 	Name      string `db:"name"`
 }
 
+type mapCharmRelation struct {
+	SourceCharmRelationUUID      string           `db:"source_charm_relation_uuid"`
+	DestinationCharmRelationUUID sql.Null[string] `db:"destination_charm_relation_uuid"`
+}
+
 // charmStorage is used to get the storage of a charm.
 // This is a row based struct that is normalised form of an array of strings
 // for the property field.
@@ -1092,7 +1097,7 @@ type exportApplication struct {
 	CharmRevision        int                `db:"revision"`
 	CharmArchitectureID  sql.Null[int64]    `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
-	EndpointBindings     map[string]network.SpaceUUID
+	EndpointBindings     map[string]string
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
@@ -1192,14 +1197,20 @@ type applicationEndpointBinding struct {
 }
 
 type endpointBinding struct {
-	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
-	EndpointName string                      `db:"name"`
+	SpaceUUID    sql.Null[string] `db:"space_uuid"`
+	EndpointName string           `db:"name"`
 }
 
 type updateBinding struct {
 	ApplicationID string           `db:"application_uuid"`
 	BindingUUID   string           `db:"binding_uuid"`
 	Space         sql.Null[string] `db:"space_uuid"`
+}
+
+type refreshBinding struct {
+	ApplicationID                string `db:"application_uuid"`
+	SourceCharmRelationUUID      string `db:"source_charm_relation_uuid"`
+	DestinationCharmRelationUUID string `db:"destination_charm_relation_uuid"`
 }
 
 type unitWorkloadVersion struct {

@@ -433,9 +433,9 @@ func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *tc.C) 
 			Revision:     42,
 			Architecture: architecture.AMD64,
 		},
-		EndpointBindings: map[string]network.SpaceUUID{
-			"":         network.AlphaSpaceId,
-			"endpoint": spaceUUID,
+		EndpointBindings: map[string]string{
+			"":         network.AlphaSpaceId.String(),
+			"endpoint": spaceUUID.String(),
 			"misc":     "",
 		},
 	}}, nil)
