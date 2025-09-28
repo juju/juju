@@ -38,8 +38,8 @@ func (s *pruneSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *pruneSuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, s.mockLeadershipService)
+func (s *pruneSuite) service(c *tc.C) *Service {
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter, s.mockLeadershipService)
 }
 
 // TestPruneOperationsSuccess verifies that the Service.PruneOperations method
@@ -53,7 +53,7 @@ func (s *pruneSuite) TestPruneOperationsSuccess(c *tc.C) {
 	s.state.EXPECT().PruneOperations(gomock.Any(), age, sizeMB).Return(nil, nil)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -70,7 +70,7 @@ func (s *pruneSuite) TestPruneOperationsSuccessWithPathToRemove(c *tc.C) {
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "/path2").Return(nil)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), 1, 1)
+	err := s.service(c).PruneOperations(c.Context(), 1, 1)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -87,7 +87,7 @@ func (s *pruneSuite) TestPruneOperationsGetObjectStoreFailure(c *tc.C) {
 	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(nil, expectedErr)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), 1, 1)
+	err := s.service(c).PruneOperations(c.Context(), 1, 1)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedErr)
@@ -107,7 +107,7 @@ func (s *pruneSuite) TestPruneOperationsGetObjectStoreRemovePathFailure(c *tc.C)
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "2").Return(expectedErr2)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), 1, 1)
+	err := s.service(c).PruneOperations(c.Context(), 1, 1)
 
 	// Assert: errors are joined
 	c.Check(err, tc.ErrorIs, expectedErr1)
@@ -122,7 +122,7 @@ func (s *pruneSuite) TestPruneOperationsSuccessZeroMaxAge(c *tc.C) {
 	s.state.EXPECT().PruneOperations(gomock.Any(), age, sizeMB).Return(nil, nil)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -136,7 +136,7 @@ func (s *pruneSuite) TestPruneOperationsSuccessZeroMaxSize(c *tc.C) {
 	s.state.EXPECT().PruneOperations(gomock.Any(), age, sizeMB).Return(nil, nil)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *pruneSuite) TestPruneOperationsValidationErrorNegativeMaxAge(c *tc.C) {
 	// No state expectation as validation should fail before any call.
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -169,7 +169,7 @@ func (s *pruneSuite) TestPruneOperationsValidationErrorNegativeMaxSizeDB(c *tc.C
 	// No state expectation as validation should fail before any call.
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -187,7 +187,7 @@ func (s *pruneSuite) TestPruneOperationsStateError(c *tc.C) {
 	s.state.EXPECT().PruneOperations(gomock.Any(), age, sizeMB).Return(nil, expectedErr)
 
 	// Act
-	err := s.service().PruneOperations(c.Context(), age, sizeMB)
+	err := s.service(c).PruneOperations(c.Context(), age, sizeMB)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedErr)

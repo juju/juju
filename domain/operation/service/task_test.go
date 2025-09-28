@@ -45,8 +45,8 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, s.mockLeadershipService)
+func (s *serviceSuite) service(c *tc.C) *Service {
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter, s.mockLeadershipService)
 }
 
 func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {
@@ -62,7 +62,7 @@ func (s *serviceSuite) TestGetTaskSuccess(c *tc.C) {
 
 	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(expectedAction, nil, nil)
 
-	task, err := s.service().GetTask(c.Context(), taskID)
+	task, err := s.service(c).GetTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 }
@@ -75,7 +75,7 @@ func (s *serviceSuite) TestGetTaskError(c *tc.C) {
 
 	s.state.EXPECT().GetTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, nil, expectedError)
 
-	_, err := s.service().GetTask(c.Context(), taskID)
+	_, err := s.service(c).GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `retrieving task ".*": task not found`)
 }
 
@@ -105,7 +105,7 @@ func (s *serviceSuite) TestGetPendingTaskByTaskID(c *tc.C) {
 	}
 
 	// Act
-	task, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+	task, err := s.service(c).GetPendingTaskByTaskID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -125,7 +125,7 @@ func (s *serviceSuite) TestGetPendingTaskByTaskIDFailNotPending(c *tc.C) {
 	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(result, nil, nil)
 
 	// Act
-	_, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+	_, err := s.service(c).GetPendingTaskByTaskID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, operationerrors.TaskNotPending)
@@ -144,7 +144,7 @@ func (s *serviceSuite) TestGetPendingTaskByTaskIDFail(c *tc.C) {
 	s.state.EXPECT().GetTask(gomock.Any(), taskID).Return(result, nil, errors.New("boom"))
 
 	// Act
-	_, err := s.service().GetPendingTaskByTaskID(c.Context(), taskID)
+	_, err := s.service(c).GetPendingTaskByTaskID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `getting pending task "42": boom`)
@@ -163,7 +163,7 @@ func (s *serviceSuite) TestCancelTaskSuccess(c *tc.C) {
 
 	s.state.EXPECT().CancelTask(gomock.Any(), taskID).Return(expectedAction, nil)
 
-	task, err := s.service().CancelTask(c.Context(), taskID)
+	task, err := s.service(c).CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 }
@@ -176,7 +176,7 @@ func (s *serviceSuite) TestCancelTaskError(c *tc.C) {
 
 	s.state.EXPECT().CancelTask(gomock.Any(), gomock.Any()).Return(operation.Task{}, expectedError)
 
-	_, err := s.service().CancelTask(c.Context(), taskID)
+	_, err := s.service(c).CancelTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorMatches, `cancelling task ".*": task not found`)
 }
 
@@ -199,7 +199,7 @@ func (s *serviceSuite) TestGetTaskWithOutput(c *tc.C) {
 	s.mockObjectStore.EXPECT().Get(gomock.Any(), outputPath).Return(
 		io.NopCloser(strings.NewReader(outputJSON)), int64(len(outputJSON)), nil)
 
-	task, err := s.service().GetTask(c.Context(), taskID)
+	task, err := s.service(c).GetTask(c.Context(), taskID)
 	c.Assert(err, tc.IsNil)
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 	c.Assert(task.Output, tc.HasLen, 2)
@@ -216,7 +216,7 @@ func (s *serviceSuite) TestGetReceiverFromTaskID(c *tc.C) {
 	s.state.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskID).Return(expectedReceiver, nil)
 
 	// Act
-	receiver, err := s.service().GetReceiverFromTaskID(c.Context(), taskID)
+	receiver, err := s.service(c).GetReceiverFromTaskID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -231,7 +231,7 @@ func (s *serviceSuite) TestGetReceiverFromTaskIDFails(c *tc.C) {
 	s.state.EXPECT().GetReceiverFromTaskID(gomock.Any(), taskID).Return("", errors.New("task start fail"))
 
 	// Act
-	_, err := s.service().GetReceiverFromTaskID(c.Context(), taskID)
+	_, err := s.service(c).GetReceiverFromTaskID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `task start fail`)
@@ -245,7 +245,7 @@ func (s *serviceSuite) TestStartTask(c *tc.C) {
 	s.state.EXPECT().StartTask(gomock.Any(), taskID).Return(nil)
 
 	// Act
-	err := s.service().StartTask(c.Context(), taskID)
+	err := s.service(c).StartTask(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -259,7 +259,7 @@ func (s *serviceSuite) TestStartTaskFails(c *tc.C) {
 	s.state.EXPECT().StartTask(gomock.Any(), taskID).Return(errors.New("task start fail"))
 
 	// Act
-	err := s.service().StartTask(c.Context(), taskID)
+	err := s.service(c).StartTask(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `task start fail`)
@@ -295,7 +295,7 @@ func (s *serviceSuite) TestFinishTask(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 	// Assert
 	c.Assert(err, tc.IsNil)
 }
@@ -336,7 +336,7 @@ func (s *serviceSuite) TestLogTaskMessage(c *tc.C) {
 	s.state.EXPECT().LogTaskMessage(gomock.Any(), taskID, msg).Return(nil)
 
 	// Act
-	err := s.service().LogTaskMessage(c.Context(), taskID, msg)
+	err := s.service(c).LogTaskMessage(c.Context(), taskID, msg)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -351,7 +351,7 @@ func (s *serviceSuite) TestGetTaskStatusByID(c *tc.C) {
 	s.state.EXPECT().GetTaskStatusByID(gomock.Any(), taskID).Return(expectedStatus, nil)
 
 	// Act
-	status, err := s.service().GetTaskStatusByID(c.Context(), taskID)
+	status, err := s.service(c).GetTaskStatusByID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -366,7 +366,7 @@ func (s *serviceSuite) TestGetTaskStatusByIDFails(c *tc.C) {
 	s.state.EXPECT().GetTaskStatusByID(gomock.Any(), taskID).Return("", errors.New("task start fail"))
 
 	// Act
-	_, err := s.service().GetTaskStatusByID(c.Context(), taskID)
+	_, err := s.service(c).GetTaskStatusByID(c.Context(), taskID)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `retrieving task status "42": task start fail`)
@@ -388,7 +388,7 @@ func (s *serviceSuite) TestFinishTaskError(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -404,7 +404,7 @@ func (s *serviceSuite) TestFinishTaskInputStatusNotValid(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -415,7 +415,7 @@ func (s *serviceSuite) TestFinishTaskInputIDNotValid(c *tc.C) {
 	arg := operation.CompletedTaskResult{}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -441,7 +441,7 @@ func (s *serviceSuite) TestFinishTaskFailStorePut(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "putting task result \"42\" in store: failed to store results: store put error")
@@ -479,7 +479,7 @@ func (s *serviceSuite) TestFinishTaskFailState(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -503,7 +503,7 @@ func (s *serviceSuite) TestFinishTaskNoStore(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "putting task result \"42\" in store: getting object store: boom")
@@ -519,7 +519,7 @@ func (s *serviceSuite) TestLogTaskMessageError(c *tc.C) {
 	s.state.EXPECT().LogTaskMessage(gomock.Any(), taskID, msg).Return(expectedError)
 
 	// Act
-	err := s.service().LogTaskMessage(c.Context(), taskID, msg)
+	err := s.service(c).LogTaskMessage(c.Context(), taskID, msg)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `boom`)

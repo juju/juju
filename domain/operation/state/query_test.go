@@ -549,7 +549,7 @@ func (s *querySuite) TestGetOperationsWithManyTasks(c *tc.C) {
 	var unitUUIDs []string
 	var machineUUIDs []string
 
-	for range 3 {
+	for i := range 3 {
 		unitUUID := s.addUnitWithName(c, charmUUID, fmt.Sprintf("manytasks-app/unit-%d", i))
 		unitUUIDs = append(unitUUIDs, unitUUID)
 

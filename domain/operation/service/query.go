@@ -16,15 +16,21 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// statusOrder is a pre-defined order of statuses that we use to sort the
-// each task status to get the overall status of an operation.
-var statusOrder = []corestatus.Status{
+// statusCompletedOrder is a pre-defined order of statuses that we use to sort
+// the each task status to get the overall status of an operation.
+var statusCompletedOrder = []corestatus.Status{
 	corestatus.Error,
-	corestatus.Running,
-	corestatus.Pending,
 	corestatus.Failed,
 	corestatus.Cancelled,
 	corestatus.Completed,
+}
+
+// statusOrder is a pre-defined order of statuses that we use to sort the
+// each task status to get the overall status of an operation.
+var statusActiveOrder = []corestatus.Status{
+	corestatus.Running,
+	corestatus.Aborting,
+	corestatus.Pending,
 }
 
 // GetOperations returns a list of operations on specified entities, filtered by the
@@ -47,7 +53,14 @@ func (s *Service) GetOperations(ctx context.Context, params operation.QueryArgs)
 		for _, m := range op.Machines {
 			tasks = append(tasks, m.TaskInfo)
 		}
-		res.Operations[i].Status = operationStatus(tasks)
+		status, err := operationStatus(tasks)
+		if err != nil {
+			// This is a programming error, since all tasks should have a known
+			// status. We don't block though, set it to pending and continue.
+			status = corestatus.Pending
+			s.logger.Errorf(ctx, "getting status of operation %q: %w", op.OperationID, err)
+		}
+		res.Operations[i].Status = status
 	}
 
 	return res, nil
@@ -70,17 +83,24 @@ func (s *Service) GetOperationByID(ctx context.Context, operationID string) (ope
 	for _, m := range res.Machines {
 		tasks = append(tasks, m.TaskInfo)
 	}
-	res.Status = operationStatus(tasks)
+	status, err := operationStatus(tasks)
+	if err != nil {
+		// This is a programming error, since all tasks should have a known
+		// status. We don't block though, set it to pending and continue.
+		status = corestatus.Pending
+		s.logger.Errorf(ctx, "getting status of operation %q: %w", operationID, err)
+	}
+	res.Status = status
 
 	return res, nil
 }
 
 // operationStatus returns the status of an operation. The status is always
 // computed on the fly, derived from the independent status of each task.
-func operationStatus(tasks []operation.TaskInfo) corestatus.Status {
-	// An operation with an empty set of tasks is pending.
+func operationStatus(tasks []operation.TaskInfo) (corestatus.Status, error) {
+	// An operation with an empty set of tasks is error status.
 	if len(tasks) == 0 {
-		return corestatus.Pending
+		return corestatus.Error, nil
 	}
 
 	// First we create a set of all the actual task statuses.
@@ -88,16 +108,22 @@ func operationStatus(tasks []operation.TaskInfo) corestatus.Status {
 	for _, s := range tasks {
 		statusStats.Add(s.Status.String())
 	}
-	// Then we check each one in the order of the pre-defined status.
-	for _, status := range statusOrder {
+	// First check the tasks for active statuses.
+	for _, status := range statusActiveOrder {
 		if statusStats.Contains(status.String()) {
-			return status
+			return status, nil
+		}
+	}
+	// If no active statuses, check for completed statuses.
+	for _, status := range statusCompletedOrder {
+		if statusStats.Contains(status.String()) {
+			return status, nil
 		}
 	}
 
-	// If the operation has at least one task, one status should match, but if
-	// it doesn't we return pending.
-	return corestatus.Pending
+	// If we get here, all tasks are in unknown status. This is a programming
+	// error, one which the DDL should protect us against.
+	return "", errors.Errorf("unknown status")
 }
 
 // GetMachineTaskIDsWithStatus retrieves the task IDs for a specific machine name and status.
