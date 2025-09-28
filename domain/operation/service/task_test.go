@@ -322,7 +322,7 @@ func (s *serviceSuite) TestFinishTaskTaskFailed(c *tc.C) {
 	}
 
 	// Act
-	err := s.service().FinishTask(c.Context(), arg)
+	err := s.service(c).FinishTask(c.Context(), arg)
 	// Assert
 	c.Assert(err, tc.IsNil)
 }

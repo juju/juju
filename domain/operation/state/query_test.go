@@ -11,10 +11,8 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
@@ -249,7 +247,7 @@ func (s *querySuite) TestGetOperationsComplexFilterCombination(c *tc.C) {
 		ActionNames:  []string{"test-action"},
 		Applications: []string{"setup-app1"},
 		Status:       []corestatus.Status{corestatus.Running, corestatus.Pending},
-		Units:        []unit.Name{"setup-app1/0", "setup-app1/1"},
+		Units:        []coreunit.Name{"setup-app1/0", "setup-app1/1"},
 		Limit:        &limit,
 	})
 
@@ -386,7 +384,7 @@ func (s *querySuite) TestGetOperationsNonExistentUnit(c *tc.C) {
 
 	// Act
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Units: []unit.Name{"non-existent-app/0"},
+		Units: []coreunit.Name{"non-existent-app/0"},
 	})
 
 	// Assert
@@ -408,7 +406,7 @@ func (s *querySuite) TestGetOperationsNonExistentMachine(c *tc.C) {
 
 	// Act
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Machines: []machine.Name{"non-existent-machine"},
+		Machines: []coremachine.Name{"non-existent-machine"},
 	})
 
 	// Assert
@@ -863,7 +861,7 @@ func (s *querySuite) TestGetOperationsSQLInjectionUnitName(c *tc.C) {
 
 	// Act - SQL injection attempt in unit name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Units: []unit.Name{"unit/'; TRUNCATE operation; --"},
+		Units: []coreunit.Name{"unit/'; TRUNCATE operation; --"},
 	})
 
 	// Assert
@@ -884,7 +882,7 @@ func (s *querySuite) TestGetOperationsSQLInjectionMachineName(c *tc.C) {
 
 	// Act - SQL injection attempt in machine name.
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
-		Machines: []machine.Name{"machine'; DROP DATABASE; --"},
+		Machines: []coremachine.Name{"machine'; DROP DATABASE; --"},
 	})
 
 	// Assert

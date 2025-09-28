@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -46,21 +47,21 @@ func (s *Service) GetOperations(ctx context.Context, params operation.QueryArgs)
 	}
 	// Now we must deduce the status each operation.
 	for i, op := range res.Operations {
-		tasks := make([]operation.TaskInfo, 0, len(op.Units)+len(op.Machines))
-		for _, u := range op.Units {
-			tasks = append(tasks, u.TaskInfo)
-		}
-		for _, m := range op.Machines {
-			tasks = append(tasks, m.TaskInfo)
-		}
-		status, err := operationStatus(tasks)
+		unitTaskStatuses := transform.Slice(op.Units, func(u operation.UnitTaskResult) string {
+			return u.TaskInfo.Status.String()
+		})
+		machineTaskStatuses := transform.Slice(op.Machines, func(m operation.MachineTaskResult) string {
+			return m.TaskInfo.Status.String()
+		})
+		allStatuses := set.NewStrings(append(unitTaskStatuses, machineTaskStatuses...)...)
+		opStatus, err := operationStatus(allStatuses)
 		if err != nil {
 			// This is a programming error, since all tasks should have a known
 			// status. We don't block though, set it to pending and continue.
-			status = corestatus.Pending
+			opStatus = corestatus.Pending
 			s.logger.Errorf(ctx, "getting status of operation %q: %w", op.OperationID, err)
 		}
-		res.Operations[i].Status = status
+		res.Operations[i].Status = opStatus
 	}
 
 	return res, nil
@@ -75,48 +76,45 @@ func (s *Service) GetOperationByID(ctx context.Context, operationID string) (ope
 	if err != nil {
 		return operation.OperationInfo{}, errors.Capture(err)
 	}
+
 	// Now we must deduce the status of the operation.
-	tasks := make([]operation.TaskInfo, 0, len(res.Units)+len(res.Machines))
-	for _, u := range res.Units {
-		tasks = append(tasks, u.TaskInfo)
-	}
-	for _, m := range res.Machines {
-		tasks = append(tasks, m.TaskInfo)
-	}
-	status, err := operationStatus(tasks)
+	unitTaskStatuses := transform.Slice(res.Units, func(u operation.UnitTaskResult) string {
+		return u.TaskInfo.Status.String()
+	})
+	machineTaskStatuses := transform.Slice(res.Machines, func(m operation.MachineTaskResult) string {
+		return m.TaskInfo.Status.String()
+	})
+	allStatuses := set.NewStrings(append(unitTaskStatuses, machineTaskStatuses...)...)
+	opStatus, err := operationStatus(allStatuses)
 	if err != nil {
 		// This is a programming error, since all tasks should have a known
 		// status. We don't block though, set it to pending and continue.
-		status = corestatus.Pending
+		opStatus = corestatus.Pending
 		s.logger.Errorf(ctx, "getting status of operation %q: %w", operationID, err)
 	}
-	res.Status = status
+	res.Status = opStatus
 
 	return res, nil
 }
 
 // operationStatus returns the status of an operation. The status is always
 // computed on the fly, derived from the independent status of each task.
-func operationStatus(tasks []operation.TaskInfo) (corestatus.Status, error) {
+// It takes a set of all task statuses as input.
+func operationStatus(allTasksStatuses set.Strings) (corestatus.Status, error) {
 	// An operation with an empty set of tasks is error status.
-	if len(tasks) == 0 {
+	if allTasksStatuses.IsEmpty() {
 		return corestatus.Error, nil
 	}
 
-	// First we create a set of all the actual task statuses.
-	statusStats := set.NewStrings()
-	for _, s := range tasks {
-		statusStats.Add(s.Status.String())
-	}
 	// First check the tasks for active statuses.
 	for _, status := range statusActiveOrder {
-		if statusStats.Contains(status.String()) {
+		if allTasksStatuses.Contains(status.String()) {
 			return status, nil
 		}
 	}
 	// If no active statuses, check for completed statuses.
 	for _, status := range statusCompletedOrder {
-		if statusStats.Contains(status.String()) {
+		if allTasksStatuses.Contains(status.String()) {
 			return status, nil
 		}
 	}

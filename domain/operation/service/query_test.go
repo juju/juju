@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -214,14 +215,14 @@ func (s *querySuite) TestGetOperationByIDUnknownStatus(c *tc.C) {
 
 func (s *querySuite) TestOperationStatus(c *tc.C) {
 	// Simulate a realistic operation with units and machines in various states
-	tasks := []operation.TaskInfo{
-		{Status: corestatus.Completed},
-		{Status: corestatus.Completed},
-		{Status: corestatus.Running},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Pending},
+	tasks := []string{
+		corestatus.Completed.String(),
+		corestatus.Completed.String(),
+		corestatus.Running.String(),
+		corestatus.Failed.String(),
+		corestatus.Pending.String(),
 	}
-	status, err := operationStatus(tasks)
+	status, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	// Should pick Running (highest priority among present)
 	c.Assert(status, tc.Equals, corestatus.Running)
@@ -232,15 +233,15 @@ func (s *querySuite) TestOperationStatusEmptyTasks(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Error)
 
-	status, err = operationStatus([]operation.TaskInfo{})
+	status, err = operationStatus(set.NewStrings())
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Error)
 }
 
 func (s *querySuite) TestOperationStatusSingleActiveStatus(c *tc.C) {
 	for _, st := range statusActiveOrder {
-		tasks := []operation.TaskInfo{{Status: st}}
-		status, err := operationStatus(tasks)
+		tasks := []string{st.String()}
+		status, err := operationStatus(set.NewStrings(tasks...))
 		c.Assert(err, tc.IsNil)
 		c.Check(status, tc.Equals, st)
 	}
@@ -248,8 +249,8 @@ func (s *querySuite) TestOperationStatusSingleActiveStatus(c *tc.C) {
 
 func (s *querySuite) TestOperationStatusSingleComletedStatus(c *tc.C) {
 	for _, st := range statusCompletedOrder {
-		tasks := []operation.TaskInfo{{Status: st}}
-		status, err := operationStatus(tasks)
+		tasks := []string{st.String()}
+		status, err := operationStatus(set.NewStrings(tasks...))
 		c.Assert(err, tc.IsNil)
 		c.Check(status, tc.Equals, st)
 	}
@@ -260,105 +261,105 @@ func (s *querySuite) TestOperationStatusMixedStatuses(c *tc.C) {
 	// Running > Aborting > Pending > Error > Failed > Cancelled > Completed
 
 	// Start with all statuses present, should return Running.
-	tasks := []operation.TaskInfo{
-		{Status: corestatus.Running},
-		{Status: corestatus.Aborting},
-		{Status: corestatus.Pending},
-		{Status: corestatus.Error},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks := []string{
+		corestatus.Running.String(),
+		corestatus.Aborting.String(),
+		corestatus.Pending.String(),
+		corestatus.Error.String(),
+		corestatus.Failed.String(),
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err := operationStatus(tasks)
+	status, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Running)
 
 	// Remove Running, next highest is Aborting.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Aborting},
-		{Status: corestatus.Pending},
-		{Status: corestatus.Error},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Aborting.String(),
+		corestatus.Pending.String(),
+		corestatus.Error.String(),
+		corestatus.Failed.String(),
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Aborting)
 
 	// Remove Aborting, next highest is Pending.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Pending},
-		{Status: corestatus.Error},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Pending.String(),
+		corestatus.Error.String(),
+		corestatus.Failed.String(),
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Pending)
 
 	// Remove Pending, next highest is Error.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Error},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Error.String(),
+		corestatus.Failed.String(),
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Error)
 
 	// Remove Error, next highest is Failed.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Failed},
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Failed.String(),
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Failed)
 
 	// Remove Failed, next highest is Cancelled.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Cancelled},
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Cancelled.String(),
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Cancelled)
 
 	// Remove Cancelled, next highest is Completed.
-	tasks = []operation.TaskInfo{
-		{Status: corestatus.Completed},
+	tasks = []string{
+		corestatus.Completed.String(),
 	}
-	status, err = operationStatus(tasks)
+	status, err = operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Completed)
 }
 
 func (s *querySuite) TestOperationStatusAllStatusesPresent(c *tc.C) {
 	// If all statuses are present, should return Running (highest priority).
-	tasks := []operation.TaskInfo{}
+	tasks := []string{}
 	for _, st := range statusActiveOrder {
-		tasks = append(tasks, operation.TaskInfo{Status: st})
+		tasks = append(tasks, st.String())
 	}
 	for _, st := range statusCompletedOrder {
-		tasks = append(tasks, operation.TaskInfo{Status: st})
+		tasks = append(tasks, st.String())
 	}
-	status, err := operationStatus(tasks)
+	status, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Running)
 }
 
 func (s *querySuite) TestOperationStatusDuplicateStatuses(c *tc.C) {
 	// Multiple tasks with same status, should still return that status.
-	tasks := []operation.TaskInfo{
-		{Status: corestatus.Failed},
-		{Status: corestatus.Failed},
-		{Status: corestatus.Failed},
+	tasks := []string{
+		corestatus.Failed.String(),
+		corestatus.Failed.String(),
+		corestatus.Failed.String(),
 	}
-	status, err := operationStatus(tasks)
+	status, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Failed)
 }
@@ -368,12 +369,12 @@ func (s *querySuite) TestOperationStatusMixedKnownAndUnknown(c *tc.C) {
 	// known.
 	type fakeStatus string
 	const unknownStatus fakeStatus = "unknown"
-	tasks := []operation.TaskInfo{
-		{Status: corestatus.Status(unknownStatus)},
-		{Status: corestatus.Running},
-		{Status: corestatus.Completed},
+	tasks := []string{
+		corestatus.Status(unknownStatus).String(),
+		corestatus.Running.String(),
+		corestatus.Completed.String(),
 	}
-	status, err := operationStatus(tasks)
+	status, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.IsNil)
 	c.Assert(status, tc.Equals, corestatus.Running)
 }
@@ -381,11 +382,11 @@ func (s *querySuite) TestOperationStatusMixedKnownAndUnknown(c *tc.C) {
 func (s *querySuite) TestOperationStatusOnlyUnknownStatuses(c *tc.C) {
 	type fakeStatus string
 	const unknownStatus fakeStatus = "unknown"
-	tasks := []operation.TaskInfo{
-		{Status: corestatus.Status(unknownStatus)},
-		{Status: corestatus.Status(unknownStatus)},
+	tasks := []string{
+		corestatus.Status(unknownStatus).String(),
+		corestatus.Status(unknownStatus).String(),
 	}
-	_, err := operationStatus(tasks)
+	_, err := operationStatus(set.NewStrings(tasks...))
 	c.Assert(err, tc.ErrorMatches, "unknown status")
 }
 
