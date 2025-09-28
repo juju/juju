@@ -6,11 +6,14 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	domainarchitecture "github.com/juju/juju/domain/application/architecture"
@@ -38,14 +41,16 @@ func PlaceMachine(
 	clock clock.Clock,
 	args domainmachine.PlaceMachineArgs,
 ) ([]coremachine.Name, error) {
+	os.WriteFile("/var/lib/juju/ALEX_PlaceMachine.txt", []byte(fmt.Sprintf("PlaceMachine args: %+v\n", args)), 0644)
 	switch args.Directive.Type {
 	case deployment.PlacementTypeUnset:
 		machineName, err := CreateMachine(ctx, tx, preparer, clock, CreateMachineArgs{
-			MachineUUID: args.MachineUUID.String(),
-			NetNodeUUID: args.NetNodeUUID.String(),
-			Platform:    args.Platform,
-			Nonce:       args.Nonce,
-			Constraints: args.Constraints,
+			MachineUUID:             args.MachineUUID.String(),
+			NetNodeUUID:             args.NetNodeUUID.String(),
+			Platform:                args.Platform,
+			Nonce:                   args.Nonce,
+			Constraints:             args.Constraints,
+			HardwareCharacteristics: args.HardwareCharacteristics,
 		})
 		return []coremachine.Name{machineName}, errors.Capture(err)
 
@@ -192,13 +197,15 @@ VALUES ($insertMachine.*);
 		return errors.Errorf("inserting machine constraints: %w", err)
 	}
 
-	if err := insertMachineInstance(ctx, tx, preparer, args.MachineUUID); err != nil {
+	if err := insertMachineInstance(ctx, tx, preparer, args.MachineUUID, args.HardwareCharacteristics); err != nil {
 		return errors.Errorf("inserting machine instance: %w", err)
 	}
 
 	if err := insertContainerType(ctx, tx, preparer, args.MachineUUID); err != nil {
 		return errors.Errorf("inserting machine container type: %w", err)
 	}
+
+	os.WriteFile("/var/lib/juju/ALEX_CreateMachineWithName_args.txt", []byte(fmt.Sprintf("CreateMachineWithName args: %+v\n", args)), 0644)
 
 	now := clock.Now()
 
@@ -303,20 +310,29 @@ func insertMachineInstance(
 	tx *sqlair.TX,
 	preparer domain.Preparer,
 	mUUID string,
+	hc instance.HardwareCharacteristics,
 ) error {
 	// Prepare query for setting the machine cloud instance.
 	setInstanceData := `
 INSERT INTO machine_cloud_instance (*)
-VALUES ($machineInstanceUUID.*);
+VALUES ($instanceData.*);
 `
-	setInstanceDataStmt, err := preparer.Prepare(setInstanceData, machineInstanceUUID{})
+	setInstanceDataStmt, err := preparer.Prepare(setInstanceData, instanceData{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return tx.Query(ctx, setInstanceDataStmt, machineInstanceUUID{
-		MachineUUID: mUUID,
-		LifeID:      0,
+	return tx.Query(ctx, setInstanceDataStmt, instanceData{
+		MachineUUID:          mUUID,
+		LifeID:               0,
+		Arch:                 hc.Arch,
+		Mem:                  hc.Mem,
+		RootDisk:             hc.RootDisk,
+		RootDiskSource:       hc.RootDiskSource,
+		CPUCores:             hc.CpuCores,
+		CPUPower:             hc.CpuPower,
+		AvailabilityZoneUUID: hc.AvailabilityZone, // Maybe this is wrong?
+		VirtType:             hc.VirtType,
 	}).Run()
 }
 
