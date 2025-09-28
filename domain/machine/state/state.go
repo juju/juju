@@ -79,12 +79,13 @@ func (st *State) AddMachine(ctx context.Context, args domainmachine.AddMachineAr
 	}
 
 	placeArgs := domainmachine.PlaceMachineArgs{
-		Constraints: args.Constraints,
-		Directive:   args.Directive,
-		Platform:    args.Platform,
-		MachineUUID: machineUUID,
-		NetNodeUUID: netNodeUUID,
-		Nonce:       args.Nonce,
+		Constraints:             args.Constraints,
+		Directive:               args.Directive,
+		Platform:                args.Platform,
+		MachineUUID:             machineUUID,
+		NetNodeUUID:             netNodeUUID,
+		Nonce:                   args.Nonce,
+		HardwareCharacteristics: args.HardwareCharacteristics,
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		machineNames, err = PlaceMachine(ctx, tx, st, st.clock, placeArgs)
