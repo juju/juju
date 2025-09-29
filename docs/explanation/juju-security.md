@@ -616,13 +616,13 @@ Juju restricts filesystem permissions following a minimum access policy.
 (controls-granular-access)=
 ### Granular access
 
-Juju does not currently have RBAC or ReBAC access. However, you can restrict user access at the controller, cloud, model, and application offer level.
+In Juju you can restrict user access at the controller, cloud, model, and application offer level. Model permissions can be further restricted to disable certain classes of commands.
 
 ```{ibnote}
-See more: {ref}`user-access-levels`
+See more: {ref}`user-access-levels`, {ref}`restrict-commands-on-a-model`
 ```
 
-For more control, you can use JAAS, which does support ReBAC authorization.
+For ReBAC authorization, try JAAS.
 
 ```{ibnote}
 See more: [JAAS | Authorization](https://documentation.ubuntu.com/jaas/v3/explanation/jaas-authorization/)
@@ -638,7 +638,7 @@ A controller on a machine cloud can operate in high availability mode. Depending
 See more: {ref}`high-availability`
 ```
 
-(no-cloud-credentials-in-juju)
+(no-cloud-credentials-in-juju)=
 ### No cloud credentials in Juju
 
 In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your client nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure).
