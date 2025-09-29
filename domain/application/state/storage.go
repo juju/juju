@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -117,12 +118,105 @@ SELECT &storageDirective.* (
 	return rval, nil
 }
 
+// GetStorageInstancesForProviderIDs returns all of the storage instances found
+// in the model using on of the provider ids supplied. If no storage instance
+// is found associated with a provider id then it is simply ignored. If no
+// storage instances exist matching the provider ids then an empty result is
+// returned to the caller.
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
 	ids []string,
-) (map[string]domainstorage.StorageInstanceUUID, error) {
-	return nil, nil
+) (map[domainstorage.Name][]internal.StorageInstanceComposition, error) {
+	// Early exit if no ids are supplied. We cannot have empty values with an
+	// IN expression.
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	providerIDsInput := storageProviderIDs(ids)
+
+	/*
+		id	parent	notused	detail
+		15	0     	0      	SCAN si USING INDEX sqlite_autoindex_storage_instance_1
+		18	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
+		25	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
+		33	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
+		40	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
+	*/
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     sf.provider_id IN ($storageProviderIDs[:])
+    OR        sv.provider_id IN ($storageProviderIDs[:])
+    GROUP BY  si.uuid
+)
+`
+
+	stmt, err := st.Prepare(
+		compositionQ,
+		providerIDsInput,
+		storageInstanceComposition{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []storageInstanceComposition
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, providerIDsInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := map[domainstorage.Name][]internal.StorageInstanceComposition{}
+	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
+		v := internal.StorageInstanceComposition{
+			StorageName: s.StorageName,
+			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
+		}
+
+		if s.FilesystemUUID.Valid {
+			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(s.FilesystemUUID.V),
+			}
+		}
+
+		if s.VolumeUUID.Valid {
+			v.Volume = &internal.StorageInstanceCompositionVolume{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(s.VolumeUUID.V),
+			}
+		}
+
+		rval[domainstorage.Name(s.StorageName)] = append(
+			rval[domainstorage.Name(s.StorageName)], v,
+		)
+		return true
+	})
+
+	return rval, nil
 }
 
 func (st *State) GetUnitOwnedStorageInstances(

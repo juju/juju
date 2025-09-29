@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/internal"
@@ -21,7 +20,6 @@ import (
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type baseStorageSuite struct {
@@ -30,50 +28,24 @@ type baseStorageSuite struct {
 	state *State
 }
 
-type caasStorageSuite struct {
-	baseStorageSuite
-}
-
-type iaasStorageSuite struct {
-	baseStorageSuite
-}
-
 // storageSuite is a suite for testing generic storage related state interfaces.
 // The primary means for testing state funcs not realted to applications
 // themselves.
 type storageSuite struct {
 	schematesting.ModelSuite
-}
-
-func TestCaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &caasStorageSuite{})
-}
-
-func TestIaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &iaasStorageSuite{})
+	storageHelper
 }
 
 func TestStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &storageSuite{})
+	suite := &storageSuite{}
+	suite.storageHelper.dbGetter = &suite.ModelSuite
+	tc.Run(t, suite)
 }
 
 func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-func (s *storageSuite) createStoragePool(c *tc.C,
-	name, providerType string,
-) domainstorage.StoragePoolUUID {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
-	_, err := s.DB().Exec(`
-INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
-`,
-		poolUUID, name, providerType,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return poolUUID
 }
 
 func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
@@ -227,34 +199,6 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 	c.Check(foundAppStorage, tc.SameContents, directives)
 }
 
-func (s *caasStorageSuite) SetUpTest(c *tc.C) {
-	s.baseStorageSuite.SetUpTest(c)
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "caas", "test-model", "microk8s")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
-	s.baseStorageSuite.SetUpTest(c)
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
 // for a pool that doesn't exist returns the caller an error satisfying
 // [storageerrors.PoolNotFoundError].
@@ -272,7 +216,7 @@ func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool
 // is correctly returned.
 func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
-	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
+	poolUUID := s.newStoragePool(c, "test-pool", "ptype")
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
@@ -290,7 +234,7 @@ func (s *storageSuite) TestGetModelStoragePoolsWithModelConfig(c *tc.C) {
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
-	db := s.DB()
+	db := s.ModelSuite.DB()
 
 	res, err := st.GetModelStoragePools(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
