@@ -108,7 +108,7 @@ func (s *ProviderService) CreateIAASApplication(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddIAASUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -155,7 +155,7 @@ func (s *ProviderService) CreateCAASApplication(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -236,7 +236,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *ProviderService) SetApplicationConstraints(
-	ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value,
+	ctx context.Context, appID coreapplication.UUID, cons coreconstraints.Value,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -577,7 +577,7 @@ func (s *ProviderService) ResolveApplicationConstraints(
 // exists.
 func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	unitName coreunit.Name,
 	providerFilesystemInfo []caas.FilesystemInfo,
 ) (application.RegisterUnitStorageArg, error) {
@@ -953,7 +953,7 @@ func (s *ProviderService) precheckInstances(
 }
 
 func (s *ProviderService) makeApplicationConstraints(
-	ctx context.Context, appUUID coreapplication.ID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) (coreconstraints.Value, error) {
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {

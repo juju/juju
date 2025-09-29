@@ -45,7 +45,7 @@ type watcherSuite struct {
 
 	unitUUIDs [3]coreunit.UUID
 
-	appUUIDs [2]coreapplication.ID
+	appUUIDs [2]coreapplication.UUID
 }
 
 func TestWatcherSuite(t *testing.T) {
@@ -111,7 +111,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	netNodeUUIDs = []string{netNodeUUID0, netNodeUUID1}
 }
 
-func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {
+func (s *watcherSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.UUID {
 	relationsMap := map[string]charm.Relation{}
 	for _, relation := range relations {
 		relationsMap[relation] = charm.Relation{

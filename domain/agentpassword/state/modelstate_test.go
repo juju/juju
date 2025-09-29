@@ -583,7 +583,7 @@ func (s *modelStateSuite) genPasswordHash(c *tc.C) agentpassword.PasswordHash {
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
-func (s *modelStateSuite) createApplication(c *tc.C, controller bool) coreapplication.ID {
+func (s *modelStateSuite) createApplication(c *tc.C, controller bool) coreapplication.UUID {
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	appID, _, err := applicationSt.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{

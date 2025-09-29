@@ -28,7 +28,7 @@ type State interface {
 	// relation endpoints.
 	ApplicationRelationsInfo(
 		ctx context.Context,
-		applicationID application.ID,
+		applicationID application.UUID,
 	) ([]relation.EndpointRelationData, error)
 
 	// AddRelation establishes a relation between two endpoints identified
@@ -41,7 +41,7 @@ type State interface {
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		principalUnitName unit.Name,
-	) (*application.ID, error)
+	) (*application.UUID, error)
 
 	// EnterScope indicates that the provided unit has joined the relation.
 	// When the unit has already entered its relation scope, EnterScope will report
@@ -62,7 +62,7 @@ type State interface {
 	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
 		ctx context.Context,
-		applicationID application.ID,
+		applicationID application.UUID,
 	) ([]relation.GoalStateRelationData, error)
 
 	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
@@ -77,7 +77,7 @@ type State interface {
 	GetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		applicationID application.ID,
+		applicationID application.UUID,
 	) (map[string]string, error)
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
@@ -107,7 +107,7 @@ type State interface {
 	// It takes a list of unit UUIDs and application UUIDs, returning the
 	// current setting version for each one, or departed if any unit is not
 	// found
-	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error)
+	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnit retrieves the UUID of a relation unit based on the given
 	// relation UUID and unit name.
@@ -190,7 +190,7 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -309,7 +309,7 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 //     not found.
 func (s *Service) ApplicationRelationsInfo(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]relation.EndpointRelationData, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -401,7 +401,7 @@ func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.Relatio
 //     UUID is not valid.
 func (s *Service) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]relation.GoalStateRelationData, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -537,7 +537,7 @@ func (s *Service) getRelationUnitByID(
 // GetRelationUnitChanges validates the given unit and application UUIDs,
 // and retrieves related unit changes.
 // If any UUID is invalid, an appropriate error is returned.
-func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error) {
+func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -700,7 +700,7 @@ func (s *Service) inferRelationUUIDByEndpoints(ctx context.Context, ep1, ep2 str
 func (s *Service) GetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (map[string]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

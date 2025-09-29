@@ -99,7 +99,7 @@ func (st *State) buildResourcesToAdd(
 }
 
 type insertResourcesArgs struct {
-	appID        coreapplication.ID
+	appID        coreapplication.UUID
 	charmUUID    corecharm.ID
 	charmSource  charm.CharmSource
 	appResources []application.AddApplicationResourceArg
@@ -172,7 +172,7 @@ type uuids []string
 func (st *State) resolvePendingResources(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	charmSource charm.CharmSource,
 	resources []coreresource.UUID,
 ) error {

@@ -43,10 +43,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetApplicationIDByName mocks base method.
-func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
+func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
-	ret0, _ := ret[0].(application.ID)
+	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -64,28 +64,28 @@ type MockApplicationServiceGetApplicationIDByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockApplicationServiceGetApplicationIDByNameCall {
+func (c *MockApplicationServiceGetApplicationIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockApplicationServiceGetApplicationIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
+func (c *MockApplicationServiceGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
+func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationIDByUnitName mocks base method.
-func (m *MockApplicationService) GetApplicationIDByUnitName(arg0 context.Context, arg1 unit.Name) (application.ID, error) {
+func (m *MockApplicationService) GetApplicationIDByUnitName(arg0 context.Context, arg1 unit.Name) (application.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationIDByUnitName", arg0, arg1)
-	ret0, _ := ret[0].(application.ID)
+	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -103,19 +103,19 @@ type MockApplicationServiceGetApplicationIDByUnitNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) Return(arg0 application.ID, arg1 error) *MockApplicationServiceGetApplicationIDByUnitNameCall {
+func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) Return(arg0 application.UUID, arg1 error) *MockApplicationServiceGetApplicationIDByUnitNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) Do(f func(context.Context, unit.Name) (application.ID, error)) *MockApplicationServiceGetApplicationIDByUnitNameCall {
+func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) Do(f func(context.Context, unit.Name) (application.UUID, error)) *MockApplicationServiceGetApplicationIDByUnitNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.ID, error)) *MockApplicationServiceGetApplicationIDByUnitNameCall {
+func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.UUID, error)) *MockApplicationServiceGetApplicationIDByUnitNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -144,7 +144,7 @@ func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 }
 
 // GetResourcesByApplicationID mocks base method.
-func (m *MockResourceService) GetResourcesByApplicationID(arg0 context.Context, arg1 application.ID) ([]resource.Resource, error) {
+func (m *MockResourceService) GetResourcesByApplicationID(arg0 context.Context, arg1 application.UUID) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourcesByApplicationID", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)
@@ -171,13 +171,13 @@ func (c *MockResourceServiceGetResourcesByApplicationIDCall) Return(arg0 []resou
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceServiceGetResourcesByApplicationIDCall) Do(f func(context.Context, application.ID) ([]resource.Resource, error)) *MockResourceServiceGetResourcesByApplicationIDCall {
+func (c *MockResourceServiceGetResourcesByApplicationIDCall) Do(f func(context.Context, application.UUID) ([]resource.Resource, error)) *MockResourceServiceGetResourcesByApplicationIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceServiceGetResourcesByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) ([]resource.Resource, error)) *MockResourceServiceGetResourcesByApplicationIDCall {
+func (c *MockResourceServiceGetResourcesByApplicationIDCall) DoAndReturn(f func(context.Context, application.UUID) ([]resource.Resource, error)) *MockResourceServiceGetResourcesByApplicationIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -273,7 +273,7 @@ func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *watcherSuite) expectGetRelationEndpointScope(
 	uuid corerelation.UUID,
-	id coreapplication.ID,
+	id coreapplication.UUID,
 	scope charm.RelationScope,
 	err error,
 ) {
@@ -282,7 +282,7 @@ func (s *watcherSuite) expectGetRelationEndpointScope(
 
 func (s *watcherSuite) expectGetOtherRelatedEndpointApplicationData(
 	relUUID corerelation.UUID,
-	id coreapplication.ID,
+	id coreapplication.UUID,
 	data relation.OtherApplicationForWatcher,
 	err error,
 ) {
@@ -298,14 +298,14 @@ func (s *watcherSuite) expectChanged(ctrl *gomock.Controller, uuid corerelation.
 
 func (s *watcherSuite) expectGetMapperDataForWatchLifeSuspendedStatus(
 	relUUID corerelation.UUID,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	data relation.RelationLifeSuspendedData,
 	err error,
 ) {
 	s.state.EXPECT().GetMapperDataForWatchLifeSuspendedStatus(gomock.Any(), relUUID, appID).Return(data, err)
 }
 
-func (s *watcherSuite) getSubordinateWatcher(principalID coreapplication.ID, subordinateID coreapplication.ID) *subordinateLifeSuspendedStatusWatcher {
+func (s *watcherSuite) getSubordinateWatcher(principalID coreapplication.UUID, subordinateID coreapplication.UUID) *subordinateLifeSuspendedStatusWatcher {
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}

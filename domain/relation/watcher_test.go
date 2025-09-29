@@ -43,7 +43,7 @@ type watcherSuite struct {
 
 	charmUUID         corecharm.ID
 	charmRelationUUID uuid.UUID
-	appUUID           coreapplication.ID
+	appUUID           coreapplication.UUID
 	appEndpointUUID   uuid.UUID
 	appName           string
 	// helps generation of consecutive relation_id
@@ -386,7 +386,7 @@ func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C)
 
 func (s *watcherSuite) setupSecondAppAndRelate(
 	c *tc.C, appNameTwo string,
-) (relation.UUID, coreapplication.ID, corecharm.ID) {
+) (relation.UUID, coreapplication.UUID, corecharm.ID) {
 	relationUUID := relationtesting.GenRelationUUID(c)
 	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
@@ -656,7 +656,7 @@ type testWatchRelationUnit struct {
 	relationUUID                           relation.UUID
 	other0UUID, watched0UUID, watched1UUID coreunit.UUID
 	otherRelationUUID, watchedRelationUUID relation.EndpointUUID
-	otherUUID                              coreapplication.ID
+	otherUUID                              coreapplication.UUID
 	initialEvents                          []coreunit.UUID
 }
 
@@ -708,7 +708,7 @@ type testWatchPeerRelationUnit struct {
 	relationUUID               relation.UUID
 	watched0UUID, watched1UUID coreunit.UUID
 	watchedRelationUUID        relation.EndpointUUID
-	watchedUUID                coreapplication.ID
+	watchedUUID                coreapplication.UUID
 	initialEvents              []coreunit.UUID
 }
 
@@ -776,7 +776,7 @@ VALUES (?,?)
 
 // addApplication adds a new application to the database with the specified UUID
 // and name.
-func (s *watcherSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.ID, appName string) {
+func (s *watcherSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.UUID, appName string) {
 	s.arrange(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
 VALUES (?, ?, ?, ?, ?)
@@ -785,7 +785,7 @@ VALUES (?, ?, ?, ?, ?)
 
 // addApplicationEndpoint inserts a new application endpoint into the database
 // with the specified UUIDs and relation data.
-func (s *watcherSuite) addApplicationEndpoint(c *tc.C, applicationEndpointUUID uuid.UUID, applicationUUID coreapplication.ID, charmRelationUUID uuid.UUID) {
+func (s *watcherSuite) addApplicationEndpoint(c *tc.C, applicationEndpointUUID uuid.UUID, applicationUUID coreapplication.UUID, charmRelationUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
 VALUES (?, ?, ?, ?)
@@ -847,7 +847,7 @@ func (s *watcherSuite) addUnit(
 	c *tc.C,
 	unitUUID coreunit.UUID,
 	unitName coreunit.Name,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 ) {
 	fakeNetNodeUUID := "fake-net-node-uuid"

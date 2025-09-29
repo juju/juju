@@ -28,7 +28,7 @@ func TestServiceSuite(t *testing.T) {
 const (
 	unitUUID    coreunit.UUID      = "unit-uuid"
 	machineUUID string             = "machine-uuid"
-	appUUID     coreapplication.ID = "app-uuid"
+	appUUID     coreapplication.UUID = "app-uuid"
 )
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

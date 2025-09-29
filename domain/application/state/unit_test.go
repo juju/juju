@@ -1227,7 +1227,7 @@ func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
-func (s *unitStateSuite) assertApplicationWorkloadVersion(c *tc.C, appID coreapplication.ID, expected string) {
+func (s *unitStateSuite) assertApplicationWorkloadVersion(c *tc.C, appID coreapplication.UUID, expected string) {
 	var version string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT version FROM application_workload_version WHERE application_uuid=?", appID).Scan(&version)
@@ -2009,7 +2009,7 @@ VALUES (?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name string, l life.Life) coreapplication.ID {
+func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name string, l life.Life) coreapplication.UUID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appID, machineNames, err := state.CreateIAASApplication(c.Context(), name, application.AddIAASApplicationArg{

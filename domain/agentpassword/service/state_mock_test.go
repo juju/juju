@@ -44,10 +44,10 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 }
 
 // GetApplicationIDByName mocks base method.
-func (m *MockModelState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
+func (m *MockModelState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
-	ret0, _ := ret[0].(application.ID)
+	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -65,19 +65,19 @@ type MockModelStateGetApplicationIDByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -200,7 +200,7 @@ func (c *MockModelStateIsMachineControllerCall) DoAndReturn(f func(context.Conte
 }
 
 // MatchesApplicationPasswordHash mocks base method.
-func (m *MockModelState) MatchesApplicationPasswordHash(arg0 context.Context, arg1 application.ID, arg2 agentpassword.PasswordHash) (bool, error) {
+func (m *MockModelState) MatchesApplicationPasswordHash(arg0 context.Context, arg1 application.UUID, arg2 agentpassword.PasswordHash) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MatchesApplicationPasswordHash", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
@@ -227,13 +227,13 @@ func (c *MockModelStateMatchesApplicationPasswordHashCall) Return(arg0 bool, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateMatchesApplicationPasswordHashCall) Do(f func(context.Context, application.ID, agentpassword.PasswordHash) (bool, error)) *MockModelStateMatchesApplicationPasswordHashCall {
+func (c *MockModelStateMatchesApplicationPasswordHashCall) Do(f func(context.Context, application.UUID, agentpassword.PasswordHash) (bool, error)) *MockModelStateMatchesApplicationPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateMatchesApplicationPasswordHashCall) DoAndReturn(f func(context.Context, application.ID, agentpassword.PasswordHash) (bool, error)) *MockModelStateMatchesApplicationPasswordHashCall {
+func (c *MockModelStateMatchesApplicationPasswordHashCall) DoAndReturn(f func(context.Context, application.UUID, agentpassword.PasswordHash) (bool, error)) *MockModelStateMatchesApplicationPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -356,7 +356,7 @@ func (c *MockModelStateMatchesUnitPasswordHashCall) DoAndReturn(f func(context.C
 }
 
 // SetApplicationPasswordHash mocks base method.
-func (m *MockModelState) SetApplicationPasswordHash(arg0 context.Context, arg1 application.ID, arg2 agentpassword.PasswordHash) error {
+func (m *MockModelState) SetApplicationPasswordHash(arg0 context.Context, arg1 application.UUID, arg2 agentpassword.PasswordHash) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationPasswordHash", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -382,13 +382,13 @@ func (c *MockModelStateSetApplicationPasswordHashCall) Return(arg0 error) *MockM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetApplicationPasswordHashCall) Do(f func(context.Context, application.ID, agentpassword.PasswordHash) error) *MockModelStateSetApplicationPasswordHashCall {
+func (c *MockModelStateSetApplicationPasswordHashCall) Do(f func(context.Context, application.UUID, agentpassword.PasswordHash) error) *MockModelStateSetApplicationPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetApplicationPasswordHashCall) DoAndReturn(f func(context.Context, application.ID, agentpassword.PasswordHash) error) *MockModelStateSetApplicationPasswordHashCall {
+func (c *MockModelStateSetApplicationPasswordHashCall) DoAndReturn(f func(context.Context, application.UUID, agentpassword.PasswordHash) error) *MockModelStateSetApplicationPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

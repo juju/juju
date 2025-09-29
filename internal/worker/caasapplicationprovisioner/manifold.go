@@ -86,7 +86,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		CharmhubClientGetter: charmhub.NewCharmHubOpener(domainServices.Config()),
 	}
 	var rog ResourceOpenerGetterFunc = func(
-		ctx context.Context, appID application.ID, appName string,
+		ctx context.Context, appID application.UUID, appName string,
 	) (coreresource.Opener, error) {
 		return resource.NewResourceOpenerForApplication(ctx, resourceOpenerArgs,
 			appName, appID)

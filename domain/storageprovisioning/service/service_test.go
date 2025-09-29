@@ -165,7 +165,7 @@ func (s *serviceSuite) TestGetStorageResourceTagsForApplicationErrors(c *tc.C) {
 func (s *serviceSuite) TestGetStorageResourceTagsForApplicationInvalidApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appUUID := coreapplication.ID("$")
+	appUUID := coreapplication.UUID("$")
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetStorageResourceTagsForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.NotNil)

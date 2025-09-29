@@ -222,7 +222,7 @@ func (s *baseSuite) setupRelationService(c *tc.C) *relationservice.Service {
 	)
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.UUID {
 	ch := &stubCharm{name: "test-charm"}
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -250,7 +250,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Provi
 	return appID
 }
 
-func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.UUID {
 	ch := &stubCharm{name: "test-charm", subordinate: true}
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -278,7 +278,7 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 	return appID
 }
 
-func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddUnitArg) coreapplication.ID {
+func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddUnitArg) coreapplication.UUID {
 	ch := &stubCharm{name: "test-charm"}
 	s.createSubnetForCAASModel(c)
 	appID, err := svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
@@ -341,7 +341,7 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.ID) {
+func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.UUID) {
 	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
@@ -368,7 +368,7 @@ WHERE uuid IN (
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.ID) []unit.UUID {
+func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.UUID) []unit.UUID {
 	var unitUUIDs []unit.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY name`, appID)
@@ -462,7 +462,7 @@ WHERE u.uuid = ?
 	return machineUUIDs[0]
 }
 
-func (s *baseSuite) getMachineUUIDFromApp(c *tc.C, appUUID coreapplication.ID) machine.UUID {
+func (s *baseSuite) getMachineUUIDFromApp(c *tc.C, appUUID coreapplication.UUID) machine.UUID {
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
@@ -488,7 +488,7 @@ func (s *baseSuite) checkCharmsCount(c *tc.C, expectedCount int) {
 	c.Check(count, tc.Equals, expectedCount)
 }
 
-func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.ID, newLife life.Life) {
+func (s *baseSuite) advanceApplicationLife(c *tc.C, appUUID coreapplication.UUID, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE application SET life_id = ? WHERE uuid = ?", newLife, appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 }

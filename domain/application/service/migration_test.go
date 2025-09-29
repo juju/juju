@@ -448,14 +448,14 @@ func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType corem
 
 	var receivedUnitArgs []application.ImportUnitArg
 	if modelType == coremodel.IAAS {
-		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
+		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
 	} else {
 		s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
 		s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
-		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
+		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})

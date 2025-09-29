@@ -35,7 +35,7 @@ type State interface {
 	// GetApplicationOpenedPorts returns the opened ports for all the units of the
 	// given application. We return opened ports paired with the unit UUIDs, grouped
 	// by endpoint.
-	GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (port.UnitEndpointPortRanges, error)
+	GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.UUID) (port.UnitEndpointPortRanges, error)
 
 	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
@@ -93,7 +93,7 @@ func (s *Service) GetMachineOpenedPorts(ctx context.Context, machineUUID string)
 
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // application. Opened ports are grouped first by unit name and then by endpoint.
-func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.ID) (map[coreunit.Name]network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID coreapplication.UUID) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -110,7 +110,7 @@ func (s *Service) GetApplicationOpenedPorts(ctx context.Context, applicationUUID
 // NOTE: The returned port ranges are atomised, meaning we guarantee that each
 // port range is of unit length. This is useful for down-stream consumers such
 // as k8s, which can only reason with unit-length port ranges.
-func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.ID) (network.GroupedPortRanges, error) {
+func (s *Service) GetApplicationOpenedPortsByEndpoint(ctx context.Context, applicationUUID coreapplication.UUID) (network.GroupedPortRanges, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

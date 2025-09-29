@@ -80,7 +80,7 @@ func (s *linkLayerBaseSuite) addApplicationWithName(c *tc.C, charmUUID, spaceUUI
 // addApplicationEndpoint inserts a new application endpoint into the
 // database with the specified UUIDs. Returns the endpoint uuid.
 func (s *linkLayerBaseSuite) addApplicationEndpoint(
-	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) string {
+	c *tc.C, applicationUUID coreapplication.UUID, charmRelationUUID string, boundSpaceUUID string) string {
 	applicationEndpointUUID := uuid.MustNewUUID().String()
 	s.query(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
@@ -92,7 +92,7 @@ VALUES (?, ?, ?, ?)
 // addApplicationExtraEndpoint inserts a new application extra endpoint into the
 // database with the specified UUIDs. Returns the endpoint uuid.
 func (s *linkLayerBaseSuite) addApplicationExtraEndpoint(
-	c *tc.C, applicationUUID coreapplication.ID, charmRelationUUID string, boundSpaceUUID string) {
+	c *tc.C, applicationUUID coreapplication.UUID, charmRelationUUID string, boundSpaceUUID string) {
 	s.query(c, `
 INSERT INTO application_extra_endpoint (application_uuid, charm_extra_binding_uuid,space_uuid)
 VALUES (?, ?, ?)

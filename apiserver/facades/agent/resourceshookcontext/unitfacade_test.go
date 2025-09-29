@@ -58,7 +58,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
+	c.Check(appID, tc.Equals, coreapplication.UUID("expected-application-id"),
 		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
 }
 
@@ -103,7 +103,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
+	c.Check(appID, tc.Equals, coreapplication.UUID("expected-application-id"),
 		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
 }
 
@@ -151,7 +151,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
 	facade := UnitFacade{
-		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "", expectedError },
+		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.UUID, error) { return "", expectedError },
 	}
 
 	// Act
@@ -168,20 +168,20 @@ func (s *unitFacadeSuite) TestGetApplicationIDCache(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	facade := UnitFacade{
-		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "cached-id", nil },
+		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.UUID, error) { return "cached-id", nil },
 	}
 
 	// Act & Assert: first retrieval (non cached)
 	id, err := facade.getApplicationID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
-	c.Check(facade.applicationID, tc.Equals, coreapplication.ID("cached-id"),
+	c.Check(id, tc.Equals, coreapplication.UUID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Check(facade.applicationID, tc.Equals, coreapplication.UUID("cached-id"),
 		tc.Commentf("(Assert)application ID should be cached: %v", id))
 
 	// Act & Assert: first retrieval (cached)
 	id, err = facade.getApplicationID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Check(id, tc.Equals, coreapplication.UUID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
 
 }
 

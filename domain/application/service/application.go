@@ -53,12 +53,12 @@ type ApplicationState interface {
 	// GetApplicationName returns the name of the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetApplicationName(context.Context, coreapplication.ID) (string, error)
+	GetApplicationName(context.Context, coreapplication.UUID) (string, error)
 
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// CreateIAASApplication creates an application. Returns the application ID,
 	// along with any machine names created.
@@ -67,14 +67,14 @@ type ApplicationState interface {
 		string,
 		application.AddIAASApplicationArg,
 		[]application.AddIAASUnitArg,
-	) (coreapplication.ID, []coremachine.Name, error)
+	) (coreapplication.UUID, []coremachine.Name, error)
 
 	// CreateCAASApplication creates an application, returning an error
 	// satisfying [applicationerrors.ApplicationAlreadyExists] if the
 	// application already exists. If returns as error satisfying
 	// [applicationerrors.CharmNotFound] if the charm for the application is not
 	// found.
-	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddCAASUnitArg) (coreapplication.ID, error)
+	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddCAASUnitArg) (coreapplication.UUID, error)
 
 	// UpsertCloudService updates the cloud service for the specified application.
 	// The following errors may be returned:
@@ -85,12 +85,12 @@ type ApplicationState interface {
 	// application.
 	// The following errors may be returned:
 	// - [appliationerrors.ApplicationNotFound] if the application does not exist
-	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationScaleState(context.Context, coreapplication.ID) (application.ScaleState, error)
+	GetApplicationScaleState(context.Context, coreapplication.UUID) (application.ScaleState, error)
 
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
@@ -101,13 +101,13 @@ type ApplicationState interface {
 	// returning an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
-	GetApplicationLife(ctx context.Context, appID coreapplication.ID) (life.Life, error)
+	GetApplicationLife(ctx context.Context, appID coreapplication.UUID) (life.Life, error)
 
 	// GetApplicationLifeByName looks up the life of the specified application,
 	// returning an error satisfying
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
-	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
+	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.UUID, life.Life, error)
 
 	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
 	// in the model are alive, returning an error if any are not.
@@ -122,20 +122,20 @@ type ApplicationState interface {
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
-	SetDesiredApplicationScale(context.Context, coreapplication.ID, int) error
+	SetDesiredApplicationScale(context.Context, coreapplication.UUID, int) error
 
 	// UpdateApplicationScale updates the desired scale of an application by a
 	// delta.
 	// If the resulting scale is less than zero, an error satisfying
 	// [applicationerrors.ScaleChangeInvalid] is returned.
-	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error)
+	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, delta int) (int, error)
 
 	// GetCharmByApplicationID returns the charm, charm origin and charm
 	// platform for the specified application ID.
 	//
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, error)
+	GetCharmByApplicationID(context.Context, coreapplication.UUID) (charm.Charm, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -145,33 +145,33 @@ type ApplicationState interface {
 
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
-	SetApplicationCharm(ctx context.Context, appID coreapplication.ID, charmID corecharm.ID, params application.SetCharmParams) error
+	SetApplicationCharm(ctx context.Context, appID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmParams) error
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
 	// unit doesn't exist.
-	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
+	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, error)
 
 	// GetApplicationIDAndNameByUnitName returns the application ID and name for
 	// the named unit, returning an error satisfying
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetApplicationIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, string, error)
+	GetApplicationIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application. Returns [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
-	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.UUID) (int, error)
 
 	// GetApplicationsWithPendingCharmsFromUUIDs returns the applications
 	// with pending charms for the specified UUIDs. If the application has a
 	// different status, it's ignored.
-	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error)
+	GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.UUID) ([]coreapplication.UUID, error)
 
 	// GetAsyncCharmDownloadInfo reserves the charm download for the specified
 	// application, returning an error satisfying
 	// [applicationerrors.AlreadyDownloadingCharm] if the application is already
 	// downloading a charm.
-	GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error)
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.UUID) (application.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download for the specified
 	// application, updating the charm with the specified charm information.
@@ -189,14 +189,14 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error)
+	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.UUID) (corecharm.ID, charm.Config, error)
 
 	// GetApplicationConfigAndSettings returns the application config and
 	// settings attributes for the application ID.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (
+	GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.UUID) (
 		map[string]application.ApplicationConfig,
 		application.ApplicationSettings,
 		error,
@@ -208,7 +208,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (
+	GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.UUID) (
 		map[string]application.ApplicationConfig,
 		error,
 	)
@@ -216,7 +216,7 @@ type ApplicationState interface {
 	// GetApplicationTrustSetting returns the application trust setting.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error)
+	GetApplicationTrustSetting(ctx context.Context, appID coreapplication.UUID) (bool, error)
 
 	// UpdateApplicationConfigAndSettings sets the application config attributes
 	// using the configuration, and sets the trust setting as part of the
@@ -225,7 +225,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	UpdateApplicationConfigAndSettings(
 		ctx context.Context,
-		appID coreapplication.ID,
+		appID coreapplication.UUID,
 		config map[string]application.AddApplicationConfig,
 		settings application.UpdateApplicationSettingsArg,
 	) error
@@ -234,13 +234,13 @@ type ApplicationState interface {
 	// config. If the key does not exist, it is ignored.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error
+	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.UUID, keys []string) error
 
 	// GetApplicationConfigHash returns the SHA256 hash of the application config
 	// for the specified application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error)
+	GetApplicationConfigHash(ctx context.Context, appID coreapplication.UUID) (string, error)
 
 	// InitialWatchStatementUnitLife returns the initial namespace query for the
 	// application unit life watcher.
@@ -257,7 +257,7 @@ type ApplicationState interface {
 	// InitialWatchStatementUnitAddressesHash returns the initial namespace query
 	// for the unit addresses hash watcher as well as the tables to be watched
 	// (ip_address and application_endpoint)
-	InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery)
+	InitialWatchStatementUnitAddressesHash(appUUID coreapplication.UUID, netNodeUUID string) (string, string, eventsource.NamespaceQuery)
 
 	// InitialWatchStatementUnitInsertDeleteOnNetNode returns the initial namespace
 	// query for unit insert and delete events on a specific net node, as well as
@@ -270,7 +270,7 @@ type ApplicationState interface {
 
 	// GetAddressesHash returns the sha256 hash of the application unit and cloud
 	// service (if any) addresses along with the associated endpoint bindings.
-	GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error)
+	GetAddressesHash(ctx context.Context, appUUID coreapplication.UUID, netNodeUUID string) (string, error)
 
 	// GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
 	// cloud service associated with the unit's application. This method is meant
@@ -287,7 +287,7 @@ type ApplicationState interface {
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Constraints, error)
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Constraints, error)
 
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
@@ -297,13 +297,13 @@ type ApplicationState interface {
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error
+	SetApplicationConstraints(ctx context.Context, appID coreapplication.UUID, cons constraints.Constraints) error
 
 	// GetApplicationCharmOrigin returns the platform and channel for the
 	// specified application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.ID) (application.CharmOrigin, error)
+	GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.UUID) (application.CharmOrigin, error)
 
 	// NamespaceForWatchApplication returns the namespace identifier
 	// for application watchers.
@@ -326,7 +326,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	IsApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error)
+	IsApplicationExposed(ctx context.Context, appID coreapplication.UUID) (bool, error)
 
 	// NamespaceForWatchApplicationExposed returns the namespace identifier
 	// for application exposed endpoints changes. The first return value is the
@@ -353,7 +353,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationEndpointBindings(context.Context, coreapplication.ID) (map[string]string, error)
+	GetApplicationEndpointBindings(context.Context, coreapplication.UUID) (map[string]string, error)
 
 	// GetApplicationsBoundToSpace returns the names of the applications bound to
 	// the given space.
@@ -364,7 +364,7 @@ type ApplicationState interface {
 	// The following errors may be returned:
 	//   - [applicationerrors.ApplicationNotFound] is returned if the application
 	//     doesn't exist.
-	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
+	GetApplicationEndpointNames(context.Context, coreapplication.UUID) ([]string, error)
 
 	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
 	// for the specified application.
@@ -383,7 +383,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetExposedEndpoints(ctx context.Context, appID coreapplication.ID) (map[string]application.ExposedEndpoint, error)
+	GetExposedEndpoints(ctx context.Context, appID coreapplication.UUID) (map[string]application.ExposedEndpoint, error)
 
 	// UnsetExposeSettings removes the expose settings for the provided list of
 	// endpoint names. If the resulting exposed endpoints map for the application
@@ -394,7 +394,7 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	UnsetExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints set.Strings) error
+	UnsetExposeSettings(ctx context.Context, appID coreapplication.UUID, exposedEndpoints set.Strings) error
 
 	// MergeExposeSettings marks the application as exposed and merges the provided
 	// ExposedEndpoint details into the current set of expose settings. The merge
@@ -402,19 +402,19 @@ type ApplicationState interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	MergeExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints map[string]application.ExposedEndpoint) error
+	MergeExposeSettings(ctx context.Context, appID coreapplication.UUID, exposedEndpoints map[string]application.ExposedEndpoint) error
 
 	// EndpointsExist returns an error satisfying
 	// [applicationerrors.EndpointNotFound] if any of the provided endpoints do not
 	// exist.
-	EndpointsExist(ctx context.Context, appID coreapplication.ID, endpoints set.Strings) error
+	EndpointsExist(ctx context.Context, appID coreapplication.UUID, endpoints set.Strings) error
 
 	// SpacesExist returns an error satisfying [networkerrors.SpaceNotFound] if any
 	// of the provided spaces do not exist.
 	SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error
 
 	// GetDeviceConstraints returns the device constraints for an application.
-	GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error)
+	GetDeviceConstraints(ctx context.Context, appID coreapplication.UUID) (map[string]devices.Constraints, error)
 
 	// ShouldAllowCharmUpgradeOnError indicates if the units of an application
 	// should upgrade to the latest version of the application charm even if
@@ -425,7 +425,7 @@ type ApplicationState interface {
 	ShouldAllowCharmUpgradeOnError(ctx context.Context, appName string) (bool, error)
 
 	// IsControllerApplication returns true when the application is the controller.
-	IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error)
+	IsControllerApplication(ctx context.Context, appID coreapplication.UUID) (bool, error)
 
 	// GetMachinesForApplication returns the names of the machines which have a unit.
 	// of the specified application deployed to it.
@@ -840,7 +840,7 @@ func validateApplicationStorageDirective(
 func (s *Service) GetApplicationIDByUnitName(
 	ctx context.Context,
 	unitName coreunit.Name,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -978,7 +978,7 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charm
 // GetApplicationName returns the name of the specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.UUID) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -998,7 +998,7 @@ func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // and [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1042,7 +1042,7 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 // application.
 //
 // Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplication.UUID) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1060,7 +1060,7 @@ func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplicatio
 // [applicationerrors.ApplicationNotFound] is returned. If the application name
 // is not valid, an error satisfying [applicationerrors.ApplicationNameNotValid]
 // is returned.
-func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
+func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.UUID) (
 	internalcharm.Charm,
 	charm.CharmLocator,
 	error,
@@ -1136,7 +1136,7 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 // GetApplicationLifelooks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (s *Service) GetApplicationLife(ctx context.Context, appID coreapplication.ID) (corelife.Value, error) {
+func (s *Service) GetApplicationLife(ctx context.Context, appID coreapplication.UUID) (corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1177,7 +1177,7 @@ func (s *Service) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) erro
 // application.
 // The following errors may be returned:
 // - [appliationerrors.ApplicationNotFound] if the application does not exist
-func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreapplication.ID) (bool, error) {
+func (s *Service) IsSubordinateApplication(ctx context.Context, appUUID coreapplication.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1318,7 +1318,7 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application UUIDs that
 // have pending charms from the provided UUIDs. If there are no applications
 // with pending status charms, then those applications are ignored.
-func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
+func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.UUID) ([]coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1333,7 +1333,7 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 // return [applicationerrors.CharmAlreadyAvailable]. The charm download
 // information is returned which includes the charm name, origin and the
 // digest.
-func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.UUID) (application.CharmDownloadInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1349,7 +1349,7 @@ func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreappli
 // information.
 // This returns [applicationerrors.CharmNotResolved] if the charm UUID isn't
 // the same as the one that was reserved.
-func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) error {
+func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.UUID, resolve application.ResolveCharmDownload) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1488,7 +1488,7 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appl
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (internalcharm.Config, error) {
+func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.UUID) (internalcharm.Config, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1546,7 +1546,7 @@ func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (c
 
 // GetApplicationAndCharmConfig returns the application and charm config for the
 // specified application ID.
-func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (ApplicationConfig, error) {
+func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.UUID) (ApplicationConfig, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1603,7 +1603,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 // config. If the key does not exist, it is ignored.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
+func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.UUID, keys []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1624,7 +1624,7 @@ func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreappl
 // [applicationerrors.ApplicationNotFound] is returned.
 // If the application config is not valid, an error satisfying
 // [applicationerrors.InvalidApplicationConfig] is returned.
-func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplication.ID, newConfig map[string]string) error {
+func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplication.UUID, newConfig map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1688,7 +1688,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 // application ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (coreconstraints.Value, error) {
+func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (coreconstraints.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1760,7 +1760,7 @@ func (s *Service) GetApplicationsBoundToSpace(ctx context.Context, uuid network.
 // The following errors may be returned:
 //   - [applicationerrors.ApplicationNotFound] is returned if the application
 //     doesn't exist.
-func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
+func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.UUID) ([]string, error) {
 	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Errorf("validating application UUID: %w", err)
 	}
@@ -1771,7 +1771,7 @@ func (s *Service) GetApplicationEndpointNames(ctx context.Context, appUUID corea
 
 // MergeApplicationEndpointBindings merge the provided bindings into the bindings
 // for the specified application.
-func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error {
+func (s *Service) MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.UUID, bindings map[string]network.SpaceName, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1798,7 +1798,7 @@ func (s *Service) GetDeviceConstraints(ctx context.Context, name string) (map[st
 }
 
 // IsControllerApplication returns true when the application is the controller.
-func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplication.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

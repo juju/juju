@@ -187,7 +187,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // InitialWatchStatementUnitAddressesHash returns the initial namespace query
 // for the unit addresses hash watcher as well as the tables to be watched
 // (ip_address and application_endpoint)
-func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.UUID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 
 		var (
@@ -318,7 +318,7 @@ AND a.name = $applicationName.name
 // check is performed to make sure the application for the supplied uuid exists.
 func (st *State) getApplicationUnits(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 ) ([]coreunit.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -363,7 +363,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 // for the given application.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[string]int, error) {
+func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.UUID) (map[string]int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -573,7 +573,7 @@ WHERE  u.uuid = $entityUUID.uuid
 //     is returned.
 func (st *State) AddIAASUnits(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args ...application.AddIAASUnitArg,
 ) ([]coreunit.Name, []coremachine.Name, error) {
 	if len(args) == 0 {
@@ -618,7 +618,7 @@ func (st *State) AddIAASUnits(
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args ...application.AddCAASUnitArg,
 ) ([]coreunit.Name, error) {
 	if len(args) == 0 {
@@ -786,7 +786,7 @@ WHERE  sub.name = $getPrincipal.subordinate_unit_name
 func (st *State) checkNoSubordinateExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	subordinateAppUUID coreapplication.ID,
+	subordinateAppUUID coreapplication.UUID,
 	principalUnitUUID coreunit.UUID,
 ) error {
 	var (
@@ -824,7 +824,7 @@ AND    su.application_uuid = $applicationUUID.application_uuid
 // - [appliationerrors.ApplicationNotFound] if the application does not exist
 func (st *State) IsSubordinateApplication(
 	ctx context.Context,
-	applicationUUID coreapplication.ID,
+	applicationUUID coreapplication.UUID,
 ) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -832,7 +832,7 @@ func (st *State) IsSubordinateApplication(
 	}
 
 	type getSubordinate struct {
-		ApplicationUUID coreapplication.ID `db:"application_uuid"`
+		ApplicationUUID coreapplication.UUID `db:"application_uuid"`
 		Subordinate     bool               `db:"subordinate"`
 	}
 	subordinate := getSubordinate{
@@ -1303,7 +1303,7 @@ WHERE uuid = $unitPassword.uuid
 func (st *State) insertCAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 	args application.AddCAASUnitArg,
 ) (coreunit.Name, error) {
@@ -1325,7 +1325,7 @@ func (st *State) insertCAASUnit(
 func (st *State) insertCAASUnitWithName(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 	unitName coreunit.Name,
 	args application.AddCAASUnitArg,
@@ -1433,7 +1433,7 @@ func (st *State) placeIAASUnitMachine(
 func (st *State) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 	args application.AddIAASUnitArg,
 ) (coreunit.Name, coreunit.UUID, []coremachine.Name, error) {
@@ -1519,7 +1519,7 @@ type insertUnitArg struct {
 
 func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	unitUUID coreunit.UUID,
 	netNodeUUID string,
 	args insertUnitArg,
@@ -1890,7 +1890,7 @@ func (st *State) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
 // The following errors may be returned:
 // - [applicationerrors.ApplicationIsDead] if the application is dead
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error) {
+func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.UUID) ([]coreunit.Name, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2143,7 +2143,7 @@ WHERE  unit_uuid = $unitWorkloadVersion.unit_uuid
 //     is returned.
 func (st *State) GetAllUnitCloudContainerIDsForApplication(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 ) (map[coreunit.Name]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -2190,7 +2190,7 @@ WHERE u.application_uuid = $applicationID.uuid
 func (st *State) newUnitName(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 ) (coreunit.Name, error) {
 
 	var nextUnitNum uint64

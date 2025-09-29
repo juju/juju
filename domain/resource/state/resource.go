@@ -54,7 +54,7 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // can led to inconsistent state due to foreign key constraints.
 func (st *State) DeleteApplicationResources(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -185,7 +185,7 @@ func (st *State) DeleteUnitResources(
 	})
 }
 
-func (st *State) getAppResources(ctx context.Context, tx *sqlair.TX, appID application.ID) (uuids, error) {
+func (st *State) getAppResources(ctx context.Context, tx *sqlair.TX, appID application.UUID) (uuids, error) {
 	id := applicationID{ID: appID}
 	var resources []localUUID
 	// SQL statement to list all resources for an application.
@@ -409,7 +409,7 @@ AND    r.state_id = 0 -- Only check available resources, not potential.
 // given application.
 func (st *State) ListResources(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (coreresource.ApplicationResources, error) {
 	potential, available, err := st.listApplicationResources(ctx, applicationID)
 	if err != nil {
@@ -432,7 +432,7 @@ func (st *State) ListResources(
 // an application.
 func (st *State) listApplicationResources(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]charmresource.Resource, []coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -504,7 +504,7 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 // application.
 func (st *State) listUnitResources(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]coreresource.UnitResources, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -586,7 +586,7 @@ func (st *State) listUnitResources(
 // returned, the result just contains an empty list.
 func (st *State) GetResourcesByApplicationID(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -2079,7 +2079,7 @@ func (st *State) getResourcesToSet(
 	tx *sqlair.TX,
 	typeIDs typeIDs,
 	charmID corecharm.ID,
-	appID application.ID,
+	appID application.UUID,
 	resources []resource.ImportResourceInfo,
 ) (resourcesToSet, map[string]uuidOriginAndRevision, error) {
 	var toSet resourcesToSet
@@ -2159,7 +2159,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 func (st *State) getPotentialResourcePlaceholdersToSet(
 	typeIDs typeIDs,
 	charmID corecharm.ID,
-	appID application.ID,
+	appID application.UUID,
 	resources []resource.ImportResourceInfo,
 ) ([]setResource, []applicationResource, error) {
 	// All repository resources have origin store.
@@ -2385,7 +2385,7 @@ func (st *State) ExportResources(ctx context.Context, appName string) (resource.
 		return resource.ExportedResources{}, errors.Capture(err)
 	}
 
-	var appID application.ID
+	var appID application.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appID, err = st.getApplicationUUID(ctx, tx, appName)
 		if err != nil {
@@ -2424,7 +2424,7 @@ func (st *State) getApplicationAndCharmUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
 	applicationName string,
-) (application.ID, corecharm.ID, error) {
+) (application.UUID, corecharm.ID, error) {
 	app := getApplicationAndCharmID{Name: applicationName}
 	queryApplicationStmt, err := st.Prepare(`
 SELECT (charm_uuid, uuid) AS (&getApplicationAndCharmID.*)
@@ -2523,7 +2523,7 @@ WHERE  name = $unitUUIDAndName.name
 }
 
 // checkApplicationIDExists checks if an application exists in the database by its UUID.
-func (st *State) checkApplicationIDExists(ctx context.Context, tx *sqlair.TX, appID application.ID) (bool, error) {
+func (st *State) checkApplicationIDExists(ctx context.Context, tx *sqlair.TX, appID application.UUID) (bool, error) {
 	application := applicationNameAndID{ApplicationID: appID}
 	checkApplicationExistsStmt, err := st.Prepare(`
 SELECT &applicationNameAndID.*
@@ -2567,7 +2567,7 @@ WHERE  name = $applicationNameAndID.name
 
 // getApplicationUUID gets the application ID from the name. It returns
 // [resourceerrors.ApplicationNotFound] if the application cannot be found.
-func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.ID, error) {
+func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.UUID, error) {
 	appID := applicationNameAndID{
 		Name: appName,
 	}

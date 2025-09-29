@@ -446,7 +446,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	appUUIDs := []coreapplication.ID{
+	appUUIDs := []coreapplication.UUID{
 		coreapplicationtesting.GenApplicationUUID(c),
 		coreapplicationtesting.GenApplicationUUID(c),
 	}
@@ -495,9 +495,9 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.
 func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	appUUIDs := []coreapplication.ID{
+	appUUIDs := []coreapplication.UUID{
 		coreapplicationtesting.GenApplicationUUID(c),
-		coreapplication.ID("not-valid-uuid"),
+		coreapplication.UUID("not-valid-uuid"),
 		coreapplicationtesting.GenApplicationUUID(c),
 	}
 

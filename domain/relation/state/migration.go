@@ -73,13 +73,13 @@ func (st *State) ImportRelation(
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationNotFound] is returned if application ID
 //     doesn't refer an existing application.
-func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error) {
+func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var id application.ID
+	var id application.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		app := applicationIDAndName{Name: appName}
 		queryApplicationStmt, err := st.Prepare(`
@@ -115,7 +115,7 @@ WHERE name = $applicationIDAndName.name
 func (st *State) SetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 	settings map[string]string,
 ) error {
 	db, err := st.DB(ctx)

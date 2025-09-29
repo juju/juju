@@ -203,7 +203,7 @@ func (s *baseSuite) createNamedCAASUnit(c *tc.C) (coreunit.Name, coreunit.UUID) 
 	return name, unitUUIDS[0]
 }
 
-func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.AddIAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createIAASApplication(c *tc.C, name string, l life.Life, units ...application.AddIAASUnitArg) coreapplication.UUID {
 	return s.createIAASApplicationWithEndpointBindings(c, name, l, nil, units...)
 }
 
@@ -212,7 +212,7 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 	name string,
 	l life.Life,
 	unitCount int,
-) (coreapplication.ID, []coreunit.UUID) {
+) (coreapplication.UUID, []coreunit.UUID) {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
@@ -314,7 +314,7 @@ func (s *baseSuite) createIAASApplicationWithEndpointBindings(
 	l life.Life,
 	bindings map[string]network.SpaceName,
 	units ...application.AddIAASUnitArg,
-) coreapplication.ID {
+) coreapplication.UUID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
@@ -425,7 +425,7 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 
 func (s *baseSuite) createCAASApplicationWithNUnits(
 	c *tc.C, name string, l life.Life, unitCount int,
-) (coreapplication.ID, []coreunit.UUID) {
+) (coreapplication.UUID, []coreunit.UUID) {
 	appUUID := s.createCAASApplication(
 		c, name, l, make([]application.AddCAASUnitArg, unitCount)...,
 	)
@@ -435,7 +435,7 @@ func (s *baseSuite) createCAASApplicationWithNUnits(
 	return appUUID, uuids
 }
 
-func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.AddCAASUnitArg) coreapplication.ID {
+func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, units ...application.AddCAASUnitArg) coreapplication.UUID {
 	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -523,7 +523,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 	return appID
 }
 
-func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.ID {
+func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.UUID {
 	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -644,11 +644,11 @@ func (s *baseSuite) assertApplication(
 	}
 }
 
-func (s *baseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
+func (s *baseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.UUID) coreunit.UUID {
 	return s.addUnitWithLife(c, unitName, appUUID, life.Alive)
 }
 
-func (s *baseSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, l life.Life) coreunit.UUID {
+func (s *baseSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.UUID, l life.Life) coreunit.UUID {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		netNodeUUID := uuid.MustNewUUID().String()

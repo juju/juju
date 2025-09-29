@@ -32,7 +32,7 @@ func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 
 	s.applicationService.EXPECT().
 		GetApplicationIDByName(gomock.Any(), "gitlab").
-		Return(application.ID("1"), nil)
+		Return(application.UUID("1"), nil)
 
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
@@ -52,7 +52,7 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
 
 	s.applicationService.EXPECT().
 		GetApplicationIDByName(gomock.Any(), "gitlab").
-		Return(application.ID("1"), applicationerrors.ApplicationNotFound)
+		Return(application.UUID("1"), applicationerrors.ApplicationNotFound)
 
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),

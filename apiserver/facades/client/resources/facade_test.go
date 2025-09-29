@@ -55,7 +55,7 @@ func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 	appTag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(),
 		appTag.Id()).Return("a-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(
 		resource.ApplicationResources{
 			Resources: []resource.Resource{
 				res1,
@@ -122,7 +122,7 @@ func (s *resourcesSuite) TestListResourcesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, nil)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(resource.ApplicationResources{}, nil)
 
 	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -163,7 +163,7 @@ func (s *resourcesSuite) TestListResourcesError(c *tc.C) {
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, failure)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(resource.ApplicationResources{}, failure)
 
 	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -261,7 +261,7 @@ type addPendingResourceSuite struct {
 	BaseSuite
 
 	appTag               names.ApplicationTag
-	appUUID              coreapplication.ID
+	appUUID              coreapplication.UUID
 	curl                 *charm.URL
 	charmLoc             applicationcharm.CharmLocator
 	pendingResourceIDOne resource.UUID
@@ -410,7 +410,7 @@ func (s *addPendingResourceSuite) expectResolveResourcesStoreContainer(resName s
 }
 
 func (s *addPendingResourceSuite) expectGetApplicationIDByName(err error) {
-	var id coreapplication.ID
+	var id coreapplication.UUID
 	if err == nil {
 		id = s.appUUID
 	}

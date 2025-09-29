@@ -30,7 +30,7 @@ const SequenceNamespace = sequence.StaticNamespace("relation")
 type GetRelationEndpointUUIDArgs struct {
 	// ApplicationID identifies the unique identifier of the application
 	// associated with the expected endpoint.
-	ApplicationID application.ID
+	ApplicationID application.UUID
 
 	// RelationUUID represents the unique identifier for the relation associated
 	// with the expected endpoint.
@@ -225,7 +225,7 @@ func (ep Endpoint) EndpointIdentifier() corerelation.EndpointIdentifier {
 // the PrincipalLifeSuspendedStatus watcher on other endpoints in a
 // relation.
 type OtherApplicationForWatcher struct {
-	ApplicationID application.ID
+	ApplicationID application.UUID
 	Subordinate   bool
 }
 
@@ -258,7 +258,7 @@ type RelationUnitsChange struct {
 type SubordinateCreator interface {
 	// CreateSubordinate is the signature of the function used to create units on a
 	// subordinate application.
-	CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName unit.Name) error
+	CreateSubordinate(ctx context.Context, subordinateAppID application.UUID, principalUnitName unit.Name) error
 }
 
 // GoalStateRelationData contains the necessary data from the relation

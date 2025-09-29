@@ -106,7 +106,7 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 	workerCreator := func(
 		controllerUUID string,
 		modelUUID string,
-		appUUID coreapplication.ID,
+		appUUID coreapplication.UUID,
 		portService caasfirewaller.PortService,
 		applicationService caasfirewaller.ApplicationService,
 		broker caasfirewaller.CAASBroker,
@@ -192,7 +192,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 
 	var done = make(chan struct{})
 	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
-		func(ctx context.Context, id coreapplication.ID) (internalcharm.Charm, charm.CharmLocator, error) {
+		func(ctx context.Context, id coreapplication.UUID) (internalcharm.Charm, charm.CharmLocator, error) {
 			close(done)
 			charmInfo := &charms.CharmInfo{ // v1 charm
 				Meta:     &internalcharm.Meta{},
@@ -241,7 +241,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 
 	var done = make(chan struct{})
 	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
-		func(ctx context.Context, id coreapplication.ID) (internalcharm.Charm, charm.CharmLocator, error) {
+		func(ctx context.Context, id coreapplication.UUID) (internalcharm.Charm, charm.CharmLocator, error) {
 			close(done)
 			return nil, charm.CharmLocator{}, errors.NotFoundf("app1")
 		},

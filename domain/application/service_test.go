@@ -420,15 +420,15 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) createApplication(c *tc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *serviceSuite) createApplication(c *tc.C, name string, units ...service.AddUnitArg) coreapplication.UUID {
 	return s.createApplicationWithCharm(c, name, &stubCharm{}, units...)
 }
 
-func (s *serviceSuite) createSubordinateApplication(c *tc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *serviceSuite) createSubordinateApplication(c *tc.C, name string, units ...service.AddUnitArg) coreapplication.UUID {
 	return s.createApplicationWithCharm(c, name, &stubCharm{subordinate: true}, units...)
 }
 
-func (s *serviceSuite) createApplicationWithCharm(c *tc.C, name string, ch internalcharm.Charm, units ...service.AddUnitArg) coreapplication.ID {
+func (s *serviceSuite) createApplicationWithCharm(c *tc.C, name string, ch internalcharm.Charm, units ...service.AddUnitArg) coreapplication.UUID {
 	appID, err := s.svc.CreateCAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{

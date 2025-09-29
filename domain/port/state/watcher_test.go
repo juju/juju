@@ -28,7 +28,7 @@ type watcherSuite struct {
 
 	unitUUIDs [3]coreunit.UUID
 
-	appUUIDs [2]coreapplication.ID
+	appUUIDs [2]coreapplication.UUID
 }
 
 func TestWatcherSuite(t *testing.T) {

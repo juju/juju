@@ -67,7 +67,7 @@ WHERE unit.uuid IN ($unitUUIDs[:])
 	return transform.Slice(machineNames, func(m machineName) coremachine.Name { return m.Name }), nil
 }
 
-func (st *State) FilterUnitUUIDsForApplication(ctx context.Context, units []unit.UUID, app coreapplication.ID) (set.Strings, error) {
+func (st *State) FilterUnitUUIDsForApplication(ctx context.Context, units []unit.UUID, app coreapplication.UUID) (set.Strings, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

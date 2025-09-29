@@ -29,7 +29,7 @@ type entityUUID struct {
 
 // applicationID is used to get the ID of an application.
 type applicationID struct {
-	ID application.ID `db:"uuid"`
+	ID application.UUID `db:"uuid"`
 }
 
 type relationUUID struct {
@@ -37,7 +37,7 @@ type relationUUID struct {
 }
 
 type applicationUUID struct {
-	UUID application.ID `db:"application_uuid"`
+	UUID application.UUID `db:"application_uuid"`
 }
 
 type relation struct {
@@ -115,12 +115,12 @@ type getLife struct {
 }
 
 type getUnitApp struct {
-	ApplicationUUID application.ID `db:"application_uuid"`
-	UnitUUID        string         `db:"uuid"`
+	ApplicationUUID application.UUID `db:"application_uuid"`
+	UnitUUID        string           `db:"uuid"`
 }
 
 type getUnitRelAndApp struct {
-	ApplicationUUID  application.ID        `db:"application_uuid"`
+	ApplicationUUID  application.UUID      `db:"application_uuid"`
 	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
 	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
 }
@@ -130,19 +130,19 @@ type scope struct {
 }
 
 type getSubordinate struct {
-	ApplicationUUID application.ID `db:"application_uuid"`
-	Subordinate     bool           `db:"subordinate"`
+	ApplicationUUID application.UUID `db:"application_uuid"`
+	Subordinate     bool             `db:"subordinate"`
 }
 
 // getPrincipal is used to get the principal application of a unit.
 type getPrincipal struct {
-	UnitUUID        string         `db:"unit_uuid"`
-	ApplicationUUID application.ID `db:"application_uuid"`
+	UnitUUID        string           `db:"unit_uuid"`
+	ApplicationUUID application.UUID `db:"application_uuid"`
 }
 
 type relationAndApplicationUUID struct {
 	RelationUUID  corerelation.UUID `db:"relation_uuid"`
-	ApplicationID application.ID    `db:"application_uuid"`
+	ApplicationID application.UUID  `db:"application_uuid"`
 }
 
 type relationSetting struct {
@@ -250,7 +250,7 @@ type Endpoint struct {
 	ApplicationName string `db:"application_name"`
 	// ApplicationUUID is a unique identifier for the application associated
 	// with the endpoint.
-	ApplicationUUID application.ID `db:"application_uuid"`
+	ApplicationUUID application.UUID `db:"application_uuid"`
 }
 
 // String returns a formatted string representation combining
@@ -305,8 +305,8 @@ type setRelationStatus struct {
 // otherApplicationsForWatcher contains data required by
 // WatchLifeSuspendedStatus watchers.
 type otherApplicationsForWatcher struct {
-	AppID       application.ID `db:"application_uuid"`
-	Subordinate bool           `db:"subordinate"`
+	AppID       application.UUID `db:"application_uuid"`
+	Subordinate bool             `db:"subordinate"`
 }
 
 type watcherMapperData struct {
@@ -318,8 +318,8 @@ type watcherMapperData struct {
 
 // applicationIDAndName is used to get the ID and name of an application.
 type applicationIDAndName struct {
-	ID   application.ID `db:"uuid"`
-	Name string         `db:"name"`
+	ID   application.UUID `db:"uuid"`
+	Name string           `db:"name"`
 }
 
 // rows is used to count the number of rows found.

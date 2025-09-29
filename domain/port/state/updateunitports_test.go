@@ -31,7 +31,7 @@ type updateUnitPortsSuite struct {
 	unitUUID coreunit.UUID
 	unitName coreunit.Name
 
-	appUUID coreapplication.ID
+	appUUID coreapplication.UUID
 }
 
 func TestUpdateUnitPortsSuite(t *testing.T) {

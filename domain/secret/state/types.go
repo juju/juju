@@ -45,7 +45,7 @@ type unit struct {
 }
 
 type application struct {
-	UUID coreapplication.ID `db:"uuid"`
+	UUID coreapplication.UUID `db:"uuid"`
 	Name string             `db:"name"`
 }
 

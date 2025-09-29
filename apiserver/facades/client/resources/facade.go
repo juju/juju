@@ -298,7 +298,7 @@ func (a *API) addPendingResources(
 // updateResources handles updates of all provided resources.
 func (a *API) updateResources(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	resources []charmresource.Resource,
 ) ([]string, error) {
 	newUUIDs := make([]string, len(resources))
@@ -326,7 +326,7 @@ func (a *API) updateResources(
 // updateResource updates the resource based on origin.
 func (a *API) updateResource(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	res charmresource.Resource,
 ) (coreresource.UUID, error) {
 	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,

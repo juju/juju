@@ -223,7 +223,7 @@ type lifeSuspendedStatusWatcher struct {
 	// appID is the application ID of the application whose relations are
 	// being watched for life and being suspended. It is a subordinate
 	// application.
-	appID application.ID
+	appID application.UUID
 	// currentRelations holds the life and suspended status of each relation
 	// being watched, to check if the values have changed when the Mapper is
 	// triggered.
@@ -362,7 +362,7 @@ type principalLifeSuspendedStatusWatcher struct {
 	lifeSuspendedStatusWatcher
 }
 
-func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapper {
+func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.UUID) namespaceMapper {
 	w := &principalLifeSuspendedStatusWatcher{}
 	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
 		s:                s,
@@ -421,10 +421,10 @@ type subordinateLifeSuspendedStatusWatcher struct {
 
 	// parentAppID is the application ID of the parent or principal application
 	// of the appID.
-	parentAppID application.ID
+	parentAppID application.UUID
 }
 
-func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapper {
+func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.UUID) namespaceMapper {
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}

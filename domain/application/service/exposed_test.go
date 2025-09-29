@@ -29,7 +29,7 @@ func TestExposedServiceSuite(t *testing.T) {
 func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.UUID(""), applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.IsApplicationExposed(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "application not found")
@@ -50,7 +50,7 @@ func (s *exposedServiceSuite) TestApplicationExposed(c *tc.C) {
 func (s *exposedServiceSuite) TestExposedEndpointsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.UUID(""), applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetExposedEndpoints(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "application not found")
@@ -79,7 +79,7 @@ func (s *exposedServiceSuite) TestExposedEndpoints(c *tc.C) {
 func (s *exposedServiceSuite) TestUnsetExposeSettingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.UUID(""), applicationerrors.ApplicationNotFound)
 
 	err := s.service.UnsetExposeSettings(c.Context(), "foo", set.NewStrings("endpoint0"))
 	c.Assert(err, tc.ErrorMatches, "application not found")
@@ -100,7 +100,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.UUID(""), applicationerrors.ApplicationNotFound)
 
 	err := s.service.MergeExposeSettings(c.Context(), "foo", map[string]application.ExposedEndpoint{
 		"endpoint0": {

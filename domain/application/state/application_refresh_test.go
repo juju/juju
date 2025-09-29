@@ -800,7 +800,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc
 }
 
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
-func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.ID {
+func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.UUID {
 	appName := args.appName
 	if appName == "" {
 		appName = "some-app"
@@ -874,7 +874,7 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 
 // establishRelationWith creates a new relation between the current application
 // and another, created on the fly, based on the given parameters.
-func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID coreapplication.ID, relationName string,
+func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID coreapplication.UUID, relationName string,
 	role charm.RelationRole) {
 	s.counter++
 	// Create relation metadata based on the role.
@@ -953,7 +953,7 @@ func (s *applicationRefreshSuite) establishRelationWith(c *tc.C, currentAppID co
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationRefreshSuite) establishPeerRelation(c *tc.C, appID coreapplication.ID, relationName string) {
+func (s *applicationRefreshSuite) establishPeerRelation(c *tc.C, appID coreapplication.UUID, relationName string) {
 	s.counter++
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Get the application endpoint for the application

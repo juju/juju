@@ -42,7 +42,7 @@ func (m *MockSubordinateCreator) EXPECT() *MockSubordinateCreatorMockRecorder {
 }
 
 // CreateSubordinate mocks base method.
-func (m *MockSubordinateCreator) CreateSubordinate(arg0 context.Context, arg1 application.ID, arg2 unit.Name) error {
+func (m *MockSubordinateCreator) CreateSubordinate(arg0 context.Context, arg1 application.UUID, arg2 unit.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSubordinate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -68,13 +68,13 @@ func (c *MockSubordinateCreatorCreateSubordinateCall) Return(arg0 error) *MockSu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSubordinateCreatorCreateSubordinateCall) Do(f func(context.Context, application.ID, unit.Name) error) *MockSubordinateCreatorCreateSubordinateCall {
+func (c *MockSubordinateCreatorCreateSubordinateCall) Do(f func(context.Context, application.UUID, unit.Name) error) *MockSubordinateCreatorCreateSubordinateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSubordinateCreatorCreateSubordinateCall) DoAndReturn(f func(context.Context, application.ID, unit.Name) error) *MockSubordinateCreatorCreateSubordinateCall {
+func (c *MockSubordinateCreatorCreateSubordinateCall) DoAndReturn(f func(context.Context, application.UUID, unit.Name) error) *MockSubordinateCreatorCreateSubordinateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

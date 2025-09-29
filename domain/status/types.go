@@ -19,7 +19,7 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
-	ID              application.ID
+	ID              application.UUID
 	Life            life.Life
 	Status          StatusInfo[WorkloadStatusType]
 	Units           map[unit.Name]Unit

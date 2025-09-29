@@ -746,7 +746,7 @@ func (s *applicationSuite) TestDeleteApplicationWithSharedObjectstoreResource(c 
 	c.Check(exists, tc.Equals, false)
 }
 
-func (s *applicationSuite) getAppResourceUUID(c *tc.C, appUUID coreapplication.ID) string {
+func (s *applicationSuite) getAppResourceUUID(c *tc.C, appUUID coreapplication.UUID) string {
 	row := s.DB().QueryRow(`
 SELECT uuid
 FROM application_resource ar
@@ -770,7 +770,7 @@ func (s *applicationSuite) checkMachineContents(c *tc.C, actual []string, expect
 	}))
 }
 
-func (s *applicationSuite) checkApplicationDyingState(c *tc.C, appUUID coreapplication.ID) {
+func (s *applicationSuite) checkApplicationDyingState(c *tc.C, appUUID coreapplication.UUID) {
 	row := s.DB().QueryRow("SELECT life_id FROM application where uuid = ?", appUUID.String())
 	var lifeID int
 	err := row.Scan(&lifeID)

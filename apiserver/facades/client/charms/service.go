@@ -37,13 +37,13 @@ type ApplicationService interface {
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 	// and [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
 	// The following errors may be returned:
 	// - [appliationerrors.ApplicationNotFound] if the application does not exist
-	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application ID.
@@ -51,5 +51,5 @@ type ApplicationService interface {
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(context.Context, coreapplication.ID) (constraints.Value, error)
+	GetApplicationConstraints(context.Context, coreapplication.UUID) (constraints.Value, error)
 }

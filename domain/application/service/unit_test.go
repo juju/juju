@@ -794,7 +794,7 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := coreapplication.ID("$")
+	appID := coreapplication.UUID("$")
 	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
 }

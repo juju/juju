@@ -1367,7 +1367,7 @@ WHERE name = $applicationDetails.name
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Alive)
 }
 
@@ -1376,7 +1376,7 @@ func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUU
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Dying)
 }
 
@@ -1386,7 +1386,7 @@ func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, app
 // Instead use one of:
 //   - checkApplicationAlive
 //   - checkApplicationNotDead
-func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, allowed domainlife.Life) error {
+func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID, allowed domainlife.Life) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}

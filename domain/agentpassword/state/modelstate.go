@@ -482,7 +482,7 @@ func (s *ModelState) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, 
 
 // SetApplicationPasswordHash sets the password hash for the given application.
 func (s *ModelState) SetApplicationPasswordHash(
-	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
+	ctx context.Context, appID application.UUID, passwordHash agentpassword.PasswordHash,
 ) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -537,7 +537,7 @@ UPDATE SET  password_hash = $entityPasswordHash.password_hash,
 // MatchesApplicationPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
 func (s *ModelState) MatchesApplicationPasswordHash(
-	ctx context.Context, appID application.ID, passwordHash agentpassword.PasswordHash,
+	ctx context.Context, appID application.UUID, passwordHash agentpassword.PasswordHash,
 ) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -573,7 +573,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 // GetApplicationIDByName returns the application ID for the named application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (s *ModelState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
+func (s *ModelState) GetApplicationIDByName(ctx context.Context, name string) (application.UUID, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)

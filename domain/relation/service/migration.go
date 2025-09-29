@@ -35,14 +35,14 @@ type MigrationState interface {
 	) (corerelation.UUID, error)
 
 	// GetApplicationIDByName returns the application ID of the given application.
-	GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error)
+	GetApplicationIDByName(ctx context.Context, appName string) (application.UUID, error)
 
 	// SetRelationApplicationSettings records settings for a specific application
 	// relation combination.
 	SetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		applicationID application.ID,
+		applicationID application.UUID,
 		settings map[string]string,
 	) error
 

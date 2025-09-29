@@ -47,24 +47,24 @@ type KeyValue struct {
 
 // applicationID is used to get the ID of an application.
 type applicationID struct {
-	ID coreapplication.ID `db:"uuid"`
+	ID coreapplication.UUID `db:"uuid"`
 }
 
 // applicationIDAndName is used to get the ID and name of an application.
 type applicationIDAndName struct {
-	ID   coreapplication.ID `db:"uuid"`
+	ID   coreapplication.UUID `db:"uuid"`
 	Name string             `db:"name"`
 }
 
 type applicationChannel struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
 	Track         string             `db:"track"`
 	Risk          string             `db:"risk"`
 	Branch        string             `db:"branch"`
 }
 
 type applicationPlatform struct {
-	ApplicationID  coreapplication.ID `db:"application_uuid"`
+	ApplicationID  coreapplication.UUID `db:"application_uuid"`
 	OSTypeID       int                `db:"os_id"`
 	Channel        string             `db:"channel"`
 	ArchitectureID int                `db:"architecture_id"`
@@ -76,7 +76,7 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	UUID      coreapplication.ID `db:"uuid"`
+	UUID      coreapplication.UUID `db:"uuid"`
 	Name      string             `db:"name"`
 	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
@@ -84,7 +84,7 @@ type applicationDetails struct {
 }
 
 type applicationScale struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
 	Scaling       bool               `db:"scaling"`
 	Scale         int                `db:"scale"`
 	ScaleTarget   int                `db:"scale_target"`
@@ -123,7 +123,7 @@ type unitRow struct {
 	UnitUUID                coreunit.UUID      `db:"uuid"`
 	Name                    coreunit.Name      `db:"name"`
 	LifeID                  life.Life          `db:"life_id"`
-	ApplicationID           coreapplication.ID `db:"application_uuid"`
+	ApplicationID           coreapplication.UUID `db:"application_uuid"`
 	NetNodeID               string             `db:"net_node_uuid"`
 	CharmUUID               corecharm.ID       `db:"charm_uuid"`
 	PasswordHash            sql.NullString     `db:"password_hash"`
@@ -185,7 +185,7 @@ type unitNameCloudContainer struct {
 
 type cloudService struct {
 	UUID            string             `db:"uuid"`
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	ApplicationUUID coreapplication.UUID `db:"application_uuid"`
 	NetNodeUUID     string             `db:"net_node_uuid"`
 	ProviderID      string             `db:"provider_id"`
 }
@@ -766,7 +766,7 @@ type applicationConfig struct {
 }
 
 type setApplicationConfig struct {
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	ApplicationUUID coreapplication.UUID `db:"application_uuid"`
 	Key             string             `db:"key"`
 	Value           any                `db:"value"`
 	TypeID          int                `db:"type_id"`
@@ -777,12 +777,12 @@ type applicationSettings struct {
 }
 
 type setApplicationSettings struct {
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	ApplicationUUID coreapplication.UUID `db:"application_uuid"`
 	Trust           bool               `db:"trust"`
 }
 
 type applicationConfigHash struct {
-	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	ApplicationUUID coreapplication.UUID `db:"application_uuid"`
 	SHA256          string             `db:"sha256"`
 }
 
@@ -826,13 +826,13 @@ type setApplicationConstraint struct {
 
 type setApplicationEndpointBinding struct {
 	UUID          corerelation.EndpointUUID `db:"uuid"`
-	ApplicationID coreapplication.ID        `db:"application_uuid"`
+	ApplicationID coreapplication.UUID        `db:"application_uuid"`
 	RelationUUID  string                    `db:"charm_relation_uuid"`
 	Space         sql.Null[string]          `db:"space_uuid"`
 }
 
 type setApplicationExtraEndpointBinding struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
 	RelationUUID  string             `db:"charm_extra_binding_uuid"`
 	Space         sql.Null[string]   `db:"space_uuid"`
 }
@@ -1085,7 +1085,7 @@ type applicationOrigin struct {
 }
 
 type exportApplication struct {
-	UUID                 coreapplication.ID `db:"uuid"`
+	UUID                 coreapplication.UUID `db:"uuid"`
 	Name                 string             `db:"name"`
 	CharmUUID            corecharm.ID       `db:"charm_uuid"`
 	Life                 life.Life          `db:"life_id"`
@@ -1248,7 +1248,7 @@ type getCharmUpgradeOnError struct {
 }
 
 type controllerApplication struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
 	IsController  bool               `db:"is_controller"`
 }
 

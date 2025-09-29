@@ -36,11 +36,11 @@ type ApplicationService interface {
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit.
-	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
+	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, error)
 
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name.

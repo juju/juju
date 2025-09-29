@@ -11,7 +11,7 @@ import (
 
 // GenApplicationUUID can be used in testing for generating a application id
 // that is checked for subsequent errors using the test suits go check instance.
-func GenApplicationUUID(c *tc.C) coreapplication.ID {
+func GenApplicationUUID(c *tc.C) coreapplication.UUID {
 	uuid, err := coreapplication.NewID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid

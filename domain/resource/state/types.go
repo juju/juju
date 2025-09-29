@@ -138,12 +138,12 @@ type unitResource struct {
 }
 
 type applicationNameAndID struct {
-	ApplicationID coreapplication.ID `db:"uuid"`
+	ApplicationID coreapplication.UUID `db:"uuid"`
 	Name          string             `db:"name"`
 }
 
 type applicationID struct {
-	ID coreapplication.ID `db:"uuid"`
+	ID coreapplication.UUID `db:"uuid"`
 }
 
 // charmResource contains the identifiers of the charm resource in the
@@ -157,7 +157,7 @@ type charmResource struct {
 // getApplicationAndCharmID gets the application and charm ID from the
 // application table using the application name.
 type getApplicationAndCharmID struct {
-	ApplicationID coreapplication.ID `db:"uuid"`
+	ApplicationID coreapplication.UUID `db:"uuid"`
 	CharmID       charm.ID           `db:"charm_uuid"`
 	Name          string             `db:"name"`
 }

@@ -36,7 +36,7 @@ import (
 
 type OpenerSuite struct {
 	appName              string
-	appID                coreapplication.ID
+	appID                coreapplication.UUID
 	unitName             coreunit.Name
 	unitUUID             coreunit.UUID
 	resourceUUID         coreresource.UUID

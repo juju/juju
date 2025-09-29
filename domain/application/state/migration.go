@@ -101,7 +101,7 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 // application in the model.
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error) {
+func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.UUID) ([]application.ExportUnit, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ WHERE application_uuid = $applicationID.uuid
 // application already exists. If returns as error satisfying
 // [applicationerrors.CharmNotFound] if the charm for the application is
 // not found.
-func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.ID, error) {
+func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -329,7 +329,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 
 // InsertIAASUnits imports the fully formed units for the specified IAAS
 // application. This is only used when importing units during model migration.
-func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.ImportUnitArg) error {
+func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -349,7 +349,7 @@ func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreappli
 
 // InsertCAASUnits imports the fully formed units for the specified CAAS
 // application. This is only used when importing units during model migration.
-func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.ImportUnitArg) error {
+func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -370,7 +370,7 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 func (st *State) importCAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args application.ImportUnitArg,
 ) error {
 	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)
@@ -439,7 +439,7 @@ func (st *State) importCAASUnit(
 func (st *State) importIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args application.ImportUnitArg,
 ) error {
 	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)

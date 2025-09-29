@@ -42,7 +42,7 @@ type appWorker struct {
 	logger logger.Logger
 	ops    ApplicationOps
 
-	appID            coreapplication.ID
+	appID            coreapplication.UUID
 	changes          chan struct{}
 	password         string
 	lastApplied      caas.ApplicationConfig
@@ -53,7 +53,7 @@ type appWorker struct {
 }
 
 type AppWorkerConfig struct {
-	AppID coreapplication.ID
+	AppID coreapplication.UUID
 
 	AgentPasswordService       AgentPasswordService
 	ApplicationService         ApplicationService

@@ -140,7 +140,7 @@ JOIN   application a ON a.uuid = aee.application_uuid
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.ID) (map[string]string, error) {
+func (st *State) GetApplicationEndpointBindings(ctx context.Context, appUUID coreapplication.UUID) (map[string]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -209,7 +209,7 @@ SELECT name AS &applicationName.name FROM (
 // The following errors may be returned:
 //   - [applicationerrors.ApplicationNotFound] is returned if the application
 //     doesn't exist.
-func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.ID) ([]string, error) {
+func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreapplication.UUID) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -286,7 +286,7 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 // insertApplicationEndpointsParams contains parameters required to insert
 // application endpoints into the database.
 type insertApplicationEndpointsParams struct {
-	appID coreapplication.ID
+	appID coreapplication.UUID
 
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
@@ -354,7 +354,7 @@ func (st *State) insertApplicationEndpointBindings(ctx context.Context, tx *sqla
 func (st *State) insertApplicationRelationEndpointBindings(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	relations []charmRelationName,
 	spaceNamesToUUID map[network.SpaceName]string,
 	bindings map[string]network.SpaceName,
@@ -406,7 +406,7 @@ VALUES ($setApplicationEndpointBinding.*)
 func (st *State) insertApplicationExtraBindings(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	extraBindings []charmExtraBinding,
 	spaceNamesToUUID map[network.SpaceName]string,
 	bindings map[string]network.SpaceName,
@@ -718,7 +718,7 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 // getEndpointBindings gets a map of endpoint names to space UUIDs. This
 // includes the application endpoints, and the application extra endpoints. An
 // endpoint name of "" is used to record the default application space.
-func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]string, error) {
+func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) (map[string]string, error) {
 	appIdent := applicationID{ID: appUUID}
 
 	relationEndpoints, err := st.getRelationEndpointBindings(ctx, tx, appIdent)
@@ -860,7 +860,7 @@ AND    application_uuid = $applicationID.uuid
 		return nil, errors.Errorf("preparing charm endpoint count query: %w", err)
 	}
 
-	applicationID := applicationID{ID: coreapplication.ID(appID)}
+	applicationID := applicationID{ID: coreapplication.UUID(appID)}
 	eps := endpointNames(names)
 
 	var result []bindingToTable

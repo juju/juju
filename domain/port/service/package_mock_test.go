@@ -46,7 +46,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // FilterUnitUUIDsForApplication mocks base method.
-func (m *MockState) FilterUnitUUIDsForApplication(arg0 context.Context, arg1 []unit.UUID, arg2 application.ID) (set.Strings, error) {
+func (m *MockState) FilterUnitUUIDsForApplication(arg0 context.Context, arg1 []unit.UUID, arg2 application.UUID) (set.Strings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FilterUnitUUIDsForApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(set.Strings)
@@ -73,13 +73,13 @@ func (c *MockStateFilterUnitUUIDsForApplicationCall) Return(arg0 set.Strings, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateFilterUnitUUIDsForApplicationCall) Do(f func(context.Context, []unit.UUID, application.ID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
+func (c *MockStateFilterUnitUUIDsForApplicationCall) Do(f func(context.Context, []unit.UUID, application.UUID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateFilterUnitUUIDsForApplicationCall) DoAndReturn(f func(context.Context, []unit.UUID, application.ID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
+func (c *MockStateFilterUnitUUIDsForApplicationCall) DoAndReturn(f func(context.Context, []unit.UUID, application.UUID) (set.Strings, error)) *MockStateFilterUnitUUIDsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -124,7 +124,7 @@ func (c *MockStateGetAllOpenedPortsCall) DoAndReturn(f func(context.Context) (po
 }
 
 // GetApplicationOpenedPorts mocks base method.
-func (m *MockState) GetApplicationOpenedPorts(arg0 context.Context, arg1 application.ID) (port.UnitEndpointPortRanges, error) {
+func (m *MockState) GetApplicationOpenedPorts(arg0 context.Context, arg1 application.UUID) (port.UnitEndpointPortRanges, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationOpenedPorts", arg0, arg1)
 	ret0, _ := ret[0].(port.UnitEndpointPortRanges)
@@ -151,13 +151,13 @@ func (c *MockStateGetApplicationOpenedPortsCall) Return(arg0 port.UnitEndpointPo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationOpenedPortsCall) Do(f func(context.Context, application.ID) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
+func (c *MockStateGetApplicationOpenedPortsCall) Do(f func(context.Context, application.UUID) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationOpenedPortsCall) DoAndReturn(f func(context.Context, application.ID) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
+func (c *MockStateGetApplicationOpenedPortsCall) DoAndReturn(f func(context.Context, application.UUID) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

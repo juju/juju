@@ -30,7 +30,7 @@ type State interface {
 
 	// DeleteApplicationResources removes all associated resources of a given
 	// application identified by applicationID.
-	DeleteApplicationResources(ctx context.Context, applicationID coreapplication.ID) error
+	DeleteApplicationResources(ctx context.Context, applicationID coreapplication.UUID) error
 
 	// DeleteResourcesAddedBeforeApplication removes all resources for the
 	// given resource UUIDs. These resource UUIDs must have been returned
@@ -57,7 +57,7 @@ type State interface {
 	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error)
 
 	// ListResources returns the list of resource for the given application.
-	ListResources(ctx context.Context, applicationID coreapplication.ID) (coreresource.ApplicationResources, error)
+	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
@@ -70,7 +70,7 @@ type State interface {
 	//
 	// If the application exists but doesn't have any resources, no error are
 	// returned, the result just contains an empty list.
-	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource, error)
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource, error)
 
 	// ExportResources returns the list of application and unit resources to
 	// export for the given application.
@@ -207,7 +207,7 @@ func NewService(
 //     application resources.
 func (s *Service) DeleteApplicationResources(
 	ctx context.Context,
-	applicationID coreapplication.ID,
+	applicationID coreapplication.UUID,
 ) error {
 	if err := applicationID.Validate(); err != nil {
 		return resourceerrors.ApplicationIDNotValid
@@ -290,7 +290,7 @@ func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 // No error is returned if the provided application has no resource.
 func (s *Service) ListResources(
 	ctx context.Context,
-	applicationID coreapplication.ID,
+	applicationID coreapplication.UUID,
 ) (coreresource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
 		return coreresource.ApplicationResources{}, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
@@ -309,7 +309,7 @@ func (s *Service) ListResources(
 //
 // If the application doesn't have any resources, no error are
 // returned, the result just contain an empty list.
-func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource,
+func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource,
 	error) {
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)

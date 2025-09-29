@@ -1263,8 +1263,8 @@ func (s *applicationServiceSuite) TestGetDeviceConstraintsAppNotFound(c *tc.C) {
 func (s *applicationServiceSuite) TestGetDeviceConstraintsDeadApp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "dead-app").Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.ID("foo")).Return(nil, errors.Errorf("%w", applicationerrors.ApplicationIsDead))
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "dead-app").Return(coreapplication.UUID("foo"), nil)
+	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.UUID("foo")).Return(nil, errors.Errorf("%w", applicationerrors.ApplicationIsDead))
 
 	_, err := s.service.GetDeviceConstraints(c.Context(), "dead-app")
 	c.Assert(err, tc.ErrorMatches, applicationerrors.ApplicationIsDead.Error())
@@ -1273,8 +1273,8 @@ func (s *applicationServiceSuite) TestGetDeviceConstraintsDeadApp(c *tc.C) {
 func (s *applicationServiceSuite) TestGetDeviceConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
-	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.ID("foo-uuid")).Return(map[string]devices.Constraints{
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.UUID("foo-uuid"), nil)
+	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.UUID("foo-uuid")).Return(map[string]devices.Constraints{
 		"dev0": {
 			Type:  "type0",
 			Count: 42,
@@ -1345,7 +1345,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), []coreapplication.ID{appID}).Return([]coreapplication.ID{
+	s.state.EXPECT().GetApplicationsWithPendingCharmsFromUUIDs(gomock.Any(), []coreapplication.UUID{appID}).Return([]coreapplication.UUID{
 		appID,
 	}, nil)
 
@@ -1384,7 +1384,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// that the mapper correctly orders the results based on changes emitted by
 	// the watcher.
 
-	appIDs := make([]coreapplication.ID, 4)
+	appIDs := make([]coreapplication.UUID, 4)
 	for i := range appIDs {
 		appIDs[i] = applicationtesting.GenApplicationUUID(c)
 	}
@@ -1402,7 +1402,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
-	shuffle := make([]coreapplication.ID, len(appIDs))
+	shuffle := make([]coreapplication.UUID, len(appIDs))
 	copy(shuffle, appIDs)
 	rand.Shuffle(len(shuffle), func(i, j int) {
 		shuffle[i], shuffle[j] = shuffle[j], shuffle[i]
@@ -1424,7 +1424,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// that the mapper correctly orders the results based on changes emitted by
 	// the watcher.
 
-	appIDs := make([]coreapplication.ID, 10)
+	appIDs := make([]coreapplication.UUID, 10)
 	for i := range appIDs {
 		appIDs[i] = applicationtesting.GenApplicationUUID(c)
 	}
@@ -1442,7 +1442,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
-	var dropped []coreapplication.ID
+	var dropped []coreapplication.UUID
 	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
@@ -1466,7 +1466,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// that the mapper correctly orders the results based on changes emitted by
 	// the watcher.
 
-	appIDs := make([]coreapplication.ID, 10)
+	appIDs := make([]coreapplication.UUID, 10)
 	for i := range appIDs {
 		appIDs[i] = applicationtesting.GenApplicationUUID(c)
 	}
@@ -1484,7 +1484,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	// order. This is because we can't guarantee the order if there are holes in
 	// the pending sequence.
 
-	var dropped []coreapplication.ID
+	var dropped []coreapplication.UUID
 	var expected []string
 	for i, appID := range appIDs {
 		if rand.IntN(2) == 0 {
@@ -1496,7 +1496,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 
 	// Shuffle them to replicate out of order return.
 
-	shuffle := make([]coreapplication.ID, len(dropped))
+	shuffle := make([]coreapplication.UUID, len(dropped))
 	copy(shuffle, dropped)
 	rand.Shuffle(len(shuffle), func(i, j int) {
 		shuffle[i], shuffle[j] = shuffle[j], shuffle[i]

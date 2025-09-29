@@ -527,7 +527,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(domaintesting.IsAtomicContextChecker, 1, uri, appUUID, gomock.AssignableToTypeOf(p)).
-		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ coreapplication.ID, got domainsecret.UpsertSecretParams) error {
+		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ coreapplication.UUID, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, tc.NotNil)
 			c.Assert(*got.NextRotateTime, tc.Almost, rotateTime)
 			got.NextRotateTime = nil

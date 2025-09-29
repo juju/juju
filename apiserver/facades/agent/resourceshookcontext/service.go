@@ -16,7 +16,7 @@ import (
 type ResourceService interface {
 
 	// GetResourcesByApplicationID retrieves all resources associated with a given application ID in the specified context.
-	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource,
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource,
 		error)
 }
 
@@ -25,9 +25,9 @@ type ResourceService interface {
 type ApplicationService interface {
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit. It
 	// returns an error if the unit is not found by the name
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.UUID, error)
 }

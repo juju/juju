@@ -65,7 +65,7 @@ func newRelationUnitsWatcher(
 func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 	changes []string) (params.RelationUnitsChange, error) {
 	var changedUnitUUIDs []coreunit.UUID
-	var changedAppUUIDs []application.ID
+	var changedAppUUIDs []application.UUID
 
 	// sort uuid by kind
 	for _, change := range changes {
@@ -77,7 +77,7 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 		case relation.UnitUUID:
 			changedUnitUUIDs = append(changedUnitUUIDs, coreunit.UUID(uuid))
 		case relation.ApplicationUUID:
-			changedAppUUIDs = append(changedAppUUIDs, application.ID(uuid))
+			changedAppUUIDs = append(changedAppUUIDs, application.UUID(uuid))
 		default:
 			return params.RelationUnitsChange{}, internalerrors.Errorf("unknown relation unit change kind: %q", kind)
 		}

@@ -45,7 +45,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetAsyncCharmDownloadInfo mocks base method.
-func (m *MockApplicationService) GetAsyncCharmDownloadInfo(arg0 context.Context, arg1 application.ID) (application0.CharmDownloadInfo, error) {
+func (m *MockApplicationService) GetAsyncCharmDownloadInfo(arg0 context.Context, arg1 application.UUID) (application0.CharmDownloadInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAsyncCharmDownloadInfo", arg0, arg1)
 	ret0, _ := ret[0].(application0.CharmDownloadInfo)
@@ -72,19 +72,19 @@ func (c *MockApplicationServiceGetAsyncCharmDownloadInfoCall) Return(arg0 applic
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetAsyncCharmDownloadInfoCall) Do(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockApplicationServiceGetAsyncCharmDownloadInfoCall {
+func (c *MockApplicationServiceGetAsyncCharmDownloadInfoCall) Do(f func(context.Context, application.UUID) (application0.CharmDownloadInfo, error)) *MockApplicationServiceGetAsyncCharmDownloadInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetAsyncCharmDownloadInfoCall) DoAndReturn(f func(context.Context, application.ID) (application0.CharmDownloadInfo, error)) *MockApplicationServiceGetAsyncCharmDownloadInfoCall {
+func (c *MockApplicationServiceGetAsyncCharmDownloadInfoCall) DoAndReturn(f func(context.Context, application.UUID) (application0.CharmDownloadInfo, error)) *MockApplicationServiceGetAsyncCharmDownloadInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ResolveCharmDownload mocks base method.
-func (m *MockApplicationService) ResolveCharmDownload(arg0 context.Context, arg1 application.ID, arg2 application0.ResolveCharmDownload) error {
+func (m *MockApplicationService) ResolveCharmDownload(arg0 context.Context, arg1 application.UUID, arg2 application0.ResolveCharmDownload) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveCharmDownload", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -110,13 +110,13 @@ func (c *MockApplicationServiceResolveCharmDownloadCall) Return(arg0 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceResolveCharmDownloadCall) Do(f func(context.Context, application.ID, application0.ResolveCharmDownload) error) *MockApplicationServiceResolveCharmDownloadCall {
+func (c *MockApplicationServiceResolveCharmDownloadCall) Do(f func(context.Context, application.UUID, application0.ResolveCharmDownload) error) *MockApplicationServiceResolveCharmDownloadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceResolveCharmDownloadCall) DoAndReturn(f func(context.Context, application.ID, application0.ResolveCharmDownload) error) *MockApplicationServiceResolveCharmDownloadCall {
+func (c *MockApplicationServiceResolveCharmDownloadCall) DoAndReturn(f func(context.Context, application.UUID, application0.ResolveCharmDownload) error) *MockApplicationServiceResolveCharmDownloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

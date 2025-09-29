@@ -119,7 +119,7 @@ func (s *machinePlacementSuite) TestGetMachinesForApplicationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *machinePlacementSuite) createApplication(c *tc.C, controller bool) coreapplication.ID {
+func (s *machinePlacementSuite) createApplication(c *tc.C, controller bool) coreapplication.UUID {
 	appID, _, err := s.state.CreateIAASApplication(c.Context(), "foo", application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
 			Charm: charm.Charm{

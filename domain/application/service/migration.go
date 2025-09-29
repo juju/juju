@@ -35,7 +35,7 @@ type MigrationState interface {
 	// application in the model.
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error)
+	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.UUID) ([]application.ExportUnit, error)
 
 	// GetSpaceUUIDByName returns the UUID of the space with the given name.
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
@@ -48,7 +48,7 @@ type MigrationState interface {
 	// application already exists. If returns as error satisfying
 	// [applicationerrors.CharmNotFound] if the charm for the application is
 	// not found.
-	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.ID, error)
+	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.UUID, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -359,7 +359,7 @@ func (s *MigrationService) importApplication(
 	ctx context.Context,
 	name string,
 	args ImportApplicationArgs,
-) (coreapplication.ID, corecharm.ID, error) {
+) (coreapplication.UUID, corecharm.ID, error) {
 	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin); err != nil {
 		return "", "", errors.Errorf("invalid application args: %w", err)
 	}

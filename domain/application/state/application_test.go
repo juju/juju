@@ -1373,7 +1373,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationScaleState(c.Context(), coreapplication.ID(uuid.MustNewUUID().String()))
+	_, err := s.state.GetApplicationScaleState(c.Context(), coreapplication.UUID(uuid.MustNewUUID().String()))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1953,9 +1953,9 @@ func (s *applicationStateSuite) TestInitialWatchStatementApplicationsWithPending
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfPending(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
-	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.ID{id})
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{id})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(expected, tc.DeepEquals, []coreapplication.ID{id})
+	c.Check(expected, tc.DeepEquals, []coreapplication.UUID{id})
 }
 
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsIfAvailable(c *tc.C) {
@@ -1973,13 +1973,13 @@ WHERE a.uuid=?`, id.String())
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.ID{id})
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{id})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(expected, tc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsNotFound(c *tc.C) {
-	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.ID{"foo"})
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{"foo"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(expected, tc.HasLen, 0)
 }
@@ -2003,7 +2003,7 @@ WHERE a.uuid=?`, id1.String())
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.ID{id0, id1})
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{id0, id1})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(expected, tc.HasLen, 0)
@@ -3465,7 +3465,7 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoCharmhubIdentifie
 }
 
 func (s *applicationStateSuite) TestGetDeviceConstraintsAppNotFound(c *tc.C) {
-	_, err := s.state.GetDeviceConstraints(c.Context(), coreapplication.ID("foo"))
+	_, err := s.state.GetDeviceConstraints(c.Context(), coreapplication.UUID("foo"))
 	c.Assert(err, tc.ErrorMatches, applicationerrors.ApplicationNotFound.Error())
 }
 
@@ -3849,7 +3849,7 @@ func (s *applicationStateSuite) TestShouldAllowCharmUpgradeOnErrorNotFound(c *tc
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) setCharmUpgradeOnError(c *tc.C, appUUID coreapplication.ID, v bool) {
+func (s *applicationStateSuite) setCharmUpgradeOnError(c *tc.C, appUUID coreapplication.UUID, v bool) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 UPDATE application
@@ -3971,7 +3971,7 @@ func (s *applicationStateSuite) assertCAASApplication(
 	}
 }
 
-func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreapplication.ID, charmModifiedVersion int) {
+func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreapplication.UUID, charmModifiedVersion int) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
 		return err
@@ -3979,7 +3979,7 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreappli
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *tc.C, appID coreapplication.ID, key, value, defaultValue string, optionType charm.OptionType) {
+func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *tc.C, appID coreapplication.UUID, key, value, defaultValue string, optionType charm.OptionType) {
 	t, err := encodeConfigType(optionType)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3993,7 +3993,7 @@ INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?
 	s.insertCharmConfig(c, appID, key, defaultValue, optionType)
 }
 
-func (s *applicationStateSuite) insertCharmConfig(c *tc.C, appID coreapplication.ID, key, defaultValue string, optionType charm.OptionType) {
+func (s *applicationStateSuite) insertCharmConfig(c *tc.C, appID coreapplication.UUID, key, defaultValue string, optionType charm.OptionType) {
 	t, err := encodeConfigType(optionType)
 	c.Assert(err, tc.ErrorIsNil)
 

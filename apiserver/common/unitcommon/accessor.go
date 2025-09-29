@@ -20,7 +20,7 @@ import (
 type ApplicationService interface {
 	// GetApplicationIDByName returns nil if the application exists.
 	// Otherwise, it returns an error.
-	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (application.UUID, error)
 }
 
 // UnitAccessor returns an auth function which determines if the

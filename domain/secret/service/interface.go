@@ -25,18 +25,18 @@ type AtomicState interface {
 	domain.AtomicStateBase
 
 	DeleteSecret(ctx domain.AtomicContext, uri *secrets.URI, revs []int) error
-	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.ID, error)
+	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.UUID, error)
 	GetUnitUUID(ctx domain.AtomicContext, name coreunit.Name) (coreunit.UUID, error)
 	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
 
 	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) (bool, error)
-	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.ID, label string) (bool, error)
+	CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.UUID, label string) (bool, error)
 	CheckUnitSecretLabelExists(ctx domain.AtomicContext, unitUUID coreunit.UUID, label string) (bool, error)
 	CreateUserSecret(
 		ctx domain.AtomicContext, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams,
 	) error
 	CreateCharmApplicationSecret(
-		ctx domain.AtomicContext, version int, uri *secrets.URI, appUUID coreapplication.ID, secret domainsecret.UpsertSecretParams,
+		ctx domain.AtomicContext, version int, uri *secrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams,
 	) error
 	CreateCharmUnitSecret(
 		ctx domain.AtomicContext, version int, uri *secrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams,

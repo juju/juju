@@ -44,7 +44,7 @@ type IAASApplicationService interface {
 	CreateIAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
-	) (coreapplication.ID, error)
+	) (coreapplication.UUID, error)
 }
 
 // CAASApplicationService instances create an IAAS application.
@@ -54,7 +54,7 @@ type CAASApplicationService interface {
 	CreateCAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
-	) (coreapplication.ID, error)
+	) (coreapplication.UUID, error)
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error

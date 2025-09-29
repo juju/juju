@@ -373,8 +373,8 @@ func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.
 	// Preserve the ordering of the changes, as this is a strings watcher
 	// and we want to return the changes in the order they were received.
 
-	appChanges := make(map[coreapplication.ID][]indexedChanged)
-	uuids := make([]coreapplication.ID, 0)
+	appChanges := make(map[coreapplication.UUID][]indexedChanged)
+	uuids := make([]coreapplication.UUID, 0)
 	for i, change := range changes {
 		appID, err := coreapplication.ParseID(change.Changed())
 		if err != nil {

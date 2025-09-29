@@ -301,7 +301,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 func (s *modelStateSuite) createTestingApplicationWithName(
 	c *tc.C,
 	appName string,
-) coreapplication.ID {
+) coreapplication.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{

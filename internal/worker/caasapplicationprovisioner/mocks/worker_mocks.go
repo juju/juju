@@ -293,7 +293,7 @@ func (m *MockResourceOpenerGetter) EXPECT() *MockResourceOpenerGetterMockRecorde
 }
 
 // ResourceOpenerForApplication mocks base method.
-func (m *MockResourceOpenerGetter) ResourceOpenerForApplication(arg0 context.Context, arg1 application.ID, arg2 string) (resource.Opener, error) {
+func (m *MockResourceOpenerGetter) ResourceOpenerForApplication(arg0 context.Context, arg1 application.UUID, arg2 string) (resource.Opener, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResourceOpenerForApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(resource.Opener)
@@ -320,13 +320,13 @@ func (c *MockResourceOpenerGetterResourceOpenerForApplicationCall) Return(arg0 r
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceOpenerGetterResourceOpenerForApplicationCall) Do(f func(context.Context, application.ID, string) (resource.Opener, error)) *MockResourceOpenerGetterResourceOpenerForApplicationCall {
+func (c *MockResourceOpenerGetterResourceOpenerForApplicationCall) Do(f func(context.Context, application.UUID, string) (resource.Opener, error)) *MockResourceOpenerGetterResourceOpenerForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceOpenerGetterResourceOpenerForApplicationCall) DoAndReturn(f func(context.Context, application.ID, string) (resource.Opener, error)) *MockResourceOpenerGetterResourceOpenerForApplicationCall {
+func (c *MockResourceOpenerGetterResourceOpenerForApplicationCall) DoAndReturn(f func(context.Context, application.UUID, string) (resource.Opener, error)) *MockResourceOpenerGetterResourceOpenerForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

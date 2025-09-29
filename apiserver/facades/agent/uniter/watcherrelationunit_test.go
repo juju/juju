@@ -274,7 +274,7 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	appUUIDByName := map[string]coreapplication.ID{
+	appUUIDByName := map[string]coreapplication.UUID{
 		"app1": coreapplicationtesting.GenApplicationUUID(c),
 		"app2": coreapplicationtesting.GenApplicationUUID(c),
 	}

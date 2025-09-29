@@ -258,7 +258,7 @@ type UnitStatusArg struct {
 type SubordinateUnitArg struct {
 	CreateUnitStorageArg
 	UnitStatusArg
-	SubordinateAppID application.ID
+	SubordinateAppID application.UUID
 	// NetNodeUUID describes the network node uuid for this subordinate unit.
 	NetNodeUUID domainnetwork.NetNodeUUID
 
@@ -385,7 +385,7 @@ type ExposedEndpoint struct {
 
 // ExportApplication contains parameters for exporting an application.
 type ExportApplication struct {
-	UUID                 application.ID
+	UUID                 application.UUID
 	Name                 string
 	CharmUUID            charm.ID
 	Life                 life.Life

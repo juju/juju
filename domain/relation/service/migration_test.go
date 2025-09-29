@@ -190,7 +190,7 @@ func (s *migrationServiceSuite) expectImportRelation(
 	return relUUID
 }
 
-func (s *migrationServiceSuite) expectGetApplicationIDByName(c *tc.C, name string) coreapplication.ID {
+func (s *migrationServiceSuite) expectGetApplicationIDByName(c *tc.C, name string) coreapplication.UUID {
 	appID := coreapplicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), name).Return(appID, nil)
 	return appID
@@ -198,7 +198,7 @@ func (s *migrationServiceSuite) expectGetApplicationIDByName(c *tc.C, name strin
 
 func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 	uuid corerelation.UUID,
-	id coreapplication.ID,
+	id coreapplication.UUID,
 	settings map[string]interface{},
 ) {
 	appSettings, _ := settingsMap(settings)

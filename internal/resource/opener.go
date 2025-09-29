@@ -76,7 +76,7 @@ func NewResourceOpenerForApplication(
 	ctx context.Context,
 	args ResourceOpenerArgs,
 	applicationName string,
-	applicationID coreapplication.ID,
+	applicationID coreapplication.UUID,
 ) (opener coreresource.Opener, err error) {
 	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
 	if err != nil {
@@ -121,7 +121,7 @@ type ResourceOpener struct {
 	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
 	charmOrigin     charm.Origin
-	appID           coreapplication.ID
+	appID           coreapplication.UUID
 
 	resourceClientGetter        ResourceClientGetter
 	resourceDownloadLimiterFunc func() ResourceDownloadLock

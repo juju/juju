@@ -44,16 +44,16 @@ type ModelState interface {
 	IsMachineController(context.Context, machine.Name) (bool, error)
 
 	// SetApplicationPasswordHash sets the password hash for the given application.
-	SetApplicationPasswordHash(context.Context, application.ID, agentpassword.PasswordHash) error
+	SetApplicationPasswordHash(context.Context, application.UUID, agentpassword.PasswordHash) error
 
 	// MatchesApplicationPasswordHash checks if the password is valid or not against the
 	// password hash stored in the database.
-	MatchesApplicationPasswordHash(context.Context, application.ID, agentpassword.PasswordHash) (bool, error)
+	MatchesApplicationPasswordHash(context.Context, application.UUID, agentpassword.PasswordHash) (bool, error)
 
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (application.UUID, error)
 
 	// SetModelPasswordHash sets the password hash for the model overriding any
 	// previously set value.
@@ -262,7 +262,7 @@ func (s *Service) MatchesControllerNodePasswordHash(ctx context.Context, id, pas
 // SetApplicationPassword sets the password for the given application. If the
 // app does not exist, an error satisfying [applicationerrors.ApplicationNotFound]
 // is returned.
-func (s *Service) SetApplicationPassword(ctx context.Context, appID application.ID, password string) error {
+func (s *Service) SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

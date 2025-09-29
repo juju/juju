@@ -21,7 +21,7 @@ import (
 
 // getPeerEndpoints retrieves a list of peer endpoint for the given
 // application UUID from the database.
-func (st *State) getPeerEndpoints(ctx context.Context, tx *sqlair.TX, uuid coreapplication.ID) ([]peerEndpoint, error) {
+func (st *State) getPeerEndpoints(ctx context.Context, tx *sqlair.TX, uuid coreapplication.UUID) ([]peerEndpoint, error) {
 	type application dbUUID
 	app := application{UUID: uuid.String()}
 
@@ -53,7 +53,7 @@ ORDER BY cr.name -- ensure that peer endpoints relation id are always generated 
 // within a transactional context.
 // It retrieves peer endpoints, creates new relations for them,
 // and inserts their statuses and endpoints. Returns an error if any step fails.
-func (st *State) insertPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+func (st *State) insertPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	peerEndpoints, err := st.getPeerEndpoints(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting peer endpoints: %w", err)
@@ -77,7 +77,7 @@ func (st *State) insertPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID
 // within a transactional context, using the relation ID provided during migration.
 // It retrieves peer endpoints, creates new relations for them,
 // and inserts their statuses and endpoints. Returns an error if any step fails.
-func (st *State) insertMigratingPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, relations map[string]int) error {
+func (st *State) insertMigratingPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID, relations map[string]int) error {
 	peerEndpoints, err := st.getPeerEndpoints(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting peer endpoints: %w", err)

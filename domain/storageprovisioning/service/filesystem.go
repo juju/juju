@@ -182,7 +182,7 @@ type FilesystemState interface {
 
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
-	GetFilesystemTemplatesForApplication(context.Context, coreapplication.ID) ([]storageprovisioning.FilesystemTemplate, error)
+	GetFilesystemTemplatesForApplication(context.Context, coreapplication.UUID) ([]storageprovisioning.FilesystemTemplate, error)
 
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
 	// about the provisioned filesystem.
@@ -669,7 +669,7 @@ func (s *Service) WatchMachineProvisionedFilesystemAttachments(
 // GetFilesystemTemplatesForApplication returns all the filesystem templates for
 // a given application.
 func (s *Service) GetFilesystemTemplatesForApplication(
-	ctx context.Context, appUUID coreapplication.ID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

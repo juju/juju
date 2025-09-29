@@ -30,7 +30,7 @@ const (
 type asyncDownloadWorker struct {
 	tomb tomb.Tomb
 
-	appID              application.ID
+	appID              application.UUID
 	applicationService ApplicationService
 	downloader         Downloader
 
@@ -41,7 +41,7 @@ type asyncDownloadWorker struct {
 // NewAsyncDownloadWorker creates a new async worker that downloads charms for
 // the specified application.
 func NewAsyncDownloadWorker(
-	appID application.ID,
+	appID application.UUID,
 	applicationService ApplicationService,
 	downloader Downloader,
 	clock clock.Clock,

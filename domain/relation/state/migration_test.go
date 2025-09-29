@@ -31,8 +31,8 @@ type migrationSuite struct {
 
 	fakeCharmUUID1       corecharm.ID
 	fakeCharmUUID2       corecharm.ID
-	fakeApplicationUUID1 coreapplication.ID
-	fakeApplicationUUID2 coreapplication.ID
+	fakeApplicationUUID1 coreapplication.UUID
+	fakeApplicationUUID2 coreapplication.UUID
 	fakeApplicationName1 string
 	fakeApplicationName2 string
 }
@@ -582,7 +582,7 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 // endpoint based on the provided relation.
 func (s *migrationSuite) addApplicationEndpointFromRelation(c *tc.C,
 	charmUUID corecharm.ID,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	relation charm.Relation) corerelation.EndpointUUID {
 
 	// todo(gfouillet) introduce proper generation for this uuid

@@ -21,7 +21,7 @@ import (
 // applicationIDGetter is a function type used to retrieve a coreapplication.ID
 // based on the given context (from application name or unit name)
 // It returns an error if the ID retrieval fails.
-type applicationIDGetter func(ctx context.Context) (coreapplication.ID, error)
+type applicationIDGetter func(ctx context.Context) (coreapplication.UUID, error)
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.
 func NewUnitFacade(
@@ -36,11 +36,11 @@ func NewUnitFacade(
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		applicationIDGetter = func(ctx context.Context) (coreapplication.ID, error) {
+		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
 			return applicationService.GetApplicationIDByUnitName(ctx, unitName)
 		}
 	case names.ApplicationTag:
-		applicationIDGetter = func(ctx context.Context) (coreapplication.ID, error) {
+		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
 			return applicationService.GetApplicationIDByName(ctx, tag.Id())
 		}
 	default:
@@ -57,12 +57,12 @@ func NewUnitFacade(
 type UnitFacade struct {
 	resourceService         ResourceService
 	getApplicationIDFromAPI applicationIDGetter
-	applicationID           coreapplication.ID
+	applicationID           coreapplication.UUID
 }
 
 // getApplicationID retrieves and caches the application ID for the unit.
 // It fetches from the API if not already cached.
-func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.ID, error) {
+func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.UUID, error) {
 	if uf.applicationID == "" {
 		applicationID, err := uf.getApplicationIDFromAPI(ctx)
 		if err != nil {

@@ -42,7 +42,7 @@ type stateSuite struct {
 	unitUUID coreunit.UUID
 	unitName coreunit.Name
 
-	appUUID coreapplication.ID
+	appUUID coreapplication.UUID
 }
 
 func TestStateSuite(t *stdtesting.T) {
@@ -96,7 +96,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.unitUUID, s.unitName = s.createUnit(c, netNodeUUIDs[0], appNames[0])
 }
 
-func (s *baseSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.ID {
+func (s *baseSuite) createApplicationWithRelations(c *tc.C, appName string, relations ...string) coreapplication.UUID {
 	relationsMap := map[string]charm.Relation{}
 	for _, relation := range relations {
 		relationsMap[relation] = charm.Relation{

@@ -229,7 +229,7 @@ func (s *stateSuite) TestGetStorageResourceTagInfoForApplication(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	resourceTags, err := st.GetStorageResourceTagInfoForApplication(
-		c.Context(), coreapplication.ID(appUUID), "resource_tags",
+		c.Context(), coreapplication.UUID(appUUID), "resource_tags",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ApplicationResourceTagInfo{

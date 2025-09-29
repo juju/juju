@@ -68,7 +68,7 @@ type ApplicationService interface {
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationsForRevisionUpdater returns the applications that should be
 	// used by the revision updater.

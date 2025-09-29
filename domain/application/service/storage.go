@@ -152,7 +152,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 	// when the application no longer exists.
 	GetApplicationStorageDirectives(
-		context.Context, coreapplication.ID,
+		context.Context, coreapplication.UUID,
 	) ([]application.StorageDirective, error)
 
 	// GetDefaultStorageProvisioners returns the default storage provisioners
@@ -172,7 +172,7 @@ type StorageState interface {
 	// The caller should expect that a zero length result can be supplied.
 	GetStorageInstancesForProviderIDs(
 		ctx context.Context,
-		applicationUUID coreapplication.ID,
+		applicationUUID coreapplication.UUID,
 		ids []string,
 	) (map[string]domainstorage.StorageInstanceUUID, error)
 

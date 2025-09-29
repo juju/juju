@@ -748,7 +748,7 @@ func (u *UniterAPI) charmModifiedVersion(
 		return -1, apiservererrors.ErrPerm
 	}
 
-	var id application.ID
+	var id application.UUID
 	switch tag.(type) {
 	case names.ApplicationTag:
 		id, err = u.applicationService.GetApplicationIDByName(ctx, tag.Id())
@@ -1626,10 +1626,10 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 	return result, nil
 }
 
-type subordinateCreator func(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error
+type subordinateCreator func(ctx context.Context, subordinateAppID application.UUID, principalUnitName coreunit.Name) error
 
 // CreateSubordinate creates units on a subordinate application.
-func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error {
+func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.UUID, principalUnitName coreunit.Name) error {
 	return c(ctx, subordinateAppID, principalUnitName)
 }
 
@@ -2600,7 +2600,7 @@ func (u *UniterAPI) goalStateRelations(
 
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
-func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.ID, principalName coreunit.Name) (params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateUnits(ctx context.Context, appName string, appID application.UUID, principalName coreunit.Name) (params.UnitsGoalState, error) {
 
 	allUnitNames, err := u.applicationService.GetUnitNamesForApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {

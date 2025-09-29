@@ -18,11 +18,11 @@ import (
 )
 
 type applicationID struct {
-	ID coreapplication.ID `db:"uuid"`
+	ID coreapplication.UUID `db:"uuid"`
 }
 
 type applicationIDAndName struct {
-	ID   coreapplication.ID `db:"uuid"`
+	ID   coreapplication.UUID `db:"uuid"`
 	Name string             `db:"name"`
 }
 
@@ -51,7 +51,7 @@ type statusInfo struct {
 }
 
 type applicationStatusInfo struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
 	StatusID      int                `db:"status_id"`
 	Message       string             `db:"message"`
 	Data          []byte             `db:"data"`
@@ -149,7 +149,7 @@ type CharmLocatorDetails struct {
 
 type applicationStatusDetails struct {
 	CharmLocatorDetails
-	UUID                   coreapplication.ID `db:"uuid"`
+	UUID                   coreapplication.UUID `db:"uuid"`
 	Name                   string             `db:"name"`
 	PlatformOSID           sql.Null[int64]    `db:"platform_os_id"`
 	PlatformChannel        string             `db:"platform_channel"`

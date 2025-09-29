@@ -83,10 +83,10 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 type ApplicationService interface {
 	// GetApplicationIDByName returns a application ID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 	// GetCharmByApplicationID returns the charm for the specified application
 	// ID.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	GetCharmByApplicationID(context.Context, coreapplication.UUID) (charm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.

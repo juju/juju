@@ -258,7 +258,7 @@ func (st *State) addRelation(
 //     exist.
 func (st *State) ApplicationRelationsInfo(
 	ctx context.Context,
-	appID application.ID,
+	appID application.UUID,
 ) ([]domainrelation.EndpointRelationData, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -329,7 +329,7 @@ func (st *State) getApplicationSettingsByRelAndApp(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]relationSetting, error) {
 
 	id := relationAndApplicationUUID{
@@ -395,7 +395,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 //     doesn't refer an existing application.
 func (st *State) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) ([]domainrelation.GoalStateRelationData, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -450,7 +450,7 @@ AND    ep1.application_uuid != ep2.application_uuid
 func (st *State) GetOtherRelatedEndpointApplicationData(
 	ctx context.Context,
 	relUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (domainrelation.OtherApplicationForWatcher, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -489,8 +489,8 @@ func (st *State) getOtherApplicationInRelations(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relUUID corerelation.UUID,
-	appID application.ID,
-) (application.ID, error) {
+	appID application.UUID,
+) (application.UUID, error) {
 
 	findOtherEndsStmt, err := st.Prepare(`
 SELECT other.application_uuid AS &relationAndApplicationUUID.application_uuid
@@ -522,7 +522,7 @@ AND    app.relation_uuid = $relationAndApplicationUUID.relation_uuid
 func (st *State) getApplicationSubordinate(
 	ctx context.Context,
 	tx *sqlair.TX,
-	app application.ID,
+	app application.UUID,
 ) (otherApplicationsForWatcher, error) {
 
 	appSubordinateStmt, err := st.Prepare(`
@@ -591,7 +591,7 @@ WHERE  relation_id = $relationIDAndUUID.relation_id
 func (st *State) GetRelationEndpointScope(
 	ctx context.Context,
 	relUUID corerelation.UUID,
-	appID application.ID,
+	appID application.UUID,
 ) (charm.RelationScope, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1004,7 +1004,7 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 // the relation_unit table is that the unit has departed, and thus, the related
 // row has been deleted.
 func (st *State) GetRelationUnitChanges(
-	ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID,
+	ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID,
 ) (domainrelation.RelationUnitsChange, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1055,7 +1055,7 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 
 	var appChanges, unitChanges []change
 	var departedUnits []getUnit
-	apps := transform.Slice(appUUIDs, application.ID.String)
+	apps := transform.Slice(appUUIDs, application.UUID.String)
 	units := transform.Slice(unitUUIDs, unit.UUID.String)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, unitStmt, uuids(units)).GetAll(&unitChanges)
@@ -1286,13 +1286,13 @@ func (st *State) NeedsSubordinateUnit(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	principalUnitName unit.Name,
-) (*application.ID, error) {
+) (*application.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result *application.ID
+	var result *application.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Find the unit in the relation.
 		relUnitUUID, unitUUID, err := st.getRelationUnit(ctx, tx, relationUUID, principalUnitName)
@@ -1354,11 +1354,11 @@ func (st *State) findRelatedSubordinateApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID corerelation.UnitUUID,
-) (application.ID, bool, error) {
+) (application.UUID, bool, error) {
 	type getSub struct {
 		UnitUUID               corerelation.UnitUUID `db:"unit_uuid"`
 		Subordinate            bool                  `db:"subordinate"`
-		PrincipalApplicationID application.ID        `db:"application_uuid"`
+		PrincipalApplicationID application.UUID      `db:"application_uuid"`
 	}
 
 	arg := getSub{
@@ -1399,13 +1399,13 @@ WHERE  ru.uuid = $getSub.unit_uuid
 func (st *State) subordinateUnitExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	subordinateAppID application.ID,
+	subordinateAppID application.UUID,
 	principalUnit unit.UUID,
 ) (bool, error) {
 	type getSub struct {
-		PrincipalUnitUUID        unit.UUID      `db:"unit_uuid"`
-		SubordinateApplicationID application.ID `db:"application_uuid"`
-		SubordinateLife          life.Value     `db:"value"`
+		PrincipalUnitUUID        unit.UUID        `db:"unit_uuid"`
+		SubordinateApplicationID application.UUID `db:"application_uuid"`
+		SubordinateLife          life.Value       `db:"value"`
 	}
 	arg := getSub{
 		PrincipalUnitUUID:        principalUnit,
@@ -1482,7 +1482,7 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 			found = true
 		}
 	case 2: // Regular relation.
-		var otherAppID application.ID
+		var otherAppID application.UUID
 		if appIDs[0] == unitsAppID {
 			found = true
 			otherAppID = appIDs[1]
@@ -1540,7 +1540,7 @@ WHERE  t.uuid = $getLife.uuid
 
 // getApplicationOfUnit returns the ID of the application associated with the
 // unit.
-func (st *State) getApplicationOfUnit(ctx context.Context, tx *sqlair.TX, unitUUID string) (application.ID, error) {
+func (st *State) getApplicationOfUnit(ctx context.Context, tx *sqlair.TX, unitUUID string) (application.UUID, error) {
 	args := getUnitApp{
 		UnitUUID: unitUUID,
 	}
@@ -1564,7 +1564,7 @@ WHERE  uuid = $getUnitApp.uuid
 
 // getApplicationsInRelation gets all the applications that are in the given
 // relation.
-func (st *State) getApplicationsInRelation(ctx context.Context, tx *sqlair.TX, uuid string) ([]application.ID, error) {
+func (st *State) getApplicationsInRelation(ctx context.Context, tx *sqlair.TX, uuid string) ([]application.UUID, error) {
 	relUUID := entityUUID{
 		UUID: uuid,
 	}
@@ -1585,7 +1585,7 @@ WHERE  re.relation_uuid = $entityUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	var ids []application.ID
+	var ids []application.UUID
 	for _, app := range apps {
 		ids = append(ids, app.UUID)
 	}
@@ -1613,7 +1613,7 @@ WHERE  re.relation_uuid = $entityUUID.uuid
 // they are the units of the new principal application, otherwise the error is
 // returned.
 func (st *State) checkSubordinateUnitCanEnterScope(
-	ctx context.Context, tx *sqlair.TX, relUUID, unitUUID string, otherApplication application.ID,
+	ctx context.Context, tx *sqlair.TX, relUUID, unitUUID string, otherApplication application.UUID,
 ) error {
 	// Check that the other application in the relation is not a subordinate
 	// application, if it is, we have a relation between two subordinates, which
@@ -1695,7 +1695,7 @@ func hashToInt(hash string) int64 {
 func (st *State) isSubordinate(
 	ctx context.Context,
 	tx *sqlair.TX,
-	applicationUUID application.ID,
+	applicationUUID application.UUID,
 ) (bool, error) {
 	subordinate := getSubordinate{
 		ApplicationUUID: applicationUUID,
@@ -1728,7 +1728,7 @@ func (st *State) getPrincipalApplicationOfUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
-) (application.ID, error) {
+) (application.UUID, error) {
 	principal := getPrincipal{
 		UnitUUID: unitUUID,
 	}
@@ -1922,7 +1922,7 @@ WHERE uuid = $relationUnitUUID.uuid
 func (st *State) GetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (map[string]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -2340,7 +2340,7 @@ func (st *State) getRelationEndpointUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 ) (string, error) {
 	id := relationAndApplicationUUID{
 		RelationUUID:  relationUUID,
@@ -2386,13 +2386,13 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 func (st *State) GetPrincipalSubordinateApplicationIDs(
 	ctx context.Context,
 	unitUUID unit.UUID,
-) (principal application.ID, subordinate application.ID, err error) {
+) (principal application.UUID, subordinate application.UUID, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
 
-	var principalAppID, subordinateAppID application.ID
+	var principalAppID, subordinateAppID application.UUID
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsNotDead); err != nil {
@@ -2451,7 +2451,7 @@ func (st *State) ApplicationExists(ctx context.Context, id application.ID) error
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for a
 // relation's Life and Suspended status when the relation contains the provided
 // application and the initial namespace query.
-func (st *State) InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT  re.relation_uuid AS &relationUUID.uuid
@@ -2500,7 +2500,7 @@ func (st *State) WatcherApplicationSettingsNamespace() string {
 func (st *State) GetMapperDataForWatchLifeSuspendedStatus(
 	ctx context.Context,
 	relUUID corerelation.UUID,
-	appID application.ID,
+	appID application.UUID,
 ) (domainrelation.RelationLifeSuspendedData, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -3099,7 +3099,7 @@ AND    e2.endpoint_uuid = $endpoint2.application_endpoint_uuid
 
 func (st *State) getApplicationIDByUnitUUID(
 	ctx context.Context, tx *sqlair.TX, unitUUID string,
-) (application.ID, error) {
+) (application.UUID, error) {
 	getApplication := getPrincipal{
 		UnitUUID: unitUUID,
 	}
@@ -3127,7 +3127,7 @@ func (st *State) getRelationAndApplicationOfRelationUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUnitUUID corerelation.UnitUUID,
-) (corerelation.UUID, application.ID, error) {
+) (corerelation.UUID, application.UUID, error) {
 	args := getUnitRelAndApp{
 		RelationUnitUUID: relationUnitUUID,
 	}
@@ -3162,7 +3162,7 @@ func convertSettings(input []relationSetting) map[string]interface{} {
 func (st *State) getEveryRelationForApplicationID(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID application.ID,
+	appID application.UUID,
 ) ([]relationIDUUIDAppName, error) {
 	var result []relationIDUUIDAppName
 
@@ -3218,7 +3218,7 @@ func (st *State) getUnitsRelationData(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relUUID corerelation.UUID,
-	appID application.ID,
+	appID application.UUID,
 ) (map[string]domainrelation.RelationData, error) {
 	var result map[string]domainrelation.RelationData
 
@@ -3256,7 +3256,7 @@ func (st *State) getRelationUnitsWithUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
-	appID application.ID,
+	appID application.UUID,
 ) ([]relationUnitWithUnit, error) {
 	relationUnitStmt, err := st.Prepare(`
 SELECT    ru.uuid AS &relationUnitWithUnit.uuid,
@@ -3291,7 +3291,7 @@ func (st *State) setRelationApplicationSettings(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 	settings map[string]string,
 ) error {
 	// Get the relation endpoint UUID.
