@@ -59,9 +59,9 @@ func (s *getOperationSuite) TestListOperationsNoFilters(c *tc.C) {
 	api := s.newActionAPI(c)
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Receivers.Applications, tc.HasLen, 0)
-			c.Check(qp.Receivers.Machines, tc.HasLen, 0)
-			c.Check(qp.Receivers.Units, tc.HasLen, 0)
+			c.Check(qp.Applications, tc.HasLen, 0)
+			c.Check(qp.Machines, tc.HasLen, 0)
+			c.Check(qp.Units, tc.HasLen, 0)
 			c.Check(qp.ActionNames, tc.IsNil)
 			c.Check(qp.Status, tc.IsNil)
 			c.Check(qp.Limit, tc.IsNil)
@@ -85,7 +85,7 @@ func (s *getOperationSuite) TestListOperationsApplicationsFilter(c *tc.C) {
 	apps := []string{"app-a", "app-b"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Receivers.Applications, tc.DeepEquals, apps)
+			c.Check(qp.Applications, tc.DeepEquals, apps)
 			return operation.QueryResult{}, nil
 		})
 
@@ -105,7 +105,7 @@ func (s *getOperationSuite) TestListOperationsUnitsFilter(c *tc.C) {
 	units := []string{"app-a/0", "app-b/3"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Receivers.Units, tc.DeepEquals, []unit.Name{"app-a/0", "app-b/3"})
+			c.Check(qp.Units, tc.DeepEquals, []unit.Name{"app-a/0", "app-b/3"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -124,7 +124,7 @@ func (s *getOperationSuite) TestListOperationsMachinesFilter(c *tc.C) {
 	machines := []string{"0", "42"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Receivers.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
+			c.Check(qp.Machines, tc.DeepEquals, []machine.Name{"0", "42"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -200,11 +200,11 @@ func (s *getOperationSuite) TestListOperationsCombinedFilters(c *tc.C) {
 	status := []corestatus.Status{"running"}
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Receivers.Applications, tc.DeepEquals, apps)
+			c.Check(qp.Applications, tc.DeepEquals, apps)
 			c.Check(qp.ActionNames, tc.DeepEquals, actionNames)
 			c.Check(qp.Status, tc.DeepEquals, status)
-			c.Check(qp.Receivers.Units, tc.DeepEquals, []unit.Name{"a/0"})
-			c.Check(qp.Receivers.Machines, tc.DeepEquals, []machine.Name{"1"})
+			c.Check(qp.Units, tc.DeepEquals, []unit.Name{"a/0"})
+			c.Check(qp.Machines, tc.DeepEquals, []machine.Name{"1"})
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -309,8 +309,7 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 		Status:     "running",
 		Message:    "in progress",
 		Log:        log,
-		Output:     map[string]interface{}{"k": "v"},
-		Error:      fmt.Errorf("task-fail")}
+		Output:     map[string]any{"k": "v"}}
 	qr := operation.QueryResult{
 		Operations: []operation.OperationInfo{{
 			OperationID: "1",
@@ -329,8 +328,7 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	acts := res.Results[0].Actions
 	c.Assert(acts, tc.HasLen, 1)
 	ar := acts[0]
-	c.Assert(ar.Error, tc.NotNil)
-	c.Check(ar.Error.Message, tc.Matches, ".*task-fail.*")
+	c.Assert(ar.Error, tc.IsNil)
 }
 
 // TestListOperationsEmptyOperations verifies that an empty operations slice results in empty results.

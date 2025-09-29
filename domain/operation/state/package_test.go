@@ -71,6 +71,44 @@ func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 		errors.ErrorStack(err)))
 }
 
+// queryRows returns rows as a slice of maps for the given query.
+func (s *baseSuite) queryRows(c *tc.C, query string, args ...interface{}) []map[string]interface{} {
+	var results []map[string]interface{}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		cols, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			values := make([]interface{}, len(cols))
+			valuePtrs := make([]interface{}, len(cols))
+			for i := range values {
+				valuePtrs[i] = &values[i]
+			}
+
+			if err := rows.Scan(valuePtrs...); err != nil {
+				return err
+			}
+
+			row := make(map[string]interface{})
+			for i, col := range cols {
+				row[col] = values[i]
+			}
+			results = append(results, row)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.IsNil, tc.Commentf("querying rows with query %q", query))
+	return results
+}
+
 // getRowCount returns the number of rows in a table.
 func (s *baseSuite) getRowCount(c *tc.C, table string) int {
 	var obtained int
@@ -164,15 +202,30 @@ func (s *baseSuite) addUnitWithName(c *tc.C, charmUUID, name string) string {
 		unitName = coreunit.Name(fmt.Sprintf("%s/0", uniqueAppName))
 	}
 
-	appUUID := internaluuid.MustNewUUID().String()
+	appUUID := s.getOrCreateApplication(c, charmUUID, unitName.Application())
 	nodeUUID := internaluuid.MustNewUUID().String()
 	unitUUID := internaluuid.MustNewUUID().String()
 	s.query(c, `INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID)
-	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, unitName.Application(), life.Alive, charmUUID, network.AlphaSpaceId)
 	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
 		unitUUID, unitName.String(), life.Alive, appUUID, charmUUID, nodeUUID)
 	return unitUUID
+}
+
+// getOrCreateApplication gets or creates an application with the given name
+func (s *baseSuite) getOrCreateApplication(c *tc.C, charmUUID, appName string) string {
+	// First try to find existing application
+	var existingAppUUID string
+	rows := s.queryRows(c, `SELECT uuid FROM application WHERE name = ?`, appName)
+	if len(rows) > 0 {
+		existingAppUUID = rows[0]["uuid"].(string)
+		return existingAppUUID
+	}
+
+	// Create new application if it doesn't exist.
+	appUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appName, life.Alive, charmUUID, network.AlphaSpaceId)
+	return appUUID
 }
 
 // addOperation inserts a minimal operation row, returning the new operation UUID.

@@ -81,7 +81,7 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 
 	task, _, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(task.Parameters), tc.Equals, 2)
+	c.Assert(task.Parameters, tc.HasLen, 2)
 	c.Check(task.Parameters["param1"], tc.Equals, "value1")
 	c.Check(task.Parameters["param2"], tc.Equals, "value2")
 }
@@ -98,7 +98,7 @@ func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
 	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(outputPath, tc.IsNil)
-	c.Check(len(task.Log), tc.Equals, 2)
+	c.Assert(task.Log, tc.HasLen, 2)
 	c.Check(task.Log[0].Message, tc.DeepEquals, "log entry 1")
 	c.Check(task.Log[1].Message, tc.DeepEquals, "log entry 2")
 }

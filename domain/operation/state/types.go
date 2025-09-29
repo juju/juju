@@ -14,24 +14,28 @@ type uuids []string
 // taskResult represents the result of joining operation with its tasks and
 // receivers.
 type taskResult struct {
+	TaskID         string         `db:"task_id"`
 	OperationUUID  string         `db:"operation_uuid"`
-	Receiver       string         `db:"receiver"`
+	MachineName    sql.NullString `db:"machine_name"`
+	UnitName       sql.NullString `db:"unit_name"`
 	Name           sql.NullString `db:"name"`
-	Summary        sql.NullString `db:"summary"`
 	Parallel       bool           `db:"parallel"`
 	ExecutionGroup sql.NullString `db:"execution_group"`
 	EnqueuedAt     time.Time      `db:"enqueued_at"`
 	StartedAt      sql.NullTime   `db:"started_at"`
 	CompletedAt    sql.NullTime   `db:"completed_at"`
 	Status         string         `db:"status"`
-	StatusMessage  sql.NullString `db:"status_message"`
-	StatusValue    sql.NullString `db:"status_value"`
 	OutputPath     sql.NullString `db:"path"`
 }
 
 // uuid represents a simple wrapper for operation UUID queries.
 type uuid struct {
 	UUID string `db:"uuid"`
+}
+
+// operationID represents a simple wrapper for operation ID queries.
+type operationID struct {
+	OperationID string `db:"operation_id"`
 }
 
 // taskParameter represents a parameter key-value pair for a task.
@@ -46,6 +50,25 @@ type taskLogEntry struct {
 	TaskUUID  string    `db:"task_uuid"`
 	Content   string    `db:"content"`
 	CreatedAt time.Time `db:"created_at"`
+}
+
+// taskLogEntryByOperation represents a log entry joined with its task and
+// operation.
+type taskLogEntryByOperation struct {
+	OperationUUID string    `db:"operation_uuid"`
+	TaskID        string    `db:"task_id"`
+	Content       string    `db:"content"`
+	CreatedAt     time.Time `db:"created_at"`
+}
+
+// operationResult represents the operation row for GetOperationByID.
+type operationResult struct {
+	UUID        string         `db:"uuid"`
+	OperationID string         `db:"operation_id"`
+	Summary     sql.NullString `db:"summary"`
+	EnqueuedAt  time.Time      `db:"enqueued_at"`
+	StartedAt   sql.NullTime   `db:"started_at"`
+	CompletedAt sql.NullTime   `db:"completed_at"`
 }
 
 // taskIdent represents a task ID parameter for queries.
@@ -135,4 +158,10 @@ type insertMachineTask struct {
 
 type charmUUIDResult struct {
 	CharmUUID string `db:"charm_uuid"`
+}
+
+// queryParams represents the parameters for GetOperations query
+type queryParams struct {
+	Limit  int `db:"limit"`
+	Offset int `db:"offset"`
 }

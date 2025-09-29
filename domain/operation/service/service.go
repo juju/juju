@@ -54,6 +54,13 @@ type State interface {
 		receiverUUID internaluuid.UUID,
 	) ([]string, error)
 
+	// GetOperationByID returns an operation by its ID.
+	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
+
+	// GetOperations returns a list of operations on specified entities, filtered by the
+	// given parameters.
+	GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error)
+
 	// GetTask returns the task identified by its ID.
 	// It returns the task as well as the path to its output in the object store,
 	// if any. It's up to the caller to retrieve the actual output from the object

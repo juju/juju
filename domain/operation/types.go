@@ -40,9 +40,17 @@ type QueryArgs struct {
 	// If empty, all operations will be retrieved among exec or actions operations
 	ActionNames []string
 
-	// Receivers defines a filter on which receiver(s) we want to retrieve operations.
-	// if empty, operations from all receivers will be retrieved.
-	Receivers Receivers
+	// Applications defines the specific applications to which the operations
+	// will be filtered on. All units of the application are taken in this case.
+	Applications []string
+
+	// Machines defines the specific machines to which the operations will be
+	// filtered on.
+	Machines []machine.Name
+
+	// Units defines the specific units to which the operations will be filtered
+	// on.
+	Units []unit.Name
 
 	// Status defines which specific status we want to retrieve.
 	// If empty, operations with any status will be retrieved.
@@ -57,7 +65,11 @@ type QueryArgs struct {
 // QueryResult contains the result of a query request for operations.
 type QueryResult struct {
 	Operations []OperationInfo
-	Truncated  bool
+
+	// Truncated indicates that there are more results to be fetched, but the whole
+	// result set has been truncated to either the limit passed as a query
+	// parameter or the default limit on the server side.
+	Truncated bool
 }
 
 // OperationInfo represents the information about an operation.
@@ -71,12 +83,7 @@ type OperationInfo struct {
 	Status      corestatus.Status
 	Machines    []MachineTaskResult
 	Units       []UnitTaskResult
-
-	// Truncated indicates that there are more results to be fetched, but the whole
-	// result set has been truncated to either the limit passed as a query
-	// parameter or the default limit on the server side.
-	Truncated bool
-	Error     error
+	Error       error
 }
 
 // ExecArgs represents the parameters used for running exec commands.

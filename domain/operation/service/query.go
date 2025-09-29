@@ -6,22 +6,122 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/operation"
 	"github.com/juju/juju/internal/errors"
 )
 
+// statusCompletedOrder is a pre-defined order of statuses that we use to sort
+// the each task status to get the overall status of an operation.
+var statusCompletedOrder = []corestatus.Status{
+	corestatus.Error,
+	corestatus.Failed,
+	corestatus.Cancelled,
+	corestatus.Completed,
+}
+
+// statusOrder is a pre-defined order of statuses that we use to sort the
+// each task status to get the overall status of an operation.
+var statusActiveOrder = []corestatus.Status{
+	corestatus.Running,
+	corestatus.Aborting,
+	corestatus.Pending,
+}
+
 // GetOperations returns a list of operations on specified entities, filtered by the
 // given parameters.
 func (s *Service) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
-	return operation.QueryResult{}, errors.New("actions in Dqlite not supported")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	s.logger.Debugf(ctx, "querying operations with params: %v", params)
+	res, err := s.st.GetOperations(ctx, params)
+	if err != nil {
+		return operation.QueryResult{}, errors.Capture(err)
+	}
+	// Now we must deduce the status each operation.
+	for i, op := range res.Operations {
+		unitTaskStatuses := transform.Slice(op.Units, func(u operation.UnitTaskResult) string {
+			return u.TaskInfo.Status.String()
+		})
+		machineTaskStatuses := transform.Slice(op.Machines, func(m operation.MachineTaskResult) string {
+			return m.TaskInfo.Status.String()
+		})
+		allStatuses := set.NewStrings(append(unitTaskStatuses, machineTaskStatuses...)...)
+		opStatus, err := operationStatus(allStatuses)
+		if err != nil {
+			// This is a programming error, since all tasks should have a known
+			// status. We don't block though, set it to pending and continue.
+			opStatus = corestatus.Pending
+			s.logger.Errorf(ctx, "getting status of operation %q: %w", op.OperationID, err)
+		}
+		res.Operations[i].Status = opStatus
+	}
+
+	return res, nil
 }
 
 // GetOperationByID returns an operation by its ID.
 func (s *Service) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
-	return operation.OperationInfo{}, errors.New("actions in Dqlite not supported")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	res, err := s.st.GetOperationByID(ctx, operationID)
+	if err != nil {
+		return operation.OperationInfo{}, errors.Capture(err)
+	}
+
+	// Now we must deduce the status of the operation.
+	unitTaskStatuses := transform.Slice(res.Units, func(u operation.UnitTaskResult) string {
+		return u.TaskInfo.Status.String()
+	})
+	machineTaskStatuses := transform.Slice(res.Machines, func(m operation.MachineTaskResult) string {
+		return m.TaskInfo.Status.String()
+	})
+	allStatuses := set.NewStrings(append(unitTaskStatuses, machineTaskStatuses...)...)
+	opStatus, err := operationStatus(allStatuses)
+	if err != nil {
+		// This is a programming error, since all tasks should have a known
+		// status. We don't block though, set it to pending and continue.
+		opStatus = corestatus.Pending
+		s.logger.Errorf(ctx, "getting status of operation %q: %w", operationID, err)
+	}
+	res.Status = opStatus
+
+	return res, nil
+}
+
+// operationStatus returns the status of an operation. The status is always
+// computed on the fly, derived from the independent status of each task.
+// It takes a set of all task statuses as input.
+func operationStatus(allTasksStatuses set.Strings) (corestatus.Status, error) {
+	// An operation with an empty set of tasks is error status.
+	if allTasksStatuses.IsEmpty() {
+		return corestatus.Error, nil
+	}
+
+	// First check the tasks for active statuses.
+	for _, status := range statusActiveOrder {
+		if allTasksStatuses.Contains(status.String()) {
+			return status, nil
+		}
+	}
+	// If no active statuses, check for completed statuses.
+	for _, status := range statusCompletedOrder {
+		if allTasksStatuses.Contains(status.String()) {
+			return status, nil
+		}
+	}
+
+	// If we get here, all tasks are in unknown status. This is a programming
+	// error, one which the DDL should protect us against.
+	return "", errors.Errorf("unknown status")
 }
 
 // GetMachineTaskIDsWithStatus retrieves the task IDs for a specific machine name and status.

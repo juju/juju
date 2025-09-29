@@ -42,8 +42,8 @@ func (s *startSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *startSuite) service() *Service {
-	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(nil), s.mockObjectStoreGetter, s.mockLeadershipService)
+func (s *startSuite) service(c *tc.C) *Service {
+	return NewService(s.state, s.clock, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter, s.mockLeadershipService)
 }
 
 func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
@@ -106,7 +106,7 @@ func (s *startSuite) TestStartExecOperationWithMachinesAndUnits(c *tc.C) {
 			return expectedResult, nil
 		})
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "42")
 	c.Check(result.Machines, tc.HasLen, 2)
@@ -171,7 +171,7 @@ func (s *startSuite) TestStartExecOperationWithLeaderUnitsSuccess(c *tc.C) {
 			return expectedResult, nil
 		})
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "42")
 	c.Assert(result.Units, tc.HasLen, 3)
@@ -205,7 +205,7 @@ func (s *startSuite) TestStartExecOperationConsolidationMismatch(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("test-app/0", nil)
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedResult, nil)
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
@@ -226,7 +226,7 @@ func (s *startSuite) TestStartExecOperationLeaderResolutionError(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("", errors.New("leadership error"))
 
 	// Return early since there are no valid targets to pass to state layer.
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 1)
@@ -248,7 +248,7 @@ func (s *startSuite) TestStartExecOperationLeaderUnitNameParsingError(c *tc.C) {
 	s.mockLeadershipService.EXPECT().ApplicationLeader("test-app").Return("invalid-unit-name", nil)
 
 	// Return early since there are no valid targets to pass to state layer.
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 1)
@@ -304,7 +304,7 @@ func (s *startSuite) TestStartExecOperationMixedLeaderResults(c *tc.C) {
 			return expectedResult, nil
 		})
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "42")
 	c.Assert(result.Units, tc.HasLen, 3) // 2 leader units + 1 regular unit from state
@@ -336,7 +336,7 @@ func (s *startSuite) TestStartExecOperationStateError(c *tc.C) {
 
 	s.state.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(operation.RunResult{}, errors.New("database error"))
 
-	_, err := s.service().AddExecOperation(c.Context(), target, args)
+	_, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.ErrorMatches, "starting exec operation: database error")
 }
 
@@ -376,7 +376,7 @@ func (s *startSuite) TestStartExecOperationOnlyLeaderUnits(c *tc.C) {
 			return expectedResult, nil
 		})
 
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 1)
 	c.Check(result.Units[0].IsLeader, tc.Equals, true)
@@ -390,7 +390,7 @@ func (s *startSuite) TestStartExecOperationEmptyTarget(c *tc.C) {
 	args := operation.ExecArgs{Command: "echo hello"}
 
 	// Return early without calling state layer.
-	result, err := s.service().AddExecOperation(c.Context(), target, args)
+	result, err := s.service(c).AddExecOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "")
 	c.Assert(result.Units, tc.HasLen, 0)
@@ -427,7 +427,7 @@ func (s *startSuite) TestStartExecOperationOnAllMachinesSuccess(c *tc.C) {
 
 	s.state.EXPECT().AddExecOperationOnAllMachines(gomock.Any(), gomock.Any(), args).Return(expectedResult, nil)
 
-	result, err := s.service().AddExecOperationOnAllMachines(c.Context(), args)
+	result, err := s.service(c).AddExecOperationOnAllMachines(c.Context(), args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "47")
 	c.Check(result.Machines, tc.HasLen, 2)
@@ -441,7 +441,7 @@ func (s *startSuite) TestStartExecOperationOnAllMachinesError(c *tc.C) {
 
 	s.state.EXPECT().AddExecOperationOnAllMachines(gomock.Any(), gomock.Any(), args).Return(operation.RunResult{}, errors.New("no machines found"))
 
-	_, err := s.service().AddExecOperationOnAllMachines(c.Context(), args)
+	_, err := s.service(c).AddExecOperationOnAllMachines(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "starting exec operation on all machines: no machines found")
 }
 
@@ -489,7 +489,7 @@ func (s *startSuite) TestStartActionOperationWithRegularUnits(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedTargetUnits, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "50")
 	c.Assert(result.Units, tc.HasLen, 2)
@@ -542,7 +542,7 @@ func (s *startSuite) TestStartActionOperationWithLeaderUnits(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedTargetUnits, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "50")
 	c.Assert(result.Units, tc.HasLen, 3)
@@ -598,7 +598,7 @@ func (s *startSuite) TestStartActionOperationMixedLeaderResults(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedStateTarget, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "42")
 	c.Assert(result.Units, tc.HasLen, 3) // 2 leader units + 1 regular unit from state
@@ -657,7 +657,7 @@ func (s *startSuite) TestStartActionOperationMixedFailedLeaderResults(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedStateTarget, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Check(result.OperationID, tc.Equals, "42")
 	c.Assert(result.Units, tc.HasLen, 3) // 2 leader units + 1 regular unit from state
@@ -714,7 +714,7 @@ func (s *startSuite) TestStartActionOperationMixedTargets(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedTargetUnits, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 3)
 	c.Check(result.Units[0].IsLeader, tc.Equals, false) // Regular unit
@@ -749,7 +749,7 @@ func (s *startSuite) TestStartActionOperationLeaderResolutionError(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), expectedTargetUnits, args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 2)
 
@@ -778,7 +778,7 @@ func (s *startSuite) TestStartActionOperationAllLeaderResolutionErrors(c *tc.C) 
 	s.mockLeadershipService.EXPECT().ApplicationLeader("bad-app-2").Return("", errors.New("error 2"))
 
 	// No units should be passed to state layer, so it should return early
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 2)
 
@@ -797,7 +797,7 @@ func (s *startSuite) TestStartActionOperationStateError(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(operation.RunResult{}, errors.New("action not found"))
 
-	_, err := s.service().AddActionOperation(c.Context(), target, args)
+	_, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.ErrorMatches, "adding action operation: action not found")
 }
 
@@ -808,7 +808,7 @@ func (s *startSuite) TestStartActionOperationEmptyTarget(c *tc.C) {
 	args := operation.TaskArgs{ActionName: "backup"}
 
 	// Should return early without calling state layer.
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 0)
 	c.Check(result.OperationID, tc.Equals, "")
@@ -837,7 +837,7 @@ func (s *startSuite) TestStartActionOperationConsolidationMismatch(c *tc.C) {
 
 	s.state.EXPECT().AddActionOperation(gomock.Any(), gomock.Any(), gomock.Any(), args).Return(expectedResult, nil)
 
-	result, err := s.service().AddActionOperation(c.Context(), target, args)
+	result, err := s.service(c).AddActionOperation(c.Context(), target, args)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Units, tc.HasLen, 2)
 	c.Check(result.Units[0].ReceiverName, tc.Equals, unit.Name("test-app/0"))
