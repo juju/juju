@@ -3807,7 +3807,7 @@ func (s *applicationSuite) TestReconcileVolumes(c *gc.C) {
 
 	// Orphan delete the current sts.
 	statefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", sts)
-	statefulsetWithOrphanDelete := &resources.StatefulSetWithOrphanDelete{statefulset}
+	statefulsetWithOrphanDelete := resources.NewStatefulSetWithOrphanDelete(*statefulset)
 	s.applier.EXPECT().Delete(statefulsetWithOrphanDelete)
 
 	// Now we create a new sts object without the pvc.

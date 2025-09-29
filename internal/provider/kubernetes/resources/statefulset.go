@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	"github.com/juju/juju/core/status"
@@ -30,7 +31,9 @@ type StatefulSet struct {
 // StatefulSetWithOrphanDelete is a wrapper around [StatefulSet] that overrides
 // the [StatefulSet.Delete] method to use DeletePropagationOrphan.
 type StatefulSetWithOrphanDelete struct {
-	*StatefulSet
+	StatefulSet
+	interval time.Duration
+	timeout  time.Duration
 }
 
 // NewStatefulSet creates a new statefulset resource.
@@ -41,6 +44,10 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	in.SetName(name)
 	in.SetNamespace(namespace)
 	return &StatefulSet{client, *in}
+}
+
+func NewStatefulSetWithOrphanDelete(ss StatefulSet) *StatefulSetWithOrphanDelete {
+	return &StatefulSetWithOrphanDelete{StatefulSet: ss, interval: 1 * time.Second, timeout: 30 * time.Second}
 }
 
 // Clone returns a copy of the resource.
@@ -69,7 +76,7 @@ func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 		result, err = ss.client.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
-		logger.Infof("[adis][StatefulSet][Apply] creating... sts name: %q, ss: %+v, result: %+v, err: %+v", ss.Name, ss.StatefulSet, result, err)
+		logger.Infof("[adis][StatefulSet][Apply] creating... sts name: %q, err: %+v", ss.Name, err)
 		return errors.Trace(err)
 	}
 	if err != nil {
@@ -92,7 +99,7 @@ func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 	result, err = ss.client.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
-	logger.Infof("[adis][StatefulSet][Apply] patch... sts name: %q, result: %+v, err: %+v", ss.Name, result, err)
+	logger.Infof("[adis][StatefulSet][Apply] patch... sts name: %q, err: %+v", ss.Name, err)
 	if k8serrors.IsNotFound(err) {
 		// This should never happen.
 		return errors.NewNotFound(err, fmt.Sprintf("statefulset %q", ss.Name))
@@ -146,6 +153,18 @@ func (s *StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}
+	// K8s doesn't delete the sts immediately. Block until it's deleted.
+	err = wait.PollUntilContextTimeout(ctx, s.interval, s.timeout, true, func(ctx context.Context) (done bool, err error) {
+		logger.Infof("[adis][StatefulSetWithOrphanDelete] blocking until sts %q is deleted", s.Name)
+		getErr := s.Get(ctx)
+		if errors.Is(getErr, errors.NotFound) {
+			logger.Infof("[adis][StatefulSetWithOrphanDelete] sts %q is finally deleted ^_^", s.Name)
+			return true, nil
+		} else if err != nil {
+			return false, err
+		}
+		return false, nil
+	})
 	return errors.Trace(err)
 }
 

@@ -772,7 +772,7 @@ func reconcileApplicationStorage(appName string, app caas.Application, facade CA
 	}
 
 	// Set its initial value. It must be the first time it was invoked.
-	if lastApplied == nil {
+	if *lastApplied == nil {
 		*lastApplied = info.Filesystems
 		logger.Infof("[adis][reconcileappstorage] app: %q first time...", appName)
 		return nil

@@ -885,7 +885,7 @@ func (a *app) getStatefulSetWithOrphanDelete() (*resources.StatefulSetWithOrphan
 	if err != nil {
 		return nil, err
 	}
-	return &resources.StatefulSetWithOrphanDelete{StatefulSet: ss}, nil
+	return resources.NewStatefulSetWithOrphanDelete(*ss), nil
 }
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
@@ -2468,8 +2468,7 @@ func (a *app) ReconcileVolumes(filesystems []jujustorage.KubernetesFilesystemPar
 	}
 
 	// Reapply the new sts with the updated pvc.
-	logger.Infof("[adis] reapply sts %q", newStatefulset.Name)
-	logger.Infof("[adis] sts %+v", newStatefulset)
+	logger.Infof("[adis][ReconcileVolumes] app: %q, reapply sts", a.name)
 	applier.Apply(newStatefulset)
 	return applier.Run(context.Background(), false)
 }

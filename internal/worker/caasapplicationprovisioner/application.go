@@ -450,7 +450,11 @@ func (a *appWorker) loop() error {
 			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, &a.lastAppliedFilesystems, a.logger)
 			if err != nil {
 				a.logger.Infof("[adis][ReconcileApplicationStorage] err: %+v", err)
-				return errors.Trace(err)
+				if errors.Is(err, errors.NotFound) {
+					storageConstraintsChan = a.clock.After(retryDelay)
+				} else {
+					return errors.Trace(err)
+				}
 			}
 			storageConstraintsChan = nil
 		case <-a.clock.After(10 * time.Second):
