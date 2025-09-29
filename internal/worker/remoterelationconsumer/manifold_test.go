@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api/base"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -39,11 +38,8 @@ func (s *ManifoldConfigSuite) validConfig(c *tc.C) ManifoldConfig {
 		APICallerName:               "api-caller",
 		APIRemoteRelationCallerName: "api-remote-relation-caller",
 		DomainServicesName:          "domain-services",
-		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
+		GetCrossModelServices: func(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
 			return nil, nil
-		},
-		NewLocalRemoteRelationFacade: func(apiCaller base.APICaller) RemoteRelationsFacade {
-			return nil
 		},
 		NewRemoteRelationClientGetter: func(acg apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter {
 			return nil

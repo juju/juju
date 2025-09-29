@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/api/watcher"
+	application "github.com/juju/juju/core/application"
 	status "github.com/juju/juju/core/status"
 	watcher0 "github.com/juju/juju/core/watcher"
 	crossmodelrelation "github.com/juju/juju/domain/crossmodelrelation"
@@ -845,6 +846,208 @@ func (c *MockRemoteRelationsFacadeWatchRemoteApplicationRelationsCall) Do(f func
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteRelationsFacadeWatchRemoteApplicationRelationsCall) DoAndReturn(f func(context.Context, string) (watcher0.StringsWatcher, error)) *MockRemoteRelationsFacadeWatchRemoteApplicationRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockCrossModelService is a mock of CrossModelService interface.
+type MockCrossModelService struct {
+	ctrl     *gomock.Controller
+	recorder *MockCrossModelServiceMockRecorder
+}
+
+// MockCrossModelServiceMockRecorder is the mock recorder for MockCrossModelService.
+type MockCrossModelServiceMockRecorder struct {
+	mock *MockCrossModelService
+}
+
+// NewMockCrossModelService creates a new mock instance.
+func NewMockCrossModelService(ctrl *gomock.Controller) *MockCrossModelService {
+	mock := &MockCrossModelService{ctrl: ctrl}
+	mock.recorder = &MockCrossModelServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCrossModelService) EXPECT() *MockCrossModelServiceMockRecorder {
+	return m.recorder
+}
+
+// GetRemoteApplicationOfferers mocks base method.
+func (m *MockCrossModelService) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOfferers", arg0)
+	ret0, _ := ret[0].([]crossmodelrelation.RemoteApplicationOfferer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOfferers indicates an expected call of GetRemoteApplicationOfferers.
+func (mr *MockCrossModelServiceMockRecorder) GetRemoteApplicationOfferers(arg0 any) *MockCrossModelServiceGetRemoteApplicationOfferersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOfferers", reflect.TypeOf((*MockCrossModelService)(nil).GetRemoteApplicationOfferers), arg0)
+	return &MockCrossModelServiceGetRemoteApplicationOfferersCall{Call: call}
+}
+
+// MockCrossModelServiceGetRemoteApplicationOfferersCall wrap *gomock.Call
+type MockCrossModelServiceGetRemoteApplicationOfferersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceGetRemoteApplicationOfferersCall) Return(arg0 []crossmodelrelation.RemoteApplicationOfferer, arg1 error) *MockCrossModelServiceGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceGetRemoteApplicationOfferersCall) Do(f func(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)) *MockCrossModelServiceGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceGetRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)) *MockCrossModelServiceGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchApplicationLifeSuspendedStatus mocks base method.
+func (m *MockCrossModelService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.ID) (watcher0.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
+	ret0, _ := ret[0].(watcher0.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationLifeSuspendedStatus indicates an expected call of WatchApplicationLifeSuspendedStatus.
+func (mr *MockCrossModelServiceMockRecorder) WatchApplicationLifeSuspendedStatus(arg0, arg1 any) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLifeSuspendedStatus", reflect.TypeOf((*MockCrossModelService)(nil).WatchApplicationLifeSuspendedStatus), arg0, arg1)
+	return &MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall{Call: call}
+}
+
+// MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall wrap *gomock.Call
+type MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchRemoteApplicationOfferers mocks base method.
+func (m *MockCrossModelService) WatchRemoteApplicationOfferers(ctx context.Context) (watcher0.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRemoteApplicationOfferers", ctx)
+	ret0, _ := ret[0].(watcher0.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRemoteApplicationOfferers indicates an expected call of WatchRemoteApplicationOfferers.
+func (mr *MockCrossModelServiceMockRecorder) WatchRemoteApplicationOfferers(ctx any) *MockCrossModelServiceWatchRemoteApplicationOfferersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRemoteApplicationOfferers", reflect.TypeOf((*MockCrossModelService)(nil).WatchRemoteApplicationOfferers), ctx)
+	return &MockCrossModelServiceWatchRemoteApplicationOfferersCall{Call: call}
+}
+
+// MockCrossModelServiceWatchRemoteApplicationOfferersCall wrap *gomock.Call
+type MockCrossModelServiceWatchRemoteApplicationOfferersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceWatchRemoteApplicationOfferersCall) Return(arg0 watcher0.NotifyWatcher, arg1 error) *MockCrossModelServiceWatchRemoteApplicationOfferersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceWatchRemoteApplicationOfferersCall) Do(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRemoteApplicationOfferersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceWatchRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockRelationService is a mock of RelationService interface.
+type MockRelationService struct {
+	ctrl     *gomock.Controller
+	recorder *MockRelationServiceMockRecorder
+}
+
+// MockRelationServiceMockRecorder is the mock recorder for MockRelationService.
+type MockRelationServiceMockRecorder struct {
+	mock *MockRelationService
+}
+
+// NewMockRelationService creates a new mock instance.
+func NewMockRelationService(ctrl *gomock.Controller) *MockRelationService {
+	mock := &MockRelationService{ctrl: ctrl}
+	mock.recorder = &MockRelationServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
+	return m.recorder
+}
+
+// WatchApplicationLifeSuspendedStatus mocks base method.
+func (m *MockRelationService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.ID) (watcher0.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
+	ret0, _ := ret[0].(watcher0.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplicationLifeSuspendedStatus indicates an expected call of WatchApplicationLifeSuspendedStatus.
+func (mr *MockRelationServiceMockRecorder) WatchApplicationLifeSuspendedStatus(arg0, arg1 any) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLifeSuspendedStatus", reflect.TypeOf((*MockRelationService)(nil).WatchApplicationLifeSuspendedStatus), arg0, arg1)
+	return &MockRelationServiceWatchApplicationLifeSuspendedStatusCall{Call: call}
+}
+
+// MockRelationServiceWatchApplicationLifeSuspendedStatusCall wrap *gomock.Call
+type MockRelationServiceWatchApplicationLifeSuspendedStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Return(arg0 watcher0.StringsWatcher, arg1 error) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

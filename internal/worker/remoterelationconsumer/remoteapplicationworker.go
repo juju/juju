@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -27,16 +28,41 @@ import (
 // RemoteApplicationConfig defines the configuration for a remote application
 // worker.
 type RemoteApplicationConfig struct {
-	OfferUUID                  string
-	ApplicationName            string
-	LocalModelUUID             model.UUID
-	RemoteModelUUID            string
-	ConsumeVersion             int
-	Macaroon                   *macaroon.Macaroon
-	RemoteRelationsFacade      RemoteRelationsFacade
+	CrossModelService          CrossModelService
 	RemoteRelationClientGetter RemoteRelationClientGetter
-	Clock                      clock.Clock
-	Logger                     logger.Logger
+
+	OfferUUID       string
+	ApplicationName string
+	ApplicationUUID application.ID
+	LocalModelUUID  model.UUID
+	RemoteModelUUID string
+	ConsumeVersion  int
+	Macaroon        *macaroon.Macaroon
+
+	Clock  clock.Clock
+	Logger logger.Logger
+}
+
+// Validate ensures that the config is valid.
+func (c RemoteApplicationConfig) Validate() error {
+	if c.CrossModelService == nil {
+		return errors.NotValidf("nil cross model service")
+	}
+	if c.RemoteRelationClientGetter == nil {
+		return errors.NotValidf("nil remote relation client getter")
+	}
+
+	if c.OfferUUID == "" {
+		return errors.NotValidf("empty offer uuid")
+	}
+	if c.ApplicationName == "" {
+		return errors.NotValidf("empty application name")
+	}
+	if c.ApplicationUUID == "" {
+		return errors.NotValidf("empty application uuid")
+	}
+
+	return nil
 }
 
 // remoteApplicationWorker listens for localChanges to relations
@@ -47,12 +73,20 @@ type RemoteApplicationConfig struct {
 type remoteApplicationWorker struct {
 	catacomb catacomb.Catacomb
 
-	mu sync.Mutex
+	// crossModelService is the domain services used to interact with the local
+	// database for cross model relations.
+	crossModelService CrossModelService
 
+	// remoteModelClient interacts with the remote (offering) model.
+	remoteModelClient          RemoteModelRelationsClient
+	remoteRelationClientGetter RemoteRelationClientGetter
+
+	mu sync.Mutex
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID                 string
-	applicationName           string     // name of the remote application proxy in the local model
+	applicationName           string
+	applicationUUID           application.ID
 	localModelUUID            model.UUID // uuid of the model hosting the local application
 	remoteModelUUID           string     // uuid of the model hosting the remote offer
 	consumeVersion            int
@@ -64,16 +98,9 @@ type remoteApplicationWorker struct {
 	// relations is stored here for the engine report.
 	relations map[string]*relation
 
-	// offerMacaroon is used to confirm that permission has been granted to consume
-	// the remote application to which this worker pertains.
+	// offerMacaroon is used to confirm that permission has been granted to
+	// consume the remote application to which this worker pertains.
 	offerMacaroon *macaroon.Macaroon
-
-	// localModelFacade interacts with the local (consuming) model.
-	localModelFacade RemoteRelationsFacade
-
-	// remoteModelClient interacts with the remote (offering) model.
-	remoteModelClient          RemoteModelRelationsClient
-	remoteRelationClientGetter RemoteRelationClientGetter
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -81,16 +108,20 @@ type remoteApplicationWorker struct {
 
 // NewRemoteApplicationWorker creates a new remote application worker.
 func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &remoteApplicationWorker{
 		offerUUID:                  config.OfferUUID,
 		applicationName:            config.ApplicationName,
+		applicationUUID:            config.ApplicationUUID,
 		localModelUUID:             config.LocalModelUUID,
 		remoteModelUUID:            config.RemoteModelUUID,
 		consumeVersion:             config.ConsumeVersion,
 		offerMacaroon:              config.Macaroon,
 		localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
 		remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
-		localModelFacade:           config.RemoteRelationsFacade,
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 		clock:                      config.Clock,
 		logger:                     config.Logger,
@@ -166,7 +197,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	defer cancel()
 
 	// Watch for changes to any local relations to the remote application.
-	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(ctx, w.applicationName)
+	relationsWatcher, err := w.crossModelService.WatchApplicationLifeSuspendedStatus(ctx, w.applicationUUID)
 	if err != nil && isNotFound(err) {
 		return nil
 	} else if err != nil {
@@ -545,7 +576,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 ) (ReportableWorker, ReportableWorker, error) {
 	localUnitsWorker, err := newLocalRelationUnitsWorker(
 		ctx,
-		w.localModelFacade,
+		w.crossModelService,
 		relationTag,
 		mac,
 		w.localRelationUnitChanges,

@@ -35,7 +35,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
+	s.crossModelService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -60,7 +60,7 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -107,7 +107,7 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -165,7 +165,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -242,7 +242,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
 		ModelUUID:                  s.modelUUID,
-		CrossModelRelationService:  s.crossModelRelationService,
+		CrossModelService:          s.crossModelService,
 		RelationsFacade:            s.remoteRelationsFacade,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {

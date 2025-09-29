@@ -65,7 +65,7 @@ type relationUnitsWorker struct {
 
 func newLocalRelationUnitsWorker(
 	ctx context.Context,
-	facade RemoteRelationsFacade,
+	facade CrossModelService,
 	relationTag names.RelationTag,
 	mac *macaroon.Macaroon,
 	changes chan<- RelationUnitChangeEvent,

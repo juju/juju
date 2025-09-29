@@ -11,10 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
-	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
@@ -41,7 +38,7 @@ type NewRemoteApplicationWorkerFunc func(RemoteApplicationConfig) (ReportableWor
 
 // GetCrossModelServicesFunc defines the function signature for getting
 // cross-model services.
-type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error)
+type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName string) (CrossModelService, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
@@ -51,7 +48,6 @@ type ManifoldConfig struct {
 	APIRemoteRelationCallerName string
 	DomainServicesName          string
 
-	NewLocalRemoteRelationFacade  func(base.APICaller) RemoteRelationsFacade
 	NewRemoteRelationClientGetter NewRemoteRelationClientGetterFunc
 
 	GetCrossModelServices GetCrossModelServicesFunc
@@ -102,7 +98,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
 			config.APIRemoteRelationCallerName,
 			config.DomainServicesName,
 		},
@@ -111,17 +106,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var apiConn api.Connection
-			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			var apiRemoteCallerGetter apiremoterelationcaller.APIRemoteCallerGetter
 			if err := getter.Get(config.APIRemoteRelationCallerName, &apiRemoteCallerGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			crossModelRelationService, err := config.GetCrossModelServices(getter, config.DomainServicesName)
+			crossModelService, err := config.GetCrossModelServices(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -129,9 +119,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				ModelUUID: config.ModelUUID,
 
-				CrossModelRelationService: crossModelRelationService,
-
-				RelationsFacade:            config.NewLocalRemoteRelationFacade(apiConn),
+				CrossModelService:          crossModelService,
 				RemoteRelationClientGetter: config.NewRemoteRelationClientGetter(apiRemoteCallerGetter),
 
 				NewRemoteApplicationWorker: config.NewRemoteApplicationWorker,
@@ -147,21 +135,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// GetCrossModelServices returns the cross-model relation services
+// GetCrossModelService returns the cross-model relation services
 // from the dependency engine.
-func GetCrossModelServices(getter dependency.Getter, domainServicesName string) (CrossModelRelationService, error) {
+func GetCrossModelService(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
 	var services services.DomainServices
 	if err := getter.Get(domainServicesName, &services); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return services.CrossModelRelation(), nil
-}
-
-// NewLocalRemoteRelationFacade creates a new RemoteRelationsFacade using the
-// APICaller.
-func NewLocalRemoteRelationFacade(apiCaller base.APICaller) RemoteRelationsFacade {
-	return remoterelations.NewClient(apiCaller)
+	return struct {
+		RelationService
+		CrossModelRelationService
+	}{
+		RelationService:           services.Relation(),
+		CrossModelRelationService: services.CrossModelRelation(),
+	}, nil
 }
 
 // NewRemoteRelationClientGetter creates a new RemoteRelationClientGetter

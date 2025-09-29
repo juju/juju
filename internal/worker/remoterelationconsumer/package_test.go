@@ -21,7 +21,7 @@ import (
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
-	crossModelRelationService  *MockCrossModelRelationService
+	crossModelService          *MockCrossModelService
 	remoteModelRelationClient  *MockRemoteModelRelationsClient
 	remoteRelationsFacade      *MockRemoteRelationsFacade
 	remoteRelationClientGetter *MockRemoteRelationClientGetter
@@ -32,7 +32,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.crossModelRelationService = NewMockCrossModelRelationService(ctrl)
+	s.crossModelService = NewMockCrossModelService(ctrl)
 	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
 	s.remoteRelationsFacade = NewMockRemoteRelationsFacade(ctrl)
 	s.remoteRelationClientGetter = NewMockRemoteRelationClientGetter(ctrl)
