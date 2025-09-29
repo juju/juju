@@ -161,6 +161,7 @@ func (a *applier) Run(ctx context.Context, noRollback bool) (err error) {
 	}()
 	for _, op := range a.ops {
 		if err = op.process(ctx, rollback); err != nil {
+			logger.Infof("[adis][applier][Run] resource: %+v, opType: %q, err: %+v", op.resource.ID(), op.opType, err)
 			return errors.Trace(err)
 		}
 	}

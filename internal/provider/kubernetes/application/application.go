@@ -2391,6 +2391,7 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 // ReconcileVolumes deletes the existing statefulset with DeletePropagationOrphan policy.
 // It reconciles PVCs and reapplies a new statefulset.
 func (a *app) ReconcileVolumes(filesystems []jujustorage.KubernetesFilesystemParams) error {
+	logger.Infof("[adis][ReconcileVolumes] app: %q, filesystems %+v", a.name, filesystems)
 	sts, getErr := a.getStatefulSetWithOrphanDelete()
 	if getErr != nil {
 		return errors.Trace(getErr)
