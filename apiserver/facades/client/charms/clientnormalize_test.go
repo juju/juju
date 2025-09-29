@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/tc"
 
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -54,30 +52,4 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *tc.C) 
 	origin.Architecture = "amd64"
 	origin.Base.Channel = ""
 	c.Assert(obtained, tc.DeepEquals, origin)
-}
-
-type clientValidateOriginSuite struct {
-	testhelpers.IsolationSuite
-}
-
-func TestClientValidateOriginSuite(t *testing.T) {
-	tc.Run(t, &clientValidateOriginSuite{})
-}
-func (s *clientValidateOriginSuite) TestValidateOrigin(c *tc.C) {
-	origin := corecharm.Origin{
-		Source:   "charm-hub",
-		Platform: corecharm.Platform{Architecture: "all"},
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *tc.C) {
-	origin := corecharm.Origin{
-		Source: "charm-hub",
-	}
-
-	err := validateOrigin(origin, charm.MustParseURL("ch:ubuntu"), false)
-	c.Assert(err, tc.ErrorMatches, "empty architecture not valid")
 }
