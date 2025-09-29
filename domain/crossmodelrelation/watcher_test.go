@@ -73,14 +73,24 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-DELETE FROM application_remote_offerer
-WHERE application_uuid = (SELECT uuid FROM application WHERE name = ?)
-`, "foo")
+			var applicationUUID string
+			err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = "foo"`).Scan(&applicationUUID)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `
+DELETE FROM application_remote_offerer_status
+WHERE application_remote_offerer_uuid = (
+SELECT uuid FROM application_remote_offerer WHERE application_uuid = ?)`, applicationUUID)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `DELETE FROM application_remote_offerer WHERE application_uuid = ?`, applicationUUID)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
-
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
