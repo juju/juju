@@ -66,7 +66,7 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C, srv *httptest.Server) *websocket.C
 	u, err := url.Parse(srv.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	u.Scheme = "ws"
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
 	return conn

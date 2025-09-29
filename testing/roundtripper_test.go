@@ -28,6 +28,7 @@ func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp, gc.NotNil)
 	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -43,6 +44,7 @@ func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp, gc.NotNil)
 	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)

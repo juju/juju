@@ -96,7 +96,7 @@ func (s *dispatchSuite) assertResponse(c *gc.C, obtained, expected string) {
 // request performs one request to the test server via websockets.
 func (s *dispatchSuite) request(c *gc.C, req string) string {
 	url := fmt.Sprintf("ws://%s/rpc", s.serverAddr)
-	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{
+	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{ //nolint:bodyclose // WebSocket library handles response body closure
 		"Origin": {"http://localhost"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

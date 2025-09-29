@@ -155,7 +155,7 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 				req.Body = io.NopCloser(bytes.NewReader(body))
 			}
 			var err error
-			resp, err = t.doOnce(req)
+			resp, err = t.doOnce(req) //nolint:bodyclose // resp.Body is closed by the caller.
 			return err
 		},
 		IsFatalError: func(err error) bool {

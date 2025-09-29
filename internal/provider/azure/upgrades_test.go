@@ -169,7 +169,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	controllerTags["juju-is-controller"] = &trueString
 
 	unauthSender := &azuretesting.MockSender{}
-	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3) //nolint:bodyclose
 	s.sender = append(s.sender, unauthSender, unauthSender, unauthSender)
 
 	c.Assert(s.invalidCredential, jc.IsFalse)

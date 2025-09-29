@@ -160,7 +160,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 }
 
 func (s *pubsubSuite) dialWebsocket(c *gc.C) *websocket.Conn {
-	conn, _, err := s.dialWebsocketInternal(c, s.makeAuthHeader())
+	conn, _, err := s.dialWebsocketInternal(c, s.makeAuthHeader()) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }

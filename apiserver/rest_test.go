@@ -71,27 +71,31 @@ func (s *restSuite) SetUpSuite(c *gc.C) {
 func (s *restSuite) TestRestServedSecurely(c *gc.C) {
 	url := s.restURL(s.State.ModelUUID(), "")
 	url.Scheme = "http"
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
 		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 func (s *restSuite) TestGETRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.restURI(s.State.ModelUUID(), "entity/name/attribute")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
 func (s *restSuite) TestRequiresGET(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.restURI(s.State.ModelUUID(), "entity/name/attribute")})
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
 
 func (s *restSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	uri := s.restURI(s.State.ModelUUID(), "remote-application/foo/attribute")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
 		`cannot retrieve model data: saas application "foo" not found`,
@@ -117,6 +121,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		ContentType: "application/zip",
 		Body:        file,
 	})
+	defer resp.Body.Close()
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/json")
 
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
@@ -195,6 +200,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		c.Logf("\ntest %d: %s", i, test.about)
 		uri := s.restURI(otherModelState.ModelUUID(), test.query)
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+		defer resp.Body.Close()
 		if test.expectType == "" {
 			test.expectType = svgMimeType
 		}

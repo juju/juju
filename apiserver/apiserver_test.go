@@ -360,6 +360,7 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
 	uri := s.server.URL + "/health"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	result := string(body)
@@ -448,7 +449,7 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 		Host:   address,
 		Path:   path,
 	}
-	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
+	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{}) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 

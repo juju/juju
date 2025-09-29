@@ -66,7 +66,7 @@ func (s *suite) TestStartStop(c *gc.C) {
 		PrometheusGatherer: prometheus.NewRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CheckKill(c, w)
+	_ = workertest.CheckKill(c, w)
 }
 
 type introspectionSuite struct {
@@ -162,46 +162,54 @@ func (s *introspectionSuite) assertBodyContains(c *gc.C, response *http.Response
 
 func (s *introspectionSuite) TestCmdLine(c *gc.C) {
 	response := s.call(c, "/debug/pprof/cmdline")
+	defer response.Body.Close()
 	s.assertBodyContains(c, response, "/introspection.test")
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
 	response := s.call(c, "/debug/pprof/goroutine?debug=1")
+	defer response.Body.Close()
 	body := s.body(c, response)
 	c.Check(body, gc.Matches, `(?s)^goroutine profile: total \d+.*`)
 }
 
 func (s *introspectionSuite) TestTrace(c *gc.C) {
 	response := s.call(c, "/debug/pprof/trace?seconds=1")
+	defer response.Body.Close()
 	c.Assert(response.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 }
 
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
 	response := s.call(c, "/depengine")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing dependency engine reporter")
 }
 
 func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	response := s.call(c, "/statepool")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"State Pool" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
 	response := s.call(c, "/pubsub")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"PubSub Report" introspection not supported`)
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
 	response := s.call(c, "/machinelock")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing machine lock reporter")
 }
 
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
 	response := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBodyContains(c, response, "juju/state/tracker profile: total")
 }
@@ -209,7 +217,7 @@ func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
 func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
+	workertest.CleanKill(c, s.worker)
 	s.reporter = &reporter{
 		values: map[string]interface{}{
 			"working": true,
@@ -217,6 +225,7 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	}
 	s.startWorker(c)
 	response := s.call(c, "/depengine")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	// TODO: perhaps make the output of the dependency engine YAML parseable.
 	// This could be done by having the first line start with a '#'.
@@ -228,6 +237,7 @@ working: true`[1:])
 
 func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
 	response := s.call(c, "/presence")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, `"Presence" introspection not supported`)
 }
@@ -235,11 +245,12 @@ func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
 func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
+	_ = workertest.CheckKill(c, s.worker)
 	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.startWorker(c)
 
 	response := s.call(c, "/presence")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "agent is not an apiserver")
 }
@@ -247,13 +258,14 @@ func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
 func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
+	workertest.CleanKill(c, s.worker)
 	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.recorder.Enable()
 	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
 	s.startWorker(c)
 
 	response := s.call(c, "/presence")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, `
 [model-uuid]
@@ -265,6 +277,7 @@ agent-1  server  42       alive
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	response := s.call(c, "/metrics")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	body := s.body(c, response)
 	s.assertContains(c, body, "# HELP tau Tau")
@@ -274,24 +287,28 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 
 func (s *introspectionSuite) TestUnitMissingAction(c *gc.C) {
 	response := s.call(c, "/units")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 	s.assertBody(c, response, "missing action")
 }
 
 func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
 	response := s.post(c, "/units", url.Values{"action": {"foo"}})
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 	s.assertBody(c, response, `unknown action: "foo"`)
 }
 
 func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=start")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
 	s.assertBody(c, response, `start requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
 	response := s.post(c, "/units", url.Values{"action": {"start"}})
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 	s.assertBody(c, response, "missing unit")
 }
@@ -311,18 +328,21 @@ func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
 	defer unsub()
 
 	response := s.post(c, "/units", url.Values{"action": {"start"}, "unit": {"one", "two"}})
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, "one: started\ntwo: not found")
 }
 
 func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=stop")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
 	s.assertBody(c, response, `stop requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
 	response := s.post(c, "/units", url.Values{"action": {"stop"}})
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 	s.assertBody(c, response, "missing unit")
 }
@@ -342,6 +362,7 @@ func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
 	defer unsub()
 
 	response := s.post(c, "/units", url.Values{"action": {"stop"}, "unit": {"one", "two"}})
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, "one: stopped\ntwo: not found")
 }
@@ -356,6 +377,7 @@ func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
 	defer unsub()
 
 	response := s.call(c, "/units?action=status")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, `
 one: running
@@ -369,6 +391,7 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 	defer unsub()
 
 	response := s.call(c, "/units?action=status")
+	defer response.Body.Close()
 	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
 	s.assertBody(c, response, "response timed out")
 }

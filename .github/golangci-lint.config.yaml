@@ -33,6 +33,7 @@ linters-settings:
 linters:
   disable-all: true
   enable:
+    - bodyclose
     - gci
     - govet
     - gofmt

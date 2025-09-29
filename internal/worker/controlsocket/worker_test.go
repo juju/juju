@@ -44,6 +44,7 @@ func (s *workerSuite) TestStartStopWorker(c *gc.C) {
 	cl := client(socket)
 	resp, err := cl.Get("http://a/foo")
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 
 	worker.Kill()
@@ -51,7 +52,7 @@ func (s *workerSuite) TestStartStopWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check server has stopped
-	resp, err = cl.Get("http://a/foo")
+	_, err = cl.Get("http://a/foo") //nolint:bodyclose
 	c.Assert(err, gc.ErrorMatches, ".*connection refused")
 
 	// No warnings/errors should have been logged
