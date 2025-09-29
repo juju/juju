@@ -13,81 +13,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/machine"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storageservice "github.com/juju/juju/domain/storage/service"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
-
-type BlockDeviceService interface {
-	GetBlockDevicesForMachine(
-		ctx context.Context, machineUUID machine.UUID,
-	) ([]blockdevice.BlockDevice, error)
-}
-
-// StorageService defines apis on the storage service.
-type StorageService interface {
-	// CreateStoragePool creates a storage pool with the specified configuration.
-	// The following errors can be expected:
-	// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
-	CreateStoragePool(
-		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
-	) error
-
-	// DeleteStoragePool deletes a storage pool with the specified name.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	DeleteStoragePool(ctx context.Context, name string) error
-
-	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	ReplaceStoragePool(
-		ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs,
-	) error
-
-	// ListStoragePools returns all the storage pools.
-	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
-
-	// ListStoragePoolsByNamesAndProviders returns the storage pools matching the specified
-	// names and providers, including the default storage pools.
-	// If no names and providers are specified, an empty slice is returned without an error.
-	// If no storage pools match the criteria, an empty slice is returned without an error.
-	ListStoragePoolsByNamesAndProviders(
-		ctx context.Context, names domainstorage.Names, providers domainstorage.Providers,
-	) ([]domainstorage.StoragePool, error)
-
-	// ListStoragePoolsByNames returns the storage pools matching the specified names, including
-	// the default storage pools.
-	// If no names are specified, an empty slice is returned without an error.
-	// If no storage pools match the criteria, an empty slice is returned without an error.
-	ListStoragePoolsByNames(
-		ctx context.Context, names domainstorage.Names,
-	) ([]domainstorage.StoragePool, error)
-
-	// ListStoragePoolsByProviders returns the storage pools matching the specified
-	// providers, including the default storage pools.
-	// If no providers are specified, an empty slice is returned without an error.
-	// If no storage pools match the criteria, an empty slice is returned without an error.
-	ListStoragePoolsByProviders(
-		ctx context.Context, providers domainstorage.Providers,
-	) ([]domainstorage.StoragePool, error)
-
-	// GetStoragePoolByName returns the storage pool with the specified name.
-	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
-}
-
-// ApplicationService defines apis on the application service.
-type ApplicationService interface {
-	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
-}
 
 type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
 
@@ -145,22 +78,6 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 
 func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
 	return a.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(a.modelUUID.String()))
-}
-
-// StorageDetails retrieves and returns detailed information about desired
-// storage identified by supplied tags. If specified storage cannot be
-// retrieved, individual error is returned instead of storage information.
-func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
-	results := make([]params.StorageDetailsResult, len(entities.Entities))
-	return params.StorageDetailsResults{Results: results}, nil
-}
-
-// ListStorageDetails returns storage matching a filter.
-func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
-	results := params.StorageDetailsListResults{
-		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
-	}
-	return results, nil
 }
 
 // ListPools returns a list of pools.
@@ -240,6 +157,102 @@ func (a *StorageAPI) CreatePool(ctx context.Context, p params.StoragePoolArgs) (
 			storage.ProviderType(pool.Provider),
 			pool.Attrs)
 		results.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return results, nil
+}
+
+// StorageDetails retrieves and returns detailed information about desired
+// storage identified by supplied tags. If specified storage cannot be
+// retrieved, individual error is returned instead of storage information.
+func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
+	results := make([]params.StorageDetailsResult, len(entities.Entities))
+	return params.StorageDetailsResults{Results: results}, nil
+}
+
+// ListStorageDetails returns storage matching a filter.
+func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
+	results := params.StorageDetailsListResults{
+		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
+	}
+	getOne := func(params.StorageFilter) ([]params.StorageDetails, error) {
+		sIs, err := a.storageService.ListStorageInstances(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageDetails := make([]params.StorageDetails, 0, len(sIs))
+		for _, si := range sIs {
+			if !names.IsValidStorage(si.ID) {
+				// This should never happen. But to avoid a panic, we
+				// return an error if we encounter an invalid storage ID.
+				return nil, internalerrors.Errorf(
+					"invalid storage ID %q", si.ID,
+				).Add(coreerrors.NotValid)
+			}
+
+			sd := params.StorageDetails{
+				StorageTag: names.NewStorageTag(si.ID).String(),
+				Status: params.EntityStatus{
+					Status: si.Status.Status,
+					Info:   si.Status.Message,
+					Data:   si.Status.Data,
+					Since:  si.Status.Since,
+				},
+				Persistent:  si.Persistent,
+				Attachments: map[string]params.StorageAttachmentDetails{},
+			}
+			if si.Owner != nil {
+				if !names.IsValidUnit(si.Owner.String()) {
+					return nil, internalerrors.Errorf(
+						"invalid unit %q for storage instance %q", si.Owner.String(), si.ID,
+					).Add(coreerrors.NotValid)
+				}
+				sd.OwnerTag = names.NewUnitTag(si.Owner.String()).String()
+			}
+			switch si.Kind {
+			case domainstorage.StorageKindBlock:
+				sd.Kind = params.StorageKindBlock
+			case domainstorage.StorageKindFilesystem:
+				sd.Kind = params.StorageKindFilesystem
+			default:
+				sd.Kind = params.StorageKindUnknown
+			}
+
+			sd.Life, err = si.Life.Value()
+			if err != nil {
+				return nil, internalerrors.Errorf(
+					"invalid life %q for storage instance %q: %w", si.Life, si.ID, err,
+				)
+			}
+			for _, att := range si.Attachments {
+				unitTag := names.NewUnitTag(att.Unit.String()).String()
+				attDetails := params.StorageAttachmentDetails{
+					StorageTag: names.NewStorageTag(si.ID).String(),
+					UnitTag:    unitTag,
+					Location:   att.Location,
+				}
+				if att.Machine != nil {
+					attDetails.MachineTag = names.NewMachineTag(att.Machine.String()).String()
+				}
+				attDetails.Life, err = att.Life.Value()
+				if err != nil {
+					return nil, internalerrors.Errorf(
+						"invalid life %q for storage attachment of storage instance %q for unit %q: %w",
+						att.Life, si.ID, att.Unit, err,
+					)
+				}
+				sd.Attachments[unitTag] = attDetails
+			}
+			storageDetails = append(storageDetails, sd)
+		}
+		return storageDetails, nil
+	}
+	for i, filter := range filters.Filters {
+		storageDetails, err := getOne(filter)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = storageDetails
 	}
 	return results, nil
 }
