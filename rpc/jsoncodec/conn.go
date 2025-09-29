@@ -57,25 +57,46 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 	return err
 }
 
-const (
-	closeWritePeriod    = 30 * time.Second
-	closeAckGracePeriod = 2 * time.Second
-)
+const closingIODeadline = 10 * time.Second
 
 func (conn *wsJSONConn) Close() error {
-	// Tell the other end we are closing.
-	conn.writeMutex.Lock()
-	_ = conn.conn.SetWriteDeadline(time.Now().Add(closeWritePeriod))
-	closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-	_ = conn.conn.WriteMessage(websocket.CloseMessage, closeMsg)
-	conn.writeMutex.Unlock()
+	// Ater we close, all readers and writers must be forced to unblock.
+	defer func() {
+		c := conn.conn.NetConn()
+		_ = c.SetWriteDeadline(time.Now().Add(closingIODeadline))
+		_ = c.SetReadDeadline(time.Now().Add(closingIODeadline))
+	}()
 
-	// Read messages until we get a close ack.
+	if err := conn.writeClose(); err != nil {
+		conn.readClose()
+	}
+
+	return conn.conn.Close()
+}
+
+// WriteClose sets a write deadline to start a count-down for any existing
+// writers. It then sends the socket close message.
+func (conn *wsJSONConn) writeClose() error {
+	_ = conn.conn.NetConn().SetWriteDeadline(time.Now().Add(closingIODeadline))
+
+	conn.writeMutex.Lock()
+	defer conn.writeMutex.Unlock()
+
+	return conn.conn.WriteMessage(
+		websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+}
+
+// readClose sets a read deadline to start a count-down for any existing
+// readers. It then attempts to drain all remaining reads looking for the
+// socket close acknowledgement.
+func (conn *wsJSONConn) readClose() {
+	_ = conn.conn.NetConn().SetReadDeadline(time.Now().Add(closingIODeadline))
+
+	conn.readMutex.Lock()
+	defer conn.readMutex.Unlock()
+
 	for {
-		conn.readMutex.Lock()
-		_ = conn.conn.SetReadDeadline(time.Now().Add(closeAckGracePeriod))
 		_, _, err := conn.conn.NextReader()
-		conn.readMutex.Unlock()
 		if websocket.IsCloseError(err,
 			websocket.CloseNormalClosure,
 			websocket.CloseGoingAway,
@@ -89,7 +110,6 @@ func (conn *wsJSONConn) Close() error {
 			break
 		}
 	}
-	return conn.conn.Close()
 }
 
 // NewNet returns an rpc codec that uses the given connection
