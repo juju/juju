@@ -31,7 +31,7 @@ type StorageInstanceComposition struct {
 
 	// StorageName is the name of the storage instance and can be considered to be
 	// directly related to the chamr storage for which it was provisioned.
-	StorageName string
+	StorageName domainstorage.Name
 
 	// UUID is the unique id of the storage instance.
 	UUID domainstorage.StorageInstanceUUID
@@ -44,6 +44,10 @@ type StorageInstanceComposition struct {
 // StorageInstanceCompositionFilesystem describes the filesystem information
 // that is part of a [StorageInstanceComposition].
 type StorageInstanceCompositionFilesystem struct {
+	// ProviderID is the unique id assigned by the storage pool provider for
+	// this filesystem.
+	ProviderID string
+
 	// ProvisionScope is the provision scope of the filesystem that is
 	// attached to this storage instance. This value is only considered valid
 	// when [StorageInstanceComposition.FilesystemUUID] is not nil.
@@ -57,6 +61,10 @@ type StorageInstanceCompositionFilesystem struct {
 // StorageInstanceCompositionVolume describes the volume information that is
 // part of a [StorageInstanceComposition].
 type StorageInstanceCompositionVolume struct {
+	// ProviderID is the unique id assigned by the storage pool provider for
+	// this volume.
+	ProviderID string
+
 	// ProvisionScope is the provision scope of the volume that is
 	// attached to this storage instance. This value is only considered valid
 	// when [StorageInstanceComposition.VolumeUUID] is not nil.
