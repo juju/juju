@@ -350,7 +350,6 @@ github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf h1:sFwkVpTbk
 github.com/hpidcock/gc-compat-tc v0.0.0-20250523041742-c3a83c867edf/go.mod h1:lyEaDukSWSGyb/L0YGDaS1hU2p40qb5s/Ck6qm4CneU=
 github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250 h1:BNmTcPx0VddsU1pIgq3GoXtO8ek6tygVtj+l37Dcqo0=
 github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250/go.mod h1:GYeBD1CF7AqnKZK+UCytLcY3G+UKo0ByXX/3xfdNyqQ=
-github.com/icza/mighty v0.0.0-20180919140131-cfd07d671de6 h1:8UsGZ2rr2ksmEru6lToqnXgA8Mz1DP11X4zSJ159C3k=
 github.com/icza/mighty v0.0.0-20180919140131-cfd07d671de6/go.mod h1:xQig96I1VNBDIWGCdTt54nHt6EeI639SmHycLYL7FkA=
 github.com/im7mortal/kmutex v1.0.1 h1:zAACzjwD+OEknDqnLdvRa/BhzFM872EBwKijviGLc9Q=
 github.com/im7mortal/kmutex v1.0.1/go.mod h1:f71c/Ugk/+58OHRAgvgzPP3QEiWGUjK13fd8ozfKWdo=

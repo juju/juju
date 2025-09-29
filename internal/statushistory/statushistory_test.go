@@ -11,7 +11,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -246,12 +245,6 @@ func (s *statusHistoryReaderSuite) TestWalk(c *tc.C) {
 				},
 			})
 		}
-
-		sort.Slice(expected, func(i, j int) bool {
-			tag1, _ := strconv.Atoi(expected[i].Tag)
-			tag2, _ := strconv.Atoi(expected[j].Tag)
-			return tag1 >= tag2
-		})
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
@@ -319,12 +312,6 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *tc.C) {
 				},
 			})
 		}
-
-		sort.Slice(expected, func(i, j int) bool {
-			tag1, _ := strconv.Atoi(expected[i].Tag)
-			tag2, _ := strconv.Atoi(expected[j].Tag)
-			return tag1 >= tag2
-		})
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)
@@ -505,10 +492,6 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *tc.C) {
 				},
 			})
 		}
-
-		sort.Slice(expected, func(i, j int) bool {
-			return expected[i].Tag > expected[j].Tag
-		})
 	})
 
 	history, err := ModelStatusHistoryReaderFromFile(model.UUID(modelUUID), path)

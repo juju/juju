@@ -51,7 +51,6 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hpcloud/tail v1.0.0
-	github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
@@ -206,6 +205,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

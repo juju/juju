@@ -4,14 +4,13 @@
 package statushistory
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"time"
 
-	"github.com/icza/backscanner"
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/model"
@@ -100,8 +99,10 @@ type HistoryRecord struct {
 
 // Scanner is an interface for reading lines from a source.
 type Scanner interface {
-	LineBytes() (line []byte, pos int, err error)
+	Scan() bool
+	Buffer() []byte
 	Close() error
+	Err() error
 }
 
 // StatusHistoryReader is a reader for status history records.
@@ -129,13 +130,9 @@ func ModelStatusHistoryReaderFromFile(modelUUID model.UUID, path string) (*Statu
 		return nil, err
 	}
 
-	size, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
 	return NewStatusHistoryReader(modelUUID, scannerCloser{
-		Scanner: backscanner.New(file, int(size.Size())),
+		// bufio.NewScanner default behavior is to read line by line.
+		Scanner: bufio.NewScanner(file),
 		Closer:  file,
 	}), nil
 }
@@ -152,16 +149,9 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 
 	// Read each line of the log file and unmarshal it into a LogRecord.
 	// Filter out records that do not match the requested entities.
-	for {
-		line, _, err := r.scanner.LineBytes()
-		if errors.Is(err, io.EOF) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-
+	for r.scanner.Scan() {
 		var rec jsonRecord
-		if err := json.Unmarshal(line, &rec); err != nil {
+		if err := json.Unmarshal(r.scanner.Buffer(), &rec); err != nil {
 			continue
 		}
 
@@ -213,6 +203,7 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 			return nil
 		}
 	}
+	return r.scanner.Err()
 }
 
 func (r *StatusHistoryReader) Close() error {
@@ -223,14 +214,26 @@ func (r *StatusHistoryReader) Close() error {
 }
 
 type scannerCloser struct {
-	Scanner *backscanner.Scanner
+	Scanner *bufio.Scanner
 	Closer  io.Closer
 }
 
-func (s scannerCloser) LineBytes() (line []byte, pos int, err error) {
-	return s.Scanner.LineBytes()
+// Scan advances the Scanner to the next line.
+func (s scannerCloser) Scan() bool {
+	return s.Scanner.Scan()
 }
 
+// Buffer returns the bytes of the current line.
+func (s scannerCloser) Buffer() []byte {
+	return s.Scanner.Bytes()
+}
+
+// Err returns the first non-EOF error that was encountered by the Scanner.
+func (s scannerCloser) Err() error {
+	return s.Scanner.Err()
+}
+
+// Close closes the underlying Closer if it is not nil.
 func (s scannerCloser) Close() error {
 	if s.Closer != nil {
 		return s.Closer.Close()
