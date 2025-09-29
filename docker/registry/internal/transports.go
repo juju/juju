@@ -240,6 +240,9 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		_, err = handleErrorResponse(resp)
 		return errors.Trace(err)
