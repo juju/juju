@@ -22,6 +22,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -84,16 +87,19 @@ type remoteApplicationWorker struct {
 	mu sync.Mutex
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
-	offerUUID                 string
-	applicationName           string
-	applicationUUID           application.ID
-	localModelUUID            model.UUID // uuid of the model hosting the local application
-	remoteModelUUID           string     // uuid of the model hosting the remote offer
-	consumeVersion            int
-	localRelationUnitChanges  chan RelationUnitChangeEvent
-	remoteRelationUnitChanges chan RelationUnitChangeEvent
-	secretChangesWatcher      watcher.SecretsRevisionWatcher
-	secretChanges             watcher.SecretRevisionChannel
+	offerUUID       string
+	applicationName string
+	applicationUUID application.ID
+	localModelUUID  model.UUID // uuid of the model hosting the local application
+	remoteModelUUID string     // uuid of the model hosting the remote offer
+	consumeVersion  int
+
+	secretChangesWatcher watcher.SecretsRevisionWatcher
+	secretChanges        watcher.SecretRevisionChannel
+
+	localRelationUnitChanges  chan localunitrelations.RelationUnitChange
+	remoteRelationUnitChanges chan remoteunitrelations.RelationUnitChange
+	remoteRelationChanges     chan remoterelations.RelationChange
 
 	// relations is stored here for the engine report.
 	relations map[string]*relation
@@ -113,15 +119,18 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 	}
 
 	w := &remoteApplicationWorker{
-		offerUUID:                  config.OfferUUID,
-		applicationName:            config.ApplicationName,
-		applicationUUID:            config.ApplicationUUID,
-		localModelUUID:             config.LocalModelUUID,
-		remoteModelUUID:            config.RemoteModelUUID,
-		consumeVersion:             config.ConsumeVersion,
-		offerMacaroon:              config.Macaroon,
-		localRelationUnitChanges:   make(chan RelationUnitChangeEvent),
-		remoteRelationUnitChanges:  make(chan RelationUnitChangeEvent),
+		localRelationUnitChanges:  make(chan localunitrelations.RelationUnitChange),
+		remoteRelationUnitChanges: make(chan remoteunitrelations.RelationUnitChange),
+		remoteRelationChanges:     make(chan remoterelations.RelationChange),
+
+		offerUUID:       config.OfferUUID,
+		applicationName: config.ApplicationName,
+		applicationUUID: config.ApplicationUUID,
+		localModelUUID:  config.LocalModelUUID,
+		remoteModelUUID: config.RemoteModelUUID,
+		consumeVersion:  config.ConsumeVersion,
+		offerMacaroon:   config.Macaroon,
+
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 		clock:                      config.Clock,
 		logger:                     config.Logger,
@@ -272,7 +281,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 
 		case change := <-w.localRelationUnitChanges:
-			w.logger.Debugf(ctx, "local relation units changed -> publishing: %#v", &change)
+			w.logger.Debugf(ctx, "local relation units changed -> publishing: %v", change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
 			if err := w.remoteModelClient.PublishRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
@@ -289,7 +298,18 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 
 		case change := <-w.remoteRelationUnitChanges:
-			w.logger.Debugf(ctx, "remote relation units changed -> consuming: %#v", &change)
+			w.logger.Debugf(ctx, "remote relation units changed -> consuming: %v", change)
+
+			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
+				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
+					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
+					continue
+				}
+				return errors.Annotatef(err, "consuming relation change %#v from remote model %v", &change, w.remoteModelUUID)
+			}
+
+		case change := <-w.remoteRelationChanges:
+			w.logger.Debugf(ctx, "remote relations changed -> consuming: %v", change)
 
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
@@ -638,22 +658,10 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	// Have we seen the relation before.
 	r, relationKnown := w.relations[key]
 	if !relationKnown {
-		// Totally new so start the lifecycle watcher.
-		remoteRelationsWatcher, err := w.remoteModelClient.WatchRelationSuspendedStatus(ctx, params.RemoteEntityArg{
-			Token:         localRelationToken,
-			Macaroons:     macaroon.Slice{mac},
-			BakeryVersion: bakery.LatestVersion,
-		})
-		if err != nil {
-			w.checkOfferPermissionDenied(ctx, err, remoteAppToken, localRelationToken)
-			return errors.Annotatef(err, "watching remote side of relation %v", remoteRelation.Key)
-		}
-
 		remoteRelationsWorker, err := newRemoteRelationsWorker(
 			relationTag,
 			remoteAppToken,
 			localRelationToken,
-			remoteRelationsWatcher,
 			w.remoteRelationUnitChanges,
 			w.clock,
 			w.logger,

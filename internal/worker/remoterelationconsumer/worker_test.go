@@ -243,7 +243,6 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
 		ModelUUID:                  s.modelUUID,
 		CrossModelService:          s.crossModelService,
-		RelationsFacade:            s.remoteRelationsFacade,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
 			defer func() {
