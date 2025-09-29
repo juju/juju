@@ -47,7 +47,8 @@ INSERT INTO auth_type VALUES
 (10, 'certificate'),
 (11, 'oauth2withcert'),
 (12, 'service-principal-secret'),
-(13, 'managed-identity');
+(13, 'managed-identity'),
+(14, 'service-account');
 
 CREATE TABLE cloud (
     uuid TEXT NOT NULL PRIMARY KEY,
