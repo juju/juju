@@ -284,6 +284,106 @@ func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c 
 	harness.Run(c, []string{relationKey})
 }
 
+func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusPrincipal(c *tc.C) {
+	// Arrange: create the required state, with one relation and its status.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+
+	relationUUID, applicationUUID, _ := s.setupSecondAppAndRelate(c, "two")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchApplicationLifeSuspendedStatus(c.Context(), applicationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act 0: change the relation life.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation key.
+		w.Check(
+			watchertest.StringSliceAssert(relationKey),
+		)
+	})
+
+	// Act 1: change the relation status other than suspended.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: no change received. Change received only if status changes to
+		// suspended.
+		w.AssertNoChange()
+	})
+
+	// Act 2: change the relation status to suspended.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received change of relation key,
+		// relation status changed to suspended.
+		w.Check(
+			watchertest.StringSliceAssert(relationKey),
+		)
+	})
+
+	// Act 3: add a relation unrelated to the current unit.
+	harness.AddTest(c, func(c *tc.C) {
+		_ = s.setupSecondRelationNotFound(c)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act 4: change the relation status to joined and life to dead, to get
+	// changes on both tables watched.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(
+				ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: with changes in both tables at the same time, the relation
+		// key is sent once.
+		w.Check(
+			watchertest.StringSliceAssert(relationKey),
+		)
+	})
+
+	harness.Run(c, []string{relationKey})
+}
+
 func (s *watcherSuite) setupSecondAppAndRelate(
 	c *tc.C, appNameTwo string,
 ) (relation.UUID, coreapplication.ID, corecharm.ID) {
