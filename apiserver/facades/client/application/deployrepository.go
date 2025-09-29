@@ -648,12 +648,6 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 		platform.Channel = base.Channel.String()
 	}
 
-	// Initial validation of platform from known data.
-	_, err = corecharm.ParsePlatform(platform.String())
-	if err != nil && !errors.Is(err, errors.BadRequest) {
-		return corecharm.Platform{}, usedModelDefaultBase, err
-	}
-
 	placementPlatform, placementsMatch, err := v.platformFromPlacement(ctx, arg.Placement)
 	if err != nil {
 		return corecharm.Platform{}, usedModelDefaultBase, err
@@ -677,7 +671,9 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	// Check that the placement platform and the derived platform match
 	// when a base is supplied. There is no guarantee that all placement
 	// directives are machine scoped.
-	if placementPlatform.String() == platform.String() {
+	if (platform.OS == "" || platform.OS == placementPlatform.OS) &&
+		(platform.Channel == "" || platform.Channel == placementPlatform.Channel) &&
+		(platform.Architecture == "" || platform.Architecture == placementPlatform.Architecture) {
 		return *placementPlatform, usedModelDefaultBase, nil
 	}
 

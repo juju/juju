@@ -337,16 +337,11 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 
 // validateOrigin, validate the origin and maybe fix as follows:
 //
-//	Platform must have an architecture.
 //	Platform can have both an empty Channel AND os.
 //	Platform must have channel if os defined.
 //	Platform must have os if channel defined.
 func (c *CharmHubRepository) validateOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
 	p := origin.Platform
-
-	if p.Architecture == "" {
-		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires an Architecture")
-	}
 
 	if p.OS != "" && p.Channel == "" {
 		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires a Channel, if OS set")

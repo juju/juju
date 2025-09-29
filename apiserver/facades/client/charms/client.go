@@ -309,12 +309,6 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 		return result
 	}
 
-	// Validate the origin passed in.
-	if err := validateOrigin(requestedOrigin, curl, arg.SwitchCharm); err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result
-	}
-
 	repo, err := a.getCharmRepository(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
@@ -359,23 +353,6 @@ func convertCharmBase(in corecharm.Platform) params.Base {
 		Name:    in.OS,
 		Channel: in.Channel,
 	}
-}
-
-func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) error {
-	if !charm.CharmHub.Matches(curl.Schema) {
-		return errors.Errorf("unknown schema for charm URL %q", curl.String())
-	}
-	// If we are switching to a different charm we can skip the following
-	// origin check; doing so allows us to switch from a charmstore charm
-	// to the equivalent charmhub charm.
-	if !switchCharm {
-		schema := curl.Schema
-		if (corecharm.Local.Matches(origin.Source.String()) && !charm.Local.Matches(schema)) ||
-			(corecharm.CharmHub.Matches(origin.Source.String()) && !charm.CharmHub.Matches(schema)) {
-			return errors.NotValidf("origin source %q with schema", origin.Source)
-		}
-	}
-	return origin.Validate()
 }
 
 func (a *API) getCharmRepository(ctx context.Context) (corecharm.Repository, error) {
