@@ -72,6 +72,39 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 	c.Assert(newCharmUUID, tc.Equals, charmID.String())
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		relations: []charm.Relation{
+			{Role: charm.RoleProvider},
+			{Role: charm.RoleRequirer},
+		},
+	})
+
+	var cmv int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_modified_version FROM application WHERE uuid = ?", appID).Scan(&cmv)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmv, tc.Equals, 0)
+
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmParams{})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_modified_version FROM application WHERE uuid = ?", appID).Scan(&cmv)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmv, tc.Equals, 1)
+}
+
 func (s *applicationRefreshSuite) TestSetApplicationCharmNoApplication(c *tc.C) {
 	// Arrange
 	appID := applicationtesting.GenApplicationUUID(c)

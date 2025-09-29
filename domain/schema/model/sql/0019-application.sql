@@ -3,7 +3,7 @@ CREATE TABLE application (
     name TEXT NOT NULL,
     life_id INT NOT NULL,
     charm_uuid TEXT NOT NULL,
-    charm_modified_version INT,
+    charm_modified_version INT NOT NULL DEFAULT 0,
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
     -- space_uuid is the default binding for this application.
     space_uuid TEXT NOT NULL,

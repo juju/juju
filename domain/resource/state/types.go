@@ -38,6 +38,10 @@ type charmUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type applicationUUID struct {
+	UUID string `db:"application_uuid"`
+}
+
 // uuids is a slice of resource UUIDs.
 type uuids []string
 
@@ -239,4 +243,8 @@ type uuidOriginAndRevision struct {
 	UUID     coreresource.UUID
 	Origin   charmresource.Origin
 	Revision int
+}
+
+type charmModifiedVersion struct {
+	Version uint64 `db:"charm_modified_version"`
 }

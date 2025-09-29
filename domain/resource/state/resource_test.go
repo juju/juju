@@ -24,11 +24,14 @@ import (
 	resourcestoretesting "github.com/juju/juju/core/resource/store/testing"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -124,6 +127,26 @@ VALUES (?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?)`,
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("failed to populate DB with applications: %v", errors.ErrorStack(err)))
+
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		// Initialise charm modified version sequences
+		_, err := sequencestate.NextValue(ctx, preparer{}, tx,
+			domainsequence.MakePrefixNamespace(domainapplication.ApplicationCharmSequenceNamespace, s.constants.fakeApplicationUUID1),
+		)
+		if err != nil {
+			return err
+		}
+
+		_, err = sequencestate.NextValue(ctx, preparer{}, tx,
+			domainsequence.MakePrefixNamespace(domainapplication.ApplicationCharmSequenceNamespace, s.constants.fakeApplicationUUID2),
+		)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestDeleteApplicationResources is a test method that verifies the deletion of resources
@@ -3664,4 +3687,10 @@ func NullableRevision(revision int) sql.NullInt64 {
 		return sql.NullInt64{Valid: false}
 	}
 	return sql.NullInt64{Valid: true, Int64: int64(revision)}
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, typeSamples...)
 }
