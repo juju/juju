@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/life"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -176,4 +178,55 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidRo
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []crossmodelrelation.RemoteApplicationOfferer{{
+		ApplicationUUID: "app-uuid",
+		ApplicationName: "foo",
+		Life:            life.Alive,
+		OfferUUID:       "offer-uuid",
+		ConsumeVersion:  1,
+	}, {
+		ApplicationUUID: "app-uuid-2",
+		ApplicationName: "bar",
+		Life:            life.Dead,
+		OfferUUID:       "offer-uuid-2",
+		ConsumeVersion:  2,
+	}}
+
+	s.modelState.EXPECT().GetRemoteApplicationOfferers(gomock.Any()).Return(expected, nil)
+
+	service := s.service(c)
+
+	actual, err := service.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actual, tc.DeepEquals, expected)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferersNoRemoteApplicationOfferers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []crossmodelrelation.RemoteApplicationOfferer{}
+
+	s.modelState.EXPECT().GetRemoteApplicationOfferers(gomock.Any()).Return(expected, nil)
+
+	service := s.service(c)
+
+	actual, err := service.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actual, tc.DeepEquals, expected)
+}
+
+func (s *remoteApplicationServiceSuite) TestGetRemoteApplicationOfferersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetRemoteApplicationOfferers(gomock.Any()).Return(nil, internalerrors.Errorf("front fell off"))
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorMatches, "front fell off")
 }

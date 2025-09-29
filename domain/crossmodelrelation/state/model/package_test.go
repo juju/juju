@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/tc"
+	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -172,4 +173,10 @@ func (s *baseSuite) encodeScopeID(role charm.RelationScope) int {
 		charm.ScopeGlobal:    0,
 		charm.ScopeContainer: 1,
 	}[role]
+}
+
+func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
+	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	return mac
 }

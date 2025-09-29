@@ -413,6 +413,45 @@ func (c *MockModelStateGetOfferUUIDCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// GetRemoteApplicationOfferers mocks base method.
+func (m *MockModelState) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRemoteApplicationOfferers", arg0)
+	ret0, _ := ret[0].([]crossmodelrelation.RemoteApplicationOfferer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRemoteApplicationOfferers indicates an expected call of GetRemoteApplicationOfferers.
+func (mr *MockModelStateMockRecorder) GetRemoteApplicationOfferers(arg0 any) *MockModelStateGetRemoteApplicationOfferersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteApplicationOfferers", reflect.TypeOf((*MockModelState)(nil).GetRemoteApplicationOfferers), arg0)
+	return &MockModelStateGetRemoteApplicationOfferersCall{Call: call}
+}
+
+// MockModelStateGetRemoteApplicationOfferersCall wrap *gomock.Call
+type MockModelStateGetRemoteApplicationOfferersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetRemoteApplicationOfferersCall) Return(arg0 []crossmodelrelation.RemoteApplicationOfferer, arg1 error) *MockModelStateGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetRemoteApplicationOfferersCall) Do(f func(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)) *MockModelStateGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)) *MockModelStateGetRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceRemoteApplicationOfferers mocks base method.
 func (m *MockModelState) NamespaceRemoteApplicationOfferers() string {
 	m.ctrl.T.Helper()

@@ -15,6 +15,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	"github.com/juju/juju/domain/life"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -291,6 +292,71 @@ WHERE namespace=?`, "remote-offerer-application_"+offerUUID).Scan(&sequence)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sequence, tc.Equals, 43)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offererModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	mac := newMacaroon(c, "encoded macaroon")
+	macBytes := tc.Must(c, mac.MarshalJSON)
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             offerUUID,
+		OffererModelUUID:      offererModelUUID,
+		Charm:                 charm,
+		EncodedMacaroon:       macBytes,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	results, err := s.state.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, []crossmodelrelation.RemoteApplicationOfferer{{
+		ApplicationUUID:  applicationUUID,
+		ApplicationName:  "foo",
+		Life:             life.Alive,
+		OfferUUID:        offerUUID,
+		ConsumeVersion:   0,
+		OffererModelUUID: offererModelUUID,
+		Macaroon:         mac,
+	}})
+}
+
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferersEmpty(c *tc.C) {
+	// Initially there are no remote application offerers.
+	results, err := s.state.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, 0)
 }
 
 func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, uuid string) {

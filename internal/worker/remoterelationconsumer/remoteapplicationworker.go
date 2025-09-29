@@ -119,11 +119,6 @@ func (w *remoteApplicationWorker) Wait() error {
 	return err
 }
 
-// OfferUUID returns the offer UUID for the remote application worker.
-func (w *remoteApplicationWorker) OfferUUID() string {
-	return w.offerUUID
-}
-
 // ConsumeVersion returns the consume version for the remote application worker.
 func (w *remoteApplicationWorker) ConsumeVersion() int {
 	return w.consumeVersion
