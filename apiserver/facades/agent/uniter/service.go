@@ -539,10 +539,11 @@ type RelationService interface {
 		applicationSettings, unitSettings map[string]string,
 	) error
 
-	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to
-	// the life or suspended status any relation the unit's application is part
-	// of. If the unit is a subordinate, its principal application is watched.
-	WatchLifeSuspendedStatus(
+	// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies
+	// of changes to the life or suspended status any relation the unit's
+	// application is part of. If the unit is a subordinate, its principal
+	// application is watched.
+	WatchUnitApplicationLifeSuspendedStatus(
 		ctx context.Context,
 		unitID coreunit.UUID,
 	) (watcher.StringsWatcher, error)

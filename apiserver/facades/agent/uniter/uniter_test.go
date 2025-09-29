@@ -2356,7 +2356,7 @@ func (s *uniterRelationSuite) TestWatchUnitRelations(c *tc.C) {
 	relationChanges <- change
 	watch := watchertest.NewMockStringsWatcher(relationChanges)
 	s.expectGetUnitUUID(s.wordpressUnitTag.Id(), unitUUID, nil)
-	s.expectWatchLifeSuspendedStatus(unitUUID, watch, nil)
+	s.expectWatchUnitApplicationLifeSuspendedStatus(unitUUID, watch, nil)
 	s.expectWatcherRegistry(watcherID, watch, nil)
 
 	// Act
@@ -2572,8 +2572,8 @@ func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name core
 	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name, settings, gomock.Any()).Return(err)
 }
 
-func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.UUID, watch watcher.StringsWatcher, err error) {
-	s.relationService.EXPECT().WatchLifeSuspendedStatus(gomock.Any(), unitUUID).Return(watch, err)
+func (s *uniterRelationSuite) expectWatchUnitApplicationLifeSuspendedStatus(unitUUID coreunit.UUID, watch watcher.StringsWatcher, err error) {
+	s.relationService.EXPECT().WatchUnitApplicationLifeSuspendedStatus(gomock.Any(), unitUUID).Return(watch, err)
 }
 
 func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watchertest.MockStringsWatcher, err error) {
