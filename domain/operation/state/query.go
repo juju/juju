@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -44,19 +43,24 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 	allTaskLogs = make(map[string]map[string][]taskLogEntryByOperation)
 
 	// Pagination set-up.
-	var (
-		limit  int
-		offset int
-	)
-	if params.Limit != nil {
-		limit = *params.Limit
+	paginationParams := queryParams{
+		Limit:  defaultOperationsLimit + 1, // +1 to check for truncation.
+		Offset: 0,
+	}
+	// User provided limit is capped at 50 (default and max).
+	if params.Limit != nil && *params.Limit > 0 && *params.Limit < defaultOperationsLimit {
+		paginationParams.Limit = *params.Limit + 1 // +1 to check for truncation.
 	}
 	if params.Offset != nil {
-		offset = *params.Offset
+		paginationParams.Offset = *params.Offset
 	}
 
 	// Build the query for operations with filters.
-	query, queryArgs := st.buildOperationsQuery(params, limit, offset)
+	query, queryArgs := st.buildOperationsQuery(params)
+
+	// Add pagination parameters to the query arguments.
+	queryArgs = append(queryArgs, paginationParams)
+
 	st.logger.Tracef(ctx, "preparing operations query: \n %q \n with arguments: %+v", query, queryArgs)
 
 	stmt, err := st.Prepare(query, append([]any{operationResult{}}, queryArgs...)...)
@@ -73,11 +77,8 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 		// truncation, we trim the results here if needed.
 		// The limit is either the user provided limit (capped at 50) or
 		// the default limit of 50.
-		if limit <= 0 || limit > defaultOperationsLimit {
-			limit = defaultOperationsLimit
-		}
-		if len(ops) > limit {
-			ops = ops[:limit]
+		if len(ops) >= paginationParams.Limit {
+			ops = ops[:paginationParams.Limit-1] // -1 to return only the limit requested.
 			truncated = true
 		}
 
@@ -268,7 +269,7 @@ func encodeOperationInfo(
 }
 
 // buildOperationsQuery constructs the SQL query and arguments for filtering operations
-func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset int) (string, []any) {
+func (st *State) buildOperationsQuery(params operation.QueryArgs) (string, []any) {
 	// Define local typed slices for sqlair parameters
 	type actionNames []string
 	type statuses []string
@@ -278,38 +279,13 @@ func (st *State) buildOperationsQuery(params operation.QueryArgs, limit, offset 
 
 	var args []any
 
-	// Add pagination parameters only if they are set by the user.
-	paginationParams := queryParams{}
-	if limit > 0 && limit < defaultOperationsLimit {
-		paginationParams.Limit = limit + 1
-	}
-	if offset > 0 {
-		// We have to add one element to the limit to check for truncation.
-		paginationParams.Offset = offset
-	}
-	if paginationParams.Limit > 0 || paginationParams.Offset > 0 {
-		args = append(args, paginationParams)
-	}
-
-	// Default and max limit is 50, we fetch one extra to check for truncation.
-	limitStr := "LIMIT " + strconv.FormatInt(defaultOperationsLimit+1, 10)
-	if limit > 0 && limit <= defaultOperationsLimit {
-		// We fetch one extra to check for truncation.
-		limitStr = "LIMIT $queryParams.limit"
-	}
-	// Explicit offset.
-	offsetStr := "OFFSET 0"
-	if offset > 0 {
-		offsetStr = "OFFSET $queryParams.offset"
-	}
 	// Base query: selecting from operation.
 	query := `
 WITH
 ops AS (
 	SELECT *
 	FROM   operation AS o
-    ` + limitStr + `
-    ` + offsetStr + `
+	LIMIT $queryParams.limit OFFSET $queryParams.offset
 )
 SELECT DISTINCT
        o.uuid AS &operationResult.uuid,

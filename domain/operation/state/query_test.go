@@ -143,6 +143,7 @@ func (s *querySuite) TestGetOperationsFilterByActionNames(c *tc.C) {
 	unitUUID1 := s.addUnitWithName(c, charmUUID, "filterbyaction-test-app/0")
 	taskUUID1 := s.addOperationTask(c, opUUID1)
 	s.addOperationUnitTask(c, taskUUID1, unitUUID1)
+	s.addOperationTaskStatus(c, taskUUID1, "running")
 
 	// Operation with "other-action"
 	s.query(c, `INSERT INTO charm_action (charm_uuid, "key") VALUES (?, ?)`, charmUUID, "other-action")
@@ -160,6 +161,7 @@ func (s *querySuite) TestGetOperationsFilterByActionNames(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 1)
+	c.Assert(result.Operations[0].Units, tc.HasLen, 1)
 	c.Check(result.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
 }
 
@@ -1000,6 +1002,7 @@ func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
 	unitUUID1 := s.addUnitWithName(c, charmUUID, "filtermultiaction-test-app/0")
 	taskUUID1 := s.addOperationTask(c, opUUID1)
 	s.addOperationUnitTask(c, taskUUID1, unitUUID1)
+	s.addOperationTaskStatus(c, taskUUID1, "running")
 
 	// Operation with "other-action"
 	opUUID2 := s.addOperation(c)
@@ -1007,6 +1010,7 @@ func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
 	unitUUID2 := s.addUnitWithName(c, charmUUID, "filtermultiaction-test-app/1")
 	taskUUID2 := s.addOperationTask(c, opUUID2)
 	s.addOperationUnitTask(c, taskUUID2, unitUUID2)
+	s.addOperationTaskStatus(c, taskUUID2, "running")
 
 	// Operation with "third-action"
 	opUUID3 := s.addOperation(c)
@@ -1014,6 +1018,7 @@ func (s *querySuite) TestGetOperationsFilterByMultipleActionNames(c *tc.C) {
 	unitUUID3 := s.addUnitWithName(c, charmUUID, "filtermultiaction-test-app/2")
 	taskUUID3 := s.addOperationTask(c, opUUID3)
 	s.addOperationUnitTask(c, taskUUID3, unitUUID3)
+	s.addOperationTaskStatus(c, taskUUID3, "running")
 
 	// Act - filter by multiple action names
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -1067,6 +1072,7 @@ func (s *querySuite) TestGetOperationsFilterByUnits(c *tc.C) {
 	unitUUID1 := s.addUnitWithName(c, charmUUID, "filterunits-test-app/0")
 	taskUUID1 := s.addOperationTask(c, opUUID1)
 	s.addOperationUnitTask(c, taskUUID1, unitUUID1)
+	s.addOperationTaskStatus(c, taskUUID1, "running")
 
 	// Operation targeting filterunits-test-app/1
 	opUUID2 := s.addOperation(c)
@@ -1074,6 +1080,7 @@ func (s *querySuite) TestGetOperationsFilterByUnits(c *tc.C) {
 	unitUUID2 := s.addUnitWithName(c, charmUUID, "filterunits-test-app/1")
 	taskUUID2 := s.addOperationTask(c, opUUID2)
 	s.addOperationUnitTask(c, taskUUID2, unitUUID2)
+	s.addOperationTaskStatus(c, taskUUID2, "running")
 
 	// Act - filter by unit filterunits-test-app/0
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -1083,6 +1090,7 @@ func (s *querySuite) TestGetOperationsFilterByUnits(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 1)
+	c.Assert(result.Operations[0].Units, tc.HasLen, 1)
 	c.Check(result.Operations[0].Units[0].ReceiverName, tc.Equals, coreunit.Name("filterunits-test-app/0"))
 }
 
@@ -1097,6 +1105,7 @@ func (s *querySuite) TestGetOperationsFilterByMachines(c *tc.C) {
 	machineUUID1 := s.addMachine(c, "filtermachines-0")
 	taskUUID1 := s.addOperationTask(c, opUUID1)
 	s.addOperationMachineTask(c, taskUUID1, machineUUID1)
+	s.addOperationTaskStatus(c, taskUUID1, "running")
 
 	// Operation targeting machine filtermachines-1
 	opUUID2 := s.addOperation(c)
@@ -1104,6 +1113,7 @@ func (s *querySuite) TestGetOperationsFilterByMachines(c *tc.C) {
 	machineUUID2 := s.addMachine(c, "filtermachines-1")
 	taskUUID2 := s.addOperationTask(c, opUUID2)
 	s.addOperationMachineTask(c, taskUUID2, machineUUID2)
+	s.addOperationTaskStatus(c, taskUUID2, "running")
 
 	// Act - filter by machine filtermachines-0
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -1113,6 +1123,7 @@ func (s *querySuite) TestGetOperationsFilterByMachines(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 1)
+	c.Assert(result.Operations[0].Machines, tc.HasLen, 1)
 	c.Check(result.Operations[0].Machines[0].ReceiverName, tc.Equals, coremachine.Name("filtermachines-0"))
 }
 
@@ -1127,6 +1138,7 @@ func (s *querySuite) TestGetOperationsFilterByApplications(c *tc.C) {
 	unitUUID1 := s.addUnitWithName(c, charmUUID, "filterapps-app1/0")
 	taskUUID1 := s.addOperationTask(c, opUUID1)
 	s.addOperationUnitTask(c, taskUUID1, unitUUID1)
+	s.addOperationTaskStatus(c, taskUUID1, "running")
 
 	// Operation targeting filterapps-app2 with different charm
 	charmUUID2 := s.addCharm(c)
@@ -1136,6 +1148,7 @@ func (s *querySuite) TestGetOperationsFilterByApplications(c *tc.C) {
 	unitUUID2 := s.addUnitWithName(c, charmUUID2, "filterapps-app2/0")
 	taskUUID2 := s.addOperationTask(c, opUUID2)
 	s.addOperationUnitTask(c, taskUUID2, unitUUID2)
+	s.addOperationTaskStatus(c, taskUUID2, "running")
 
 	// Act - filter by filterapps-app1
 	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -1145,6 +1158,7 @@ func (s *querySuite) TestGetOperationsFilterByApplications(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 1)
+	c.Assert(result.Operations[0].Units, tc.HasLen, 1)
 	c.Check(result.Operations[0].Units[0].ReceiverName, tc.Equals, coreunit.Name("filterapps-app1/0"))
 }
 
@@ -1447,6 +1461,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
 		s.addOperationUnitTask(c, taskUUID, unitUUID)
+		s.addOperationTaskStatus(c, taskUUID, "running")
 	}
 
 	// Create 2 operations with "other-action".
@@ -1455,6 +1470,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 		s.addOperationAction(c, opUUID, charmUUID, "other-action")
 		taskUUID := s.addOperationTask(c, opUUID)
 		s.addOperationUnitTask(c, taskUUID, unitUUID)
+		s.addOperationTaskStatus(c, taskUUID, "running")
 	}
 
 	// Act - get first page (limit=2) for "test-action"
@@ -1482,6 +1498,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	// Only one remaining operation should be returned.
 	c.Assert(resultPage2.Operations, tc.HasLen, 1)
+	c.Assert(resultPage2.Operations[0].Units, tc.HasLen, 1)
 	// Since fewer than limit were returned, truncated must be false.
 	c.Check(resultPage2.Truncated, tc.IsFalse)
 	c.Check(resultPage2.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
@@ -1511,6 +1528,7 @@ func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 		s.addOperationAction(c, opUUID, charmUUID, "deploy")
 		taskUUID := s.addOperationTask(c, opUUID)
 		s.addOperationUnitTask(c, taskUUID, unitAlpha)
+		s.addOperationTaskStatus(c, taskUUID, "running")
 	}
 
 	// App "beta" -> 2 operations
@@ -1522,6 +1540,7 @@ func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 		s.addOperationAction(c, opUUID, charmUUID2, "deploy")
 		taskUUID := s.addOperationTask(c, opUUID)
 		s.addOperationUnitTask(c, taskUUID, unitBeta)
+		s.addOperationTaskStatus(c, taskUUID, "running")
 	}
 
 	// Act - query for application "alpha" with limit=1 and offset=1 (should
@@ -1536,6 +1555,7 @@ func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	// Expect exactly 1 operation returned
 	c.Assert(result.Operations, tc.HasLen, 1)
+	c.Assert(result.Operations[0].Units, tc.HasLen, 1)
 	// There are more alpha operations beyond this page, so truncated should be
 	// true.
 	c.Check(result.Truncated, tc.IsTrue)

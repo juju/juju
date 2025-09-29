@@ -95,14 +95,10 @@ func (s *Service) AddExecOperation(
 		LeaderUnits:  leaderUnits,
 	}
 	// If there are no targets to process, return early.
-	if (targetWithResolvedLeaders.Applications == nil ||
-		len(targetWithResolvedLeaders.Applications) == 0) &&
-		(targetWithResolvedLeaders.Machines == nil ||
-			len(targetWithResolvedLeaders.Machines) == 0) &&
-		(targetWithResolvedLeaders.Units == nil ||
-			len(targetWithResolvedLeaders.Units) == 0) &&
-		(targetWithResolvedLeaders.LeaderUnits == nil ||
-			len(targetWithResolvedLeaders.LeaderUnits) == 0) {
+	if len(targetWithResolvedLeaders.Applications) == 0 &&
+		len(targetWithResolvedLeaders.Machines) == 0 &&
+		len(targetWithResolvedLeaders.Units) == 0 &&
+		len(targetWithResolvedLeaders.LeaderUnits) == 0 {
 		return result, nil
 	}
 

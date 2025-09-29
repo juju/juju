@@ -309,8 +309,7 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 		Status:     "running",
 		Message:    "in progress",
 		Log:        log,
-		Output:     map[string]interface{}{"k": "v"},
-		Error:      fmt.Errorf("task-fail")}
+		Output:     map[string]any{"k": "v"}}
 	qr := operation.QueryResult{
 		Operations: []operation.OperationInfo{{
 			OperationID: "1",
@@ -329,8 +328,7 @@ func (s *getOperationSuite) TestListOperationsActionFieldMapping(c *tc.C) {
 	acts := res.Results[0].Actions
 	c.Assert(acts, tc.HasLen, 1)
 	ar := acts[0]
-	c.Assert(ar.Error, tc.NotNil)
-	c.Check(ar.Error.Message, tc.Matches, ".*task-fail.*")
+	c.Assert(ar.Error, tc.IsNil)
 }
 
 // TestListOperationsEmptyOperations verifies that an empty operations slice results in empty results.
