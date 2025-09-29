@@ -66,21 +66,23 @@ func (conn *wsJSONConn) Close() error {
 		_ = conn.conn.SetReadDeadline(time.Now())
 	}()
 
-	conn.writeClose()
-	conn.readClose()
+	if err := conn.writeClose(); err != nil {
+		conn.readClose()
+	}
 
 	return conn.conn.Close()
 }
 
 // WriteClose sets a write deadline to start a count-down for any existing
 // writers. It then sends the socket close message.
-func (conn *wsJSONConn) writeClose() {
+func (conn *wsJSONConn) writeClose() error {
 	_ = conn.conn.SetWriteDeadline(time.Now().Add(closingIODeadline))
 
 	conn.writeMutex.Lock()
 	defer conn.writeMutex.Unlock()
 
-	_ = conn.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	return conn.conn.WriteMessage(
+		websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 }
 
 // readClose sets a read deadline to start a count-down for any existing
