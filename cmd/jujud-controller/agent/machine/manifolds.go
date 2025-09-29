@@ -77,6 +77,7 @@ import (
 	workerdomainservices "github.com/juju/juju/internal/worker/domainservices"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
+	"github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
@@ -328,6 +329,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		terminationName: terminationworker.Manifold(),
 
 		clockName: clockManifold(config.Clock),
+
+		flightRecorderName: flightrecorder.Manifold(flightrecorder.ManifoldConfig{
+			Logger: internallogger.GetLogger("juju.worker.flightrecorder"),
+		}),
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
@@ -1290,6 +1295,7 @@ const (
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	clockName              = "clock"
+	flightRecorderName     = "flight-recorder"
 
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"
