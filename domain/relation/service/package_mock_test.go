@@ -358,6 +358,45 @@ func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f fu
 	return c
 }
 
+// GetPrincipalApplicationID mocks base method.
+func (m *MockState) GetPrincipalApplicationID(arg0 context.Context, arg1 application.ID) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPrincipalApplicationID", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPrincipalApplicationID indicates an expected call of GetPrincipalApplicationID.
+func (mr *MockStateMockRecorder) GetPrincipalApplicationID(arg0, arg1 any) *MockStateGetPrincipalApplicationIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrincipalApplicationID", reflect.TypeOf((*MockState)(nil).GetPrincipalApplicationID), arg0, arg1)
+	return &MockStateGetPrincipalApplicationIDCall{Call: call}
+}
+
+// MockStateGetPrincipalApplicationIDCall wrap *gomock.Call
+type MockStateGetPrincipalApplicationIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetPrincipalApplicationIDCall) Return(arg0 application.ID, arg1 error) *MockStateGetPrincipalApplicationIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetPrincipalApplicationIDCall) Do(f func(context.Context, application.ID) (application.ID, error)) *MockStateGetPrincipalApplicationIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetPrincipalApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) (application.ID, error)) *MockStateGetPrincipalApplicationIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetPrincipalSubordinateApplicationIDs mocks base method.
 func (m *MockState) GetPrincipalSubordinateApplicationIDs(arg0 context.Context, arg1 unit.UUID) (application.ID, application.ID, error) {
 	m.ctrl.T.Helper()

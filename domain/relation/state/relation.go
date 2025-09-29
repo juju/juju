@@ -2373,18 +2373,17 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	return endpointUUID.UUID, nil
 }
 
-// GetPrincipalSubordinateApplicationIDs returns the Principal and
-// Subordinate application IDs for the given unit. The principal will
-// be the first ID returned and the subordinate will be the second. If
-// the unit is not a subordinate, the second application ID will be
-// empty.
+// GetPrincipalSubordinateApplicationIDs returns the Principal and Subordinate
+// application IDs for the given unit. The principal will be the first ID
+// returned and the subordinate will be the second. If the unit is not a
+// subordinate, the second application ID will be empty.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.UnitDead] if the unit is dead or not found.
 func (st *State) GetPrincipalSubordinateApplicationIDs(
 	ctx context.Context,
 	unitUUID unit.UUID,
-) (application.ID, application.ID, error) {
+) (principal application.ID, subordinate application.ID, err error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -2421,9 +2420,9 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 	return principalAppID, subordinateAppID, errors.Capture(err)
 }
 
-// InitialWatchLifeSuspendedStatus returns the two tables to watch for
-// a relation's Life and Suspended status when the relation contains
-// the provided application and the initial namespace query.
+// InitialWatchLifeSuspendedStatus returns the two tables to watch for a
+// relation's Life and Suspended status when the relation contains the provided
+// application and the initial namespace query.
 func (st *State) InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`

@@ -71,7 +71,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.addApplicationEndpoint(c, s.appEndpointUUID, s.appUUID, s.charmRelationUUID)
 }
 
-func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusPrincipal(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -80,7 +80,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), unitUUID)
+	watcher, err := svc.WatchUnitApplicationLifeSuspendedStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -98,7 +98,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key.
 		w.Check(
-			watchertest.StringSliceAssert[string](relationKey),
+			watchertest.StringSliceAssert(relationKey),
 		)
 	})
 
@@ -134,7 +134,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 		// Assert: received change of relation key,
 		// relation status changed to suspended.
 		w.Check(
-			watchertest.StringSliceAssert[string](relationKey),
+			watchertest.StringSliceAssert(relationKey),
 		)
 	})
 
@@ -164,14 +164,14 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *tc.C) {
 		// Assert: with changes in both tables at the same time, the relation
 		// key is sent once.
 		w.Check(
-			watchertest.StringSliceAssert[string](relationKey),
+			watchertest.StringSliceAssert(relationKey),
 		)
 	})
 
 	harness.Run(c, []string{relationKey})
 }
 
-func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitApplicationLifeSuspendedStatusSubordinate(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
 
@@ -185,7 +185,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
+	watcher, err := svc.WatchUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
@@ -203,7 +203,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key.
 		w.Check(
-			watchertest.StringSliceAssert[string](relationKey),
+			watchertest.StringSliceAssert(relationKey),
 		)
 	})
 
@@ -238,7 +238,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *tc.C) {
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Assert: received changed of relation key, relation status changed to suspended.
 		w.Check(
-			watchertest.StringSliceAssert[string](relationKey),
+			watchertest.StringSliceAssert(relationKey),
 		)
 	})
 
@@ -372,7 +372,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 			relationtesting.GenRelationUnitUUID(c), config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -382,7 +382,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -393,7 +393,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 			relationtesting.GenRelationUnitUUID(c), config.watchedRelationUUID, config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
@@ -403,7 +403,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsUnitScope(c *tc.C) {
 		s.act(c, "DELETE FROM relation_unit WHERE unit_uuid = ?", config.watched1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
@@ -442,7 +442,7 @@ VALUES (?,?,?),
 			otherRelUnit0UUID, config.otherRelationUUID, config.other0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String()),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.other0UUID.String()),
 				domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
@@ -462,7 +462,7 @@ VALUES (?,?,?),
 			otherRelUnit0UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.other0UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.other0UUID.String())),
 		)
 	})
 
@@ -473,7 +473,7 @@ VALUES (?,?,?),
 			watchedRelUnit1UUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeUnitUUID(config.watched1UUID.String())),
 		)
 	})
 
@@ -483,7 +483,7 @@ VALUES (?,?,?),
 			config.otherRelationUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](domainrelation.EncodeApplicationUUID(config.otherUUID.String())),
+			watchertest.StringSliceAssert(domainrelation.EncodeApplicationUUID(config.otherUUID.String())),
 		)
 	})
 

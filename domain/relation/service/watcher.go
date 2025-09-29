@@ -39,14 +39,6 @@ type WatcherState interface {
 		unitUUID unit.UUID,
 	) (application.ID, application.ID, error)
 
-	// GetPrincipalApplicationID returns the principal application ID for the
-	// given application ID. If the application is not a subordinate, then
-	// an empty application ID is returned.
-	GetPrincipalApplicationID(
-		ctx context.Context,
-		applicationID application.ID,
-	) (application.ID, error)
-
 	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate
 	// a relation uuid as part of WatchLifeSuspendedStatus eventmapper.
 	GetMapperDataForWatchLifeSuspendedStatus(
@@ -131,10 +123,10 @@ func NewWatchableService(
 	}
 }
 
-// WatchLifeSuspendedStatus returns a watcher that notifies of changes to
+// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
 // the life or suspended status any relation the unit's application is part
 // of. If the unit is a subordinate, its principal application is watched.
-func (s *WatchableService) WatchLifeSuspendedStatus(
+func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) (watcher.StringsWatcher, error) {
@@ -151,7 +143,7 @@ func (s *WatchableService) WatchLifeSuspendedStatus(
 		return nil, errors.Errorf("finding principal and subordinate application ids: %w", err)
 	}
 
-	var w namespaceMapperWatcher
+	var w namespaceMapper
 	if subordinateID.IsEmpty() {
 		w = newPrincipalLifeSuspendedStatusWatcher(s, principalID)
 	} else {
@@ -182,17 +174,7 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 			"%w:%w", relationerrors.ApplicationIDNotValid, err)
 	}
 
-	principalID, err := s.st.GetPrincipalApplicationID(ctx, applicationUUID)
-	if err != nil {
-		return nil, errors.Errorf("finding principal and subordinate application ids: %w", err)
-	}
-
-	var w namespaceMapperWatcher
-	if !principalID.IsEmpty() {
-		w = newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
-	} else {
-		w = newSubordinateLifeSuspendedStatusWatcher(s, principalID, applicationUUID)
-	}
+	w := newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		w.GetInitialQuery(),
@@ -203,12 +185,23 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	)
 }
 
-// namespaceMapperWatcher represents methods required to be satisfy
-// the arguments of NewNamespaceMapperWatcher.
-type namespaceMapperWatcher interface {
+// namespaceMapper represents methods required to be satisfy the arguments of
+// NewNamespaceMapperWatcher.
+type namespaceMapper interface {
+	// GetInitialQuery returns a function to get the initial values of the
+	// watcher.
 	GetInitialQuery() eventsource.NamespaceQuery
+
+	// GetMapper returns a function which maps the changes from the watcher
+	// to the values to be returned by the watcher.
 	GetMapper() eventsource.Mapper
+
+	// GetFirstFilterOption returns the first filter option to be passed to
+	// NewNamespaceMapperWatcher.
 	GetFirstFilterOption() eventsource.FilterOption
+
+	// GetFilterOptions returns the remaining filter options to be passed to
+	// NewNamespaceMapperWatcher. Returning an empty slice is valid.
 	GetFilterOptions() []eventsource.FilterOption
 }
 
@@ -359,7 +352,7 @@ type principalLifeSuspendedStatusWatcher struct {
 	lifeSuspendedStatusWatcher
 }
 
-func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapperWatcher {
+func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapper {
 	w := &principalLifeSuspendedStatusWatcher{}
 	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
 		s:                s,
@@ -421,7 +414,7 @@ type subordinateLifeSuspendedStatusWatcher struct {
 	parentAppID application.ID
 }
 
-func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapperWatcher {
+func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapper {
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}
