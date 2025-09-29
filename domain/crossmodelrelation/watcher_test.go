@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
@@ -72,14 +73,24 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, `
-DELETE FROM application_remote_offerer
-WHERE application_uuid = (SELECT uuid FROM application WHERE name = ?)
-`, "foo")
+			var applicationUUID string
+			err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = "foo"`).Scan(&applicationUUID)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `
+DELETE FROM application_remote_offerer_status
+WHERE application_remote_offerer_uuid = (
+SELECT uuid FROM application_remote_offerer WHERE application_uuid = ?)`, applicationUUID)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(ctx, `DELETE FROM application_remote_offerer WHERE application_uuid = ?`, applicationUUID)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
-
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
@@ -96,12 +107,14 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	}
 
 	controllerState := controllerstate.NewState(controllerDB, loggertesting.WrapCheckLog(c))
-	modelState := modelstate.NewState(modelDB, loggertesting.WrapCheckLog(c))
+	modelState := modelstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	return service.NewWatchableService(
 		controllerState,
 		modelState,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

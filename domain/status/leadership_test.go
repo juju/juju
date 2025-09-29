@@ -158,12 +158,12 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 
 	return service.NewLeadershipService(
-		state.NewModelState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
+		state.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
 		s.controllerState,
 		domain.NewLeaseService(leaseGetter{
 			LeaseManager: s.leaseManager,
 		}),
-		model.UUID(s.ModelSuite.ModelUUID()),
+		model.UUID(s.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		func() (service.StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -185,7 +185,7 @@ func (s *leadershipSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *leadershipSuite) createApplication(c *tc.C, name string, units ...application.AddIAASUnitArg) coreapplication.ID {
-	appState := applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",

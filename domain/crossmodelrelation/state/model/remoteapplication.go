@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -201,6 +202,16 @@ func (st *State) insertRemoteApplicationOfferer(
 		return errors.Errorf("inserting remote application offerer record: %w", err)
 	}
 
+	// Insert the status for the remote application offerer.
+	statusInfo := status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusUnknown,
+		Message: "waiting for first status update",
+		Since:   ptr(st.clock.Now().UTC()),
+	}
+	if err := st.insertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
+		return errors.Errorf("inserting remote application offerer status: %w", err)
+	}
+
 	return nil
 }
 
@@ -216,6 +227,38 @@ func (st *State) nextRemoteApplicationOffererVersion(
 		return 0, errors.Errorf("getting next remote application offerer version: %w", err)
 	}
 	return nextVersion, nil
+}
+
+func (st *State) insertRemoteApplicationOffererStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID string,
+	sts status.StatusInfo[status.WorkloadStatusType],
+) error {
+	insertQuery := `
+INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*);
+`
+
+	insertStmt, err := st.Prepare(insertQuery, remoteApplicationStatus{})
+	if err != nil {
+		return errors.Errorf("preparing insert query: %w", err)
+	}
+
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
+	if err != nil {
+		return errors.Errorf("encoding status: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, remoteApplicationStatus{
+		RemoteApplicationUUID: appID,
+		StatusID:              statusID,
+		Message:               sts.Message,
+		Data:                  sts.Data,
+		UpdatedAt:             sts.Since,
+	}).Run(); err != nil {
+		return errors.Errorf("inserting status: %w", err)
+	}
+	return nil
 }
 
 // checkApplicationNameAvailable checks if the application name is available.

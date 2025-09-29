@@ -6,16 +6,28 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/uuid"
 )
+
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
 
 // ModelState describes retrieval and persistence methods for cross model
 // relations in the model database.
@@ -68,6 +80,8 @@ type WatcherFactory interface {
 type Service struct {
 	controllerState ControllerState
 	modelState      ModelState
+	statusHistory   StatusHistory
+	clock           clock.Clock
 	logger          logger.Logger
 }
 
@@ -75,11 +89,15 @@ type Service struct {
 func NewService(
 	controllerState ControllerState,
 	modelState ModelState,
+	statusHistory StatusHistory,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
 		controllerState: controllerState,
 		modelState:      modelState,
+		statusHistory:   statusHistory,
+		clock:           clock,
 		logger:          logger,
 	}
 }
@@ -95,12 +113,16 @@ func NewWatchableService(
 	controllerState ControllerState,
 	modelState ModelState,
 	watcherFactory WatcherFactory,
+	statusHistory StatusHistory,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			controllerState: controllerState,
 			modelState:      modelState,
+			statusHistory:   statusHistory,
+			clock:           clock,
 			logger:          logger,
 		},
 		watcherFactory: watcherFactory,
@@ -126,4 +148,8 @@ func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (
 		"watch remote application offerer",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

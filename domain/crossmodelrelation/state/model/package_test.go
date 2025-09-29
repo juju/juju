@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
@@ -29,7 +30,7 @@ type baseSuite struct {
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	c.Cleanup(func() {
 		s.state = nil

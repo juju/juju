@@ -4,10 +4,12 @@
 package service
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/domain"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -34,12 +36,10 @@ func (s *baseSuite) service(c *tc.C) *Service {
 	return &Service{
 		controllerState: s.controllerState,
 		modelState:      s.modelState,
+		statusHistory:   domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		clock:           clock.WallClock,
 		logger:          loggertesting.WrapCheckLog(c),
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
