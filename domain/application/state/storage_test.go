@@ -314,12 +314,15 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 		},
 	)
 
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_[_][_].Filesystem.ProvisionScope", tc.Ignore)
-	mc.AddExpr("_[_][_].Volume.ProvisionScope", tc.Ignore)
+	innerMC := tc.NewMultiChecker()
+	innerMC.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	innerMC.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, map[domainstorage.Name][]internal.StorageInstanceComposition{
-		"st1": {
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](innerMC),
+		[]internal.StorageInstanceComposition{
 			{
 				Filesystem: &internal.StorageInstanceCompositionFilesystem{
 					UUID: fsUUID1,
@@ -334,8 +337,6 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				StorageName: "st1",
 				UUID:        instUUID3,
 			},
-		},
-		"st2": {
 			{
 				Filesystem: &internal.StorageInstanceCompositionFilesystem{
 					UUID: fsUUID2,
@@ -343,8 +344,6 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				StorageName: "st2",
 				UUID:        instUUID2,
 			},
-		},
-		"st3": {
 			{
 				StorageName: "st3",
 				Volume: &internal.StorageInstanceCompositionVolume{
@@ -353,7 +352,7 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				UUID: instUUID4,
 			},
 		},
-	})
+	)
 }
 
 // TestGetStorageInstancesForProviderIDsVolumeBackedFilesystems exists to test
@@ -381,12 +380,15 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 		},
 	)
 
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_[_][_].Filesystem.ProvisionScope", tc.Ignore)
-	mc.AddExpr("_[_][_].Volume.ProvisionScope", tc.Ignore)
+	innerMC := tc.NewMultiChecker()
+	innerMC.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	innerMC.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, map[domainstorage.Name][]internal.StorageInstanceComposition{
-		"st1": {
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](innerMC),
+		[]internal.StorageInstanceComposition{
 			{
 				Filesystem: &internal.StorageInstanceCompositionFilesystem{
 					UUID: fsUUID1,
@@ -397,8 +399,6 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 				},
 				UUID: instUUID1,
 			},
-		},
-		"st2": {
 			{
 				Filesystem: &internal.StorageInstanceCompositionFilesystem{
 					UUID: fsUUID2,
@@ -410,5 +410,5 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 				UUID: instUUID2,
 			},
 		},
-	})
+	)
 }

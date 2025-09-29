@@ -117,14 +117,14 @@ SELECT &storageDirective.* (
 }
 
 // GetStorageInstancesForProviderIDs returns all of the storage instances found
-// in the model using on of the provider ids supplied. If no storage instance
+// in the model using one of the provider ids supplied. If no storage instance
 // is found associated with a provider id then it is simply ignored. If no
 // storage instances exist matching the provider ids then an empty result is
 // returned to the caller.
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
 	ids []string,
-) (map[domainstorage.Name][]internal.StorageInstanceComposition, error) {
+) ([]internal.StorageInstanceComposition, error) {
 	// Early exit if no ids are supplied. We cannot have empty values with an
 	// IN expression.
 	if len(ids) == 0 {
@@ -187,7 +187,7 @@ FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := map[domainstorage.Name][]internal.StorageInstanceComposition{}
+	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
 	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
 		v := internal.StorageInstanceComposition{
 			StorageName: s.StorageName,
@@ -208,9 +208,7 @@ FROM (
 			}
 		}
 
-		rval[domainstorage.Name(s.StorageName)] = append(
-			rval[domainstorage.Name(s.StorageName)], v,
-		)
+		rval = append(rval, v)
 		return true
 	})
 
