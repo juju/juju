@@ -446,6 +446,7 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			storageConstraintsChan = nil
 		case <-a.clock.After(10 * time.Second):
 			// Force refresh of application status.
 		}
