@@ -58,7 +58,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	)
 }
 
-func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitTaskNotificationsCreation(c *tc.C) {
 	unitName := "foo/0"
 	unitUUID := s.addUnit(c, unitName)
 
@@ -69,19 +69,11 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
+
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// NOTE: Since we have dispatched initial events, we need to assert that the
-	// changes were actually emitted by the watcher.
-	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initial values, only its
-	// values.
-	harness.AddTest(c, func(c *tc.C) {
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
-	})
 
 	// Change one task to running.
 	harness.AddTest(c, func(c *tc.C) {
@@ -100,10 +92,9 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_OnlyInitial(c *tc.C) {
 	harness.Run(c, []string{"task-0", "task-1"})
 }
 
-func (s *watcherSuite) TestWatchUnitTaskNotifications_EmptyInitial(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitTaskNotificationsCreateRunning(c *tc.C) {
 	unitName := "bar/0"
 	unitUUID := s.addUnit(c, unitName)
-
 	operationUUID := s.addOperation(c)
 	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Running)
 	task1UUID := s.addOperationTaskWithID(c, operationUUID, "task-1", corestatus.Running)
@@ -111,6 +102,8 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_EmptyInitial(c *tc.C) {
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
+
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -126,10 +119,9 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_EmptyInitial(c *tc.C) {
 	harness.Run(c, nil)
 }
 
-func (s *watcherSuite) TestWatchUnitTaskNotifications_MixedPendingAndNonPending(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitTaskNotificationsMixedPendingAndNonPending(c *tc.C) {
 	unitName := "baz/0"
 	unitUUID := s.addUnit(c, unitName)
-
 	// Create both pending and non-pending tasks
 	operationUUID := s.addOperation(c)
 	task0UUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
@@ -138,32 +130,24 @@ func (s *watcherSuite) TestWatchUnitTaskNotifications_MixedPendingAndNonPending(
 	s.addOperationUnitTask(c, task1UUID, unitUUID)
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
+
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// NOTE: Since we have dispatched initial events, we need to assert that the
-	// changes were actually emitted by the watcher.
-	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initial values, only its
-	// values.
-	harness.AddTest(c, func(c *tc.C) {
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
-	})
 
 	// Change pending task to aborting, emitted event.
 	harness.AddTest(c, func(c *tc.C) {
 		s.setTaskStatus(c, task1UUID, corestatus.Aborting)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.SliceAssert([]string{"task-1"}))
+		w.Check(watchertest.StringSliceAssert[string]("task-1"))
 	})
 
 	// Initial event: only non-pending tasks should be emitted.
 	harness.Run(c, []string{"task-0"})
 }
 
-func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
+func (s *watcherSuite) TestWatchMachineTaskNotificationsCreatePending(c *tc.C) {
 	machineName := "0"
 	machineUUID := s.addMachine(c, machineName)
 
@@ -173,19 +157,10 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
 	s.addOperationMachineTask(c, task0UUID, machineUUID)
 	s.addOperationMachineTask(c, task1UUID, machineUUID)
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name(machineName))
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// NOTE: Since we have dispatched initial events, we need to assert that the
-	// changes were actually emitted by the watcher.
-	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initial values, only its
-	// values.
-	harness.AddTest(c, func(c *tc.C) {
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
-	})
 
 	// Complete the running task.
 	harness.AddTest(c, func(c *tc.C) {
@@ -198,7 +173,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_OnlyInitial(c *tc.C) {
 	harness.Run(c, []string{"task-0", "task-1"})
 }
 
-func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc.C) {
+func (s *watcherSuite) TestWatchMachineTaskNotificationsPendingToAborting(c *tc.C) {
 	machineName := "1"
 	machineUUID := s.addMachine(c, machineName)
 
@@ -206,19 +181,10 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc
 	taskUUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
 	s.addOperationMachineTask(c, taskUUID, machineUUID)
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name(machineName))
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// NOTE: Since we have dispatched initial events, we need to assert that the
-	// changes were actually emitted by the watcher.
-	// This is done this way because of a current limitation on the harness
-	// that doesn't check the emitted changes for the initial values, only its
-	// values.
-	harness.AddTest(c, func(c *tc.C) {
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
-	})
 
 	// Change to aborting, no change emitted.
 	harness.AddTest(c, func(c *tc.C) {
@@ -231,14 +197,14 @@ func (s *watcherSuite) TestWatchMachineTaskNotifications_PendingToAborting(c *tc
 	harness.Run(c, []string{"task-0"})
 }
 
-func (s *watcherSuite) TestWatchUnitTaskNotifications_NotFound(c *tc.C) {
+func (s *watcherSuite) TestWatchUnitTaskNotificationsNotFound(c *tc.C) {
 	unitNameParsed, err := coreunit.NewName("missing/0")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorMatches, `.*unit "missing/0" not found.*`)
 }
 
-func (s *watcherSuite) TestWatchMachineTaskNotifications_NotFound(c *tc.C) {
+func (s *watcherSuite) TestWatchMachineTaskNotificationsNotFound(c *tc.C) {
 	_, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name("999"))
 	c.Assert(err, tc.ErrorMatches, `.*machine "999" not found.*`)
 }
@@ -258,6 +224,7 @@ func (s *watcherSuite) TestWatchTaskLogs(c *tc.C) {
 		initialLogStrings = append(initialLogStrings, output)
 	}
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchTaskLogs(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -279,7 +246,7 @@ func (s *watcherSuite) TestWatchTaskLogs(c *tc.C) {
 }
 
 // runQuery is a helper method to run SQL queries, copying the pattern from state tests.
-func (s *watcherSuite) runQuery(c *tc.C, query string, args ...interface{}) {
+func (s *watcherSuite) runQuery(c *tc.C, query string, args ...any) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		return err
