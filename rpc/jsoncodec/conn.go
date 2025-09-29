@@ -62,8 +62,9 @@ const closingIODeadline = 10 * time.Second
 func (conn *wsJSONConn) Close() error {
 	// Ater we close, all readers and writers must be forced to unblock.
 	defer func() {
-		_ = conn.conn.SetWriteDeadline(time.Now())
-		_ = conn.conn.SetReadDeadline(time.Now())
+		c := conn.conn.NetConn()
+		_ = c.SetWriteDeadline(time.Now().Add(closingIODeadline))
+		_ = c.SetReadDeadline(time.Now().Add(closingIODeadline))
 	}()
 
 	if err := conn.writeClose(); err != nil {
@@ -76,7 +77,7 @@ func (conn *wsJSONConn) Close() error {
 // WriteClose sets a write deadline to start a count-down for any existing
 // writers. It then sends the socket close message.
 func (conn *wsJSONConn) writeClose() error {
-	_ = conn.conn.SetWriteDeadline(time.Now().Add(closingIODeadline))
+	_ = conn.conn.NetConn().SetWriteDeadline(time.Now().Add(closingIODeadline))
 
 	conn.writeMutex.Lock()
 	defer conn.writeMutex.Unlock()
@@ -89,7 +90,7 @@ func (conn *wsJSONConn) writeClose() error {
 // readers. It then attempts to drain all remaining reads looking for the
 // socket close acknowledgement.
 func (conn *wsJSONConn) readClose() {
-	_ = conn.conn.SetReadDeadline(time.Now().Add(closingIODeadline))
+	_ = conn.conn.NetConn().SetReadDeadline(time.Now().Add(closingIODeadline))
 
 	conn.readMutex.Lock()
 	defer conn.readMutex.Unlock()
