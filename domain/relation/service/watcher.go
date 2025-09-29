@@ -26,6 +26,68 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// WatcherState represents the subset of the State interface required by
+// the WatchableService.
+type WatcherState interface {
+	// GetPrincipalSubordinateApplicationIDs returns the Principal and
+	// Subordinate application IDs for the given unit. The principal will
+	// be the first ID returned and the subordinate will be the second. If
+	// the unit is not a subordinate, the second application ID will be
+	// empty.
+	GetPrincipalSubordinateApplicationIDs(
+		ctx context.Context,
+		unitUUID unit.UUID,
+	) (application.ID, application.ID, error)
+
+	// GetPrincipalApplicationID returns the principal application ID for the
+	// given application ID. If the application is not a subordinate, then
+	// an empty application ID is returned.
+	GetPrincipalApplicationID(
+		ctx context.Context,
+		applicationID application.ID,
+	) (application.ID, error)
+
+	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate
+	// a relation uuid as part of WatchLifeSuspendedStatus eventmapper.
+	GetMapperDataForWatchLifeSuspendedStatus(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		appID application.ID,
+	) (relation.RelationLifeSuspendedData, error)
+
+	// GetRelationEndpointScope returns the scope of the relation endpoint
+	// at the intersection of the relationUUID and applicationID.
+	GetRelationEndpointScope(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID application.ID,
+	) (charm.RelationScope, error)
+
+	// GetOtherRelatedEndpointApplicationData returns an
+	// OtherApplicationForWatcher struct for each Endpoint in a relation with
+	// the given application ID.
+	GetOtherRelatedEndpointApplicationData(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		applicationID application.ID,
+	) (relation.OtherApplicationForWatcher, error)
+
+	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
+	// a relation's Life and Suspended status when the relation contains
+	// the provided application and the initial namespace query.
+	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
+
+	// WatcherApplicationSettingsNamespace provides the table name to set up
+	// watchers for relation application settings.
+	WatcherApplicationSettingsNamespace() string
+
+	// InitialWatchRelatedUnits initializes a watch for changes related to the
+	// specified unit in the given relation.
+	InitialWatchRelatedUnits(
+		ctx context.Context, unitUUID, relUUID string,
+	) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)
+}
+
 // WatcherFactory describes methods for creating watchers that are used by the
 // WatchableService.
 type WatcherFactory interface {
@@ -89,25 +151,61 @@ func (s *WatchableService) WatchLifeSuspendedStatus(
 		return nil, errors.Errorf("finding principal and subordinate application ids: %w", err)
 	}
 
-	var w namespaceMapperWatcherMethods
-	if subordinateID != "" {
-		w = newSubordinateLifeSuspendedStatusWatcher(s, principalID, subordinateID)
-	} else {
+	var w namespaceMapperWatcher
+	if subordinateID.IsEmpty() {
 		w = newPrincipalLifeSuspendedStatusWatcher(s, principalID)
+	} else {
+		w = newSubordinateLifeSuspendedStatusWatcher(s, principalID, subordinateID)
 	}
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		w.GetInitialQuery(),
-		fmt.Sprintf("life suspended status watcher for %q", unitUUID),
+		fmt.Sprintf("life suspended status watcher for unit %q", unitUUID),
 		w.GetMapper(),
 		w.GetFirstFilterOption(),
 		w.GetFilterOptions()...,
 	)
 }
 
-// namespaceMapperWatcherMethods represents methods required to be satisfy
+// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
+// the life or suspended status any relation the unit's application is part
+// of. If the unit is a subordinate, its principal application is watched.
+func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
+	ctx context.Context,
+	applicationUUID application.ID,
+) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := applicationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+
+	principalID, err := s.st.GetPrincipalApplicationID(ctx, applicationUUID)
+	if err != nil {
+		return nil, errors.Errorf("finding principal and subordinate application ids: %w", err)
+	}
+
+	var w namespaceMapperWatcher
+	if !principalID.IsEmpty() {
+		w = newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
+	} else {
+		w = newSubordinateLifeSuspendedStatusWatcher(s, principalID, applicationUUID)
+	}
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		ctx,
+		w.GetInitialQuery(),
+		fmt.Sprintf("life suspended status watcher for application %q", applicationUUID),
+		w.GetMapper(),
+		w.GetFirstFilterOption(),
+		w.GetFilterOptions()...,
+	)
+}
+
+// namespaceMapperWatcher represents methods required to be satisfy
 // the arguments of NewNamespaceMapperWatcher.
-type namespaceMapperWatcherMethods interface {
+type namespaceMapperWatcher interface {
 	GetInitialQuery() eventsource.NamespaceQuery
 	GetMapper() eventsource.Mapper
 	GetFirstFilterOption() eventsource.FilterOption
@@ -261,7 +359,7 @@ type principalLifeSuspendedStatusWatcher struct {
 	lifeSuspendedStatusWatcher
 }
 
-func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapperWatcherMethods {
+func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID application.ID) namespaceMapperWatcher {
 	w := &principalLifeSuspendedStatusWatcher{}
 	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher{
 		s:                s,
@@ -323,7 +421,7 @@ type subordinateLifeSuspendedStatusWatcher struct {
 	parentAppID application.ID
 }
 
-func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapperWatcherMethods {
+func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID, principalID application.ID) namespaceMapperWatcher {
 	w := &subordinateLifeSuspendedStatusWatcher{
 		parentAppID: principalID,
 	}

@@ -46,3 +46,8 @@ func (u ID) Validate() error {
 	}
 	return nil
 }
+
+// IsEmpty returns true if the ID is empty.
+func (u ID) IsEmpty() bool {
+	return u == ""
+}

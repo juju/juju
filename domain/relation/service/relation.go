@@ -15,15 +15,15 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+	WatcherState
+
 	// ApplicationRelationEndpointNames returns a slice of names of the given application's
 	// relation endpoints.
 	ApplicationRelationsInfo(
@@ -58,28 +58,12 @@ type State interface {
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
-	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
-	// relations the given application is in, modulo peer relations.
+	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for
+	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
 		ctx context.Context,
 		applicationID application.ID,
 	) ([]relation.GoalStateRelationData, error)
-
-	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
-	// uuid as part of WatchLifeSuspendedStatus eventmapper.
-	GetMapperDataForWatchLifeSuspendedStatus(
-		ctx context.Context,
-		relUUID corerelation.UUID,
-		appID application.ID,
-	) (relation.RelationLifeSuspendedData, error)
-
-	// GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
-	// for each Endpoint in a relation with the given application ID.
-	GetOtherRelatedEndpointApplicationData(
-		ctx context.Context,
-		relUUID corerelation.UUID,
-		applicationID application.ID,
-	) (relation.OtherApplicationForWatcher, error)
 
 	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
 	// relation specified by a single endpoint identifier.
@@ -87,16 +71,6 @@ type State interface {
 		ctx context.Context,
 		endpoint corerelation.EndpointIdentifier,
 	) (corerelation.UUID, error)
-
-	// GetPrincipalSubordinateApplicationIDs returns the Principal and
-	// Subordinate application IDs for the given unit. The principal will
-	// be the first ID returned and the subordinate will be the second. If
-	// the unit is not a subordinate, the second application ID will be
-	// empty.
-	GetPrincipalSubordinateApplicationIDs(
-		ctx context.Context,
-		unitUUID unit.UUID,
-	) (application.ID, application.ID, error)
 
 	// GetRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
@@ -108,14 +82,6 @@ type State interface {
 
 	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
-
-	// GetRelationEndpointScope returns the scope of the relation endpoint
-	// at the intersection of the relationUUID and applicationID.
-	GetRelationEndpointScope(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		applicationID application.ID,
-	) (charm.RelationScope, error)
 
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
@@ -137,8 +103,10 @@ type State interface {
 
 	// GetRelationUnitChanges retrieves changes to relation unit states and
 	// application settings for the provided UUIDs.
+	//
 	// It takes a list of unit UUIDs and application UUIDs, returning the
-	// current setting version for each one, or departed if any unit is not found
+	// current setting version for each one, or departed if any unit is not
+	// found
 	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnit retrieves the UUID of a relation unit based on the given
@@ -158,11 +126,6 @@ type State interface {
 		ctx context.Context,
 		epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
 	) (corerelation.UUID, error)
-
-	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
-	// a relation's Life and Suspended status when the relation contains
-	// the provided application and the initial namespace query.
-	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
 
 	// IsPeerRelation returns a boolean to indicate if the given
 	// relation UUID is for a peer relation.
@@ -185,20 +148,11 @@ type State interface {
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
 	) error
-
-	// WatcherApplicationSettingsNamespace provides the table name to set up
-	// watchers for relation application settings.
-	WatcherApplicationSettingsNamespace() string
-
-	// InitialWatchRelatedUnits initializes a watch for changes related to the
-	// specified unit in the given relation.
-	InitialWatchRelatedUnits(
-		ctx context.Context, unitUUID, relUUID string,
-	) ([]string, eventsource.NamespaceQuery, eventsource.Mapper, error)
 }
 
-// LeadershipService provides the API for working with the statuses of applications
-// and units, including the API handlers that require leadership checks.
+// LeadershipService provides the API for working with the statuses of
+// applications and units, including the API handlers that require leadership
+// checks.
 type LeadershipService struct {
 	*Service
 	leaderEnsurer leadership.Ensurer
