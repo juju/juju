@@ -650,3 +650,17 @@ func (m *mockCredentialAPI) Close() error {
 	m.MethodCall(m, "Close")
 	return m.NextErr()
 }
+
+func (s *DestroySuite) TestGetControllerEnvironWithCaaS(c *gc.C) {
+	s.controllerModelConfigAPI.env = createBootstrapInfo(c, "test3")
+	// The dummy provider isn't CaaS, so we pretend k8s is a dummy provider for now
+	s.api.cloud.Type = "kubernetes"
+
+	_, err := s.runDestroyCommand(c, "test3", "--no-prompt")
+	// Make sure we're *not* getting an error during `getControllerEnviron`
+	// We'll still get an error from the k8s provider since nothing is set up, but that is expected
+	c.Assert(err, gc.Not(gc.ErrorMatches),
+		"getting controller environ: cloud environ provider kubernetes.kubernetesEnvironProvider not valid",
+	)
+	checkControllerExistsInStore(c, "test3", s.store)
+}
