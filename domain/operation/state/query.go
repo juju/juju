@@ -378,6 +378,7 @@ FROM ops AS o
 	if len(whereClauses) > 0 {
 		query += "\nWHERE " + strings.Join(whereClauses, " AND ")
 	}
+	query += "\nORDER BY o.operation_id"
 
 	return query, args
 }
