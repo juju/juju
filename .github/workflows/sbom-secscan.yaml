@@ -1,8 +1,9 @@
 name: SBOM and secscan
 
-on:
-  workflow_call:
-  workflow_dispatch:
+on: [pull_request, workflow_dispatch]
+#on:
+#  workflow_call:
+#  workflow_dispatch:
 
 permissions: {}
 
