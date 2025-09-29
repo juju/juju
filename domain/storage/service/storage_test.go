@@ -10,10 +10,16 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstoragestate "github.com/juju/juju/domain/storage/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -305,4 +311,104 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *tc.C) {
 		StorageName: "pgdata",
 	})
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+}
+
+func (s *storageSuite) TestListStorageInstances(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	u0n := unit.Name("mysql/0")
+	m0 := machine.Name("0")
+	u1n := unit.Name("mysql/1")
+	s.state.EXPECT().ListStorageInstances(gomock.Any()).Return([]domainstoragestate.StorageInstanceInfo{
+		{
+			ID:         "pgdata-0",
+			Owner:      &u0n,
+			Kind:       domainstorage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: true,
+			VolumeInfo: &domainstoragestate.VolumeInfo{
+				Status: status.StatusInfo[status.StorageVolumeStatusType]{
+					Status:  status.StorageVolumeStatusTypeAttaching,
+					Message: "attaching the volumez",
+				},
+				Attachments: []domainstoragestate.VolumeAttachmentInfo{
+					{
+						AttachmentInfo: domainstoragestate.AttachmentInfo{
+							Life:    life.Alive,
+							Unit:    u0n,
+							Machine: &m0,
+						},
+						HardwareID:      "hwid",
+						WWN:             "wwn",
+						BlockDeviceName: "blocky",
+						BlockDeviceLink: "/dev/blocky",
+					},
+				},
+			},
+		},
+		{
+			ID:         "data-1",
+			Owner:      &u1n,
+			Kind:       domainstorage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+			FilesystemInfo: &domainstoragestate.FilesystemInfo{
+				Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+					Status:  status.StorageFilesystemStatusTypeAttached,
+					Message: "all good",
+				},
+				Attachments: []domainstoragestate.FilesystemAttachmentInfo{
+					{
+						AttachmentInfo: domainstoragestate.AttachmentInfo{
+							Life: life.Alive,
+							Unit: u1n,
+						},
+						MountPoint: "/data",
+					},
+				},
+			},
+		},
+	}, nil)
+
+	result, err := s.service(c).ListStorageInstances(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []domainstorage.StorageInstanceInfo{
+		{
+			ID:         "pgdata-0",
+			Owner:      &u0n,
+			Kind:       domainstorage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: true,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching the volumez",
+			},
+			Attachments: []domainstorage.StorageAttachmentInfo{
+				{
+					Life:     life.Alive,
+					Location: "/dev/disk/by-id/wwn-wwn",
+					Unit:     u0n,
+					Machine:  &m0,
+				},
+			},
+		},
+		{
+			ID:         "data-1",
+			Owner:      &u1n,
+			Kind:       domainstorage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "all good",
+			},
+			Attachments: []domainstorage.StorageAttachmentInfo{
+				{
+					Life:     life.Alive,
+					Location: "/data",
+					Unit:     u1n,
+				},
+			},
+		},
+	})
 }

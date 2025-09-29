@@ -15,6 +15,7 @@ import (
 
 	storage "github.com/juju/juju/core/storage"
 	storage0 "github.com/juju/juju/domain/storage"
+	state "github.com/juju/juju/domain/storage/state"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -269,6 +270,45 @@ func (c *MockStateImportFilesystemCall) Do(f func(context.Context, storage.Name,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateImportFilesystemCall) DoAndReturn(f func(context.Context, storage.Name, storage0.FilesystemInfo) (storage.ID, error)) *MockStateImportFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ListStorageInstances mocks base method.
+func (m *MockState) ListStorageInstances(arg0 context.Context) ([]state.StorageInstanceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListStorageInstances", arg0)
+	ret0, _ := ret[0].([]state.StorageInstanceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListStorageInstances indicates an expected call of ListStorageInstances.
+func (mr *MockStateMockRecorder) ListStorageInstances(arg0 any) *MockStateListStorageInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStorageInstances", reflect.TypeOf((*MockState)(nil).ListStorageInstances), arg0)
+	return &MockStateListStorageInstancesCall{Call: call}
+}
+
+// MockStateListStorageInstancesCall wrap *gomock.Call
+type MockStateListStorageInstancesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateListStorageInstancesCall) Return(arg0 []state.StorageInstanceInfo, arg1 error) *MockStateListStorageInstancesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateListStorageInstancesCall) Do(f func(context.Context) ([]state.StorageInstanceInfo, error)) *MockStateListStorageInstancesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateListStorageInstancesCall) DoAndReturn(f func(context.Context) ([]state.StorageInstanceInfo, error)) *MockStateListStorageInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

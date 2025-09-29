@@ -338,9 +338,10 @@ func (s *ModelServices) Annotation() *annotationService.Service {
 
 // Storage returns the model's storage service.
 func (s *ModelServices) Storage() *storageservice.Service {
+	log := s.logger.Child("storage")
 	return storageservice.NewService(
-		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("storage"),
+		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log.Child("state")),
+		log.Child("service"),
 		s.storageRegistry,
 	)
 }

@@ -53,7 +53,7 @@ func (i *importOperation) Name() string {
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
-		state.NewState(scope.ModelDB()), i.logger, i.storageRegistryGetter)
+		state.NewState(scope.ModelDB(), i.logger.Child("state")), i.logger, i.storageRegistryGetter)
 	return nil
 }
 
