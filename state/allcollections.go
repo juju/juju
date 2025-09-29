@@ -588,37 +588,38 @@ func allCollections() CollectionSchema {
 
 		secretMetadataC: {
 			indexes: []mgo.Index{{
-				Key: []string{"owner-tag", "label", "model-uuid"},
+				Key: []string{"model-uuid", "owner-tag", "label"},
 			}},
 		},
 
 		secretRevisionsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"revision", "_id", "model-uuid"},
-			}},
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "_id", "revision"}},
+				{Key: []string{"model-uuid", "_id"}},
+			},
 		},
 
 		secretConsumersC: {
 			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag", "label", "model-uuid"},
+				Key: []string{"model-uuid", "consumer-tag", "label"},
 			}},
 		},
 
 		secretRemoteConsumersC: {
 			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag", "model-uuid"},
+				Key: []string{"model-uuid", "consumer-tag"},
 			}},
 		},
 
 		secretPermissionsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
+				Key: []string{"model-uuid", "subject-tag", "scope-tag"},
 			}},
 		},
 
 		secretRotateC: {
 			indexes: []mgo.Index{{
-				Key: []string{"owner-tag", "model-uuid"},
+				Key: []string{"model-uuid", "owner-tag"},
 			}},
 		},
 
