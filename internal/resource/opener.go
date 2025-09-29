@@ -41,7 +41,7 @@ func NewResourceOpenerForUnit(
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName coreunit.Name,
 ) (opener coreresource.Opener, err error) {
-	applicationID, err := args.ApplicationService.GetApplicationIDByUnitName(ctx, unitName)
+	applicationID, err := args.ApplicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
 	}

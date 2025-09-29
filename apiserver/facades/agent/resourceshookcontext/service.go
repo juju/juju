@@ -23,11 +23,11 @@ type ResourceService interface {
 // ApplicationService defines operations to retrieve application IDs based
 // on application or unit names.
 type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// GetApplicationIDByUnitName returns the application ID for the named unit. It
+	// GetApplicationUUIDByUnitName returns the application ID for the named unit. It
 	// returns an error if the unit is not found by the name
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.UUID, error)
+	GetApplicationUUIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.UUID, error)
 }

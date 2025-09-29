@@ -107,7 +107,7 @@ func (st *State) CreateIAASApplication(
 			return nil
 		}
 
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf(
 				"getting charm uuid for new application %q: %w",
@@ -172,7 +172,7 @@ func (st *State) CreateCAASApplication(
 			return nil
 		}
 
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf(
 				"getting charm uuid for new application %q: %w",
@@ -1466,7 +1466,7 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 			return errors.Errorf("looking up application %q: %w", name, err)
 		}
 
-		result, err = st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		result, err = st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting charm for application %q: %w", name, err)
 		}
@@ -1479,15 +1479,15 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 	return result, nil
 }
 
-// GetCharmByApplicationID returns the charm for the specified application
-// ID.
+// GetCharmByApplicationUUID returns the charm for the specified application
+// UUID.
 // This method should be used sparingly, as it is not efficient. It should
 // be only used when you need the whole charm, otherwise use the more specific
 // methods.
 //
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplication.UUID) (charm.Charm, error) {
+func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreapplication.UUID) (charm.Charm, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return charm.Charm{}, errors.Capture(err)
@@ -1495,7 +1495,7 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 
 	var ch charm.Charm
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting charm ID from application ID %q: %w", appUUID, err)
 		}
@@ -1606,11 +1606,11 @@ WHERE  uuid = $applicationID.uuid
 	return nil
 }
 
-// GetApplicationIDByUnitName returns the application ID for the named unit.
+// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
 //
 // Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) GetApplicationIDByUnitName(
+func (st *State) GetApplicationUUIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.UUID, error) {
@@ -1644,12 +1644,12 @@ WHERE name = $unitName.name;
 	return app.ID, nil
 }
 
-// GetApplicationIDAndNameByUnitName returns the application ID and name for the
-// named unit.
+// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
+// for the named unit.
 //
 // Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) GetApplicationIDAndNameByUnitName(
+func (st *State) GetApplicationUUIDAndNameByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
 ) (coreapplication.UUID, string, error) {
@@ -2296,12 +2296,12 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	return nil
 }
 
-// GetCharmConfigByApplicationID returns the charm config for the specified
-// application ID.
+// GetCharmConfigByApplicationUUID returns the charm config for the specified
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 // If the charm for the application does not exist.
-func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.UUID) (corecharm.ID, charm.Config, error) {
+func (st *State) GetCharmConfigByApplicationUUID(ctx context.Context, appID coreapplication.UUID) (corecharm.ID, charm.Config, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", charm.Config{}, errors.Capture(err)
@@ -2366,10 +2366,11 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.U
 	return name, nil
 }
 
-// GetApplicationIDByName returns the application ID for the named application.
+// GetApplicationUUIDByName returns the application UUID for the named
+// application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
+func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)

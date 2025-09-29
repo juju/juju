@@ -47,8 +47,8 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, name string) (bool, error)
 
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
+	// GetCharmByApplicationUUID returns the charm for the specified application
+	// UUID.
 	//
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If the charm for the
@@ -56,7 +56,7 @@ type ApplicationService interface {
 	// [applicationerrors.CharmNotFound is returned. If the application name is not
 	// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
 	// returned.
-	GetCharmByApplicationID(context.Context, application.UUID) (internalcharm.Charm, charm.CharmLocator, error)
+	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, charm.CharmLocator, error)
 
 	// WatchApplicationExposed watches for changes to the specified application's
 	// exposed endpoints.

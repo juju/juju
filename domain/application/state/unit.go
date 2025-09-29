@@ -594,7 +594,7 @@ func (st *State) AddIAASUnits(
 			return errors.Capture(err)
 		}
 
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
 		}
@@ -632,7 +632,7 @@ func (st *State) AddCAASUnits(
 
 	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
 		}
@@ -690,7 +690,7 @@ func (st *State) AddIAASSubordinateUnit(
 		if err != nil {
 			return errors.Errorf("checking if subordinate already exists: %w", err)
 		}
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, arg.SubordinateAppID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, arg.SubordinateAppID)
 		if err != nil {
 			return errors.Errorf(
 				"getting subordinate application %q charm uuid: %w",
@@ -833,7 +833,7 @@ func (st *State) IsSubordinateApplication(
 
 	type getSubordinate struct {
 		ApplicationUUID coreapplication.UUID `db:"application_uuid"`
-		Subordinate     bool               `db:"subordinate"`
+		Subordinate     bool                 `db:"subordinate"`
 	}
 	subordinate := getSubordinate{
 		ApplicationUUID: applicationUUID,
@@ -1101,7 +1101,7 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName cor
 	return &unit, nil
 }
 
-func (st *State) getUnitApplicationID(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (string, error) {
+func (st *State) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (string, error) {
 	unitUUID := unitUUID{UnitUUID: uuid}
 
 	query, err := st.Prepare(`
@@ -2077,7 +2077,7 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	appID, err := st.getUnitApplicationID(ctx, tx, unitUUID)
+	appID, err := st.getUnitApplicationUUID(ctx, tx, unitUUID)
 	if err != nil {
 		return errors.Errorf("getting application id for unit %q: %w", unitUUID, err)
 	}

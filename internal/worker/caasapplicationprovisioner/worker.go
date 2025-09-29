@@ -98,9 +98,9 @@ type ApplicationService interface {
 	// and their cloud container provider IDs for the given application.
 	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.UUID) (map[unit.Name]string, error)
 
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
-	GetCharmByApplicationID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
+	// GetCharmByApplicationUUID returns the charm for the specified application
+	// UUID.
+	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

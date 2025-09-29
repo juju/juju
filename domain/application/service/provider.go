@@ -268,7 +268,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, applicationerrors.ApplicationNameNotValid
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
@@ -339,7 +339,7 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
@@ -428,7 +428,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -459,7 +459,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, params.ApplicationName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, params.ApplicationName)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}

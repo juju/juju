@@ -138,7 +138,7 @@ func (s *baseSuite) createUnit(c *tc.C, netNodeUUID, appName string) (coreunit.U
 	ctx := c.Context()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
+	appID, err := applicationSt.GetApplicationUUIDByName(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that we place the unit on the same machine as the net node.

@@ -751,7 +751,7 @@ func (u *UniterAPI) charmModifiedVersion(
 	var id application.UUID
 	switch tag.(type) {
 	case names.ApplicationTag:
-		id, err = u.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		id, err = u.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// Return an error that also matches a generic not found error.
 			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
@@ -763,7 +763,7 @@ func (u *UniterAPI) charmModifiedVersion(
 		if err != nil {
 			return -1, err
 		}
-		id, err = u.applicationService.GetApplicationIDByUnitName(ctx, name)
+		id, err = u.applicationService.GetApplicationUUIDByUnitName(ctx, name)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			// Return an error that also matches a generic not found error.
 			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
@@ -1063,7 +1063,7 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 			continue
 		}
 
-		appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
+		appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
@@ -1918,7 +1918,7 @@ func (u *UniterAPI) readLocalApplicationSettings(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	appID, err := u.applicationService.GetApplicationIDByName(ctx, appTag.Id())
+	appID, err := u.applicationService.GetApplicationUUIDByName(ctx, appTag.Id())
 	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1994,7 +1994,7 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 			return nil, internalerrors.Capture(err)
 		}
 	case names.ApplicationTag:
-		remoteAppID, err := u.applicationService.GetApplicationIDByName(ctx, remoteTag.Id())
+		remoteAppID, err := u.applicationService.GetApplicationUUIDByName(ctx, remoteTag.Id())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
@@ -2492,7 +2492,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name) (*params.GoalState, error) {
 	appName := unitName.Application()
 
-	appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
+	appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", appName)
 	} else if err != nil {
@@ -2549,7 +2549,7 @@ func (u *UniterAPI) goalStateRelations(
 		// Now gather the goal state.
 		for _, e := range endPoints {
 			var appName string
-			appID, err := u.applicationService.GetApplicationIDByName(ctx, e.ApplicationName)
+			appID, err := u.applicationService.GetApplicationUUIDByName(ctx, e.ApplicationName)
 			if err == nil {
 				appName = e.ApplicationName
 			} else if errors.Is(err, applicationerrors.ApplicationNotFound) {

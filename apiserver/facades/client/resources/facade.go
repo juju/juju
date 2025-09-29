@@ -138,7 +138,7 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 			continue
 		}
 
-		appID, err := a.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		appID, err := a.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
 			continue
@@ -205,7 +205,7 @@ func (a *API) AddPendingResources(
 		return result, nil
 	}
 
-	applicationID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
+	applicationID, err := a.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if err == nil {
 		// The application does exist, therefore the intent is to
 		// update a resource.

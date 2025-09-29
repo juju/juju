@@ -245,13 +245,13 @@ type ApplicationService interface {
 	// This will return true if the charm is available, and false otherwise.
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
 	// valid, and [applicationerrors.ApplicationNotFound] if the application is
 	// not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application ID.

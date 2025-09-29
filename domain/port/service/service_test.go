@@ -26,8 +26,8 @@ func TestServiceSuite(t *testing.T) {
 }
 
 const (
-	unitUUID    coreunit.UUID      = "unit-uuid"
-	machineUUID string             = "machine-uuid"
+	unitUUID    coreunit.UUID        = "unit-uuid"
+	machineUUID string               = "machine-uuid"
 	appUUID     coreapplication.UUID = "app-uuid"
 )
 

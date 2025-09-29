@@ -66,7 +66,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesNoRelation(c *tc.C) {
 	unitName := coreunit.Name("wordpress/0")
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
 			unitName: {
@@ -117,7 +117,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesPeerUnitsNotRelation(c *tc.C) {
 	otherUnitName := coreunit.Name("wordpress/1")
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
 			unitName: {
@@ -191,9 +191,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *tc.C) {
 	appID := applicationtesting.GenApplicationUUID(c)
 	otherAppID := applicationtesting.GenApplicationUUID(c)
 
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "wordpress").Return(otherAppID, nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql").Return(otherAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "wordpress").Return(otherAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").Return(otherAppID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
 			unitName: {
@@ -283,7 +283,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *tc.C) {
 	deadUnitName := coreunit.Name("wordpress/1")
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
 			unitName: {
@@ -352,7 +352,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *tc.C) {
 	dyingUnitName := coreunit.Name("wordpress/1")
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(appID, nil)
 	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).
 		Return(map[coreunit.Name]corestatus.StatusInfo{
 			unitName: {
@@ -429,8 +429,8 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 	wpUnit := coreunit.Name("wordpress/0")
 	otherWpUnit := coreunit.Name("wordpress/1")
 	wpAppID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), wpUnit).Return(wpAppID, nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "wordpress").Return(wpAppID, nil).MinTimes(1)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), wpUnit).Return(wpAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "wordpress").Return(wpAppID, nil).MinTimes(1)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "wordpress").
 		Return([]coreunit.Name{wpUnit, otherWpUnit}, nil)
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), wpUnit).Return("", false, nil)
@@ -443,8 +443,8 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 	mysqlAppID := applicationtesting.GenApplicationUUID(c)
 	otherAppMysqlUnit := coreunit.Name("other-mysql/0")
 	otherMysqlAppID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql").Return(mysqlAppID, nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "other-mysql").Return(otherMysqlAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").Return(mysqlAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "other-mysql").Return(otherMysqlAppID, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "mysql").
 		Return([]coreunit.Name{mysqlUnit, otherMysqlUnit}, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "other-mysql").
@@ -458,7 +458,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *tc.C) {
 
 	loggingUnit := coreunit.Name("logging/0")
 	loggingAppID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "logging").Return(loggingAppID, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "logging").Return(loggingAppID, nil)
 	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "logging").
 		Return([]coreunit.Name{loggingUnit}, nil)
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), loggingUnit).Return("", false, nil)

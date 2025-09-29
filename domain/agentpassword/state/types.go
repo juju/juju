@@ -77,5 +77,5 @@ type applicationID struct {
 
 type applicationIDAndName struct {
 	ID   application.UUID `db:"uuid"`
-	Name string         `db:"name"`
+	Name string           `db:"name"`
 }

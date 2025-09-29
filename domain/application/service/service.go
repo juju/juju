@@ -308,7 +308,7 @@ func (s *WatchableService) WatchUnitLife(ctx context.Context, unitName coreunit.
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -439,7 +439,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.GetApplicationIDByName(ctx, name)
+	uuid, err := s.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
@@ -466,7 +466,7 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.GetApplicationIDByName(ctx, name)
+	uuid, err := s.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
@@ -496,7 +496,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.GetApplicationIDByName(ctx, name)
+	appID, err := s.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
@@ -563,7 +563,7 @@ func (s *WatchableService) WatchApplicationSettings(ctx context.Context, appName
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.GetApplicationIDByName(ctx, appName)
+	uuid, err := s.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", appName, err)
 	}
@@ -589,7 +589,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
+	appUUID, err := s.st.GetApplicationUUIDByUnitName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -745,7 +745,7 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	uuid, err := s.GetApplicationIDByName(ctx, name)
+	uuid, err := s.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}

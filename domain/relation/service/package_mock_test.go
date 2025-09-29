@@ -1314,41 +1314,41 @@ func (c *MockMigrationStateExportRelationsCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// GetApplicationIDByName mocks base method.
-func (m *MockMigrationState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
+// GetApplicationUUIDByName mocks base method.
+func (m *MockMigrationState) GetApplicationUUIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", arg0, arg1)
 	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
-func (mr *MockMigrationStateMockRecorder) GetApplicationIDByName(arg0, arg1 any) *MockMigrationStateGetApplicationIDByNameCall {
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockMigrationStateMockRecorder) GetApplicationUUIDByName(arg0, arg1 any) *MockMigrationStateGetApplicationUUIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockMigrationState)(nil).GetApplicationIDByName), arg0, arg1)
-	return &MockMigrationStateGetApplicationIDByNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockMigrationState)(nil).GetApplicationUUIDByName), arg0, arg1)
+	return &MockMigrationStateGetApplicationUUIDByNameCall{Call: call}
 }
 
-// MockMigrationStateGetApplicationIDByNameCall wrap *gomock.Call
-type MockMigrationStateGetApplicationIDByNameCall struct {
+// MockMigrationStateGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockMigrationStateGetApplicationUUIDByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetApplicationIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockMigrationStateGetApplicationIDByNameCall {
+func (c *MockMigrationStateGetApplicationUUIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockMigrationStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockMigrationStateGetApplicationIDByNameCall {
+func (c *MockMigrationStateGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockMigrationStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockMigrationStateGetApplicationIDByNameCall {
+func (c *MockMigrationStateGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockMigrationStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

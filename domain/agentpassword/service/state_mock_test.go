@@ -43,41 +43,41 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationIDByName mocks base method.
-func (m *MockModelState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
+// GetApplicationUUIDByName mocks base method.
+func (m *MockModelState) GetApplicationUUIDByName(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", arg0, arg1)
 	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
-func (mr *MockModelStateMockRecorder) GetApplicationIDByName(arg0, arg1 any) *MockModelStateGetApplicationIDByNameCall {
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockModelStateMockRecorder) GetApplicationUUIDByName(arg0, arg1 any) *MockModelStateGetApplicationUUIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockModelState)(nil).GetApplicationIDByName), arg0, arg1)
-	return &MockModelStateGetApplicationIDByNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockModelState)(nil).GetApplicationUUIDByName), arg0, arg1)
+	return &MockModelStateGetApplicationUUIDByNameCall{Call: call}
 }
 
-// MockModelStateGetApplicationIDByNameCall wrap *gomock.Call
-type MockModelStateGetApplicationIDByNameCall struct {
+// MockModelStateGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockModelStateGetApplicationUUIDByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetApplicationIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationUUIDByNameCall) Return(arg0 application.UUID, arg1 error) *MockModelStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationIDByNameCall {
+func (c *MockModelStateGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockModelStateGetApplicationUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

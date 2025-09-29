@@ -127,16 +127,16 @@ func (s *modelStateSuite) TestGetAllRelationStatusesNone(c *tc.C) {
 	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDByName(c *tc.C) {
+func (s *modelStateSuite) TestGetApplicationUUIDByName(c *tc.C) {
 	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
-	gotID, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+	gotID, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotID, tc.Equals, id)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 

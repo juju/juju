@@ -865,7 +865,7 @@ func provisioningInfo(
 		}
 	}
 
-	charm, _, err := applicationService.GetCharmByApplicationID(ctx, appID)
+	charm, _, err := applicationService.GetCharmByApplicationUUID(ctx, appID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

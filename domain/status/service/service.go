@@ -32,10 +32,10 @@ type ModelState interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
-	// GetApplicationIDByName returns the application ID for the named
+	// GetApplicationUUIDByName returns the application ID for the named
 	// application. If no application is found, an error satisfying
 	// [statuserrors.ApplicationNotFound] is returned.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationIDAndNameByUnitName returns the application ID and name for
 	// the named unit, returning an error satisfying
@@ -298,7 +298,7 @@ func (s *Service) SetApplicationStatus(
 		return errors.Errorf("encoding workload status: %w", err)
 	}
 
-	applicationID, err := s.modelState.GetApplicationIDByName(ctx, applicationName)
+	applicationID, err := s.modelState.GetApplicationUUIDByName(ctx, applicationName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -323,7 +323,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}

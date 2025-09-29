@@ -32,12 +32,12 @@ type ApplicationService interface {
 	// locator by the name. If no names are provided, all charms are returned.
 	ListCharmLocators(ctx context.Context, names ...string) ([]charm.CharmLocator, error)
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 	// and [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.

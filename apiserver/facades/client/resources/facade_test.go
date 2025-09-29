@@ -53,7 +53,7 @@ func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 	apiChRes2.Revision++
 
 	appTag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(),
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(),
 		appTag.Id()).Return("a-application-id", nil)
 	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(
 		resource.ApplicationResources{
@@ -121,7 +121,7 @@ func (s *resourcesSuite) TestListResourcesOkay(c *tc.C) {
 func (s *resourcesSuite) TestListResourcesEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
 	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(resource.ApplicationResources{}, nil)
 
 	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
@@ -140,7 +140,7 @@ func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("", failure)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "a-application").Return("", failure)
 
 	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -162,7 +162,7 @@ func (s *resourcesSuite) TestListResourcesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
 	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.UUID("a-application-id")).Return(resource.ApplicationResources{}, failure)
 
 	results, err := s.newFacade(c).ListResources(c.Context(), params.ListResourcesArgs{
@@ -290,7 +290,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *tc
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
-	s.expectGetApplicationIDByName(applicationerrors.ApplicationNotFound)
+	s.expectGetApplicationUUIDByName(applicationerrors.ApplicationNotFound)
 	s.expectResolveResourceForBeforeApplication(resourceRevision)
 	s.expectAddResourcesBeforeApplication(resourceRevision)
 
@@ -329,7 +329,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
-	s.expectGetApplicationIDByName(nil)
+	s.expectGetApplicationUUIDByName(nil)
 	s.expectResolveResourcesStoreContainer(s.resourceNameTwo, resourceRevision)
 	s.expectGetApplicationResourceIDTwo()
 	newUUIDTwo := s.expectUpdateResourceRevisionTwo(c, resourceRevision)
@@ -362,7 +362,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectGetApplicationIDByName(nil)
+	s.expectGetApplicationUUIDByName(nil)
 	s.expectResolveResourcesUploadContainer(c)
 	s.expectGetApplicationResourceIDTwo()
 	newUUIDTwo := s.expectUpdateUploadResourceTwo(c)
@@ -409,12 +409,12 @@ func (s *addPendingResourceSuite) expectResolveResourcesStoreContainer(resName s
 	s.repository.EXPECT().ResolveResources(gomock.Any(), resolveArgs, gomock.Any()).Return(resolveArgs, nil)
 }
 
-func (s *addPendingResourceSuite) expectGetApplicationIDByName(err error) {
+func (s *addPendingResourceSuite) expectGetApplicationUUIDByName(err error) {
 	var id coreapplication.UUID
 	if err == nil {
 		id = s.appUUID
 	}
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), s.appTag.Name).Return(id, err)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), s.appTag.Name).Return(id, err)
 }
 
 func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {

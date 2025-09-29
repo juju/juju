@@ -184,7 +184,7 @@ func (p *firewaller) loop() error {
 }
 
 func (p *firewaller) charmFormat(ctx context.Context, appUUID application.UUID) (charm.Format, error) {
-	ch, _, err := p.config.ApplicationService.GetCharmByApplicationID(ctx, appUUID)
+	ch, _, err := p.config.ApplicationService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "getting charm for application %q", appUUID)
 	}

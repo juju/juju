@@ -23,7 +23,7 @@ func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (boo
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -42,7 +42,7 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -61,7 +61,7 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -79,7 +79,7 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)
 	}

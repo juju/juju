@@ -139,7 +139,7 @@ type unitResource struct {
 
 type applicationNameAndID struct {
 	ApplicationID coreapplication.UUID `db:"uuid"`
-	Name          string             `db:"name"`
+	Name          string               `db:"name"`
 }
 
 type applicationID struct {
@@ -158,8 +158,8 @@ type charmResource struct {
 // application table using the application name.
 type getApplicationAndCharmID struct {
 	ApplicationID coreapplication.UUID `db:"uuid"`
-	CharmID       charm.ID           `db:"charm_uuid"`
-	Name          string             `db:"name"`
+	CharmID       charm.ID             `db:"charm_uuid"`
+	Name          string               `db:"name"`
 }
 
 // kubernetesApplicationResource represents the mapping of a resource to a unit.

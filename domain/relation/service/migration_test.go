@@ -80,9 +80,9 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 	}
 	peerRelUUID := s.expectGetPeerRelationUUIDByEndpointIdentifiers(c, ep1[0])
 	relUUID := s.expectImportRelation(c, ep2[0], ep2[1], uint64(8), charm.ScopeGlobal)
-	app1ID := s.expectGetApplicationIDByName(c, args[0].Endpoints[0].ApplicationName)
-	app2ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[0].ApplicationName)
-	app3ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[1].ApplicationName)
+	app1ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[0].ApplicationName)
+	app2ID := s.expectGetApplicationUUIDByName(c, args[1].Endpoints[0].ApplicationName)
+	app3ID := s.expectGetApplicationUUIDByName(c, args[1].Endpoints[1].ApplicationName)
 	s.expectSetRelationApplicationSettings(peerRelUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
 	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[1].Endpoints[0].ApplicationSettings)
 	s.expectSetRelationApplicationSettings(relUUID, app3ID, args[1].Endpoints[1].ApplicationSettings)
@@ -190,9 +190,9 @@ func (s *migrationServiceSuite) expectImportRelation(
 	return relUUID
 }
 
-func (s *migrationServiceSuite) expectGetApplicationIDByName(c *tc.C, name string) coreapplication.UUID {
+func (s *migrationServiceSuite) expectGetApplicationUUIDByName(c *tc.C, name string) coreapplication.UUID {
 	appID := coreapplicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), name).Return(appID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), name).Return(appID, nil)
 	return appID
 }
 

@@ -118,7 +118,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	appName := unitName.Application()
-	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}

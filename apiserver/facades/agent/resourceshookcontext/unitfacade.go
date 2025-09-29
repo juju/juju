@@ -37,11 +37,11 @@ func NewUnitFacade(
 			return nil, errors.Capture(err)
 		}
 		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
-			return applicationService.GetApplicationIDByUnitName(ctx, unitName)
+			return applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 		}
 	case names.ApplicationTag:
 		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
-			return applicationService.GetApplicationIDByName(ctx, tag.Id())
+			return applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		}
 	default:
 		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)

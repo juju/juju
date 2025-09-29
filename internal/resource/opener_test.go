@@ -430,7 +430,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 
 func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
 	// Service calls in NewResourceOpenerForUnit.
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
 		gomock.Any(),
 		s.unitName,
 	).Return(s.appID, nil)

@@ -64,11 +64,11 @@ type ModelConfigService interface {
 // ApplicationService provides access to applications.
 type ApplicationService interface {
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationsForRevisionUpdater returns the applications that should be
 	// used by the revision updater.
@@ -552,7 +552,7 @@ func (w *revisionUpdateWorker) storeNewResourcesRevision(ctx context.Context,
 	}
 
 	// Store resources revision.
-	appID, err := w.config.ApplicationService.GetApplicationIDByName(ctx, info.appName)
+	appID, err := w.config.ApplicationService.GetApplicationUUIDByName(ctx, info.appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Maybe the application has been removed in the meantime. In this case,
 		// that's not a real issue. Log it as a warning and continue.

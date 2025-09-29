@@ -68,12 +68,12 @@ func (st *State) ImportRelation(
 	return relUUID, errors.Capture(err)
 }
 
-// GetApplicationIDByName returns the application ID of the given application.
+// GetApplicationUUIDByName returns the application ID of the given application.
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationNotFound] is returned if application ID
 //     doesn't refer an existing application.
-func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.UUID, error) {
+func (st *State) GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)

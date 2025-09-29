@@ -50,10 +50,10 @@ type ModelState interface {
 	// password hash stored in the database.
 	MatchesApplicationPasswordHash(context.Context, application.UUID, agentpassword.PasswordHash) (bool, error)
 
-	// GetApplicationIDByName returns the application ID for the named application.
+	// GetApplicationUUIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationIDByName(ctx context.Context, name string) (application.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error)
 
 	// SetModelPasswordHash sets the password hash for the model overriding any
 	// previously set value.
@@ -286,7 +286,7 @@ func (s *Service) MatchesApplicationPasswordHash(ctx context.Context, appName st
 		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
-	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}

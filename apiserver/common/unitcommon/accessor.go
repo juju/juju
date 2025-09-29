@@ -18,9 +18,9 @@ import (
 // ApplicationService describes the ability to check if an
 // application exists in the model.
 type ApplicationService interface {
-	// GetApplicationIDByName returns nil if the application exists.
+	// GetApplicationUUIDByName returns nil if the application exists.
 	// Otherwise, it returns an error.
-	GetApplicationIDByName(ctx context.Context, name string) (application.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error)
 }
 
 // UnitAccessor returns an auth function which determines if the
@@ -32,7 +32,7 @@ func UnitAccessor(authorizer facade.Authorizer, applicationService ApplicationSe
 			// If called by an application agent, any of the units
 			// belonging to that application can be accessed.
 			appName := authTag.Name
-			if _, err := applicationService.GetApplicationIDByName(ctx, appName); errors.Is(err, applicationerrors.ApplicationNotFound) {
+			if _, err := applicationService.GetApplicationUUIDByName(ctx, appName); errors.Is(err, applicationerrors.ApplicationNotFound) {
 				return nil, errors.NotFoundf("application %q", appName)
 			} else if err != nil {
 				return nil, errors.Trace(err)

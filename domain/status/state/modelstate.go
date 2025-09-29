@@ -134,10 +134,10 @@ JOIN   relation r ON r.uuid = rs.relation_uuid
 	return relationStatuses, errors.Capture(err)
 }
 
-// GetApplicationIDByName returns the application ID for the named application.
+// GetApplicationUUIDByName returns the application ID for the named application.
 // If no application is found, an error satisfying
 // [statuserrors.ApplicationNotFound] is returned.
-func (st *ModelState) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
+func (st *ModelState) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)

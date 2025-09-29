@@ -217,7 +217,7 @@ func (st *State) GetApplicationEndpointNames(ctx context.Context, appUUID coreap
 
 	var eps []charmRelationName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 		}
@@ -307,7 +307,7 @@ type insertApplicationEndpointsParams struct {
 // the application default space may have been updated if a binding without endpoint
 // was present in params.
 func (st *State) insertApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, params insertApplicationEndpointsParams) error {
-	charm, err := st.getCharmIDByApplicationID(ctx, tx, params.appID)
+	charm, err := st.getCharmIDByApplicationUUID(ctx, tx, params.appID)
 	if err != nil {
 		return errors.Capture(err)
 	}

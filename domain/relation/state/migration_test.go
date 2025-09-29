@@ -93,14 +93,14 @@ func (s *migrationSuite) TestImportRelation(c *tc.C) {
 	c.Assert(obtainedRelUUID, tc.Equals, foundRelUUID)
 }
 
-func (s *migrationSuite) TestGetApplicationIDByName(c *tc.C) {
-	obtainedID, err := s.state.GetApplicationIDByName(c.Context(), s.fakeApplicationName1)
+func (s *migrationSuite) TestGetApplicationUUIDByName(c *tc.C) {
+	obtainedID, err := s.state.GetApplicationUUIDByName(c.Context(), s.fakeApplicationName1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedID, tc.Equals, s.fakeApplicationUUID1)
 }
 
-func (s *migrationSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+func (s *migrationSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

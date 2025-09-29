@@ -422,7 +422,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	appID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
+	appID, err := a.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %s", appName)
 	} else if err != nil {

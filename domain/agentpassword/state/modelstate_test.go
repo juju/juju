@@ -491,23 +491,23 @@ func (s *modelStateSuite) TestSetApplicationPassword(c *tc.C) {
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
-// TestGetApplicationIDByName asserts that an application ID can be found by name.
-func (s *modelStateSuite) TestGetApplicationIDByName(c *tc.C) {
+// TestGetApplicationUUIDByName asserts that an application ID can be found by name.
+func (s *modelStateSuite) TestGetApplicationUUIDByName(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 
 	appID := s.createApplication(c, false)
 
-	gotAppID, err := st.GetApplicationIDByName(c.Context(), "foo")
+	gotAppID, err := st.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotAppID, tc.Equals, appID)
 }
 
-// TestGetApplicationIDByNameNotFound asserts that an application not found error
+// TestGetApplicationUUIDByNameNotFound asserts that an application not found error
 // is returned when the named application cannot be found.
-func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
+func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 
-	_, err := st.GetApplicationIDByName(c.Context(), "foo")
+	_, err := st.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -642,7 +642,7 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	ctx := c.Context()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appID, err := applicationSt.GetApplicationIDByName(ctx, "foo")
+	appID, err := applicationSt.GetApplicationUUIDByName(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	netNodeUUID := tc.Must(c, network.NewNetNodeUUID)

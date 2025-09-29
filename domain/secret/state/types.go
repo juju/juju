@@ -46,7 +46,7 @@ type unit struct {
 
 type application struct {
 	UUID coreapplication.UUID `db:"uuid"`
-	Name string             `db:"name"`
+	Name string               `db:"name"`
 }
 
 type secretRef struct {

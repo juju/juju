@@ -1069,7 +1069,7 @@ func (s *State) NamespaceForWatchCharm() string {
 	return "charm"
 }
 
-func (s *State) getCharmIDByApplicationID(ctx context.Context, tx *sqlair.TX, appID application.UUID) (corecharm.ID, error) {
+func (s *State) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID application.UUID) (corecharm.ID, error) {
 	query := `
 SELECT charm_uuid AS &charmUUID.*
 FROM application

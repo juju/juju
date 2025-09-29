@@ -146,7 +146,7 @@ func (s *machinePlacementSuite) createApplication(c *tc.C, controller bool) core
 }
 
 func (s *machinePlacementSuite) createUnit(c *tc.C) unit.Name {
-	appID, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+	appID, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)

@@ -148,16 +148,16 @@ type ApplicationService interface {
 	// will be returned.
 	WatchUnitForLegacyUniter(context.Context, coreunit.Name) (watcher.NotifyWatcher, error)
 
-	// GetApplicationIDByUnitName returns the application ID for the named unit.
+	// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
 	//
 	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
-	GetApplicationIDByUnitName(context.Context, coreunit.Name) (coreapplication.UUID, error)
+	GetApplicationUUIDByUnitName(context.Context, coreunit.Name) (coreapplication.UUID, error)
 
-	// GetApplicationIDByName returns an application ID by application name.
+	// GetApplicationUUIDByName returns an application UUID by application name.
 	//
 	// Returns [applicationerrors.ApplicationNotFound] if the application is not
 	// found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.

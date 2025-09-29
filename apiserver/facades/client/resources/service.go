@@ -42,6 +42,6 @@ type ResourceService interface {
 
 // ApplicationService defines methods to manage application.
 type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	// GetApplicationUUIDByName returns an application ID by application name.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 }

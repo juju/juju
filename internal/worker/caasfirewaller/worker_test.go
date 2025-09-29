@@ -127,23 +127,23 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}}, // bases make it a v2 charm
 	}
 
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app2UUID).Return(life.Alive, nil)
 	// Added app2's worker to catacomb.
 	app2Worker.EXPECT().Wait().Return(nil)
 
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app1UUID).Return(life.Value(""), applicationerrors.ApplicationNotFound)
 	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app2UUID).Return(charmInfo.Charm(), charm.CharmLocator{}, nil)
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), app2UUID).Return(life.Dead, nil)
 	// Stopped app2's worker because it's dead.
 	app2Worker.EXPECT().Kill()
@@ -191,7 +191,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	}()
 
 	var done = make(chan struct{})
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app1UUID).DoAndReturn(
 		func(ctx context.Context, id coreapplication.UUID) (internalcharm.Charm, charm.CharmLocator, error) {
 			close(done)
 			charmInfo := &charms.CharmInfo{ // v1 charm
@@ -240,7 +240,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	}()
 
 	var done = make(chan struct{})
-	s.applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), app1UUID).DoAndReturn(
+	s.applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), app1UUID).DoAndReturn(
 		func(ctx context.Context, id coreapplication.UUID) (internalcharm.Charm, charm.CharmLocator, error) {
 			close(done)
 			return nil, charm.CharmLocator{}, errors.NotFoundf("app1")

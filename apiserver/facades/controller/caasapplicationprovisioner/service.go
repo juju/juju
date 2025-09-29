@@ -104,9 +104,9 @@ type ApplicationService interface {
 	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application ID.

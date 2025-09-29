@@ -46,7 +46,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), tag.Id()).Return("expected-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), tag.Id()).Return("expected-application-id", nil)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -69,7 +69,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	expectedError := errors.New("expected error")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("", expectedError)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("", expectedError)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -90,7 +90,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(),
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(),
 		coreunit.Name(tag.Id())).Return("expected-application-id", nil)
 
 	// Act
@@ -114,7 +114,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
 	expectedError := errors.New("expected error")
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), gomock.Any()).Return("", expectedError)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), gomock.Any()).Return("", expectedError)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -212,7 +212,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
 	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
@@ -248,7 +248,7 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
 	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return([]coreresource.Resource{
 		minimalResourceInfo("fetched-resource-1"),
 		minimalResourceInfo("not-fetched-resource"),

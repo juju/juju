@@ -617,7 +617,7 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

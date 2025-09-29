@@ -444,7 +444,7 @@ func (s *serviceSuite) TestMatchesApplicationPasswordHash(c *tc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.modelState.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(true, nil)
 
 	service := NewService(s.modelState, s.controllerState)
@@ -463,7 +463,7 @@ func (s *serviceSuite) TestMatchesApplicationPasswordHashNotFound(c *tc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, applicationerrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, applicationerrors.ApplicationNotFound)
 
 	service := NewService(s.modelState, s.controllerState)
 	valid, err := service.MatchesApplicationPasswordHash(c.Context(), appName, password)
@@ -481,7 +481,7 @@ func (s *serviceSuite) TestMatchesApplicationPasswordHashNotMatch(c *tc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.modelState.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), appID, hashPassword(password)).Return(false, nil)
 
 	service := NewService(s.modelState, s.controllerState)
