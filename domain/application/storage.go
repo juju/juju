@@ -147,12 +147,17 @@ type StorageDirective struct {
 	CharmMetadataName string
 
 	// Count represents the number of storage instances that should be made for
-	// this directive.
+	// this directive. This value should be the desired count but not the limit.
+	// For the maximum supported limit see [StorageDirective.MaxCount].
 	Count uint32
 
-	// CharmStorageType represents the storage type of the charm that the directive relates
-	// to.
+	// CharmStorageType represents the storage type of the charm that the
+	// directive relates to.
 	CharmStorageType charm.StorageType
+
+	// MaxCount represents the maximum number of storage instances that can be
+	// made for this directive.
+	MaxCount uint32
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name
