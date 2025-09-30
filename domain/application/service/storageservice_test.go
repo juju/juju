@@ -35,6 +35,10 @@ func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockStorageState(ctrl)
 	s.poolProvider = NewMockStoragePoolProvider(ctrl)
+	c.Cleanup(func() {
+		s.state = nil
+		s.poolProvider = nil
+	})
 	return ctrl
 }
 
