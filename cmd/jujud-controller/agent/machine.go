@@ -588,6 +588,9 @@ func (a *MachineAgent) makeEngineCreator(
 			if err := worker.Stop(eng); err != nil {
 				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 			}
+			if err := worker.Stop(flightRecorder); err != nil {
+				logger.Errorf(context.TODO(), "while stopping flight recorder with bad manifolds: %v", err)
+			}
 			return nil, err
 		}
 

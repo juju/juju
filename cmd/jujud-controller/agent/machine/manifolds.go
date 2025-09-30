@@ -335,9 +335,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		flightRecorderName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.FlightRecorder)
+				return engine.NewOwnedWorker(config.FlightRecorder)
 			},
-			Output: engine.ValueWorkerOutput,
+			Output: engine.OwnedWorkerOutput,
 		},
 
 		// Each machine agent has a flag manifold/worker which
