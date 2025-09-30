@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 
@@ -1661,7 +1662,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 
 	// Everything else from the newConfig is just application config. Treat it
 	// as such.
-	coercedConfig, err := charmConfig.ParseSettingsStrings(newConfig)
+	_, err = charmConfig.ParseSettingsStrings(newConfig)
 	if errors.Is(err, internalcharm.ErrUnknownOption) {
 		return errors.Errorf("%w: %w", applicationerrors.InvalidApplicationConfig, err)
 	} else if err != nil {
@@ -1669,15 +1670,15 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 	}
 
 	// Validate the secret config.
-	if err := validateSecretConfig(charmConfig, coercedConfig); err != nil {
+	if err := validateSecretConfig(charmConfig, newConfig); err != nil {
 		return errors.Capture(err)
 	}
 
 	// The encoded config is the application config, with the type of the
 	// option. Encoding the type ensures that if the type changes during an
 	// upgrade, we can prevent a runtime error during that phase.
-	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
-	for k, v := range coercedConfig {
+	encodedConfig := make(map[string]application.ApplicationConfig, len(newConfig))
+	for k, v := range newConfig {
 		option, ok := cfg.Options[k]
 		if !ok {
 			// This should never happen, as we've verified the config is valid.
@@ -1685,7 +1686,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
 		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
+			Value: &v,
 			Type:  option.Type,
 		}
 	}
@@ -1877,14 +1878,14 @@ func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config)
 		}
 
 		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
+			Value: ptr(fmt.Sprintf("%v", v)),
 			Type:  option.Type,
 		}
 	}
 	return encodedConfig, nil
 }
 
-func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Config) error {
+func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg map[string]string) error {
 	for name, value := range cfg {
 		option, ok := chCfg.Options[name]
 		if !ok {
@@ -1892,14 +1893,10 @@ func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Conf
 			return errors.Errorf("unsupported option %q %w", name, coreerrors.NotValid)
 		}
 		if option.Type == "secret" {
-			uriStr, ok := value.(string)
-			if !ok {
-				return applicationerrors.InvalidSecretConfig
-			}
-			if uriStr == "" {
+			if value == "" {
 				return nil
 			}
-			_, err := secrets.ParseURI(uriStr)
+			_, err := secrets.ParseURI(value)
 			if err != nil {
 				return errors.Errorf("invalid secret URI for option %q: %w", name, err)
 			}

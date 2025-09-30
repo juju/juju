@@ -760,9 +760,9 @@ type revisionUpdaterApplicationNumUnits struct {
 }
 
 type applicationConfig struct {
-	Key   string `db:"key"`
-	Value any    `db:"value"`
-	Type  string `db:"type"`
+	Key   string           `db:"key"`
+	Value sql.Null[string] `db:"value"`
+	Type  string           `db:"type"`
 }
 
 type setApplicationConfig struct {

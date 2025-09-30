@@ -344,7 +344,7 @@ type ApplicationConfig struct {
 	// Type dictates the type of the config value. The value is derived from
 	// the charm config.
 	Type  domaincharm.OptionType
-	Value any
+	Value *string
 }
 
 // ApplicationSettings contains the settings for an application.

@@ -2020,9 +2020,15 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 			return nil, application.ApplicationSettings{}, errors.Errorf("decoding config type: %w", err)
 		}
 
-		result[c.Key] = application.ApplicationConfig{
-			Type:  typ,
-			Value: c.Value,
+		if c.Value.Valid {
+			result[c.Key] = application.ApplicationConfig{
+				Type:  typ,
+				Value: &c.Value.V,
+			}
+		} else {
+			result[c.Key] = application.ApplicationConfig{
+				Type: typ,
+			}
 		}
 	}
 	return result, application.ApplicationSettings{
@@ -2068,9 +2074,15 @@ func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID cor
 			return nil, errors.Errorf("decoding config type: %w", err)
 		}
 
-		result[c.Key] = application.ApplicationConfig{
-			Type:  typ,
-			Value: c.Value,
+		if c.Value.Valid {
+			result[c.Key] = application.ApplicationConfig{
+				Type:  typ,
+				Value: &c.Value.V,
+			}
+		} else {
+			result[c.Key] = application.ApplicationConfig{
+				Type: typ,
+			}
 		}
 	}
 
@@ -3384,7 +3396,7 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 		if _, err := h.Write([]byte(c.Key)); err != nil {
 			return "", errors.Errorf("writing config key: %w", err)
 		}
-		if _, err := h.Write([]byte(fmt.Sprintf("%v", c.Value))); err != nil {
+		if _, err := h.Write([]byte(c.Value.V)); err != nil {
 			return "", errors.Errorf("writing config value: %w", err)
 		}
 	}
@@ -3532,7 +3544,11 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 
 	decodedApplicationConfig := make(internalcharm.Config, len(applicationConfig))
 	for _, v := range applicationConfig {
-		decodedApplicationConfig[v.Key] = v.Value
+		if v.Value.Valid {
+			decodedApplicationConfig[v.Key] = v.Value.V
+		} else {
+			decodedApplicationConfig[v.Key] = nil
+		}
 	}
 
 	filteredDecodedApplicationConfig := decodedCharmConfig.FilterApplicationConfig(decodedApplicationConfig)
@@ -3546,7 +3562,7 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 		}
 		filteredApplicationConfig[k] = application.ApplicationConfig{
 			Type:  opt.Type,
-			Value: v,
+			Value: ptr(fmt.Sprintf("%v", v)),
 		}
 	}
 

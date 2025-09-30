@@ -223,7 +223,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc
 			Channel: channel,
 			Config: map[string]application.ApplicationConfig{
 				"foo": {
-					Value: "bar",
+					Value: ptr("bar"),
 					Type:  charm.OptionString,
 				},
 			},
@@ -240,7 +240,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
-			Value: "bar",
+			Value: ptr("bar"),
 			Type:  charm.OptionString,
 		},
 	})
@@ -2227,7 +2227,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2259,7 +2259,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
@@ -2329,11 +2329,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
-			Value: "b",
+			Value: ptr("b"),
 		},
 		"c": {
 			Type:  charm.OptionFloat,
-			Value: "d",
+			Value: ptr("d"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2343,7 +2343,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"e": {
 			Type:  charm.OptionInt,
-			Value: "f",
+			Value: ptr("f"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2360,11 +2360,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key1": {
 			Type:  charm.OptionString,
-			Value: "value1",
+			Value: ptr("value1"),
 		},
 		"key2": {
 			Type:  charm.OptionString,
-			Value: "defaultValue2",
+			Value: ptr("defaultValue2"),
 		},
 	})
 }
@@ -2460,7 +2460,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsNoApplicat
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2472,7 +2472,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsApplicatio
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
@@ -2496,7 +2496,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) 
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2506,7 +2506,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) 
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2522,11 +2522,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMultipleCo
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 		"doink": {
 			Type:  charm.OptionInt,
-			Value: 17,
+			Value: ptr("17"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2536,11 +2536,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMultipleCo
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 		"doink": {
 			Type:  charm.OptionInt,
-			Value: "17",
+			Value: ptr("17"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2552,7 +2552,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2560,7 +2560,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 	err = s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2570,7 +2570,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: "value",
+			Value: ptr("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2582,7 +2582,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2594,7 +2594,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 	err = s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"bar": {
 			Type:  charm.OptionString,
-			Value: "foo",
+			Value: ptr("foo"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2604,11 +2604,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 		"bar": {
 			Type:  charm.OptionString,
-			Value: "foo",
+			Value: ptr("foo"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2624,7 +2624,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2632,7 +2632,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 	err = s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "baz",
+			Value: ptr("baz"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2642,7 +2642,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "baz",
+			Value: ptr("baz"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2680,11 +2680,11 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
-			Value: "b",
+			Value: ptr("b"),
 		},
 		"c": {
 			Type:  charm.OptionString,
-			Value: "d1",
+			Value: ptr("d1"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2697,7 +2697,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
-			Value: "d1",
+			Value: ptr("d1"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2741,11 +2741,11 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
-			Value: "b",
+			Value: ptr("b"),
 		},
 		"c": {
 			Type:  charm.OptionString,
-			Value: "d1",
+			Value: ptr("d1"),
 		},
 	}, application.UpdateApplicationSettingsArg{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2758,7 +2758,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
-			Value: "d1",
+			Value: ptr("d1"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2878,7 +2878,7 @@ func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 			{
 				Key:   "key",
 				Type:  "string",
-				Value: "value",
+				Value: sql.Null[string]{V: "value", Valid: true},
 			},
 		},
 		settings: applicationSettings{},
@@ -2889,27 +2889,27 @@ func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 			{
 				Key:   "key",
 				Type:  "string",
-				Value: "value",
+				Value: sql.Null[string]{V: "value", Valid: true},
 			},
 			{
 				Key:   "key2",
 				Type:  "int",
-				Value: 42,
+				Value: sql.Null[string]{V: "42", Valid: true},
 			},
 			{
 				Key:   "key3",
 				Type:  "float",
-				Value: 3.14,
+				Value: sql.Null[string]{V: "3.14", Valid: true},
 			},
 			{
 				Key:   "key4",
 				Type:  "boolean",
-				Value: true,
+				Value: sql.Null[string]{V: "true", Valid: true},
 			},
 			{
 				Key:   "key5",
 				Type:  "secret",
-				Value: "secret",
+				Value: sql.Null[string]{V: "secret", Valid: true},
 			},
 		},
 		settings: applicationSettings{},
