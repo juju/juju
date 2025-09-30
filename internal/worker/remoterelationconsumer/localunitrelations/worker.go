@@ -13,51 +13,31 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 )
-
-// RelationUnitChange encapsulates a remote relation event,
-// adding the tag of the relation which changed.
-type RelationUnitChange struct {
-	// ChangedUnits represents the changed units in this relation.
-	ChangedUnits []UnitChange
-
-	// DepartedUnits represents the units that have departed in this relation.
-	DepartedUnits []int
-
-	// ApplicationSettings represent the updated application-level settings in
-	// this relation.
-	ApplicationSettings map[string]any
-}
-
-// UnitChange represents a change to a single unit in a relation.
-type UnitChange struct {
-	// UnitId uniquely identifies the remote unit.
-	UnitID int
-
-	// Settings is the current settings for the relation unit.
-	Settings map[string]any
-}
 
 // Service defines the interface required to watch for local relation changes.
 type Service interface {
-	// WatchLocalRelationChanges returns a watcher for changes to the units
+	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchLocalRelationChanges(ctx context.Context, relationID string) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error)
 
-	// GetUnitRelation returns the current state of the unit relation.
-	GetUnitRelation(ctx context.Context, relationID string) (RelationUnitChange, error)
+	// GetRelationUnits returns the current state of the relation units.
+	GetRelationUnits(context.Context, application.ID) (relation.RelationUnitChange, error)
 }
 
 // Config contains the configuration parameters for a remote relation units
 // worker.
 type Config struct {
-	Service     Service
-	RelationTag names.RelationTag
-	Macaroon    *macaroon.Macaroon
+	Service         Service
+	ApplicationUUID application.ID
+	RelationTag     names.RelationTag
+	Macaroon        *macaroon.Macaroon
 
-	Changes chan<- RelationUnitChange
+	Changes chan<- relation.RelationUnitChange
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -67,6 +47,9 @@ type Config struct {
 func (c Config) Validate() error {
 	if c.Service == nil {
 		return errors.NotValidf("service cannot be nil")
+	}
+	if c.ApplicationUUID.IsEmpty() {
+		return errors.NotValidf("application UUID cannot be empty")
 	}
 	if c.Macaroon == nil {
 		return errors.NotValidf("macaroon cannot be nil")
@@ -91,8 +74,9 @@ type localWorker struct {
 
 	service Service
 
-	relationTag names.RelationTag
-	changes     chan<- RelationUnitChange
+	applicationUUID application.ID
+	relationTag     names.RelationTag
+	changes         chan<- relation.RelationUnitChange
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -136,7 +120,7 @@ func (w *localWorker) Wait() error {
 func (w *localWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.service.WatchLocalRelationChanges(ctx, w.relationTag.Id())
+	watcher, err := w.service.WatchRelationUnits(ctx, w.applicationUUID)
 	if err != nil {
 		return errors.Annotatef(err, "watching local side of relation %v", w.relationTag.Id())
 	}
@@ -158,7 +142,7 @@ func (w *localWorker) loop() error {
 
 			w.logger.Debugf(ctx, "local relation units changed for %v", w.relationTag)
 
-			unitRelationInfo, err := w.service.GetUnitRelation(ctx, w.relationTag.Id())
+			unitRelationInfo, err := w.service.GetRelationUnits(ctx, w.applicationUUID)
 			if err != nil {
 				return errors.Annotatef(
 					err, "fetching local side of relation %v", w.relationTag.Id())
@@ -185,6 +169,6 @@ func (w *localWorker) Report() map[string]any {
 	return result
 }
 
-func isEmpty(change RelationUnitChange) bool {
+func isEmpty(change relation.RelationUnitChange) bool {
 	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
 }

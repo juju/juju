@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
@@ -328,4 +330,36 @@ func (d GetRelationUUIDForRemovalArgs) Validate() error {
 		return errors.Errorf("invalid endpoint length: %d, must be 2 or 0 with relation ID provided", len(d.Endpoints))
 	}
 	return nil
+}
+
+// RelationUnitChange encapsulates a remote relation event,
+// adding the tag of the relation which changed.
+type RelationUnitChange struct {
+	// ChangedUnits represents the changed units in this relation.
+	ChangedUnits []UnitChange
+
+	// DepartedUnits represents the units that have departed in this relation.
+	DepartedUnits []int
+
+	// ApplicationSettings represent the updated application-level settings in
+	// this relation.
+	ApplicationSettings map[string]any
+
+	// Tag is the relation tag that this change relates to.
+	Tag names.Tag
+
+	ApplicationOrOfferToken string
+
+	RelationToken string
+
+	UnitCount int
+}
+
+// UnitChange represents a change to a single unit in a relation.
+type UnitChange struct {
+	// UnitId uniquely identifies the remote unit.
+	UnitID int
+
+	// Settings is the current settings for the relation unit.
+	Settings map[string]any
 }

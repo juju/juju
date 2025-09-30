@@ -93,12 +93,12 @@ type RelationService interface {
 	// GetRelationDetails returns RelationDetails for the given relationID.
 	GetRelationDetails(context.Context, corerelation.UUID) (relation.RelationDetails, error)
 
-	// WatchLocalRelationChanges returns a watcher for changes to the units
+	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchLocalRelationChanges(ctx context.Context, relationID string) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error)
 
-	// GetUnitRelation returns the current state of the unit relation.
-	GetUnitRelation(ctx context.Context, relationID string) (RelationUnitChange, error)
+	// GetRelationUnits returns the current state of the relation units.
+	GetRelationUnits(context.Context, application.ID) (relation.RelationUnitChange, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -118,11 +118,11 @@ type CrossModelRelationService interface {
 
 	// ConsumeRemoteRelationChange applies a relation change event received
 	// from a remote model to the local model.
-	ConsumeRemoteRelationChange(context.Context, crossmodelrelation.RemoteRelationChangeEvent) error
+	ConsumeRemoteRelationChange(context.Context) error
 
 	// ConsumeRemoteSecretChanges applies secret changes received
 	// from a remote model to the local model.
-	ConsumeRemoteSecretChanges(context.Context, crossmodelrelation.RemoteSecretChangeEvent) error
+	ConsumeRemoteSecretChanges(context.Context) error
 
 	// ExportApplicationAndRelationToken exports the specified entities to the
 	// remote model.

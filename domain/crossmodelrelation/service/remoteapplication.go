@@ -6,6 +6,9 @@ package service
 import (
 	"context"
 
+	"github.com/juju/names/v6"
+	"gopkg.in/macaroon.v2"
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/errors"
 	corestatus "github.com/juju/juju/core/status"
@@ -17,8 +20,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/names"
-	"gopkg.in/macaroon.v2"
 )
 
 // ModelRemoteApplicationState describes retrieval and persistence methods for
@@ -160,13 +161,13 @@ func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplica
 
 // ConsumeRemoteRelationChange applies a relation change event received
 // from a remote model to the local model.
-func (s *Service) ConsumeRemoteRelationChange(context.Context, crossmodelrelation.RemoteRelationChangeEvent) error {
+func (s *Service) ConsumeRemoteRelationChange(context.Context) error {
 	return nil
 }
 
 // ConsumeRemoteSecretChanges applies secret changes received
 // from a remote model to the local model.
-func (s *Service) ConsumeRemoteSecretChanges(context.Context, crossmodelrelation.RemoteSecretChangeEvent) error {
+func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 	return nil
 }
 

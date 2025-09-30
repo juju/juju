@@ -30,6 +30,9 @@ type RelationUnitChange struct {
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
 	ApplicationSettings map[string]any
+
+	// Tag is the relation tag that this change relates to.
+	Tag names.Tag
 }
 
 // UnitChange represents a change to a single unit in a relation.

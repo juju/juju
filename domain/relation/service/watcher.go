@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -514,8 +515,8 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 	return otherApp.ApplicationID == w.parentAppID || otherApp.Subordinate, nil
 }
 
-// WatchRelatedUnits returns a watcher that notifies of changes to counterpart units in
-// the relation.
+// WatchRelatedUnits returns a watcher that notifies of changes to counterpart
+// units in the relation.
 func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -550,4 +551,10 @@ func (s *WatchableService) WatchRelatedUnits(
 		mapper,
 		filters[0], filters[1:]...,
 	)
+}
+
+// WatchRelationUnits returns a watcher for changes to the units
+// in the given relation in the local model.
+func (s *WatchableService) WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error) {
+	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
 }

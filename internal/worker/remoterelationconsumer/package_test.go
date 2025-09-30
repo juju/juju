@@ -23,7 +23,6 @@ type baseSuite struct {
 
 	crossModelService          *MockCrossModelService
 	remoteModelRelationClient  *MockRemoteModelRelationsClient
-	remoteRelationsFacade      *MockRemoteRelationsFacade
 	remoteRelationClientGetter *MockRemoteRelationClientGetter
 
 	logger logger.Logger
@@ -34,7 +33,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.crossModelService = NewMockCrossModelService(ctrl)
 	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
-	s.remoteRelationsFacade = NewMockRemoteRelationsFacade(ctrl)
 	s.remoteRelationClientGetter = NewMockRemoteRelationClientGetter(ctrl)
 
 	s.logger = loggertesting.WrapCheckLog(c)

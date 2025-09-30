@@ -748,6 +748,14 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 	return true, nil
 }
 
+// GetRelationUnits returns the current state of the relation units.
+func (s *Service) GetRelationUnits(ctx context.Context, appID application.ID) (relation.RelationUnitChange, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return relation.RelationUnitChange{}, nil
+}
+
 func settingsMap(in map[string]interface{}) (map[string]string, error) {
 	var errs error
 	return transform.Map(in, func(k string, v interface{}) (string, string) {

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
@@ -118,7 +119,7 @@ type remoteApplicationWorker struct {
 	secretChangesWatcher watcher.SecretsRevisionWatcher
 	secretChanges        watcher.SecretRevisionChannel
 
-	localRelationUnitChanges  chan localunitrelations.RelationUnitChange
+	localRelationUnitChanges  chan relation.RelationUnitChange
 	remoteRelationUnitChanges chan remoteunitrelations.RelationUnitChange
 	remoteRelationChanges     chan remoterelations.RelationChange
 
@@ -144,7 +145,7 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 	}
 
 	w := &remoteApplicationWorker{
-		localRelationUnitChanges:  make(chan localunitrelations.RelationUnitChange),
+		localRelationUnitChanges:  make(chan relation.RelationUnitChange),
 		remoteRelationUnitChanges: make(chan remoteunitrelations.RelationUnitChange),
 		remoteRelationChanges:     make(chan remoterelations.RelationChange),
 
@@ -286,18 +287,21 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case change, ok := <-relationsWatcher.Changes():
-			w.logger.Debugf(ctx, "relations changed: %#v, %v", &change, ok)
+		case changes, ok := <-relationsWatcher.Changes():
+			w.logger.Debugf(ctx, "relations changed: %v, %v", changes, ok)
 			if !ok {
 				// We are dying.
 				return w.catacomb.ErrDying()
 			}
-			results, err := w.crossModelService.GetRelationDetails(ctx, change)
+			// TODO (stickupkid): Pass the changes to the get relation details.
+			results, err := w.crossModelService.GetRelationDetails(ctx, "")
 			if err != nil {
 				return errors.Annotate(err, "querying relations")
 			}
-			for i, result := range results {
-				key := change[i]
+			_ = results
+
+			for _, result := range []params.RemoteRelationResult{} {
+				key := ""
 				if err := w.relationChanged(ctx, key, result); err != nil {
 					if isNotFound(err) {
 						// Relation has been deleted, so ensure relevant workers are stopped.
@@ -316,7 +320,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			w.logger.Debugf(ctx, "local relation units changed -> publishing: %v", change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
-			if err := w.remoteModelClient.PublishRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
+			if err := w.remoteModelClient.PublishRelationChange(ctx, params.RemoteRelationChangeEvent{}); err != nil {
 				w.checkOfferPermissionDenied(ctx, err, change.ApplicationOrOfferToken, change.RelationToken)
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf(ctx, "relation %v changed but remote side already removed", change.Tag.Id())
@@ -332,7 +336,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case change := <-w.remoteRelationUnitChanges:
 			w.logger.Debugf(ctx, "remote relation units changed -> consuming: %v", change)
 
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
+			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
 					continue
@@ -343,7 +347,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case change := <-w.remoteRelationChanges:
 			w.logger.Debugf(ctx, "remote relations changed -> consuming: %v", change)
 
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx, change.RemoteRelationChangeEvent); err != nil {
+			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
 					continue
@@ -369,7 +373,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 
 		case changes := <-w.secretChanges:
-			err := w.crossModelService.ConsumeRemoteSecretChanges(ctx, changes)
+			err := w.crossModelService.ConsumeRemoteSecretChanges(ctx)
 			if err != nil {
 				if isNotFound(err) {
 					w.logger.Debugf(ctx, "secrets %v changed but local side already removed", changes)
@@ -404,7 +408,8 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context
 				Suspended:               &suspended,
 				SuspendedReason:         "offer permission revoked",
 			}
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx, event); err != nil {
+			_ = event
+			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
 				w.logger.Errorf(ctx, "updating relation status: %v", err)
 			}
 		}
