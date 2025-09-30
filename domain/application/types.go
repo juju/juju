@@ -55,7 +55,7 @@ type BaseAddApplicationArg struct {
 	StorageDirectives []CreateApplicationStorageDirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
-	Config map[string]ApplicationConfig
+	Config map[string]AddApplicationConfig
 	// Settings contains the settings for the application. This includes the
 	// trust setting.
 	Settings ApplicationSettings
@@ -343,8 +343,20 @@ type RevisionUpdaterApplication struct {
 type ApplicationConfig struct {
 	// Type dictates the type of the config value. The value is derived from
 	// the charm config.
-	Type  domaincharm.OptionType
-	Value any
+	Type domaincharm.OptionType
+	// Value can be nil, which indicates the config value is unset.
+	Value *string
+}
+
+// AddApplicationConfig is used to update an application's config.
+// Value is a string and not a pointer because it can't be unset.
+type AddApplicationConfig struct {
+	// Type dictates the type of the config value. The value is derived from
+	// the charm config.
+	Type domaincharm.OptionType
+	// Value is the string representation of the config value.
+	// It can't be nil because we use this type just to set config values.
+	Value string
 }
 
 // ApplicationSettings contains the settings for an application.
@@ -437,7 +449,7 @@ type InsertApplicationArgs struct {
 	Resources []AddApplicationResourceArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
-	Config map[string]ApplicationConfig
+	Config map[string]AddApplicationConfig
 	// Settings contains the settings for the application. This includes the
 	// trust setting.
 	Settings ApplicationSettings

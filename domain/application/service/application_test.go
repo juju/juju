@@ -465,7 +465,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, nil)
 
@@ -484,7 +484,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, errors.Errorf("boom"))
 
@@ -630,7 +630,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, application.UpdateApplicationSettingsArg{
 		Trust: ptr(true),
@@ -659,7 +659,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, application.UpdateApplicationSettingsArg{
 		Trust: ptr(false),
@@ -688,7 +688,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, application.UpdateApplicationSettingsArg{}).Return(nil)
 
@@ -806,7 +806,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{
@@ -886,7 +886,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{

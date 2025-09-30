@@ -2019,10 +2019,15 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 		if err != nil {
 			return nil, application.ApplicationSettings{}, errors.Errorf("decoding config type: %w", err)
 		}
-
-		result[c.Key] = application.ApplicationConfig{
-			Type:  typ,
-			Value: c.Value,
+		if c.Value.Valid {
+			result[c.Key] = application.ApplicationConfig{
+				Type:  typ,
+				Value: &c.Value.V,
+			}
+		} else {
+			result[c.Key] = application.ApplicationConfig{
+				Type: typ,
+			}
 		}
 	}
 	return result, application.ApplicationSettings{
@@ -2068,9 +2073,15 @@ func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID cor
 			return nil, errors.Errorf("decoding config type: %w", err)
 		}
 
-		result[c.Key] = application.ApplicationConfig{
-			Type:  typ,
-			Value: c.Value,
+		if c.Value.Valid {
+			result[c.Key] = application.ApplicationConfig{
+				Type:  typ,
+				Value: &c.Value.V,
+			}
+		} else {
+			result[c.Key] = application.ApplicationConfig{
+				Type: typ,
+			}
 		}
 	}
 
@@ -2124,7 +2135,7 @@ WHERE application_uuid = $applicationID.uuid;`
 func (st *State) UpdateApplicationConfigAndSettings(
 	ctx context.Context,
 	appID coreapplication.ID,
-	config map[string]application.ApplicationConfig,
+	config map[string]application.AddApplicationConfig,
 	settings application.UpdateApplicationSettingsArg,
 ) error {
 	db, err := st.DB(ctx)
@@ -3210,7 +3221,7 @@ func (st *State) insertApplicationConfig(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appID coreapplication.ID,
-	config map[string]application.ApplicationConfig,
+	config map[string]application.AddApplicationConfig,
 ) error {
 	if len(config) == 0 {
 		return nil
@@ -3384,7 +3395,7 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 		if _, err := h.Write([]byte(c.Key)); err != nil {
 			return "", errors.Errorf("writing config key: %w", err)
 		}
-		if _, err := h.Write([]byte(fmt.Sprintf("%v", c.Value))); err != nil {
+		if _, err := h.Write([]byte(c.Value.V)); err != nil {
 			return "", errors.Errorf("writing config value: %w", err)
 		}
 	}
@@ -3532,11 +3543,15 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 
 	decodedApplicationConfig := make(internalcharm.Config, len(applicationConfig))
 	for _, v := range applicationConfig {
-		decodedApplicationConfig[v.Key] = v.Value
+		if v.Value.Valid {
+			decodedApplicationConfig[v.Key] = v.Value.V
+		} else {
+			decodedApplicationConfig[v.Key] = nil
+		}
 	}
 
 	filteredDecodedApplicationConfig := decodedCharmConfig.FilterApplicationConfig(decodedApplicationConfig)
-	filteredApplicationConfig := make(map[string]application.ApplicationConfig, len(filteredDecodedApplicationConfig))
+	filteredApplicationConfig := make(map[string]application.AddApplicationConfig, len(filteredDecodedApplicationConfig))
 	for k, v := range filteredDecodedApplicationConfig {
 		opt, ok := charmConfig.Options[k]
 		if !ok {
@@ -3544,9 +3559,9 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 			// But if it does, then we should return an error.
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
-		filteredApplicationConfig[k] = application.ApplicationConfig{
+		filteredApplicationConfig[k] = application.AddApplicationConfig{
 			Type:  opt.Type,
-			Value: v,
+			Value: fmt.Sprintf("%v", v),
 		}
 	}
 

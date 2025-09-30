@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 
@@ -226,7 +227,7 @@ type ApplicationState interface {
 	UpdateApplicationConfigAndSettings(
 		ctx context.Context,
 		appID coreapplication.ID,
-		config map[string]application.ApplicationConfig,
+		config map[string]application.AddApplicationConfig,
 		settings application.UpdateApplicationSettingsArg,
 	) error
 
@@ -1676,7 +1677,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 	// The encoded config is the application config, with the type of the
 	// option. Encoding the type ensures that if the type changes during an
 	// upgrade, we can prevent a runtime error during that phase.
-	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
+	encodedConfig := make(map[string]application.AddApplicationConfig, len(coercedConfig))
 	for k, v := range coercedConfig {
 		option, ok := cfg.Options[k]
 		if !ok {
@@ -1684,8 +1685,8 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 			// But if it does, then we should return an error.
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
-		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
+		encodedConfig[k] = application.AddApplicationConfig{
+			Value: fmt.Sprintf("%v", v),
 			Type:  option.Type,
 		}
 	}
@@ -1861,13 +1862,13 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 	return &b, nil
 }
 
-func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
+func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.AddApplicationConfig, error) {
 	// If there is no config, then we can just return nil.
 	if len(cfg) == 0 {
 		return nil, nil
 	}
 
-	encodedConfig := make(map[string]application.ApplicationConfig, len(cfg))
+	encodedConfig := make(map[string]application.AddApplicationConfig, len(cfg))
 	for k, v := range cfg {
 		option, ok := charmConfig.Options[k]
 		if !ok {
@@ -1876,8 +1877,8 @@ func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config)
 			return nil, errors.Errorf("missing charm config, expected %q", k)
 		}
 
-		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
+		encodedConfig[k] = application.AddApplicationConfig{
+			Value: fmt.Sprintf("%v", v),
 			Type:  option.Type,
 		}
 	}

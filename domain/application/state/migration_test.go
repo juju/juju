@@ -366,7 +366,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 		},
 		Scale:   1,
 		Channel: channel,
-		Config: map[string]application.ApplicationConfig{
+		Config: map[string]application.AddApplicationConfig{
 			"foo": {
 				Value: "bar",
 				Type:  charm.OptionString,
@@ -387,7 +387,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
-			Value: "bar",
+			Value: ptr("bar"),
 			Type:  charm.OptionString,
 		},
 	})

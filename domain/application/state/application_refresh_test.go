@@ -620,14 +620,14 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "baz",
 			},
 			"bar": {
 				Type:  charm.OptionInt,
-				Value: 43,
+				Value: "43",
 			},
 		},
 	})
@@ -658,7 +658,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 
 	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
 			Value: "baz",
@@ -682,7 +682,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "12",
@@ -710,7 +710,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 
 	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
 			Value: "12",
@@ -736,14 +736,14 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "baz",
 			},
 			"bar": {
 				Type:  charm.OptionInt,
-				Value: 43,
+				Value: "43",
 			},
 		},
 	})
@@ -769,7 +769,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 
 	appConfig, err := s.state.GetApplicationConfigWithDefaults(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
+	c.Assert(appConfig, tc.DeepEquals, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
 			Value: "0",
@@ -1015,7 +1015,7 @@ type createApplicationArgs struct {
 	charmConfig charm.Config
 
 	// applicationConfig defines the config for the application
-	applicationConfig map[string]application.ApplicationConfig
+	applicationConfig map[string]application.AddApplicationConfig
 
 	// trust specifies whether the application should be trusted.
 	trust bool

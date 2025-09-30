@@ -5672,7 +5672,7 @@ func (c *MockStateUnsetExposeSettingsCall) DoAndReturn(f func(context.Context, a
 }
 
 // UpdateApplicationConfigAndSettings mocks base method.
-func (m *MockState) UpdateApplicationConfigAndSettings(arg0 context.Context, arg1 application.ID, arg2 map[string]application0.ApplicationConfig, arg3 application0.UpdateApplicationSettingsArg) error {
+func (m *MockState) UpdateApplicationConfigAndSettings(arg0 context.Context, arg1 application.ID, arg2 map[string]application0.AddApplicationConfig, arg3 application0.UpdateApplicationSettingsArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationConfigAndSettings", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -5698,13 +5698,13 @@ func (c *MockStateUpdateApplicationConfigAndSettingsCall) Return(arg0 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID, map[string]application0.ApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
+func (c *MockStateUpdateApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID, map[string]application0.ApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
+func (c *MockStateUpdateApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
