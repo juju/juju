@@ -45,8 +45,6 @@ func mainArgs(args []string) int {
 		// Handle connections in a new goroutine.
 		go handleRequest(conn)
 	}
-
-	return 0
 }
 
 // Handles incoming requests.
@@ -61,6 +59,6 @@ func handleRequest(conn net.Conn) {
 		fmt.Println("Error reading:", err.Error())
 	}
 	// Send a response back to person contacting us.
-	conn.Write([]byte("> " + string(buf) + "\n"))
+	_, _ = conn.Write([]byte("> " + string(buf) + "\n"))
 	// Close the connection when you're done with it.
 }
