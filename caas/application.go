@@ -154,6 +154,10 @@ type ApplicationConfig struct {
 
 	// CharmUser controls what user the charm/unit agent runs as.
 	CharmUser RunAs
+
+	//ProvisionedAppScale is used to provide the number of replicas
+	// for a provisioned application.
+	ProvisionedAppScale int
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

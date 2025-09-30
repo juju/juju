@@ -220,6 +220,10 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
 		InitialScale: 0,
+		// To indicate the scale number of an application while the statefulset is reapplied.
+		// This is useful when a statefulset is deleted due to a storage update, and we want
+		// to retain the scale when reapplying the statefulset.
+		ProvisionedAppScale: provisionInfo.Scale,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:

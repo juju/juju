@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -297,7 +298,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Trace(err)
 		}
 		var numPods *int32
-		if !exists {
+		// The statefulset for this application is deleted (due to a storage directive update)
+		// and the pods (orphaned) are running. We want to recreate the statefulset with the
+		// same number of replicas.
+		if !exists && config.ProvisionedAppScale > 0 {
+			numPods = pointer.Int32(int32(config.ProvisionedAppScale))
+			// Otherwise pick config.InitialScale.
+		} else if !exists {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 
