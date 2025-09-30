@@ -16,6 +16,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -610,19 +612,17 @@ func newAPIConnectionParams(
 
 	if controllerDetails.OIDCLogin {
 		// If the controller is OIDCLogin, we know it is capable of device and client credential flows.
-		// So now we do an override (which is not persisted) to set the clientcredential login provider
-		// if these env vars are provided.
-		if api.ClientIdAndSecretSet() {
-			dialOpts.LoginProvider = api.NewClientCredentialsLoginProviderFromEnvironment()
-		} else {
-			dialOpts.LoginProvider = sessionLoginFactory.NewLoginProvider(
+		dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+			loggo.GetLogger("juju.cmd.loginprovider"),
+			api.NewClientCredentialsLoginProviderFromEnvironment(func() {}),
+			sessionLoginFactory.NewLoginProvider(
 				accountDetails.SessionToken,
 				cmdOut,
 				func(sessionToken string) {
 					accountDetails.SessionToken = sessionToken
 				},
-			)
-		}
+			),
+		)
 	}
 
 	// Embedded clients with macaroons cannot discharge.
