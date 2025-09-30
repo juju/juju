@@ -29,7 +29,9 @@ run_bootstrap_authorized_keys_loaded() {
 
 	(
 		export HOME="${SUB_TEST_DIR}"
-		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
+		# Always isolate JUJU_DATA to the subtest directory to avoid leaking/using
+		# any CI-provided or globally configured Juju client store.
+		export JUJU_DATA="${juju_home_dir}"
 
 		bootstrap_additional_args=(--config "'authorized-keys=$(cat ${extra_key_file_pub})'")
 		BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}" \
@@ -78,7 +80,9 @@ run_bootstrap_authorized_keys_default() {
 
 	(
 		export HOME="${SUB_TEST_DIR}"
-		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
+		# Always isolate JUJU_DATA to the subtest directory to avoid leaking/using
+		# any CI-provided or globally configured Juju client store.
+		export JUJU_DATA="${juju_home_dir}"
 
 		BOOTSTRAP_REUSE=false \
 			bootstrap "authorized-keys-default" "$log_file"
