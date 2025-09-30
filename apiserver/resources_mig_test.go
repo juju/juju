@@ -69,25 +69,29 @@ func (s *resourcesUploadSuite) sendHTTPRequest(c *gc.C, p apitesting.HTTPRequest
 func (s *resourcesUploadSuite) TestServedSecurely(c *gc.C) {
 	url := s.resourcesURL("")
 	url.Scheme = "http"
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
 		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 func (s *resourcesUploadSuite) TestGETUnsupported(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.resourcesURI("")})
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
 func (s *resourcesUploadSuite) TestPUTUnsupported(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.resourcesURI("")})
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
 func (s *resourcesUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.resourcesURI("")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
@@ -106,11 +110,13 @@ func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
+	resp.Body.Close()
 	c.Assert(string(body), gc.Equals, "authorization failed: machine 0 is not a user\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.resourcesURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application/unit")
+	resp.Body.Close()
 }
 
 func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
@@ -122,6 +128,7 @@ func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 		},
 	}
 	resp := s.apiserverBaseSuite.sendHTTPRequest(c, params)
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"`)
 }
 
@@ -184,6 +191,7 @@ func (s *resourcesUploadSuite) TestUnitUpload(c *gc.C) {
 		ContentType: "application/octet-stream",
 		Body:        strings.NewReader(content),
 	})
+	defer resp.Body.Close()
 	outResp := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
@@ -216,6 +224,7 @@ func (s *resourcesUploadSuite) uploadAppResource(c *gc.C, query *url.Values) par
 		ContentType: "application/octet-stream",
 		Body:        strings.NewReader(content),
 	})
+	defer resp.Body.Close()
 	return s.assertResponse(c, resp, http.StatusOK)
 }
 
@@ -225,6 +234,7 @@ func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
 			Method: "POST",
 			URL:    s.resourcesURI(q.Encode()),
 		})
+		defer resp.Body.Close()
 		s.assertErrorResponse(c, resp, http.StatusBadRequest, expected)
 	}
 
@@ -273,6 +283,7 @@ func (s *resourcesUploadSuite) TestArgValidationCAASModel(c *gc.C) {
 			URL:    s.resourcesURI(q.Encode()),
 			Body:   bytes.NewReader([]byte(content)),
 		})
+		defer resp.Body.Close()
 		s.assertResponse(c, resp, http.StatusOK)
 	}
 
@@ -291,6 +302,7 @@ func (s *resourcesUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
 		ContentType: "application/octet-stream",
 		Body:        strings.NewReader(content),
 	})
+	defer resp.Body.Close()
 	s.assertResponse(c, resp, http.StatusBadRequest)
 }
 

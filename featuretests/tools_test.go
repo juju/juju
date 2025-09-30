@@ -115,6 +115,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.downloadRequest(c, tools.Version, "")
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "error fetching agent binaries: size mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version.String())
 }
@@ -131,6 +132,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.downloadRequest(c, tools.Version, "")
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "error fetching agent binaries: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version.String())
 }
@@ -208,6 +210,7 @@ func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredErr
 		Method: "POST",
 		URL:    s.toolsURI(""),
 	})
+	defer resp.Body.Close()
 
 	charmResponse := assertResponse(c, resp, http.StatusUnauthorized)
 	c.Assert(charmResponse.Error, gc.NotNil)
@@ -224,10 +227,11 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 		return s.userTag.Id()
 	}
 	resp := servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{
-		Do:     s.doer(),
+		Do:     s.doer(), //nolint:bodyclose
 		Method: "POST",
 		URL:    s.toolsURI(""),
 	})
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 	c.Assert(checkCount, gc.Equals, 1)
 }
@@ -271,6 +275,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 		Password: "", // no password forces macaroon usage
 		Do:       bakeryDo,
 	})
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 	c.Assert(prompted, jc.IsTrue)
 }
@@ -278,7 +283,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 // doer returns a Do function that can make a bakery request
 // appropriate for a charms endpoint.
 func (s *toolsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, error) {
-	return bakeryDo(nil, bakeryGetError)
+	return bakeryDo(nil, bakeryGetError) //nolint:bodyclose
 }
 
 // bakeryDo provides a function suitable for using in HTTPRequestParams.Do

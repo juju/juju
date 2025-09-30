@@ -191,7 +191,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	dialer := &websocket.Dialer{
 		TLSClientConfig: tlsConfig,
 	}
-	conn, _, err := dialer.Dial(url, header)
+	conn, _, err := dialer.Dial(url, header) //nolint:bodyclose // WebSocket library handles response body closure
 	return conn, err
 }
 

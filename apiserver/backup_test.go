@@ -69,6 +69,7 @@ func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: method, URL: url})
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
@@ -101,11 +102,13 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
+	resp.Body.Close()
 	c.Assert(string(body), gc.Equals, "authorization failed: machine 0 is not a user\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.backupURL})
-	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
+	_ = s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
+	resp.Body.Close()
 }
 
 // sendValid sends a valid GET request to the backups endpoint

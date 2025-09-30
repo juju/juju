@@ -38,15 +38,16 @@ func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
 
 func (s *debugLogDBSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL("http", nil).String()
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
 		URL:          uri,
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 func (s *debugLogDBSuite) TestNoAuth(c *gc.C) {
-	conn, _, err := s.dialWebsocketInternal(c, nil, nil)
+	conn, _, err := s.dialWebsocketInternal(c, nil, nil) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 
 	websockettest.AssertJSONError(c, conn, "authentication failed: no credentials provided")
@@ -57,7 +58,7 @@ func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	header := jujuhttp.BasicAuthHeader(u.Tag().String(), password)
 
-	conn, _, err := s.dialWebsocketInternal(c, nil, header)
+	conn, _, err := s.dialWebsocketInternal(c, nil, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 
 	websockettest.AssertJSONError(c, conn, "authorization failed: permission denied")
@@ -73,7 +74,7 @@ func (s *debugLogDBSuite) TestUserLoginAccepted(c *gc.C) {
 		Access:   permission.ReadAccess,
 	})
 	header := jujuhttp.BasicAuthHeader(u.Tag().String(), "gardener")
-	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
+	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
 	defer conn.Close()
@@ -89,7 +90,7 @@ func (s *debugLogDBSuite) TestUserLoginRejected(c *gc.C) {
 		NoModelUser: true,
 	})
 	header := jujuhttp.BasicAuthHeader(u.Tag().String(), "gardener")
-	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
+	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 
 	websockettest.AssertJSONError(c, conn, "authorization failed: permission denied")
@@ -102,7 +103,7 @@ func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
 	})
 	header := jujuhttp.BasicAuthHeader(m.Tag().String(), password)
 	header.Add(params.MachineNonceHeader, "foo-nonce")
-	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
+	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
@@ -118,7 +119,7 @@ func (s *debugLogDBSuite) logURL(scheme string, queryParams url.Values) *url.URL
 
 func (s *debugLogDBSuite) dialWebsocket(c *gc.C, queryParams url.Values) *websocket.Conn {
 	header := jujuhttp.BasicAuthHeader(s.Owner.String(), ownerPassword)
-	conn, _, err := s.dialWebsocketInternal(c, queryParams, header)
+	conn, _, err := s.dialWebsocketInternal(c, queryParams, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }

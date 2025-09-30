@@ -223,7 +223,7 @@ func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
-	conn, _, err := dialWebsocketFromURL(c, s.url, s.makeAuthHeader())
+	conn, _, err := dialWebsocketFromURL(c, s.url, s.makeAuthHeader()) //nolint:bodyclose // Gorilla lib says this resp body does not need to be closed by the app.
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }

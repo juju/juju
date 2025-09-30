@@ -34,11 +34,12 @@ func (s *APIRequesterSuite) TestDo(c *gc.C) {
 	req := MustNewRequest(c, "http://api.foo.bar")
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil) //nolint:bodyclose
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 }
 
@@ -49,10 +50,10 @@ func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
 	req := MustNewRequest(c, "http://api.foo.bar")
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom"))
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom")) //nolint:bodyclose
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	_, err := requester.Do(req)
+	_, err := requester.Do(req) //nolint:bodyclose
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -63,10 +64,10 @@ func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
 	req := MustNewRequest(c, "http://api.foo.bar")
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil)
+	mockHTTPClient.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil) //nolint:bodyclose
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	_, err := requester.Do(req)
+	_, err := requester.Do(req) //nolint:bodyclose
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -77,11 +78,12 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 	req := MustNewRequest(c, "http://api.foo.bar")
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(req).Return(notFoundResponse(), nil)
+	mockHTTPClient.EXPECT().Do(req).Return(notFoundResponse(), nil) //nolint:bodyclose
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 }
 
@@ -93,12 +95,13 @@ func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
-	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil) //nolint:bodyclose
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 }
 
@@ -120,13 +123,14 @@ func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *gc.C) {
 		b, err := io.ReadAll(req.Body)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(b), gc.Equals, "body")
-		return emptyResponse(), nil
+		return emptyResponse(), nil //nolint:bodyclose
 	})
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 }
 
@@ -143,7 +147,7 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	start := time.Now()
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryDelay = time.Microsecond
-	_, err := requester.Do(req)
+	_, err := requester.Do(req) //nolint:bodyclose
 	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
 	elapsed := time.Since(start)
 	c.Assert(elapsed >= (1+2+4)*time.Microsecond, gc.Equals, true)
@@ -164,7 +168,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 	start := time.Now()
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryDelay = time.Second
-	_, err = requester.Do(req)
+	_, err = requester.Do(req) //nolint:bodyclose
 	c.Assert(err, gc.ErrorMatches, `retry stopped`)
 	elapsed := time.Since(start)
 	c.Assert(elapsed < 250*time.Millisecond, gc.Equals, true)
@@ -185,7 +189,7 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(gomock.Any()).Do(func(req *http.Request) {
 		recievedURL = req.URL.String()
-	}).Return(emptyResponse(), nil)
+	}).Return(emptyResponse(), nil) //nolint:bodyclose
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -216,7 +220,7 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom"))
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom")) //nolint:bodyclose
 
 	client := newHTTPRESTClient(mockHTTPClient)
 
@@ -303,7 +307,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil)
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil) //nolint:bodyclose
 
 	client := newHTTPRESTClient(mockHTTPClient)
 

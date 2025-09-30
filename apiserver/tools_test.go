@@ -161,20 +161,23 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	url := s.toolsURL("")
 	url.Scheme = "http"
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "PUT",
 		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.toolsURI("")})
+	defer resp.Body.Close()
 	s.assertPlainErrorResponse(c, resp, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.toolsURI("")})
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
@@ -200,10 +203,12 @@ func (s *toolsSuite) TestAuthRejectsNonsUser(c *gc.C) {
 		c, resp, http.StatusForbidden,
 		"authorization failed: permission denied",
 	)
+	resp.Body.Close()
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	resp.Body.Close()
 }
 
 func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
@@ -220,6 +225,7 @@ func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
 		URL:      s.toolsURI(""),
 		Nonce:    "fake_nonce",
 	})
+	defer resp.Body.Close()
 	s.assertPlainErrorResponse(
 		c, resp, http.StatusForbidden,
 		"authorization failed: permission denied",
@@ -228,12 +234,14 @@ func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	var empty bytes.Buffer
 	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/x-tar-gz", &empty)
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "no agent binaries uploaded")
 }
 
@@ -241,6 +249,7 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 	var empty bytes.Buffer
 	// Now try with the default Content-Type.
 	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/octet-stream", &empty)
+	defer resp.Body.Close()
 	s.assertJSONErrorResponse(
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
@@ -267,6 +276,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 		"application/x-tar-gz",
 		bytes.NewReader(toolsContent),
 	)
+	defer resp.Body.Close()
 
 	// Check the response.
 	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers
@@ -302,6 +312,7 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 			params.MigrationModelHTTPHeader: importedModel.UUID(),
 		},
 	})
+	defer resp.Body.Close()
 
 	// Check the response.
 	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers
@@ -332,6 +343,7 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 			params.MigrationModelHTTPHeader: newSt.ModelUUID(),
 		},
 	})
+	defer resp.Body.Close()
 
 	// Now try uploading them.
 	s.assertJSONErrorResponse(
@@ -350,6 +362,7 @@ func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
 		Tag:      user.Tag().String(),
 		Password: "hunter2",
 	})
+	defer resp.Body.Close()
 	s.assertPlainErrorResponse(
 		c, resp, http.StatusForbidden,
 		"authorization failed: user .* is not a controller admin",
@@ -371,6 +384,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 		"application/x-tar-gz",
 		bytes.NewReader(toolsContent),
 	)
+	defer resp.Body.Close()
 	toolsResponse := s.assertResponse(c, resp, http.StatusBadRequest)
 	c.Assert(toolsResponse.Error, jc.Satisfies, params.IsCodeOperationBlocked)
 	c.Assert(errors.Cause(toolsResponse.Error), gc.DeepEquals, &params.Error{
@@ -393,6 +407,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url := s.toolsURL("binaryVersion=" + vers.String())
 	url.Path = "/tools"
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
+	defer resp.Body.Close()
 	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers.String()
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
@@ -402,6 +417,7 @@ func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
 	url := s.toolsURL("binaryVersion=" + vers.String())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
+	defer resp.Body.Close()
 	// Check the response.
 	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers.String()
 	s.assertUploadResponse(c, resp, expectedTools[0])
@@ -415,6 +431,7 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
 	url := s.modelToolsURL(newSt.ModelUUID(), "binaryVersion="+vers.String())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
+	defer resp.Body.Close()
 
 	// Check the response.
 	expectedTools[0].URL = s.modelToolsURL(newSt.ModelUUID(), "").String() + "/" + vers.String()

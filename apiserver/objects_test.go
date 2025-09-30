@@ -56,6 +56,7 @@ func (s *objectsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode
 
 func (s *objectsSuite) TestRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: s.method, URL: s.objectsCharmsURI("somecharm-abcd0123")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
@@ -63,6 +64,7 @@ func (s *objectsSuite) TestRequiresAuth(c *gc.C) {
 func (s *objectsSuite) TestFailsWithInvalidObjectSha256(c *gc.C) {
 	uri := s.objectsCharmsURI("invalidsha256")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: s.method, ContentType: s.contentType, URL: uri})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
 		`.*"invalidsha256" is not a valid charm object path$`,
@@ -72,6 +74,7 @@ func (s *objectsSuite) TestFailsWithInvalidObjectSha256(c *gc.C) {
 func (s *objectsSuite) TestInvalidBucket(c *gc.C) {
 	wrongURL := s.URL("modelwrongbucket/charms/somecharm-abcd0123", nil)
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: s.method, URL: wrongURL.String()})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusNotFound, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "404 page not found\n")
 }
@@ -79,12 +82,14 @@ func (s *objectsSuite) TestInvalidBucket(c *gc.C) {
 func (s *objectsSuite) TestInvalidModel(c *gc.C) {
 	wrongURL := s.URL("model-wrongbucket/charms/somecharm-abcd0123", nil)
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: s.method, URL: wrongURL.String()})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "invalid model UUID \"wrongbucket\"\n")
 }
 
 func (s *objectsSuite) TestInvalidObject(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: s.method, ContentType: s.contentType, URL: s.objectsCharmsURI("invalidcharm")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "application/json")
 	c.Assert(string(body), gc.Matches, `{"error":".*\\"invalidcharm\\" is not a valid charm object path","error-code":"bad request"}`)
 }
@@ -103,11 +108,12 @@ func (s *getObjectsSuite) SetUpSuite(c *gc.C) {
 func (s *getObjectsSuite) TestObjectsCharmsServedSecurely(c *gc.C) {
 	url := s.objectsCharmsURL("")
 	url.Scheme = "http"
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
 		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 type putObjectsSuite struct {
@@ -147,10 +153,12 @@ func (s *putObjectsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/zip", "local:somecharm", empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*zip: not a valid zip file$")
+	resp.Body.Close()
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/octet-stream", "local:somecharm", empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
+	resp.Body.Close()
 }
 
 func (s *putObjectsSuite) TestCannotUploadCharmhubCharm(c *gc.C) {
@@ -158,6 +166,7 @@ func (s *putObjectsSuite) TestCannotUploadCharmhubCharm(c *gc.C) {
 	empty := strings.NewReader("")
 	resp := s.uploadRequest(c, s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)), "application/zip", "ch:somecharm", empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, `.*non-local charms may only be uploaded during model migration import`)
+	resp.Body.Close()
 }
 
 func (s *putObjectsSuite) TestUploadBumpsRevision(c *gc.C) {
@@ -179,6 +188,7 @@ func (s *putObjectsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.objectsCharmsURI("dummy-"+getCharmHash(c, f)), "application/zip", "local:quantal/dummy", f)
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-2"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)

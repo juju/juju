@@ -243,8 +243,9 @@ func (t *tokenTransport) refreshOAuthToken(failedResp *http.Response) error {
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	if resp.StatusCode != http.StatusOK {
-		_, err = handleErrorResponse(resp)
+		_, err = handleErrorResponse(resp) //nolint:bodyclose // body is closed by defer above.
 		return errors.Trace(err)
 	}
 
@@ -331,7 +332,7 @@ func (t errorTransport) RoundTrip(request *http.Request) (*http.Response, error)
 		return resp, nil
 	}
 	logger.Tracef("errorTransport %q, err -> %v", request.URL, err)
-	return handleErrorResponse(resp)
+	return handleErrorResponse(resp) //nolint:bodyclose // body is closed by handleErrorResponse.
 }
 
 func handleErrorResponse(resp *http.Response) (*http.Response, error) {

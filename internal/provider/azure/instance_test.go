@@ -464,7 +464,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 
 	sender := &azuretesting.MockSender{}
 	notFoundSender := &azuretesting.MockSender{}
-	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
 		"rule not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{nsgSender, sender, notFoundSender, notFoundSender, notFoundSender}
@@ -496,7 +496,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 
 	okSender := &azuretesting.MockSender{}
-	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
@@ -588,7 +588,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 
 	okSender := &azuretesting.MockSender{}
-	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{

@@ -72,7 +72,7 @@ func (s *logtransferSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 }
 
 func (s *logtransferSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
-	conn, _, err := dialWebsocketFromURL(c, s.url, header)
+	conn, _, err := dialWebsocketFromURL(c, s.url, header) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return conn
@@ -109,7 +109,7 @@ func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
 	url.Scheme = "wss"
 	hdr := s.makeAuthHeader()
 	hdr.Set("X-Juju-ClientVersion", "blah")
-	conn, _, err := dialWebsocketFromURL(c, url.String(), hdr)
+	conn, _, err := dialWebsocketFromURL(c, url.String(), hdr) //nolint:bodyclose // WebSocket library handles response body closure
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	websockettest.AssertJSONError(c, conn, `^initialising migration logsink session: invalid X-Juju-ClientVersion "blah".*`)

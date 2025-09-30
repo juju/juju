@@ -104,27 +104,31 @@ func (s *charmsSuite) SetUpSuite(c *gc.C) {
 func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 	url := s.charmsURL("")
 	url.Scheme = "http"
-	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:       "GET",
 		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
+	defer resp.Body.Close()
 }
 
 func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
 func (s *charmsSuite) TestGETRequiresAuth(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.charmsURI("")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.charmsURI("")})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "Method Not Allowed\n")
 }
@@ -143,11 +147,13 @@ func (s *charmsSuite) TestPOSTRejectsNonUserAuth(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
+	resp.Body.Close()
 	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *gc.C) {
@@ -166,11 +172,13 @@ func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
+	resp.Body.Close()
 	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
@@ -195,6 +203,7 @@ func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
 		ContentType: "application/zip",
 		Body:        f,
 	})
+	defer resp.Body.Close()
 
 	inputURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, inputURL.String())
@@ -207,10 +216,12 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*cannot open charm archive: zip: not a valid zip file$")
+	resp.Body.Close()
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/octet-stream", &empty)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
@@ -232,6 +243,7 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-2"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
@@ -260,6 +272,7 @@ func (s *charmsSuite) TestUploadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
+	defer resp.Body.Close()
 
 	inputURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, inputURL)
@@ -284,6 +297,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	// Now try uploading it and ensure the revision persists.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-123"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
@@ -305,6 +319,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	resp := s.uploadRequest(c, s.charmsURL("").String(), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	expectedURL := "local:dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 }
@@ -316,6 +331,7 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url := s.charmsURL("series=quantal")
 	url.Path = "/charms"
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 }
@@ -325,6 +341,7 @@ func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL("series=quantal")
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 }
@@ -338,6 +355,7 @@ func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	url := s.charmsURL("series=quantal")
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 }
@@ -361,6 +379,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 
 	// Now try uploading it - should succeed and be repackaged.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
@@ -406,6 +425,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	s.assertErrorResponse(c, resp, 400, ".*charms may only be uploaded during model migration import$")
 }
 
@@ -416,6 +436,7 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	expectedURL := "ch:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
@@ -442,6 +463,7 @@ func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI("?arch=s390x&revision=15&schema=ch&series=bionic"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
@@ -456,6 +478,7 @@ func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=zz"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
 		`cannot upload charm: unsupported schema "zz"`,
@@ -467,6 +490,7 @@ func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	expectedURL := "ch:dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
@@ -481,6 +505,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&&revision=99"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	expectedURL := "ch:dummy-99"
 	s.assertUploadResponse(c, resp, expectedURL)
@@ -512,6 +537,7 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 			params.MigrationModelHTTPHeader: importedModel.UUID(),
 		},
 	})
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 
@@ -541,6 +567,7 @@ func (s *charmsSuite) TestMigrateCharmName(c *gc.C) {
 			params.MigrationModelHTTPHeader: importedModel.UUID(),
 		},
 	})
+	defer resp.Body.Close()
 	expectedURL := "local:quantal/meshuggah-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 
@@ -566,6 +593,7 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 			params.MigrationModelHTTPHeader: migratedModel.ModelUUID(),
 		},
 	})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
 		`cannot upload charm: model migration mode is "" instead of "importing"`,
@@ -582,6 +610,7 @@ func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 		Tag:      user.Tag().String(),
 		Password: "hunter2",
 	})
+	defer resp.Body.Close()
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Matches, "authorization failed: user .* not a controller admin\n")
 }
@@ -589,6 +618,7 @@ func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	uri := s.charmsURI("?file=hooks/install")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
 		".*expected url=CharmURL query argument$",
@@ -598,6 +628,7 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	uri := s.charmsURI("?url=local:precise/no-such")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	defer resp.Body.Close()
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
 		`.*cannot get charm from state: charm "local:precise/no-such" not found$`,
@@ -607,7 +638,8 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	// Ensure a 404 is returned for files not included in the charm.
 	for i, file := range []string{
@@ -617,6 +649,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 		uri := s.charmsURI("?url=local:quantal/dummy-1&file=" + file)
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 		c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+		resp.Body.Close()
 	}
 }
 
@@ -635,23 +668,27 @@ func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 	// Ensure a 490 is returned if the charm is pending to be downloaded.
 	uri := s.charmsURI("?url=ch:focal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusConflict, gc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
 }
 
 func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 
 	// Ensure a 403 is returned if the requested file is a directory.
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=hooks")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 }
 
 func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	defer resp.Body.Close()
 
 	// Ensure the file contents are properly returned.
 	for i, t := range []struct {
@@ -676,15 +713,19 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		uri := s.charmsURI("?url=local:quantal/dummy-1&file=" + t.file)
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
+		resp.Body.Close()
 	}
 }
 
 func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	// Upload the local charms.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
+
 	ch = testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp = s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 
 	// Prepare the tests.
 	svgMimeType := mime.TypeByExtension(".svg")
@@ -730,6 +771,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 			test.expectType = svgMimeType
 		}
 		s.assertGetFileResponse(c, resp, test.expectBody, test.expectType)
+		resp.Body.Close()
 	}
 }
 
@@ -763,6 +805,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 		Nonce:    nonce,
 	}
 	resp := apitesting.SendHTTPRequest(c, params)
+	defer resp.Body.Close()
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
@@ -778,33 +821,39 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
+	resp.Body.Close()
 
 	data, err := os.ReadFile(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertGetFileResponse(c, resp, string(data), "application/zip")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 	// Backwards compatibility check, that we can GET from charms at
 	// https://host:port/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 	url := s.charmsURL("url=local:quantal/dummy-1&file=revision")
 	url.Path = "/charms"
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 	url := s.charmsURL("url=local:quantal/dummy-1&file=revision")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
@@ -820,20 +869,23 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+	resp.Body.Close()
 }
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 
 	// Ensure charm files are properly listed.
 	uri := s.charmsURI("?url=local:quantal/dummy-1")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	manifest, err := ch.ArchiveMembers()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)
+	resp.Body.Close()
 	ctype := resp.Header.Get("content-type")
 	c.Assert(ctype, gc.Equals, params.ContentTypeJSON)
 }
@@ -841,12 +893,14 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	resp.Body.Close()
 
 	// Download it.
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
-	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/zip")
+	resp.Body.Close()
 
 	// Ensure the tmp directory exists but nothing is in it.
 	files, err := os.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
