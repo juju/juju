@@ -154,7 +154,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool, agentVersion string, checkMainResource func()) {
+func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool, agentVersion string, useInitialScale bool, checkMainResource func()) {
 	if agentVersion == "" {
 		agentVersion = defaultAgentVersion
 	}
@@ -412,6 +412,13 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		}(),
 	}
 
+	// To test when a statefulset was deleted and has to be reapplied
+	// using the number of pods that are currently alive as the replica count.
+	if !useInitialScale {
+		appConfig.InitialScale = 0
+		appConfig.ProvisionedAppScale = 5
+	}
+
 	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
 
 	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
@@ -516,8 +523,9 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+
+	checkMainResource := func(replicas int32) func() {
+		return func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -557,7 +565,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: pointer.Int32Ptr(3),
+					Replicas: pointer.Int32Ptr(replicas),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name": "gitlab",
@@ -601,7 +609,20 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 			// No pvc is created.
 			_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "gitlab-database-appuuid-gitlab-0", metav1.GetOptions{})
 			c.Assert(err, gc.ErrorMatches, "persistentvolumeclaims \"gitlab-database-appuuid-gitlab-0\" not found")
-		},
+		}
+	}
+
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", true,
+		checkMainResource(3),
+	)
+	s.assertDelete(c, app)
+
+	// When a statefulset is deleted and needs to be reapplied, it has to follow the number of replicas
+	// from the ProvisionedAppScale.
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", false,
+		checkMainResource(5),
 	)
 	s.assertDelete(c, app)
 }
@@ -609,7 +630,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
+		c, app, false, constraints.Value{}, true, true, "3.5-beta1", true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -698,7 +719,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "3.6-beta3", func() {
+		c, app, false, constraints.Value{}, true, true, "3.6-beta3", true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -787,7 +808,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {},
+		c, app, false, constraints.Value{}, true, false, "", true, func() {},
 	)
 	s.assertDelete(c, app)
 }
@@ -795,7 +816,7 @@ func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	s.assertDelete(c, app)
 }
@@ -811,7 +832,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 		podSpec.ImagePullSecrets...,
 	)
 	s.assertEnsure(
-		c, app, true, constraints.Value{}, true, false, "", func() {
+		c, app, true, constraints.Value{}, true, false, "", true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -899,7 +920,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+		c, app, false, constraints.Value{}, true, false, "", true, func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -972,7 +993,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+		c, app, false, constraints.Value{}, true, false, "", true, func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1168,7 +1189,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", true, func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -1180,7 +1201,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 		})
 	})
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", func() {
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", true, func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -1194,7 +1215,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 		})
 	})
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", func() {
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", true, func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -2573,7 +2594,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 func (s *applicationSuite) TestServiceActive(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2612,7 +2633,7 @@ func (s *applicationSuite) TestServiceActive(c *gc.C) {
 func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2629,7 +2650,7 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
 func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2646,7 +2667,7 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
 func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2686,7 +2707,7 @@ func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 func (s *applicationSuite) TestServiceError(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "", func() {},
+		c, app, false, constraints.Value{}, false, false, "", true, func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2745,7 +2766,7 @@ func (s *applicationSuite) TestServiceError(c *gc.C) {
 func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", true, func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -2885,7 +2906,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 		metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", true, func() {})
 
 	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, gc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
@@ -2992,7 +3013,7 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", true, func() {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
@@ -3005,7 +3026,7 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", true, func() {
 			ps := getPodSpec368()
 			charmResourceMemRequest := corev1.ResourceList{
 				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMi),
@@ -3730,7 +3751,11 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *gc.C) {
 	c.Assert(validatingWebhookConfigurations.Items, gc.HasLen, 1)
 }
 
-func (s *applicationSuite) TestReconcileVolumes(c *gc.C) {
+// TestReconcileStorage deletes and reapplies a statefulset if it
+// detects that the volume claim template in the current statefulset
+// is different to the constructed volume claim template in the latest
+// filesystems.
+func (s *applicationSuite) TestReconcileStorage(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
@@ -3805,11 +3830,6 @@ func (s *applicationSuite) TestReconcileVolumes(c *gc.C) {
 		}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Orphan delete the current sts.
-	statefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", sts)
-	statefulsetWithOrphanDelete := resources.NewStatefulSetWithOrphanDelete(*statefulset)
-	s.applier.EXPECT().Delete(statefulsetWithOrphanDelete)
-
 	// Now we create a new sts object without the pvc.
 	// Copy the necessary fields from the old sts.
 	newSts := &appsv1.StatefulSet{
@@ -3865,11 +3885,98 @@ func (s *applicationSuite) TestReconcileVolumes(c *gc.C) {
 	newStatefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", newSts)
 	newStatefulset.Spec.VolumeClaimTemplates = append(newStatefulset.Spec.VolumeClaimTemplates, *pvc)
 
+	// Orphan delete the current sts.
+	statefulset := resources.NewStatefulSet(s.client.AppsV1().StatefulSets("test"), "test", "gitlab", sts)
+	statefulsetWithOrphanDelete := resources.NewStatefulSetWithOrphanDelete(statefulset)
+	s.applier.EXPECT().Delete(statefulsetWithOrphanDelete)
+
 	// Run the applier to create a new sts.
 	s.applier.EXPECT().Apply(newStatefulset)
 	s.applier.EXPECT().Run(gomock.Any(), false).Return(nil)
 
-	err = app.ReconcileVolumes(filesystems)
+	err = app.ReconcileStorage(filesystems)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestReconcileStorageNoChangeInFilesystem does not perform a reconcile
+// because it did not detect any change in the filesystem.
+func (s *applicationSuite) TestReconcileStorageNoChangeInFilesystem(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	// Current filesystem does not change. The size is still 100 same as what's in the
+	// current statefulset.
+	filesystems := []storage.KubernetesFilesystemParams{
+		{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		},
+	}
+	// Create the current sts with a pvc of size 100.
+	_, err := s.client.AppsV1().StatefulSets("test").
+		Create(context.Background(), &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "appuuid",
+				},
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: pointer.Int32Ptr(3),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/name": "gitlab",
+					},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+					},
+					Spec: getPodSpec31(),
+				},
+				VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "gitlab-database-appuuid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							}},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: pointer.StringPtr("test-workload-storage"),
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+								},
+							},
+						},
+					},
+				},
+				PodManagementPolicy: appsv1.ParallelPodManagement,
+				ServiceName:         "gitlab-endpoints",
+			},
+		}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.ReconcileStorage(filesystems)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
