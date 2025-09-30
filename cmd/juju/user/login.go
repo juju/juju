@@ -383,6 +383,9 @@ func (c *loginCommand) publicControllerLogin(
 
 	var oidcLogin bool
 	loginProviders := []api.LoginProvider{
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { oidcLogin = true },
+		),
 		c.SessionTokenLoginFactory().NewLoginProvider(
 			sessionToken,
 			ctx.Stderr,
@@ -392,20 +395,6 @@ func (c *loginCommand) publicControllerLogin(
 			},
 		),
 		api.NewLegacyLoginProvider(nil, "", "", nil, bclient, cookieURL),
-	}
-
-	// If client id and client secret provided, we prepend the clientcredentialprovider
-	// to the login providers slice and try this first.
-	if api.ClientIdAndSecretSet() {
-		// Set oidclogin, so we can check this in addition to the client id and secret
-		// for new connections.
-		oidcLogin = true
-		loginProviders = append(
-			[]api.LoginProvider{
-				api.NewClientCredentialsLoginProviderFromEnvironment(),
-			},
-			loginProviders...,
-		)
 	}
 
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(

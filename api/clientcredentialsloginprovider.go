@@ -30,20 +30,18 @@ const (
 	ClientSecretEnvVar = "JUJU_CLIENT_SECRET"
 )
 
-// ClientIdAndSecretSet returns true if both JUJU_CLIENT_ID and JUJU_CLIENT_SECRET
-// environment variables are set.
-func ClientIdAndSecretSet() bool {
-	return os.Getenv(ClientIDEnvVar) != "" && os.Getenv(ClientSecretEnvVar) != ""
-}
-
 // NewClientCredentialsLoginProvider returns a LoginProvider implementation that
 // authenticates the entity with the client credentials retrieved from the environment.
-func NewClientCredentialsLoginProviderFromEnvironment() *clientCredentialsLoginProvider {
+func NewClientCredentialsLoginProviderFromEnvironment(f func()) *clientCredentialsLoginProvider {
 	clientID := os.Getenv(ClientIDEnvVar)
 	clientSecret := os.Getenv(ClientSecretEnvVar)
+
 	return &clientCredentialsLoginProvider{
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		populatedFromEnvironment: true,
+		clientID:                 clientID,
+		clientSecret:             clientSecret,
+
+		afterLoginCallback: f,
 	}
 }
 
@@ -51,14 +49,21 @@ func NewClientCredentialsLoginProviderFromEnvironment() *clientCredentialsLoginP
 // authenticates the entity with the given client credentials.
 func NewClientCredentialsLoginProvider(clientID, clientSecret string) *clientCredentialsLoginProvider {
 	return &clientCredentialsLoginProvider{
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		clientID:           clientID,
+		clientSecret:       clientSecret,
+		afterLoginCallback: func() {},
 	}
 }
 
 type clientCredentialsLoginProvider struct {
+	// populatedFromEnvironment is true if the client ID and secret were
+	// populated from the environment.
+	populatedFromEnvironment bool
+
 	clientID     string
 	clientSecret string
+
+	afterLoginCallback func()
 }
 
 // AuthHeader implements the [LoginProvider.AuthHeader] method.
@@ -72,6 +77,12 @@ func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
 // It authenticates as the entity using client credentials.
 // Subsequent requests on the state will act as that entity.
 func (p *clientCredentialsLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
+	if p.populatedFromEnvironment {
+		if !p.clientIdAndSecretSet() {
+			return nil, errors.NotValidf("both %s and %s environment variables must be set", ClientIDEnvVar, ClientSecretEnvVar)
+		}
+	}
+
 	var result params.LoginResult
 	request := struct {
 		ClientID     string `json:"client-id"`
@@ -86,5 +97,11 @@ func (p *clientCredentialsLoginProvider) Login(ctx context.Context, caller base.
 		return nil, errors.Trace(err)
 	}
 
+	p.afterLoginCallback()
+
 	return NewLoginResultParams(result)
+}
+
+func (p *clientCredentialsLoginProvider) clientIdAndSecretSet() bool {
+	return p.clientID != "" && p.clientSecret != ""
 }
