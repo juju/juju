@@ -2398,7 +2398,7 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 // ReconcileStorage deletes the existing statefulset with DeletePropagationOrphan policy.
 // It reconciles PVCs and reapplies a new statefulset.
 func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemParams) error {
-	logger.Infof("[adis][ReconcileVolumes] app: %q, filesystems %+v", a.name, filesystems)
+	logger.Infof("[adis][ReconcileStorage] app: %q, filesystems %+v", a.name, filesystems)
 	sts, getErr := a.getStatefulSetWithOrphanDelete()
 	if getErr != nil {
 		return errors.Trace(getErr)
@@ -2472,9 +2472,11 @@ func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemPar
 	currentClaims := sts.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
 	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
-		logger.Infof("[adis][reconcilevolumes] app: %q has the same volume claims", a.name)
+		logger.Infof("[adis][ReconcileStorage] app: %q has the same volume claims", a.name)
 		return nil
 	}
+
+	logger.Infof("[adis][ReconcileStorage] app: %q volume claims changed", a.name)
 
 	applier := a.newApplier()
 	logger.Infof("[adis] orphan deleting sts %q", sts.Name)
@@ -2482,13 +2484,13 @@ func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemPar
 	applier.Delete(sts)
 
 	// Reapply the new sts with the updated pvc.
-	logger.Infof("[adis][ReconcileVolumes] app: %q, reapply sts", a.name)
+	logger.Infof("[adis][ReconcileStorage] app: %q, reapply sts", a.name)
 	applier.Apply(newStatefulset)
 	return applier.Run(context.Background(), false)
 }
 
 func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolumeClaim, newVolClaims []corev1.PersistentVolumeClaim) bool {
-	logger.Infof("[adis][volumeClaimTemplateMatch] app: %q, current: %+v, new: %+v", a.name, currentVolClaims, newVolClaims)
+	logger.Infof("[adis][volumeClaimTemplateMatch] app: %q\n current: %+v\n new: %+v", a.name, currentVolClaims, newVolClaims)
 	if len(currentVolClaims) != len(newVolClaims) {
 		return false
 	}

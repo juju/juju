@@ -434,7 +434,7 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
 			}
-			a.logger.Infof("[adis][loop] received storagecons changes")
+			a.logger.Infof("[adis][loop] app: %q received storagecons changes", a.name)
 			if storageConstraintsChan == nil {
 				storageConstraintsChan = a.clock.After(0)
 			}
@@ -444,10 +444,10 @@ func (a *appWorker) loop() error {
 				storageConstraintsChan = nil
 				break
 			}
-			a.logger.Infof("[adis][loop] received storageConstraintsChan")
+			a.logger.Infof("[adis][loop] app: %q received storageConstraintsChan", a.name)
 			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, a.logger)
 			if err != nil {
-				a.logger.Infof("[adis][ReconcileApplicationStorage] err: %+v", err)
+				a.logger.Infof("[adis][ReconcileApplicationStorage] app: %q err: %+v", a.name, err)
 				if errors.Is(err, errors.NotFound) {
 					storageConstraintsChan = a.clock.After(retryDelay)
 				} else {
