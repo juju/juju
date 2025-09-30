@@ -586,6 +586,7 @@ func (a *MachineAgent) makeEngineCreator(
 			}
 			return nil, err
 		}
+
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
 			Engine:             eng,

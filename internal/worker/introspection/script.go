@@ -228,6 +228,18 @@ juju_api_connection_sources () {
   fi
 }
 
+juju_flightrecorder_start () {
+  juju_agent flightrecorder/start
+}
+
+juju_flightrecorder_stop () {
+  juju_agent flightrecorder/stop
+}
+
+juju_flightrecorder_capture () {
+  juju_agent flightrecorder/capture
+}
+
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
 shell=$(ps -p "$$" -o comm --no-headers)
@@ -247,5 +259,8 @@ if [ "$shell" = "bash" ]; then
   export -f juju_unit_status
   export -f juju_db_repl
   export -f juju_api_connection_sources
+  export -f juju_flightrecorder_start
+  export -f juju_flightrecorder_stop
+  export -f juju_flightrecorder_capture
 fi
 `

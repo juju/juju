@@ -69,10 +69,10 @@ func (s *suite) TestStartStop(c *tc.C) {
 type introspectionSuite struct {
 	testhelpers.IsolationSuite
 
-	name     string
-	worker   worker.Worker
-	reporter introspection.DepEngineReporter
-	gatherer prometheus.Gatherer
+	name      string
+	worker    worker.Worker
+	depEngine introspection.DependencyEngine
+	gatherer  prometheus.Gatherer
 }
 
 func TestIntrospectionSuite(t *testing.T) {
@@ -84,7 +84,7 @@ func (s *introspectionSuite) SetUpTest(c *tc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 	s.IsolationSuite.SetUpTest(c)
-	s.reporter = nil
+	s.depEngine = nil
 	s.worker = nil
 	s.gatherer = newPrometheusGatherer()
 	s.startWorker(c)
@@ -94,7 +94,7 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d.socket", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
-		DepEngine:          s.reporter,
+		DepEngine:          s.depEngine,
 		PrometheusGatherer: s.gatherer,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -159,21 +159,21 @@ func (s *introspectionSuite) TestMissingDepEngineReporter(c *tc.C) {
 	response := s.call(c, "/depengine")
 	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "missing dependency engine reporter")
+	s.assertBody(c, response, "missing dependency engine depEngine")
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *tc.C) {
 	response := s.call(c, "/machinelock")
 	defer response.Body.Close()
 	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "missing machine lock reporter")
+	s.assertBody(c, response, "missing machine lock depEngine")
 }
 
 func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
 	workertest.CleanKill(c, s.worker)
-	s.reporter = &reporter{
+	s.depEngine = &depEngine{
 		values: map[string]interface{}{
 			"working": true,
 		},
@@ -200,11 +200,11 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	s.assertContains(c, body, "tau 6.283185")
 }
 
-type reporter struct {
+type depEngine struct {
 	values map[string]interface{}
 }
 
-func (r *reporter) Report() map[string]interface{} {
+func (r *depEngine) Report() map[string]interface{} {
 	return r.values
 }
 
