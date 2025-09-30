@@ -17,9 +17,9 @@ import (
 	"gopkg.in/tomb.v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/machinelock"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/worker/flightrecorder"
 	introspectionflightrecorder "github.com/juju/juju/internal/worker/introspection/flightrecorder"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
 	"github.com/juju/juju/juju/sockets"
@@ -73,6 +73,7 @@ type socketListener struct {
 	machineLock machinelock.Lock
 
 	prometheusGatherer prometheus.Gatherer
+	flightRecorder     flightrecorder.FlightRecorder
 
 	done chan struct{}
 }
@@ -102,6 +103,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		depEngine:          config.DepEngine,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
+		flightRecorder:     config.FlightRecorder,
 		done:               make(chan struct{}),
 	}
 	w.tomb.Go(w.serve)
@@ -177,9 +179,9 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/leases", notSupportedHandler{name: "Leases"})
 
 	// Flight recorder.
-	handle("/flightrecorder/start", http.HandlerFunc(introspectionflightrecorder.StartHandler(w.depEngine)))
-	handle("/flightrecorder/stop", http.HandlerFunc(introspectionflightrecorder.StopHandler(w.depEngine)))
-	handle("/flightrecorder/capture", http.HandlerFunc(introspectionflightrecorder.CaptureHandler(w.depEngine)))
+	handle("/flightrecorder/start", http.HandlerFunc(introspectionflightrecorder.StartHandler(w.flightRecorder)))
+	handle("/flightrecorder/stop", http.HandlerFunc(introspectionflightrecorder.StopHandler(w.flightRecorder)))
+	handle("/flightrecorder/capture", http.HandlerFunc(introspectionflightrecorder.CaptureHandler(w.flightRecorder)))
 }
 
 type notSupportedHandler struct {

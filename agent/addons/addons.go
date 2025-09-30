@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/internal/worker/introspection"
@@ -37,6 +38,7 @@ type IntrospectionConfig struct {
 	Engine             *dependency.Engine
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
+	FlightRecorder     flightrecorder.FlightRecorder
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -62,6 +64,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		DepEngine:          cfg.Engine,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
+		FlightRecorder:     cfg.FlightRecorder,
 		// TODO(leases) - add lease introspection
 	})
 	if err != nil {

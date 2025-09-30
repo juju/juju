@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -536,6 +537,8 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
+		flightRecorder := flightrecorder.New("", internallogger.GetLogger("juju.flightrecorder"))
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
@@ -552,6 +555,7 @@ func (a *MachineAgent) makeEngineCreator(
 			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock.WallClock,
+			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
 			UpdateLoggerConfig:                updateAgentConfLogging,
@@ -592,6 +596,7 @@ func (a *MachineAgent) makeEngineCreator(
 			Engine:             eng,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
+			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			Logger:             logger.Child("introspection"),

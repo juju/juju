@@ -6,7 +6,7 @@ package flightrecorder
 import (
 	"net/http"
 
-	"github.com/juju/juju/internal/worker/flightrecorder"
+	"github.com/juju/juju/core/flightrecorder"
 )
 
 // StartHandler returns an http handler for starting the flight recorder.
