@@ -6,29 +6,29 @@ package flightrecorder
 import (
 	"context"
 	"errors"
-	"os"
-	"runtime/trace"
-
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	"gopkg.in/tomb.v2"
 )
 
-// Worker is the flight recorder worker.
-type Worker struct {
+// FlightRecorder is the flight recorder worker.
+type FlightRecorder struct {
 	tomb tomb.Tomb
 
-	flightRecorder *trace.FlightRecorder
-	logger         logger.Logger
+	path     string
+	recorder *Recorder
+	logger   logger.Logger
 
 	ch chan request
 }
 
-// NewWorker creates a new flight recorder worker.
-func NewWorker(flightRecorder *trace.FlightRecorder, logger logger.Logger) *Worker {
-	w := &Worker{
-		flightRecorder: flightRecorder,
-		logger:         logger,
+// New creates a new flight recorder worker.
+func New(path string, logger logger.Logger) *FlightRecorder {
+	w := &FlightRecorder{
+		recorder: NewRecorder(),
+		logger:   logger,
+
+		ch: make(chan request),
 	}
 
 	w.tomb.Go(w.loop)
@@ -37,17 +37,17 @@ func NewWorker(flightRecorder *trace.FlightRecorder, logger logger.Logger) *Work
 }
 
 // Kill stops the worker.
-func (w *Worker) Kill() {
+func (w *FlightRecorder) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait waits for the worker to stop.
-func (w *Worker) Wait() error {
+func (w *FlightRecorder) Wait() error {
 	return w.tomb.Wait()
 }
 
 // Start starts the flight recorder.
-func (w *Worker) Start() error {
+func (w *FlightRecorder) Start() error {
 	request := request{
 		Type:   requestTypeStart,
 		Result: make(chan error, 1),
@@ -68,7 +68,7 @@ func (w *Worker) Start() error {
 }
 
 // Stop stops the flight recorder.
-func (w *Worker) Stop() error {
+func (w *FlightRecorder) Stop() error {
 	result := make(chan error, 1)
 	req := request{
 		Type:   requestTypeStop,
@@ -90,7 +90,7 @@ func (w *Worker) Stop() error {
 }
 
 // Capture captures a flight recording.
-func (w *Worker) Capture() error {
+func (w *FlightRecorder) Capture() error {
 	result := make(chan error, 1)
 	req := request{
 		Type:   requestTypeCapture,
@@ -111,10 +111,10 @@ func (w *Worker) Capture() error {
 	}
 }
 
-func (w *Worker) loop() error {
+func (w *FlightRecorder) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
-	defer w.flightRecorder.Stop()
+	defer w.recorder.Stop()
 
 	for {
 		select {
@@ -143,37 +143,32 @@ func (w *Worker) loop() error {
 	}
 }
 
-func (w *Worker) startRecording(ctx context.Context) error {
+func (w *FlightRecorder) startRecording(ctx context.Context) error {
 	w.logger.Debugf(ctx, "starting flight recording")
 
-	return w.flightRecorder.Start()
+	return w.recorder.Start()
 }
 
-func (w *Worker) stopRecording(ctx context.Context) error {
+func (w *FlightRecorder) stopRecording(ctx context.Context) error {
 	w.logger.Debugf(ctx, "stopping flight recording")
 
-	w.flightRecorder.Stop()
+	w.recorder.Stop()
 	return nil
 }
 
-func (w *Worker) captureRecording(ctx context.Context) error {
-	if !w.flightRecorder.Enabled() {
-		return nil
+func (w *FlightRecorder) captureRecording(ctx context.Context) error {
+	path := w.path
+	if path == "" {
+		path = "/tmp"
 	}
+	w.logger.Debugf(ctx, "start capturing flight recording into %q", w.path)
 
-	defer w.flightRecorder.Stop()
-
-	f, err := os.CreateTemp("", "flight_recording.trace")
+	path, err := w.recorder.Capture(w.path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	w.logger.Debugf(ctx, "capturing flight recording to %q", f.Name())
-
-	if _, err := w.flightRecorder.WriteTo(f); err != nil {
-		return err
-	}
+	w.logger.Infof(ctx, "captured flight recording into %q", path)
 
 	return nil
 }
