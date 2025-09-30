@@ -307,16 +307,13 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 
 	// If client id and client secret provided, we prepend the clientcredentialprovider
 	// to the login providers slice and try this first.
-	if os.Getenv("JUJU_CLIENT_ID") != "" && os.Getenv("JUJU_CLIENT_SECRET") != "" {
+	if api.ClientIdAndSecretSet() {
 		// Set oidclogin, so we can check this in addition to the client id and secret
 		// for new connections.
 		supportsOIDCLogin = true
 		loginProviders = append(
 			[]api.LoginProvider{
-				api.NewClientCredentialsLoginProvider(
-					os.Getenv("JUJU_CLIENT_ID"),
-					os.Getenv("JUJU_CLIENT_SECRET"),
-				),
+				api.NewClientCredentialsLoginProviderFromEnvironment(),
 			},
 			loginProviders...,
 		)

@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
@@ -19,6 +20,32 @@ var (
 		return caller.APICall("Admin", 4, "", "LoginWithClientCredentials", request, response)
 	}
 )
+
+const (
+	// ClientIDEnvVar is the environment variable used to specify the client ID
+	// for client credentials authentication.
+	ClientIDEnvVar = "JUJU_CLIENT_ID"
+	// ClientSecretEnvVar is the environment variable used to specify the client
+	// secret for client credentials authentication.
+	ClientSecretEnvVar = "JUJU_CLIENT_SECRET"
+)
+
+// ClientIdAndSecretSet returns true if both JUJU_CLIENT_ID and JUJU_CLIENT_SECRET
+// environment variables are set.
+func ClientIdAndSecretSet() bool {
+	return os.Getenv(ClientIDEnvVar) != "" && os.Getenv(ClientSecretEnvVar) != ""
+}
+
+// NewClientCredentialsLoginProvider returns a LoginProvider implementation that
+// authenticates the entity with the client credentials retrieved from the environment.
+func NewClientCredentialsLoginProviderFromEnvironment() *clientCredentialsLoginProvider {
+	clientID := os.Getenv(ClientIDEnvVar)
+	clientSecret := os.Getenv(ClientSecretEnvVar)
+	return &clientCredentialsLoginProvider{
+		clientID:     clientID,
+		clientSecret: clientSecret,
+	}
+}
 
 // NewClientCredentialsLoginProvider returns a LoginProvider implementation that
 // authenticates the entity with the given client credentials.

@@ -612,11 +612,8 @@ func newAPIConnectionParams(
 		// If the controller is OIDCLogin, we know it is capable of device and client credential flows.
 		// So now we do an override (which is not persisted) to set the clientcredential login provider
 		// if these env vars are provided.
-		if os.Getenv("JUJU_CLIENT_ID") != "" && os.Getenv("JUJU_CLIENT_SECRET") != "" {
-			dialOpts.LoginProvider = api.NewClientCredentialsLoginProvider(
-				os.Getenv("JUJU_CLIENT_ID"),
-				os.Getenv("JUJU_CLIENT_SECRET"),
-			)
+		if api.ClientIdAndSecretSet() {
+			dialOpts.LoginProvider = api.NewClientCredentialsLoginProviderFromEnvironment()
 		} else {
 			dialOpts.LoginProvider = sessionLoginFactory.NewLoginProvider(
 				accountDetails.SessionToken,
