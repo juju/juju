@@ -69,9 +69,62 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertApplicationRemoteOfferer(c, applicationUUID)
+	s.assertApplicationRemoteOffererStatus(c, applicationUUID)
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
-	s.assertApplicationRemoteOffererStatus(c, applicationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsApplicationEndpointBindings(c *tc.C) {
+	applicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	charm := charm.Charm{
+		ReferenceName: "bar",
+		Source:        charm.CMRSource,
+		Metadata: charm.Metadata{
+			Name:        "foo",
+			Description: "remote offerer application",
+			Provides: map[string]charm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      charm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]charm.Relation{
+				"cache": {
+					Name:      "cache",
+					Role:      charm.RoleRequirer,
+					Interface: "cacher",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+			Peers: map[string]charm.Relation{},
+		},
+	}
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       applicationUUID,
+		CharmUUID:             charmUUID,
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+		Charm:                 charm,
+		EncodedMacaroon:       []byte("encoded macaroon"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// This should contain three endpoints:
+	// - cache (requirer)
+	// - db (provider)
+	// - juju-info (provider, automatically added)
+
+	endpoints := s.fetchApplicationEndpoints(c, applicationUUID)
+	c.Assert(endpoints, tc.HasLen, 3)
+
+	c.Check(endpoints[0].charmRelationName, tc.Equals, "cache")
+	c.Check(endpoints[1].charmRelationName, tc.Equals, "db")
+	c.Check(endpoints[2].charmRelationName, tc.Equals, "juju-info")
 }
 
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsApplicationAndCharmWithNoRelations(c *tc.C) {
@@ -99,6 +152,14 @@ func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsAppl
 	s.assertApplicationRemoteOfferer(c, applicationUUID)
 	s.assertApplication(c, applicationUUID)
 	s.assertCharmMetadata(c, applicationUUID, charmUUID, charm)
+
+	// This should contain one endpoint:
+	// - juju-info (provider, automatically added)
+
+	endpoints := s.fetchApplicationEndpoints(c, applicationUUID)
+	c.Assert(endpoints, tc.HasLen, 1)
+
+	c.Check(endpoints[0].charmRelationName, tc.Equals, "juju-info")
 }
 
 func (s *modelRemoteApplicationSuite) TestAddRemoteApplicationOffererInsertsApplicationAndCharmTwice(c *tc.C) {
@@ -512,4 +573,45 @@ WHERE charm_uuid = ?`, charmUUID)
 
 	c.Check(gotProvides, tc.DeepEquals, provides)
 	c.Check(gotRequires, tc.DeepEquals, expected.Metadata.Requires)
+}
+
+type applicationEndpoint struct {
+	charmRelationUUID string
+	charmRelationName string
+	spaceName         string
+}
+
+func (s *modelRemoteApplicationSuite) fetchApplicationEndpoints(c *tc.C, appID string) []applicationEndpoint {
+	var endpoints []applicationEndpoint
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.Query(`
+SELECT ae.charm_relation_uuid, s.name, cr.name AS charm_relation_name
+FROM application_endpoint ae
+JOIN charm_relation cr ON cr.uuid=ae.charm_relation_uuid
+LEFT JOIN space s ON s.uuid=ae.space_uuid
+WHERE ae.application_uuid=?
+ORDER BY cr.name`, appID)
+		defer func() { _ = rows.Close() }()
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var (
+				uuid              string
+				spaceName         *string
+				charmRelationName string
+			)
+			if err := rows.Scan(&uuid, &spaceName, &charmRelationName); err != nil {
+				return err
+			}
+			endpoints = append(endpoints, applicationEndpoint{
+				charmRelationUUID: uuid,
+				charmRelationName: charmRelationName,
+				spaceName:         nilEmpty(spaceName),
+			})
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return endpoints
 }

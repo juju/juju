@@ -160,6 +160,11 @@ func (st *State) insertApplication(
 		return errors.Errorf("inserting row for application %q: %w", name, err)
 	}
 
+	// Insert the endpoint bindings for the application.
+	if err := st.insertApplicationEndpointBindings(ctx, tx, args.ApplicationUUID, args.CharmUUID); err != nil {
+		return errors.Errorf("inserting application endpoint bindings: %w", err)
+	}
+
 	return nil
 }
 
@@ -259,6 +264,80 @@ INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStat
 		return errors.Errorf("inserting status: %w", err)
 	}
 	return nil
+}
+
+// insertApplicationEndpointBindings inserts database records for an
+// application's endpoints (`application_endpoint`).
+//
+// It gets the relation defined in the charm and inserts all the endpoints
+// into the default alpha space.
+func (st *State) insertApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID, charmUUID string) error {
+	relations, err := st.getCharmRelationNames(ctx, tx, charmUUID)
+	if err != nil {
+		return errors.Errorf("getting charm relation names: %w", err)
+	}
+
+	if err := st.insertApplicationRelationEndpointBindings(ctx, tx, appUUID, relations); err != nil {
+		return errors.Errorf("inserting application endpoint: %w", err)
+	}
+	return nil
+}
+
+// insertApplicationRelationEndpointBindings inserts an application endpoint
+// binding into the database, associating it with a relation and space.
+func (st *State) insertApplicationRelationEndpointBindings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID string,
+	relations []charmRelationName,
+) error {
+	if len(relations) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare(
+		`INSERT INTO application_endpoint (*) VALUES ($setApplicationEndpointBinding.*)`,
+		setApplicationEndpointBinding{},
+	)
+	if err != nil {
+		return errors.Errorf("preparing insert application endpoint bindings: %w", err)
+	}
+
+	inserts := make([]setApplicationEndpointBinding, len(relations))
+	for i, relation := range relations {
+		uuid, err := corerelation.NewEndpointUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		inserts[i] = setApplicationEndpointBinding{
+			UUID:          uuid.String(),
+			ApplicationID: appID,
+			RelationUUID:  relation.UUID,
+		}
+	}
+
+	return tx.Query(ctx, stmt, inserts).Run()
+}
+
+// getCharmRelationNames retrieves a list of charm relation names from the
+// database based on the provided parameters.
+func (st *State) getCharmRelationNames(ctx context.Context, tx *sqlair.TX, charmUUID string) ([]charmRelationName, error) {
+	uuid := uuid{UUID: charmUUID}
+	stmt, err := st.Prepare(`
+SELECT &charmRelationName.* 
+FROM charm_relation
+WHERE charm_relation.charm_uuid = $uuid.uuid
+`, uuid, charmRelationName{})
+	if err != nil {
+		return nil, errors.Errorf("preparing fetch charm relation: %w", err)
+	}
+	var relations []charmRelationName
+	if err := tx.Query(ctx, stmt, uuid).GetAll(&relations); err != nil && !errors.Is(err,
+		sqlair.ErrNoRows) {
+		return nil, errors.Errorf("fetching charm relation: %w", err)
+	}
+	return relations, nil
 }
 
 // checkApplicationNameAvailable checks if the application name is available.
