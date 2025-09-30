@@ -763,7 +763,7 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 }
 
 func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
-	logger.Debugf("reconciling application %q storage", appName)
+	logger.Debugf("[adis] reconciling application %q storage", appName)
 
 	// Get filesystem provisioning info.
 	info, err := facade.FilesystemProvisioningInfo(appName)
@@ -771,7 +771,7 @@ func reconcileApplicationStorage(appName string, app caas.Application, facade CA
 		return errors.Trace(err)
 	}
 
-	return app.ReconcileVolumes(info.Filesystems)
+	return app.ReconcileStorage(info.Filesystems)
 }
 
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},

@@ -124,7 +124,7 @@ func (s *statefulSetSuite) TestDeleteWithOrphan(c *gc.C) {
 	c.Assert(result.GetName(), gc.Equals, `sts1`)
 
 	stsResource := resources.NewStatefulSet(s.client.AppsV1().StatefulSets(sts.Namespace), "test", "sts1", &sts)
-	stsWithOrphanDeleteResource := &resources.StatefulSetWithOrphanDelete{stsResource}
+	stsWithOrphanDeleteResource := resources.NewStatefulSetWithOrphanDelete(stsResource)
 	err = stsWithOrphanDeleteResource.Delete(context.TODO())
 	c.Assert(err, jc.ErrorIsNil)
 

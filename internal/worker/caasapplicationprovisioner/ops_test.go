@@ -854,10 +854,11 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
-		Devices:      []devices.KubernetesDeviceParams{},
-		Trust:        true,
-		InitialScale: 0,
-		CharmUser:    caas.RunAsDefault,
+		Devices:             []devices.KubernetesDeviceParams{},
+		Trust:               true,
+		InitialScale:        0,
+		CharmUser:           caas.RunAsDefault,
+		ProvisionedAppScale: 10,
 	}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
@@ -943,7 +944,7 @@ func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
 	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
-	app.EXPECT().ReconcileVolumes(provisioningInfo.Filesystems).Return(nil)
+	app.EXPECT().ReconcileStorage(provisioningInfo.Filesystems).Return(nil)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
