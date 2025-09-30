@@ -2020,11 +2020,6 @@ func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
 		if err != nil {
 			return false
 		}
-		//if current == nil && storageCons != nil {
-		//	logger.Infof("[adis] storage constraint insertion: %+v", storageCons)
-		//	current = storageCons
-		//	return false
-		//}
 
 		contentChanged := !maps.Equal(current, storageCons)
 		current = storageCons
