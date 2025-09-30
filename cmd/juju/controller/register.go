@@ -294,6 +294,9 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	var sessionToken string
 
 	loginProviders := []api.LoginProvider{
+		api.NewClientCredentialsLoginProviderFromEnvironment(
+			func() { supportsOIDCLogin = true },
+		),
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
@@ -303,20 +306,6 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 			},
 		),
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
-	}
-
-	// If client id and client secret provided, we prepend the clientcredentialprovider
-	// to the login providers slice and try this first.
-	if api.ClientIdAndSecretSet() {
-		// Set oidclogin, so we can check this in addition to the client id and secret
-		// for new connections.
-		supportsOIDCLogin = true
-		loginProviders = append(
-			[]api.LoginProvider{
-				api.NewClientCredentialsLoginProviderFromEnvironment(),
-			},
-			loginProviders...,
-		)
 	}
 
 	// we set up a login provider that will first try to log in using
