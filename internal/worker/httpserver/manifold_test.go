@@ -40,7 +40,6 @@ type ManifoldSuite struct {
 	getter                 dependency.Getter
 	mux                    *apiserverhttp.Mux
 	clock                  *testclock.Clock
-	prometheusRegisterer   stubPrometheusRegisterer
 	tlsConfig              *tls.Config
 	controllerConfig       controller.Config
 	domainServices         services.DomainServices
@@ -63,7 +62,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.mux = &apiserverhttp.Mux{}
 	s.clock = testclock.NewClock(time.Now())
-	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.tlsConfig = &tls.Config{}
 	s.controllerConfig = map[string]interface{}{
 		"api-port":            1024,
@@ -81,19 +79,18 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.getter = s.newGetter(nil)
 	s.config = httpserver.ManifoldConfig{
-		AgentName:            "machine-42",
-		AuthorityName:        "authority",
-		DomainServicesName:   "domain-services",
-		MuxName:              "mux",
-		APIServerName:        "api-server",
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		MuxShutdownWait:      1 * time.Minute,
-		LogDir:               "log-dir",
-		GetControllerConfig:  s.getControllerConfig,
-		NewTLSConfig:         s.newTLSConfig,
-		NewWorker:            s.newWorker,
-		Logger:               loggertesting.WrapCheckLog(c),
+		AgentName:           "machine-42",
+		AuthorityName:       "authority",
+		DomainServicesName:  "domain-services",
+		MuxName:             "mux",
+		APIServerName:       "api-server",
+		Clock:               s.clock,
+		MuxShutdownWait:     1 * time.Minute,
+		LogDir:              "log-dir",
+		GetControllerConfig: s.getControllerConfig,
+		NewTLSConfig:        s.newTLSConfig,
+		NewWorker:           s.newWorker,
+		Logger:              loggertesting.WrapCheckLog(c),
 	}
 	s.manifold = httpserver.Manifold(s.config)
 }
@@ -172,15 +169,14 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config := newWorkerArgs[0].(httpserver.Config)
 
 	c.Assert(config, tc.DeepEquals, httpserver.Config{
-		AgentName:            "machine-42",
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		TLSConfig:            s.tlsConfig,
-		Mux:                  s.mux,
-		APIPort:              1024,
-		MuxShutdownWait:      1 * time.Minute,
-		LogDir:               "log-dir",
-		Logger:               s.config.Logger,
+		AgentName:       "machine-42",
+		Clock:           s.clock,
+		TLSConfig:       s.tlsConfig,
+		Mux:             s.mux,
+		APIPort:         1024,
+		MuxShutdownWait: 1 * time.Minute,
+		LogDir:          "log-dir",
+		Logger:          s.config.Logger,
 	})
 }
 
@@ -210,9 +206,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
 		expect: "empty APIServerName not valid",
-	}, {
-		f:      func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
-		expect: "nil PrometheusRegisterer not valid",
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.GetControllerConfig = nil },
 		expect: "nil GetControllerConfig not valid",
