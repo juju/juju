@@ -37,8 +37,9 @@ type IntrospectionConfig struct {
 	Engine             *dependency.Engine
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
-	Clock              clock.Clock
-	Logger             logger.Logger
+
+	Clock  clock.Clock
+	Logger logger.Logger
 
 	WorkerFunc func(config introspection.Config) (worker.Worker, error)
 }

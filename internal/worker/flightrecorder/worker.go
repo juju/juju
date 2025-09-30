@@ -8,7 +8,6 @@ import (
 	"errors"
 	"os"
 	"runtime/trace"
-	"time"
 
 	"gopkg.in/tomb.v2"
 
@@ -19,15 +18,17 @@ import (
 type Worker struct {
 	tomb tomb.Tomb
 
-	logger logger.Logger
+	flightRecorder *trace.FlightRecorder
+	logger         logger.Logger
 
 	ch chan request
 }
 
 // NewWorker creates a new flight recorder worker.
-func NewWorker(logger logger.Logger) *Worker {
+func NewWorker(flightRecorder *trace.FlightRecorder, logger logger.Logger) *Worker {
 	w := &Worker{
-		logger: logger,
+		flightRecorder: flightRecorder,
+		logger:         logger,
 	}
 
 	w.tomb.Go(w.loop)
@@ -113,11 +114,7 @@ func (w *Worker) Capture() error {
 func (w *Worker) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
-	// TODO (stickupkid): Make this configurable!
-	flightRecorder := trace.NewFlightRecorder(trace.FlightRecorderConfig{
-		MinAge:   time.Second,
-		MaxBytes: 1 << 20, // 1 MiB
-	})
+	defer w.flightRecorder.Stop()
 
 	for {
 		select {
@@ -128,11 +125,11 @@ func (w *Worker) loop() error {
 			var err error
 			switch req.Type {
 			case requestTypeStart:
-				err = w.startRecording(ctx, flightRecorder)
+				err = w.startRecording(ctx)
 			case requestTypeStop:
-				err = w.stopRecording(ctx, flightRecorder)
+				err = w.stopRecording(ctx)
 			case requestTypeCapture:
-				err = w.captureRecording(ctx, flightRecorder)
+				err = w.captureRecording(ctx)
 			default:
 				err = errors.New("unknown request type")
 			}
@@ -146,25 +143,25 @@ func (w *Worker) loop() error {
 	}
 }
 
-func (w *Worker) startRecording(ctx context.Context, recorder *trace.FlightRecorder) error {
+func (w *Worker) startRecording(ctx context.Context) error {
 	w.logger.Debugf(ctx, "starting flight recording")
 
-	return recorder.Start()
+	return w.flightRecorder.Start()
 }
 
-func (w *Worker) stopRecording(ctx context.Context, recorder *trace.FlightRecorder) error {
+func (w *Worker) stopRecording(ctx context.Context) error {
 	w.logger.Debugf(ctx, "stopping flight recording")
 
-	recorder.Stop()
+	w.flightRecorder.Stop()
 	return nil
 }
 
-func (w *Worker) captureRecording(ctx context.Context, recorder *trace.FlightRecorder) error {
-	if !recorder.Enabled() {
+func (w *Worker) captureRecording(ctx context.Context) error {
+	if !w.flightRecorder.Enabled() {
 		return nil
 	}
 
-	defer recorder.Stop()
+	defer w.flightRecorder.Stop()
 
 	f, err := os.CreateTemp("", "flight_recording.trace")
 	if err != nil {
@@ -174,7 +171,7 @@ func (w *Worker) captureRecording(ctx context.Context, recorder *trace.FlightRec
 
 	w.logger.Debugf(ctx, "capturing flight recording to %q", f.Name())
 
-	if _, err := recorder.WriteTo(f); err != nil {
+	if _, err := w.flightRecorder.WriteTo(f); err != nil {
 		return err
 	}
 

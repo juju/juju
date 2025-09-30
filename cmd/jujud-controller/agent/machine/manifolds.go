@@ -331,7 +331,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		clockName: clockManifold(config.Clock),
 
 		flightRecorderName: flightrecorder.Manifold(flightrecorder.ManifoldConfig{
-			Logger: internallogger.GetLogger("juju.worker.flightrecorder"),
+			FlightRecorder: flightrecorder.NewFlightRecorder(),
+			Logger:         internallogger.GetLogger("juju.worker.flightrecorder"),
 		}),
 
 		// Each machine agent has a flag manifold/worker which

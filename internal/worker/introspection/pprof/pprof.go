@@ -171,7 +171,6 @@ func (name handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		runtime.GC()
 	}
 	_ = p.WriteTo(w, debug)
-	return
 }
 
 // Index responds with the pprof-formatted profile named by the request.
