@@ -1502,12 +1502,11 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range cfg {
-		result[k] = v.Value
+	appConfig, err := application.DecodeApplicationConfig(cfg)
+	if err != nil {
+		return nil, errors.Errorf("decoding application config: %w", err)
 	}
-
-	return result, nil
+	return appConfig, nil
 }
 
 // GetApplicationTrustSetting returns the application trust setting.
@@ -1561,9 +1560,9 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range appConfig {
-		result[k] = v.Value
+	applicationConfig, err := application.DecodeApplicationConfig(appConfig)
+	if err != nil {
+		return ApplicationConfig{}, errors.Errorf("decoding application config: %w", err)
 	}
 
 	charmID, charmConfig, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
@@ -1595,7 +1594,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		CharmName:         origin.Name,
 		CharmOrigin:       decodedCharmOrigin,
 		CharmConfig:       decodedCharmConfig,
-		ApplicationConfig: result,
+		ApplicationConfig: applicationConfig,
 		Trust:             settings.Trust,
 		Principal:         !subordinate,
 	}, nil

@@ -4,6 +4,8 @@
 package application
 
 import (
+	"strconv"
+
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -118,4 +120,54 @@ func encodeOptionType(t string) (charm.OptionType, error) {
 	default:
 		return "", errors.Errorf("unknown option type %q", t)
 	}
+}
+
+// DecodeApplicationConfig decodes the application config from the domain
+// representation into the internal charm config representation.
+func DecodeApplicationConfig(cfg map[string]ApplicationConfig) (internalcharm.Config, error) {
+	if len(cfg) == 0 {
+		return nil, nil
+	}
+
+	result := make(internalcharm.Config)
+	for k, v := range cfg {
+		if v.Value == nil {
+			result[k] = nil
+			continue
+		}
+		coercedV, err := coerceValue(v.Type, *v.Value)
+		if err != nil {
+			return nil, errors.Errorf("coerce config value for key %q: %w", k, err)
+		}
+		result[k] = coercedV
+	}
+	return result, nil
+}
+
+func coerceValue(t charm.OptionType, value string) (interface{}, error) {
+	switch t {
+	case charm.OptionString, charm.OptionSecret:
+		return value, nil
+	case charm.OptionInt:
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to int: %w", value, err)
+		}
+		return intValue, nil
+	case charm.OptionFloat:
+		floatValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to float: %w", value, err)
+		}
+		return floatValue, nil
+	case charm.OptionBool:
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to bool: %w", value, err)
+		}
+		return boolValue, nil
+	default:
+		return nil, errors.Errorf("unknown config type %q", t)
+	}
+
 }

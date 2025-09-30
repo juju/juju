@@ -321,6 +321,10 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 			Type:  domaincharm.OptionString,
 			Value: ptr("bar"),
 		},
+		"baz": {
+			Type:  domaincharm.OptionBool,
+			Value: ptr("true"),
+		},
 	}, application.ApplicationSettings{
 		Trust: true,
 	}, nil)
@@ -329,6 +333,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, charm.Config{
 		"foo": "bar",
+		"baz": true,
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,

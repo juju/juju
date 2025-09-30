@@ -238,11 +238,12 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range cfg {
-		result[k] = v.Value
+	appConfig, err := application.DecodeApplicationConfig(cfg)
+	if err != nil {
+		return nil, application.ApplicationSettings{}, errors.Errorf("decoding application config: %w", err)
 	}
-	return result, settings, nil
+
+	return appConfig, settings, nil
 }
 
 // GetApplicationConstraints returns the application constraints for the

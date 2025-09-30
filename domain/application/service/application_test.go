@@ -467,13 +467,38 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 			Type:  applicationcharm.OptionString,
 			Value: ptr("bar"),
 		},
+		"baz": {
+			Type:  applicationcharm.OptionInt,
+			Value: ptr("42"),
+		},
+		"qux": {
+			Type: applicationcharm.OptionBool,
+		},
 	}, nil)
 
 	results, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
+		"baz": 42,
+		"qux": nil,
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionBool,
+			Value: ptr("not-a-parsable-bool"),
+		},
+	}, nil)
+
+	_, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorMatches, ".*cannot convert string \"not-a-parsable-bool\" to bool.*")
 }
 
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(c *tc.C) {
@@ -627,10 +652,10 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{
 		Trust: ptr(true),
@@ -656,10 +681,10 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{
 		Trust: ptr(false),
@@ -685,10 +710,10 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{}).Return(nil)
 
@@ -782,7 +807,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoConfig(c *tc.C) {
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{}, nil)
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(
 		gomock.Any(), appUUID,
-		map[string]application.ApplicationConfig{},
+		map[string]application.AddApplicationConfig{},
 		application.UpdateApplicationSettingsArg{},
 	).Return(nil)
 
