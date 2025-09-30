@@ -23,6 +23,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -3467,6 +3468,15 @@ func (s *relationSuite) TestInsertRelationUnitUnitUUIDDoesNotExist(c *tc.C) {
 
 	// Assert: Error is returned
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *relationSuite) TestApplicationExists(c *tc.C) {
+	err := s.state.ApplicationExists(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+
+	app := s.addApplication(c, s.fakeCharmUUID1, "app1")
+	err = s.state.ApplicationExists(c.Context(), app)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the

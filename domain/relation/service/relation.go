@@ -148,6 +148,9 @@ type State interface {
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
 	) error
+
+	// ApplicationExists checks if the given application exists.
+	ApplicationExists(ctx context.Context, applicationID application.ID) error
 }
 
 // LeadershipService provides the API for working with the statuses of

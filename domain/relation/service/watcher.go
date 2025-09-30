@@ -177,6 +177,13 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 			"%w:%w", relationerrors.ApplicationIDNotValid, err)
 	}
 
+	// Check if the application exists before starting the watcher.
+	// This prevents watching an application that has been removed or
+	// never existed.
+	if err := s.st.ApplicationExists(ctx, applicationUUID); err != nil {
+		return nil, errors.Errorf("checking application exists: %w", err)
+	}
+
 	w := newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
