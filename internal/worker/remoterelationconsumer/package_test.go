@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -91,4 +92,10 @@ func waitForEmptyRunner(c *tc.C, runner *worker.Runner) {
 			c.Fatalf("timed out waiting for application to be stopped")
 		}
 	}
+}
+
+func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
+	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	return mac
 }

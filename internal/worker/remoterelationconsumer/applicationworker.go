@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
@@ -59,7 +60,6 @@ func (c RemoteApplicationConfig) Validate() error {
 	if c.RemoteRelationClientGetter == nil {
 		return errors.NotValidf("nil remote relation client getter")
 	}
-
 	if c.OfferUUID == "" {
 		return errors.NotValidf("empty offer uuid")
 	}
@@ -69,7 +69,15 @@ func (c RemoteApplicationConfig) Validate() error {
 	if c.ApplicationUUID == "" {
 		return errors.NotValidf("empty application uuid")
 	}
-
+	if c.LocalModelUUID == "" {
+		return errors.NotValidf("empty local model uuid")
+	}
+	if c.RemoteModelUUID == "" {
+		return errors.NotValidf("empty remote model uuid")
+	}
+	if c.Macaroon == nil {
+		return errors.NotValidf("nil macaroon")
+	}
 	if c.NewLocalUnitRelationsWorker == nil {
 		return errors.NotValidf("nil NewLocalUnitRelationsWorker")
 	}
@@ -79,14 +87,12 @@ func (c RemoteApplicationConfig) Validate() error {
 	if c.NewRemoteRelationsWorker == nil {
 		return errors.NotValidf("nil NewRemoteRelationsWorker")
 	}
-
 	if c.Clock == nil {
 		return errors.NotValidf("nil clock")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil logger")
 	}
-
 	return nil
 }
 
@@ -145,6 +151,8 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 	}
 
 	w := &remoteApplicationWorker{
+		crossModelService: config.CrossModelService,
+
 		localRelationUnitChanges:  make(chan relation.RelationUnitChange),
 		remoteRelationUnitChanges: make(chan remoteunitrelations.RelationUnitChange),
 		remoteRelationChanges:     make(chan remoterelations.RelationChange),
@@ -233,12 +241,11 @@ func (w *remoteApplicationWorker) Report() map[string]interface{} {
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	// Watch for changes to any local relations to the remote application.
 	relationsWatcher, err := w.crossModelService.WatchApplicationLifeSuspendedStatus(ctx, w.applicationUUID)
-	if err != nil && isNotFound(err) {
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "watching relations for remote application %q", w.applicationName)
@@ -247,35 +254,16 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// On the consuming side, watch for status changes to the offer.
+	// Watch the offer changes on the offerer side, so that we can keep track
+	// of the offer.
 
-	if err := w.newRemoteRelationsClient(ctx); err != nil {
-		if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
-			Status:  status.Error,
-			Message: fmt.Sprintf("cannot connect to external controller: %v", err.Error()),
-		}); err != nil {
-			return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-		}
-		return errors.Annotate(err, "cannot connect to external controller")
-	}
-
-	arg := params.OfferArg{
-		OfferUUID: w.offerUUID,
-	}
-	if w.offerMacaroon != nil {
-		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
-		arg.BakeryVersion = bakery.LatestVersion
-	}
-
-	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, arg)
+	w.remoteModelClient, err = w.setupRemoteModelClient(ctx)
 	if err != nil {
-		w.checkOfferPermissionDenied(ctx, err, "", "")
-		if isNotFound(err) {
-			return w.remoteOfferRemoved(ctx)
-		}
-		return errors.Annotate(err, "watching status for offer")
+		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(offerStatusWatcher); err != nil {
+
+	offerStatusWatcher, err := w.watchRemoteOfferStatus(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	offerStatusChanges := offerStatusWatcher.Changes()
@@ -361,10 +349,10 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, change.Status); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 				}
+
 				// If the offer is terminated the status watcher can be stopped immediately.
 				if change.Status.Status == status.Terminated {
-					offerStatusWatcher.Kill()
-					if err := offerStatusWatcher.Wait(); err != nil {
+					if err := worker.Stop(offerStatusWatcher); err != nil {
 						w.logger.Warningf(ctx, "error stopping status watcher for saas application %s: %v", w.applicationName, err)
 					}
 					offerStatusChanges = nil
@@ -385,58 +373,94 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 }
 
+func (w *remoteApplicationWorker) setupRemoteModelClient(ctx context.Context) (RemoteModelRelationsClient, error) {
+	remoteModelClient, err := w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.remoteModelUUID)
+	if err == nil {
+		return remoteModelClient, nil
+	}
+
+	// Attempt to set the status on the remote offer to indicate that
+	// we cannot connect to the remote model. If this fails, log the error,
+	// as we don't want the worker to bounce on this error. Instead, we want
+	// to bounce on the original error.
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
+		Status:  status.Error,
+		Message: fmt.Sprintf("cannot connect to external controller: %v", err.Error()),
+	}); err != nil {
+		w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.remoteModelUUID, err)
+	}
+	return nil, errors.Annotate(err, "cannot connect to external controller")
+}
+
+func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (watcher.OfferStatusWatcher, error) {
+	offerStatusWatcher, err := w.remoteModelClient.WatchOfferStatus(ctx, params.OfferArg{
+		OfferUUID:     w.offerUUID,
+		Macaroons:     macaroon.Slice{w.offerMacaroon},
+		BakeryVersion: bakery.LatestVersion,
+	})
+	if err != nil {
+		w.checkOfferPermissionDenied(ctx, err, "", "")
+		if isNotFound(err) {
+			return nil, w.remoteOfferRemoved(ctx)
+		}
+		return nil, errors.Annotate(err, "watching status for offer")
+	}
+
+	if err := w.catacomb.Add(offerStatusWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return offerStatusWatcher, nil
+}
+
 func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context, err error, appToken, localRelationToken string) {
 	// If consume permission has been revoked for the offer, set the
 	// status of the local remote application entity.
-	if params.ErrCode(err) == params.CodeDischargeRequired {
-		if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
-			Status:  status.Error,
-			Message: err.Error(),
-		}); err != nil {
-			w.logger.Errorf(ctx,
-				"updating remote application %v status from remote model %v: %v",
-				w.applicationName, w.remoteModelUUID, err)
-		}
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return
+	}
 
-		w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
-		// If we know a specific relation, update that too.
-		if localRelationToken != "" {
-			suspended := true
-			event := params.RemoteRelationChangeEvent{
-				RelationToken:           localRelationToken,
-				ApplicationOrOfferToken: appToken,
-				Suspended:               &suspended,
-				SuspendedReason:         "offer permission revoked",
-			}
-			_ = event
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
-				w.logger.Errorf(ctx, "updating relation status: %v", err)
-			}
-		}
+	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
+		Status:  status.Error,
+		Message: err.Error(),
+	}); err != nil {
+		w.logger.Errorf(ctx,
+			"updating remote application %v status from remote model %v: %v",
+			w.applicationName, w.remoteModelUUID, err)
+	}
+
+	// If we don't have the tokens, we can't do anything more.
+	if localRelationToken == "" {
+		return
+	}
+
+	w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
+
+	suspended := true
+	event := params.RemoteRelationChangeEvent{
+		RelationToken:           localRelationToken,
+		ApplicationOrOfferToken: appToken,
+		Suspended:               &suspended,
+		SuspendedReason:         "offer permission revoked",
+	}
+	_ = event
+	if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
+		w.logger.Errorf(ctx, "updating relation status: %v", err)
 	}
 }
 
 func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error {
 	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
+
+	// TODO (stickupkid): What's the point of setting the status to terminated,
+	// and not removing any additional workers? If the offer has been removed,
+	// surely we want to some how trigger a cleanup of the remote application
+	// and data associated with it?
 	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationUUID, status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "offer has been removed",
 	}); err != nil {
 		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
-	}
-	return nil
-}
-
-// newRemoteRelationsClient attempts to open an API connection to
-// the remote model for the watcher's application.
-// If a redirect error is returned, we attempt to open a connection to the new
-// controller and update our local controller info for the model so that future
-// API connections are to the new location.
-func (w *remoteApplicationWorker) newRemoteRelationsClient(ctx context.Context) error {
-	var err error
-	w.remoteModelClient, err = w.remoteRelationClientGetter.GetRemoteRelationClient(ctx, w.remoteModelUUID)
-	if err != nil {
-		return errors.Annotatef(err, "getting remote relation client for model %v", w.remoteModelUUID)
 	}
 	return nil
 }
