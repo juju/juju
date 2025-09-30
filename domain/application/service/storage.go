@@ -399,6 +399,224 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 	return provider, nil
 }
 
+// getRegisterCAASUnitStorageArgs is responsible for getting the storage
+// arguments required to register a CAAS unit in the model. This func considers
+// pre existing storage already in the model for the unit and any new storage
+// that needs to be created.
+//
+// This function will first use all the existing storage in the model for the
+// unit before creating new storage to meet the storage directives of the unit.
+// Storage created by this func will be associated with the providers
+// information on first creation. All storage created and re-used will also now
+// be owned by the unit being registered.
+//
+// The following errors may be expected:
+// - [applicationerrors.ApplicationNotFound] when the application no longer
+// exists.
+func (s *ProviderService) getRegisterCAASUnitStorageArgs(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+	unitUUID coreunit.UUID,
+	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
+	providerFilesystemInfo []caas.FilesystemInfo,
+) (application.RegisterUnitStorageArg, error) {
+	// We don't consider or look at volume information for the caas filesystem.
+	// Volume sequences have previously been used as a means of associating
+	// provider information to storage instances. It is impossible to keep these
+	// two sources in sync so instead we rely on the unique id from the
+	// provider.
+	//
+	// For CAAS this provider value lives in caas.FilesystemInfo.FilesystemId.
+	//
+	// Collect the set of provider ids and form a mapping from charm storage
+	// name.
+	providerIDs := make([]string, 0, len(providerFilesystemInfo))
+	for _, fsInfo := range providerFilesystemInfo {
+		providerIDs = append(providerIDs, fsInfo.FilesystemId)
+	}
+
+	// We fetch all existing storage instances in the model that are using one
+	// of the provider ids.
+	existingProviderStorage, err := s.st.GetStorageInstancesForProviderIDs(
+		ctx, providerIDs,
+	)
+	if err != nil {
+		return application.RegisterUnitStorageArg{}, errors.Errorf(
+			"getting existing storage instances based on observed provider ids: %w",
+			err,
+		)
+	}
+
+	var (
+		existingUnitStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID
+		directivesToFollow  []application.StorageDirective
+	)
+
+	if unitUUID != "" {
+		// If the unit exists, we will get the already established storage
+		// directives including and storage that the unit currently owns.
+		directivesToFollow, existingUnitStorage, err = s.getUnitStorageInfo(
+			ctx, unitUUID,
+		)
+		if err != nil {
+			return application.RegisterUnitStorageArg{}, errors.Errorf(
+				"getting existing unit %q storage information for registration: %w",
+				unitUUID, err,
+			)
+		}
+	} else {
+		// If the unit does not exist, we will instead get and follow the
+		// storage directives of the application.
+		directivesToFollow, err = s.st.GetApplicationStorageDirectives(
+			ctx, appUUID,
+		)
+		if err != nil {
+			return application.RegisterUnitStorageArg{}, errors.Errorf(
+				"getting application %q storage directives: %w", appUUID, err,
+			)
+		}
+		existingUnitStorage = map[domainstorage.Name][]domainstorage.StorageInstanceUUID{}
+	}
+
+	// We need to walk through all of the storage in the model that is using one
+	// of the provider ids and make it available under the units existing
+	// storage.
+	//
+	// It is possible for storage to exist in the model that is not currently
+	// owned by a unit. This happens in CAAS models where a unit going away does
+	// not remove provisioned storage.
+
+	for _, storageInstance := range existingProviderStorage {
+		storageName := storageInstance.StorageName
+
+		// If the provider storage instance already exists in the unit's
+		// identified storage then there is nothing more to do.
+		if slices.Contains(existingUnitStorage[storageName], storageInstance.UUID) {
+			continue
+		}
+
+		// Because the identified provider storage instance isn't current
+		// consider part of the unit's existing storage we need to manually
+		// include it so the association, ownership and attachments can be made.
+		existingUnitStorage[storageName] = append(
+			existingUnitStorage[storageName], storageInstance.UUID,
+		)
+	}
+
+	unitStorageArgs, err := makeUnitStorageArgs(
+		ctx,
+		attachmentNetNodeUUID,
+		s.storagePoolProvider,
+		directivesToFollow,
+		existingUnitStorage,
+	)
+	if err != nil {
+		return application.RegisterUnitStorageArg{}, errors.Capture(err)
+	}
+
+	// Now map all of the unassigned provider ids to the storage name that
+	// they can be assigned to.
+	unassignedNameMapping := map[domainstorage.Name][]string{}
+
+	// filesystemProviderIDs is a mapping of new filesystem uuids that are to be
+	// created and the provider id for the filesystem.
+	filesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
+
+	// We need to walk through all of the new storage instances being created
+	// and assign a provider id to them.
+	for _, inst := range unitStorageArgs.StorageInstances {
+		// We can safely assume that all CAAS units create filesystems but we
+		// are not in charge of the business logic here. So instead let us just
+		// skip this instance if it does not have a non filesystem uuid.
+		if inst.Filesystem == nil {
+			continue
+		}
+
+		nameIDs := unassignedNameMapping[inst.Name]
+		if len(nameIDs) == 0 {
+			// This should never happen, but it does mean we have a disjoint
+			// situation between what the provider is creating and the
+			// information in the database.
+			return application.RegisterUnitStorageArg{}, errors.Errorf(
+				"no provider id exists to assign to unit %q new storage instance %q",
+				unitUUID, inst.Name,
+			)
+		}
+
+		// Pop the first unassigned provider id and give it to the new
+		// filesystem.
+		filesystemProviderIDs[inst.Filesystem.UUID] = nameIDs[0]
+		unassignedNameMapping[inst.Name] = nameIDs[1:]
+	}
+
+	return application.RegisterUnitStorageArg{
+		CreateUnitStorageArg:  unitStorageArgs,
+		FilesystemProviderIDs: filesystemProviderIDs,
+	}, nil
+}
+
+// makeCAASStorageInstanceProviderIDAssociations takes the reported filesystem
+// information from a CAAS unit and assoicates the reported provider ids to new
+// storage instances that are to be created for the unit.
+//
+// This function will not use any provider ids that are already associated with
+// a storage instance in the existing provider storage supplied.
+//
+// No reconciliation is done to ensure that each new unit storage has an
+// assigned provider id or that all provider ids are consumed.
+func makeCAASStorageInstanceProviderIDAssociations(
+	providerFilesystemInfo []caas.FilesystemInfo,
+	existingProviderStorage []internal.StorageInstanceComposition,
+	unitStorageToCreate []application.CreateUnitStorageInstanceArg,
+) (
+	map[domainstorageprov.FilesystemUUID]string,
+	map[domainstorageprov.VolumeUUID]string,
+) {
+	rvalFilesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
+	rvalVolumeProviderIDs := map[domainstorageprov.VolumeUUID]string{}
+
+	unassignedStorageNameToIDMap := map[string][]string{}
+	for _, providerFS := range providerFilesystemInfo {
+		alreadyInUse := slices.ContainsFunc(
+			existingProviderStorage,
+			func(e internal.StorageInstanceComposition) bool {
+				if e.Filesystem != nil && e.Filesystem.ProviderID == providerFS.FilesystemId {
+					return true
+				} else if e.Volume != nil && e.Volume.ProviderID == providerFS.FilesystemId {
+					return true
+				}
+				return false
+			},
+		)
+		if alreadyInUse {
+			continue
+		}
+
+		unassignedStorageNameToIDMap[providerFS.StorageName] = append(
+			unassignedStorageNameToIDMap[providerFS.StorageName],
+			providerFS.FilesystemId,
+		)
+	}
+
+	for _, inst := range unitStorageToCreate {
+		availableIDs, exists := unassignedStorageNameToIDMap[inst.Name.String()]
+		// If there is not provider id available for this new storage instance
+		// then we do nothing.
+		if !exists || len(availableIDs) == 0 {
+			continue
+		}
+
+		if inst.Filesystem != nil {
+			rvalFilesystemProviderIDs[inst.Filesystem.UUID] = availableIDs[0]
+		}
+		if inst.Volume != nil {
+			rvalVolumeProviderIDs[inst.Volume.UUID] = availableIDs[0]
+		}
+	}
+
+	return rvalFilesystemProviderIDs, rvalVolumeProviderIDs
+}
+
 // DetachStorageForUnit detaches the specified storage from the specified unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
