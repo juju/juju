@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/naturalsort"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func TestPackage(t *testing.T) {
@@ -19,7 +19,7 @@ func TestPackage(t *testing.T) {
 }
 
 type naturalSortSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *naturalSortSuite) TestEmpty(c *tc.C) {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
@@ -32,7 +31,7 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 	}
 
 	subnetZones, err := common.GetValidSubnetZoneMap(c.Context(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[0])
 }
 
@@ -52,7 +51,7 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *tc.C) {
 	}
 
 	subnetZones, err := common.GetValidSubnetZoneMap(c.Context(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
 	})
@@ -102,6 +101,6 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *
 	// subnets-to-zones map.
 
 	subnetZones, err := common.GetValidSubnetZoneMap(c.Context(), args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[1])
 }

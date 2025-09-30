@@ -4,6 +4,8 @@
 package testhelpers
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,7 +23,7 @@ type LoggingSuite struct {
 }
 
 type gocheckWriter struct {
-	c interface{ Logf(string, ...any) }
+	c interface{ Output() io.Writer }
 	s *LoggingSuite
 }
 
@@ -36,7 +38,7 @@ func (w *gocheckWriter) Write(entry loggo.Entry) {
 	w.s.mut.RLock()
 	defer w.s.mut.RUnlock()
 	filename := filepath.Base(entry.Filename)
-	w.c.Logf("%s:%d: %s %s %s", filename, entry.Line,
+	fmt.Fprintf(w.c.Output(), "%s:%d: %s %s %s\n", filename, entry.Line,
 		entry.Level, entry.Module, entry.Message)
 }
 
@@ -85,7 +87,8 @@ func (s *LoggingSuite) TearDownTest(c *tc.C) {
 
 type discardC struct{}
 
-func (discardC) Logf(string, ...any) {
+func (discardC) Output() io.Writer {
+	return io.Discard
 }
 
 type discardWriter struct{}
