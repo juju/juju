@@ -171,9 +171,9 @@ func (s *storageServiceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	}
 
 	expectedStorageAttachmentChecker := tc.NewMultiChecker()
-	expectedStorageInstanceChecker.AddExpr("_.UUID", tc.IsNonZeroUUID)
-	expectedStorageInstanceChecker.AddExpr("_.Filesystem.UUID", tc.IsNonZeroUUID)
-	expectedStorageInstanceChecker.AddExpr("_.Volume.UUID", tc.IsNonZeroUUID)
+	expectedStorageAttachmentChecker.AddExpr("_.UUID", tc.IsNonZeroUUID)
+	expectedStorageAttachmentChecker.AddExpr("_.FilesystemAttachment.UUID", tc.IsNonZeroUUID)
+	expectedStorageAttachmentChecker.AddExpr("_.VolumeAttachment.UUID", tc.IsNonZeroUUID)
 	expectedStorageToAttach := []application.CreateUnitStorageAttachmentArg{
 		// Existing st1 storage
 		{
