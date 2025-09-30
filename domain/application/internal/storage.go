@@ -18,7 +18,7 @@ type ModelStoragePools struct {
 	// FilesystemPoolUUID provides the storage pool uuid to use for
 	// filesystem storage.
 	FilesystemPoolUUID *domainstorage.StoragePoolUUID
-)
+}
 
 // StorageInstanceComposition describes the composition of a storage instance
 // with in the model. This information is required for attaching existing
