@@ -255,13 +255,14 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.25/stable
+      - go/latest/stable
     build-packages:
       - musl-tools
     override-build: |
       set -ex
 
       # TODO: use make plugin.
+      export GOTOOLCHAIN=go1.25.1
       export CC=musl-gcc
       export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
       export PACKAGES="libuv dqlite liblz4 sqlite3"
@@ -281,11 +282,12 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.25/stable
+      - go/latest/stable
     override-build: |
       set -ex
 
       # TODO: use make plugin.
+      export GOTOOLCHAIN=go1.25.1
       export GOBIN="${CRAFT_PART_INSTALL}/bin"
       export CGO_ENABLED=0
       export GO_LDFLAGS='-s -w -extldflags "-static" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.Grade= -X github.com/juju/juju/version.build='
