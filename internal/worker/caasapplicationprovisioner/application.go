@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 )
 
 type appNotifyWorker interface {
@@ -36,14 +35,13 @@ type appWorker struct {
 	unitFacade CAASUnitProvisionerFacade
 	ops        ApplicationOps
 
-	name                   string
-	modelTag               names.ModelTag
-	changes                chan struct{}
-	password               string
-	lastApplied            caas.ApplicationConfig
-	lastAppliedFilesystems []storage.KubernetesFilesystemParams
-	life                   life.Value
-	statusOnly             bool
+	name        string
+	modelTag    names.ModelTag
+	changes     chan struct{}
+	password    string
+	lastApplied caas.ApplicationConfig
+	life        life.Value
+	statusOnly  bool
 }
 
 type AppWorkerConfig struct {
@@ -447,7 +445,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			a.logger.Infof("[adis][loop] received storageConstraintsChan")
-			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, &a.lastAppliedFilesystems, a.logger)
+			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, a.logger)
 			if err != nil {
 				a.logger.Infof("[adis][ReconcileApplicationStorage] err: %+v", err)
 				if errors.Is(err, errors.NotFound) {
@@ -455,8 +453,9 @@ func (a *appWorker) loop() error {
 				} else {
 					return errors.Trace(err)
 				}
+			} else {
+				storageConstraintsChan = nil
 			}
-			storageConstraintsChan = nil
 		case <-a.clock.After(10 * time.Second):
 			// Force refresh of application status.
 		}
