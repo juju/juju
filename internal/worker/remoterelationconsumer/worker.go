@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -17,8 +18,11 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/relation"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -85,6 +89,16 @@ type RelationService interface {
 	// life suspended status of the specified application and notifies
 	// the worker of any changes.
 	WatchApplicationLifeSuspendedStatus(context.Context, application.ID) (watcher.StringsWatcher, error)
+
+	// GetRelationDetails returns RelationDetails for the given relationID.
+	GetRelationDetails(context.Context, corerelation.UUID) (relation.RelationDetails, error)
+
+	// WatchLocalRelationChanges returns a watcher for changes to the units
+	// in the given relation in the local model.
+	WatchLocalRelationChanges(ctx context.Context, relationID string) (watcher.NotifyWatcher, error)
+
+	// GetUnitRelation returns the current state of the unit relation.
+	GetUnitRelation(ctx context.Context, relationID string) (RelationUnitChange, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -97,6 +111,30 @@ type CrossModelRelationService interface {
 	// GetRemoteApplicationOfferers returns the current state of all remote
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
+
+	// SetRemoteApplicationOffererStatus sets the status of the specified remote
+	// application in the local model.
+	SetRemoteApplicationOffererStatus(context.Context, application.ID, status.StatusInfo) error
+
+	// ConsumeRemoteRelationChange applies a relation change event received
+	// from a remote model to the local model.
+	ConsumeRemoteRelationChange(context.Context, crossmodelrelation.RemoteRelationChangeEvent) error
+
+	// ConsumeRemoteSecretChanges applies secret changes received
+	// from a remote model to the local model.
+	ConsumeRemoteSecretChanges(context.Context, crossmodelrelation.RemoteSecretChangeEvent) error
+
+	// ExportApplicationAndRelationToken exports the specified entities to the
+	// remote model.
+	ExportApplicationAndRelationToken(context.Context, names.Tag, names.Tag) (string, string, error)
+
+	// SaveMacaroonForRelation saves the given macaroon for the specified remote
+	// application.
+	SaveMacaroonForRelation(context.Context, names.Tag, *macaroon.Macaroon) error
+
+	// ImportRemoteApplicationToken imports a remote application token
+	// into the local model.
+	ImportRemoteApplicationToken(context.Context, names.Tag, string) error
 }
 
 // Config defines the operation of a Worker.
@@ -105,8 +143,13 @@ type Config struct {
 	CrossModelService          CrossModelService
 	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
-	Clock                      clock.Clock
-	Logger                     logger.Logger
+
+	NewLocalUnitRelationsWorker  NewLocalUnitRelationsWorkerFunc
+	NewRemoteUnitRelationsWorker NewRemoteUnitRelationsWorkerFunc
+	NewRemoteRelationsWorker     NewRemoteRelationsWorkerFunc
+
+	Clock  clock.Clock
+	Logger logger.Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -119,6 +162,15 @@ func (config Config) Validate() error {
 	}
 	if config.RemoteRelationClientGetter == nil {
 		return errors.NotValidf("nil RemoteRelationClientGetter")
+	}
+	if config.NewRemoteApplicationWorker == nil {
+		return errors.NotValidf("nil NewRemoteApplicationWorker")
+	}
+	if config.NewLocalUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewLocalUnitRelationsWorker")
+	}
+	if config.NewRemoteUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewRemoteUnitRelationsWorker")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -258,17 +310,20 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appUUID, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
-				OfferUUID:                  remoteApp.OfferUUID,
-				ApplicationName:            remoteApp.ApplicationName,
-				ApplicationUUID:            application.ID(remoteApp.ApplicationUUID),
-				LocalModelUUID:             w.config.ModelUUID,
-				RemoteModelUUID:            remoteApp.OffererModelUUID,
-				ConsumeVersion:             remoteApp.ConsumeVersion,
-				Macaroon:                   remoteApp.Macaroon,
-				CrossModelService:          w.crossModelService,
-				RemoteRelationClientGetter: w.config.RemoteRelationClientGetter,
-				Clock:                      w.config.Clock,
-				Logger:                     w.logger,
+				OfferUUID:                    remoteApp.OfferUUID,
+				ApplicationName:              remoteApp.ApplicationName,
+				ApplicationUUID:              application.ID(remoteApp.ApplicationUUID),
+				LocalModelUUID:               w.config.ModelUUID,
+				RemoteModelUUID:              remoteApp.OffererModelUUID,
+				ConsumeVersion:               remoteApp.ConsumeVersion,
+				Macaroon:                     remoteApp.Macaroon,
+				CrossModelService:            w.crossModelService,
+				RemoteRelationClientGetter:   w.config.RemoteRelationClientGetter,
+				NewLocalUnitRelationsWorker:  w.config.NewLocalUnitRelationsWorker,
+				NewRemoteUnitRelationsWorker: w.config.NewRemoteUnitRelationsWorker,
+				NewRemoteRelationsWorker:     w.config.NewRemoteRelationsWorker,
+				Clock:                        w.config.Clock,
+				Logger:                       w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")

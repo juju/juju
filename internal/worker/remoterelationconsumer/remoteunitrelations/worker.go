@@ -53,6 +53,45 @@ type RemoteModelRelationsClient interface {
 	WatchRelationChanges(ctx context.Context, relationToken, applicationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error)
 }
 
+// Config contains the configuration parameters for a remote relation units
+// worker.
+type Config struct {
+	Client         RemoteModelRelationsClient
+	RelationTag    names.RelationTag
+	RelationToken  string
+	RemoteAppToken string
+	Macaroon       *macaroon.Macaroon
+	Changes        chan<- RelationUnitChange
+	Clock          clock.Clock
+	Logger         logger.Logger
+}
+
+// Validate ensures the configuration is valid.
+func (c Config) Validate() error {
+	if c.Client == nil {
+		return errors.NotValidf("remote model relations client cannot be nil")
+	}
+	if c.RelationToken == "" {
+		return errors.NotValidf("relation token cannot be empty")
+	}
+	if c.RemoteAppToken == "" {
+		return errors.NotValidf("remote application token cannot be empty")
+	}
+	if c.Macaroon == nil {
+		return errors.NotValidf("macaroon cannot be nil")
+	}
+	if c.Changes == nil {
+		return errors.NotValidf("changes channel cannot be nil")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("clock cannot be nil")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("logger cannot be nil")
+	}
+	return nil
+}
+
 // remoteWorker uses instances of watcher.RelationUnitsWatcher to
 // listen to changes to relation settings in a model, local or remote.
 // Local changes are exported to the remote model.
@@ -75,33 +114,28 @@ type remoteWorker struct {
 
 // NewWorker creates a new worker that watches for remote relation unit
 // changes and sends them to the provided changes channel.
-func NewWorker(
-	client RemoteModelRelationsClient,
-	relationTag names.RelationTag,
-	macaroon *macaroon.Macaroon,
-	relationToken, remoteAppToken string,
-	changes chan<- RelationUnitChange,
-	clock clock.Clock,
-	logger logger.Logger,
-) (worker.Worker, error) {
+func NewWorker(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	w := &remoteWorker{
-		client: client,
+		client: cfg.Client,
 
-		relationTag:    relationTag,
-		macaroon:       macaroon,
-		relationToken:  relationToken,
-		remoteAppToken: remoteAppToken,
+		relationTag:    cfg.RelationTag,
+		macaroon:       cfg.Macaroon,
+		relationToken:  cfg.RelationToken,
+		remoteAppToken: cfg.RemoteAppToken,
 
-		changes: changes,
-		clock:   clock,
-		logger:  logger,
+		changes: cfg.Changes,
+		clock:   cfg.Clock,
+		logger:  cfg.Logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting relation units worker for %v", relationTag)
+		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationTag)
 	}
 	return w, nil
 }

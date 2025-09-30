@@ -50,6 +50,39 @@ type Service interface {
 	GetUnitRelation(ctx context.Context, relationID string) (RelationUnitChange, error)
 }
 
+// Config contains the configuration parameters for a remote relation units
+// worker.
+type Config struct {
+	Service     Service
+	RelationTag names.RelationTag
+	Macaroon    *macaroon.Macaroon
+
+	Changes chan<- RelationUnitChange
+
+	Clock  clock.Clock
+	Logger logger.Logger
+}
+
+// Validate ensures the configuration is valid.
+func (c Config) Validate() error {
+	if c.Service == nil {
+		return errors.NotValidf("service cannot be nil")
+	}
+	if c.Macaroon == nil {
+		return errors.NotValidf("macaroon cannot be nil")
+	}
+	if c.Changes == nil {
+		return errors.NotValidf("changes channel cannot be nil")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("clock cannot be nil")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("logger cannot be nil")
+	}
+	return nil
+}
+
 // localWorker uses instances of watcher.RelationUnitsWatcher to
 // listen to changes to relation settings in a model, local or remote.
 // Local changes are exported to the remote model.
@@ -67,27 +100,24 @@ type localWorker struct {
 
 // NewWorker creates a new worker that watches for local relation unit
 // changes and sends them to the provided changes channel.
-func NewWorker(
-	service Service,
-	relationTag names.RelationTag,
-	mac *macaroon.Macaroon,
-	changes chan<- RelationUnitChange,
-	clock clock.Clock,
-	logger logger.Logger,
-) (worker.Worker, error) {
+func NewWorker(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &localWorker{
-		service:     service,
-		relationTag: relationTag,
-		changes:     changes,
-		clock:       clock,
-		logger:      logger,
+		service:     cfg.Service,
+		relationTag: cfg.RelationTag,
+		changes:     cfg.Changes,
+		clock:       cfg.Clock,
+		logger:      cfg.Logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "local-relation-units",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Annotatef(err, "starting relation units worker for %v", relationTag)
+		return nil, errors.Annotatef(err, "starting relation units worker for %v", cfg.RelationTag)
 	}
 	return w, nil
 }

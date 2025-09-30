@@ -31,6 +31,56 @@ type RelationChange struct {
 	SuspendedReason string
 }
 
+// RemoteModelRelationsClient watches for changes to relations in a remote
+// model.
+type RemoteModelRelationsClient interface {
+	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
+	// relations of each specified application in the remote model.
+	WatchRelationSuspendedStatus(ctx context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
+}
+
+// Config contains the configuration parameters for a remote relation worker.
+type Config struct {
+	Client              RemoteModelRelationsClient
+	RelationTag         names.RelationTag
+	ApplicationToken    string
+	LocalRelationToken  string
+	RemoteRelationToken string
+	Macaroon            *macaroon.Macaroon
+	Changes             chan<- RelationChange
+	Clock               clock.Clock
+	Logger              logger.Logger
+}
+
+// Validate ensures the configuration is valid.
+func (c Config) Validate() error {
+	if c.Client == nil {
+		return errors.NotValidf("remote model relations client cannot be nil")
+	}
+	if c.ApplicationToken == "" {
+		return errors.NotValidf("application token cannot be empty")
+	}
+	if c.LocalRelationToken == "" {
+		return errors.NotValidf("local relation token cannot be empty")
+	}
+	if c.RemoteRelationToken == "" {
+		return errors.NotValidf("remote relation token cannot be empty")
+	}
+	if c.Macaroon == nil {
+		return errors.NotValidf("macaroon cannot be nil")
+	}
+	if c.Changes == nil {
+		return errors.NotValidf("changes channel cannot be nil")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("clock cannot be nil")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("logger cannot be nil")
+	}
+	return nil
+}
+
 // remoteRelationsWorker listens for changes to the
 // life and status of a relation in the offering model.
 type remoteRelationsWorker struct {
@@ -48,36 +98,22 @@ type remoteRelationsWorker struct {
 	logger logger.Logger
 }
 
-// RemoteModelRelationsClient watches for changes to relations in a remote
-// model.
-type RemoteModelRelationsClient interface {
-	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
-	// relations of each specified application in the remote model.
-	WatchRelationSuspendedStatus(ctx context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
-}
-
 // Worker creates a new worker that watches for changes
 // to the life and status of a relation in a remote model.
-func NewWorker(
-	client RemoteModelRelationsClient,
-	relationTag names.RelationTag,
-	applicationToken string,
-	localRelationToken, remoteRelationToken string,
-	macaroon *macaroon.Macaroon,
-	changes chan<- RelationChange,
-	clock clock.Clock,
-	logger logger.Logger,
-) (worker.Worker, error) {
+func NewWorker(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	w := &remoteRelationsWorker{
-		client:              client,
-		macaroon:            macaroon,
-		relationTag:         relationTag,
-		localRelationToken:  localRelationToken,
-		remoteRelationToken: remoteRelationToken,
-		applicationToken:    applicationToken,
-		changes:             changes,
-		clock:               clock,
-		logger:              logger,
+		client:              cfg.Client,
+		macaroon:            cfg.Macaroon,
+		relationTag:         cfg.RelationTag,
+		localRelationToken:  cfg.LocalRelationToken,
+		remoteRelationToken: cfg.RemoteRelationToken,
+		applicationToken:    cfg.ApplicationToken,
+		changes:             cfg.Changes,
+		clock:               cfg.Clock,
+		logger:              cfg.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "remote-relations",

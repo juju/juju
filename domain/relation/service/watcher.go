@@ -123,9 +123,10 @@ func NewWatchableService(
 	}
 }
 
-// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
-// the life or suspended status any relation the unit's application is part
-// of. If the unit is a subordinate, its principal application is watched.
+// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
+// changes to the life or suspended status any relation the unit's application
+// is part of. If the unit is a subordinate, its principal application is
+// watched.
 func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -159,9 +160,10 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	)
 }
 
-// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
-// the life or suspended status any relation the unit's application is part
-// of. If the unit is a subordinate, its principal application is watched.
+// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of
+// changes to the life or suspended status any relation the unit's application
+// is part of. If the unit is a subordinate, its principal application is
+// watched.
 func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	applicationUUID application.ID,
