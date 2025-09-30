@@ -27,6 +27,7 @@ import (
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	network "github.com/juju/juju/domain/network/modelmigration"
+	operation "github.com/juju/juju/domain/operation/modelmigration"
 	port "github.com/juju/juju/domain/port/modelmigration"
 	relation "github.com/juju/juju/domain/relation/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
@@ -91,6 +92,7 @@ func ImportOperations(
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 	unitstate.RegisterImport(coordinator)
+	operation.RegisterImport(coordinator, objectStoreGetter, clock, logger.Child("operation"))
 
 	// model agent must come after machine and unit
 	modelagent.RegisterImport(coordinator, logger.Child("modelagent"))
