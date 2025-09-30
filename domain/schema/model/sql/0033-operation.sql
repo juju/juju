@@ -33,6 +33,9 @@ CREATE TABLE operation_action (
     REFERENCES charm_action (charm_uuid, "key")
 );
 
+CREATE INDEX idx_operation_action_charm_action_key_operation_uuid
+ON operation_action (charm_action_key, operation_uuid);
+
 -- A operation_task is the individual representation of an operation on a specific
 -- receiver. Either a machine or unit.
 CREATE TABLE operation_task (

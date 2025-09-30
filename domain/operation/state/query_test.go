@@ -1473,6 +1473,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 		s.addOperationTaskStatus(c, taskUUID, "running")
 	}
 
+	fmt.Printf("***************************\n")
 	// Act - get first page (limit=2) for "test-action"
 	limit := 2
 	resultPage1, err := s.state.GetOperations(c.Context(), operation.QueryArgs{
@@ -1485,6 +1486,7 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 	// should be marked truncated.
 	c.Check(resultPage1.Truncated, tc.IsTrue)
 	for _, op := range resultPage1.Operations {
+		fmt.Printf("p.1 Operation ID: %s\n", op.OperationID)
 		c.Check(op.Units[0].ActionName, tc.Equals, "test-action")
 	}
 
@@ -1502,11 +1504,14 @@ func (s *querySuite) TestGetOperationsPaginationWithActionFilter(c *tc.C) {
 	// Since fewer than limit were returned, truncated must be false.
 	c.Check(resultPage2.Truncated, tc.IsFalse)
 	c.Check(resultPage2.Operations[0].Units[0].ActionName, tc.Equals, "test-action")
+	fmt.Printf("p.2 Operation ID: %s\n", resultPage2.Operations[0].OperationID)
 
+	s.DumpTable(c, "operation")
 	// Verify that concatenating pages yields unique operation IDs and matches
 	// the expected count.
 	allOpIDs := make(map[string]bool)
 	for _, op := range append(resultPage1.Operations, resultPage2.Operations...) {
+		fmt.Printf("Operation ID: %s\n", op.OperationID)
 		c.Check(allOpIDs[op.OperationID], tc.IsFalse, tc.Commentf("Duplicate operation ID: %s", op.OperationID))
 		allOpIDs[op.OperationID] = true
 	}
