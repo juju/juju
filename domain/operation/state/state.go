@@ -184,7 +184,7 @@ FROM   %q`, table),
 }
 
 // deleteOperationByUUIDs deletes the operations and their associated tasks.
-// It returns the storeUUIDs that used to be linked with the deleted tasks
+// It returns the storePaths that are to be linked with the deleted tasks
 func (st *State) deleteOperationByUUIDs(ctx context.Context, tx *sqlair.TX, toDelete []string) ([]string, error) {
 	// Get all tasks associated with the operations to delete.
 	taskUUIDs, err := st.getTaskUUIDsByOperationUUIDs(ctx, tx, toDelete)
@@ -527,4 +527,20 @@ WHERE  metadata_uuid IN ($uuids[:])`, path{}, toDelete)
 		return nil, errors.Capture(err)
 	}
 	return transform.Slice(paths, func(r path) string { return r.Path }), nil
+}
+
+// getAllOperationUUIDs returns all operation UUIDs from the model database
+func (st *State) getAllOperationUUIDs(ctx context.Context, tx *sqlair.TX) ([]string, error) {
+	stmt, err := st.Prepare(`
+SELECT &uuid.uuid
+FROM   operation`, uuid{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var result []uuid
+	if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(result, func(r uuid) string { return r.UUID }), nil
 }

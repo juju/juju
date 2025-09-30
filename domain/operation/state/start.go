@@ -364,7 +364,7 @@ func (st *State) addExecParameters(ctx context.Context, tx *sqlair.TX, operation
 
 func (st *State) insertOperation(ctx context.Context, tx *sqlair.TX, args insertOperation) error {
 	query := `
-INSERT INTO operation (uuid, operation_id, summary, enqueued_at, parallel, execution_group)
+INSERT INTO operation (uuid, operation_id, summary, enqueued_at, started_at, completed_at, parallel, execution_group)
 VALUES ($insertOperation.*)
 `
 	stmt, err := st.Prepare(query, args)
@@ -445,7 +445,7 @@ func (st *State) addMachineTask(
 func (st *State) addMachineTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, machineName machine.Name) operation.MachineTaskResult {
 	now := time.Now().UTC()
 
-	err := st.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
+	err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID, TaskID: taskID, EnqueuedAt: now})
 	if err != nil {
 		return operation.MachineTaskResult{
 			ReceiverName: machineName,
@@ -510,7 +510,8 @@ func (st *State) addUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID s
 func (st *State) addUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, unitName coreunit.Name) operation.UnitTaskResult {
 	now := time.Now().UTC()
 
-	err := st.insertOperationTask(ctx, tx, taskUUID, operationUUID, taskID, now)
+	err := st.insertOperationTask(ctx, tx, insertOperationTask{UUID: taskUUID, OperationUUID: operationUUID,
+		TaskID: taskID, EnqueuedAt: now})
 	if err != nil {
 		return operation.UnitTaskResult{
 			ReceiverName: unitName,
@@ -550,16 +551,9 @@ func (st *State) addUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID st
 	}
 }
 
-func (st *State) insertOperationTask(ctx context.Context, tx *sqlair.TX, taskUUID, operationUUID, taskID string, enqueuedAt time.Time) error {
-	task := insertOperationTask{
-		UUID:          taskUUID,
-		OperationUUID: operationUUID,
-		TaskID:        taskID,
-		EnqueuedAt:    enqueuedAt,
-	}
-
+func (st *State) insertOperationTask(ctx context.Context, tx *sqlair.TX, task insertOperationTask) error {
 	query := `
-INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
+INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at, started_at, completed_at)
 VALUES ($insertOperationTask.*)
 `
 	stmt, err := st.Prepare(query, task)

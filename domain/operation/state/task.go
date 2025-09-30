@@ -735,6 +735,20 @@ func (st *State) LogTaskMessage(ctx context.Context, taskID, message string) err
 		return errors.Capture(err)
 	}
 
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		return st.insertTaskMessage(ctx, tx, taskID, time.Now().UTC(), message)
+	})
+	if err != nil {
+		return errors.Errorf("logging task %q: %w", taskID, err)
+	}
+
+	return nil
+}
+
+// insertTaskMessage stores the message for the given task ID.
+func (st *State) insertTaskMessage(ctx context.Context, tx *sqlair.TX, taskID string,
+	timestamp time.Time, message string) error {
 	stmt, err := st.Prepare(
 		`
 INSERT INTO operation_task_log (task_uuid, content, created_at)
@@ -744,29 +758,21 @@ SELECT ot.uuid,
 FROM   operation_task AS ot
 WHERE  ot.task_id = $taskIdent.task_id
 `, taskLogEntry{}, taskIdent{})
+
 	if err != nil {
 		return errors.Errorf("preparing log statement: %w", err)
 	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		ident := taskIdent{ID: taskID}
-		content := taskLogEntry{
-			Content:   message,
-			CreatedAt: time.Now().UTC(),
-		}
-
-		err = tx.Query(ctx, stmt, ident, content).Run()
-		if errors.Is(err, sql.ErrNoRows) {
-			return operationerrors.TaskNotFound
-		} else if err != nil {
-			return errors.Errorf("inserting task log entry: %w", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("logging task %q: %w", taskID, err)
+	ident := taskIdent{ID: taskID}
+	content := taskLogEntry{
+		Content:   message,
+		CreatedAt: timestamp,
 	}
 
+	err = tx.Query(ctx, stmt, ident, content).Run()
+	if errors.Is(err, sql.ErrNoRows) {
+		return operationerrors.TaskNotFound
+	} else if err != nil {
+		return errors.Errorf("inserting task log entry: %w", err)
+	}
 	return nil
 }

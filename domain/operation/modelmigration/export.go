@@ -21,10 +21,12 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator,
+func RegisterExport(
+	coordinator Coordinator,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
-	logger logger.Logger) {
+	logger logger.Logger,
+) {
 	coordinator.Add(&exportOperation{
 		logger:            logger,
 		clock:             clock,
