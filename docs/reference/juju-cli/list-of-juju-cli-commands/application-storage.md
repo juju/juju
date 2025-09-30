@@ -3,10 +3,10 @@
 > See also: [storage](#storage), [storage-pools](#storage-pools), [add-unit](#add-unit)
 
 ## Summary
-Displays or sets storage constraints values on an application.
+Displays or sets storage directives for an application.
 
 ## Usage
-```juju application-storage [options] <application-name> [<storage-name>[=<size>,<pool>,<count>]] ...```
+```juju application-storage [options] <application-name> [<storage-name>[={<size>,<pool>,<count>}]] ...```
 
 ### Options
 | Flag | Default | Usage |
@@ -48,15 +48,25 @@ That count will be used when updating the application’s storage.
 
 	juju application-storage mysql database=100G,rootfs,
 
+To set a storage directives for an application from a file:
+
+    juju application-storage mysql --file=path/to/cfg.yaml
+
+Note: The order of size, pool, and count in the assignment does not matter.
+For example, the following are equivalent:
+
+    juju application-storage mysql database=100G,rootfs,1
+    juju application-storage mysql database=rootfs,1,100G
+
 
 ## Details
 
-To view all storage constraints values for the given application:
+To view all storage directives values for the given application:
 
     juju application-storage <application>
 
 	By default, the config will be printed in a tabular format. You can instead
-print it in the `json` or `yaml` format using the `--format` flag:
+print it in `json` or `yaml` format using the `--format` flag:
 
    	juju application-storage &lt;application&gt; --format json
     juju application-storage <application> --format yaml
@@ -67,4 +77,14 @@ To view the value of a single storage name:
 
 To set storage constraint values on an application:
 
-    juju application-storage <application> key1=size1, key2=val2 ...
+    juju application-storage <application> name1=size, name2=pool, name3=count
+
+Config values can be imported from a yaml file using the `--file` flag:
+
+    juju application-storage <application> --file=path/to/constraints.yaml
+
+This allows you to, e.g., save an application's storage directives to a file:
+
+    juju application-storage <application> --format=yaml > constraints.yaml
+
+and then import the config later.

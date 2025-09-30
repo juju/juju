@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
@@ -42,6 +43,16 @@ To view the value of a single storage name:
 To set storage constraint values on an application:
 
     juju application-storage <application> name1=size, name2=pool, name3=count
+
+Config values can be imported from a yaml file using the ` + "`--file`" + ` flag:
+
+    juju application-storage <application> --file=path/to/constraints.yaml
+
+This allows you to, e.g., save an application's storage directives to a file:
+
+    juju application-storage <application> --format=yaml > constraints.yaml
+
+and then import the config later. 
 `
 	appStorageConfigExamples = `
 Print the storage directives for all storage names of the postgresql application:
@@ -70,6 +81,10 @@ If no count is provided, Juju uses the minimum count required by the charm.
 That count will be used when updating the application’s storage.
 
 	juju application-storage mysql database=100G,rootfs,
+
+To set a storage directives for an application from a file:
+
+    juju application-storage mysql --file=path/to/cfg.yaml
 
 Note: The order of size, pool, and count in the assignment does not matter.
 For example, the following are equivalent:
@@ -176,6 +191,8 @@ func (c *storageConfigCommand) Run(ctx *cmd.Context) error {
 			err = c.getConfig(client, ctx)
 		case config.SetArgs:
 			err = c.setConfig(client, c.configBase.ValsToSet)
+		case config.SetFile:
+			err = c.setFileConfig(client, c.configBase.ValsToSet)
 		default:
 			err = c.getAllConfig(client, ctx)
 		}
@@ -209,6 +226,44 @@ func (c *storageConfigCommand) setConfig(client StorageConstraintsAPI, attrs con
 	updateParams := application.ApplicationStorageUpdate{
 		ApplicationTag:     names.NewApplicationTag(c.applicationName),
 		StorageConstraints: sc,
+	}
+
+	return client.UpdateApplicationStorage(updateParams)
+}
+
+// setFileConfig sets the provided key/value pairs on the application using values from a file.
+func (c *storageConfigCommand) setFileConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
+	sc := make(map[string]storage.Constraints, len(attrs))
+	for k, v := range attrs {
+		inner, ok := v.(config.Attrs)
+		if !ok {
+			return errors.Errorf("expected value of type %T, got %T", config.Attrs{}, v)
+		}
+
+		s := make([]string, 0, len(inner))
+		for con, val := range inner {
+			valStr := fmt.Sprint(val)
+			if con == "size" {
+				size, err := utils.ParseSize(valStr)
+				if err != nil {
+					return errors.Annotatef(err, "parsing size constraint for storage name %q", k)
+				}
+				valStr = fmt.Sprintf("%dM", size)
+			}
+			s = append(s, valStr)
+		}
+		// This should give us a string of the form "100G,rootfs,1"
+		constraintsStr := fmt.Sprint(v)
+		parsedCons, err := storage.ParseConstraints(constraintsStr)
+		if err != nil {
+			return errors.Annotatef(err, "parsing storage constraints for %q", k)
+		}
+		sc[k] = parsedCons
+	}
+
+	updateParams := application.ApplicationStorageUpdate{
+		ApplicationTag:    names.NewApplicationTag(c.applicationName),
+		StorageDirectives: sc,
 	}
 
 	return client.UpdateApplicationStorage(updateParams)
