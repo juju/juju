@@ -9,14 +9,17 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationconsumer -destination service_mock_test.go -source worker.go
 //go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationconsumer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer RemoteRelationClientGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package remoterelationconsumer -destination remote_relation_caller_mock_test.go github.com/juju/juju/internal/worker/apiremoterelationcaller APIRemoteCallerGetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
@@ -24,6 +27,9 @@ type baseSuite struct {
 	crossModelService          *MockCrossModelService
 	remoteModelRelationClient  *MockRemoteModelRelationsClient
 	remoteRelationClientGetter *MockRemoteRelationClientGetter
+	apiRemoteCallerGetter      *MockAPIRemoteCallerGetter
+
+	modelUUID model.UUID
 
 	logger logger.Logger
 }
@@ -34,10 +40,35 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.crossModelService = NewMockCrossModelService(ctrl)
 	s.remoteModelRelationClient = NewMockRemoteModelRelationsClient(ctrl)
 	s.remoteRelationClientGetter = NewMockRemoteRelationClientGetter(ctrl)
+	s.apiRemoteCallerGetter = NewMockAPIRemoteCallerGetter(ctrl)
+
+	s.modelUUID = tc.Must(c, model.NewUUID)
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
+}
+
+type errWorker struct {
+	reportableWorker
+	tomb tomb.Tomb
+}
+
+func newErrWorker(err error) *errWorker {
+	w := &errWorker{}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return err
+	})
+	return w
+}
+
+func (w *errWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *errWorker) Wait() error {
+	return w.tomb.Wait()
 }
 
 type reportableWorker struct {

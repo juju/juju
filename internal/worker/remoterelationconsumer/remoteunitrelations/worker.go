@@ -56,6 +56,13 @@ type RemoteModelRelationsClient interface {
 	WatchRelationChanges(ctx context.Context, relationToken, applicationToken string, macs macaroon.Slice) (watcher.RemoteRelationWatcher, error)
 }
 
+// ReportableWorker is an interface that allows a worker to be reported
+// on by the engine.
+type ReportableWorker interface {
+	worker.Worker
+	worker.Reporter
+}
+
 // Config contains the configuration parameters for a remote relation units
 // worker.
 type Config struct {
@@ -117,7 +124,7 @@ type remoteWorker struct {
 
 // NewWorker creates a new worker that watches for remote relation unit
 // changes and sends them to the provided changes channel.
-func NewWorker(cfg Config) (worker.Worker, error) {
+func NewWorker(cfg Config) (ReportableWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

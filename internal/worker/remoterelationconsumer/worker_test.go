@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -19,9 +20,13 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
 
 func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }
 
@@ -255,6 +260,15 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				consumeVersion:   config.ConsumeVersion,
 				applicationName:  config.ApplicationName,
 			}, nil
+		},
+		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
+		},
+		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
+		},
+		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,
 		Logger: s.logger,

@@ -33,7 +33,7 @@ type RemoteRelationClientGetter interface {
 type NewRemoteRelationClientGetterFunc func(apiremoterelationcaller.APIRemoteCallerGetter) RemoteRelationClientGetter
 
 // NewWorkerFunc defines the function signature for creating a new Worker.
-type NewWorkerFunc func(Config) (worker.Worker, error)
+type NewWorkerFunc func(Config) (ReportableWorker, error)
 
 // NewRemoteApplicationWorkerFunc defines the function signature for creating
 // a new remote application worker.
@@ -45,21 +45,20 @@ type GetCrossModelServicesFunc func(getter dependency.Getter, domainServicesName
 
 // NewLocalUnitRelationsWorkerFunc defines the function signature for creating
 // a new local unit relations worker.
-type NewLocalUnitRelationsWorkerFunc func(localunitrelations.Config) (ReportableWorker, error)
+type NewLocalUnitRelationsWorkerFunc func(localunitrelations.Config) (localunitrelations.ReportableWorker, error)
 
 // NewRemoteUnitRelationsWorkerFunc defines the function signature for creating
 // a new remote unit relations worker.
-type NewRemoteUnitRelationsWorkerFunc func(remoteunitrelations.Config) (ReportableWorker, error)
+type NewRemoteUnitRelationsWorkerFunc func(remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error)
 
 // NewRemoteRelationsWorkerFunc defines the function signature for creating
 // a new remote relations worker.
-type NewRemoteRelationsWorkerFunc func(remoterelations.Config) (ReportableWorker, error)
+type NewRemoteRelationsWorkerFunc func(remoterelations.Config) (remoterelations.ReportableWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
 	ModelUUID                   model.UUID
-	APICallerName               string
 	APIRemoteRelationCallerName string
 	DomainServicesName          string
 
@@ -82,9 +81,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
-	}
-	if config.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
 	}
 	if config.APIRemoteRelationCallerName == "" {
 		return errors.NotValidf("empty APIRemoteRelationCallerName")

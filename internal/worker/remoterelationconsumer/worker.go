@@ -31,7 +31,7 @@ import (
 // on by the engine.
 type ReportableWorker interface {
 	worker.Worker
-	Report() map[string]any
+	worker.Reporter
 }
 
 // RemoteApplicationWorker is an interface that defines the methods that a
@@ -195,7 +195,7 @@ type Worker struct {
 }
 
 // New returns a Worker backed by config, or an error.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(config Config) (ReportableWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -39,6 +39,13 @@ type RemoteModelRelationsClient interface {
 	WatchRelationSuspendedStatus(ctx context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
 }
 
+// ReportableWorker is an interface that allows a worker to be reported
+// on by the engine.
+type ReportableWorker interface {
+	worker.Worker
+	worker.Reporter
+}
+
 // Config contains the configuration parameters for a remote relation worker.
 type Config struct {
 	Client              RemoteModelRelationsClient
@@ -100,7 +107,7 @@ type remoteRelationsWorker struct {
 
 // Worker creates a new worker that watches for changes
 // to the life and status of a relation in a remote model.
-func NewWorker(cfg Config) (worker.Worker, error) {
+func NewWorker(cfg Config) (ReportableWorker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
