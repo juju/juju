@@ -63,7 +63,6 @@ func (ss *StatefulSet) ID() ID {
 
 // Apply patches the resource change.
 func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
-	logger.Infof("[adis][StatefulSet][Apply] sts name: %q", ss.Name)
 	var result *appsv1.StatefulSet
 	defer func() {
 		if result != nil {
@@ -76,7 +75,6 @@ func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 		result, err = ss.client.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
 			FieldManager: JujuFieldManager,
 		})
-		logger.Infof("[adis][StatefulSet][Apply] creating... sts name: %q, err: %+v", ss.Name, err)
 		return errors.Trace(err)
 	}
 	if err != nil {
@@ -99,7 +97,6 @@ func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 	result, err = ss.client.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
-	logger.Infof("[adis][StatefulSet][Apply] patch... sts name: %q, err: %+v", ss.Name, err)
 	if k8serrors.IsNotFound(err) {
 		// This should never happen.
 		return errors.NewNotFound(err, fmt.Sprintf("statefulset %q", ss.Name))
@@ -127,7 +124,6 @@ func (ss *StatefulSet) Delete(ctx context.Context) error {
 	err := ss.client.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
-	logger.Infof("[adis][StatefulSet][Delete] sts: %q, err: %+v", ss.Name, err)
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}
@@ -149,16 +145,14 @@ func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 	err := s.client.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DeletePropagationOrphan(),
 	})
-	logger.Infof("[adis][StatefulSetWithOrphanDelete][Delete] sts: %q, err: %+v", s.Name, err)
 	if k8serrors.IsNotFound(err) {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}
 	// K8s doesn't delete the sts immediately. Block until it's deleted.
 	err = wait.PollUntilContextTimeout(ctx, s.interval, s.timeout, true, func(ctx context.Context) (done bool, err error) {
-		logger.Infof("[adis][StatefulSetWithOrphanDelete] blocking until sts %q is deleted", s.Name)
+		logger.Debugf("waiting until sts %q is deleted", s.Name)
 		getErr := s.Get(ctx)
 		if errors.Is(getErr, errors.NotFound) {
-			logger.Infof("[adis][StatefulSetWithOrphanDelete] sts %q is finally deleted ^_^", s.Name)
 			return true, nil
 		} else if getErr != nil {
 			return false, getErr

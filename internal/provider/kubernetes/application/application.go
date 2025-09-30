@@ -2398,7 +2398,7 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 // ReconcileStorage deletes the existing statefulset with DeletePropagationOrphan policy.
 // It reconciles PVCs and reapplies a new statefulset.
 func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemParams) error {
-	logger.Infof("[adis][ReconcileStorage] app: %q, filesystems %+v", a.name, filesystems)
+	logger.Debugf("reconciling app %q with filesystems %+v", a.name, filesystems)
 	sts, getErr := a.getStatefulSetWithOrphanDelete()
 	if getErr != nil {
 		return errors.Trace(getErr)
@@ -2472,25 +2472,19 @@ func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemPar
 	currentClaims := sts.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
 	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
-		logger.Infof("[adis][ReconcileStorage] app: %q has the same volume claims", a.name)
+		logger.Debugf("a reconcile for app %q is not needed because there is no change is storage. current claims: %+v, new claims: %+v", a.name, currentClaims, newClaims)
 		return nil
 	}
 
-	logger.Infof("[adis][ReconcileStorage] app: %q volume claims changed", a.name)
-
 	applier := a.newApplier()
-	logger.Infof("[adis] orphan deleting sts %q", sts.Name)
 	// Orphan delete the sts here.
 	applier.Delete(sts)
-
 	// Reapply the new sts with the updated pvc.
-	logger.Infof("[adis][ReconcileStorage] app: %q, reapply sts", a.name)
 	applier.Apply(newStatefulset)
 	return applier.Run(context.Background(), false)
 }
 
 func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolumeClaim, newVolClaims []corev1.PersistentVolumeClaim) bool {
-	logger.Infof("[adis][volumeClaimTemplateMatch] app: %q\n current: %+v\n new: %+v", a.name, currentVolClaims, newVolClaims)
 	if len(currentVolClaims) != len(newVolClaims) {
 		return false
 	}
@@ -2512,12 +2506,12 @@ func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolum
 		return 0
 	})
 
+	// Go through each claim and check for any changes.
 	for i := 0; i < len(currentVolClaims); i++ {
 		currentVolClaim := currentVolClaims[i]
 		newVolClaim := newVolClaims[i]
 		nameChange := currentVolClaim.Name != newVolClaim.Name
 		if nameChange {
-			logger.Infof("[adis][volumeClaimTemplateMatch] for app %q. name differs. current: %s, new: %s", a.name, currentVolClaim.Name, newVolClaim.Name)
 			return false
 		}
 
@@ -2525,7 +2519,6 @@ func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolum
 			(currentVolClaim.Spec.StorageClassName != nil && newVolClaim.Spec.StorageClassName != nil &&
 				*currentVolClaim.Spec.StorageClassName != *newVolClaim.Spec.StorageClassName)
 		if storageClassNameChange {
-			logger.Infof("[adis][volumeClaimTemplateMatch] for app %q. storage class name differs. current: %s, new: %s", a.name, currentVolClaim.Spec.StorageClassName, newVolClaim.Spec.StorageClassName)
 			return false
 		}
 
@@ -2533,7 +2526,6 @@ func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolum
 		slices.Sort(newVolClaim.Spec.AccessModes)
 		accessModesChange := !slices.Equal(currentVolClaim.Spec.AccessModes, newVolClaim.Spec.AccessModes)
 		if accessModesChange {
-			logger.Infof("[adis][volumeClaimTemplateMatch] for app %q. access mode differs. current: %s, new: %s", a.name, currentVolClaim.Name, newVolClaim.Name)
 			return false
 		}
 
@@ -2542,7 +2534,6 @@ func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolum
 		sizeChange := (currentQuantity == nil) != (newQuantity == nil) ||
 			(currentQuantity != nil && newQuantity != nil && !currentQuantity.Equal(*newQuantity))
 		if sizeChange {
-			logger.Infof("[adis][volumeClaimTemplateMatch] for app %q. size differs. current: %s, new: %s", a.name, currentQuantity.String(), newQuantity.String())
 			return false
 		}
 	}
