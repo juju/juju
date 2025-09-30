@@ -82,7 +82,7 @@ run_go() {
 		(echo >&2 -e '\nError: golangci-lint version does not match 2.5.0. Please upgrade/downgrade to the right version.')
 		exit 1
 	fi
-	OUT=$(golangci-lint run -c .golangci.yml 2>&1)
+	OUT=$(golangci-lint run -c .golangci.yml 2>&1 | sed '/0 issues./d')
 	if [[ -n ${OUT} ]]; then
 		(echo >&2 "\\nError: linter has issues:\\n\\n${OUT}")
 		exit 1
