@@ -3499,7 +3499,7 @@ WHERE relation_unit_uuid = ?
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		var (
 			key, value string
 		)
@@ -3552,7 +3552,7 @@ ORDER BY r.relation_id
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var status corestatus.Status
 			if err := rows.Scan(&status); err != nil {
@@ -3584,7 +3584,7 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var epUUID string
 			var relID int

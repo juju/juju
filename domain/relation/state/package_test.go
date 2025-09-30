@@ -369,7 +369,7 @@ WHERE relation_endpoint_uuid = ?
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		var (
 			key, value string
 		)
