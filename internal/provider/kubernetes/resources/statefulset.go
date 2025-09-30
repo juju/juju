@@ -31,7 +31,7 @@ type StatefulSet struct {
 // StatefulSetWithOrphanDelete is a wrapper around [StatefulSet] that overrides
 // the [StatefulSet.Delete] method to use DeletePropagationOrphan.
 type StatefulSetWithOrphanDelete struct {
-	StatefulSet
+	*StatefulSet
 	interval time.Duration
 	timeout  time.Duration
 }
@@ -46,7 +46,7 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	return &StatefulSet{client, *in}
 }
 
-func NewStatefulSetWithOrphanDelete(ss StatefulSet) *StatefulSetWithOrphanDelete {
+func NewStatefulSetWithOrphanDelete(ss *StatefulSet) *StatefulSetWithOrphanDelete {
 	return &StatefulSetWithOrphanDelete{StatefulSet: ss, interval: 1 * time.Second, timeout: 30 * time.Second}
 }
 
@@ -145,7 +145,7 @@ func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string
 	return "", status.Waiting, now, nil
 }
 
-func (s *StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
+func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 	err := s.client.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DeletePropagationOrphan(),
 	})
@@ -160,8 +160,8 @@ func (s *StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 		if errors.Is(getErr, errors.NotFound) {
 			logger.Infof("[adis][StatefulSetWithOrphanDelete] sts %q is finally deleted ^_^", s.Name)
 			return true, nil
-		} else if err != nil {
-			return false, err
+		} else if getErr != nil {
+			return false, getErr
 		}
 		return false, nil
 	})

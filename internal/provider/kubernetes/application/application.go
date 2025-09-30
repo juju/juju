@@ -892,7 +892,7 @@ func (a *app) getStatefulSetWithOrphanDelete() (*resources.StatefulSetWithOrphan
 	if err != nil {
 		return nil, err
 	}
-	return resources.NewStatefulSetWithOrphanDelete(*ss), nil
+	return resources.NewStatefulSetWithOrphanDelete(ss), nil
 }
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
@@ -2395,9 +2395,9 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 	}
 }
 
-// ReconcileVolumes deletes the existing statefulset with DeletePropagationOrphan policy.
+// ReconcileStorage deletes the existing statefulset with DeletePropagationOrphan policy.
 // It reconciles PVCs and reapplies a new statefulset.
-func (a *app) ReconcileVolumes(filesystems []jujustorage.KubernetesFilesystemParams) error {
+func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemParams) error {
 	logger.Infof("[adis][ReconcileVolumes] app: %q, filesystems %+v", a.name, filesystems)
 	sts, getErr := a.getStatefulSetWithOrphanDelete()
 	if getErr != nil {

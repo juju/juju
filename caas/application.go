@@ -58,8 +58,8 @@ type Application interface {
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
 	) error
 
-	// ReconcileVolumes reconciles the volumes with the given filesystems.
-	ReconcileVolumes([]storage.KubernetesFilesystemParams) error
+	// ReconcileStorage reconciles the storage with the given filesystems.
+	ReconcileStorage([]storage.KubernetesFilesystemParams) error
 
 	ServiceInterface
 }
