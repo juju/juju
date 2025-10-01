@@ -674,7 +674,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	api destroyControllerAPI,
 	controllerModelConfigAPI modelConfigAPI,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 	if api == nil {
 		return nil, errors.New(
 			"unable to get bootstrap information from client store or API",
@@ -695,6 +695,13 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	ctrlCfg, err := api.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config from API")
+	}
+	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
+		return caas.New(stdcontext.TODO(), environs.OpenParams{
+			ControllerUUID: ctrlCfg.ControllerUUID(),
+			Cloud:          cloudSpec,
+			Config:         cfg,
+		})
 	}
 	return environs.New(stdcontext.TODO(), environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
