@@ -54,7 +54,7 @@ type cachedStoragePoolProvider struct {
 // [StoragePoolProvider] for this domain.
 type DefaultStoragePoolProvider struct {
 	providerRegistryGetter corestorage.ModelStorageRegistryGetter
-	st                     StorageProviderState
+	st                     ProviderState
 }
 
 // StoragePoolProvider defines an interface by where provider based questions
@@ -87,9 +87,9 @@ type StoragePoolProvider interface {
 	) (storage.Provider, error)
 }
 
-// StorageProviderState defines the required interface of the model's state for
+// ProviderState defines the required interface of the model's state for
 // interacting with storage providers.
-type StorageProviderState interface {
+type ProviderState interface {
 	// GetProviderTypeForPool returns the provider type that is in use for the
 	// given pool.
 	//
@@ -99,17 +99,17 @@ type StorageProviderState interface {
 	GetProviderTypeForPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
 }
 
-// StorageService defines an internal service to this package that groups and
+// Service defines an internal service to this package that groups and
 // establishes storage related operations for applications in the model.
-type StorageService struct {
-	st StorageState
+type Service struct {
+	st State
 
 	storagePoolProvider StoragePoolProvider
 }
 
-// StorageState describes retrieval and persistence methods for
+// State describes retrieval and persistence methods for
 // storage related interactions.
-type StorageState interface {
+type State interface {
 	// AttachStorage attaches the specified storage to the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -172,7 +172,7 @@ type StorageState interface {
 	// that have been set for the model.
 	GetDefaultStorageProvisioners(
 		ctx context.Context,
-	) (application.DefaultStorageProvisioners, error)
+	) (internal.DefaultStorageProvisioners, error)
 
 	// GetStorageInstancesForProviderIDs returns all of the storage instances
 	// found in the model using one of the provider ids supplied. The storage
@@ -217,6 +217,14 @@ type StorageState interface {
 	) ([]application.StorageDirective, error)
 }
 
+// NewService returns a new application storage service for the model.
+func NewService(st State, storagePoolProvider StoragePoolProvider) *Service {
+	return &Service{
+		storagePoolProvider: storagePoolProvider,
+		st:                  st,
+	}
+}
+
 // NewStoragePoolProvider returns a new [DefaultStoragePoolProvider]
 // that allows getting provider information for a storage pool.
 //
@@ -224,7 +232,7 @@ type StorageState interface {
 // [StoragePoolProvider] interface.
 func NewStoragePoolProvider(
 	providerRegistryGetter corestorage.ModelStorageRegistryGetter,
-	st StorageProviderState,
+	st ProviderState,
 ) *DefaultStoragePoolProvider {
 	return &DefaultStoragePoolProvider{
 		providerRegistryGetter: providerRegistryGetter,
@@ -246,7 +254,7 @@ func NewStoragePoolProvider(
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *StorageService) AttachStorage(
+func (s *Service) AttachStorage(
 	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
 ) error {
 	// TODO (tlm): re-implement in DQlite
@@ -265,7 +273,7 @@ func (s *StorageService) AttachStorage(
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *StorageService) AddStorageForUnit(
+func (s *Service) AddStorageForUnit(
 	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive storage.Directive,
 ) ([]corestorage.ID, error) {
 	// TODO (tlm): re-implement in DQlite
@@ -416,7 +424,7 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 // - [applicationerrors.UnitNotFound] when the unit no longer exists. This error
 // will only trigger when the unit had existed but was removed before this
 // operation completed.
-func (s StorageService) getRegisterCAASUnitStorageInfo(
+func (s Service) getRegisterCAASUnitStorageInfo(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
@@ -485,7 +493,7 @@ func (s StorageService) getRegisterCAASUnitStorageInfo(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s StorageService) GetRegisterCAASUnitStorageArg(
+func (s Service) GetRegisterCAASUnitStorageArg(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
@@ -573,7 +581,7 @@ func (s StorageService) GetRegisterCAASUnitStorageArg(
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *StorageService) DetachStorageForUnit(
+func (s *Service) DetachStorageForUnit(
 	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
 ) error {
 	// TODO (tlm): re-implement in DQlite
@@ -585,7 +593,7 @@ func (s *StorageService) DetachStorageForUnit(
 // - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *StorageService) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
+func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -792,7 +800,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 // supplied it is possible that some existing storage will be unused. It is up
 // to the caller to validate what storage was and wasn't used by looking at the
 // storage attachments.
-func (s StorageService) MakeUnitStorageArgs(
+func (s Service) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,

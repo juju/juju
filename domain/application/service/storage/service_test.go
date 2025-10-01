@@ -22,8 +22,8 @@ import (
 // serviceSuite is a suite of tests for asserting the functionality on
 // offer by the [Service].
 type serviceSuite struct {
-	state        *MockState
 	poolProvider *MockStoragePoolProvider
+	state        *MockState
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -115,10 +115,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		provider, nil,
 	).AnyTimes()
 
-	svc := Service{
-		st:                  s.state,
-		storagePoolProvider: s.poolProvider,
-	}
+	svc := NewService(s.state, s.poolProvider)
 
 	arg, err := svc.MakeUnitStorageArgs(
 		c.Context(),

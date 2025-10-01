@@ -341,10 +341,10 @@ func (c *MockStateGetApplicationStorageDirectivesCall) DoAndReturn(f func(contex
 }
 
 // GetDefaultStorageProvisioners mocks base method.
-func (m *MockState) GetDefaultStorageProvisioners(arg0 context.Context) (application0.DefaultStorageProvisioners, error) {
+func (m *MockState) GetDefaultStorageProvisioners(arg0 context.Context) (internal.DefaultStorageProvisioners, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDefaultStorageProvisioners", arg0)
-	ret0, _ := ret[0].(application0.DefaultStorageProvisioners)
+	ret0, _ := ret[0].(internal.DefaultStorageProvisioners)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -362,19 +362,19 @@ type MockStateGetDefaultStorageProvisionersCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetDefaultStorageProvisionersCall) Return(arg0 application0.DefaultStorageProvisioners, arg1 error) *MockStateGetDefaultStorageProvisionersCall {
+func (c *MockStateGetDefaultStorageProvisionersCall) Return(arg0 internal.DefaultStorageProvisioners, arg1 error) *MockStateGetDefaultStorageProvisionersCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetDefaultStorageProvisionersCall) Do(f func(context.Context) (application0.DefaultStorageProvisioners, error)) *MockStateGetDefaultStorageProvisionersCall {
+func (c *MockStateGetDefaultStorageProvisionersCall) Do(f func(context.Context) (internal.DefaultStorageProvisioners, error)) *MockStateGetDefaultStorageProvisionersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetDefaultStorageProvisionersCall) DoAndReturn(f func(context.Context) (application0.DefaultStorageProvisioners, error)) *MockStateGetDefaultStorageProvisionersCall {
+func (c *MockStateGetDefaultStorageProvisionersCall) DoAndReturn(f func(context.Context) (internal.DefaultStorageProvisioners, error)) *MockStateGetDefaultStorageProvisionersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
