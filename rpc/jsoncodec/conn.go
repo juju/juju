@@ -6,6 +6,7 @@ package jsoncodec
 import (
 	"encoding/json"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -60,15 +61,39 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 const closingIODeadline = 10 * time.Second
 
 func (conn *wsJSONConn) Close() error {
-	// Ater we close, all readers and writers must be forced to unblock.
+	c := conn.conn.NetConn()
+
+	// After we close, all readers and writers
+	// must be forced to unblock immediately.
 	defer func() {
-		c := conn.conn.NetConn()
-		_ = c.SetWriteDeadline(time.Now().Add(closingIODeadline))
-		_ = c.SetReadDeadline(time.Now().Add(closingIODeadline))
+		_ = c.SetDeadline(time.Now())
 	}()
 
 	if err := conn.writeClose(); err != nil {
 		conn.readClose()
+	}
+
+	// The underlying connection for the socket is a tls.Conn.
+	// This sends a TLS close notification message to the peer.
+	type closer interface {
+		CloseWrite() error
+	}
+	if cl, ok := c.(closer); ok {
+		_ = cl.CloseWrite()
+	}
+
+	// Now get the inner TCPConn from the TLS conn.
+	// Use it to disable keep-alives, drop any unsent/unacked data, 
+	// and send FIN to the peer.
+	type netConner interface {
+		NetConn() net.Conn
+	}
+	if nc, ok := c.(netConner); ok {
+		if tcpConn, ok := nc.NetConn().(*net.TCPConn); ok {
+			_ = tcpConn.SetKeepAlive(false)
+			_ = tcpConn.SetLinger(0)
+			_ = tcpConn.CloseWrite()
+		}
 	}
 
 	return conn.conn.Close()
