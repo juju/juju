@@ -25,6 +25,7 @@ type taskResult struct {
 	StartedAt      sql.NullTime   `db:"started_at"`
 	CompletedAt    sql.NullTime   `db:"completed_at"`
 	Status         string         `db:"status"`
+	Message        string         `db:"message"`
 	OutputPath     sql.NullString `db:"path"`
 }
 

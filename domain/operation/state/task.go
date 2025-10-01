@@ -556,6 +556,7 @@ SELECT DISTINCT
     t.started_at AS &taskResult.started_at,
     t.completed_at AS &taskResult.completed_at,
     sv.status AS &taskResult.status,
+    ts.message AS &taskResult.message,
     os.path AS &taskResult.path
 FROM operation_task t
 JOIN operation o ON t.operation_uuid = o.uuid
@@ -689,6 +690,7 @@ func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry
 		TaskInfo: operation.TaskInfo{
 			ID:       task.TaskID,
 			Enqueued: task.EnqueuedAt,
+			Message:  task.Message,
 			Status:   corestatus.Status(task.Status),
 		},
 	}

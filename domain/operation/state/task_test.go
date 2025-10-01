@@ -419,8 +419,9 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	// an error state.
 	operationUUID := s.addOperation(c)
 	s.addOperationTaskStatus(c, s.addOperationTask(c, operationUUID), corestatus.Error.String())
-	taskUUID := s.addOperationTask(c, operationUUID)
-	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
+	// Use a known task ID so we can retrieve it later and validate the message.
+	taskID := "finish-op-task"
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
 
 	// Setup the object store data to save
 	storeUUID := s.addFakeMetadataStore(c, 4)
@@ -440,6 +441,11 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkTaskStatus(c, taskUUID, arg.Status)
 	s.checkOperationCompleted(c, operationUUID, true)
+
+	// Also assert that the task message is correctly returned when retrieving the task.
+	task, _, err := s.state.GetTask(c.Context(), taskID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(task.Message, tc.Equals, "done")
 }
 
 func (s *taskSuite) TestLogTaskMessage(c *tc.C) {
