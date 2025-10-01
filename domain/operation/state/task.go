@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	coreoperation "github.com/juju/juju/core/operation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
@@ -703,6 +704,8 @@ func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry
 
 	if task.Name.Valid {
 		result.ActionName = task.Name.String
+	} else {
+		result.ActionName = coreoperation.JujuExecActionName
 	}
 	if task.ExecutionGroup.Valid {
 		result.ExecutionGroup = &task.ExecutionGroup.String

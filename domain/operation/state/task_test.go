@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
+	coreoperation "github.com/juju/juju/core/operation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation/errors"
 	"github.com/juju/juju/domain/operation/internal"
@@ -39,7 +40,7 @@ func (s *taskSuite) TestGetTaskNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `getting task \"42\": task with ID \"42\" not found`)
 }
 
-func (s *taskSuite) TestGetTask(c *tc.C) {
+func (s *taskSuite) TestGetTaskAction(c *tc.C) {
 	taskID := "42"
 
 	charmUUID := s.addCharm(c)
@@ -56,6 +57,23 @@ func (s *taskSuite) TestGetTask(c *tc.C) {
 	c.Check(task.ActionName, tc.Equals, "test-action")
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 	c.Check(task.Status, tc.Equals, corestatus.Running)
+	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
+}
+
+func (s *taskSuite) TestGetTaskExec(c *tc.C) {
+	taskID := "67"
+
+	operationUUID := s.addOperationWithExecutionGroup(c, "test-group")
+	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, "pending")
+	machineUUID := s.addMachine(c, "0")
+	s.addOperationMachineTask(c, taskUUID, machineUUID)
+
+	task, outputPath, err := s.state.GetTask(c.Context(), taskID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(outputPath, tc.IsNil)
+	c.Check(task.ActionName, tc.Equals, coreoperation.JujuExecActionName) // defaulted
+	c.Check(task.Receiver, tc.Equals, "0")
+	c.Check(task.Status, tc.Equals, corestatus.Pending)
 	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
 }
 
