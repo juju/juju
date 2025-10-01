@@ -200,6 +200,50 @@ func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// ListBlockDevices mocks base method.
+func (m *MockState) ListBlockDevices(arg0 context.Context, arg1 ...string) ([]blockdevice0.BlockDeviceDetails, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListBlockDevices", varargs...)
+	ret0, _ := ret[0].([]blockdevice0.BlockDeviceDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListBlockDevices indicates an expected call of ListBlockDevices.
+func (mr *MockStateMockRecorder) ListBlockDevices(arg0 any, arg1 ...any) *MockStateListBlockDevicesCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBlockDevices", reflect.TypeOf((*MockState)(nil).ListBlockDevices), varargs...)
+	return &MockStateListBlockDevicesCall{Call: call}
+}
+
+// MockStateListBlockDevicesCall wrap *gomock.Call
+type MockStateListBlockDevicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateListBlockDevicesCall) Return(arg0 []blockdevice0.BlockDeviceDetails, arg1 error) *MockStateListBlockDevicesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateListBlockDevicesCall) Do(f func(context.Context, ...string) ([]blockdevice0.BlockDeviceDetails, error)) *MockStateListBlockDevicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateListBlockDevicesCall) DoAndReturn(f func(context.Context, ...string) ([]blockdevice0.BlockDeviceDetails, error)) *MockStateListBlockDevicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchBlockDevices mocks base method.
 func (m *MockState) NamespaceForWatchBlockDevices() string {
 	m.ctrl.T.Helper()

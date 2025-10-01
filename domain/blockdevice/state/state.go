@@ -34,6 +34,83 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
+type blockDeviceUUIDs []string
+
+// ListBlockDevices returns the BlockDevices for the specified UUIDs.
+func (st *State) ListBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceDetails, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	input := blockDeviceUUIDs(uuids)
+
+	blockDeviceStmt, err := st.Prepare(`
+SELECT &blockDevice.*
+FROM   block_device
+WHERE  uuid IN ($blockDeviceUUIDs[:])`, input, blockDevice{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	blockDeviceLinkStmt, err := st.Prepare(`
+SELECT &deviceLink.*
+FROM   block_device_link_device
+WHERE  block_device_uuid IN ($blockDeviceUUIDs[:])`, input, deviceLink{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var blockDevices []blockDevice
+	var devLinks []deviceLink
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, blockDeviceStmt, input).GetAll(&blockDevices)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("listing block devices: %w", err)
+		}
+		err = tx.Query(ctx, blockDeviceLinkStmt, input).GetAll(&devLinks)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("listing block device links: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	m := make(map[string]blockdevice.BlockDeviceDetails)
+	for _, blockDevice := range blockDevices {
+		m[blockDevice.UUID] = blockdevice.BlockDeviceDetails{
+			UUID:            blockDevice.UUID,
+			HardwareID:      blockDevice.HardwareId,
+			WWN:             blockDevice.WWN,
+			BlockDeviceName: blockDevice.Name.V,
+		}
+	}
+	for _, dl := range devLinks {
+		r, ok := m[dl.BlockDeviceUUID]
+		if !ok {
+			// This shouldn't happen, but just in case.
+			continue
+		}
+		r.BlockDeviceLinks = append(r.BlockDeviceLinks, dl.Name)
+		m[dl.BlockDeviceUUID] = r
+	}
+	var result []blockdevice.BlockDeviceDetails
+	for _, bd := range m {
+		result = append(result, bd)
+	}
+	return result, nil
+}
+
 // GetBlockDevice retrieves the info for the specified block device.
 //
 // The following errors may be returned:

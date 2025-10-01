@@ -33,6 +33,9 @@ type State interface {
 		ctx context.Context, uuid blockdevice.BlockDeviceUUID,
 	) (coreblockdevice.BlockDevice, error)
 
+	// ListBlockDevices returns the BlockDevices for the specified UUIDs.
+	ListBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceDetails, error)
+
 	// GetBlockDevicesForMachine returns the BlockDevices for the specified
 	// machine.
 	GetBlockDevicesForMachine(
@@ -286,6 +289,26 @@ func (s *Service) GetBlockDevice(
 	}
 
 	return bd, nil
+}
+
+// ListBlockDevices returns the BlockDevices for the specified UUIDs.
+func (s *Service) ListBlockDevices(
+	ctx context.Context,
+	bdUUIDs ...blockdevice.BlockDeviceUUID,
+) ([]blockdevice.BlockDeviceDetails, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uuids := make([]string, len(bdUUIDs))
+	for i, u := range bdUUIDs {
+		uuids[i] = u.String()
+	}
+
+	blockDevices, err := s.st.ListBlockDevices(ctx, uuids...)
+	if err != nil {
+		return nil, errors.Errorf("listing block devices: %w", err)
+	}
+	return blockDevices, nil
 }
 
 // WatchableService defines a service for interacting with the underlying state
