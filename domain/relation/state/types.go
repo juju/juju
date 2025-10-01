@@ -230,7 +230,8 @@ type exportEndpoint struct {
 // Endpoint is used to fetch an endpoint from the database. Endpoint is a public
 // struct to allow for embedding in exportEndpoint.
 type Endpoint struct {
-	// ApplicationEndpointUUID is a unique identifier for the application endpoint
+	// ApplicationEndpointUUID is a unique identifier for the application
+	// endpoint
 	ApplicationEndpointUUID corerelation.EndpointUUID `db:"application_endpoint_uuid"`
 	// Endpoint name is the name of the endpoint/relation.
 	EndpointName string `db:"endpoint_name"`
@@ -240,14 +241,15 @@ type Endpoint struct {
 	Interface string `db:"interface"`
 	// Optional marks if this endpoint is required to be in a relation.
 	Optional bool `db:"optional"`
-	// Capacity defines the maximum number of supported connections to this relation
-	// endpoint.
+	// Capacity defines the maximum number of supported connections to this
+	// relation endpoint.
 	Capacity int `db:"capacity"`
 	// Scope is the name of the endpoints scope.
 	Scope charm.RelationScope `db:"scope"`
 	// ApplicationName is the name of the application this endpoint belongs to.
 	ApplicationName string `db:"application_name"`
-	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
+	// ApplicationUUID is a unique identifier for the application associated
+	// with the endpoint.
 	ApplicationUUID application.ID `db:"application_uuid"`
 }
 

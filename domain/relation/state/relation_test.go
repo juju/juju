@@ -1243,10 +1243,67 @@ func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(details.Life, tc.Equals, expectedDetails.Life)
-	c.Assert(details.UUID, tc.Equals, expectedDetails.UUID)
-	c.Assert(details.ID, tc.Equals, expectedDetails.ID)
-	c.Assert(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Life, tc.Equals, expectedDetails.Life)
+	c.Check(details.UUID, tc.Equals, expectedDetails.UUID)
+	c.Check(details.ID, tc.Equals, expectedDetails.ID)
+	c.Check(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Suspended, tc.IsFalse)
+}
+
+func (s *relationSuite) TestGetRelationDetailsSuspended(c *tc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationID := 7
+
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Dying, relationID)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
+
+	expectedDetails := domainrelation.RelationDetailsResult{
+		Life:      corelife.Dying,
+		UUID:      relationUUID,
+		ID:        relationID,
+		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+	}
+
+	// Act: Get relation details.
+	details, err := s.state.GetRelationDetails(c.Context(), relationUUID)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details.Life, tc.Equals, expectedDetails.Life)
+	c.Check(details.UUID, tc.Equals, expectedDetails.UUID)
+	c.Check(details.ID, tc.Equals, expectedDetails.ID)
+	c.Check(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Suspended, tc.IsTrue)
 }
 
 func (s *relationSuite) TestGetRelationDetailsNotFound(c *tc.C) {
@@ -1273,7 +1330,7 @@ func (s *relationSuite) TestGetRelationUnit(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
-	c.Assert(uuid, tc.Equals, relUnitUUID)
+	c.Check(uuid, tc.Equals, relUnitUUID)
 }
 
 func (s *relationSuite) TestGetRelationUnitNotFound(c *tc.C) {
@@ -1340,6 +1397,7 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID1, applicationEndpointUUID2)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID2, applicationEndpointUUID3)
+	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
 
 	expectedDetails := map[int]domainrelation.RelationDetailsResult{
 		relationID1: {
@@ -1371,11 +1429,13 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	c.Check(detailsByRelationID[relationID1].UUID, tc.Equals, expectedDetails[relationID1].UUID)
 	c.Check(detailsByRelationID[relationID1].ID, tc.Equals, expectedDetails[relationID1].ID)
 	c.Check(detailsByRelationID[relationID1].Endpoints, tc.SameContents, expectedDetails[relationID1].Endpoints)
+	c.Check(detailsByRelationID[relationID1].Suspended, tc.IsFalse)
 	// Second relation
 	c.Check(detailsByRelationID[relationID2].Life, tc.Equals, expectedDetails[relationID2].Life)
 	c.Check(detailsByRelationID[relationID2].UUID, tc.Equals, expectedDetails[relationID2].UUID)
 	c.Check(detailsByRelationID[relationID2].ID, tc.Equals, expectedDetails[relationID2].ID)
 	c.Check(detailsByRelationID[relationID2].Endpoints, tc.SameContents, expectedDetails[relationID2].Endpoints)
+	c.Check(detailsByRelationID[relationID2].Suspended, tc.IsTrue)
 }
 
 func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
@@ -3633,16 +3693,6 @@ AND    ru.unit_uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return relationUnitUUID
-}
-
-// setRelationStatus inserts a relation status into the relation_status table.
-func (s *relationSuite) setRelationStatus(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status, since time.Time) {
-	encodedStatus := s.encodeStatusID(status)
-	s.query(c, `
-INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
-VALUES (?,?,?)
-ON CONFLICT (relation_uuid) DO UPDATE SET relation_status_type_id = ?, updated_at = ?
-`, relationUUID, encodedStatus, since, encodedStatus, since)
 }
 
 // setUnitSubordinate sets unit 1 to be a subordinate of unit 2.

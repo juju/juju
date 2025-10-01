@@ -134,7 +134,7 @@ type fullUnitStatus struct {
 type relationStatus struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`
 	StatusID     int               `db:"relation_status_type_id"`
-	Reason       string            `db:"suspended_reason"`
+	Message      string            `db:"message"`
 	Since        *time.Time        `db:"updated_at"`
 }
 
@@ -205,7 +205,7 @@ type relationStatusAndID struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`
 	RelationID   int               `db:"relation_id"`
 	StatusID     int               `db:"relation_status_type_id"`
-	Reason       string            `db:"suspended_reason"`
+	Message      string            `db:"message"`
 	Since        *time.Time        `db:"updated_at"`
 }
 

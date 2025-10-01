@@ -125,7 +125,7 @@ JOIN   relation r ON r.uuid = rs.relation_uuid
 			RelationID:   relStatus.RelationID,
 			StatusInfo: status.StatusInfo[status.RelationStatusType]{
 				Status:  statusType,
-				Message: relStatus.Reason,
+				Message: relStatus.Message,
 				Since:   relStatus.Since,
 			},
 		}
@@ -330,7 +330,7 @@ WHERE  relation_uuid = $relationUUID.relation_uuid
 	}
 	return status.StatusInfo[status.RelationStatusType]{
 		Status:  statusType,
-		Message: sts.Reason,
+		Message: sts.Message,
 		Since:   sts.Since,
 	}, nil
 }
@@ -457,14 +457,14 @@ func (st *ModelState) updateRelationStatus(
 	statusInfo := relationStatus{
 		RelationUUID: relationUUID,
 		StatusID:     statusID,
-		Reason:       sts.Message,
+		Message:      sts.Message,
 		Since:        sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO relation_status (*) VALUES ($relationStatus.*)
 ON CONFLICT(relation_uuid) DO UPDATE SET
     relation_status_type_id = excluded.relation_status_type_id,
-    suspended_reason = excluded.suspended_reason,
+    message = excluded.message,
     updated_at = excluded.updated_at
 WHERE relation_uuid = $relationStatus.relation_uuid
 `, statusInfo)

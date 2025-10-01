@@ -195,12 +195,14 @@ func (st *State) addRelation(
 	if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
-		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).
+			Add(relationerrors.ApplicationNotAlive)
 	}
 	if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
-		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).
+			Add(relationerrors.ApplicationNotAlive)
 	}
 
 	// Check the application bases are compatible, if required
@@ -281,7 +283,8 @@ func (st *State) ApplicationRelationsInfo(
 			return errors.Capture(err)
 		}
 
-		// For each relation, get its EndpointsRelationData based on the application.
+		// For each relation, get its EndpointsRelationData based on the
+		// application.
 		results = make([]domainrelation.EndpointRelationData, len(relationIDUUIDAppNames))
 		for i, rel := range relationIDUUIDAppNames {
 			result := domainrelation.EndpointRelationData{}
@@ -728,16 +731,15 @@ func (st *State) GetRelationsStatusForUnit(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT
-    re.relation_uuid AS &relationUnitStatus.relation_uuid,
-    ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
-    vrs.status AS &relationUnitStatus.status
-FROM relation_endpoint AS re
-JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-JOIN unit AS u ON ae.application_uuid = u.application_uuid
-JOIN v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
+SELECT re.relation_uuid AS &relationUnitStatus.relation_uuid,
+       ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
+       vrs.status AS &relationUnitStatus.status
+FROM      relation_endpoint AS re
+JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN      unit AS u ON ae.application_uuid = u.application_uuid
+JOIN      v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
 LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
-WHERE  u.uuid = $unitUUIDArg.unit_uuid
+WHERE     u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2850,17 +2852,20 @@ WHERE ap.application_uuid = $Endpoint.application_uuid`, ep1, applicationPlatfor
 
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID corerelation.UUID) (domainrelation.RelationDetailsResult, error) {
 	type getRelation struct {
-		UUID corerelation.UUID `db:"uuid"`
-		ID   int               `db:"relation_id"`
-		Life life.Value        `db:"value"`
+		UUID      corerelation.UUID `db:"uuid"`
+		ID        int               `db:"relation_id"`
+		Life      life.Value        `db:"value"`
+		Suspended bool              `db:"suspended"`
 	}
+
 	rel := getRelation{
 		UUID: relationUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value) AS (&getRelation.*)
+SELECT (r.uuid, r.relation_id, l.value, vrs.suspended) AS (&getRelation.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
+JOIN   v_relation_status AS vrs ON r.uuid = vrs.relation_uuid
 WHERE  r.uuid = $getRelation.uuid
 `, rel)
 	if err != nil {
@@ -2884,6 +2889,7 @@ WHERE  r.uuid = $getRelation.uuid
 		Life:      rel.Life,
 		UUID:      rel.UUID,
 		ID:        rel.ID,
+		Suspended: rel.Suspended,
 		Endpoints: endpoints,
 	}, nil
 }

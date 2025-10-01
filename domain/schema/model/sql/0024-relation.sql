@@ -168,21 +168,6 @@ CREATE TABLE relation_application_settings_hash (
     REFERENCES relation_endpoint (uuid)
 );
 
--- The relation_status maps a relation to its status
--- as defined in the relation_status_type table.
-CREATE TABLE relation_status (
-    relation_uuid TEXT NOT NULL PRIMARY KEY,
-    relation_status_type_id TEXT NOT NULL,
-    suspended_reason TEXT,
-    updated_at TIMESTAMP NOT NULL,
-    CONSTRAINT fk_relation_uuid
-    FOREIGN KEY (relation_uuid)
-    REFERENCES relation (uuid),
-    CONSTRAINT fk_relation_status_type_id
-    FOREIGN KEY (relation_status_type_id)
-    REFERENCES relation_status_type (id)
-);
-
 CREATE TABLE relation_status_type (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL
@@ -198,6 +183,21 @@ INSERT INTO relation_status_type VALUES
 (3, 'suspending'),
 (4, 'suspended'),
 (5, 'error');
+
+-- The relation_status maps a relation to its status
+-- as defined in the relation_status_type table.
+CREATE TABLE relation_status (
+    relation_uuid TEXT NOT NULL PRIMARY KEY,
+    relation_status_type_id TEXT NOT NULL,
+    message TEXT,
+    updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    CONSTRAINT fk_relation_status_type_id
+    FOREIGN KEY (relation_status_type_id)
+    REFERENCES relation_status_type (id)
+);
 
 CREATE VIEW v_application_endpoint AS
 SELECT
@@ -251,7 +251,8 @@ CREATE VIEW v_relation_status AS
 SELECT
     rs.relation_uuid,
     rst.name AS status,
-    rs.suspended_reason,
-    rs.updated_at
+    rs.message,
+    rs.updated_at,
+    (rst.id = 4) AS suspended
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;

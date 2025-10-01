@@ -49,6 +49,8 @@ type RelationDetails struct {
 	Key corerelation.Key
 	// Endpoints are the endpoints of the relation.
 	Endpoints []Endpoint
+	// Suspended indicates if the status of this relation is "suspended".
+	Suspended bool
 }
 
 // RelationDetailsResult represents the current application's view of a
@@ -62,6 +64,8 @@ type RelationDetailsResult struct {
 	ID int
 	// Endpoints are the endpoints of the relation.
 	Endpoints []Endpoint
+	// Suspended indicates if the status of this relation is "suspended".
+	Suspended bool
 }
 
 // RelationData holds information about a unit's relation.

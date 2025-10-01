@@ -143,7 +143,7 @@ AFTER UPDATE ON relation_status FOR EACH ROW
 WHEN 
 	NEW.relation_uuid != OLD.relation_uuid OR
 	NEW.relation_status_type_id != OLD.relation_status_type_id OR
-	(NEW.suspended_reason != OLD.suspended_reason OR (NEW.suspended_reason IS NOT NULL AND OLD.suspended_reason IS NULL) OR (NEW.suspended_reason IS NULL AND OLD.suspended_reason IS NOT NULL)) OR
+	(NEW.message != OLD.message OR (NEW.message IS NOT NULL AND OLD.message IS NULL) OR (NEW.message IS NULL AND OLD.message IS NOT NULL)) OR
 	NEW.updated_at != OLD.updated_at 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
