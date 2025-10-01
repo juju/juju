@@ -96,21 +96,44 @@ type FilesystemInfo struct {
 	BackingVolume *storage.VolumeInfo
 }
 
-// StorageInstanceInfo describes information about a storage instance.
-type StorageInstanceInfo struct {
-	ID          string
-	Owner       *unit.Name
-	Kind        StorageKind
-	Life        life.Life
-	Persistent  bool
-	Status      status.StatusInfo
-	Attachments []StorageAttachmentInfo
+// StorageInstanceDetails describes information about a storage instance.
+type StorageInstanceDetails struct {
+	ID         string
+	Owner      *unit.Name
+	Kind       StorageKind
+	Life       life.Life
+	Persistent bool
 }
 
-// StorageAttachmentInfo describes information about a storage attachment.
-type StorageAttachmentInfo struct {
-	Life     life.Life
-	Location string
-	Unit     unit.Name
-	Machine  *machine.Name
+// VolumeDetails describes information about a volume with its attachments.
+type VolumeDetails struct {
+	StorageID   string
+	Status      status.StatusInfo
+	Attachments []VolumeAttachmentDetails
+}
+
+// FilesystemDetails describes information about a filesystem with its attachments.
+type FilesystemDetails struct {
+	StorageID   string
+	Status      status.StatusInfo
+	Attachments []FilesystemAttachmentDetails
+}
+
+// VolumeAttachmentDetails describes information about a volume attachment.
+type VolumeAttachmentDetails struct {
+	AttachmentDetails
+	BlockDeviceUUID string
+}
+
+// FilesystemAttachmentDetails describes information about a filesystem attachment.
+type FilesystemAttachmentDetails struct {
+	AttachmentDetails
+	MountPoint string
+}
+
+// AttachmentDetails describes information about a storage attachment.
+type AttachmentDetails struct {
+	Life    life.Life
+	Unit    unit.Name
+	Machine *machine.Name
 }
