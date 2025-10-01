@@ -43,12 +43,12 @@ func NewResourceOpenerForUnit(
 ) (opener coreresource.Opener, err error) {
 	applicationID, err := args.ApplicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+		return nil, errors.Errorf("loading application UUID for unit %s: %w", unitName, err)
 	}
 
 	unitUUID, err := args.ApplicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+		return nil, errors.Errorf("loading application UUID for unit %s: %w", unitName, err)
 	}
 
 	applicationName := unitName.Application()
@@ -167,8 +167,8 @@ func (ro ResourceOpener) getResource(
 	defer locker.Unlock()
 
 	resourceUUID, err := ro.resourceService.GetApplicationResourceID(ctx, resource.GetApplicationResourceIDArgs{
-		ApplicationID: ro.appID,
-		Name:          resName,
+		ApplicationUUID: ro.appID,
+		Name:            resName,
 	})
 	if err != nil {
 		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appID, err)

@@ -61,7 +61,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// CreateIAASApplication creates an application. Returns the application ID,
+	// CreateIAASApplication creates an application. Returns the application UUID,
 	// along with any machine names created.
 	CreateIAASApplication(
 		context.Context,
@@ -193,7 +193,7 @@ type ApplicationState interface {
 	GetCharmConfigByApplicationUUID(ctx context.Context, appID coreapplication.UUID) (corecharm.ID, charm.Config, error)
 
 	// GetApplicationConfigAndSettings returns the application config and
-	// settings attributes for the application ID.
+	// settings attributes for the application UUID.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -238,7 +238,7 @@ type ApplicationState interface {
 	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.UUID, keys []string) error
 
 	// GetApplicationConfigHash returns the SHA256 hash of the application config
-	// for the specified application ID.
+	// for the specified application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConfigHash(ctx context.Context, appID coreapplication.UUID) (string, error)
@@ -283,15 +283,15 @@ type ApplicationState interface {
 	GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (string, error)
 
 	// GetApplicationConstraints returns the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
+	// application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Constraints, error)
 
 	// SetApplicationConstraints sets the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// This method overwrites the full constraints on every call.
 	// If invalid constraints are provided (e.g. invalid container type or
 	// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
@@ -301,7 +301,7 @@ type ApplicationState interface {
 	SetApplicationConstraints(ctx context.Context, appID coreapplication.UUID, cons constraints.Constraints) error
 
 	// GetApplicationCharmOrigin returns the platform and channel for the
-	// specified application ID.
+	// specified application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.UUID) (application.CharmOrigin, error)
@@ -847,7 +847,7 @@ func (s *Service) GetApplicationUUIDByUnitName(
 
 	id, err := s.st.GetApplicationUUIDByUnitName(ctx, unitName)
 	if err != nil {
-		return "", errors.Errorf("getting application id: %w", err)
+		return "", errors.Errorf("getting application UUID: %w", err)
 	}
 	return id, nil
 }
@@ -963,7 +963,7 @@ func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charm
 
 	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return errors.Errorf("getting application ID: %w", err)
+		return errors.Errorf("getting application UUID: %w", err)
 	}
 	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
 	if err != nil {
@@ -984,7 +984,7 @@ func (s *Service) GetApplicationName(ctx context.Context, appID coreapplication.
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return "", errors.Errorf("application ID: %w", err)
+		return "", errors.Errorf("application UUID: %w", err)
 	}
 
 	name, err := s.st.GetApplicationName(ctx, appID)
@@ -1070,7 +1070,7 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 	defer span.End()
 
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, errors.Errorf("application ID: %w", err).Add(applicationerrors.ApplicationIDNotValid)
+		return nil, charm.CharmLocator{}, errors.Errorf("application UUID: %w", err).Add(applicationerrors.ApplicationUUIDNotValid)
 	}
 
 	ch, err := s.st.GetCharmByApplicationUUID(ctx, id)
@@ -1339,7 +1339,7 @@ func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreappli
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return application.CharmDownloadInfo{}, errors.Errorf("application ID: %w", err)
+		return application.CharmDownloadInfo{}, errors.Errorf("application UUID: %w", err)
 	}
 
 	return s.st.GetAsyncCharmDownloadInfo(ctx, appID)
@@ -1355,7 +1355,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
+		return errors.Errorf("application UUID: %w", err)
 	}
 
 	// Although, we're resolving the charm download, we're calling the
@@ -1494,7 +1494,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
 
 	cfg, err := s.st.GetApplicationConfigWithDefaults(ctx, appID)
@@ -1546,13 +1546,13 @@ func (s *Service) GetApplicationCharmOrigin(ctx context.Context, name string) (c
 }
 
 // GetApplicationAndCharmConfig returns the application and charm config for the
-// specified application ID.
+// specified application UUID.
 func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.UUID) (ApplicationConfig, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return ApplicationConfig{}, errors.Errorf("application ID: %w", err)
+		return ApplicationConfig{}, errors.Errorf("application UUID: %w", err)
 	}
 
 	appConfig, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
@@ -1609,7 +1609,7 @@ func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreappl
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
+		return errors.Errorf("application UUID: %w", err)
 	}
 	if len(keys) == 0 {
 		return nil
@@ -1630,7 +1630,7 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
+		return errors.Errorf("application UUID: %w", err)
 	}
 
 	// Get the charm config. This should be safe to do outside of a singular
@@ -1684,9 +1684,9 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 }
 
 // GetApplicationConstraints returns the application constraints for the
-// specified application ID.
+// specified application UUID.
 // Empty constraints are returned if no constraints exist for the given
-// application ID.
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (coreconstraints.Value, error) {
@@ -1694,7 +1694,7 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return coreconstraints.Value{}, errors.Errorf("application ID: %w", err)
+		return coreconstraints.Value{}, errors.Errorf("application UUID: %w", err)
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
@@ -1804,7 +1804,7 @@ func (s *Service) IsControllerApplication(ctx context.Context, appID coreapplica
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return false, errors.Errorf("validating application ID: %w", err)
+		return false, errors.Errorf("validating application UUID: %w", err)
 	}
 
 	return s.st.IsControllerApplication(ctx, appID)
@@ -1818,7 +1818,7 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return nil, errors.Errorf("getting application ID for application %q: %w", appName, err)
+		return nil, errors.Errorf("getting application UUID for application %q: %w", appName, err)
 	}
 
 	machineNames, err := s.st.GetMachinesForApplication(ctx, appUUID.String())

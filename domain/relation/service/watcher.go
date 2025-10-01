@@ -30,45 +30,45 @@ import (
 // WatcherState represents the subset of the State interface required by
 // the WatchableService.
 type WatcherState interface {
-	// GetPrincipalSubordinateApplicationIDs returns the Principal and
-	// Subordinate application IDs for the given unit. The principal will
-	// be the first ID returned and the subordinate will be the second. If
-	// the unit is not a subordinate, the second application ID will be
+	// GetPrincipalSubordinateApplicationUUIDs returns the Principal and
+	// Subordinate application UUIDs for the given unit. The principal will
+	// be the first UUID returned and the subordinate will be the second. If
+	// the unit is not a subordinate, the second application UUID will be
 	// empty.
-	GetPrincipalSubordinateApplicationIDs(
+	GetPrincipalSubordinateApplicationUUIDs(
 		ctx context.Context,
 		unitUUID unit.UUID,
-	) (application.ID, application.ID, error)
+	) (application.UUID, application.UUID, error)
 
 	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate
 	// a relation uuid as part of WatchLifeSuspendedStatus eventmapper.
 	GetMapperDataForWatchLifeSuspendedStatus(
 		ctx context.Context,
 		relUUID corerelation.UUID,
-		appID application.ID,
+		appID application.UUID,
 	) (relation.RelationLifeSuspendedData, error)
 
 	// GetRelationEndpointScope returns the scope of the relation endpoint
-	// at the intersection of the relationUUID and applicationID.
+	// at the intersection of the relationUUID and applicationUUID.
 	GetRelationEndpointScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		applicationID application.ID,
+		applicationID application.UUID,
 	) (charm.RelationScope, error)
 
 	// GetOtherRelatedEndpointApplicationData returns an
 	// OtherApplicationForWatcher struct for each Endpoint in a relation with
-	// the given application ID.
+	// the given application UUID.
 	GetOtherRelatedEndpointApplicationData(
 		ctx context.Context,
 		relUUID corerelation.UUID,
-		applicationID application.ID,
+		applicationID application.UUID,
 	) (relation.OtherApplicationForWatcher, error)
 
 	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
 	// a relation's Life and Suspended status when the relation contains
 	// the provided application and the initial namespace query.
-	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
+	InitialWatchLifeSuspendedStatus(id application.UUID) (string, string, eventsource.NamespaceQuery)
 
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
@@ -140,9 +140,9 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 			"%w:%w", relationerrors.UnitUUIDNotValid, err)
 	}
 
-	principalID, subordinateID, err := s.st.GetPrincipalSubordinateApplicationIDs(ctx, unitUUID)
+	principalID, subordinateID, err := s.st.GetPrincipalSubordinateApplicationUUIDs(ctx, unitUUID)
 	if err != nil {
-		return nil, errors.Errorf("finding principal and subordinate application ids: %w", err)
+		return nil, errors.Errorf("finding principal and subordinate application UUIDs: %w", err)
 	}
 
 	var w namespaceMapper
@@ -167,14 +167,14 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 // watched.
 func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	ctx context.Context,
-	applicationUUID application.ID,
+	applicationUUID application.UUID,
 ) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := applicationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
-			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+			"%w:%w", relationerrors.ApplicationUUIDNotValid, err)
 	}
 
 	// Check if the application exists before starting the watcher.
@@ -220,7 +220,7 @@ type namespaceMapper interface {
 type lifeSuspendedStatusWatcher struct {
 	s *WatchableService
 
-	// appID is the application ID of the application whose relations are
+	// appID is the application UUID of the application whose relations are
 	// being watched for life and being suspended. It is a subordinate
 	// application.
 	appID application.UUID
@@ -419,7 +419,7 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 type subordinateLifeSuspendedStatusWatcher struct {
 	lifeSuspendedStatusWatcher
 
-	// parentAppID is the application ID of the parent or principal application
+	// parentAppID is the application UUID of the parent or principal application
 	// of the appID.
 	parentAppID application.UUID
 }

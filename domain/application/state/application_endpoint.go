@@ -719,7 +719,7 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 // includes the application endpoints, and the application extra endpoints. An
 // endpoint name of "" is used to record the default application space.
 func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) (map[string]string, error) {
-	appIdent := applicationID{ID: appUUID}
+	appIdent := applicationUUDID{ID: appUUID}
 
 	relationEndpoints, err := st.getRelationEndpointBindings(ctx, tx, appIdent)
 	if err != nil {
@@ -770,7 +770,7 @@ WHERE  uuid = $applicationID.uuid
 	return endpoints, nil
 }
 
-func (st *State) getRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID) ([]endpointBinding, error) {
+func (st *State) getRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationUUDID) ([]endpointBinding, error) {
 	stmt, err := st.Prepare(`
 SELECT (ae.space_uuid, cr.name) AS (&endpointBinding.*)
 FROM   application_endpoint ae
@@ -790,7 +790,7 @@ WHERE  ae.application_uuid = $applicationID.uuid
 	return endpoints, nil
 }
 
-func (st *State) getExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID) ([]endpointBinding, error) {
+func (st *State) getExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationUUDID) ([]endpointBinding, error) {
 	stmt, err := st.Prepare(`
 SELECT (aee.space_uuid, ceb.name) AS (&endpointBinding.*)
 FROM   application_extra_endpoint aee
@@ -855,12 +855,12 @@ FROM   charm_bindings
 WHERE  name IN ($endpointNames[:])
 AND    application_uuid = $applicationID.uuid
 `
-	relationEndpointStmt, err := st.Prepare(query, bindingToTable{}, applicationID{}, endpointNames{})
+	relationEndpointStmt, err := st.Prepare(query, bindingToTable{}, applicationUUDID{}, endpointNames{})
 	if err != nil {
 		return nil, errors.Errorf("preparing charm endpoint count query: %w", err)
 	}
 
-	applicationID := applicationID{ID: coreapplication.UUID(appID)}
+	applicationID := applicationUUDID{ID: coreapplication.UUID(appID)}
 	eps := endpointNames(names)
 
 	var result []bindingToTable
@@ -948,7 +948,7 @@ FROM   requested_spaces
 		Add(networkerrors.SpaceNotFound)
 }
 
-func (st *State) refreshApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+func (st *State) refreshApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationUUDID, charmIdent charmID) error {
 	if err := st.refreshApplicationRelationEndpointBindings(ctx, tx, appIdent, charmIdent); err != nil {
 		return errors.Errorf("refreshing application relation endpoint bindings: %w", err)
 	}
@@ -958,7 +958,7 @@ func (st *State) refreshApplicationEndpointBindings(ctx context.Context, tx *sql
 	return nil
 }
 
-func (st *State) refreshApplicationRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+func (st *State) refreshApplicationRelationEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationUUDID, charmIdent charmID) error {
 	mapCharmRelationStmt, err := st.Prepare(`
 WITH given_charm_relations AS (
     SELECT uuid, name FROM charm_relation
@@ -1081,7 +1081,7 @@ VALUES ($setApplicationEndpointBinding.*)
 // application_extra_endpoint is not the target of any foreign key constraints,
 // it does not have a uuid primary key column. So we can achieve this be clearing
 // the table and inserting the new bindings.
-func (st *State) refreshApplicationExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+func (st *State) refreshApplicationExtraEndpointBindings(ctx context.Context, tx *sqlair.TX, appIdent applicationUUDID, charmIdent charmID) error {
 	extraEndpointBindings, err := st.getExtraEndpointBindings(ctx, tx, appIdent)
 	if err != nil {
 		return errors.Errorf("getting existing extra endpoint bindings: %w", err)

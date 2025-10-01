@@ -331,8 +331,8 @@ func (a *API) updateResource(
 ) (coreresource.UUID, error) {
 	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,
 		resource.GetApplicationResourceIDArgs{
-			ApplicationID: appID,
-			Name:          res.Name,
+			ApplicationUUID: appID,
+			Name:            res.Name,
 		},
 	)
 	if errors.Is(err, resourceerrors.ResourceNameNotValid) || errors.Is(err, resourceerrors.ResourceNotFound) {

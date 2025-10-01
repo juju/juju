@@ -228,7 +228,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 }
 
 // SetApplicationConstraints sets the application constraints for the
-// specified application ID.
+// specified application UUID.
 // This method overwrites the full constraints on every call.
 // If invalid constraints are provided (e.g. invalid container type or
 // non-existing space), a [applicationerrors.InvalidApplicationConstraints]
@@ -242,7 +242,7 @@ func (s *ProviderService) SetApplicationConstraints(
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
+		return errors.Errorf("application UUID: %w", err)
 	}
 	if err := s.validateConstraints(ctx, cons); err != nil {
 		return err

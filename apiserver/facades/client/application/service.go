@@ -245,7 +245,7 @@ type ApplicationService interface {
 	// This will return true if the charm is available, and false otherwise.
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 
-	// GetApplicationUUIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application UUID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
@@ -254,9 +254,9 @@ type ApplicationService interface {
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
+	// application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Value, error)
@@ -267,11 +267,11 @@ type ApplicationService interface {
 	GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error)
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
-	// specified application ID.
+	// specified application UUID.
 	GetApplicationAndCharmConfig(context.Context, coreapplication.UUID) (applicationservice.ApplicationConfig, error)
 
 	// SetApplicationConstraints sets the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// This method overwrites the full constraints on every call.
 	// If invalid constraints are provided (e.g. invalid container type or
 	// non-existing space), a [applicationerrors.InvalidApplicationConstraints]

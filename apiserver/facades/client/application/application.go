@@ -1111,7 +1111,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return &info, err
 		} else if err != nil {
-			return nil, errors.Annotatef(err, "getting application ID %q", tag.Id())
+			return nil, errors.Annotatef(err, "getting application UUID %q", tag.Id())
 		}
 		maxWait := time.Duration(0)
 		if arg.MaxWait != nil {
@@ -2120,7 +2120,7 @@ func (api *APIBase) openPortsOnUnit(ctx context.Context, unitUUID coreunit.UUID)
 func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.EndpointRelationData, error) {
 	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting application id for %q: %v", appName, err)
+		return nil, internalerrors.Errorf("getting application UUID for %q: %v", appName, err)
 	}
 	endpointsData, err := api.relationService.ApplicationRelationsInfo(ctx, appID)
 	if err != nil {

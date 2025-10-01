@@ -32,15 +32,15 @@ type ModelState interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
-	// GetApplicationUUIDByName returns the application ID for the named
+	// GetApplicationUUIDByName returns the application UUID for the named
 	// application. If no application is found, an error satisfying
 	// [statuserrors.ApplicationNotFound] is returned.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// GetApplicationIDAndNameByUnitName returns the application ID and name for
+	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name for
 	// the named unit, returning an error satisfying
 	// [statuserrors.UnitNotFound] if the unit doesn't exist.
-	GetApplicationIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
+	GetApplicationUUIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
 
 	// GetApplicationStatus looks up the status of the specified application,
 	// returning an error satisfying [statuserrors.ApplicationNotFound] if the
@@ -432,7 +432,7 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
 
 	statuses, err := s.modelState.GetUnitWorkloadStatusesForApplication(ctx, appID)
@@ -456,7 +456,7 @@ func (s *Service) GetUnitAgentStatusesForApplication(ctx context.Context, appID 
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
 
 	statuses, err := s.modelState.GetUnitAgentStatusesForApplication(ctx, appID)

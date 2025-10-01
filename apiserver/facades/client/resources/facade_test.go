@@ -419,8 +419,8 @@ func (s *addPendingResourceSuite) expectGetApplicationUUIDByName(err error) {
 
 func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {
 	getResIDArgs := domainresource.GetApplicationResourceIDArgs{
-		ApplicationID: s.appUUID,
-		Name:          s.resourceNameTwo,
+		ApplicationUUID: s.appUUID,
+		Name:            s.resourceNameTwo,
 	}
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), getResIDArgs).Return(s.pendingResourceIDTwo, nil)
 }

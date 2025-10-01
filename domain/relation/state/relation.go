@@ -391,7 +391,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]domainrelation.Re
 // relations the given application is in, modulo peer relations.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//   - [relationerrors.ApplicationNotFound] is returned if application UUID
 //     doesn't refer an existing application.
 func (st *State) GetGoalStateRelationDataForApplication(
 	ctx context.Context,
@@ -441,10 +441,10 @@ AND    ep1.application_uuid != ep2.application_uuid
 }
 
 // GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
-// for the other Endpoint in a relation with the given application ID.
+// for the other Endpoint in a relation with the given application UUID.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//   - [relationerrors.ApplicationNotFound] is returned if application UUID
 //     is not used in any relations or if the other relation applications
 //     are not found.
 func (st *State) GetOtherRelatedEndpointApplicationData(
@@ -484,7 +484,7 @@ func (st *State) GetOtherRelatedEndpointApplicationData(
 }
 
 // getOtherApplicationInRelations returns the applications ID
-// at the other end of the relation from the given application ID.
+// at the other end of the relation from the given application UUID.
 func (st *State) getOtherApplicationInRelations(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -518,7 +518,7 @@ AND    app.relation_uuid = $relationAndApplicationUUID.relation_uuid
 }
 
 // getApplicationSubordinate returns a otherApplicationsForWatcher structure
-// for each given application ID.
+// for each given application UUID.
 func (st *State) getApplicationSubordinate(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -529,13 +529,13 @@ func (st *State) getApplicationSubordinate(
 SELECT application_uuid AS &otherApplicationsForWatcher.application_uuid,
        subordinate AS &otherApplicationsForWatcher.subordinate
 FROM   v_application_subordinate
-WHERE  application_uuid = $applicationID.uuid
-`, otherApplicationsForWatcher{}, applicationID{})
+WHERE  application_uuid = $entityUUID.uuid
+`, otherApplicationsForWatcher{}, entityUUID{})
 	if err != nil {
 		return otherApplicationsForWatcher{}, errors.Errorf("preparing other application query: %w", err)
 	}
 
-	appID := applicationID{ID: app}
+	appID := entityUUID{UUID: app.String()}
 	otherApp := otherApplicationsForWatcher{}
 	err = tx.Query(ctx, appSubordinateStmt, appID).Get(&otherApp)
 	if err != nil {
@@ -583,7 +583,7 @@ WHERE  relation_id = $relationIDAndUUID.relation_id
 }
 
 // GetRelationEndpointScope returns the scope of the relation endpoint
-// at the intersection of the relationUUID and applicationID.
+// at the intersection of the relationUUID and applicationUUID.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
@@ -606,8 +606,8 @@ func (st *State) GetRelationEndpointScope(
 SELECT  scope AS &scope.name
 FROM    v_relation_endpoint
 WHERE   relation_uuid = $relationUUID.uuid
-AND     application_uuid = $applicationID.uuid
-`, scope{}, applicationID{}, relationUUID{})
+AND     application_uuid = $entityUUID.uuid
+`, scope{}, entityUUID{}, relationUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -615,7 +615,7 @@ AND     application_uuid = $applicationID.uuid
 	rel := relationUUID{
 		UUID: relUUID,
 	}
-	app := applicationID{ID: appID}
+	app := entityUUID{UUID: appID.String()}
 	var output scope
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the relation exists.
@@ -637,7 +637,7 @@ AND     application_uuid = $applicationID.uuid
 
 // GetRelationEndpointUUID retrieves the endpoint UUID of a given relation
 // for a specific application.
-// It queries the database using the provided application ID and relation UUID
+// It queries the database using the provided application UUID and relation UUID
 // arguments.
 //
 // The following error types can be expected to be returned:
@@ -659,7 +659,7 @@ func (st *State) GetRelationEndpointUUID(ctx context.Context, args domainrelatio
 		RelationUUID string `db:"relation_uuid"`
 	}
 	dbArgs := relationEndpointArgs{
-		AppID:        args.ApplicationID.String(),
+		AppID:        args.ApplicationUUID.String(),
 		RelationUUID: args.RelationUUID.String(),
 	}
 	stmt, err := st.Prepare(`
@@ -677,7 +677,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 		err := tx.Query(ctx, stmt, dbArgs).Get(&relationEndpoint)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Check if it is a missing application.
-			appFound, err := st.checkApplicationExists(ctx, tx, args.ApplicationID.String())
+			appFound, err := st.checkApplicationExists(ctx, tx, args.ApplicationUUID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -688,7 +688,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			}
 			var errs []error
 			if !appFound {
-				errs = append(errs, errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, args.ApplicationID))
+				errs = append(errs, errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, args.ApplicationUUID))
 			}
 			if !relationFound {
 				errs = append(errs, errors.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))
@@ -697,7 +697,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 				return errors.Join(errs...)
 			}
 			return errors.Errorf("relationUUID %q with applicationID %q: %w",
-				args.RelationUUID, args.ApplicationID, relationerrors.RelationEndpointNotFound)
+				args.RelationUUID, args.ApplicationUUID, relationerrors.RelationEndpointNotFound)
 
 		}
 		return errors.Capture(err)
@@ -1347,7 +1347,7 @@ func (st *State) NeedsSubordinateUnit(
 	return result, nil
 }
 
-// findRelatedSubordinateApplication returns the application ID of the related
+// findRelatedSubordinateApplication returns the application UUID of the related
 // subordinate application there is one, if there is not, it returns false as
 // the boolean argument.
 func (st *State) findRelatedSubordinateApplication(
@@ -2376,14 +2376,14 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	return endpointUUID.UUID, nil
 }
 
-// GetPrincipalSubordinateApplicationIDs returns the Principal and Subordinate
-// application IDs for the given unit. The principal will be the first ID
+// GetPrincipalSubordinateApplicationUUIDs returns the Principal and Subordinate
+// application UUIDs for the given unit. The principal will be the first UUID
 // returned and the subordinate will be the second. If the unit is not a
-// subordinate, the second application ID will be empty.
+// subordinate, the second application UUID will be empty.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.UnitDead] if the unit is dead or not found.
-func (st *State) GetPrincipalSubordinateApplicationIDs(
+func (st *State) GetPrincipalSubordinateApplicationUUIDs(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) (principal application.UUID, subordinate application.UUID, err error) {
@@ -2423,11 +2423,11 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 	return principalAppID, subordinateAppID, errors.Capture(err)
 }
 
-// ApplicationExists returns nil if the application with the given ID exists,
+// ApplicationExists returns nil if the application with the given UUID exists,
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (st *State) ApplicationExists(ctx context.Context, id application.ID) error {
+func (st *State) ApplicationExists(ctx context.Context, id application.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -2457,13 +2457,13 @@ func (st *State) InitialWatchLifeSuspendedStatus(id application.UUID) (string, s
 SELECT  re.relation_uuid AS &relationUUID.uuid
 FROM    relation_endpoint re
 JOIN    application_endpoint ae ON ae.uuid = re.endpoint_uuid
-WHERE   ae.application_uuid = $applicationID.uuid
-`, applicationID{}, relationUUID{})
+WHERE   ae.application_uuid = $entityUUID.uuid
+`, entityUUID{}, relationUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 
-		appID := applicationID{ID: id}
+		appID := entityUUID{UUID: id.String()}
 
 		var results []relationUUID
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -3174,13 +3174,13 @@ FROM   relation AS r
 JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
-WHERE  a.uuid = $applicationID.uuid
-`, relationIDUUIDAppName{}, applicationID{})
+WHERE  a.uuid = $entityUUID.uuid
+`, relationIDUUIDAppName{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	app := applicationID{ID: appID}
+	app := entityUUID{UUID: appID.String()}
 	err = tx.Query(ctx, stmt, app).GetAll(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return []relationIDUUIDAppName{}, relationerrors.RelationNotFound

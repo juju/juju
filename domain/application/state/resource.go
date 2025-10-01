@@ -167,7 +167,7 @@ type uuids []string
 
 // resolvePendingResources finds pending resources for the application and
 // makes links them in the application resource link table now that an
-// application ID is available. Duplicated those resources for charmhub
+// application UUID is available. Duplicated those resources for charmhub
 // sourced charms as potential.
 func (st *State) resolvePendingResources(
 	ctx context.Context,

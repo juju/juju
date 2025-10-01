@@ -48,6 +48,6 @@ func (u UUID) Validate() error {
 }
 
 // IsEmpty returns true if the ID is empty.
-func (u ID) IsEmpty() bool {
+func (u UUID) IsEmpty() bool {
 	return u == ""
 }

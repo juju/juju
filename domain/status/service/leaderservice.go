@@ -80,7 +80,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	// is because we're doing a reverse lookup from the unit to the application.
 	// We can't return the application not found, as we're not looking up the
 	// application directly.
-	appID, appName, err := s.modelState.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	appID, appName, err := s.modelState.GetApplicationUUIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -120,7 +120,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	appName := unitName.Application()
 	appID, err := s.modelState.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
+		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application UUID: %w", err)
 	}
 
 	var applicationStatus status.StatusInfo[status.WorkloadStatusType]

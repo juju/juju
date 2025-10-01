@@ -40,7 +40,7 @@ import (
 type addRelationSuite struct {
 	baseRelationSuite
 
-	// charmByApp maps application IDs to their associated charm IDs for quick
+	// charmByApp maps application UUIDs to their associated charm IDs for quick
 	// lookup during tests.
 	charmByApp map[coreapplication.UUID]corecharm.ID
 }
@@ -809,7 +809,7 @@ func (s *relationSuite) TestGetRelationEndpointUUID(c *tc.C) {
 
 	// Act: get the relation endpoint UUID.
 	uuid, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
+		ApplicationUUID: s.fakeApplicationUUID1,
 		RelationUUID:  relationUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
@@ -826,7 +826,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
+		ApplicationUUID: s.fakeApplicationUUID1,
 		RelationUUID:  "not-found-relation-uuid",
 	})
 
@@ -835,14 +835,14 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 }
 
 // TestGetRelationEndpointUUIDApplicationNotFound verifies that attempting to
-// fetch a relation endpoint UUID with a non-existent application ID returns
+// fetch a relation endpoint UUID with a non-existent application UUID returns
 // the ApplicationNotFound error.
 func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) {
 	// Arrange: nothing to do, will fail on application fetch anyway.
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: "not-found-application-uuid ",
+		ApplicationUUID: "not-found-application-uuid ",
 		RelationUUID:  "not-used-uuid",
 	})
 
@@ -860,7 +860,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *t
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
+		ApplicationUUID: s.fakeApplicationUUID1,
 		RelationUUID:  relationUUID,
 	})
 
@@ -2212,7 +2212,7 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 	})
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationUUIDs(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	subordinateCharm := s.fakeCharmUUID1
 	subordinateAppUUID := s.fakeApplicationUUID1
@@ -2229,7 +2229,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
 	// Act
-	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationUUIDs(
 		c.Context(), subordinateUnitUUID)
 
 	// Assert
@@ -2238,7 +2238,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	c.Check(obtainedSubordinate, tc.Equals, subordinateAppUUID)
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c *tc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationUUIDsPrincipalOnly(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	principalCharm := s.fakeCharmUUID1
 	principalAppUUID := s.fakeApplicationUUID2
@@ -2249,7 +2249,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
 
 	// Act
-	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationUUIDs(
 		c.Context(), principalUnitUUID)
 
 	// Assert

@@ -491,7 +491,7 @@ func (s *modelStateSuite) TestSetApplicationPassword(c *tc.C) {
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
-// TestGetApplicationUUIDByName asserts that an application ID can be found by name.
+// TestGetApplicationUUIDByName asserts that an application UUID can be found by name.
 func (s *modelStateSuite) TestGetApplicationUUIDByName(c *tc.C) {
 	st := NewModelState(s.TxnRunnerFactory())
 

@@ -50,7 +50,7 @@ type ModelState interface {
 	// password hash stored in the database.
 	MatchesApplicationPasswordHash(context.Context, application.UUID, agentpassword.PasswordHash) (bool, error)
 
-	// GetApplicationUUIDByName returns the application ID for the named application.
+	// GetApplicationUUIDByName returns the application UUID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error)

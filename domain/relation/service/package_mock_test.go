@@ -396,42 +396,42 @@ func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f fu
 	return c
 }
 
-// GetPrincipalSubordinateApplicationIDs mocks base method.
-func (m *MockState) GetPrincipalSubordinateApplicationIDs(arg0 context.Context, arg1 unit.UUID) (application.UUID, application.UUID, error) {
+// GetPrincipalSubordinateApplicationUUIDs mocks base method.
+func (m *MockState) GetPrincipalSubordinateApplicationUUIDs(arg0 context.Context, arg1 unit.UUID) (application.UUID, application.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPrincipalSubordinateApplicationIDs", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetPrincipalSubordinateApplicationUUIDs", arg0, arg1)
 	ret0, _ := ret[0].(application.UUID)
 	ret1, _ := ret[1].(application.UUID)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetPrincipalSubordinateApplicationIDs indicates an expected call of GetPrincipalSubordinateApplicationIDs.
-func (mr *MockStateMockRecorder) GetPrincipalSubordinateApplicationIDs(arg0, arg1 any) *MockStateGetPrincipalSubordinateApplicationIDsCall {
+// GetPrincipalSubordinateApplicationUUIDs indicates an expected call of GetPrincipalSubordinateApplicationUUIDs.
+func (mr *MockStateMockRecorder) GetPrincipalSubordinateApplicationUUIDs(arg0, arg1 any) *MockStateGetPrincipalSubordinateApplicationUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrincipalSubordinateApplicationIDs", reflect.TypeOf((*MockState)(nil).GetPrincipalSubordinateApplicationIDs), arg0, arg1)
-	return &MockStateGetPrincipalSubordinateApplicationIDsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPrincipalSubordinateApplicationUUIDs", reflect.TypeOf((*MockState)(nil).GetPrincipalSubordinateApplicationUUIDs), arg0, arg1)
+	return &MockStateGetPrincipalSubordinateApplicationUUIDsCall{Call: call}
 }
 
-// MockStateGetPrincipalSubordinateApplicationIDsCall wrap *gomock.Call
-type MockStateGetPrincipalSubordinateApplicationIDsCall struct {
+// MockStateGetPrincipalSubordinateApplicationUUIDsCall wrap *gomock.Call
+type MockStateGetPrincipalSubordinateApplicationUUIDsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetPrincipalSubordinateApplicationIDsCall) Return(arg0, arg1 application.UUID, arg2 error) *MockStateGetPrincipalSubordinateApplicationIDsCall {
+func (c *MockStateGetPrincipalSubordinateApplicationUUIDsCall) Return(arg0, arg1 application.UUID, arg2 error) *MockStateGetPrincipalSubordinateApplicationUUIDsCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetPrincipalSubordinateApplicationIDsCall) Do(f func(context.Context, unit.UUID) (application.UUID, application.UUID, error)) *MockStateGetPrincipalSubordinateApplicationIDsCall {
+func (c *MockStateGetPrincipalSubordinateApplicationUUIDsCall) Do(f func(context.Context, unit.UUID) (application.UUID, application.UUID, error)) *MockStateGetPrincipalSubordinateApplicationUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetPrincipalSubordinateApplicationIDsCall) DoAndReturn(f func(context.Context, unit.UUID) (application.UUID, application.UUID, error)) *MockStateGetPrincipalSubordinateApplicationIDsCall {
+func (c *MockStateGetPrincipalSubordinateApplicationUUIDsCall) DoAndReturn(f func(context.Context, unit.UUID) (application.UUID, application.UUID, error)) *MockStateGetPrincipalSubordinateApplicationUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

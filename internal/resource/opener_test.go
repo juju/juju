@@ -264,8 +264,8 @@ func (s *OpenerSuite) expectServiceMethods(
 ) {
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
+			ApplicationUUID: s.appID,
+			Name:            "wal-e",
 		},
 	).Return(s.resourceUUID, nil).AnyTimes()
 	var retrievedBy string
@@ -350,8 +350,8 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 	}
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
+			ApplicationUUID: s.appID,
+			Name:            "wal-e",
 		},
 	).Return(s.resourceUUID, nil)
 	s.resourceService.EXPECT().OpenResource(

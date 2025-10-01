@@ -834,7 +834,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	if err := remoteRelation[0].Error; err != nil {
 		return fail(errors.Annotatef(err, "registering relation %v", relationTag))
 	}
-	// Import the application id from the offering model.
+	// Import the application UUID from the offering model.
 	registerResult := *remoteRelation[0].Result
 	offeringAppToken = registerResult.Token
 

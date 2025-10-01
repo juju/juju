@@ -31,8 +31,8 @@ type ApplicationService interface {
 	// WatchApplicationsWithPendingCharms returns a watcher that notifies of
 	// changes to applications that reference charms that have not yet been
 	// downloaded.
-	// Each string will be an individual application ID. It's possible to
-	// have the same application ID multiple times in the list.
+	// Each string will be an individual application UUID. It's possible to
+	// have the same application UUID multiple times in the list.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// GetAsyncCharmDownloadInfo reserves a charm download slot for the specified
@@ -201,7 +201,7 @@ func (w *Worker) loop() error {
 			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
-					logger.Errorf(ctx, "failed to parse application ID %q: %v", change, err)
+					logger.Errorf(ctx, "failed to parse application UUID %q: %v", change, err)
 					continue
 				}
 

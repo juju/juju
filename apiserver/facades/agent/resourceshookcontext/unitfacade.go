@@ -18,10 +18,11 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// applicationIDGetter is a function type used to retrieve a coreapplication.ID
-// based on the given context (from application name or unit name)
-// It returns an error if the ID retrieval fails.
-type applicationIDGetter func(ctx context.Context) (coreapplication.UUID, error)
+// applicationUUIDGetter is a function type used to retrieve a
+// coreapplication.UUID based on the given context (from application name or
+// unit name)
+// It returns an error if the UUID retrieval fails.
+type applicationUUIDGetter func(ctx context.Context) (coreapplication.UUID, error)
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.
 func NewUnitFacade(
@@ -29,18 +30,18 @@ func NewUnitFacade(
 	applicationService ApplicationService,
 	resourceService ResourceService,
 ) (*UnitFacade, error) {
-	var applicationIDGetter applicationIDGetter
+	var applicationUUIDGetter applicationUUIDGetter
 	switch tag := appOrUnitTag.(type) {
 	case names.UnitTag:
 		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
+		applicationUUIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
 			return applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 		}
 	case names.ApplicationTag:
-		applicationIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
+		applicationUUIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
 			return applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		}
 	default:
@@ -48,23 +49,23 @@ func NewUnitFacade(
 	}
 
 	return &UnitFacade{
-		resourceService:         resourceService,
-		getApplicationIDFromAPI: applicationIDGetter,
+		resourceService:           resourceService,
+		getApplicationUUIDFromAPI: applicationUUIDGetter,
 	}, nil
 }
 
 // UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
-	resourceService         ResourceService
-	getApplicationIDFromAPI applicationIDGetter
-	applicationID           coreapplication.UUID
+	resourceService           ResourceService
+	getApplicationUUIDFromAPI applicationUUIDGetter
+	applicationID             coreapplication.UUID
 }
 
-// getApplicationID retrieves and caches the application ID for the unit.
+// getApplicationUUID retrieves and caches the application UUID for the unit.
 // It fetches from the API if not already cached.
-func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.UUID, error) {
+func (uf *UnitFacade) getApplicationUUID(ctx context.Context) (coreapplication.UUID, error) {
 	if uf.applicationID == "" {
-		applicationID, err := uf.getApplicationIDFromAPI(ctx)
+		applicationID, err := uf.getApplicationUUIDFromAPI(ctx)
 		if err != nil {
 			return uf.applicationID, err
 		}
@@ -74,13 +75,13 @@ func (uf *UnitFacade) getApplicationID(ctx context.Context) (coreapplication.UUI
 }
 
 // listResources retrieves the application resources information through the
-// resource service using the application ID.
+// resource service using the application UUID.
 func (uf *UnitFacade) listResources(ctx context.Context) ([]resource.Resource, error) {
-	appID, err := uf.getApplicationID(ctx)
+	appID, err := uf.getApplicationUUID(ctx)
 	if err != nil {
-		return nil, errors.Errorf("cannot get application id: %w", err)
+		return nil, errors.Errorf("cannot get application UUID: %w", err)
 	}
-	return uf.resourceService.GetResourcesByApplicationID(ctx, appID)
+	return uf.resourceService.GetResourcesByApplicationUUID(ctx, appID)
 }
 
 // GetResourceInfo returns the resource info for each of the given

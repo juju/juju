@@ -265,7 +265,7 @@ type ImportApplicationArgs struct {
 }
 
 // ApplicationConfig represents the application config for the specified
-// application ID.
+// application UUID.
 type ApplicationConfig struct {
 	CharmOrigin       corecharm.Origin
 	CharmConfig       internalcharm.ConfigSpec

@@ -36,15 +36,15 @@ const (
 // GetApplicationResourceIDArgs holds the arguments for the
 // GetApplicationResourceID method.
 type GetApplicationResourceIDArgs struct {
-	ApplicationID application.UUID
-	Name          string
+	ApplicationUUID application.UUID
+	Name            string
 }
 
 // SetRepositoryResourcesArgs holds the arguments for the
 // SetRepositoryResources method.
 type SetRepositoryResourcesArgs struct {
-	// ApplicationID is the id of the application having these resources.
-	ApplicationID application.UUID
+	// ApplicationUUID is the id of the application having these resources.
+	ApplicationUUID application.UUID
 	// CharmID is the unique identifier for a charm to update resources.
 	CharmID corecharm.ID
 	// Info is a slice of resource data received from the repository.
@@ -120,8 +120,8 @@ type AddResourceDetails struct {
 // UpdateUploadResourceArgs holds arguments to update the resource to
 // expect a new blob to be uploaded.
 type UpdateUploadResourceArgs struct {
-	// ApplicationID is the ID of the application this resource belongs to.
-	ApplicationID application.UUID
+	// ApplicationUUID is the UUID of the application this resource belongs to.
+	ApplicationUUID application.UUID
 	// Name is the resource name.
 	Name string
 }

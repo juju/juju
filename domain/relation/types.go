@@ -28,9 +28,9 @@ const SequenceNamespace = sequence.StaticNamespace("relation")
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
 // the UUID of a relation endpoint.
 type GetRelationEndpointUUIDArgs struct {
-	// ApplicationID identifies the unique identifier of the application
+	// ApplicationUUID identifies the unique identifier of the application
 	// associated with the expected endpoint.
-	ApplicationID application.UUID
+	ApplicationUUID application.UUID
 
 	// RelationUUID represents the unique identifier for the relation associated
 	// with the expected endpoint.

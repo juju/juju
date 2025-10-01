@@ -26,7 +26,7 @@ func (st *State) IsApplicationExposed(ctx context.Context, appID coreapplication
 		return false, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := applicationUUDID{ID: appID}
 	query := `
 SELECT COUNT(*) AS &countResult.count
 FROM v_application_exposed_endpoint
@@ -61,7 +61,7 @@ func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := applicationUUDID{ID: appID}
 	query := `
 SELECT 
     cr.name AS &endpointCIDRsSpaces.name,
@@ -194,7 +194,7 @@ func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.
 }
 
 func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
-	applicationID := applicationID{ID: appID}
+	applicationID := applicationUUDID{ID: appID}
 
 	unsetExposedCIDRQuery := `
 DELETE FROM application_exposed_endpoint_cidr
@@ -235,7 +235,7 @@ func (st *State) unsetExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID
 }
 
 func (st *State) unsetExposedEndpointCIDRs(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID, endpoint ...string) error {
-	applicationID := applicationID{ID: appID}
+	applicationID := applicationUUDID{ID: appID}
 	endpointNames := endpointNames(endpoint)
 
 	unsetExposedCIDRQuery := `
@@ -279,7 +279,7 @@ AND application_endpoint_uuid IS NULL;
 }
 
 func (st *State) unsetExposedEndpointSpaces(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID, endpoint ...string) error {
-	applicationID := applicationID{ID: appID}
+	applicationID := applicationUUDID{ID: appID}
 	endpointNames := endpointNames(endpoint)
 
 	unsetExposedSpaceQuery := `
@@ -426,7 +426,7 @@ LEFT JOIN charm_relation ON application_endpoint.charm_relation_uuid = charm_rel
 WHERE application_endpoint.application_uuid = $applicationID.uuid 
 AND charm_relation.name IN ($endpointNames[:]);
 	`
-	applicationID := applicationID{ID: appID}
+	applicationID := applicationUUDID{ID: appID}
 	stmt, err := st.Prepare(query, countResult{}, applicationID, eps)
 	if err != nil {
 		return errors.Errorf("preparing endpoint exists query: %w", err)

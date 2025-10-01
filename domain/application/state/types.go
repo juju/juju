@@ -45,13 +45,13 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
-// applicationID is used to get the ID of an application.
-type applicationID struct {
+// applicationUUDID is used to get the ID of an application.
+type applicationUUDID struct {
 	ID coreapplication.UUID `db:"uuid"`
 }
 
-// applicationIDAndName is used to get the ID and name of an application.
-type applicationIDAndName struct {
+// applicationUUIDAndName is used to get the ID and name of an application.
+type applicationUUIDAndName struct {
 	ID   coreapplication.UUID `db:"uuid"`
 	Name string               `db:"name"`
 }

@@ -78,7 +78,7 @@ type ExportService interface {
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application name.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
+	// application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, name string) (constraints.Value, error)

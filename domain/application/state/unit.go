@@ -369,7 +369,7 @@ func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapp
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := applicationUUDID{ID: appID}
 	appExistsQuery := `
 SELECT &applicationID.*
 FROM application
@@ -386,7 +386,7 @@ FROM unit u
 WHERE u.application_uuid = $applicationID.uuid
 `
 
-	app := applicationID{ID: appID}
+	app := applicationUUDID{ID: appID}
 	lifeStmt, err := st.Prepare(lifeQuery, app, unitNameLife{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1109,12 +1109,12 @@ SELECT a.uuid AS &applicationID.uuid
 FROM application AS a
 JOIN unit AS u ON u.application_uuid = a.uuid
 WHERE u.uuid = $unitUUID.uuid
-	`, applicationID{}, unitUUID)
+	`, applicationUUDID{}, unitUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var appID applicationID
+	var appID applicationUUDID
 	err = tx.Query(ctx, query, unitUUID).Get(&appID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return "", errors.Errorf("unit %q not found", uuid).Add(applicationerrors.UnitNotFound)
@@ -1896,7 +1896,7 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 		return nil, errors.Capture(err)
 	}
 
-	appUUID := applicationID{ID: uuid}
+	appUUID := applicationUUDID{ID: uuid}
 	query := ` SELECT &unitName.* FROM unit WHERE application_uuid = $applicationID.uuid`
 	stmt, err := st.Prepare(query, unitName{}, appUUID)
 	if err != nil {
@@ -2079,7 +2079,7 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 
 	appID, err := st.getUnitApplicationUUID(ctx, tx, unitUUID)
 	if err != nil {
-		return errors.Errorf("getting application id for unit %q: %w", unitUUID, err)
+		return errors.Errorf("getting application UUID for unit %q: %w", unitUUID, err)
 	}
 
 	if err := tx.Query(ctx, unitQuery, unitWorkloadVersion{
@@ -2150,7 +2150,7 @@ func (st *State) GetAllUnitCloudContainerIDsForApplication(
 		return nil, errors.Capture(err)
 	}
 
-	input := applicationID{ID: appUUID}
+	input := applicationUUDID{ID: appUUID}
 	query := `
 SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
 FROM unit u

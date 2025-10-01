@@ -570,7 +570,7 @@ AND    password_hash = $validatePasswordHash.password_hash;
 	return count > 0, errors.Capture(err)
 }
 
-// GetApplicationUUIDByName returns the application ID for the named application.
+// GetApplicationUUIDByName returns the application UUID for the named application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
 func (s *ModelState) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {

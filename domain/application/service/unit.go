@@ -126,7 +126,7 @@ type UnitState interface {
 	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
 	// SetUnitConstraints sets the unit constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// This method overwrites the full constraints on every call.
 	// If invalid constraints are provided (e.g. invalid container type or
 	// non-existing space), a [applicationerrors.InvalidUnitConstraints]

@@ -249,7 +249,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // GetApplicationConstraints returns the application constraints for the
 // specified application name.
 // Empty constraints are returned if no constraints exist for the given
-// application ID.
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (coreconstraints.Value, error) {

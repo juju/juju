@@ -6,9 +6,9 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// ApplicationIDNotValid describes an error when the application ID is
+	// ApplicationUUIDNotValid describes an error when the application UUID is
 	// not valid.
-	ApplicationIDNotValid = errors.ConstError("application ID not valid")
+	ApplicationUUIDNotValid = errors.ConstError("application UUID not valid")
 
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.

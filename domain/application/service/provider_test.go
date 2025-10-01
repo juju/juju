@@ -2349,14 +2349,14 @@ func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationConstraints(c.Context(), "bad-app-id")
-	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+	c.Assert(err, tc.ErrorMatches, "application UUID: id \"bad-app-id\" not valid")
 }
 
 func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.SetApplicationConstraints(c.Context(), "bad-app-id", coreconstraints.Value{})
-	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+	c.Assert(err, tc.ErrorMatches, "application UUID: id \"bad-app-id\" not valid")
 }
 
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {

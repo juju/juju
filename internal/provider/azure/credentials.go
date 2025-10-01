@@ -90,7 +90,7 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 		// password.
 		clientCredentialsAuthType: {
 			{
-				credAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
+				credAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application UUID"},
 			}, {
 				credAttrApplicationObjectId, cloud.CredentialAttr{
 					Description: "Azure Active Directory application Object ID",

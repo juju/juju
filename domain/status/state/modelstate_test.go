@@ -140,17 +140,17 @@ func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
+func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
 	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
 
-	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
+	appUUID, appName, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appUUID, tc.Equals, expectedAppUUID)
 	c.Check(appName, tc.Equals, "foo")
 }
 
-func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C) {
-	_, _, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), "failme")
+func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitNameNotFound(c *tc.C) {
+	_, _, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), "failme")
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)
 }
 

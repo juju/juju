@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
-type applicationID struct {
+type applicationUUID struct {
 	ID coreapplication.UUID `db:"uuid"`
 }
 
-type applicationIDAndName struct {
+type applicationUUIDAndName struct {
 	ID   coreapplication.UUID `db:"uuid"`
 	Name string               `db:"name"`
 }

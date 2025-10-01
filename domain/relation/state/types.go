@@ -27,11 +27,6 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// applicationID is used to get the ID of an application.
-type applicationID struct {
-	ID application.UUID `db:"uuid"`
-}
-
 type relationUUID struct {
 	UUID corerelation.UUID `db:"uuid"`
 }
@@ -316,8 +311,8 @@ type watcherMapperData struct {
 	Suspended    string `db:"name"`
 }
 
-// applicationIDAndName is used to get the ID and name of an application.
-type applicationIDAndName struct {
+// applicationUUIDAndName is used to get the UUID and name of an application.
+type applicationUUIDAndName struct {
 	ID   application.UUID `db:"uuid"`
 	Name string           `db:"name"`
 }

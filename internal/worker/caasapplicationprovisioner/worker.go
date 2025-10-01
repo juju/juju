@@ -79,7 +79,7 @@ type ApplicationService interface {
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 	GetAllUnitLifeForApplication(context.Context, application.UUID) (map[unit.Name]life.Value, error)
 
-	// GetApplicationName returns the application name for the given application ID.
+	// GetApplicationName returns the application name for the given application UUID.
 	GetApplicationName(ctx context.Context, id application.UUID) (string, error)
 
 	// WatchApplications returns a watcher that observes changes to applications.

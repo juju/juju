@@ -1326,7 +1326,7 @@ func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitUnitNotFound
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
+func (s *applicationStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
 	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 
 	appUUID, appName, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), "foo/0")
@@ -1335,7 +1335,7 @@ func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
 	c.Check(appName, tc.Equals, "foo")
 }
 
-func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C) {
+func (s *applicationStateSuite) TestGetApplicationUUIDAndNameByUnitNameNotFound(c *tc.C) {
 	_, _, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), "failme")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -2843,7 +2843,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: cid})
+		return s.checkApplicationCharm(c.Context(), tx, applicationUUDID{ID: id}, charmID{UUID: cid})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -2852,7 +2852,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C)
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.checkApplicationCharm(c.Context(), tx, applicationID{ID: id}, charmID{UUID: "other"})
+		return s.checkApplicationCharm(c.Context(), tx, applicationUUDID{ID: id}, charmID{UUID: "other"})
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
 }
@@ -4059,7 +4059,7 @@ ORDER BY r.relation_id
 	c.Check(peerRelations, tc.SameContents, expected)
 }
 
-func (s *applicationStateSuite) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {
+func (s *applicationStateSuite) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationUUDID, charmID charmID) error {
 	query := `
 SELECT COUNT(*) AS &countResult.count
 FROM application

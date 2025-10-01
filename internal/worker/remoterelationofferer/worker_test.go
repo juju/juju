@@ -81,7 +81,7 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	select {
@@ -135,7 +135,7 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	select {
@@ -148,7 +148,7 @@ func (s *workerSuite) TestRemoteApplicationsDead(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	waitForEmptyRunner(c, w.runner)
@@ -190,7 +190,7 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	select {
@@ -203,7 +203,7 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	waitForEmptyRunner(c, w.runner)
@@ -250,7 +250,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	select {
@@ -265,7 +265,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out pushing application IDs to WatchRemoteApplications")
+		c.Fatalf("timed out pushing application UUIDs to WatchRemoteApplications")
 	}
 
 	select {

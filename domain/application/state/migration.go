@@ -108,7 +108,7 @@ func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapp
 	}
 
 	var unit exportUnit
-	id := applicationID{
+	id := applicationUUDID{
 		ID: appID,
 	}
 	query := `
@@ -296,7 +296,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
-		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+		if err := st.updateConfigHash(ctx, tx, applicationUUDID{ID: appUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
 		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID.String(), args.EndpointBindings); err != nil {

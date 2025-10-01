@@ -34,7 +34,7 @@ type MigrationState interface {
 		scope charm.RelationScope,
 	) (corerelation.UUID, error)
 
-	// GetApplicationUUIDByName returns the application ID of the given application.
+	// GetApplicationUUIDByName returns the application UUID of the given application.
 	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
 
 	// SetRelationApplicationSettings records settings for a specific application

@@ -64,7 +64,7 @@ type ModelConfigService interface {
 // ApplicationService provides access to applications.
 type ApplicationService interface {
 
-	// GetApplicationUUIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application UUID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
@@ -556,16 +556,16 @@ func (w *revisionUpdateWorker) storeNewResourcesRevision(ctx context.Context,
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Maybe the application has been removed in the meantime. In this case,
 		// that's not a real issue. Log it as a warning and continue.
-		w.config.Logger.Warningf(ctx, "failed to get application ID for %q: %v", info.appName, err)
+		w.config.Logger.Warningf(ctx, "failed to get application UUID for %q: %v", info.appName, err)
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return w.config.ResourceService.SetRepositoryResources(ctx, domainresource.SetRepositoryResourcesArgs{
-		ApplicationID: appID,
-		CharmID:       charmID,
-		Info:          info.resources,
-		LastPolled:    w.config.Clock.Now(),
+		ApplicationUUID: appID,
+		CharmID:         charmID,
+		Info:            info.resources,
+		LastPolled:      w.config.Clock.Now(),
 	})
 }
 

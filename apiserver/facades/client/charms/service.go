@@ -32,7 +32,7 @@ type ApplicationService interface {
 	// locator by the name. If no names are provided, all charms are returned.
 	ListCharmLocators(ctx context.Context, names ...string) ([]charm.CharmLocator, error)
 
-	// GetApplicationUUIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application UUID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
@@ -46,9 +46,9 @@ type ApplicationService interface {
 	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// GetApplicationConstraints returns the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
+	// application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(context.Context, coreapplication.UUID) (constraints.Value, error)

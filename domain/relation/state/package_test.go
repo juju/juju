@@ -308,7 +308,7 @@ VALUES (?,?,?)
 }
 
 // addRelationApplicationSetting inserts a relation application setting into the database
-// using the provided relation and application ID.
+// using the provided relation and application UUID.
 func (s *baseRelationSuite) addRelationApplicationSetting(c *tc.C, relationEndpointUUID, key, value string) {
 	s.query(c, `
 INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)

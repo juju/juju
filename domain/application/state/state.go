@@ -1391,7 +1391,7 @@ func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUI
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
-	ident := applicationID{ID: appUUID}
+	ident := applicationUUDID{ID: appUUID}
 	query := `
 SELECT &life.*
 FROM application AS a

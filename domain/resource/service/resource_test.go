@@ -63,9 +63,9 @@ func (s *resourceServiceSuite) TestDeleteApplicationResourcesBadArgs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.DeleteApplicationResources(c.Context(),
-		"not an application ID")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid,
-		tc.Commentf("Application ID should be stated as not valid"))
+		"not an application UUID")
+	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid,
+		tc.Commentf("Application UUID should be stated as not valid"))
 }
 
 func (s *resourceServiceSuite) TestDeleteApplicationResourcesUnexpectedError(c *tc.C) {
@@ -126,8 +126,8 @@ func (s *resourceServiceSuite) TestGetApplicationResourceID(c *tc.C) {
 
 	retID := resourcetesting.GenResourceUUID(c)
 	args := resource.GetApplicationResourceIDArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		Name:          "test-resource",
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		Name:            "test-resource",
 	}
 	s.state.EXPECT().GetApplicationResourceID(gomock.Any(), args).Return(retID, nil)
 
@@ -140,8 +140,8 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := resource.GetApplicationResourceIDArgs{
-		ApplicationID: "",
-		Name:          "test-resource",
+		ApplicationUUID: "",
+		Name:            "test-resource",
 	}
 	_, err := s.service.GetApplicationResourceID(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -151,8 +151,8 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := resource.GetApplicationResourceIDArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		Name:          "",
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		Name:            "",
 	}
 	_, err := s.service.GetApplicationResourceID(c.Context(), args)
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
@@ -225,22 +225,22 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
 
-func (s *resourceServiceSuite) TestGetResourcesByApplicationIDBadID(c *tc.C) {
+func (s *resourceServiceSuite) TestGetResourcesByApplicationUUIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service.GetResourcesByApplicationID(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid)
+	_, err := s.service.GetResourcesByApplicationUUID(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
 }
 
-func (s *resourceServiceSuite) TestGetResourcesByApplicationID(c *tc.C) {
+func (s *resourceServiceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
 	expectedList := []coreresource.Resource{{
 		RetrievedBy: "admin",
 	}}
-	s.state.EXPECT().GetResourcesByApplicationID(gomock.Any(), id).Return(expectedList, nil)
+	s.state.EXPECT().GetResourcesByApplicationUUID(gomock.Any(), id).Return(expectedList, nil)
 
-	obtainedList, err := s.service.GetResourcesByApplicationID(c.Context(), id)
+	obtainedList, err := s.service.GetResourcesByApplicationUUID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
@@ -248,7 +248,7 @@ func (s *resourceServiceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 func (s *resourceServiceSuite) TestListResourcesBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.ListResources(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
@@ -889,8 +889,8 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 	args := resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 
 			Meta: charmresource.Meta{
@@ -923,8 +923,8 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationError(c *tc.
 
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name:        "my-resource",
@@ -949,11 +949,11 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationIDNotValid(c
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: "Not-valid",
+		ApplicationUUID: "Not-valid",
 	})
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationUUIDNotValid)
 }
 
 func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *tc.C) {
@@ -961,8 +961,8 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *tc.C
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       "Not-valid",
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         "Not-valid",
 	})
 
 	// Assert
@@ -978,8 +978,8 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoLastPolled
 
 	// Act
 	err = s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       charmtesting.GenCharmID(c),
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name:        "my-resource",
@@ -1004,10 +1004,10 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoInfo(c *tc
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       charmtesting.GenCharmID(c),
-		Info:          nil,
-		LastPolled:    time.Now(),
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         charmtesting.GenCharmID(c),
+		Info:            nil,
+		LastPolled:      time.Now(),
 	})
 
 	// Assert
@@ -1019,10 +1019,10 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(
 
 	// Act
 	err := s.service.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: applicationtesting.GenApplicationUUID(c),
-		CharmID:       charmtesting.GenCharmID(c),
-		Info:          []charmresource.Resource{{}, {}}, // Invalid resources
-		LastPolled:    time.Now(),
+		ApplicationUUID: applicationtesting.GenApplicationUUID(c),
+		CharmID:         charmtesting.GenCharmID(c),
+		Info:            []charmresource.Resource{{}, {}}, // Invalid resources
+		LastPolled:      time.Now(),
 	})
 
 	// Assert
