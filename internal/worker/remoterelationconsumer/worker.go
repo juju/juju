@@ -248,8 +248,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	// Watch for new remote application offerers. This is the consuming side,
 	// so the consumer model has received an offer from another model.
@@ -371,8 +370,4 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 // Report provides information for the engine report.
 func (w *Worker) Report() map[string]interface{} {
 	return w.runner.Report()
-}
-
-func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

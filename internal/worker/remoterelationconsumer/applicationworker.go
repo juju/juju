@@ -850,10 +850,6 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	return localApplicationToken, offeringAppToken, localRelationToken, registerResult.Macaroon, nil
 }
 
-func (w *remoteApplicationWorker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
-}
-
 // relationInfo holds attributes relevant to a particular relation between a
 // local app and a remote offer.
 type relationInfo struct {
