@@ -57,12 +57,12 @@ type CAASProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
+	storageService
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
-
-	storagePoolProvider StoragePoolProvider
+	st                      State
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -87,10 +87,14 @@ func NewProviderService(
 			clock,
 			logger,
 		),
+		storageService: storageService{
+			st:                  st,
+			storagePoolProvider: storagePoolProvider,
+		},
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
-		storagePoolProvider:     storagePoolProvider,
+		st:                      st,
 	}
 }
 
@@ -488,14 +492,33 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs.OrderedId = ord
 	registerArgs.OrderedScale = true
 
-	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	isRegistered, unitUUID, unitNetNodeUUID, err :=
+		s.st.CheckCAASUnitRegistered(ctx, unitName)
+	fmt.Println(unitUUID)
 	if err != nil {
 		return "", "", errors.Errorf(
-			"generating new net node uuid for caas unit %q: %w",
+			"checking if unit %q is already registered in the model: %w",
 			unitName, err,
 		)
 	}
-	registerArgs.NetNodeUUID = netNodeUUID
+
+	if !isRegistered {
+		unitUUID, err = coreunit.NewUUID()
+		if err != nil {
+			return "", "", errors.Errorf(
+				"generating new unit %q uuid: %w", unitName, err,
+			)
+		}
+
+		unitNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
+		if err != nil {
+			return "", "", errors.Errorf(
+				"generating new unit %q net node: %w", unitName, err,
+			)
+		}
+	}
+
+	registerArgs.NetNodeUUID = unitNetNodeUUID
 
 	// Find the pod/unit in the provider.
 	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
@@ -526,8 +549,8 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	storageArg, err := s.getRegisterCAASUnitStorageArgs(
-		ctx, appUUID, unitName, caasUnit.FilesystemInfo,
+	storageArg, err := s.getRegisterCAASUnitStorageArg(
+		ctx, appUUID, unitUUID, "", caasUnit.FilesystemInfo,
 	)
 	if err != nil {
 		return "", "", errors.Errorf(
@@ -703,7 +726,7 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,
-		s.storagePoolProvider,
+		s.storageService.storagePoolProvider,
 	)
 	if err != nil {
 		return errors.Errorf(
