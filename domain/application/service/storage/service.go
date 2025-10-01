@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package storage
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -51,6 +50,13 @@ type cachedStoragePoolProvider struct {
 	Cache map[domainstorage.StoragePoolUUID]storage.Provider
 }
 
+// DefaultStoragePoolProvider is the default implementation of
+// [StoragePoolProvider] for this domain.
+type DefaultStoragePoolProvider struct {
+	providerRegistryGetter corestorage.ModelStorageRegistryGetter
+	st                     StorageProviderState
+}
+
 // StoragePoolProvider defines an interface by where provider based questions
 // for storage pools can be asked. This interface acts as the bridge between a
 // storage pool and the underlying provider that is used.
@@ -81,21 +87,6 @@ type StoragePoolProvider interface {
 	) (storage.Provider, error)
 }
 
-// DefaultStoragePoolProvider is the default implementation of
-// [StoragePoolProvider] for this domain.
-type DefaultStoragePoolProvider struct {
-	providerRegistryGetter corestorage.ModelStorageRegistryGetter
-	st                     StorageProviderState
-}
-
-// storageService defines an internal service to this package that groups and
-// establishes storage related operations for applications in the model.
-type storageService struct {
-	st StorageState
-
-	storagePoolProvider StoragePoolProvider
-}
-
 // StorageProviderState defines the required interface of the model's state for
 // interacting with storage providers.
 type StorageProviderState interface {
@@ -106,6 +97,14 @@ type StorageProviderState interface {
 	// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
 	// provided pool uuid.
 	GetProviderTypeForPool(context.Context, domainstorage.StoragePoolUUID) (string, error)
+}
+
+// StorageService defines an internal service to this package that groups and
+// establishes storage related operations for applications in the model.
+type StorageService struct {
+	st StorageState
+
+	storagePoolProvider StoragePoolProvider
 }
 
 // StorageState describes retrieval and persistence methods for
@@ -247,28 +246,11 @@ func NewStoragePoolProvider(
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := storageID.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	storageUUID, err := s.st.GetStorageUUIDByID(ctx, storageID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = s.st.AttachStorage(ctx, storageUUID, unitUUID)
-	if errors.Is(err, applicationerrors.StorageAlreadyAttached) {
-		return nil
-	}
-	return err
+func (s *StorageService) AttachStorage(
+	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
+) error {
+	// TODO (tlm): re-implement in DQlite
+	return errors.New("not implemented")
 }
 
 // AddStorageForUnit adds storage instances to the given unit.
@@ -283,22 +265,11 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *Service) AddStorageForUnit(
+func (s *StorageService) AddStorageForUnit(
 	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive storage.Directive,
 ) ([]corestorage.ID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	if err := unitName.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-	if err := storageName.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return s.st.AddStorageForUnit(ctx, storageName, unitUUID, directive)
+	// TODO (tlm): re-implement in DQlite
+	return nil, errors.New("not implemented")
 }
 
 // CheckPoolSupportsCharmStorage checks that the provided storage
@@ -312,6 +283,9 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 	poolUUID domainstorage.StoragePoolUUID,
 	storageType internalcharm.StorageType,
 ) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, err := v.GetProviderForPool(ctx, poolUUID)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -329,6 +303,24 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 	}
 }
 
+// encodeStorageKindFromCharmStorageType provides a mapping from charm storage
+// type to storage kind.
+func encodeStorageKindFromCharmStorageType(
+	storageType charm.StorageType,
+) (domainstorageprov.Kind, error) {
+	switch storageType {
+	case charm.StorageBlock:
+		return domainstorageprov.KindBlock, nil
+	case charm.StorageFilesystem:
+		return domainstorageprov.KindFilesystem, nil
+	default:
+		return -1, errors.Errorf(
+			"no mapping exists from charm storage type %q to storage kind",
+			storageType,
+		)
+	}
+}
+
 // GetProviderForPool returns the storage provider that is backing a given
 // storage pool. This is a utility func for this domain to enable asking
 // questions of a provider when you are starting with a storage pool.
@@ -341,6 +333,9 @@ func (v *DefaultStoragePoolProvider) GetProviderForPool(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
 ) (storage.Provider, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := poolUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"storage pool uuid is not valid: %w", err,
@@ -395,6 +390,9 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
 ) (storage.Provider, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	provider, has := c.Cache[poolUUID]
 	if has {
 		return provider, nil
@@ -418,7 +416,7 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 // - [applicationerrors.UnitNotFound] when the unit no longer exists. This error
 // will only trigger when the unit had existed but was removed before this
 // operation completed.
-func (s storageService) getRegisterCAASUnitStorageInfo(
+func (s StorageService) getRegisterCAASUnitStorageInfo(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
@@ -473,7 +471,7 @@ func (s storageService) getRegisterCAASUnitStorageInfo(
 	return directivesToFollow, existingUnitStorage, nil
 }
 
-// getRegisterCAASUnitStorageArg is responsible for getting the storage
+// GetRegisterCAASUnitStorageArg is responsible for getting the storage
 // arguments required to register a CAAS unit in the model. This func considers
 // pre existing storage already in the model for the unit and any new storage
 // that needs to be created.
@@ -487,13 +485,16 @@ func (s storageService) getRegisterCAASUnitStorageInfo(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s storageService) getRegisterCAASUnitStorageArg(
+func (s StorageService) GetRegisterCAASUnitStorageArg(
 	ctx context.Context,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
 ) (application.RegisterUnitStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	// We don't consider the volume information in the caas filesystem info.
 	providerIDs := make([]string, 0, len(providerFilesystemInfo))
 	for _, fsInfo := range providerFilesystemInfo {
@@ -520,7 +521,7 @@ func (s storageService) getRegisterCAASUnitStorageArg(
 		return application.RegisterUnitStorageArg{}, errors.Capture(err)
 	}
 
-	unitStorageArgs, err := s.makeUnitStorageArgs(
+	unitStorageArgs, err := s.MakeUnitStorageArgs(
 		ctx,
 		attachmentNetNodeUUID,
 		directivesToFollow,
@@ -563,6 +564,39 @@ func (s storageService) getRegisterCAASUnitStorageArg(
 		FilesystemProviderIDs: filesystemProviderIDs,
 		VolumeProviderIDs:     volumeProviderIDs,
 	}, nil
+}
+
+// DetachStorageForUnit detaches the specified storage from the specified unit.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
+// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
+// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
+func (s *StorageService) DetachStorageForUnit(
+	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
+) error {
+	// TODO (tlm): re-implement in DQlite
+	return errors.New("not implemented")
+}
+
+// DetachStorage detaches the specified storage from whatever node it is attached to.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
+// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
+func (s *StorageService) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := storageID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	storageUUID, err := s.st.GetStorageUUIDByID(ctx, storageID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return s.st.DetachStorage(ctx, storageUUID)
 }
 
 // makeCAASStorageInstanceProviderIDAssociations takes the reported filesystem
@@ -627,52 +661,121 @@ func makeCAASStorageInstanceProviderIDAssociations(
 	return rvalFilesystemProviderIDs, rvalVolumeProviderIDs
 }
 
-// DetachStorageForUnit detaches the specified storage from the specified unit.
-// The following error types can be expected:
-// - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
-// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := storageID.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+// makeStorageAttachmentArgFromExistingStorageInstance is responsible for taking
+// an existing storage instance in the model and generating a corresponding
+// storage attachment creation argument.
+//
+// The attachment of the filesystem and volume will be done on to the supplied
+// net node and follow the information set on the existing storage instance.
+func makeStorageAttachmentArgFromExistingStorageInstance(
+	netNodeUUID domainnetwork.NetNodeUUID,
+	storageInstance internal.StorageInstanceComposition,
+) (application.CreateUnitStorageAttachmentArg, error) {
+	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
 	if err != nil {
-		return errors.Capture(err)
+		return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			"generating new storage attachment uuid: %w", err,
+		)
 	}
-	storageUUID, err := s.st.GetStorageUUIDByID(ctx, storageID)
-	if err != nil {
-		return errors.Capture(err)
+
+	rval := application.CreateUnitStorageAttachmentArg{
+		StorageInstanceUUID: storageInstance.UUID,
+		UUID:                uuid,
 	}
-	return s.st.DetachStorageForUnit(ctx, storageUUID, unitUUID)
+
+	if storageInstance.Filesystem != nil {
+		uuid, err := domainstorageprov.NewFilesystemAttachmentUUID()
+		if err != nil {
+			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+				"generating new filesystem attachment uuid: %w", err,
+			)
+		}
+
+		rval.FilesystemAttachment = &application.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: storageInstance.Filesystem.UUID,
+			NetNodeUUID:    netNodeUUID,
+			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
+			UUID:           uuid,
+		}
+	}
+
+	if storageInstance.Volume != nil {
+		uuid, err := domainstorageprov.NewVolumeAttachmentUUID()
+		if err != nil {
+			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+				"generating new volume attachment uuid: %w", err,
+			)
+		}
+
+		rval.VolumeAttachment = &application.CreateUnitStorageVolumeAttachmentArg{
+			VolumeUUID:     storageInstance.Volume.UUID,
+			NetNodeUUID:    netNodeUUID,
+			ProvisionScope: storageInstance.Volume.ProvisionScope,
+			UUID:           uuid,
+		}
+	}
+
+	return rval, nil
 }
 
-// DetachStorage detaches the specified storage from whatever node it is attached to.
-// The following error types can be expected:
-// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	if err := storageID.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	storageUUID, err := s.st.GetStorageUUIDByID(ctx, storageID)
+// makeStorageAttachmentArgFromNewStorageInstance is responsible for taking the
+// arguments to create a new storage instance in the model and generating a
+// corresponding storage attachment creation argument.
+//
+// The attachment of filesystem and volume will be done on to the supplied net
+// node and follow the information set on the storage instance.
+func makeStorageAttachmentArgFromNewStorageInstance(
+	netNodeUUID domainnetwork.NetNodeUUID,
+	storageInstance application.CreateUnitStorageInstanceArg,
+) (application.CreateUnitStorageAttachmentArg, error) {
+	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
 	if err != nil {
-		return errors.Capture(err)
+		return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			"generating new storage attachment uuid: %w", err,
+		)
 	}
-	return s.st.DetachStorage(ctx, storageUUID)
+
+	rval := application.CreateUnitStorageAttachmentArg{
+		StorageInstanceUUID: storageInstance.UUID,
+		UUID:                uuid,
+	}
+
+	if storageInstance.Filesystem != nil {
+		uuid, err := domainstorageprov.NewFilesystemAttachmentUUID()
+		if err != nil {
+			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+				"generating new filesystem attachment uuid: %w", err,
+			)
+		}
+
+		rval.FilesystemAttachment = &application.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: storageInstance.Filesystem.UUID,
+			NetNodeUUID:    netNodeUUID,
+			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
+			UUID:           uuid,
+		}
+	}
+
+	if storageInstance.Volume != nil {
+		uuid, err := domainstorageprov.NewVolumeAttachmentUUID()
+		if err != nil {
+			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+				"generating new volume attachment uuid: %w", err,
+			)
+		}
+
+		rval.VolumeAttachment = &application.CreateUnitStorageVolumeAttachmentArg{
+			VolumeUUID:     storageInstance.Volume.UUID,
+			NetNodeUUID:    netNodeUUID,
+			ProvisionScope: storageInstance.Volume.ProvisionScope,
+			UUID:           uuid,
+		}
+	}
+
+	return rval, nil
 }
 
-// makeUnitStorageArgs creates the storage arguments required for a unit in
+// MakeUnitStorageArgs creates the storage arguments required for a unit in
 // the model. This func looks at the set of directives for the unit and the
 // existing storage available. From this any new instances that need to be
 // created are calculated and all storage attachments are added.
@@ -689,12 +792,15 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 // supplied it is possible that some existing storage will be unused. It is up
 // to the caller to validate what storage was and wasn't used by looking at the
 // storage attachments.
-func (s storageService) makeUnitStorageArgs(
+func (s StorageService) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,
 	existingStorage []internal.StorageInstanceComposition,
 ) (application.CreateUnitStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	rvalDirectives := make([]application.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []application.CreateUnitStorageInstanceArg{}
 	rvalToAttach := make([]application.CreateUnitStorageAttachmentArg, 0, len(storageDirectives))
@@ -789,138 +895,6 @@ func (s storageService) makeUnitStorageArgs(
 	}, nil
 }
 
-// makeStorageAttachmentArgFromNewStorageInstance is responsible for taking the
-// arguments to create a new storage instance in the model and generating a
-// corresponding storage attachment creation argument.
-//
-// The attachment of filesystem and volume will be done on to the supplied net
-// node and follow the information set on the storage instance.
-func makeStorageAttachmentArgFromNewStorageInstance(
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstance application.CreateUnitStorageInstanceArg,
-) (application.CreateUnitStorageAttachmentArg, error) {
-	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
-	if err != nil {
-		return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-			"generating new storage attachment uuid: %w", err,
-		)
-	}
-
-	rval := application.CreateUnitStorageAttachmentArg{
-		StorageInstanceUUID: storageInstance.UUID,
-		UUID:                uuid,
-	}
-
-	if storageInstance.Filesystem != nil {
-		uuid, err := domainstorageprov.NewFilesystemAttachmentUUID()
-		if err != nil {
-			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new filesystem attachment uuid: %w", err,
-			)
-		}
-
-		rval.FilesystemAttachment = &application.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: storageInstance.Filesystem.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	if storageInstance.Volume != nil {
-		uuid, err := domainstorageprov.NewVolumeAttachmentUUID()
-		if err != nil {
-			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new volume attachment uuid: %w", err,
-			)
-		}
-
-		rval.VolumeAttachment = &application.CreateUnitStorageVolumeAttachmentArg{
-			VolumeUUID:     storageInstance.Volume.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Volume.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	return rval, nil
-}
-
-// makeStorageAttachmentArgFromExistingStorageInstance is responsible for taking
-// an existing storage instance in the model and generating a corresponding
-// storage attachment creation argument.
-//
-// The attachment of the filesystem and volume will be done on to the supplied
-// net node and follow the information set on the existing storage instance.
-func makeStorageAttachmentArgFromExistingStorageInstance(
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstance internal.StorageInstanceComposition,
-) (application.CreateUnitStorageAttachmentArg, error) {
-	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
-	if err != nil {
-		return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-			"generating new storage attachment uuid: %w", err,
-		)
-	}
-
-	rval := application.CreateUnitStorageAttachmentArg{
-		StorageInstanceUUID: storageInstance.UUID,
-		UUID:                uuid,
-	}
-
-	if storageInstance.Filesystem != nil {
-		uuid, err := domainstorageprov.NewFilesystemAttachmentUUID()
-		if err != nil {
-			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new filesystem attachment uuid: %w", err,
-			)
-		}
-
-		rval.FilesystemAttachment = &application.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: storageInstance.Filesystem.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	if storageInstance.Volume != nil {
-		uuid, err := domainstorageprov.NewVolumeAttachmentUUID()
-		if err != nil {
-			return application.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new volume attachment uuid: %w", err,
-			)
-		}
-
-		rval.VolumeAttachment = &application.CreateUnitStorageVolumeAttachmentArg{
-			VolumeUUID:     storageInstance.Volume.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Volume.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	return rval, nil
-}
-
-// encodeStorageKindFromCharmStorageType provides a mapping from charm storage
-// type to storage kind.
-func encodeStorageKindFromCharmStorageType(
-	storageType charm.StorageType,
-) (domainstorage.StorageKind, error) {
-	switch storageType {
-	case charm.StorageBlock:
-		return domainstorage.StorageKindBlock, nil
-	case charm.StorageFilesystem:
-		return domainstorage.StorageKindFilesystem, nil
-	default:
-		return -1, errors.Errorf(
-			"no mapping exists from charm storage type %q to storage kind",
-			storageType,
-		)
-	}
-}
-
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage
 // directive and creating a set of storage instance args that are capable of
 // fulfilling the requirements of the directive.
@@ -1009,27 +983,4 @@ func makeUnitStorageInstancesFromDirective(
 	}
 
 	return rval, nil
-}
-
-// makeStorageDirectiveFromApplicationArg is responsible take the storage
-// directive create params for an application and converting them into
-// [application.StorageDirective] types for creating units.
-func makeStorageDirectiveFromApplicationArg(
-	charmMetadataName string,
-	charmStorage map[string]internalcharm.Storage,
-	applicationArgs []application.CreateApplicationStorageDirectiveArg,
-) []application.StorageDirective {
-	rval := make([]application.StorageDirective, 0, len(applicationArgs))
-	for _, arg := range applicationArgs {
-		rval = append(rval, application.StorageDirective{
-			CharmMetadataName: charmMetadataName,
-			Name:              arg.Name,
-			Count:             arg.Count,
-			CharmStorageType:  charm.StorageType(charmStorage[arg.Name.String()].Type),
-			PoolUUID:          arg.PoolUUID,
-			Size:              arg.Size,
-		})
-	}
-
-	return rval
 }

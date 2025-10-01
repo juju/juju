@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/juju/domain/application/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
@@ -29,9 +30,24 @@ type CreateUnitStorageFilesystemArg struct {
 	ProvisionScope domainstorageprov.ProvisionScope
 }
 
+type CreateUnitStorageFilesystemAttachmentArg struct {
+	FilesystemUUID domainstorageprov.FilesystemUUID
+
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	ProvisionScope domainstorageprov.ProvisionScope
+
+	UUID domainstorageprov.FilesystemAttachmentUUID
+}
+
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
 // storage instance on behalf of a unit.
 type CreateUnitStorageInstanceArg struct {
+	// CharmName is the name of the charm that this storage instance is being
+	// provisioned for. This value helps Juju later identify what charm this
+	// storage can be re-attached back to.
+	CharmName string
+
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
@@ -43,6 +59,15 @@ type CreateUnitStorageInstanceArg struct {
 	// Name is the name of the storage and must correspond to the storage name
 	// defined in the charm the unit is running.
 	Name domainstorage.Name
+
+	// RequestSizeMiB defines the requested size of this storage instance in
+	// MiB. What ends up being allocated for the storage instance will be at
+	// least this value.
+	RequestSizeMiB uint64
+
+	// StoragePoolUUID is the pool for which this storage instance is to be
+	// provisioned from.
+	StoragePoolUUID domainstorage.StoragePoolUUID
 
 	// Volume describes the properties of a new volume to be created alongside
 	// the storage instance. If this value is not nil a new volume will be
@@ -65,15 +90,29 @@ type CreateUnitStorageVolumeArg struct {
 	ProvisionScope domainstorageprov.ProvisionScope
 }
 
-// CreateStorageAttachmentArg describes the arguments required for creating a
+type CreateUnitStorageVolumeAttachmentArg struct {
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	ProvisionScope domainstorageprov.ProvisionScope
+
+	VolumeUUID domainstorageprov.VolumeUUID
+
+	UUID domainstorageprov.VolumeAttachmentUUID
+}
+
+// CreateUnitStorageAttachmentArg describes the arguments required for creating a
 // storage attachment.
-type CreateStorageAttachmentArg struct {
+type CreateUnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorageprov.StorageAttachmentUUID
+
+	FilesystemAttachment *CreateUnitStorageFilesystemAttachmentArg
 
 	// StorageInstanceUUID is the unique identifier of the storage instance
 	// to attach to the unit.
 	StorageInstanceUUID domainstorage.StorageInstanceUUID
+
+	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage
@@ -92,7 +131,7 @@ type CreateUnitStorageArg struct {
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateStorageAttachmentArg
+	StorageToAttach []CreateUnitStorageAttachmentArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -122,27 +161,38 @@ type RegisterUnitStorageArg struct {
 
 	// FilesystemProviderIDs defines the provider id value to set for each
 	// filesystem. This allows associating new filesystem that are being created
-	// with a unit with the information we already have from the provider.
+	// with the providers identifier for this storage.
 	FilesystemProviderIDs map[domainstorageprov.FilesystemUUID]string
+
+	// VolumeProviderIDs defines the provider id value to set for each volume.
+	// This allows associating new volumes that are being created with the
+	// providers identifier for this storage.
+	VolumeProviderIDs map[domainstorageprov.VolumeUUID]string
 }
 
 // StorageDirective defines a storage directive that already exists for either
 // an application or unit.
 type StorageDirective struct {
+	// CharmMetadataName is the metadata name of the charm the directive exists for.
+	CharmMetadataName string
+
 	// Count represents the number of storage instances that should be made for
-	// this directive.
+	// this directive. This value should be the desired count but not the limit.
+	// For the maximum supported limit see [StorageDirective.MaxCount].
 	Count uint32
 
-	// Type represents the storage type of the charm that the directive relates
-	// to.
-	Type charm.StorageType
+	// CharmStorageType represents the storage type of the charm that the
+	// directive relates to.
+	CharmStorageType charm.StorageType
+
+	// MaxCount represents the maximum number of storage instances that can be
+	// made for this directive.
+	MaxCount uint32
 
 	// Name relates to the charm storage name definition and must match up.
 	Name domainstorage.Name
 
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
+	// PoolUUID defines the storage pool uuid to use for the directive.
 	PoolUUID domainstorage.StoragePoolUUID
 
 	// Size defines the size of the storage directive in MiB.

@@ -1573,6 +1573,30 @@ func (s *unitStateSuite) TestGetUnitUUIDAndNetNodeForName(c *tc.C) {
 	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
 }
 
+// TestCheckCAASUnitNotRegistered tests that when provided with a unit name that
+// doesn't exist in the model that the caller gets back 'false' and no error.
+func (s *unitStateSuite) TestCheckCAASUnitNotRegistered(c *tc.C) {
+	unitName := coreunit.Name("foo/0")
+	isRegistered, _, _, err := s.state.CheckCAASUnitRegistered(
+		c.Context(), unitName,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isRegistered, tc.Equals, false)
+}
+
+// TestCheckCAASUnitRegistered tests that when provided with a unit name that
+// exists in the model is registered returns true with the correct uuid and
+// net node.
+func (s *unitStateSuite) TestCheckCAASUnitRegistered(c *tc.C) {
+	unitName, unitUUID := s.createNamedCAASUnit(c)
+	isRegistered, gotUUID, gotNetNodeUUID, err := s.state.
+		CheckCAASUnitRegistered(c.Context(), unitName)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(isRegistered, tc.IsTrue)
+	c.Check(gotUUID, tc.Equals, unitUUID)
+	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`

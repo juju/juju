@@ -258,6 +258,11 @@ CREATE TABLE storage_volume (
 CREATE UNIQUE INDEX idx_storage_volume_id
 ON storage_volume (volume_id);
 
+-- index is required on provider_id because this is how we associate what we
+-- find in the environ and re-attach it to a unit.
+CREATE INDEX idx_storage_volume_provider_id
+ON storage_volume (provider_id);
+
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
 CREATE TABLE storage_instance_volume (
@@ -361,6 +366,11 @@ CREATE TABLE storage_filesystem (
 
 CREATE UNIQUE INDEX idx_storage_filesystem_id
 ON storage_filesystem (filesystem_id);
+
+-- index is required on provider_id because this is how we associate what we
+-- find in the environ and re-attach it to a unit.
+CREATE INDEX idx_storage_filesystem_provider_id
+ON storage_filesystem (provider_id);
 
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.

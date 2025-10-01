@@ -25,7 +25,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderState,StoragePoolProvider
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderState,StoragePoolProvider,StorageState
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -mock_names=Provider=MockStorageProvider -destination internal_storage_mock_test.go github.com/juju/juju/internal/storage Provider,ProviderRegistry
 
 type baseSuite struct {
@@ -57,6 +57,26 @@ type baseSuite struct {
 func createAddCAASUnitArgsChecker() *tc.MultiChecker {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_[_].AddUnitArg.NetNodeUUID`, tc.IsNonZeroUUID)
+	return mc
+}
+
+// createAddIAASUnitArgsChecker returns a checker that is capable of deep equals
+// checking a slice of [github.com/juju/juju/domain/application.AddIAASUnitArg]
+// values.
+//
+// This checker will:
+// - Deep equals check all values in the slice.
+// - It will not deep equals check unit NetNodeUUID values, instead they will be
+// checked to make sure they're a non zero uuid value.
+// - It will not deep equals check machine uuid values, instead they will be
+// checked to make sure they're a non zero uuid value.
+// - It will not deep equals check machine net node uuid values, instead they
+// will be checked to make sure they're a non zero uuid value.
+func createAddIAASUnitArgsChecker() *tc.MultiChecker {
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].AddUnitArg.NetNodeUUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].MachineNetNodeUUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].MachineUUID`, tc.IsNonZeroUUID)
 	return mc
 }
 

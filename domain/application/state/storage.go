@@ -56,19 +56,27 @@ func (st *State) GetApplicationStorageDirectives(
 
 	appUUIDInput := entityUUID{UUID: appUUID.String()}
 	query, err := st.Prepare(`
-SELECT &applicationStorageDirective.*
-FROM   application_storage_directive asd
-JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
-JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-WHERE  application_uuid = $entityUUID.uuid
+SELECT &storageDirective.* (
+    SELECT asd.count,
+           asd.size_mib,
+           asd.storage_name,
+           asd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind
+    FROM   application_storage_directive asd
+    JOIN   charm_storage cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.name
+    JOIN   charm_metadata cm ON cm.charm_uuid = asd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  application_uuid = $entityUUID.uuid
+)
 		`,
-		appUUIDInput, applicationStorageDirective{},
+		appUUIDInput, storageDirective{},
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	dbVals := []applicationStorageDirective{}
+	dbVals := []storageDirective{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
 		if err != nil {
@@ -97,22 +105,114 @@ WHERE  application_uuid = $entityUUID.uuid
 	for _, val := range dbVals {
 
 		rval = append(rval, application.StorageDirective{
-			Count:    val.Count,
-			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.CharmStorageKind),
-			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
-			Size:     val.SizeMiB,
+			CharmMetadataName: val.CharmMetadataName,
+			Count:             val.Count,
+			Name:              domainstorage.Name(val.StorageName),
+			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
+			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:              val.SizeMiB,
 		})
 	}
 	return rval, nil
 }
 
+// GetStorageInstancesForProviderIDs returns all of the storage instances found
+// in the model using one of the provider ids supplied. If no storage instance
+// is found associated with a provider id then it is simply ignored. If no
+// storage instances exist matching the provider ids then an empty result is
+// returned to the caller.
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
-	appUUID coreapplication.ID,
 	ids []string,
-) (map[string]domainstorage.StorageInstanceUUID, error) {
-	return nil, nil
+) ([]internal.StorageInstanceComposition, error) {
+	// Early exit if no ids are supplied. We cannot have empty values with an
+	// IN expression.
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	providerIDsInput := storageProviderIDs(ids)
+
+	/*
+		id	parent	notused	detail
+		15	0     	0      	SCAN si USING INDEX sqlite_autoindex_storage_instance_1
+		18	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
+		25	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
+		33	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
+		40	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
+	*/
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     sf.provider_id IN ($storageProviderIDs[:])
+    OR        sv.provider_id IN ($storageProviderIDs[:])
+    GROUP BY  si.uuid
+)
+`
+
+	stmt, err := st.Prepare(
+		compositionQ,
+		providerIDsInput,
+		storageInstanceComposition{},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []storageInstanceComposition
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, providerIDsInput).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
+	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
+		v := internal.StorageInstanceComposition{
+			StorageName: s.StorageName,
+			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
+		}
+
+		if s.FilesystemUUID.Valid {
+			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.FilesystemProvisionScope.V),
+				UUID:           domainstorageprov.FilesystemUUID(s.FilesystemUUID.V),
+			}
+		}
+
+		if s.VolumeUUID.Valid {
+			v.Volume = &internal.StorageInstanceCompositionVolume{
+				ProvisionScope: domainstorageprov.ProvisionScope(s.VolumeProvisionScope.V),
+				UUID:           domainstorageprov.VolumeUUID(s.VolumeUUID.V),
+			}
+		}
+
+		rval = append(rval, v)
+		return true
+	})
+
+	return rval, nil
 }
 
 func (st *State) GetUnitOwnedStorageInstances(
@@ -180,11 +280,19 @@ func (st *State) GetUnitStorageDirectives(
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
 	query, err := st.Prepare(`
-SELECT &storageDirective.*
-FROM   unit_storage_directive usd
-JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-WHERE  unit_uuid = $entityUUID.uuid
+SELECT &storageDirective.* (
+    SELECT usd.count,
+           usd.size_mib,
+           usd.storage_name,
+           usd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind
+    FROM   unit_storage_directive usd
+    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  unit_uuid = $entityUUID.uuid
+)
 		`,
 		unitUUIDInput, storageDirective{},
 	)
@@ -219,13 +327,13 @@ WHERE  unit_uuid = $entityUUID.uuid
 
 	rval := make([]application.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-
 		rval = append(rval, application.StorageDirective{
-			Count:    val.Count,
-			Name:     domainstorage.Name(val.StorageName),
-			Type:     charm.StorageType(val.Kind),
-			PoolUUID: domainstorage.StoragePoolUUID(val.StoragePoolUUID),
-			Size:     val.SizeMiB,
+			CharmMetadataName: val.CharmMetadataName,
+			Count:             val.Count,
+			Name:              domainstorage.Name(val.StorageName),
+			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
+			PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
+			Size:              val.SizeMiB,
 		})
 	}
 	return rval, nil
@@ -387,11 +495,10 @@ func (st *State) insertUnitStorageDirectives(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	charmUUID corecharm.ID,
-	charmName string,
 	args []application.CreateUnitStorageDirectiveArg,
-) ([]unitStorageDirective, error) {
+) error {
 	if len(args) == 0 {
-		return []unitStorageDirective{}, nil
+		return nil
 	}
 
 	insertStorageDirectiveStmt, err := st.Prepare(`
@@ -399,11 +506,10 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 `,
 		insertUnitStorageDirective{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	insertArgs := make([]insertUnitStorageDirective, 0, len(args))
-	rval := make([]unitStorageDirective, 0, len(args))
 	for _, arg := range args {
 		insertArgs = append(insertArgs, insertUnitStorageDirective{
 			CharmUUID:       charmUUID.String(),
@@ -413,22 +519,16 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 			StoragePoolUUID: arg.PoolUUID.String(),
 			UnitUUID:        unitUUID.String(),
 		})
-
-		rval = append(rval, unitStorageDirective{
-			CharmName:       charmName,
-			Count:           arg.Count,
-			StorageName:     arg.Name.String(),
-			StoragePoolUUID: arg.PoolUUID.String(),
-			SizeMiB:         arg.Size,
-		})
 	}
 
 	err = tx.Query(ctx, insertStorageDirectiveStmt, insertArgs).Run()
 	if err != nil {
-		return nil, errors.Errorf("creating unit %q storage directives: %w", unitUUID, err)
+		return errors.Errorf(
+			"creating unit %q storage directives: %w", unitUUID, err,
+		)
 	}
 
-	return rval, nil
+	return nil
 }
 
 // insertUnitStorageInstances is responsible for creating all of the needed
@@ -436,11 +536,11 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 func (st *State) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
-	stDirectives []unitStorageDirective,
 	stArgs []application.CreateUnitStorageInstanceArg,
 ) error {
 	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
-		ctx, tx, stDirectives, stArgs)
+		ctx, tx, stArgs,
+	)
 	if err != nil {
 		return errors.Errorf(
 			"creating database input for makeing unit storage instances: %w",
@@ -840,20 +940,11 @@ WHERE uuid IN ($S[:])
 func (st *State) makeInsertUnitStorageInstanceArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	directives []unitStorageDirective,
 	args []application.CreateUnitStorageInstanceArg,
 ) ([]insertStorageInstance, error) {
-
-	directiveMap := make(map[domainstorage.Name]unitStorageDirective, len(directives))
-	for _, directive := range directives {
-		directiveMap[domainstorage.Name(directive.StorageName)] = directive
-	}
-
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
 
 	for _, arg := range args {
-		directive := directiveMap[arg.Name]
-
 		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
 		if err != nil {
 			return nil, errors.Errorf(
@@ -865,13 +956,13 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 		).String()
 
 		storageInstancesRval = append(storageInstancesRval, insertStorageInstance{
-			CharmName:       directive.CharmName,
+			CharmName:       arg.CharmName,
 			LifeID:          int(life.Alive),
-			RequestSizeMiB:  directive.SizeMiB,
+			RequestSizeMiB:  arg.RequestSizeMiB,
 			StorageID:       storageID,
 			StorageKindID:   int(arg.Kind),
 			StorageName:     arg.Name.String(),
-			StoragePoolUUID: directive.StoragePoolUUID,
+			StoragePoolUUID: arg.StoragePoolUUID.String(),
 			UUID:            arg.UUID.String(),
 		})
 	}

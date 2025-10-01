@@ -11,16 +11,15 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type baseStorageSuite struct {
@@ -29,50 +28,24 @@ type baseStorageSuite struct {
 	state *State
 }
 
-type caasStorageSuite struct {
-	baseStorageSuite
-}
-
-type iaasStorageSuite struct {
-	baseStorageSuite
-}
-
 // storageSuite is a suite for testing generic storage related state interfaces.
 // The primary means for testing state funcs not realted to applications
 // themselves.
 type storageSuite struct {
 	schematesting.ModelSuite
-}
-
-func TestCaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &caasStorageSuite{})
-}
-
-func TestIaasStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &iaasStorageSuite{})
+	storageHelper
 }
 
 func TestStorageSuite(t *stdtesting.T) {
-	tc.Run(t, &storageSuite{})
+	suite := &storageSuite{}
+	suite.storageHelper.dbGetter = &suite.ModelSuite
+	tc.Run(t, suite)
 }
 
 func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-func (s *storageSuite) createStoragePool(c *tc.C,
-	name, providerType string,
-) domainstorage.StoragePoolUUID {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
-	_, err := s.DB().Exec(`
-INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
-`,
-		poolUUID, name, providerType,
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return poolUUID
 }
 
 func (s *baseStorageSuite) TestGetStorageUUIDByID(c *tc.C) {
@@ -226,34 +199,6 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 	c.Check(foundAppStorage, tc.SameContents, directives)
 }
 
-func (s *caasStorageSuite) SetUpTest(c *tc.C) {
-	s.baseStorageSuite.SetUpTest(c)
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "caas", "test-model", "microk8s")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *iaasStorageSuite) SetUpTest(c *tc.C) {
-	s.baseStorageSuite.SetUpTest(c)
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
 // for a pool that doesn't exist returns the caller an error satisfying
 // [storageerrors.PoolNotFoundError].
@@ -271,7 +216,7 @@ func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool
 // is correctly returned.
 func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
-	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
+	poolUUID := s.newStoragePool(c, "test-pool", "ptype")
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
@@ -282,12 +227,12 @@ func (s *storageSuite) TestGetProviderTypeForPool(c *tc.C) {
 }
 
 func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
-	poolUUID := s.createStoragePool(c, "test-pool", "ptype")
+	poolUUID := s.newStoragePool(c, "test-pool", "ptype")
 
 	st := NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
-	db := s.DB()
+	db := s.ModelSuite.DB()
 
 	res, err := st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -317,4 +262,153 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
 		FilesystemPoolUUID: &poolUUID,
 	})
+}
+
+// TestGetStorageInstancesForProviderIDsNotFound tests that when no storage
+// instances exist in the model using any of the supplied provider ids an empty
+// map is returned with no error.
+func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), []string{"providerid1", "providerid2"},
+	)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 0)
+}
+
+// TestGetStorageInstancesForNoProviderIDs tests that when supplying no provider
+// ids to [State.GetStorageInstancesForProviderIDs] the caller recieves an empty
+// result back.
+func (s *storageSuite) TestGetStorageInstancesForNoProviderIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), nil,
+	)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 0)
+}
+
+// TestGetStorageInstancesForProviderIDs tests getting existing storage
+// instances that are utilising a provider id via either the instances volume or
+// filesystem. We expect to see that this test correctly identifies the right
+// storage instances and groups them together for their storage name.
+func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
+	instUUID1, fsUUID1 := s.newStorageInstanceFilesysatemWithProviderID(c, "st1", "provider1")
+	instUUID2, fsUUID2 := s.newStorageInstanceFilesysatemWithProviderID(c, "st2", "provider2")
+	instUUID3, fsUUID3 := s.newStorageInstanceFilesysatemWithProviderID(c, "st1", "provider3")
+	instUUID4, vUUID1 := s.newStorageInstanceVolumeWithProviderID(c, "st3", "provider4")
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), []string{
+			"provider1",
+			"provider2",
+			"provider3",
+			"provider4",
+			"providernotexist",
+		},
+	)
+
+	innerMC := tc.NewMultiChecker()
+	innerMC.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	innerMC.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](innerMC),
+		[]internal.StorageInstanceComposition{
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID1,
+				},
+				StorageName: "st1",
+				UUID:        instUUID1,
+			},
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID3,
+				},
+				StorageName: "st1",
+				UUID:        instUUID3,
+			},
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID2,
+				},
+				StorageName: "st2",
+				UUID:        instUUID2,
+			},
+			{
+				StorageName: "st3",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID1,
+				},
+				UUID: instUUID4,
+			},
+		},
+	)
+}
+
+// TestGetStorageInstancesForProviderIDsVolumeBackedFilesystems exists to test
+// de-duplication of data. We want to see that for volume backed filesystems
+// where the volume and filesystem share the same provider id still only one
+// storage instance is returned. We then also want to check where the ids are
+// different and that still only one storage instance is returned.
+func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesystems(c *tc.C) {
+	instUUID1, fsUUID1, vUUID1 :=
+		s.newStorageInstanceFilesystemBackedVolumeWithProviderID(
+			c, "st1", "provider1", "provider1",
+		)
+	instUUID2, fsUUID2, vUUID2 :=
+		s.newStorageInstanceFilesystemBackedVolumeWithProviderID(
+			c, "st2", "providerfs", "providerv",
+		)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	res, err := st.GetStorageInstancesForProviderIDs(
+		c.Context(), []string{
+			"provider1",
+			"providerfs",
+			"providerv",
+		},
+	)
+
+	innerMC := tc.NewMultiChecker()
+	innerMC.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	innerMC.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		res,
+		tc.UnorderedMatch[[]internal.StorageInstanceComposition](innerMC),
+		[]internal.StorageInstanceComposition{
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID1,
+				},
+				StorageName: "st1",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID1,
+				},
+				UUID: instUUID1,
+			},
+			{
+				Filesystem: &internal.StorageInstanceCompositionFilesystem{
+					UUID: fsUUID2,
+				},
+				StorageName: "st2",
+				Volume: &internal.StorageInstanceCompositionVolume{
+					UUID: vUUID2,
+				},
+				UUID: instUUID2,
+			},
+		},
+	)
 }

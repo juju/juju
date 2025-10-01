@@ -4,27 +4,17 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 )
-
-// applicationStorageDirective is used to represent the values held in the
-// application_storage_directive table representing the storage directives of
-// an application.
-type applicationStorageDirective struct {
-	Count            uint32 `db:"count"`
-	CharmStorageKind string `db:"kind"`
-	SizeMiB          uint64 `db:"size_mib"`
-	StorageName      string `db:"storage_name"`
-	StoragePoolUUID  string `db:"storage_pool_uuid"`
-}
 
 // insertStorageFilesystem represents the set of values required for inserting a
 // new storage filesystem into the model.
 type insertStorageFilesystem struct {
 	FilesystemID     string `db:"filesystem_id"`
 	LifeID           int    `db:"life_id"`
-	UUID             string `db:"uuid"`
 	ProvisionScopeID int    `db:"provision_scope_id"`
+	UUID             string `db:"uuid"`
 }
 
 // insertStorageFilesystemAttachment represents the set of values required for
@@ -32,9 +22,9 @@ type insertStorageFilesystem struct {
 type insertStorageFilesystemAttachment struct {
 	LifeID                int    `db:"life_id"`
 	NetNodeUUID           string `db:"net_node_uuid"`
+	ProvisionScopeID      int    `db:"provision_scope_id"`
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 	UUID                  string `db:"uuid"`
-	ProvisionScopeID      int    `db:"provision_scope_id"`
 }
 
 // insertStorageFilesystemInstance represents the set of values required for
@@ -89,9 +79,9 @@ type insertStorageVolume struct {
 type insertStorageVolumeAttachment struct {
 	LifeID            int    `db:"life_id"`
 	NetNodeUUID       string `db:"net_node_uuid"`
+	ProvisionScopeID  int    `db:"provision_scope_id"`
 	StorageVolumeUUID string `db:"storage_volume_uuid"`
 	UUID              string `db:"uuid"`
-	ProvisionScopeID  int    `db:"provision_scope_id"`
 }
 
 // insertStorageVolumeInstance represents the set of values required for
@@ -116,12 +106,9 @@ type storageFilesystemUUIDRef struct {
 	UUID string `db:"storage_filesystem_uuid"`
 }
 
-// storageFilesystemProvisionScope is a database type for finding the provison
-// scope of a filesystem.
-type storageFilesystemProvisionScope struct {
-	UUID             string `db:"uuid"`
-	ProvisionScopeID int    `db:"provision_scope_id"`
-}
+// storageProviderIDs  represents a list of provider ids that have been given to
+// either a volume or filesystem in the model.
+type storageProviderIDs []string
 
 // storageVolumeUUIDRef is a database type for selecting a foreign key reference
 // to a storage volume uuid.
@@ -129,19 +116,26 @@ type storageVolumeUUIDRef struct {
 	UUID string `db:"storage_volume_uuid"`
 }
 
-// storageVolumeProvisionScope is a database type for finding the provison
-// scope of a volume.
-type storageVolumeProvisionScope struct {
-	UUID             string `db:"uuid"`
-	ProvisionScopeID int    `db:"provision_scope_id"`
+// storageDirective represents either a storage directive from a unit in the
+// model or an application.
+type storageDirective struct {
+	CharmMetadataName string `db:"charm_metadata_name"`
+	Count             uint32 `db:"count"`
+	CharmStorageKind  string `db:"charm_storage_kind"`
+	SizeMiB           uint64 `db:"size_mib"`
+	StorageName       string `db:"storage_name"`
+	StoragePoolUUID   string `db:"storage_pool_uuid"`
 }
 
-type storageDirective struct {
-	Count           uint32 `db:"count"`
-	Kind            string `db:"kind"`
-	SizeMiB         uint64 `db:"size_mib"`
-	StorageName     string `db:"storage_name"`
-	StoragePoolUUID string `db:"storage_pool_uuid"`
+// storageInstanceComposition is used to get the composition of a storage
+// instance within the model.
+type storageInstanceComposition struct {
+	FilesystemProvisionScope sql.Null[int]    `db:"filesystem_provision_scope"`
+	FilesystemUUID           sql.Null[string] `db:"filesystem_uuid"`
+	StorageName              string           `db:"storage_name"`
+	UUID                     string           `db:"uuid"`
+	VolumeProvisionScope     sql.Null[int]    `db:"volume_provision_scope"`
+	VolumeUUID               sql.Null[string] `db:"volume_uuid"`
 }
 
 // unitStorageDirective is used to represent the values held in the
