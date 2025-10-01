@@ -319,7 +319,11 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  domaincharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
+		},
+		"baz": {
+			Type:  domaincharm.OptionBool,
+			Value: ptr("true"),
 		},
 	}, application.ApplicationSettings{
 		Trust: true,
@@ -329,6 +333,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, charm.Config{
 		"foo": "bar",
+		"baz": true,
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
@@ -483,7 +488,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType corem
 		Charm:    ch,
 		Platform: platform,
 		Scale:    1,
-		Config: map[string]application.ApplicationConfig{
+		Config: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  domaincharm.OptionString,
 				Value: "bar",

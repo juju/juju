@@ -465,7 +465,14 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
+		},
+		"baz": {
+			Type:  applicationcharm.OptionInt,
+			Value: ptr("42"),
+		},
+		"qux": {
+			Type: applicationcharm.OptionBool,
 		},
 	}, nil)
 
@@ -473,7 +480,25 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.DeepEquals, internalcharm.Config{
 		"foo": "bar",
+		"baz": 42,
+		"qux": nil,
 	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionBool,
+			Value: ptr("not-a-parsable-bool"),
+		},
+	}, nil)
+
+	_, err := s.service.GetApplicationConfigWithDefaults(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorMatches, ".*cannot convert string \"not-a-parsable-bool\" to bool.*")
 }
 
 func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(c *tc.C) {
@@ -484,7 +509,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}, errors.Errorf("boom"))
 
@@ -627,7 +652,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
@@ -656,7 +681,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
@@ -685,7 +710,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoTrust(c *tc.C) {
 			},
 		},
 	}, nil)
-	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.ApplicationConfig{
+	s.state.EXPECT().UpdateApplicationConfigAndSettings(gomock.Any(), appUUID, map[string]application.AddApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
@@ -782,7 +807,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoConfig(c *tc.C) {
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{}, nil)
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(
 		gomock.Any(), appUUID,
-		map[string]application.ApplicationConfig{},
+		nil,
 		application.UpdateApplicationSettingsArg{},
 	).Return(nil)
 
@@ -806,7 +831,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{
@@ -886,7 +911,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: "bar",
+			Value: ptr("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{
@@ -1651,5 +1676,156 @@ func (s *applicationStorageSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.
 			)
 			tc.Check(t, args, tc.DeepEquals, test.Expected)
 		})
+	}
+}
+
+var appConfigTestCase = []struct {
+	name     string
+	input    map[string]application.ApplicationConfig
+	expected internalcharm.Config
+	errMatch string
+}{
+	{
+		name:     "empty config",
+		input:    map[string]application.ApplicationConfig{},
+		expected: internalcharm.Config{},
+	},
+	{
+		name: "string value",
+		input: map[string]application.ApplicationConfig{
+			"foo": {
+				Type:  applicationcharm.OptionString,
+				Value: ptr("bar"),
+			},
+		},
+		expected: internalcharm.Config{
+			"foo": "bar",
+		},
+	},
+	{
+		name: "int value",
+		input: map[string]application.ApplicationConfig{
+			"num": {
+				Type:  applicationcharm.OptionInt,
+				Value: ptr("42"),
+			},
+		},
+		expected: internalcharm.Config{
+			"num": 42,
+		},
+	},
+	{
+		name: "float value",
+		input: map[string]application.ApplicationConfig{
+			"flt": {
+				Type:  applicationcharm.OptionFloat,
+				Value: ptr("3.14"),
+			},
+		},
+		expected: internalcharm.Config{
+			"flt": 3.14,
+		},
+	},
+	{
+		name: "bool value true",
+		input: map[string]application.ApplicationConfig{
+			"flag": {
+				Type:  applicationcharm.OptionBool,
+				Value: ptr("true"),
+			},
+		},
+		expected: internalcharm.Config{
+			"flag": true,
+		},
+	},
+	{
+		name: "bool value false",
+		input: map[string]application.ApplicationConfig{
+			"flag": {
+				Type:  applicationcharm.OptionBool,
+				Value: ptr("false"),
+			},
+		},
+		expected: internalcharm.Config{
+			"flag": false,
+		},
+	},
+	{
+		name: "secret value",
+		input: map[string]application.ApplicationConfig{
+			"secret": {
+				Type:  applicationcharm.OptionSecret,
+				Value: ptr("s3cr3t"),
+			},
+		},
+		expected: internalcharm.Config{
+			"secret": "s3cr3t",
+		},
+	},
+	{
+		name: "nil value",
+		input: map[string]application.ApplicationConfig{
+			"nilkey": {
+				Type:  applicationcharm.OptionString,
+				Value: nil,
+			},
+		},
+		expected: internalcharm.Config{
+			"nilkey": nil,
+		},
+	},
+	{
+		name: "invalid int value",
+		input: map[string]application.ApplicationConfig{
+			"badint": {
+				Type:  applicationcharm.OptionInt,
+				Value: ptr("notanint"),
+			},
+		},
+		errMatch: ".*cannot convert string \"notanint\" to int.*",
+	},
+	{
+		name: "invalid float value",
+		input: map[string]application.ApplicationConfig{
+			"badfloat": {
+				Type:  applicationcharm.OptionFloat,
+				Value: ptr("notafloat"),
+			},
+		},
+		errMatch: ".*cannot convert string \"notafloat\" to float.*",
+	},
+	{
+		name: "invalid bool value",
+		input: map[string]application.ApplicationConfig{
+			"badbool": {
+				Type:  applicationcharm.OptionBool,
+				Value: ptr("notabool"),
+			},
+		},
+		errMatch: ".*cannot convert string \"notabool\" to bool.*",
+	},
+	{
+		name: "unknown type",
+		input: map[string]application.ApplicationConfig{
+			"unknown": {
+				Type:  applicationcharm.OptionType("unknown"),
+				Value: ptr("value"),
+			},
+		},
+		errMatch: ".*unknown config type \"unknown\".*",
+	},
+}
+
+func (s *applicationServiceSuite) TestDecodeApplicationConfig(c *tc.C) {
+	for _, t := range appConfigTestCase {
+		c.Logf("Running test case %q", t.name)
+		result, err := decodeApplicationConfig(t.input)
+		if t.errMatch != "" {
+			c.Assert(err, tc.ErrorMatches, t.errMatch)
+			c.Check(result, tc.IsNil)
+		} else {
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(result, tc.DeepEquals, t.expected)
+		}
 	}
 }

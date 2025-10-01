@@ -620,14 +620,14 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "baz",
 			},
 			"bar": {
 				Type:  charm.OptionInt,
-				Value: 43,
+				Value: "43",
 			},
 		},
 	})
@@ -661,11 +661,11 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: "baz",
+			Value: ptr("baz"),
 		},
 		"bar": {
 			Type:  charm.OptionInt,
-			Value: "43",
+			Value: ptr("43"),
 		},
 	})
 }
@@ -682,7 +682,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "12",
@@ -713,7 +713,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
-			Value: "12",
+			Value: ptr("12"),
 		},
 	})
 }
@@ -736,14 +736,14 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 				},
 			},
 		},
-		applicationConfig: map[string]application.ApplicationConfig{
+		applicationConfig: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  charm.OptionString,
 				Value: "baz",
 			},
 			"bar": {
 				Type:  charm.OptionInt,
-				Value: 43,
+				Value: "43",
 			},
 		},
 	})
@@ -772,7 +772,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
-			Value: "0",
+			Value: ptr("0"),
 		},
 	})
 }
@@ -1015,7 +1015,7 @@ type createApplicationArgs struct {
 	charmConfig charm.Config
 
 	// applicationConfig defines the config for the application
-	applicationConfig map[string]application.ApplicationConfig
+	applicationConfig map[string]application.AddApplicationConfig
 
 	// trust specifies whether the application should be trusted.
 	trust bool

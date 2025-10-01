@@ -4,6 +4,8 @@
 package application
 
 import (
+	"strconv"
+
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -117,5 +119,68 @@ func encodeOptionType(t string) (charm.OptionType, error) {
 		return charm.OptionSecret, nil
 	default:
 		return "", errors.Errorf("unknown option type %q", t)
+	}
+}
+
+// EncodeApplicationConfig encodes the application config into a map of
+// AddApplicationConfig, which includes the type of the option.
+// If there is no config, it returns nil.
+// An error is returned if the config contains an option that is not in the
+// charm config.
+func EncodeApplicationConfig(config internalcharm.Config, charmConfig charm.Config) (map[string]AddApplicationConfig, error) {
+	// If there is no config, then we can just return nil.
+	if len(config) == 0 {
+		return nil, nil
+	}
+	// The encoded config is the application config, with the type of the
+	// option. Encoding the type ensures that if the type changes during an
+	// upgrade, we can prevent a runtime error during that phase.
+	encodedConfig := make(map[string]AddApplicationConfig, len(config))
+	for k, v := range config {
+		option, ok := charmConfig.Options[k]
+		if !ok {
+			return nil, errors.Errorf("missing charm config, expected %q", k)
+		}
+		encodedV, err := encodeApplicationConfigValue(v, option.Type)
+		if err != nil {
+			return nil, errors.Errorf("encoding config value for %q: %w", k, err)
+		}
+		encodedConfig[k] = AddApplicationConfig{
+			Value: encodedV,
+			Type:  option.Type,
+		}
+	}
+	return encodedConfig, nil
+}
+
+// encodeApplicationConfigValue encodes an application config value to a string.
+func encodeApplicationConfigValue(value any, vType charm.OptionType) (string, error) {
+	switch vType {
+	case charm.OptionString, charm.OptionSecret:
+		str, ok := value.(string)
+		if !ok {
+			return "", errors.Errorf("expected string value, got %T", value)
+		}
+		return str, nil
+	case charm.OptionInt:
+		i, ok := value.(int64)
+		if !ok {
+			return "", errors.Errorf("expected int64 value, got %T", value)
+		}
+		return strconv.FormatInt(i, 10), nil
+	case charm.OptionFloat:
+		f, ok := value.(float64)
+		if !ok {
+			return "", errors.Errorf("expected float64 value, got %T", value)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 64), nil
+	case charm.OptionBool:
+		b, ok := value.(bool)
+		if !ok {
+			return "", errors.Errorf("expected bool value, got %T", value)
+		}
+		return strconv.FormatBool(b), nil
+	default:
+		return "", errors.Errorf("unsupported option type %q", vType)
 	}
 }

@@ -226,7 +226,7 @@ type ApplicationState interface {
 	UpdateApplicationConfigAndSettings(
 		ctx context.Context,
 		appID coreapplication.ID,
-		config map[string]application.ApplicationConfig,
+		config map[string]application.AddApplicationConfig,
 		settings application.UpdateApplicationSettingsArg,
 	) error
 
@@ -1501,12 +1501,11 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range cfg {
-		result[k] = v.Value
+	appConfig, err := decodeApplicationConfig(cfg)
+	if err != nil {
+		return nil, errors.Errorf("decoding application config: %w", err)
 	}
-
-	return result, nil
+	return appConfig, nil
 }
 
 // GetApplicationTrustSetting returns the application trust setting.
@@ -1560,9 +1559,9 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range appConfig {
-		result[k] = v.Value
+	applicationConfig, err := decodeApplicationConfig(appConfig)
+	if err != nil {
+		return ApplicationConfig{}, errors.Errorf("decoding application config: %w", err)
 	}
 
 	charmID, charmConfig, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
@@ -1594,7 +1593,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		CharmName:         origin.Name,
 		CharmOrigin:       decodedCharmOrigin,
 		CharmConfig:       decodedCharmConfig,
-		ApplicationConfig: result,
+		ApplicationConfig: applicationConfig,
 		Trust:             settings.Trust,
 		Principal:         !subordinate,
 	}, nil
@@ -1673,21 +1672,9 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 		return errors.Capture(err)
 	}
 
-	// The encoded config is the application config, with the type of the
-	// option. Encoding the type ensures that if the type changes during an
-	// upgrade, we can prevent a runtime error during that phase.
-	encodedConfig := make(map[string]application.ApplicationConfig, len(coercedConfig))
-	for k, v := range coercedConfig {
-		option, ok := cfg.Options[k]
-		if !ok {
-			// This should never happen, as we've verified the config is valid.
-			// But if it does, then we should return an error.
-			return errors.Errorf("missing charm config, expected %q", k)
-		}
-		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
-			Type:  option.Type,
-		}
+	encodedConfig, err := application.EncodeApplicationConfig(coercedConfig, cfg)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	return s.st.UpdateApplicationConfigAndSettings(ctx, appID, encodedConfig, application.UpdateApplicationSettingsArg{
@@ -1861,29 +1848,6 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 	return &b, nil
 }
 
-func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
-	// If there is no config, then we can just return nil.
-	if len(cfg) == 0 {
-		return nil, nil
-	}
-
-	encodedConfig := make(map[string]application.ApplicationConfig, len(cfg))
-	for k, v := range cfg {
-		option, ok := charmConfig.Options[k]
-		if !ok {
-			// This should never happen, as we've verified the config is valid.
-			// But if it does, then we should return an error.
-			return nil, errors.Errorf("missing charm config, expected %q", k)
-		}
-
-		encodedConfig[k] = application.ApplicationConfig{
-			Value: v,
-			Type:  option.Type,
-		}
-	}
-	return encodedConfig, nil
-}
-
 func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Config) error {
 	for name, value := range cfg {
 		option, ok := chCfg.Options[name]
@@ -2027,4 +1991,54 @@ func decodeRisk(r deployment.ChannelRisk) (internalcharm.Risk, error) {
 	default:
 		return "", errors.Errorf("unsupported risk %q", r)
 	}
+}
+
+// decodeApplicationConfig decodes the application config from the domain
+// representation into the internal charm config representation.
+func decodeApplicationConfig(cfg map[string]application.ApplicationConfig) (internalcharm.Config, error) {
+	if len(cfg) == 0 {
+		return nil, nil
+	}
+
+	result := make(internalcharm.Config)
+	for k, v := range cfg {
+		if v.Value == nil {
+			result[k] = nil
+			continue
+		}
+		coercedV, err := coerceValue(v.Type, *v.Value)
+		if err != nil {
+			return nil, errors.Errorf("coerce config value for key %q: %w", k, err)
+		}
+		result[k] = coercedV
+	}
+	return result, nil
+}
+
+func coerceValue(t charm.OptionType, value string) (interface{}, error) {
+	switch t {
+	case charm.OptionString, charm.OptionSecret:
+		return value, nil
+	case charm.OptionInt:
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to int: %w", value, err)
+		}
+		return intValue, nil
+	case charm.OptionFloat:
+		floatValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to float: %w", value, err)
+		}
+		return floatValue, nil
+	case charm.OptionBool:
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to bool: %w", value, err)
+		}
+		return boolValue, nil
+	default:
+		return nil, errors.Errorf("unknown config type %q", t)
+	}
+
 }

@@ -238,11 +238,12 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
-	result := make(internalcharm.Config)
-	for k, v := range cfg {
-		result[k] = v.Value
+	appConfig, err := decodeApplicationConfig(cfg)
+	if err != nil {
+		return nil, application.ApplicationSettings{}, errors.Errorf("decoding application config: %w", err)
 	}
-	return result, settings, nil
+
+	return appConfig, settings, nil
 }
 
 // GetApplicationConstraints returns the application constraints for the
@@ -422,7 +423,7 @@ func makeInsertApplicationArg(
 		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm origin: %w", err)
 	}
 
-	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	applicationConfig, err := application.EncodeApplicationConfig(args.ApplicationConfig, ch.Config)
 	if err != nil {
 		return application.InsertApplicationArgs{}, errors.Errorf("encoding application config: %w", err)
 	}
