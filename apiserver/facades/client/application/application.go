@@ -3137,15 +3137,15 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]p
 		return nil, errors.Trace(err)
 	}
 
-	sc := make(map[string]params.StorageConstraints)
+	sd := make(map[string]params.StorageConstraints)
 	for key, cons := range storageDirectives {
-		sc[key] = params.StorageConstraints{
+		sd[key] = params.StorageConstraints{
 			Pool:  cons.Pool,
 			Size:  &cons.Size,
 			Count: &cons.Count,
 		}
 	}
-	return sc, nil
+	return sd, nil
 }
 
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
@@ -3157,12 +3157,12 @@ func (api *APIBase) GetApplicationStorage(args params.Entities) (params.Applicat
 		return resp, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		sc, err := api.getOneApplicationStorage(entity)
+		sd, err := api.getOneApplicationStorage(entity)
 		if err != nil {
 			resp.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		resp.Results[i].StorageConstraints = sc
+		resp.Results[i].StorageConstraints = sd
 	}
 	return resp, nil
 }
