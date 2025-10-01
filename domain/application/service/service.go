@@ -52,7 +52,6 @@ type MachineState interface {
 type State interface {
 	ApplicationState
 	CharmState
-	StorageState
 	UnitState
 	MigrationState
 	MachineState
@@ -233,12 +232,12 @@ type WatchableService struct {
 // NewWatchableService returns a new service reference wrapping the input state.
 func NewWatchableService(
 	st State,
+	storageService StorageService,
 	leaderEnsurer leadership.Ensurer,
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasProvider providertracker.ProviderGetter[CAASProvider],
-	storagePoolProvider StoragePoolProvider,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -247,11 +246,11 @@ func NewWatchableService(
 	return &WatchableService{
 		ProviderService: NewProviderService(
 			st,
+			storageService,
 			leaderEnsurer,
 			agentVersionGetter,
 			provider,
 			caasProvider,
-			storagePoolProvider,
 			charmStore,
 			statusHistory,
 			clock,
