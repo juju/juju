@@ -9,10 +9,11 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	// corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/rpc/params"
@@ -64,45 +65,75 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 	u0n := unit.Name("mysql/0")
 	m0 := machine.Name("0")
 	u1n := unit.Name("mysql/1")
-	s.storageService.EXPECT().ListStorageInstances(gomock.Any()).Return([]domainstorage.StorageInstanceInfo{
-		{
-			ID:         "pgdata/0",
-			Owner:      &u0n,
-			Kind:       domainstorage.StorageKindBlock,
-			Life:       life.Alive,
-			Persistent: true,
-			Status: corestatus.StatusInfo{
-				Status:  corestatus.Attaching,
-				Message: "attaching the volumez",
+	s.storageService.EXPECT().ListStorageInstances(gomock.Any()).
+		Return([]domainstorage.StorageInstanceDetails{
+			{
+				ID:         "pgdata/0",
+				Owner:      &u0n,
+				Kind:       domainstorage.StorageKindBlock,
+				Life:       life.Alive,
+				Persistent: true,
 			},
-			Attachments: []domainstorage.StorageAttachmentInfo{
-				{
-					Life:     life.Alive,
-					Location: "/dev/disk/by-id/wwn-wwn",
-					Unit:     u0n,
-					Machine:  &m0,
+			{
+				ID:         "data/1",
+				Owner:      &u1n,
+				Kind:       domainstorage.StorageKindFilesystem,
+				Life:       life.Alive,
+				Persistent: false,
+			},
+		}, nil)
+	s.storageService.EXPECT().ListVolumeWithAttachments(gomock.Any(), "pgdata/0").
+		Return(map[string]domainstorage.VolumeDetails{
+			"pgdata/0": {
+				StorageID: "pgdata/0",
+				Status: status.StatusInfo{
+					Status:  corestatus.Attaching,
+					Message: "attaching the volumez",
+				},
+				Attachments: []domainstorage.VolumeAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life:    life.Alive,
+							Unit:    u0n,
+							Machine: &m0,
+						},
+						BlockDeviceUUID: "block-device-uuid-0",
+					},
 				},
 			},
-		},
-		{
-			ID:         "data/1",
-			Owner:      &u1n,
-			Kind:       domainstorage.StorageKindFilesystem,
-			Life:       life.Alive,
-			Persistent: false,
-			Status: corestatus.StatusInfo{
-				Status:  corestatus.Attached,
-				Message: "all good",
+		}, nil)
+	s.blockDeviceService.EXPECT().ListBlockDevices(
+		gomock.Any(),
+		domainblockdevice.BlockDeviceUUID("block-device-uuid-0"),
+	).
+		Return([]domainblockdevice.BlockDeviceDetails{
+			{
+				UUID:             "block-device-uuid-0",
+				HardwareID:       "hwid-0",
+				WWN:              "wwn",
+				BlockDeviceName:  "abc",
+				BlockDeviceLinks: []string{"xyz"},
 			},
-			Attachments: []domainstorage.StorageAttachmentInfo{
-				{
-					Life:     life.Alive,
-					Location: "/data",
-					Unit:     u1n,
+		}, nil)
+	s.storageService.EXPECT().ListFilesystemWithAttachments(gomock.Any(), "data/1").
+		Return(map[string]domainstorage.FilesystemDetails{
+			"data/1": {
+				StorageID: "data/1",
+				Status: status.StatusInfo{
+					Status:  corestatus.Attached,
+					Message: "all good",
+				},
+				Attachments: []domainstorage.FilesystemAttachmentDetails{
+					{
+						AttachmentDetails: domainstorage.AttachmentDetails{
+							Life: life.Alive,
+							Unit: u1n,
+						},
+						MountPoint: "/data",
+					},
 				},
 			},
-		},
-	}, nil)
+		}, nil)
 
 	result, err := s.api.ListStorageDetails(c.Context(), params.StorageFilters{Filters: []params.StorageFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)

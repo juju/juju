@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/internal/storage"
@@ -18,6 +19,11 @@ type BlockDeviceService interface {
 	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
+
+	// ListBlockDevices returns the BlockDevices for the specified UUIDs.
+	ListBlockDevices(
+		ctx context.Context, uuids ...domainblockdevice.BlockDeviceUUID,
+	) ([]domainblockdevice.BlockDeviceDetails, error)
 }
 
 // StorageService defines apis on the storage service.
@@ -74,7 +80,19 @@ type StorageService interface {
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
 	// ListStorageInstances returns a list of storage instances in the model.
-	ListStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceInfo, error)
+	ListStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error)
+
+	// ListVolumeWithAttachments returns a map of volume storage IDs to their
+	// information including attachments.
+	ListVolumeWithAttachments(
+		ctx context.Context, storageInstanceIDs ...string,
+	) (map[string]domainstorage.VolumeDetails, error)
+
+	// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+	// information including attachments.
+	ListFilesystemWithAttachments(
+		ctx context.Context, storageInstanceIDs ...string,
+	) (map[string]domainstorage.FilesystemDetails, error)
 }
 
 // ApplicationService defines apis on the application service.
