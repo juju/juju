@@ -276,11 +276,16 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case changes, ok := <-relationsWatcher.Changes():
-			w.logger.Debugf(ctx, "relations changed: %v, %v", changes, ok)
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("relations watcher closed unexpectedly")
+				}
 			}
+			w.logger.Debugf(ctx, "relations changed: %v", changes)
+
 			// TODO (stickupkid): Pass the changes to the get relation details.
 			results, err := w.crossModelService.GetRelationDetails(ctx, "")
 			if err != nil {
