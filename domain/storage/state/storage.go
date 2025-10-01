@@ -29,97 +29,39 @@ func (st *State) ImportFilesystem(ctx context.Context, name storage.Name, filesy
 }
 
 // ListStorageInstances returns a list of storage instances in the model.
-func (st *State) ListStorageInstances(ctx context.Context) ([]StorageInstanceInfo, error) {
+func (st *State) ListStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	storageInstancesStmt, err := st.Prepare(`
-SELECT (si.storage_id, si.storage_kind_id, si.life_id, sv.persistent) AS (&dbStorageInstanceInfo.*),
-       u.name AS &dbStorageInstanceInfo.owner_unit_name
+	stmt, err := st.Prepare(`
+SELECT (si.storage_id, si.storage_kind_id, si.life_id, sv.persistent) AS (&dbStorageInstanceDetails.*),
+       u.name AS &dbStorageInstanceDetails.owner_unit_name
 FROM   storage_instance si
 LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
 LEFT JOIN storage_volume sv ON siv.storage_volume_uuid=sv.uuid
 LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
-LEFT JOIN unit u ON suo.unit_uuid=u.uuid`, dbStorageInstanceInfo{})
+LEFT JOIN unit u ON suo.unit_uuid=u.uuid`, dbStorageInstanceDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	volAttsStmt, err := st.Prepare(`
-SELECT DISTINCT (si.storage_id, sva.life_id, sv.hardware_id, sv.wwn) AS (&dbVolumeAttachmentInfo.*),
-                (svs.status_id, svs.message, svs.updated_at) AS (&dbVolumeAttachmentInfo.*),
-                u.name AS &dbVolumeAttachmentInfo.unit_name,
-                m.name AS &dbVolumeAttachmentInfo.machine_name,
-                bd.name AS &dbVolumeAttachmentInfo.block_device_name,
-                first_value(bdld.name) OVER bdld_first AS &dbVolumeAttachmentInfo.block_device_link
-FROM            storage_volume sv
-LEFT JOIN       storage_volume_attachment sva ON sv.uuid=sva.storage_volume_uuid
-LEFT JOIN       storage_volume_status svs ON svs.volume_uuid=sv.uuid
-LEFT JOIN       storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
-LEFT JOIN       storage_instance si ON si.uuid=siv.storage_instance_uuid
-LEFT JOIN       storage_attachment sa ON sa.storage_instance_uuid=si.uuid
-LEFT JOIN       unit u ON u.uuid=sa.unit_uuid
-LEFT JOIN       machine m ON sva.net_node_uuid=m.net_node_uuid
-LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
-LEFT JOIN       block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
-WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)`, dbVolumeAttachmentInfo{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	fsAttsStmt, err := st.Prepare(`
-SELECT    (si.storage_id, sfa.life_id, sfa.mount_point) AS (&dbFilesystemAttachmentInfo.*),
-          (sfs.status_id, sfs.message, sfs.updated_at) AS (&dbFilesystemAttachmentInfo.*),
-          u.name AS &dbFilesystemAttachmentInfo.unit_name,
-          m.name AS &dbFilesystemAttachmentInfo.machine_name
-FROM      storage_filesystem sf
-LEFT JOIN storage_filesystem_attachment sfa ON sf.uuid=sfa.storage_filesystem_uuid
-LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
-LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sf.uuid
-LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
-LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=si.uuid
-LEFT JOIN unit u ON u.uuid=sa.unit_uuid
-LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmentInfo{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var (
-		dbInstances                 []dbStorageInstanceInfo
-		dbVolumeAttachmentInfos     []dbVolumeAttachmentInfo
-		dbFilesystemAttachmentInfos []dbFilesystemAttachmentInfo
-	)
+	var dbInstances []dbStorageInstanceDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, storageInstancesStmt).GetAll(&dbInstances)
+		err := tx.Query(ctx, stmt).GetAll(&dbInstances)
 		if errors.Is(err, sql.ErrNoRows) {
-			// No storage instances, exit early.
 			return nil
 		}
-		if err != nil {
-			return errors.Errorf("listing storage instances: %w", err)
-		}
-
-		err = tx.Query(ctx, volAttsStmt).GetAll(&dbVolumeAttachmentInfos)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("listing volume attachments: %w", err)
-		}
-
-		err = tx.Query(ctx, fsAttsStmt).GetAll(&dbFilesystemAttachmentInfos)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("listing filesystem attachments: %w", err)
-		}
-		return nil
+		return errors.Capture(err)
 	})
-
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("listing storage instances: %w", err)
 	}
 
-	mSI := make(map[string]*StorageInstanceInfo, len(dbInstances))
+	result := make([]domainstorage.StorageInstanceDetails, 0, len(dbInstances))
 	for _, dbInstance := range dbInstances {
-		si := &StorageInstanceInfo{
+		si := domainstorage.StorageInstanceDetails{
 			ID:         dbInstance.ID,
 			Kind:       domainstorage.StorageKind(dbInstance.KindID),
 			Life:       life.Life(dbInstance.LifeID),
@@ -129,21 +71,68 @@ LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmen
 			u := unit.Name(dbInstance.OwnerUnitName.String)
 			si.Owner = &u
 		}
-		mSI[dbInstance.ID] = si
+		result = append(result, si)
 	}
-	for _, att := range dbVolumeAttachmentInfos {
-		info, ok := mSI[att.StorageID]
-		if !ok {
-			// This shouldn't happen, but log and skip if it does.
-			st.logger.Errorf(ctx, "found volume attachment for unknown storage instance %q", att.StorageID)
-			continue
+	return result, nil
+}
+
+type storageIDs []string
+
+// ListVolumeWithAttachments returns a map of volume storage IDs to their
+// information including attachments.
+func (st *State) ListVolumeWithAttachments(
+	ctx context.Context,
+	storageInstanceIDs ...string,
+) (map[string]VolumeDetails, error) {
+	if len(storageInstanceIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT DISTINCT (si.storage_id, sva.life_id, sva.block_device_uuid) AS (&dbVolumeAttachmentDetails.*),
+                (svs.status_id, svs.message, svs.updated_at) AS (&dbVolumeAttachmentDetails.*),
+                u.name AS &dbVolumeAttachmentDetails.unit_name,
+                m.name AS &dbVolumeAttachmentDetails.machine_name
+FROM            storage_volume sv
+LEFT JOIN       storage_volume_attachment sva ON sv.uuid=sva.storage_volume_uuid
+LEFT JOIN       storage_volume_status svs ON svs.volume_uuid=sv.uuid
+LEFT JOIN       storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
+LEFT JOIN       storage_instance si ON si.uuid=siv.storage_instance_uuid
+LEFT JOIN       storage_attachment sa ON sa.storage_instance_uuid=si.uuid
+LEFT JOIN       unit u ON u.uuid=sa.unit_uuid
+LEFT JOIN       machine m ON sva.net_node_uuid=m.net_node_uuid
+WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageIDs{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVolumeAttachmentData []dbVolumeAttachmentDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, storageIDs(storageInstanceIDs)).GetAll(&dbVolumeAttachmentData)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
 		}
-		if info.VolumeInfo == nil {
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("listing volume attachments: %w", err)
+	}
+
+	result := make(map[string]VolumeDetails)
+	for _, att := range dbVolumeAttachmentData {
+		info, ok := result[att.StorageID]
+		if !ok {
 			statusValue, err := status.DecodeStorageVolumeStatus(att.StatusID)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			info.VolumeInfo = &VolumeInfo{
+			info = VolumeDetails{
+				StorageID: att.StorageID,
 				Status: status.StatusInfo[status.StorageVolumeStatusType]{
 					Status:  statusValue,
 					Message: att.Message,
@@ -151,14 +140,11 @@ LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmen
 				},
 			}
 		}
-		va := VolumeAttachmentInfo{
-			AttachmentInfo: AttachmentInfo{
+		va := VolumeAttachmentDetails{
+			AttachmentDetails: AttachmentDetails{
 				Life: life.Life(att.LifeID),
 			},
-			HardwareID:      att.HardwareID,
-			WWN:             att.WWN,
-			BlockDeviceName: att.BlockDeviceName,
-			BlockDeviceLink: att.BlockDeviceLink,
+			BlockDeviceUUID: att.BlockDeviceUUID,
 		}
 		if att.UnitName.Valid {
 			va.Unit = unit.Name(att.UnitName.String)
@@ -171,21 +157,67 @@ LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmen
 			m := machine.Name(att.MachineName.String)
 			va.Machine = &m
 		}
-		info.VolumeInfo.Attachments = append(info.VolumeInfo.Attachments, va)
+		info.Attachments = append(info.Attachments, va)
+		result[att.StorageID] = info
 	}
-	for _, att := range dbFilesystemAttachmentInfos {
-		info, ok := mSI[att.StorageID]
-		if !ok {
-			// This shouldn't happen, but log and skip if it does.
-			st.logger.Errorf(ctx, "found filesystem attachment for unknown storage instance %q", att.StorageID)
-			continue
+	return result, nil
+}
+
+// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+// information including attachments.
+func (st *State) ListFilesystemWithAttachments(
+	ctx context.Context,
+	storageInstanceIDs ...string,
+) (map[string]FilesystemDetails, error) {
+	if len(storageInstanceIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT    (si.storage_id, sfa.life_id, sfa.mount_point) AS (&dbFilesystemAttachmentDetails.*),
+          (sfs.status_id, sfs.message, sfs.updated_at) AS (&dbFilesystemAttachmentDetails.*),
+          u.name AS &dbFilesystemAttachmentDetails.unit_name,
+          m.name AS &dbFilesystemAttachmentDetails.machine_name
+FROM      storage_filesystem sf
+LEFT JOIN storage_filesystem_attachment sfa ON sf.uuid=sfa.storage_filesystem_uuid
+LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
+LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sf.uuid
+LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
+LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=si.uuid
+LEFT JOIN unit u ON u.uuid=sa.unit_uuid
+LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
+WHERE si.storage_id IN ($storageIDs[:])`, dbFilesystemAttachmentDetails{}, storageIDs{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbFilesystemAttachmentData []dbFilesystemAttachmentDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, storageIDs(storageInstanceIDs)).GetAll(&dbFilesystemAttachmentData)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
 		}
-		if info.FilesystemInfo == nil {
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("listing filesystem attachments: %w", err)
+	}
+
+	result := make(map[string]FilesystemDetails)
+	for _, att := range dbFilesystemAttachmentData {
+		info, ok := result[att.StorageID]
+		if !ok {
 			statusValue, err := status.DecodeStorageFilesystemStatus(att.StatusID)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			info.FilesystemInfo = &FilesystemInfo{
+			info = FilesystemDetails{
+				StorageID: att.StorageID,
 				Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 					Status:  statusValue,
 					Message: att.Message,
@@ -193,8 +225,8 @@ LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmen
 				},
 			}
 		}
-		fa := FilesystemAttachmentInfo{
-			AttachmentInfo: AttachmentInfo{
+		fa := FilesystemAttachmentDetails{
+			AttachmentDetails: AttachmentDetails{
 				Life: life.Life(att.LifeID),
 			},
 			MountPoint: att.MountPoint,
@@ -210,12 +242,8 @@ LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid`, dbFilesystemAttachmen
 			m := machine.Name(att.MachineName.String)
 			fa.Machine = &m
 		}
-		info.FilesystemInfo.Attachments = append(info.FilesystemInfo.Attachments, fa)
-	}
-
-	var result = make([]StorageInstanceInfo, 0, len(mSI))
-	for _, si := range mSI {
-		result = append(result, *si)
+		info.Attachments = append(info.Attachments, fa)
+		result[att.StorageID] = info
 	}
 	return result, nil
 }

@@ -22,6 +22,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
@@ -79,43 +80,43 @@ VALUES (?, ?, ?, 0, 1)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// func (s *baseSuite) newFilesystem(c *tc.C) (
-// 	storageprovisioning.FilesystemUUID, string,
-// ) {
-// 	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+func (s *baseSuite) newFilesystem(c *tc.C) (
+	storageprovisioning.FilesystemUUID, string,
+) {
+	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
 
-// 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
+	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
-// 	_, err := s.DB().ExecContext(
-// 		c.Context(),
-// 		`
-// INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-// VALUES (?, ?, 0, 0)
-// 	`,
-// 		fsUUID.String(), fsID)
-// 	c.Assert(err, tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+	`,
+		fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
 
-// 	return fsUUID, fsID
-// }
+	return fsUUID, fsID
+}
 
-// func (s *baseSuite) newFilesystemWithStatus(
-// 	c *tc.C,
-// 	sType status.StorageFilesystemStatusType,
-// ) (storageprovisioning.FilesystemUUID, string) {
-// 	fsUUID, fsID := s.newFilesystem(c)
+func (s *baseSuite) newFilesystemWithStatus(
+	c *tc.C,
+	sType status.StorageFilesystemStatusType,
+) (storageprovisioning.FilesystemUUID, string) {
+	fsUUID, fsID := s.newFilesystem(c)
 
-// 	_, err := s.DB().ExecContext(
-// 		c.Context(),
-// 		`
-// INSERT INTO storage_filesystem_status (filesystem_uuid, status_id)
-// VALUES (?, ?)
-// `,
-// 		fsUUID.String(), int(sType),
-// 	)
-// 	c.Assert(err, tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem_status (filesystem_uuid, status_id)
+VALUES (?, ?)
+`,
+		fsUUID.String(), int(sType),
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
-// 	return fsUUID, fsID
-// }
+	return fsUUID, fsID
+}
 
 // nextStorageSequenceNumber retrieves the next sequence number in the storage
 // namespace.
@@ -172,22 +173,22 @@ VALUES (?, ?, ?, ?, ?, 0, 100, ?)
 	return storageInstanceUUID, storageID
 }
 
-// func (s *baseSuite) newStorageInstanceFilesystem(
-// 	c *tc.C,
-// 	instanceUUID storage.StorageInstanceUUID,
-// 	filesystemUUID storageprovisioning.FilesystemUUID,
-// ) {
-// 	_, err := s.DB().ExecContext(
-// 		c.Context(),
-// 		`
-// INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
-// VALUES (?, ?)
-// `,
-// 		instanceUUID.String(),
-// 		filesystemUUID.String(),
-// 	)
-// 	c.Assert(err, tc.ErrorIsNil)
-// }
+func (s *baseSuite) newStorageInstanceFilesystem(
+	c *tc.C,
+	instanceUUID storage.StorageInstanceUUID,
+	filesystemUUID storageprovisioning.FilesystemUUID,
+) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)
+`,
+		instanceUUID.String(),
+		filesystemUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
 
 func (s *baseSuite) newStorageInstanceVolume(
 	c *tc.C, instanceUUID storage.StorageInstanceUUID,
@@ -354,32 +355,26 @@ func (s *baseSuite) changeFilesystemAttachmentInfo(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// // newFilesystem creates a new filesystem in the model with model
-// // provision scope. Return is the uuid and filesystem id of the entity.
+func (s *baseSuite) newFilesystemAttachment(
+	c *tc.C,
+	fsUUID storageprovisioning.FilesystemUUID,
+	netNodeUUID domainnetwork.NetNodeUUID,
+) storageprovisioning.FilesystemAttachmentUUID {
+	attachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
 
-// // newFilesystemAttachment creates a new filesystem attachment that has
-// // model provision scope. The attachment is associated with the provided
-// // filesystem uuid and net node uuid.
-// func (s *baseSuite) newFilesystemAttachment(
-// 	c *tc.C,
-// 	fsUUID storageprovisioning.FilesystemUUID,
-// 	netNodeUUID domainnetwork.NetNodeUUID,
-// ) storageprovisioning.FilesystemAttachmentUUID {
-// 	attachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem_attachment (uuid,
+                                           storage_filesystem_uuid,
+                                           net_node_uuid,
+                                           life_id,
+                                           provision_scope_id)
+VALUES (?, ?, ?, 0, 0)
+`,
+		attachmentUUID.String(), fsUUID, netNodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 
-// 	_, err := s.DB().Exec(`
-// INSERT INTO storage_filesystem_attachment (uuid,
-//                                            storage_filesystem_uuid,
-//                                            net_node_uuid,
-//                                            life_id,
-//                                            provision_scope_id)
-// VALUES (?, ?, ?, 0, 0)
-// `,
-// 		attachmentUUID.String(), fsUUID, netNodeUUID.String())
-// 	c.Assert(err, tc.ErrorIsNil)
-
-// 	return attachmentUUID
-// }
+	return attachmentUUID
+}
 
 // // changeStorageInstanceLife is a utility function for updating the life
 // // value of a storage instance.

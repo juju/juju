@@ -11,10 +11,9 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
 )
 
-type dbStorageInstanceInfo struct {
+type dbStorageInstanceDetails struct {
 	ID            string         `db:"storage_id"`
 	OwnerUnitName sql.NullString `db:"owner_unit_name"`
 	KindID        int            `db:"storage_kind_id"`
@@ -22,7 +21,7 @@ type dbStorageInstanceInfo struct {
 	Persistent    bool           `db:"persistent"`
 }
 
-type dbVolumeAttachmentInfo struct {
+type dbVolumeAttachmentDetails struct {
 	StorageID string `db:"storage_id"`
 
 	StatusID  int        `db:"status_id"`
@@ -33,14 +32,10 @@ type dbVolumeAttachmentInfo struct {
 	UnitName    sql.NullString `db:"unit_name"`
 	MachineName sql.NullString `db:"machine_name"`
 
-	HardwareID string `db:"hardware_id"`
-	WWN        string `db:"wwn"`
-
-	BlockDeviceName string `db:"block_device_name"`
-	BlockDeviceLink string `db:"block_device_link"`
+	BlockDeviceUUID string `db:"block_device_uuid"`
 }
 
-type dbFilesystemAttachmentInfo struct {
+type dbFilesystemAttachmentDetails struct {
 	StorageID string `db:"storage_id"`
 
 	StatusID  int        `db:"status_id"`
@@ -54,47 +49,34 @@ type dbFilesystemAttachmentInfo struct {
 	MountPoint string `db:"mount_point"`
 }
 
-// StorageInstanceInfo describes information about a storage instance.
-type StorageInstanceInfo struct {
-	ID         string
-	Owner      *unit.Name
-	Kind       storage.StorageKind
-	Life       life.Life
-	Persistent bool
-
-	VolumeInfo     *VolumeInfo
-	FilesystemInfo *FilesystemInfo
-}
-
-// VolumeInfo describes information about a volume with its attachments.
-type VolumeInfo struct {
+// VolumeDetails describes information about a volume with its attachments.
+type VolumeDetails struct {
+	StorageID   string
 	Status      status.StatusInfo[status.StorageVolumeStatusType]
-	Attachments []VolumeAttachmentInfo
+	Attachments []VolumeAttachmentDetails
 }
 
-// FilesystemInfo describes information about a filesystem with its attachments.
-type FilesystemInfo struct {
+// FilesystemDetails describes information about a filesystem with its attachments.
+type FilesystemDetails struct {
+	StorageID   string
 	Status      status.StatusInfo[status.StorageFilesystemStatusType]
-	Attachments []FilesystemAttachmentInfo
+	Attachments []FilesystemAttachmentDetails
 }
 
-// VolumeAttachmentInfo describes information about a volume attachment.
-type VolumeAttachmentInfo struct {
-	AttachmentInfo
-	HardwareID      string
-	WWN             string
-	BlockDeviceName string
-	BlockDeviceLink string
+// VolumeAttachmentDetails describes information about a volume attachment.
+type VolumeAttachmentDetails struct {
+	AttachmentDetails
+	BlockDeviceUUID string
 }
 
-// FilesystemAttachmentInfo describes information about a filesystem attachment.
-type FilesystemAttachmentInfo struct {
-	AttachmentInfo
+// FilesystemAttachmentDetails describes information about a filesystem attachment.
+type FilesystemAttachmentDetails struct {
+	AttachmentDetails
 	MountPoint string
 }
 
-// AttachmentInfo describes information about a storage attachment.
-type AttachmentInfo struct {
+// AttachmentDetails describes information about a storage attachment.
+type AttachmentDetails struct {
 	Life    life.Life
 	Unit    unit.Name
 	Machine *machine.Name
