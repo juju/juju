@@ -111,7 +111,6 @@ type StorageProviderState interface {
 // StorageState describes retrieval and persistence methods for
 // storage related interactions.
 type StorageState interface {
-
 	// AttachStorage attaches the specified storage to the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -524,7 +523,6 @@ func (s storageService) getRegisterCAASUnitStorageArg(
 	unitStorageArgs, err := s.makeUnitStorageArgs(
 		ctx,
 		attachmentNetNodeUUID,
-		s.storagePoolProvider,
 		directivesToFollow,
 		append(existingUnitOwnedStorage, existingProviderStorage...),
 	)
