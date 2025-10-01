@@ -184,23 +184,7 @@ type RemoteApplicationOfferer struct {
 // AddRemoteApplicationOffererArgs contains the parameters required to add a new
 // remote application offerer.
 type AddRemoteApplicationOffererArgs struct {
-	// ApplicationUUID is the UUID to assign to the synthetic application
-	// representing the remote application.
-	ApplicationUUID string
-
-	// CharmUUID is the UUID to assign to the synthetic charm representing
-	// the remote application.
-	CharmUUID string
-
-	// RemoteApplicationUUID is the UUID of the remote application.
-	RemoteApplicationUUID string
-
-	// Charm is the charm representing the remote application.
-	Charm charm.Charm
-
-	// OfferUUID is the UUID of the offer that the remote application is
-	// consuming.
-	OfferUUID string
+	AddRemoteApplicationArgs
 
 	// OffererControllerUUID is the UUID of the controller that the remote
 	// application is in.
@@ -213,4 +197,38 @@ type AddRemoteApplicationOffererArgs struct {
 	// EncodedMacaroon is the encoded macaroon that the remote application uses
 	// to authenticate with the offerer model.
 	EncodedMacaroon []byte
+}
+
+// AddRemoteApplicationConsumerArgs contains the parameters required to add a
+// new remote application consumer.
+type AddRemoteApplicationConsumerArgs struct {
+	AddRemoteApplicationArgs
+
+	// RelationUUID is the UUID of the relation created to connect the remote
+	// application to a local application, on the consuming model.
+	RelationUUID string
+}
+
+// AddRemoteApplicationArgs contains the parameters required to add a new remote
+// application, on any of the offering or the consuming models.
+type AddRemoteApplicationArgs struct {
+	// ApplicationUUID is the UUID to assign to the synthetic application
+	// representing the remote application, on the consuming model.
+	ApplicationUUID string
+
+	// CharmUUID is the UUID to assign to the synthetic charm representing
+	// the remote application, on the consuming model.
+	CharmUUID string
+
+	// RemoteApplicationUUID is the UUID of the remote application, on the
+	// consuming model.
+	RemoteApplicationUUID string
+
+	// Charm is the charm representing the remote application, on the consuming
+	// model.
+	Charm charm.Charm
+
+	// OfferUUID is the UUID of the offer that the remote application is
+	// consuming. The offer is in this model, the offering model.
+	OfferUUID string
 }

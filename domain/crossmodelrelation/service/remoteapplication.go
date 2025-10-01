@@ -101,11 +101,13 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 	}
 
 	if err := s.modelState.AddRemoteApplicationOfferer(ctx, applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
-		RemoteApplicationUUID: remoteApplicationUUID.String(),
-		ApplicationUUID:       applicationUUID.String(),
-		CharmUUID:             charmUUID.String(),
-		Charm:                 syntheticCharm,
-		OfferUUID:             args.OfferUUID,
+		AddRemoteApplicationArgs: crossmodelrelation.AddRemoteApplicationArgs{
+			RemoteApplicationUUID: remoteApplicationUUID.String(),
+			ApplicationUUID:       applicationUUID.String(),
+			CharmUUID:             charmUUID.String(),
+			Charm:                 syntheticCharm,
+			OfferUUID:             args.OfferUUID,
+		},
 		OffererControllerUUID: args.OffererControllerUUID,
 		OffererModelUUID:      args.OffererModelUUID,
 		EncodedMacaroon:       encodedMacaroon,

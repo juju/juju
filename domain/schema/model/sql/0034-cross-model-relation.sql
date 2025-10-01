@@ -59,6 +59,9 @@ CREATE TABLE application_remote_offerer_status (
 CREATE TABLE application_remote_consumer (
     uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
+    -- application_uuid is the synthetic application in the offerer model.
+    -- Locating charm is done through the application.
+    application_uuid TEXT NOT NULL,
     -- offer_connection_uuid is the offer connection that links the remote
     -- consumer to the offer.
     offer_connection_uuid TEXT NOT NULL,
@@ -68,6 +71,9 @@ CREATE TABLE application_remote_consumer (
     CONSTRAINT fk_life_id
     FOREIGN KEY (life_id)
     REFERENCES life (id),
+    CONSTRAINT fk_application_uuid
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
     CONSTRAINT fk_offer_connection_uuid
     FOREIGN KEY (offer_connection_uuid)
     REFERENCES offer_connection (uuid)
