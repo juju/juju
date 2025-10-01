@@ -424,22 +424,22 @@ func (s *modelStateSuite) TestImportRelationStatusRelationNotFound(c *tc.C) {
 func (s *modelStateSuite) getRelationStatus(c *tc.C, relationUUID corerelation.UUID) status.StatusInfo[status.RelationStatusType] {
 	var (
 		statusType int
-		reason     string
+		message    string
 		updated_at *time.Time
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT relation_status_type_id, suspended_reason, updated_at
+SELECT relation_status_type_id, message, updated_at
 FROM   relation_status
 WHERE  relation_uuid = ?
-`, relationUUID).Scan(&statusType, &reason, &updated_at)
+`, relationUUID).Scan(&statusType, &message, &updated_at)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	encodedStatus, err := status.DecodeRelationStatus(statusType)
 	c.Assert(err, tc.ErrorIsNil)
 	return status.StatusInfo[status.RelationStatusType]{
 		Status:  encodedStatus,
-		Message: reason,
+		Message: message,
 		Since:   updated_at,
 	}
 }
@@ -2512,7 +2512,7 @@ func (s *modelStateSuite) addRelationStatusWithMessage(c *tc.C, relationUUID cor
 	message string, since time.Time) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
-INSERT INTO relation_status (relation_uuid, relation_status_type_id, suspended_reason, updated_at)
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
 SELECT ?, rst.id, ?, ?
 FROM relation_status_type rst
 WHERE rst.name = ?

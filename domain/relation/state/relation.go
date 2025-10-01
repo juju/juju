@@ -195,12 +195,14 @@ func (st *State) addRelation(
 	if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
-		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).
+			Add(relationerrors.ApplicationNotAlive)
 	}
 	if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
 	} else if !alive {
-		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).
+			Add(relationerrors.ApplicationNotAlive)
 	}
 
 	// Check the application bases are compatible, if required
@@ -281,7 +283,8 @@ func (st *State) ApplicationRelationsInfo(
 			return errors.Capture(err)
 		}
 
-		// For each relation, get its EndpointsRelationData based on the application.
+		// For each relation, get its EndpointsRelationData based on the
+		// application.
 		results = make([]domainrelation.EndpointRelationData, len(relationIDUUIDAppNames))
 		for i, rel := range relationIDUUIDAppNames {
 			result := domainrelation.EndpointRelationData{}
@@ -728,16 +731,15 @@ func (st *State) GetRelationsStatusForUnit(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT
-    re.relation_uuid AS &relationUnitStatus.relation_uuid,
-    ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
-    vrs.status AS &relationUnitStatus.status
-FROM relation_endpoint AS re
-JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-JOIN unit AS u ON ae.application_uuid = u.application_uuid
-JOIN v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
+SELECT re.relation_uuid AS &relationUnitStatus.relation_uuid,
+       ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
+       vrs.status AS &relationUnitStatus.status
+FROM      relation_endpoint AS re
+JOIN      application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN      unit AS u ON ae.application_uuid = u.application_uuid
+JOIN      v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
 LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
-WHERE  u.uuid = $unitUUIDArg.unit_uuid
+WHERE     u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)

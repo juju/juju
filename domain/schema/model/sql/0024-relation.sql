@@ -189,7 +189,7 @@ INSERT INTO relation_status_type VALUES
 CREATE TABLE relation_status (
     relation_uuid TEXT NOT NULL PRIMARY KEY,
     relation_status_type_id TEXT NOT NULL,
-    suspended_reason TEXT,
+    message TEXT,
     updated_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_relation_uuid
     FOREIGN KEY (relation_uuid)
@@ -251,7 +251,7 @@ CREATE VIEW v_relation_status AS
 SELECT
     rs.relation_uuid,
     rst.name AS status,
-    rs.suspended_reason,
+    rs.message,
     rs.updated_at
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;
