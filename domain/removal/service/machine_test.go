@@ -16,6 +16,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removal "github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -37,7 +38,10 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return([]string{"some-unit-id"}, []string{"some-machine-id"}, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(internal.CascadedMachineLives{
+		MachineUUIDs: []string{"some-machine-id"},
+		UnitUUIDs:    []string{"some-unit-id"},
+	}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
 	// We don't want to create all the machine or unit expectations here, so
@@ -61,7 +65,7 @@ func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(internal.CascadedMachineLives{}, nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, true, 0)
@@ -79,7 +83,7 @@ func (s *machineSuite) TestRemoveMachineForceWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(nil, nil, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(internal.CascadedMachineLives{}, nil)
 
 	// The first normal removal scheduled immediately.
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
