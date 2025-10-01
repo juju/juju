@@ -41,14 +41,14 @@ func NewResourceOpenerForUnit(
 	resourceDownloadLimiterFunc func() ResourceDownloadLock,
 	unitName coreunit.Name,
 ) (opener coreresource.Opener, err error) {
-	applicationID, err := args.ApplicationService.GetApplicationIDByUnitName(ctx, unitName)
+	applicationID, err := args.ApplicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+		return nil, errors.Errorf("loading application UUID for unit %s: %w", unitName, err)
 	}
 
 	unitUUID, err := args.ApplicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading application ID for unit %s: %w", unitName, err)
+		return nil, errors.Errorf("loading application UUID for unit %s: %w", unitName, err)
 	}
 
 	applicationName := unitName.Application()
@@ -76,7 +76,7 @@ func NewResourceOpenerForApplication(
 	ctx context.Context,
 	args ResourceOpenerArgs,
 	applicationName string,
-	applicationID coreapplication.ID,
+	applicationID coreapplication.UUID,
 ) (opener coreresource.Opener, err error) {
 	charmOrigin, err := args.ApplicationService.GetApplicationCharmOrigin(ctx, applicationName)
 	if err != nil {
@@ -121,7 +121,7 @@ type ResourceOpener struct {
 	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
 	charmOrigin     charm.Origin
-	appID           coreapplication.ID
+	appID           coreapplication.UUID
 
 	resourceClientGetter        ResourceClientGetter
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
@@ -167,8 +167,8 @@ func (ro ResourceOpener) getResource(
 	defer locker.Unlock()
 
 	resourceUUID, err := ro.resourceService.GetApplicationResourceID(ctx, resource.GetApplicationResourceIDArgs{
-		ApplicationID: ro.appID,
-		Name:          resName,
+		ApplicationUUID: ro.appID,
+		Name:            resName,
 	})
 	if err != nil {
 		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appID, err)

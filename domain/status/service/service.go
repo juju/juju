@@ -32,27 +32,27 @@ type ModelState interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
-	// GetApplicationIDByName returns the application ID for the named
+	// GetApplicationUUIDByName returns the application UUID for the named
 	// application. If no application is found, an error satisfying
 	// [statuserrors.ApplicationNotFound] is returned.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// GetApplicationIDAndNameByUnitName returns the application ID and name for
+	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name for
 	// the named unit, returning an error satisfying
 	// [statuserrors.UnitNotFound] if the unit doesn't exist.
-	GetApplicationIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, string, error)
+	GetApplicationUUIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
 
 	// GetApplicationStatus looks up the status of the specified application,
 	// returning an error satisfying [statuserrors.ApplicationNotFound] if the
 	// application is not found.
-	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error)
+	GetApplicationStatus(ctx context.Context, appID coreapplication.UUID) (status.StatusInfo[status.WorkloadStatusType], error)
 
 	// SetApplicationStatus sets the given application status, overwriting any
 	// current status data. If returns an error satisfying
 	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
 	SetApplicationStatus(
 		ctx context.Context,
-		applicationID coreapplication.ID,
+		applicationID coreapplication.UUID,
 		status status.StatusInfo[status.WorkloadStatusType],
 	) error
 
@@ -116,7 +116,7 @@ type ModelState interface {
 	//     application doesn't exist or;
 	//   - error satisfying [statuserrors.ApplicationIsDead] if the
 	//     application is dead.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (status.UnitWorkloadStatuses, error)
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.UUID) (status.UnitWorkloadStatuses, error)
 
 	// GetUnitAgentStatusesForApplication returns the agent statuses for
 	// all units of the specified application, returning:
@@ -124,7 +124,7 @@ type ModelState interface {
 	//     application doesn't exist or;
 	//   - error satisfying [statuserrors.ApplicationIsDead] if the
 	//     application is dead.
-	GetUnitAgentStatusesForApplication(context.Context, coreapplication.ID) (status.UnitAgentStatuses, error)
+	GetUnitAgentStatusesForApplication(context.Context, coreapplication.UUID) (status.UnitAgentStatuses, error)
 
 	// GetAllFullUnitStatusesForApplication returns the workload statuses and
 	// the cloud container statuses for all units of the specified application,
@@ -134,7 +134,7 @@ type ModelState interface {
 	//   - an error satisfying [statuserrors.ApplicationIsDead] if the
 	//     application is dead.
 	GetAllFullUnitStatusesForApplication(
-		context.Context, coreapplication.ID,
+		context.Context, coreapplication.UUID,
 	) (status.FullUnitStatuses, error)
 
 	// GetUnitAgentStatus returns the workload status of the specified unit,
@@ -298,7 +298,7 @@ func (s *Service) SetApplicationStatus(
 		return errors.Errorf("encoding workload status: %w", err)
 	}
 
-	applicationID, err := s.modelState.GetApplicationIDByName(ctx, applicationName)
+	applicationID, err := s.modelState.GetApplicationUUIDByName(ctx, applicationName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -323,7 +323,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.modelState.GetApplicationIDByName(ctx, appName)
+	appID, err := s.modelState.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -427,12 +427,12 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 // exist.
-func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
+func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.UUID) (map[coreunit.Name]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
 
 	statuses, err := s.modelState.GetUnitWorkloadStatusesForApplication(ctx, appID)
@@ -451,12 +451,12 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 // exist.
-func (s *Service) GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
+func (s *Service) GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.UUID) (map[coreunit.Name]corestatus.StatusInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application UUID: %w", err)
 	}
 
 	statuses, err := s.modelState.GetUnitAgentStatusesForApplication(ctx, appID)
@@ -1036,7 +1036,7 @@ func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status
 
 func (s *Service) decodeApplicationDisplayStatus(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	statusInfo status.StatusInfo[status.WorkloadStatusType],
 ) (corestatus.StatusInfo, error) {
 	if statusInfo.Status != status.WorkloadStatusUnset {

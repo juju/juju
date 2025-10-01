@@ -28,7 +28,7 @@ import (
 // a given application.
 func (st *State) GetFilesystemTemplatesForApplication(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 ) ([]storageprovisioning.FilesystemTemplate, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

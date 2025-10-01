@@ -112,7 +112,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 			return fn(ctx)
 		})
 
-	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+	s.modelState.EXPECT().GetApplicationUUIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
 	s.modelState.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
@@ -142,7 +142,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 			return lease.ErrNotHeld
 		})
 
-	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+	s.modelState.EXPECT().GetApplicationUUIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -176,7 +176,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	unitName := coreunit.Name("foo/666")
 
-	s.modelState.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
+	s.modelState.EXPECT().GetApplicationUUIDAndNameByUnitName(gomock.Any(), unitName).
 		Return(applicationUUID, "foo", statuserrors.UnitNotFound)
 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
@@ -194,7 +194,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 	unitName := coreunit.Name("foo/0")
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
@@ -217,7 +217,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderN
 
 	unitName := coreunit.Name("foo/0")
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("", statuserrors.ApplicationNotFound)
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
@@ -234,7 +234,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			return fn(ctx)
 		})
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
@@ -308,7 +308,7 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 			return fn(ctx)
 		})
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{

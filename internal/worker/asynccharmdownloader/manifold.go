@@ -44,7 +44,7 @@ type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehtt
 
 // NewAsyncDownloadWorkerFunc is a function that creates a new async worker.
 type NewAsyncDownloadWorkerFunc func(
-	appID application.ID,
+	appID application.UUID,
 	applicationService ApplicationService,
 	downloader Downloader,
 	clock clock.Clock,

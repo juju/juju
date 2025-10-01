@@ -75,12 +75,12 @@ type ApplicationService interface {
 
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
-	GetApplicationLife(ctx context.Context, id application.ID) (life.Value, error)
+	GetApplicationLife(ctx context.Context, id application.UUID) (life.Value, error)
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
-	GetAllUnitLifeForApplication(context.Context, application.ID) (map[unit.Name]life.Value, error)
+	GetAllUnitLifeForApplication(context.Context, application.UUID) (map[unit.Name]life.Value, error)
 
-	// GetApplicationName returns the application name for the given application ID.
-	GetApplicationName(ctx context.Context, id application.ID) (string, error)
+	// GetApplicationName returns the application name for the given application UUID.
+	GetApplicationName(ctx context.Context, id application.UUID) (string, error)
 
 	// WatchApplications returns a watcher that observes changes to applications.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
@@ -89,18 +89,18 @@ type ApplicationService interface {
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
 	// IsControllerApplication returns true when the application is the controller.
-	IsControllerApplication(ctx context.Context, id application.ID) (bool, error)
+	IsControllerApplication(ctx context.Context, id application.UUID) (bool, error)
 
 	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, applicationservice.UpdateCAASUnitParams) error
 
 	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
 	// and their cloud container provider IDs for the given application.
-	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.ID) (map[unit.Name]string, error)
+	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.UUID) (map[unit.Name]string, error)
 
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
-	GetCharmByApplicationID(context.Context, application.ID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
+	// GetCharmByApplicationUUID returns the charm for the specified application
+	// UUID.
+	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -124,7 +124,7 @@ type StatusService interface {
 	// units in the specified application, indexed by unit name, returning an error
 	// satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 	// exist.
-	GetUnitAgentStatusesForApplication(ctx context.Context, appID application.ID) (map[unit.Name]status.StatusInfo, error)
+	GetUnitAgentStatusesForApplication(ctx context.Context, appID application.UUID) (map[unit.Name]status.StatusInfo, error)
 
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data. If returns an error satisfying
@@ -136,26 +136,26 @@ type AgentPasswordService interface {
 	// SetApplicationPassword sets the password for the given application. If the
 	// app does not exist, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
-	SetApplicationPassword(ctx context.Context, appID application.ID, password string) error
+	SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error
 }
 
 type StorageProvisioningService interface {
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates for
 	// a given application.
-	GetFilesystemTemplatesForApplication(ctx context.Context, appID application.ID) ([]storageprovisioning.FilesystemTemplate, error)
+	GetFilesystemTemplatesForApplication(ctx context.Context, appID application.UUID) ([]storageprovisioning.FilesystemTemplate, error)
 	// GetStorageResourceTagsForApplication returns the storage resource tags for
 	// the given application. These tags are used when creating a resource in an
 	// environ.
-	GetStorageResourceTagsForApplication(ctx context.Context, appID application.ID) (map[string]string, error)
+	GetStorageResourceTagsForApplication(ctx context.Context, appID application.UUID) (map[string]string, error)
 }
 
 type ResourceOpenerGetter interface {
-	ResourceOpenerForApplication(ctx context.Context, appID application.ID, appName string) (coreresource.Opener, error)
+	ResourceOpenerForApplication(ctx context.Context, appID application.UUID, appName string) (coreresource.Opener, error)
 }
 
-type ResourceOpenerGetterFunc func(context.Context, application.ID, string) (coreresource.Opener, error)
+type ResourceOpenerGetterFunc func(context.Context, application.UUID, string) (coreresource.Opener, error)
 
-func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Context, appID application.ID, appName string) (coreresource.Opener, error) {
+func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Context, appID application.UUID, appName string) (coreresource.Opener, error) {
 	return f(ctx, appID, appName)
 }
 

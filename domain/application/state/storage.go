@@ -47,7 +47,7 @@ const (
 // when the application no longer exists.
 func (st *State) GetApplicationStorageDirectives(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 ) ([]application.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -109,7 +109,7 @@ WHERE  application_uuid = $entityUUID.uuid
 
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	ids []string,
 ) (map[string]domainstorage.StorageInstanceUUID, error) {
 	return nil, nil
@@ -237,7 +237,7 @@ WHERE  unit_uuid = $entityUUID.uuid
 func (st *State) insertApplicationStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid coreapplication.ID,
+	uuid coreapplication.UUID,
 	charmUUID corecharm.ID,
 	directives []application.CreateApplicationStorageDirectiveArg,
 ) error {

@@ -99,7 +99,7 @@ func (st *State) buildResourcesToAdd(
 }
 
 type insertResourcesArgs struct {
-	appID        coreapplication.ID
+	appID        coreapplication.UUID
 	charmUUID    corecharm.ID
 	charmSource  charm.CharmSource
 	appResources []application.AddApplicationResourceArg
@@ -167,12 +167,12 @@ type uuids []string
 
 // resolvePendingResources finds pending resources for the application and
 // makes links them in the application resource link table now that an
-// application ID is available. Duplicated those resources for charmhub
+// application UUID is available. Duplicated those resources for charmhub
 // sourced charms as potential.
 func (st *State) resolvePendingResources(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	charmSource charm.CharmSource,
 	resources []coreresource.UUID,
 ) error {

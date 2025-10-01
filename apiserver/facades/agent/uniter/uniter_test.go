@@ -1351,10 +1351,10 @@ func (s *uniterSuite) TestLogActionsMessages(c *tc.C) {
 }
 
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID(unitName.Application()), err)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(coreapplication.UUID(unitName.Application()), err)
 	if err == nil {
 		s.applicationService.EXPECT().GetApplicationConfigWithDefaults(
-			gomock.Any(), coreapplication.ID(unitName.Application()),
+			gomock.Any(), coreapplication.UUID(unitName.Application()),
 		).Return(settings, nil)
 	}
 }
@@ -1737,7 +1737,7 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
+	s.expectGetApplicationUUIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
@@ -1842,7 +1842,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *tc.C) {
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
+	s.expectGetApplicationUUIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
@@ -1959,7 +1959,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetApplicationIDByName(remoteAppTag.Id(), appID)
+	s.expectGetApplicationUUIDByName(remoteAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
@@ -1992,7 +1992,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
+	s.expectGetApplicationUUIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
@@ -2270,7 +2270,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *tc.C) {
 		unittesting.GenUnitUUID(c),
 		unittesting.GenUnitUUID(c),
 	}
-	appUUIDs := []coreapplication.ID{
+	appUUIDs := []coreapplication.UUID{
 		applicationtesting.GenApplicationUUID(c),
 	}
 
@@ -2521,15 +2521,15 @@ func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *tc.C,
 	}, nil)
 }
 
-func (s *uniterRelationSuite) expectGetApplicationIDByName(appName string, id coreapplication.ID) {
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(id, nil)
+func (s *uniterRelationSuite) expectGetApplicationUUIDByName(appName string, id coreapplication.UUID) {
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(id, nil)
 }
 
-func (s *uniterRelationSuite) expectGetRelationApplicationSettingsWithLeader(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+func (s *uniterRelationSuite) expectGetRelationApplicationSettingsWithLeader(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.UUID, settings map[string]string) {
 	s.relationService.EXPECT().GetRelationApplicationSettingsWithLeader(gomock.Any(), unitName, uuid, id).Return(settings, nil)
 }
 
-func (s *uniterRelationSuite) expectGetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+func (s *uniterRelationSuite) expectGetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.UUID, settings map[string]string) {
 	s.relationService.EXPECT().GetRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
 }
 
@@ -2584,7 +2584,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 	watchedUnitUUID coreunit.UUID,
 	relUUID corerelation.UUID,
 	unitUUIDs []coreunit.UUID,
-	appUUIDS []coreapplication.ID,
+	appUUIDS []coreapplication.UUID,
 	watcherID string,
 	changes relation.RelationUnitsChange,
 ) {
@@ -2602,7 +2602,7 @@ func encodeUnitFromUUID(uuid coreunit.UUID) string {
 	return relation.EncodeUnitUUID(uuid.String())
 }
 
-func encodeAppFromUUID(uuid coreapplication.ID) string {
+func encodeAppFromUUID(uuid coreapplication.UUID) string {
 	return relation.EncodeApplicationUUID(uuid.String())
 }
 

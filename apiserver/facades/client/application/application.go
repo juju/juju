@@ -797,7 +797,7 @@ func (api *APIBase) CharmRelations(ctx context.Context, p params.ApplicationChar
 		return results, errors.Trace(err)
 	}
 
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, p.ApplicationName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, p.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return results, apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", p.ApplicationName)
 	} else if err != nil {
@@ -1107,11 +1107,11 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return &info, nil
 		}
 
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		appID, err := api.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return &info, err
 		} else if err != nil {
-			return nil, errors.Annotatef(err, "getting application ID %q", tag.Id())
+			return nil, errors.Annotatef(err, "getting application UUID %q", tag.Id())
 		}
 		maxWait := time.Duration(0)
 		if arg.MaxWait != nil {
@@ -1264,7 +1264,7 @@ func (api *APIBase) getConstraints(ctx context.Context, entity string) (constrai
 	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		appID, err := api.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return constraints.Value{}, errors.NotFoundf("application %s", tag.Id())
 		} else if err != nil {
@@ -1291,7 +1291,7 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 		return errors.Trace(err)
 	}
 
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, args.ApplicationName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, args.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.NotFoundf("application %s", args.ApplicationName)
 	} else if err != nil {
@@ -1602,7 +1602,7 @@ func (api *APIBase) setConfig(ctx context.Context, arg params.ConfigSet) params.
 		return params.ErrorResult{Error: apiservererrors.ServerError(errors.NotImplementedf("config yaml not supported"))}
 	}
 
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, arg.ApplicationName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, arg.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ErrorResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", arg.ApplicationName))}
 	} else if errors.Is(err, applicationerrors.ApplicationNameNotValid) {
@@ -1640,7 +1640,7 @@ func (api *APIBase) UnsetApplicationsConfig(ctx context.Context, args params.App
 }
 
 func (api *APIBase) unsetApplicationConfig(ctx context.Context, arg params.ApplicationUnset) error {
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, arg.ApplicationName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, arg.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.NotFoundf("application %s", arg.ApplicationName)
 	} else if err != nil {
@@ -1733,7 +1733,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Name)
+		appID, err := api.applicationService.GetApplicationUUIDByName(ctx, tag.Name)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			out[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Name)
 			continue
@@ -1922,7 +1922,7 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		appID, err := api.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			res[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "application %s not found", tag.Id())
 			continue
@@ -2118,9 +2118,9 @@ func (api *APIBase) openPortsOnUnit(ctx context.Context, unitUUID coreunit.UUID)
 }
 
 func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.EndpointRelationData, error) {
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, appName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting application id for %q: %v", appName, err)
+		return nil, internalerrors.Errorf("getting application UUID for %q: %v", appName, err)
 	}
 	endpointsData, err := api.relationService.ApplicationRelationsInfo(ctx, appID)
 	if err != nil {

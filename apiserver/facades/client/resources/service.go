@@ -27,7 +27,7 @@ type ResourceService interface {
 	) (coreresource.UUID, error)
 
 	// ListResources returns the resources for the given application.
-	ListResources(ctx context.Context, applicationID coreapplication.ID) (coreresource.ApplicationResources, error)
+	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
 	// UpdateResourceRevision adds a new entry for the revision in the resource
 	// table with the desired parameters and sets it on the application. Any
@@ -42,6 +42,6 @@ type ResourceService interface {
 
 // ApplicationService defines methods to manage application.
 type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	// GetApplicationUUIDByName returns an application UUID by application name.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 }

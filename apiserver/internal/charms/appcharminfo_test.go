@@ -61,8 +61,8 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfo(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
-	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)
+	s.appService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "fuu").Return(id, nil)
+	s.appService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), id).Return(charmBase, locator, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)
@@ -94,8 +94,8 @@ func (s *appCharmInfoSuite) TestApplicationCharmInfoMinimal(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "fuu").Return(id, nil)
-	s.appService.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(charmBase, locator, nil)
+	s.appService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "fuu").Return(id, nil)
+	s.appService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), id).Return(charmBase, locator, nil)
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(internaltesting.ModelTag, s.appService, s.authorizer)

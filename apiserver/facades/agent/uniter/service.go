@@ -148,20 +148,20 @@ type ApplicationService interface {
 	// will be returned.
 	WatchUnitForLegacyUniter(context.Context, coreunit.Name) (watcher.NotifyWatcher, error)
 
-	// GetApplicationIDByUnitName returns the application ID for the named unit.
+	// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
 	//
 	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
-	GetApplicationIDByUnitName(context.Context, coreunit.Name) (coreapplication.ID, error)
+	GetApplicationUUIDByUnitName(context.Context, coreunit.Name) (coreapplication.UUID, error)
 
-	// GetApplicationIDByName returns an application ID by application name.
+	// GetApplicationUUIDByName returns an application UUID by application name.
 	//
 	// Returns [applicationerrors.ApplicationNotFound] if the application is not
 	// found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
-	GetCharmModifiedVersion(context.Context, coreapplication.ID) (int, error)
+	GetCharmModifiedVersion(context.Context, coreapplication.UUID) (int, error)
 
 	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
 	// archive for the given charm name, source and revision. If the charm is
@@ -181,7 +181,7 @@ type ApplicationService interface {
 	// AddIAASSubordinateUnit adds a IAAS unit to the specified subordinate
 	// application to the application on the same machine as the given principal
 	// unit and records the principal-subordinate relationship.
-	AddIAASSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.ID, principalUnitName coreunit.Name) error
+	AddIAASSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.UUID, principalUnitName coreunit.Name) error
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
@@ -195,7 +195,7 @@ type ApplicationService interface {
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfigWithDefaults(context.Context, coreapplication.ID) (internalcharm.Config, error)
+	GetApplicationConfigWithDefaults(context.Context, coreapplication.UUID) (internalcharm.Config, error)
 
 	// WatchApplicationConfigHash watches for changes to the specified application's
 	// config hash.
@@ -313,7 +313,7 @@ type StatusService interface {
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
 	// all units in the specified application, indexed by unit name
-	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
+	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.UUID) (map[coreunit.Name]corestatus.StatusInfo, error)
 
 	// SetRelationStatus sets the status of the relation to the status provided.
 	// Status may only be set by the application leader.
@@ -459,7 +459,7 @@ type RelationService interface {
 	// all relations the given application is in, modulo peer relations.
 	GetGoalStateRelationDataForApplication(
 		ctx context.Context,
-		applicationID coreapplication.ID,
+		applicationID coreapplication.UUID,
 	) ([]relation.GoalStateRelationData, error)
 
 	// GetRelationApplicationSettingsWithLeader returns the application settings
@@ -471,7 +471,7 @@ type RelationService interface {
 		ctx context.Context,
 		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
-		applicationID coreapplication.ID,
+		applicationID coreapplication.UUID,
 	) (map[string]string, error)
 
 	// GetRelationDetails returns the relation details requested by the uniter
@@ -493,7 +493,7 @@ type RelationService interface {
 	GetRelationUnitChanges(
 		ctx context.Context,
 		unitUUIDs []coreunit.UUID,
-		appUUIDs []coreapplication.ID,
+		appUUIDs []coreapplication.UUID,
 	) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnitSettings returns the unit settings for the
@@ -524,7 +524,7 @@ type RelationService interface {
 	GetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		applicationID coreapplication.ID,
+		applicationID coreapplication.UUID,
 	) (map[string]string, error)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.

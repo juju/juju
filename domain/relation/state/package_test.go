@@ -74,7 +74,7 @@ func (s *baseRelationSuite) query(c *tc.C, query string, args ...any) {
 
 // addApplication adds a new application to the database with the specified
 // charm UUID and application name. It returns the application UUID.
-func (s *baseRelationSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.ID {
+func (s *baseRelationSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.UUID {
 	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
@@ -85,7 +85,7 @@ VALUES (?, ?, ?, ?, ?)
 
 // addApplicationEndpoint inserts a new application endpoint into the database
 // with the specified UUIDs. Returns the endpoint uuid.
-func (s *baseRelationSuite) addApplicationEndpoint(c *tc.C, applicationUUID coreapplication.ID,
+func (s *baseRelationSuite) addApplicationEndpoint(c *tc.C, applicationUUID coreapplication.UUID,
 	charmRelationUUID string) string {
 	// TODO(gfouillet): introduce proper UUID for this one, from corerelation & corerelationtesting
 	applicationEndpointUUID := uuid.MustNewUUID().String()
@@ -308,7 +308,7 @@ VALUES (?,?,?)
 }
 
 // addRelationApplicationSetting inserts a relation application setting into the database
-// using the provided relation and application ID.
+// using the provided relation and application UUID.
 func (s *baseRelationSuite) addRelationApplicationSetting(c *tc.C, relationEndpointUUID, key, value string) {
 	s.query(c, `
 INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
@@ -318,7 +318,7 @@ VALUES (?,?,?)
 
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
-func (s *baseRelationSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {
+func (s *baseRelationSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID coreapplication.UUID, charmUUID corecharm.ID) coreunit.UUID {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, `
@@ -336,7 +336,7 @@ VALUES (?, ?, ?, ?, ?, ?)
 
 // addUnitWithLife adds a new unit to the specified application in the database with
 // the given UUID, name and life. Returns the unit uuid.
-func (s *baseRelationSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID,
+func (s *baseRelationSuite) addUnitWithLife(c *tc.C, unitName coreunit.Name, appUUID coreapplication.UUID,
 	charmUUID corecharm.ID, life corelife.Value) coreunit.UUID {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 	netNodeUUID := uuid.MustNewUUID().String()

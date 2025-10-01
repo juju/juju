@@ -35,7 +35,7 @@ type MigrationState interface {
 	// application in the model.
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error)
+	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.UUID) ([]application.ExportUnit, error)
 
 	// GetSpaceUUIDByName returns the UUID of the space with the given name.
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
@@ -48,7 +48,7 @@ type MigrationState interface {
 	// application already exists. If returns as error satisfying
 	// [applicationerrors.CharmNotFound] if the charm for the application is
 	// not found.
-	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.ID, error)
+	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.UUID, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -186,7 +186,7 @@ func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string)
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -205,7 +205,7 @@ func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name s
 		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return application.CharmOrigin{}, errors.Capture(err)
 	}
@@ -228,7 +228,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
@@ -249,7 +249,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // GetApplicationConstraints returns the application constraints for the
 // specified application name.
 // Empty constraints are returned if no constraints exist for the given
-// application ID.
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (coreconstraints.Value, error) {
@@ -260,7 +260,7 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 		return coreconstraints.Value{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return coreconstraints.Value{}, errors.Capture(err)
 	}
@@ -294,7 +294,7 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
 	if err != nil {
 		return application.ScaleState{}, errors.Capture(err)
 	}
@@ -359,7 +359,7 @@ func (s *MigrationService) importApplication(
 	ctx context.Context,
 	name string,
 	args ImportApplicationArgs,
-) (coreapplication.ID, corecharm.ID, error) {
+) (coreapplication.UUID, corecharm.ID, error) {
 	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin); err != nil {
 		return "", "", errors.Errorf("invalid application args: %w", err)
 	}
@@ -448,7 +448,7 @@ func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName str
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -467,7 +467,7 @@ func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -31,7 +31,7 @@ func (api *APIBase) getConfig(
 	// Once application service is refactored to return the merged config, this
 	// should be a single call.
 
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, args.ApplicationName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, args.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
 	} else if err != nil {
@@ -173,7 +173,7 @@ func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName stri
 	// TODO (stickupkid): This should be one call to the application service.
 	// Thee application service should return the merged config, this should
 	// not happen at the API server level.
-	appID, err := api.applicationService.GetApplicationIDByName(ctx, appName)
+	appID, err := api.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %s", appName)
 	} else if err != nil {

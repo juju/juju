@@ -69,7 +69,7 @@ func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
-	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
+	}).DoAndReturn(func(ctx context.Context, i application.UUID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)
 		return nil
 	})
@@ -126,7 +126,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerRetriesDownload(c *tc.C) {
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
-	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
+	}).DoAndReturn(func(ctx context.Context, i application.UUID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)
 		return nil
 	})
@@ -213,7 +213,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyDownloaded(c *tc.C) {
 		},
 	}
 
-	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.ID) (domainapplication.CharmDownloadInfo, error) {
+	s.applicationService.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appID).DoAndReturn(func(ctx context.Context, i application.UUID) (domainapplication.CharmDownloadInfo, error) {
 		close(done)
 		return reserveInfo, applicationerrors.CharmAlreadyAvailable
 	})
@@ -263,7 +263,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 		CharmUUID: charmID,
 		Path:      "path",
 		Size:      int64(123),
-	}).DoAndReturn(func(ctx context.Context, i application.ID, rcd domainapplication.ResolveCharmDownload) error {
+	}).DoAndReturn(func(ctx context.Context, i application.UUID, rcd domainapplication.ResolveCharmDownload) error {
 		close(done)
 		return applicationerrors.CharmAlreadyResolved
 	})
@@ -280,7 +280,7 @@ func (s *asyncWorkerSuite) TestDownloadWorkerAlreadyResolved(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *asyncWorkerSuite) newWorker(c *tc.C, appID application.ID) worker.Worker {
+func (s *asyncWorkerSuite) newWorker(c *tc.C, appID application.UUID) worker.Worker {
 	return NewAsyncDownloadWorker(
 		appID,
 		s.applicationService,

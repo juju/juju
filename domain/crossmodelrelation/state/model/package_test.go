@@ -81,7 +81,7 @@ func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 
 // addApplication adds a new application to the database with the specified
 // charm UUID and application name. It returns the application UUID.
-func (s *baseSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.ID {
+func (s *baseSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.UUID {
 	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
@@ -92,7 +92,7 @@ VALUES (?, ?, ?, ?, ?)
 
 // addApplicationEndpoint inserts a new application endpoint into the database
 // with the specified UUIDs. Returns the endpoint uuid.
-func (s *baseSuite) addApplicationEndpoint(c *tc.C, applicationUUID coreapplication.ID,
+func (s *baseSuite) addApplicationEndpoint(c *tc.C, applicationUUID coreapplication.UUID,
 	charmRelationUUID string) string {
 	applicationEndpointUUID := internaluuid.MustNewUUID().String()
 	s.query(c, `

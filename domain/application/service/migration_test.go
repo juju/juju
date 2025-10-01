@@ -278,7 +278,7 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
 		Name:   "foo",
 		Source: domaincharm.CharmHubSource,
@@ -297,7 +297,7 @@ func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
 
 	_, err := s.service.GetApplicationCharmOrigin(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -315,7 +315,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  domaincharm.OptionString,
@@ -345,7 +345,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
 
 	_, _, err := s.service.GetApplicationConfigAndSettings(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -357,7 +357,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *tc.C)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, errors.Errorf("boom"))
 
@@ -371,7 +371,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
 
@@ -386,7 +386,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *tc.
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{
 			Trust: true,
@@ -448,14 +448,14 @@ func (s *migrationServiceSuite) assertImportApplication(c *tc.C, modelType corem
 
 	var receivedUnitArgs []application.ImportUnitArg
 	if modelType == coremodel.IAAS {
-		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
+		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
 	} else {
 		s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
 		s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
-		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
+		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
@@ -648,7 +648,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnits(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.state.EXPECT().GetApplicationUnitsForExport(gomock.Any(), appID).Return(units, nil)
 
 	res, err := s.service.GetApplicationUnits(c.Context(), "foo")
@@ -661,7 +661,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *tc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetApplicationUnits(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -674,7 +674,7 @@ func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *tc.C) {
 
 	units := []application.ExportUnit{}
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appID, nil)
 	s.state.EXPECT().GetApplicationUnitsForExport(gomock.Any(), appID).Return(units, nil)
 
 	res, err := s.service.GetApplicationUnits(c.Context(), "foo")

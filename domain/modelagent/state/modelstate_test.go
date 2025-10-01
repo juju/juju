@@ -277,7 +277,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appName string,
 ) coreunit.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	appID, err := appState.GetApplicationIDByName(c.Context(), appName)
+	appID, err := appState.GetApplicationUUIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -301,7 +301,7 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 func (s *modelStateSuite) createTestingApplicationWithName(
 	c *tc.C,
 	appName string,
-) coreapplication.ID {
+) coreapplication.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := deployment.Platform{

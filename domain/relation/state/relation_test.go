@@ -40,9 +40,9 @@ import (
 type addRelationSuite struct {
 	baseRelationSuite
 
-	// charmByApp maps application IDs to their associated charm IDs for quick
+	// charmByApp maps application UUIDs to their associated charm IDs for quick
 	// lookup during tests.
-	charmByApp map[coreapplication.ID]corecharm.ID
+	charmByApp map[coreapplication.UUID]corecharm.ID
 }
 
 func TestAddRelationSuite(t *testing.T) {
@@ -51,7 +51,7 @@ func TestAddRelationSuite(t *testing.T) {
 
 func (s *addRelationSuite) SetUpTest(c *tc.C) {
 	s.baseRelationSuite.SetUpTest(c)
-	s.charmByApp = make(map[coreapplication.ID]corecharm.ID)
+	s.charmByApp = make(map[coreapplication.UUID]corecharm.ID)
 }
 
 func (s *addRelationSuite) TestAddRelation(c *tc.C) {
@@ -664,7 +664,7 @@ func (s *addRelationSuite) TestInferEndpointsError(c *tc.C) {
 func (s *addRelationSuite) addApplication(
 	c *tc.C,
 	applicationName string,
-) coreapplication.ID {
+) coreapplication.UUID {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, false)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
@@ -677,7 +677,7 @@ func (s *addRelationSuite) addApplication(
 // Os is defaulted to ubuntu and architecture to AMD64 (db zero-values)
 func (s *addRelationSuite) addApplicationPlatform(
 	c *tc.C,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	channel corebase.Channel,
 ) {
 	s.query(c, `
@@ -691,7 +691,7 @@ VALUES (?, 0, ?, 0)`, appUUID, channel.String())
 func (s *addRelationSuite) addSubordinateApplication(
 	c *tc.C,
 	applicationName string,
-) coreapplication.ID {
+) coreapplication.UUID {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, true)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
@@ -703,7 +703,7 @@ func (s *addRelationSuite) addSubordinateApplication(
 // attributes and returns its unique identifier.
 func (s *addRelationSuite) addApplicationEndpoint(
 	c *tc.C,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	name string,
 	role charm.RelationRole,
 	relInterface string) corerelation.EndpointUUID {
@@ -719,7 +719,7 @@ func (s *addRelationSuite) addApplicationEndpoint(
 // addApplicationEndpointFromRelation creates and associates a new application
 // endpoint based on the provided relation.
 func (s *addRelationSuite) addApplicationEndpointFromRelation(c *tc.C,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	relation charm.Relation) corerelation.EndpointUUID {
 
 	// Generate and get required UUIDs
@@ -752,8 +752,8 @@ type relationSuite struct {
 
 	fakeCharmUUID1                corecharm.ID
 	fakeCharmUUID2                corecharm.ID
-	fakeApplicationUUID1          coreapplication.ID
-	fakeApplicationUUID2          coreapplication.ID
+	fakeApplicationUUID1          coreapplication.UUID
+	fakeApplicationUUID2          coreapplication.UUID
 	fakeApplicationName1          string
 	fakeApplicationName2          string
 	fakeCharmRelationProvidesUUID string
@@ -809,8 +809,8 @@ func (s *relationSuite) TestGetRelationEndpointUUID(c *tc.C) {
 
 	// Act: get the relation endpoint UUID.
 	uuid, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
-		RelationUUID:  relationUUID,
+		ApplicationUUID: s.fakeApplicationUUID1,
+		RelationUUID:    relationUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 
@@ -826,8 +826,8 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
-		RelationUUID:  "not-found-relation-uuid",
+		ApplicationUUID: s.fakeApplicationUUID1,
+		RelationUUID:    "not-found-relation-uuid",
 	})
 
 	// Assert: check that RelationNotFound is returned.
@@ -835,15 +835,15 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 }
 
 // TestGetRelationEndpointUUIDApplicationNotFound verifies that attempting to
-// fetch a relation endpoint UUID with a non-existent application ID returns
+// fetch a relation endpoint UUID with a non-existent application UUID returns
 // the ApplicationNotFound error.
 func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) {
 	// Arrange: nothing to do, will fail on application fetch anyway.
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: "not-found-application-uuid ",
-		RelationUUID:  "not-used-uuid",
+		ApplicationUUID: "not-found-application-uuid ",
+		RelationUUID:    "not-used-uuid",
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
@@ -860,8 +860,8 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *t
 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
-		ApplicationID: s.fakeApplicationUUID1,
-		RelationUUID:  relationUUID,
+		ApplicationUUID: s.fakeApplicationUUID1,
+		RelationUUID:    relationUUID,
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
@@ -2172,7 +2172,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx,
 			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, departedUnitUUID},
-			[]coreapplication.ID{noSettingAppUUID, withSettingAppUUID},
+			[]coreapplication.UUID{noSettingAppUUID, withSettingAppUUID},
 		)
 		return err
 	})
@@ -2212,7 +2212,7 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 	})
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationUUIDs(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	subordinateCharm := s.fakeCharmUUID1
 	subordinateAppUUID := s.fakeApplicationUUID1
@@ -2229,7 +2229,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
 	// Act
-	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationUUIDs(
 		c.Context(), subordinateUnitUUID)
 
 	// Assert
@@ -2238,7 +2238,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *tc.C) {
 	c.Check(obtainedSubordinate, tc.Equals, subordinateAppUUID)
 }
 
-func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c *tc.C) {
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationUUIDsPrincipalOnly(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	principalCharm := s.fakeCharmUUID1
 	principalAppUUID := s.fakeApplicationUUID2
@@ -2249,7 +2249,7 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
 
 	// Act
-	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationUUIDs(
 		c.Context(), principalUnitUUID)
 
 	// Assert
@@ -3707,7 +3707,7 @@ func (s *relationSuite) doesRelationUnitExist(c *tc.C, relationUnitUUID string) 
 	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID)
 }
 
-func (s *relationSuite) addContainerScopedRelation(c *tc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+func (s *relationSuite) addContainerScopedRelation(c *tc.C, app1ID, app2ID coreapplication.UUID) (corerelation.UUID, string, string) {
 	// Arrange: Add two endpoints
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
@@ -3732,7 +3732,7 @@ func (s *relationSuite) addContainerScopedRelation(c *tc.C, app1ID, app2ID corea
 	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
 }
 
-func (s *relationSuite) addGlobalScopedRelation(c *tc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+func (s *relationSuite) addGlobalScopedRelation(c *tc.C, app1ID, app2ID coreapplication.UUID) (corerelation.UUID, string, string) {
 	// Arrange: Add two endpoints
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
@@ -3757,7 +3757,7 @@ func (s *relationSuite) addGlobalScopedRelation(c *tc.C, app1ID, app2ID coreappl
 	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
 }
 
-func (s *relationSuite) addPeerRelation(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.ID) (corerelation.UUID, string) {
+func (s *relationSuite) addPeerRelation(c *tc.C, charmUUID corecharm.ID, appUUID coreapplication.UUID) (corerelation.UUID, string) {
 	endpoint1 := charm.Relation{
 		Name:      "fake-endpoint-name-1",
 		Role:      charm.RoleProvider,

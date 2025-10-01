@@ -617,7 +617,7 @@ func (s *SecretService) updateSecret(ctx domain.AtomicContext, uri *secrets.URI,
 		var labelExists bool
 		switch kind := owner.Kind; kind {
 		case domainsecret.ApplicationOwner:
-			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, coreapplication.ID(owner.UUID), *params.Label)
+			labelExists, err = s.secretState.CheckApplicationSecretLabelExists(ctx, coreapplication.UUID(owner.UUID), *params.Label)
 		case domainsecret.UnitOwner:
 			labelExists, err = s.secretState.CheckUnitSecretLabelExists(ctx, coreunit.UUID(owner.UUID), *params.Label)
 		case domainsecret.ModelOwner:

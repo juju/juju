@@ -104,15 +104,15 @@ type ApplicationService interface {
 	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application UUID by application name. It
 	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+	// application UUID.
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Value, error)
 
 	// WatchApplication returns a NotifyWatcher for changes to the application.
 	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
@@ -128,7 +128,7 @@ type ApplicationService interface {
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
-	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.UUID) (int, error)
 
 	// GetUnitNamesForApplication returns a slice of the unit names for the
 	// given application
@@ -170,7 +170,7 @@ type RemovalService interface {
 type StatusService interface {
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
 	// all units in the specified application, indexed by unit name.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.UUID) (map[unit.Name]status.StatusInfo, error)
 
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data.

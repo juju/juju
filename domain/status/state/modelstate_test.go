@@ -127,30 +127,30 @@ func (s *modelStateSuite) TestGetAllRelationStatusesNone(c *tc.C) {
 	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDByName(c *tc.C) {
+func (s *modelStateSuite) TestGetApplicationUUIDByName(c *tc.C) {
 	id, _ := s.createIAASApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 
-	gotID, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+	gotID, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotID, tc.Equals, id)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationIDByName(c.Context(), "foo")
+func (s *modelStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
-func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitName(c *tc.C) {
+func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
 	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", 1)
 
-	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
+	appUUID, appName, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), coreunit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appUUID, tc.Equals, expectedAppUUID)
 	c.Check(appName, tc.Equals, "foo")
 }
 
-func (s *modelStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *tc.C) {
-	_, _, err := s.state.GetApplicationIDAndNameByUnitName(c.Context(), "failme")
+func (s *modelStateSuite) TestGetApplicationUUIDAndNameByUnitNameNotFound(c *tc.C) {
+	_, _, err := s.state.GetApplicationUUIDAndNameByUnitName(c.Context(), "failme")
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)
 }
 
@@ -1749,7 +1749,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 	})
 }
 
-func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.ID, unitUUID coreunit.UUID, version string) {
+func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.UUID, unitUUID coreunit.UUID, version string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {
 			return err
@@ -2523,7 +2523,7 @@ WHERE rst.name = ?
 		relationUUID, status, message))
 }
 
-func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.ID, relationUUID corerelation.UUID) {
+func (s *modelStateSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.UUID, relationUUID corerelation.UUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var charmRelationUUID string
 		err := tx.QueryRowContext(ctx, `SELECT uuid FROM charm_relation WHERE name = 'endpoint'`).Scan(&charmRelationUUID)
@@ -2613,7 +2613,7 @@ func (s *modelStateSuite) createIAASApplicationWithNUnits(
 	c *tc.C,
 	name string,
 	nUnits int,
-) (coreapplication.ID, []coreunit.UUID) {
+) (coreapplication.UUID, []coreunit.UUID) {
 	units := make([]application.AddIAASUnitArg, nUnits)
 	for i := range units {
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
@@ -2634,7 +2634,7 @@ func (s *modelStateSuite) createIAASApplication(
 	subordinate bool,
 	appStatus *status.StatusInfo[status.WorkloadStatusType],
 	units ...application.AddIAASUnitArg,
-) (coreapplication.ID, []coreunit.UUID) {
+) (coreapplication.UUID, []coreunit.UUID) {
 	appState := applicationstate.NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
@@ -2731,7 +2731,7 @@ func (s *modelStateSuite) createCAASApplication(
 	subordinate bool,
 	appStatus *status.StatusInfo[status.WorkloadStatusType],
 	units ...application.AddCAASUnitArg,
-) (coreapplication.ID, []coreunit.UUID) {
+) (coreapplication.UUID, []coreunit.UUID) {
 	appState := applicationstate.NewState(
 		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
 	)
@@ -2822,7 +2822,7 @@ func (s *modelStateSuite) createCAASApplication(
 	return appID, unitUUIDs
 }
 
-func (s *modelStateSuite) setApplicationLXDProfile(c *tc.C, appUUID coreapplication.ID, profile string) {
+func (s *modelStateSuite) setApplicationLXDProfile(c *tc.C, appUUID coreapplication.UUID, profile string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)

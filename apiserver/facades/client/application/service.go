@@ -155,11 +155,11 @@ type MachineService interface {
 type ApplicationService interface {
 	// CreateIAASApplication creates the specified IAAS application and
 	// subsequent units if supplied.
-	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg) (coreapplication.ID, error)
+	CreateIAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg) (coreapplication.UUID, error)
 
 	// CreateCAASApplication creates the specified CAAS application and
 	// subsequent units if supplied.
-	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateCAASApplication(context.Context, string, internalcharm.Charm, corecharm.Origin, applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg) (coreapplication.UUID, error)
 
 	// AddIAASUnits adds IAAS units to the application.
 	AddIAASUnits(ctx context.Context, name string, units ...applicationservice.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)
@@ -180,7 +180,7 @@ type ApplicationService interface {
 	ChangeApplicationScale(ctx context.Context, name string, scaleChange int) (int, error)
 
 	// GetApplicationLife looks up the life of the specified application.
-	GetApplicationLife(context.Context, coreapplication.ID) (life.Value, error)
+	GetApplicationLife(context.Context, coreapplication.UUID) (life.Value, error)
 
 	// GetUnitLife looks up the life of the specified unit.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
@@ -245,21 +245,21 @@ type ApplicationService interface {
 	// This will return true if the charm is available, and false otherwise.
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 
-	// GetApplicationIDByName returns an application ID by application name. It
+	// GetApplicationUUIDByName returns an application UUID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
 	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
 	// valid, and [applicationerrors.ApplicationNotFound] if the application is
 	// not found.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationConstraints returns the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// Empty constraints are returned if no constraints exist for the given
-	// application ID.
+	// application UUID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Value, error)
 
 	// GetApplicationCharmOrigin returns the charm origin for the specified
 	// application name. If the application does not exist, an error satisfying
@@ -267,24 +267,24 @@ type ApplicationService interface {
 	GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error)
 
 	// GetApplicationAndCharmConfig returns the application and charm config for the
-	// specified application ID.
-	GetApplicationAndCharmConfig(context.Context, coreapplication.ID) (applicationservice.ApplicationConfig, error)
+	// specified application UUID.
+	GetApplicationAndCharmConfig(context.Context, coreapplication.UUID) (applicationservice.ApplicationConfig, error)
 
 	// SetApplicationConstraints sets the application constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// This method overwrites the full constraints on every call.
 	// If invalid constraints are provided (e.g. invalid container type or
 	// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(context.Context, coreapplication.ID, constraints.Value) error
+	SetApplicationConstraints(context.Context, coreapplication.UUID, constraints.Value) error
 
 	// UnsetApplicationConfigKeys removes the specified keys from the application
 	// config. If the key does not exist, it is ignored.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	UnsetApplicationConfigKeys(context.Context, coreapplication.ID, []string) error
+	UnsetApplicationConfigKeys(context.Context, coreapplication.UUID, []string) error
 
 	// UpdateApplicationConfig updates the application config with the specified
 	// values. If the key does not exist, it is created. If the key already exists,
@@ -294,7 +294,7 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	// If the charm config is not valid, an error satisfying
 	// [applicationerrors.InvalidApplicationConfig] is returned.
-	UpdateApplicationConfig(context.Context, coreapplication.ID, map[string]string) error
+	UpdateApplicationConfig(context.Context, coreapplication.UUID, map[string]string) error
 
 	// IsApplicationExposed returns whether the provided application is exposed or not.
 	//
@@ -306,7 +306,7 @@ type ApplicationService interface {
 	// application.
 	// The following errors may be returned:
 	// - [appliationerrors.ApplicationNotFound] if the application does not exist
-	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// IsSubordinateApplicationByName returns true if the application is a
 	// subordinate application.
@@ -327,13 +327,13 @@ type ApplicationService interface {
 	// The following errors may be returned:
 	//   - [applicationerrors.ApplicationNotFound] is returned if the application
 	//     doesn't exist.
-	GetApplicationEndpointNames(context.Context, coreapplication.ID) ([]string, error)
+	GetApplicationEndpointNames(context.Context, coreapplication.UUID) ([]string, error)
 
 	// MergeApplicationEndpointBindings merge the provided bindings into the bindings
 	// for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.ID, bindings map[string]network.SpaceName, force bool) error
+	MergeApplicationEndpointBindings(ctx context.Context, appID coreapplication.UUID, bindings map[string]network.SpaceName, force bool) error
 
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
@@ -433,7 +433,7 @@ type RelationService interface {
 	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
-	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
+	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.UUID) ([]relation.EndpointRelationData, error)
 
 	// GetRelationUUIDForRemoval returns the relation UUID, of the relation
 	// represented in GetRelationUUIDForRemovalArgs, with the understanding
@@ -466,7 +466,7 @@ type RemovalService interface {
 	// The UUID for the scheduled removal job is returned.
 	RemoveApplication(
 		ctx context.Context,
-		appUUID coreapplication.ID,
+		appUUID coreapplication.UUID,
 		destroyStorage bool,
 		force bool,
 		wait time.Duration,

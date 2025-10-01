@@ -31,8 +31,8 @@ func (s *UnitAccessorSuite) TestApplicationAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().
-		GetApplicationIDByName(gomock.Any(), "gitlab").
-		Return(application.ID("1"), nil)
+		GetApplicationUUIDByName(gomock.Any(), "gitlab").
+		Return(application.UUID("1"), nil)
 
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
@@ -51,8 +51,8 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.applicationService.EXPECT().
-		GetApplicationIDByName(gomock.Any(), "gitlab").
-		Return(application.ID("1"), applicationerrors.ApplicationNotFound)
+		GetApplicationUUIDByName(gomock.Any(), "gitlab").
+		Return(application.UUID("1"), applicationerrors.ApplicationNotFound)
 
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),

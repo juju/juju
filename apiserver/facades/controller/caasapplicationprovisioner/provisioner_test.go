@@ -147,8 +147,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.modelInfoService.EXPECT().ResolveConstraints(gomock.Any(), constraints.Value{}).Return(constraints.Value{}, nil)
 
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return(coreapplication.UUID("deadbeef"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.UUID("deadbeef")).Return(constraints.Value{}, nil)
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
 	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "gitlab").Return(charm.Origin{
 		Platform: charm.Platform{
@@ -156,7 +156,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 			OS:      ostype.Ubuntu.String(),
 		},
 	}, nil)
-	s.applicationService.EXPECT().GetCharmModifiedVersion(gomock.Any(), coreapplication.ID("deadbeef")).Return(10, nil)
+	s.applicationService.EXPECT().GetCharmModifiedVersion(gomock.Any(), coreapplication.UUID("deadbeef")).Return(10, nil)
 	s.applicationService.EXPECT().GetApplicationTrustSetting(gomock.Any(), "gitlab").Return(true, nil)
 
 	result, err := s.api.ProvisioningInfo(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})

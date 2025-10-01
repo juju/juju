@@ -176,7 +176,7 @@ func (s *filesystemSuite) TestGetFilesystemTemplatesForApplication(c *tc.C) {
 	s.newApplicationStorageDirective(c, appUUID, charmUUID, "y", spUUID2, 456, 1)
 
 	st := NewState(s.TxnRunnerFactory())
-	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.ID(appUUID))
+	result, err := st.GetFilesystemTemplatesForApplication(c.Context(), application.UUID(appUUID))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "x",

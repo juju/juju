@@ -182,7 +182,7 @@ func (s *resourceSuite) TestDeleteApplicationResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check that resources have been deleted in expected tables
 	// without errors
@@ -247,7 +247,7 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *tc.
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
@@ -296,7 +296,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
@@ -345,7 +345,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act: delete resources from application 1
-	err = s.state.DeleteApplicationResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	err = s.state.DeleteApplicationResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert: check an error is returned and no resource deleted
 	c.Check(err, tc.ErrorIs, resourceerrors.CleanUpStateNotValid,
@@ -456,8 +456,8 @@ func (s *resourceSuite) TestGetApplicationResourceID(c *tc.C) {
 
 	// Act: Get application resource ID
 	id, err := s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
-		Name:          found.Name,
+		ApplicationUUID: application.UUID(s.constants.fakeApplicationUUID1),
+		Name:            found.Name,
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get application resource ID: %v", errors.ErrorStack(err)))
 	c.Assert(id, tc.Equals, coreresource.UUID(found.UUID),
@@ -471,8 +471,8 @@ func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *tc.C) {
 	// Arrange: No resources
 	// Act: Get application resource ID
 	_, err := s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
-		Name:          "resource-name-not-found",
+		ApplicationUUID: application.UUID(s.constants.fakeApplicationUUID1),
+		Name:            "resource-name-not-found",
 	})
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
@@ -502,8 +502,8 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 
 	// Act: Get application resource ID.
 	_, err = s.state.GetApplicationResourceID(c.Context(), resource.GetApplicationResourceIDArgs{
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
-		Name:          "potential-resource-name",
+		ApplicationUUID: application.UUID(s.constants.fakeApplicationUUID1),
+		Name:            "potential-resource-name",
 	})
 
 	// Assert: No resource can be found.
@@ -861,8 +861,8 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 
 	// Act: update resource 1 and 2 (not 3)
 	err = s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
-		CharmID:       charm.ID(newCharmUUID),
+		ApplicationUUID: application.UUID(s.constants.fakeApplicationUUID1),
+		CharmID:         charm.ID(newCharmUUID),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name: "not-polled-1",
@@ -938,7 +938,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *tc.C) {
 	// Act: update non-existent resources
 	err := s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		ApplicationUUID: application.UUID(s.constants.fakeApplicationUUID1),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name: "not-a-resource-1",
@@ -964,9 +964,9 @@ func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *tc.C) {
 func (s *resourceSuite) TestSetRepositoryResourceApplicationNotFound(c *tc.C) {
 	// Act: request a non-existent application.
 	err := s.state.SetRepositoryResources(c.Context(), resource.SetRepositoryResourcesArgs{
-		ApplicationID: "not-an-application",
-		Info:          []charmresource.Resource{{}}, // Non empty info
-		LastPolled:    time.Now(),                   // not used
+		ApplicationUUID: "not-an-application",
+		Info:            []charmresource.Resource{{}}, // Non empty info
+		LastPolled:      time.Now(),                   // not used
 	})
 
 	// Assert: check expected error
@@ -1734,7 +1734,7 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 func (s *resourceSuite) TestListResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	results, err := s.state.ListResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.ListResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Check(results.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
@@ -1844,7 +1844,7 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.ListResources(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.ListResources(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	// the application, even if not directly linked to this unit resource, should be properly retrieved
@@ -1881,35 +1881,35 @@ func (s *resourceSuite) TestListResources(c *tc.C) {
 	})
 }
 
-// TestGetResourcesByApplicationIDWrongApplicationID verifies the behavior
-// when querying non-existing application ID.
+// TestGetResourcesByApplicationUUIDWrongApplicationUUID verifies the behavior
+// when querying non-existing application UUID.
 // Ensures the method returns the correct `ApplicationNotFound` error for an
-// invalid application ID.
-func (s *resourceSuite) TestGetResourcesByApplicationIDWrongApplicationID(c *tc.C) {
+// invalid application UUID.
+func (s *resourceSuite) TestGetResourcesByApplicationUUIDWrongApplicationUUID(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	_, err := s.state.GetResourcesByApplicationID(c.Context(), "not-an-application-id")
+	_, err := s.state.GetResourcesByApplicationUUID(c.Context(), "not-an-application-id")
 	// Assert
 	c.Assert(err, tc.ErrorIs, resourceerrors.ApplicationNotFound,
 		tc.Commentf("(Assert) should fails with specific error: %v",
 			errors.ErrorStack(err)))
 }
 
-// TestGetResourcesByApplicationIDNoResources verifies that no resources are listed for an
+// TestGetResourcesByApplicationUUIDNoResources verifies that no resources are listed for an
 // application when no resources exist. It checks that the resulting lists
 // is empty.
-func (s *resourceSuite) TestGetResourcesByApplicationIDNoResources(c *tc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationUUIDNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationUUID(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Assert(results, tc.HasLen, 0)
 }
 
-// TestGetResourcesByApplicationID tests the retrieval and organization of resources from the
-// database.
-func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
+// TestGetResourcesByApplicationUUID tests the retrieval and organization of
+// resources from the database.
+func (s *resourceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
@@ -1966,7 +1966,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationUUID(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
@@ -1979,11 +1979,11 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *tc.C) {
 	})
 }
 
-// TestGetResourcesByApplicationIDWithStatePotential tests retrieving resources
-// by application ID where state filters are applied. It ensures that only
+// TestGetResourcesByApplicationUUIDWithStatePotential tests retrieving resources
+// by application UUID where state filters are applied. It ensures that only
 // resources with the "available" state are returned, excluding any with the
 // "potential" state.
-func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.C) {
+func (s *resourceSuite) TestGetResourcesByApplicationUUIDWithStatePotential(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
@@ -2015,7 +2015,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *tc.
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	results, err := s.state.GetResourcesByApplicationID(c.Context(), application.ID(s.constants.fakeApplicationUUID1))
+	results, err := s.state.GetResourcesByApplicationUUID(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))

@@ -157,7 +157,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	}).Return(nil)
 
 	var receivedArgs []application.AddCAASUnitArg
-	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddCAASApplicationArg, args []application.AddCAASUnitArg) (coreapplication.ID, error) {
+	s.state.EXPECT().CreateCAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddCAASApplicationArg, args []application.AddCAASUnitArg) (coreapplication.UUID, error) {
 		c.Assert(a, tc.DeepEquals, app)
 		receivedArgs = args
 		return id, nil
@@ -245,7 +245,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	)
 
 	var receivedArgs application.AddIAASApplicationArg
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.UUID, []coremachine.Name, error) {
 		receivedArgs = appArgs
 		return id, nil, nil
 	})
@@ -463,7 +463,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 		_ string,
 		_ application.AddIAASApplicationArg,
 		args []application.AddIAASUnitArg,
-	) (coreapplication.ID, []coremachine.Name, error) {
+	) (coreapplication.UUID, []coremachine.Name, error) {
 		recievedUnitArgs = args
 		return id, nil, nil
 	})
@@ -951,7 +951,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 		},
 	}).Return(nil)
 
-	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.ID, []coremachine.Name, error) {
+	s.state.EXPECT().CreateIAASApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, a application.AddIAASApplicationArg, _ []application.AddIAASUnitArg) (coreapplication.UUID, []coremachine.Name, error) {
 		c.Assert(a, tc.DeepEquals, app)
 		return id, nil, nil
 	})
@@ -2349,14 +2349,14 @@ func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *tc.C
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationConstraints(c.Context(), "bad-app-id")
-	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+	c.Assert(err, tc.ErrorMatches, "application UUID: id \"bad-app-id\" not valid")
 }
 
 func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.SetApplicationConstraints(c.Context(), "bad-app-id", coreconstraints.Value{})
-	c.Assert(err, tc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+	c.Assert(err, tc.ErrorMatches, "application UUID: id \"bad-app-id\" not valid")
 }
 
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
@@ -2450,7 +2450,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2461,7 +2461,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	s.expectEmptyUnitConstraints(c, appUUID)
 
 	var received []application.AddCAASUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -2517,7 +2517,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2529,7 +2529,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddCAASUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -2583,7 +2583,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2595,7 +2595,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	s.expectModelConstraints(appUUID)
 
 	var received []application.AddCAASUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -2634,7 +2634,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 			},
 		},
 	}}
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
@@ -2646,7 +2646,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddCAASUnitArg
-	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
 		received = args
 		return []coreunit.Name{"foo/0"}, nil
 	})
@@ -2681,7 +2681,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
 
 	_, _, err := s.service.AddIAASUnits(c.Context(), "ubuntu", AddIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -2696,7 +2696,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	placement := &instance.Placement{
@@ -2748,14 +2748,14 @@ func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	s.state.EXPECT().GetMachineUUIDAndNetNodeForName(gomock.Any(), "0").Return(
 		machineUUID, netNodeUUID, nil,
 	)
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var recievedArgs []application.AddIAASUnitArg
 	s.state.EXPECT().AddIAASUnits(
 		gomock.Any(), appUUID, gomock.Any(),
 	).DoAndReturn(func(
-		_ context.Context, _ coreapplication.ID, args ...application.AddIAASUnitArg,
+		_ context.Context, _ coreapplication.UUID, args ...application.AddIAASUnitArg,
 	) ([]coreunit.Name, []coremachine.Name, error) {
 		recievedArgs = args
 		return []coreunit.Name{"foo/0"}, nil, nil
@@ -2838,7 +2838,7 @@ func (s *providerServiceSuite) TestResolveApplicationConstraintsWithArch(c *tc.C
 	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
 }
 
-func (s *providerServiceSuite) expectEmptyUnitConstraints(c *tc.C, appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectEmptyUnitConstraints(c *tc.C, appUUID coreapplication.UUID) {
 	appConstraints := constraints.Constraints{}
 	modelConstraints := constraints.Constraints{}
 
@@ -2850,7 +2850,7 @@ func (s *providerServiceSuite) expectEmptyUnitConstraints(c *tc.C, appUUID corea
 	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(coreconstraints.Value{}, nil)
 }
 
-func (s *providerServiceSuite) expectAppConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectAppConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.UUID) {
 	appConstraints := constraints.Constraints{
 		Arch:           ptr("amd64"),
 		Container:      ptr(instance.LXD),
@@ -2880,7 +2880,7 @@ func (s *providerServiceSuite) expectAppConstraints(c *tc.C, unitUUID coreunit.U
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 }
 
-func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.UUID) {
 	modelConstraints := constraints.Constraints{
 		Arch:           ptr("amd64"),
 		Container:      ptr(instance.LXD),
@@ -2909,7 +2909,7 @@ func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.ID
 	s.validator.EXPECT().Merge(constraints.EncodeConstraints(modelConstraints), constraints.EncodeConstraints(appConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
 }
 
-func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.UUID) {
 	modelConstraints := constraints.Constraints{
 		CpuCores: ptr(uint64(4)),
 	}

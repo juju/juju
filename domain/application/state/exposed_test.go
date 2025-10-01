@@ -37,7 +37,7 @@ func (s *exposedStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *exposedStateSuite) TestApplicationNotExposed(c *tc.C) {
-	appUUID := coreapplication.ID(uuid.MustNewUUID().String())
+	appUUID := coreapplication.UUID(uuid.MustNewUUID().String())
 
 	isExposed, err := s.state.IsApplicationExposed(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -534,7 +534,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	c.Check(exposedEndpoints["endpoint1"].ExposeToSpaceIDs.IsEmpty(), tc.IsTrue)
 }
 
-func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.ID) {
+func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.UUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
@@ -561,7 +561,7 @@ func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.ID) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *exposedStateSuite) createExposedEndpointSpace(c *tc.C, appID coreapplication.ID) {
+func (s *exposedStateSuite) createExposedEndpointSpace(c *tc.C, appID coreapplication.UUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedSpace := `
 INSERT INTO application_exposed_endpoint_space
@@ -576,7 +576,7 @@ VALUES (?, ?, ?)`
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *exposedStateSuite) createExposedEndpointCIDR(c *tc.C, appID coreapplication.ID, cidr string) {
+func (s *exposedStateSuite) createExposedEndpointCIDR(c *tc.C, appID coreapplication.UUID, cidr string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedCIDR := `
 INSERT INTO application_exposed_endpoint_cidr

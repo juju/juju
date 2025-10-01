@@ -491,7 +491,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationErrors(c *tc.C
 func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationInvalidApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := coreapplication.ID("$")
+	appID := coreapplication.UUID("$")
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	_, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)

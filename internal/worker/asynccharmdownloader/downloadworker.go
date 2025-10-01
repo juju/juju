@@ -31,8 +31,8 @@ type ApplicationService interface {
 	// WatchApplicationsWithPendingCharms returns a watcher that notifies of
 	// changes to applications that reference charms that have not yet been
 	// downloaded.
-	// Each string will be an individual application ID. It's possible to
-	// have the same application ID multiple times in the list.
+	// Each string will be an individual application UUID. It's possible to
+	// have the same application UUID multiple times in the list.
 	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// GetAsyncCharmDownloadInfo reserves a charm download slot for the specified
@@ -40,12 +40,12 @@ type ApplicationService interface {
 	// return [applicationerrors.AlreadyDownloadingCharm]. The charm download
 	// information is returned which includes the charm name, origin and the
 	// digest.
-	GetAsyncCharmDownloadInfo(ctx context.Context, appID application.ID) (domainapplication.CharmDownloadInfo, error)
+	GetAsyncCharmDownloadInfo(ctx context.Context, appID application.UUID) (domainapplication.CharmDownloadInfo, error)
 
 	// ResolveCharmDownload resolves the charm download slot for the specified
 	// application. The method will update the charm with the specified charm
 	// information.
-	ResolveCharmDownload(ctx context.Context, appID application.ID, resolve domainapplication.ResolveCharmDownload) error
+	ResolveCharmDownload(ctx context.Context, appID application.UUID, resolve domainapplication.ResolveCharmDownload) error
 }
 
 // Config defines the operation of a Worker.
@@ -201,7 +201,7 @@ func (w *Worker) loop() error {
 			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
-					logger.Errorf(ctx, "failed to parse application ID %q: %v", change, err)
+					logger.Errorf(ctx, "failed to parse application UUID %q: %v", change, err)
 					continue
 				}
 
@@ -221,7 +221,7 @@ func (w *Worker) loop() error {
 	}
 }
 
-func (w *Worker) workerFromCache(appID application.ID) (bool, error) {
+func (w *Worker) workerFromCache(appID application.UUID) (bool, error) {
 	// If the worker already exists, return the existing worker early.
 	if _, err := w.runner.Worker(appID.String(), w.catacomb.Dying()); err == nil {
 		return true, nil
@@ -243,7 +243,7 @@ func (w *Worker) workerFromCache(appID application.ID) (bool, error) {
 	return false, nil
 }
 
-func (w *Worker) initAsyncDownloadWorker(ctx context.Context, appID application.ID, downloader Downloader) error {
+func (w *Worker) initAsyncDownloadWorker(ctx context.Context, appID application.UUID, downloader Downloader) error {
 	err := w.runner.StartWorker(ctx, appID.String(), func(ctx context.Context) (worker.Worker, error) {
 		wrk := w.config.NewAsyncDownloadWorker(
 			appID,

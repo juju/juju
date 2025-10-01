@@ -85,7 +85,7 @@ type WatcherState interface {
 
 	// FilterUnitUUIDsForApplication returns the subset of provided endpoint
 	// uuids that are associated with the provided application.
-	FilterUnitUUIDsForApplication(context.Context, []unit.UUID, coreapplication.ID) (set.Strings, error)
+	FilterUnitUUIDsForApplication(context.Context, []unit.UUID, coreapplication.UUID) (set.Strings, error)
 }
 
 // WatchMachineOpenedPorts returns a strings watcher for opened ports. This
@@ -109,7 +109,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
-func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.UUID) (watcher.NotifyWatcher, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -177,7 +177,7 @@ type indexed struct {
 // filterForApplication returns an eventsource.Mapper that filters events
 // emitted by port range changes to only include events for port range changes
 // corresponding to the given application
-func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
+func (s *WatchableService) filterForApplication(applicationUUID coreapplication.UUID) eventsource.Mapper {
 	return func(
 		ctx context.Context, events []changestream.ChangeEvent,
 	) ([]string, error) {

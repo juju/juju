@@ -34,15 +34,15 @@ type MigrationState interface {
 		scope charm.RelationScope,
 	) (corerelation.UUID, error)
 
-	// GetApplicationIDByName returns the application ID of the given application.
-	GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error)
+	// GetApplicationUUIDByName returns the application UUID of the given application.
+	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
 
 	// SetRelationApplicationSettings records settings for a specific application
 	// relation combination.
 	SetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		applicationID application.ID,
+		applicationID application.UUID,
 		settings map[string]string,
 	) error
 
@@ -125,7 +125,7 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 }
 
 func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
-	appID, err := s.st.GetApplicationIDByName(ctx, ep.ApplicationName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, ep.ApplicationName)
 	if err != nil {
 		return err
 	}

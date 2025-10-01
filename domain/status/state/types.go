@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
-type applicationID struct {
-	ID coreapplication.ID `db:"uuid"`
+type applicationUUID struct {
+	ID coreapplication.UUID `db:"uuid"`
 }
 
-type applicationIDAndName struct {
-	ID   coreapplication.ID `db:"uuid"`
-	Name string             `db:"name"`
+type applicationUUIDAndName struct {
+	ID   coreapplication.UUID `db:"uuid"`
+	Name string               `db:"name"`
 }
 
 type relationUUID struct {
@@ -51,11 +51,11 @@ type statusInfo struct {
 }
 
 type applicationStatusInfo struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	StatusID      int                `db:"status_id"`
-	Message       string             `db:"message"`
-	Data          []byte             `db:"data"`
-	UpdatedAt     *time.Time         `db:"updated_at"`
+	ApplicationID coreapplication.UUID `db:"application_uuid"`
+	StatusID      int                  `db:"status_id"`
+	Message       string               `db:"message"`
+	Data          []byte               `db:"data"`
+	UpdatedAt     *time.Time           `db:"updated_at"`
 }
 
 type applicationNameStatusInfo struct {
@@ -149,27 +149,27 @@ type CharmLocatorDetails struct {
 
 type applicationStatusDetails struct {
 	CharmLocatorDetails
-	UUID                   coreapplication.ID `db:"uuid"`
-	Name                   string             `db:"name"`
-	PlatformOSID           sql.Null[int64]    `db:"platform_os_id"`
-	PlatformChannel        string             `db:"platform_channel"`
-	PlatformArchitectureID sql.Null[int64]    `db:"platform_architecture_id"`
-	ChannelTrack           string             `db:"channel_track"`
-	ChannelRisk            sql.Null[string]   `db:"channel_risk"`
-	ChannelBranch          string             `db:"channel_branch"`
-	LifeID                 domainlife.Life    `db:"life_id"`
-	Subordinate            bool               `db:"subordinate"`
-	StatusID               int                `db:"status_id"`
-	Message                string             `db:"message"`
-	Data                   []byte             `db:"data"`
-	UpdatedAt              *time.Time         `db:"updated_at"`
-	RelationUUID           sql.Null[string]   `db:"relation_uuid"`
-	CharmVersion           string             `db:"charm_version"`
-	LXDProfile             sql.Null[[]byte]   `db:"lxd_profile"`
-	Exposed                bool               `db:"exposed"`
-	Scale                  sql.Null[int]      `db:"scale"`
-	WorkloadVersion        sql.Null[string]   `db:"workload_version"`
-	K8sProviderID          sql.Null[string]   `db:"k8s_provider_id"`
+	UUID                   coreapplication.UUID `db:"uuid"`
+	Name                   string               `db:"name"`
+	PlatformOSID           sql.Null[int64]      `db:"platform_os_id"`
+	PlatformChannel        string               `db:"platform_channel"`
+	PlatformArchitectureID sql.Null[int64]      `db:"platform_architecture_id"`
+	ChannelTrack           string               `db:"channel_track"`
+	ChannelRisk            sql.Null[string]     `db:"channel_risk"`
+	ChannelBranch          string               `db:"channel_branch"`
+	LifeID                 domainlife.Life      `db:"life_id"`
+	Subordinate            bool                 `db:"subordinate"`
+	StatusID               int                  `db:"status_id"`
+	Message                string               `db:"message"`
+	Data                   []byte               `db:"data"`
+	UpdatedAt              *time.Time           `db:"updated_at"`
+	RelationUUID           sql.Null[string]     `db:"relation_uuid"`
+	CharmVersion           string               `db:"charm_version"`
+	LXDProfile             sql.Null[[]byte]     `db:"lxd_profile"`
+	Exposed                bool                 `db:"exposed"`
+	Scale                  sql.Null[int]        `db:"scale"`
+	WorkloadVersion        sql.Null[string]     `db:"workload_version"`
+	K8sProviderID          sql.Null[string]     `db:"k8s_provider_id"`
 }
 
 type unitStatusDetails struct {

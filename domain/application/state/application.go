@@ -52,7 +52,7 @@ import (
 func (st *State) checkApplicationExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 ) (bool, error) {
 	uuidInput := entityUUID{UUID: appUUID.String()}
 
@@ -86,7 +86,7 @@ func (st *State) CreateIAASApplication(
 	name string,
 	args application.AddIAASApplicationArg,
 	units []application.AddIAASUnitArg,
-) (coreapplication.ID, []coremachine.Name, error) {
+) (coreapplication.UUID, []coremachine.Name, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", nil, errors.Capture(err)
@@ -107,7 +107,7 @@ func (st *State) CreateIAASApplication(
 			return nil
 		}
 
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf(
 				"getting charm uuid for new application %q: %w",
@@ -138,7 +138,7 @@ func (st *State) CreateCAASApplication(
 	name string,
 	args application.AddCAASApplicationArg,
 	units []application.AddCAASUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -172,7 +172,7 @@ func (st *State) CreateCAASApplication(
 			return nil
 		}
 
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf(
 				"getting charm uuid for new application %q: %w",
@@ -195,7 +195,7 @@ func (st *State) insertApplication(
 	ctx context.Context,
 	tx *sqlair.TX,
 	name string,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args application.BaseAddApplicationArg,
 ) error {
 	charmID, err := corecharm.NewID()
@@ -325,7 +325,7 @@ func (st *State) insertApplication(
 	if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 		return errors.Errorf("inserting settings for application %q: %w", name, err)
 	}
-	if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+	if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: appUUID.String()}); err != nil {
 		return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 	}
 	if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
@@ -388,7 +388,7 @@ VALUES ($applicationDetails.uuid)
 
 func (st *State) insertIAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 	units []application.AddIAASUnitArg,
 ) ([]coremachine.Name, error) {
@@ -406,7 +406,7 @@ func (st *State) insertIAASApplicationUnits(
 
 func (st *State) insertCAASApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	charmUUID corecharm.ID,
 	units []application.AddCAASUnitArg,
 ) error {
@@ -465,7 +465,7 @@ WHERE name = $unitNameLife.name
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.ID) (application.ScaleState, error) {
+func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.UUID) (application.ScaleState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return application.ScaleState{}, errors.Capture(err)
@@ -483,7 +483,7 @@ func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreappli
 	return appScale, nil
 }
 
-func (st *State) getApplicationScaleState(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (application.ScaleState, error) {
+func (st *State) getApplicationScaleState(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appUUID}
 	queryScale := `
 SELECT &applicationScale.*
@@ -511,8 +511,8 @@ WHERE application_uuid = $applicationScale.application_uuid
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.ID) (life.Life, error) {
-	ident := applicationID{ID: appUUID}
+func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication.UUID) (life.Life, error) {
+	ident := entityUUID{UUID: appUUID.String()}
 	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -522,7 +522,7 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 SELECT a.life_id AS &lifeID.life_id 
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
+WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
 `, lifeID{}, ident)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -543,21 +543,21 @@ WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
 }
 
 // IsControllerApplication returns true when the application is the controller.
-func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.ID) (bool, error) {
+func (st *State) IsControllerApplication(ctx context.Context, appID coreapplication.UUID) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	appExistsQuery := `
-SELECT &applicationID.*
+SELECT &entityUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
 	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
 	if err != nil {
-		return false, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+		return false, errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
 	}
 
 	controllerApp := controllerApplication{
@@ -577,7 +577,7 @@ WHERE application_uuid = $controllerApplication.application_uuid
 		if errors.Is(err, sql.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+			return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
 		}
 		err = tx.Query(ctx, stmt, controllerApp).Get(&controllerApp)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -591,7 +591,7 @@ WHERE application_uuid = $controllerApplication.application_uuid
 // GetApplicationLifeByName looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.UUID, life.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", -1, errors.Capture(err)
@@ -693,7 +693,7 @@ WHERE a.name = $applicationDetails.name AND c.source_id < 2;
 
 // SetDesiredApplicationScale updates the desired scale of the specified
 // application.
-func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapplication.ID, scale int) error {
+func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapplication.UUID, scale int) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -722,7 +722,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 // delta.
 // If the resulting scale is less than zero, an error satisfying
 // [applicationerrors.ScaleChangeInvalid] is returned.
-func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error) {
+func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, delta int) (int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -998,7 +998,7 @@ INSERT INTO link_layer_device (*) VALUES ($cloudServiceDevice.*)
 	return devUUID, nil
 }
 
-func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, providerID string) error {
+func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID, providerID string) error {
 	cloudService := cloudService{
 		ApplicationUUID: appUUID,
 		ProviderID:      providerID,
@@ -1125,16 +1125,16 @@ VALUES ($ipAddress.*);
 func (st *State) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT a.uuid AS &applicationID.uuid
+SELECT a.uuid AS &entityUUID.uuid
 FROM application a
 JOIN charm c ON a.charm_uuid = c.uuid
 WHERE c.available = FALSE AND c.source_id < 2;
-`, applicationID{})
+`, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 
-		var results []applicationID
+		var results []entityUUID
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			err := tx.Query(ctx, stmt).GetAll(&results)
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -1146,8 +1146,8 @@ WHERE c.available = FALSE AND c.source_id < 2;
 			return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
 		}
 
-		return transform.Slice(results, func(r applicationID) string {
-			return r.ID.String()
+		return transform.Slice(results, func(r entityUUID) string {
+			return r.UUID
 		}), nil
 	}
 	return "application", queryFunc
@@ -1193,22 +1193,22 @@ WHERE a.name = $applicationName.name AND c.source_id < 2;
 func (st *State) InitialWatchStatementApplications() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
-SELECT a.uuid AS &applicationID.uuid
+SELECT a.uuid AS &entityUUID.uuid
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
 WHERE c.source_id < 2;
-`, applicationID{})
+`, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		var result []applicationID
+		var result []entityUUID
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			return tx.Query(ctx, stmt).GetAll(&result)
 		})
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return nil, errors.Errorf("querying for initial watch statement: %w", err)
 		}
-		return transform.Slice(result, func(a applicationID) string { return a.ID.String() }), nil
+		return transform.Slice(result, func(a entityUUID) string { return a.UUID }), nil
 	}
 	return "application", queryFunc
 }
@@ -1286,7 +1286,7 @@ WHERE  name = $unitName.name
 // of interest for the unit is low.
 // A possible future improvement would be to accumulate the change events and
 // check whether the unit of interest has been affaceted, before hitting the db.
-func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error) {
+func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.UUID, netNodeUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1408,27 +1408,27 @@ func (st *State) hashAddress(writer io.Writer, address spaceAddress) error {
 	return nil
 }
 
-// GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the
+// GetApplicationsWithPendingCharmsFromUUIDs returns the application UUIDs for the
 // applications with pending charms from the specified UUIDs.
-func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
+func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.UUID) ([]coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	type applicationIDs []coreapplication.ID
+	type applicationIDs []coreapplication.UUID
 
 	stmt, err := st.Prepare(`
-SELECT a.uuid AS &applicationID.uuid
+SELECT a.uuid AS &entityUUID.uuid
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
 WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
-`, applicationID{}, applicationIDs{})
+`, entityUUID{}, applicationIDs{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var results []applicationID
+	var results []entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, applicationIDs(uuids)).GetAll(&results)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1440,8 +1440,8 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 		return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
 	}
 
-	return transform.Slice(results, func(r applicationID) coreapplication.ID {
-		return r.ID
+	return transform.Slice(results, func(r entityUUID) coreapplication.UUID {
+		return coreapplication.UUID(r.UUID)
 	}), nil
 }
 
@@ -1466,7 +1466,7 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 			return errors.Errorf("looking up application %q: %w", name, err)
 		}
 
-		result, err = st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		result, err = st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting charm for application %q: %w", name, err)
 		}
@@ -1479,15 +1479,15 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 	return result, nil
 }
 
-// GetCharmByApplicationID returns the charm for the specified application
-// ID.
+// GetCharmByApplicationUUID returns the charm for the specified application
+// UUID.
 // This method should be used sparingly, as it is not efficient. It should
 // be only used when you need the whole charm, otherwise use the more specific
 // methods.
 //
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplication.ID) (charm.Charm, error) {
+func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreapplication.UUID) (charm.Charm, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return charm.Charm{}, errors.Capture(err)
@@ -1495,9 +1495,9 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 
 	var ch charm.Charm
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 		if err != nil {
-			return errors.Errorf("getting charm ID from application ID %q: %w", appUUID, err)
+			return errors.Errorf("getting charm ID from application UUID %q: %w", appUUID, err)
 		}
 
 		// Now get the charm by the UUID, but if it doesn't exist, return an
@@ -1522,7 +1522,7 @@ func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplic
 // relation can change the validation result.
 func (st *State) SetApplicationCharm(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	chID corecharm.ID,
 	params application.SetCharmParams,
 ) error {
@@ -1532,12 +1532,12 @@ func (st *State) SetApplicationCharm(
 	}
 
 	charmIdent := charmID{UUID: chID}
-	appIdent := applicationID{ID: appID}
+	appIdent := entityUUID{UUID: appID.String()}
 
 	setAppCharmStmt, err := st.Prepare(`
 UPDATE application
 SET charm_uuid = $charmID.uuid
-WHERE uuid = $applicationID.uuid
+WHERE uuid = $entityUUID.uuid
 `, charmIdent, appIdent)
 	if err != nil {
 		return errors.Capture(err)
@@ -1546,7 +1546,7 @@ WHERE uuid = $applicationID.uuid
 	updateCharmModifiedVersionStmt, err := st.Prepare(`
 UPDATE application
 SET    charm_modified_version = $charmModifiedVersion.charm_modified_version
-WHERE  uuid = $applicationID.uuid
+WHERE  uuid = $entityUUID.uuid
 `, charmModifiedVersion{}, appIdent)
 	if err != nil {
 		return errors.Capture(err)
@@ -1585,11 +1585,11 @@ WHERE  uuid = $applicationID.uuid
 		}
 
 		charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
-			application.ApplicationCharmSequenceNamespace, appIdent.ID.String(),
+			application.ApplicationCharmSequenceNamespace, appIdent.UUID,
 		)
 		nextCharmModifiedVersion, err := sequencestate.NextValue(ctx, st, tx, charmModifiedVersionNamespace)
 		if err != nil {
-			return errors.Errorf("getting next charm modified version for application %q: %w", appIdent.ID, err)
+			return errors.Errorf("getting next charm modified version for application %q: %w", appIdent.UUID, err)
 		}
 
 		if err := tx.Query(
@@ -1606,14 +1606,14 @@ WHERE  uuid = $applicationID.uuid
 	return nil
 }
 
-// GetApplicationIDByUnitName returns the application ID for the named unit.
+// GetApplicationUUIDByUnitName returns the application UUID for the named unit.
 //
 // Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) GetApplicationIDByUnitName(
+func (st *State) GetApplicationUUIDByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1621,16 +1621,16 @@ func (st *State) GetApplicationIDByUnitName(
 
 	unit := unitName{Name: name}
 	queryUnit := `
-SELECT application_uuid AS &applicationID.uuid
+SELECT application_uuid AS &entityUUID.uuid
 FROM unit
 WHERE name = $unitName.name;
 `
-	query, err := st.Prepare(queryUnit, applicationID{}, unit)
+	query, err := st.Prepare(queryUnit, entityUUID{}, unit)
 	if err != nil {
 		return "", errors.Errorf("preparing query for unit %q: %w", name, err)
 	}
 
-	var app applicationID
+	var app entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1639,20 +1639,20 @@ WHERE name = $unitName.name;
 		return err
 	})
 	if err != nil {
-		return "", errors.Errorf("querying unit %q application id: %w", name, err)
+		return "", errors.Errorf("querying unit %q application UUID: %w", name, err)
 	}
-	return app.ID, nil
+	return coreapplication.UUID(app.UUID), nil
 }
 
-// GetApplicationIDAndNameByUnitName returns the application ID and name for the
-// named unit.
+// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
+// for the named unit.
 //
 // Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) GetApplicationIDAndNameByUnitName(
+func (st *State) GetApplicationUUIDAndNameByUnitName(
 	ctx context.Context,
 	name coreunit.Name,
-) (coreapplication.ID, string, error) {
+) (coreapplication.UUID, string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -1660,18 +1660,18 @@ func (st *State) GetApplicationIDAndNameByUnitName(
 
 	unit := unitName{Name: name}
 	queryUnit := `
-SELECT a.uuid AS &applicationIDAndName.uuid,
-       a.name AS &applicationIDAndName.name
+SELECT a.uuid AS &applicationUUIDAndName.uuid,
+a.name AS &applicationUUIDAndName.name
 FROM unit u
 JOIN application a ON a.uuid = u.application_uuid
 WHERE u.name = $unitName.name;
 `
-	query, err := st.Prepare(queryUnit, applicationIDAndName{}, unit)
+	query, err := st.Prepare(queryUnit, applicationUUIDAndName{}, unit)
 	if err != nil {
 		return "", "", errors.Errorf("preparing query for unit %q: %w", name, err)
 	}
 
-	var app applicationIDAndName
+	var app applicationUUIDAndName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1680,7 +1680,7 @@ WHERE u.name = $unitName.name;
 		return err
 	})
 	if err != nil {
-		return "", "", errors.Errorf("querying unit %q application id: %w", name, err)
+		return "", "", errors.Errorf("querying unit %q application UUID: %w", name, err)
 	}
 	return app.ID, app.Name, nil
 }
@@ -1690,7 +1690,7 @@ WHERE u.name = $unitName.name;
 //
 // Returns [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
+func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication.UUID) (int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -1700,11 +1700,11 @@ func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication
 		CharmModifiedVersion int `db:"charm_modified_version"`
 	}
 
-	appUUID := applicationID{ID: id}
+	appUUID := entityUUID{UUID: id.String()}
 	queryApp := `
 SELECT &cmv.*
 FROM application
-WHERE uuid = $applicationID.uuid
+WHERE uuid = $entityUUID.uuid
 `
 	query, err := st.Prepare(queryApp, cmv{}, appUUID)
 	if err != nil {
@@ -1730,18 +1730,18 @@ WHERE uuid = $applicationID.uuid
 // [applicationerrors.CharmAlreadyAvailable] if the application is already
 // downloading a charm, or [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
+func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.UUID) (application.CharmDownloadInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return application.CharmDownloadInfo{}, errors.Capture(err)
 	}
 
-	appIdent := applicationID{ID: appID}
+	appIdent := entityUUID{UUID: appID.String()}
 
 	query, err := st.Prepare(`
 SELECT &applicationCharmDownloadInfo.*
 FROM v_application_charm_download_info
-WHERE application_uuid = $applicationID.uuid
+WHERE application_uuid = $entityUUID.uuid
 `, applicationCharmDownloadInfo{}, appIdent)
 	if err != nil {
 		return application.CharmDownloadInfo{}, errors.Errorf("preparing query for application %q: %w", appID, err)
@@ -1975,11 +1975,11 @@ FROM v_revision_updater_application_unit
 }
 
 // GetApplicationConfigAndSettings returns the application config and settings
-// attributes for the application ID.
+// attributes for the application UUID.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, application.ApplicationSettings, error) {
+func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.UUID) (map[string]application.ApplicationConfig, application.ApplicationSettings, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
@@ -1987,7 +1987,7 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 
 	// We don't currently check for life in the old code, it might though be
 	// worth checking if the application is not dead.
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	var configs []applicationConfig
 	var settings applicationSettings
@@ -2041,13 +2041,13 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
+func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID coreapplication.UUID) (map[string]application.ApplicationConfig, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	var configs []applicationConfig
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkApplicationNotDead(ctx, tx, appID)
@@ -2091,7 +2091,7 @@ func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID cor
 // GetApplicationTrustSetting returns the application trust setting.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.UUID) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -2099,12 +2099,12 @@ func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreappli
 
 	// We don't currently check for life in the old code, it might though be
 	// worth checking if the application is not dead.
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	settingsQuery := `
 SELECT trust AS &applicationSettings.trust
 FROM application_setting
-WHERE application_uuid = $applicationID.uuid;`
+WHERE application_uuid = $entityUUID.uuid;`
 
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
@@ -2134,7 +2134,7 @@ WHERE application_uuid = $applicationID.uuid;`
 // using the configuration.
 func (st *State) UpdateApplicationConfigAndSettings(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	config map[string]application.AddApplicationConfig,
 	settings application.UpdateApplicationSettingsArg,
 ) error {
@@ -2143,7 +2143,7 @@ func (st *State) UpdateApplicationConfigAndSettings(
 		return errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	upsertQuery := `
 INSERT INTO application_config (*)
@@ -2174,7 +2174,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			return errors.Errorf("encoding config type: %w", err)
 		}
 		upserts = append(upserts, setApplicationConfig{
-			ApplicationUUID: ident.ID,
+			ApplicationUUID: coreapplication.UUID(ident.UUID),
 			Key:             k,
 			Value:           cfgVal.Value,
 			TypeID:          typeID,
@@ -2216,26 +2216,26 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 // config. If the key does not exist, it is ignored.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
+func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.UUID, keys []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	// This isn't ideal, as we could request this in one query, but we need to
 	// perform multiple queries to get the data. First is to get the application
 	// availability, second to just get the application overlay config for the
 	// charm config and the application settings for the trust config.
 	appQuery := `
-SELECT &applicationID.*
+SELECT &entityUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
 	deleteQuery := `
 DELETE FROM application_config
-WHERE application_uuid = $applicationID.uuid
+WHERE application_uuid = $entityUUID.uuid
 AND key IN ($S[:]);
 `
 	settingsQuery := `
@@ -2282,7 +2282,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		}
 
 		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.ID,
+			ApplicationUUID: coreapplication.UUID(ident.UUID),
 			Trust:           false,
 		}).Run(); err != nil {
 			return errors.Errorf("deleting setting: %w", err)
@@ -2296,23 +2296,23 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	return nil
 }
 
-// GetCharmConfigByApplicationID returns the charm config for the specified
-// application ID.
+// GetCharmConfigByApplicationUUID returns the charm config for the specified
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 // If the charm for the application does not exist.
-func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error) {
+func (st *State) GetCharmConfigByApplicationUUID(ctx context.Context, appID coreapplication.UUID) (corecharm.ID, charm.Config, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", charm.Config{}, errors.Capture(err)
 	}
 
-	appIdent := applicationID{ID: appID}
+	appIdent := entityUUID{UUID: appID.String()}
 
 	appQuery := `
 SELECT &charmUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
 	appStmt, err := st.Prepare(appQuery, appIdent, charmUUID{})
 	if err != nil {
@@ -2348,7 +2348,7 @@ WHERE uuid = $applicationID.uuid;
 // GetApplicationName returns the name of the specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.ID) (string, error) {
+func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.UUID) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -2366,16 +2366,17 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.I
 	return name, nil
 }
 
-// GetApplicationIDByName returns the application ID for the named application.
+// GetApplicationUUIDByName returns the application UUID for the named
+// application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var id coreapplication.ID
+	var id coreapplication.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		id, err = st.lookupApplication(ctx, tx, name)
 		return err
@@ -2429,15 +2430,15 @@ WHERE  name = $getCharmUpgradeOnError.name AND c.source_id < 2;
 func (st *State) getApplicationName(
 	ctx context.Context,
 	tx *sqlair.TX,
-	id coreapplication.ID) (string, error) {
-	arg := applicationIDAndName{
+	id coreapplication.UUID) (string, error) {
+	arg := applicationUUIDAndName{
 		ID: id,
 	}
 	stmt, err := st.Prepare(`
-SELECT a.name AS &applicationIDAndName.name
+SELECT a.name AS &applicationUUIDAndName.name
 FROM   application AS a
 JOIN   charm AS c ON c.uuid = a.charm_uuid
-WHERE  a.uuid = $applicationIDAndName.uuid AND c.source_id < 2;
+WHERE  a.uuid = $applicationUUIDAndName.uuid AND c.source_id < 2;
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -2454,21 +2455,21 @@ WHERE  a.uuid = $applicationIDAndName.uuid AND c.source_id < 2;
 }
 
 // GetApplicationConfigHash returns the SHA256 hash of the application config
-// for the specified application ID.
+// for the specified application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error) {
+func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.UUID) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	query := `
 SELECT sha256 AS &applicationConfigHash.sha256
 FROM application_config_hash
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, applicationConfigHash{}, ident)
@@ -2497,21 +2498,21 @@ WHERE application_uuid = $applicationID.uuid;
 }
 
 // GetApplicationPlatformAndChannel returns the platform and channel for the
-// specified application ID.
+// specified application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.ID) (application.CharmOrigin, error) {
+func (st *State) GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.UUID) (application.CharmOrigin, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return application.CharmOrigin{}, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	queryOrigin := `
 SELECT &applicationOrigin.*
 FROM v_application_origin
-WHERE uuid = $applicationID.uuid;`
+WHERE uuid = $entityUUID.uuid;`
 
 	stmtOrigin, err := st.Prepare(queryOrigin, applicationOrigin{}, ident)
 	if err != nil {
@@ -2521,7 +2522,7 @@ WHERE uuid = $applicationID.uuid;`
 	queryPlatformChannel := `
 SELECT &applicationPlatformAndChannel.*
 FROM v_application_platform_channel
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 	stmtPlatformChannel, err := st.Prepare(queryPlatformChannel, applicationPlatformAndChannel{}, ident)
 	if err != nil {
@@ -2594,23 +2595,23 @@ WHERE application_uuid = $applicationID.uuid;
 }
 
 // GetApplicationConstraints returns the application constraints for the
-// specified application ID.
+// specified application UUID.
 // Empty constraints are returned if no constraints exist for the given
-// application ID.
+// application UUID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Constraints, error) {
+func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Constraints, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return constraints.Constraints{}, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	query := `
 SELECT &applicationConstraint.*
 FROM v_application_constraint
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, applicationConstraint{}, ident)
@@ -2638,14 +2639,14 @@ WHERE application_uuid = $applicationID.uuid;
 }
 
 // SetApplicationConstraints sets the application constraints for the
-// specified application ID.
+// specified application UUID.
 // This method overwrites the full constraints on every call.
 // If invalid constraints are provided (e.g. invalid container type or
 // non-existing space), a [applicationerrors.InvalidApplicationConstraints]
 // error is returned.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error {
+func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.UUID, cons constraints.Constraints) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -2663,7 +2664,7 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 func (st *State) setApplicationConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	cons constraints.Constraints,
 ) error {
 
@@ -2853,19 +2854,19 @@ ON CONFLICT (application_uuid) DO NOTHING
 // If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 // If the application is not found, [applicationerrors.ApplicationNotFound]
 // is returned.
-func (st *State) GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error) {
+func (st *State) GetDeviceConstraints(ctx context.Context, appID coreapplication.UUID) (map[string]devices.Constraints, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 
 	query := `
 SELECT &deviceConstraint.*
 FROM device_constraint AS dc
 LEFT JOIN device_constraint_attribute AS dca ON dca.device_constraint_uuid = dc.uuid
-WHERE dc.application_uuid = $applicationID.uuid;
+WHERE dc.application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, deviceConstraint{}, ident)
@@ -2912,7 +2913,7 @@ func (st *State) decodeDeviceConstraints(cons []deviceConstraint) map[string]dev
 	return res
 }
 
-func (st *State) insertDeviceConstraints(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, cons map[string]devices.Constraints) error {
+func (st *State) insertDeviceConstraints(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID, cons map[string]devices.Constraints) error {
 	if len(cons) == 0 {
 		return nil
 	}
@@ -3138,13 +3139,13 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 // application.ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
-	app := applicationIDAndName{Name: name}
+func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.UUID, error) {
+	app := applicationUUIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
-SELECT a.uuid AS &applicationIDAndName.uuid
+SELECT a.uuid AS &applicationUUIDAndName.uuid
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationIDAndName.name AND c.source_id < 2;
+WHERE a.name = $applicationUUIDAndName.name AND c.source_id < 2;
 `, app)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3158,7 +3159,7 @@ WHERE a.name = $applicationIDAndName.name AND c.source_id < 2;
 	return app.ID, nil
 }
 
-func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
+func (st *State) getApplicationConfigWithDefaults(ctx context.Context, tx *sqlair.TX, appID entityUUID) ([]applicationConfig, error) {
 	configStmt, err := st.Prepare(`
 SELECT
 	cc.key AS &applicationConfig.key,
@@ -3168,7 +3169,7 @@ FROM application AS a
 JOIN charm_config AS cc ON a.charm_uuid = cc.charm_uuid
 JOIN charm_config_type AS cct ON cc.type_id = cct.id
 LEFT JOIN application_config AS ac ON cc.key = ac.key AND cc.type_id = ac.type_id
-WHERE a.uuid = $applicationID.uuid;
+WHERE a.uuid = $entityUUID.uuid;
 `, applicationConfig{}, appID)
 	if err != nil {
 		return nil, errors.Errorf("preparing query for application config: %w", err)
@@ -3181,11 +3182,11 @@ WHERE a.uuid = $applicationID.uuid;
 	return results, nil
 }
 
-func (st *State) getApplicationConfig(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
+func (st *State) getApplicationConfig(ctx context.Context, tx *sqlair.TX, appID entityUUID) ([]applicationConfig, error) {
 	configQuery := `
 SELECT &applicationConfig.*
 FROM v_application_config
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
 	configStmt, err := st.Prepare(configQuery, applicationConfig{}, appID)
 	if err != nil {
@@ -3199,11 +3200,11 @@ WHERE uuid = $applicationID.uuid;
 	return results, nil
 }
 
-func (st *State) getApplicationSettings(ctx context.Context, tx *sqlair.TX, appID applicationID) (applicationSettings, error) {
+func (st *State) getApplicationSettings(ctx context.Context, tx *sqlair.TX, appID entityUUID) (applicationSettings, error) {
 	settingsQuery := `
 SELECT &applicationSettings.*
 FROM application_setting
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, appID)
 	if err != nil {
@@ -3220,7 +3221,7 @@ WHERE application_uuid = $applicationID.uuid;
 func (st *State) insertApplicationConfig(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	config map[string]application.AddApplicationConfig,
 ) error {
 	if len(config) == 0 {
@@ -3261,7 +3262,7 @@ VALUES ($setApplicationConfig.*);
 func (st *State) insertApplicationSettings(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	settings application.ApplicationSettings,
 ) error {
 	insertQuery := `
@@ -3286,7 +3287,7 @@ VALUES ($setApplicationSettings.*);
 func (st *State) insertApplicationStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	sts *status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	if sts == nil {
@@ -3319,7 +3320,7 @@ INSERT INTO application_status (*) VALUES ($applicationStatus.*);
 	return nil
 }
 
-func (st *State) updateConfigHash(ctx context.Context, tx *sqlair.TX, appID applicationID) error {
+func (st *State) updateConfigHash(ctx context.Context, tx *sqlair.TX, appID entityUUID) error {
 	setHashQuery := `
 INSERT INTO application_config_hash (*)
 VALUES ($applicationConfigHash.*)
@@ -3346,7 +3347,7 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 	}
 
 	if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
-		ApplicationUUID: appID.ID,
+		ApplicationUUID: coreapplication.UUID(appID.UUID),
 		SHA256:          hash,
 	}).Run(); err != nil {
 		return errors.Errorf("setting hash: %w", err)
@@ -3446,7 +3447,7 @@ func decodeChannel(track string, risk sql.NullString, branch string) (*deploymen
 // It returns a slice of relationInfo containing all relevant information from
 // charm_relation and the count of applications linked through this relation to
 // the current one.
-func (st *State) getAllRelationInfo(ctx context.Context, tx *sqlair.TX, id coreapplication.ID) ([]relationInfo, error) {
+func (st *State) getAllRelationInfo(ctx context.Context, tx *sqlair.TX, id coreapplication.UUID) ([]relationInfo, error) {
 	type application dbUUID
 	app := application{UUID: id.String()}
 
@@ -3489,7 +3490,7 @@ GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional
 // - the new charm implements existing relation given as a argument,
 // - the current count of established relations does not exceed
 // the new charm limit for each specified relation.
-func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, appIdent entityUUID, charmIdent charmID) error {
 	charmRelations, err := st.getCharmRelations(ctx, tx, charmIdent)
 	if err != nil {
 		return errors.Errorf("fetching charm relations for charm %q: %w", charmIdent.UUID, err)
@@ -3499,9 +3500,9 @@ func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, app
 		indexedCharmRelations[rel.Name] = rel
 	}
 
-	appRelations, err := st.getAllRelationInfo(ctx, tx, appIdent.ID)
+	appRelations, err := st.getAllRelationInfo(ctx, tx, coreapplication.UUID(appIdent.UUID))
 	if err != nil {
-		return errors.Errorf("fetching all relation for application %q: %w", appIdent.ID, err)
+		return errors.Errorf("fetching all relation for application %q: %w", appIdent.UUID, err)
 	}
 
 	for _, appRelation := range appRelations {
@@ -3526,7 +3527,7 @@ func (st *State) precheckUpgradeRelation(ctx context.Context, tx *sqlair.TX, app
 	return nil
 }
 
-func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, appIdent applicationID, charmIdent charmID) error {
+func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, appIdent entityUUID, charmIdent charmID) error {
 	charmConfig, err := st.getCharmConfig(ctx, tx, charmIdent)
 	if err != nil {
 		return errors.Capture(err)
@@ -3558,7 +3559,7 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 
 	clearApplicationConfig, err := st.Prepare(`
 DELETE FROM application_config
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `, appIdent)
 	if err != nil {
 		return errors.Capture(err)
@@ -3568,7 +3569,7 @@ WHERE application_uuid = $applicationID.uuid;
 		return errors.Errorf("clearing old application config: %w", err)
 	}
 
-	if err := st.insertApplicationConfig(ctx, tx, appIdent.ID, filteredApplicationConfig); err != nil {
+	if err := st.insertApplicationConfig(ctx, tx, coreapplication.UUID(appIdent.UUID), filteredApplicationConfig); err != nil {
 		return errors.Errorf("inserting application config: %w", err)
 	}
 

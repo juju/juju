@@ -38,7 +38,7 @@ type RemoteApplicationConfig struct {
 
 	OfferUUID       string
 	ApplicationName string
-	ApplicationUUID application.ID
+	ApplicationUUID application.UUID
 	LocalModelUUID  model.UUID
 	RemoteModelUUID string
 	ConsumeVersion  int
@@ -117,7 +117,7 @@ type remoteApplicationWorker struct {
 	// remote application proxy.
 	offerUUID       string
 	applicationName string
-	applicationUUID application.ID
+	applicationUUID application.UUID
 	localModelUUID  model.UUID // uuid of the model hosting the local application
 	remoteModelUUID string     // uuid of the model hosting the remote offer
 	consumeVersion  int
@@ -834,7 +834,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	if err := remoteRelation[0].Error; err != nil {
 		return fail(errors.Annotatef(err, "registering relation %v", relationTag))
 	}
-	// Import the application id from the offering model.
+	// Import the application UUID from the offering model.
 	registerResult := *remoteRelation[0].Result
 	offeringAppToken = registerResult.Token
 

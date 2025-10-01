@@ -111,8 +111,8 @@ func (s *spaceDeleteSuite) TestDeleteSpaceRemoveEndpointBindings(c *tc.C) {
 	charmRelationUUID2 := s.addCharmRelation(c, corecharm.ID(charmUUID),
 		charm.Relation{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal})
 
-	s.addApplicationEndpoint(c, application.ID(appUUID1), charmRelationUUID1, toDeleteUUID)
-	s.addApplicationEndpoint(c, application.ID(appUUID2), charmRelationUUID2, otherUUID)
+	s.addApplicationEndpoint(c, application.UUID(appUUID1), charmRelationUUID1, toDeleteUUID)
+	s.addApplicationEndpoint(c, application.UUID(appUUID2), charmRelationUUID2, otherUUID)
 
 	// Act
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
@@ -139,8 +139,8 @@ func (s *spaceDeleteSuite) TestDeleteSpaceRemoveExtraBindings(c *tc.C) {
 	charmExtraUUID1 := s.addCharmExtraBinding(c, corecharm.ID(charmUUID), "extra1")
 	charmExtraUUID2 := s.addCharmExtraBinding(c, corecharm.ID(charmUUID), "extra2")
 
-	s.addApplicationExtraEndpoint(c, application.ID(appUUID1), charmExtraUUID1, toDeleteUUID)
-	s.addApplicationExtraEndpoint(c, application.ID(appUUID2), charmExtraUUID2, otherUUID)
+	s.addApplicationExtraEndpoint(c, application.UUID(appUUID1), charmExtraUUID1, toDeleteUUID)
+	s.addApplicationExtraEndpoint(c, application.UUID(appUUID2), charmExtraUUID2, otherUUID)
 
 	// Act
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
@@ -169,8 +169,8 @@ func (s *spaceDeleteSuite) TestDeleteSpaceResetExposedEndpoints(c *tc.C) {
 	charmRelationUUID2 := s.addCharmRelation(c, corecharm.ID(charmUUID),
 		charm.Relation{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal})
 
-	epUUID1 := s.addApplicationEndpoint(c, application.ID(appUUID1), charmRelationUUID1, "")
-	epUUID2 := s.addApplicationEndpoint(c, application.ID(appUUID2), charmRelationUUID2, "")
+	epUUID1 := s.addApplicationEndpoint(c, application.UUID(appUUID1), charmRelationUUID1, "")
+	epUUID2 := s.addApplicationEndpoint(c, application.UUID(appUUID2), charmRelationUUID2, "")
 
 	s.addApplicationExposedEndpoint(c, appUUID1, epUUID1, toDeleteUUID)
 	s.addApplicationExposedEndpoint(c, appUUID2, epUUID2, otherUUID)
@@ -339,18 +339,18 @@ func (s *spaceDeleteSuite) TestGetApplicationBoundToSpace(c *tc.C) {
 	appUUID1 := s.addApplication(c, charmUUID, spaceUUID)
 	// endpoint binding
 	appUUID2 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
-	s.addApplicationEndpoint(c, application.ID(appUUID2), charmRelationUUID, spaceUUID)
+	s.addApplicationEndpoint(c, application.UUID(appUUID2), charmRelationUUID, spaceUUID)
 	// extra endpoint binding
 	appUUID3 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
-	s.addApplicationExtraEndpoint(c, application.ID(appUUID3), charmExtraUUID, spaceUUID)
+	s.addApplicationExtraEndpoint(c, application.UUID(appUUID3), charmExtraUUID, spaceUUID)
 	// exposed endpoint binding
 	appUUID4 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
-	epUUID4 := s.addApplicationEndpoint(c, application.ID(appUUID4), charmRelationUUID, "")
+	epUUID4 := s.addApplicationEndpoint(c, application.UUID(appUUID4), charmRelationUUID, "")
 	s.addApplicationExposedEndpoint(c, appUUID4, epUUID4, spaceUUID)
 	// All bindings (shouldn't be duplicated)
 	appUUID5 := s.addApplication(c, charmUUID, spaceUUID)
-	epUUID5 := s.addApplicationEndpoint(c, application.ID(appUUID5), charmRelationUUID, spaceUUID)
-	s.addApplicationExtraEndpoint(c, application.ID(appUUID5), charmExtraUUID, spaceUUID)
+	epUUID5 := s.addApplicationEndpoint(c, application.UUID(appUUID5), charmRelationUUID, spaceUUID)
+	s.addApplicationExtraEndpoint(c, application.UUID(appUUID5), charmExtraUUID, spaceUUID)
 	s.addApplicationExposedEndpoint(c, appUUID5, epUUID5, spaceUUID)
 
 	// No binding (shouldn't be found at all)

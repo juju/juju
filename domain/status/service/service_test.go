@@ -143,7 +143,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *tc.C) {
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
 	s.modelState.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
@@ -173,7 +173,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *tc.C) {
 func (s *serviceSuite) TestSetApplicationStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
 
 	err := s.modelService.SetApplicationStatus(c.Context(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Active,
@@ -198,7 +198,7 @@ func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *tc.C) {
 func (s *serviceSuite) TestGetApplicationDisplayStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
 
 	_, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "gitlab")
 	c.Assert(err, tc.ErrorIs, statuserrors.ApplicationNotFound)
@@ -210,7 +210,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *tc
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
@@ -233,7 +233,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
@@ -254,7 +254,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	s.modelState.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,

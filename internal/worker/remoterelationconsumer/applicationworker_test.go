@@ -37,7 +37,7 @@ func TestApplicationWorker(t *stdtesting.T) {
 type applicationWorkerSuite struct {
 	baseSuite
 
-	applicationUUID application.ID
+	applicationUUID application.UUID
 	remoteModelUUID string
 	offerUUID       string
 	macaroon        *macaroon.Macaroon
@@ -119,7 +119,7 @@ func (s *applicationWorkerSuite) TestStart(c *tc.C) {
 
 	s.crossModelService.EXPECT().
 		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
-		DoAndReturn(func(ctx context.Context, i application.ID) (watcher.StringsWatcher, error) {
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})
@@ -161,7 +161,7 @@ func (s *applicationWorkerSuite) TestStartFailedWatchApplicationLife(c *tc.C) {
 
 	s.crossModelService.EXPECT().
 		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
-		DoAndReturn(func(ctx context.Context, i application.ID) (watcher.StringsWatcher, error) {
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			defer close(done)
 			return nil, applicationerrors.ApplicationNotFound
 		})
@@ -187,7 +187,7 @@ func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 
 	s.crossModelService.EXPECT().
 		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
-		DoAndReturn(func(ctx context.Context, i application.ID) (watcher.StringsWatcher, error) {
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})
@@ -201,7 +201,7 @@ func (s *applicationWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 			Status:  status.Error,
 			Message: "cannot connect to external controller: not found",
 		}).
-		DoAndReturn(func(ctx context.Context, i application.ID, si status.StatusInfo) error {
+		DoAndReturn(func(ctx context.Context, i application.UUID, si status.StatusInfo) error {
 			defer close(done)
 			return nil
 		})
@@ -227,7 +227,7 @@ func (s *applicationWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 
 	s.crossModelService.EXPECT().
 		WatchApplicationLifeSuspendedStatus(gomock.Any(), s.applicationUUID).
-		DoAndReturn(func(ctx context.Context, i application.ID) (watcher.StringsWatcher, error) {
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
 			ch := make(chan []string)
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})

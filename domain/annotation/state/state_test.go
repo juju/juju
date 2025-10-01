@@ -147,7 +147,7 @@ func (s *stateSuite) TestSetAnnotationsUpdateMachine(c *tc.C) {
 }
 
 // TestSetAnnotationsUpdateApplication asserts the happy path, updates some
-// annotations in the DB for an Application ID.
+// annotations in the DB for an Application UUID.
 func (s *stateSuite) TestSetAnnotationsUpdateApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

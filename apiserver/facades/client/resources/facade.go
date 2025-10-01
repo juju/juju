@@ -138,7 +138,7 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 			continue
 		}
 
-		appID, err := a.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		appID, err := a.applicationService.GetApplicationUUIDByName(ctx, tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
 			continue
@@ -205,7 +205,7 @@ func (a *API) AddPendingResources(
 		return result, nil
 	}
 
-	applicationID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
+	applicationID, err := a.applicationService.GetApplicationUUIDByName(ctx, appName)
 	if err == nil {
 		// The application does exist, therefore the intent is to
 		// update a resource.
@@ -298,7 +298,7 @@ func (a *API) addPendingResources(
 // updateResources handles updates of all provided resources.
 func (a *API) updateResources(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	resources []charmresource.Resource,
 ) ([]string, error) {
 	newUUIDs := make([]string, len(resources))
@@ -326,13 +326,13 @@ func (a *API) updateResources(
 // updateResource updates the resource based on origin.
 func (a *API) updateResource(
 	ctx context.Context,
-	appID coreapplication.ID,
+	appID coreapplication.UUID,
 	res charmresource.Resource,
 ) (coreresource.UUID, error) {
 	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,
 		resource.GetApplicationResourceIDArgs{
-			ApplicationID: appID,
-			Name:          res.Name,
+			ApplicationUUID: appID,
+			Name:            res.Name,
 		},
 	)
 	if errors.Is(err, resourceerrors.ResourceNameNotValid) || errors.Is(err, resourceerrors.ResourceNotFound) {

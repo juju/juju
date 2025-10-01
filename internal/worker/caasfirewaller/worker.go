@@ -68,14 +68,14 @@ type firewaller struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	appWorkers           map[application.ID]worker.Worker
+	appWorkers           map[application.UUID]worker.Worker
 	newApplicationWorker applicationWorkerCreator
 }
 
 type applicationWorkerCreator func(
 	controllerUUID string,
 	modelUUID string,
-	appUUID application.ID,
+	appUUID application.UUID,
 	portService PortService,
 	applicationService ApplicationService,
 	broker CAASBroker,
@@ -85,7 +85,7 @@ type applicationWorkerCreator func(
 func newFirewaller(config Config, f applicationWorkerCreator) *firewaller {
 	return &firewaller{
 		config:               config,
-		appWorkers:           make(map[application.ID]worker.Worker),
+		appWorkers:           make(map[application.UUID]worker.Worker),
 		newApplicationWorker: f,
 	}
 }
@@ -183,8 +183,8 @@ func (p *firewaller) loop() error {
 	}
 }
 
-func (p *firewaller) charmFormat(ctx context.Context, appUUID application.ID) (charm.Format, error) {
-	ch, _, err := p.config.ApplicationService.GetCharmByApplicationID(ctx, appUUID)
+func (p *firewaller) charmFormat(ctx context.Context, appUUID application.UUID) (charm.Format, error) {
+	ch, _, err := p.config.ApplicationService.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "getting charm for application %q", appUUID)
 	}

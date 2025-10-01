@@ -169,7 +169,7 @@ WHERE machine.uuid = $machineUUID.machine_uuid
 // GetApplicationOpenedPorts returns the opened ports for all the units of the
 // given application. We return opened ports paired with the unit UUIDs, grouped
 // by endpoint. This is because some consumers do not care about the unit.
-func (st *State) GetApplicationOpenedPorts(ctx context.Context, application coreapplication.ID) (port.UnitEndpointPortRanges, error) {
+func (st *State) GetApplicationOpenedPorts(ctx context.Context, application coreapplication.UUID) (port.UnitEndpointPortRanges, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

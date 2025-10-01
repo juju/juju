@@ -50,7 +50,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetAllUnitCloudContainerIDsForApplication mocks base method.
-func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]string, error) {
+func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitCloudContainerIDsForApplication", arg0, arg1)
 	ret0, _ := ret[0].(map[unit.Name]string)
@@ -77,19 +77,19 @@ func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) Re
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) Do(f func(context.Context, application.UUID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+func (c *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (map[unit.Name]string, error)) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllUnitLifeForApplication mocks base method.
-func (m *MockApplicationService) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]life.Value, error) {
+func (m *MockApplicationService) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitLifeForApplication", arg0, arg1)
 	ret0, _ := ret[0].(map[unit.Name]life.Value)
@@ -116,19 +116,19 @@ func (c *MockApplicationServiceGetAllUnitLifeForApplicationCall) Return(arg0 map
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetAllUnitLifeForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]life.Value, error)) *MockApplicationServiceGetAllUnitLifeForApplicationCall {
+func (c *MockApplicationServiceGetAllUnitLifeForApplicationCall) Do(f func(context.Context, application.UUID) (map[unit.Name]life.Value, error)) *MockApplicationServiceGetAllUnitLifeForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetAllUnitLifeForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]life.Value, error)) *MockApplicationServiceGetAllUnitLifeForApplicationCall {
+func (c *MockApplicationServiceGetAllUnitLifeForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (map[unit.Name]life.Value, error)) *MockApplicationServiceGetAllUnitLifeForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationLife mocks base method.
-func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 application.ID) (life.Value, error) {
+func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 application.UUID) (life.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
@@ -155,19 +155,19 @@ func (c *MockApplicationServiceGetApplicationLifeCall) Return(arg0 life.Value, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, application.ID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context, application.UUID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, application.ID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, application.UUID) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationName mocks base method.
-func (m *MockApplicationService) GetApplicationName(arg0 context.Context, arg1 application.ID) (string, error) {
+func (m *MockApplicationService) GetApplicationName(arg0 context.Context, arg1 application.UUID) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationName", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -194,13 +194,13 @@ func (c *MockApplicationServiceGetApplicationNameCall) Return(arg0 string, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetApplicationNameCall) Do(f func(context.Context, application.ID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
+func (c *MockApplicationServiceGetApplicationNameCall) Do(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetApplicationNameCall) DoAndReturn(f func(context.Context, application.ID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
+func (c *MockApplicationServiceGetApplicationNameCall) DoAndReturn(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -322,42 +322,42 @@ func (c *MockApplicationServiceGetApplicationTrustSettingCall) DoAndReturn(f fun
 	return c
 }
 
-// GetCharmByApplicationID mocks base method.
-func (m *MockApplicationService) GetCharmByApplicationID(arg0 context.Context, arg1 application.ID) (charm0.Charm, charm.CharmLocator, error) {
+// GetCharmByApplicationUUID mocks base method.
+func (m *MockApplicationService) GetCharmByApplicationUUID(arg0 context.Context, arg1 application.UUID) (charm0.Charm, charm.CharmLocator, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmByApplicationID", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetCharmByApplicationUUID", arg0, arg1)
 	ret0, _ := ret[0].(charm0.Charm)
 	ret1, _ := ret[1].(charm.CharmLocator)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetCharmByApplicationID indicates an expected call of GetCharmByApplicationID.
-func (mr *MockApplicationServiceMockRecorder) GetCharmByApplicationID(arg0, arg1 any) *MockApplicationServiceGetCharmByApplicationIDCall {
+// GetCharmByApplicationUUID indicates an expected call of GetCharmByApplicationUUID.
+func (mr *MockApplicationServiceMockRecorder) GetCharmByApplicationUUID(arg0, arg1 any) *MockApplicationServiceGetCharmByApplicationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationID", reflect.TypeOf((*MockApplicationService)(nil).GetCharmByApplicationID), arg0, arg1)
-	return &MockApplicationServiceGetCharmByApplicationIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationUUID", reflect.TypeOf((*MockApplicationService)(nil).GetCharmByApplicationUUID), arg0, arg1)
+	return &MockApplicationServiceGetCharmByApplicationUUIDCall{Call: call}
 }
 
-// MockApplicationServiceGetCharmByApplicationIDCall wrap *gomock.Call
-type MockApplicationServiceGetCharmByApplicationIDCall struct {
+// MockApplicationServiceGetCharmByApplicationUUIDCall wrap *gomock.Call
+type MockApplicationServiceGetCharmByApplicationUUIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) Return(arg0 charm0.Charm, arg1 charm.CharmLocator, arg2 error) *MockApplicationServiceGetCharmByApplicationIDCall {
+func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Return(arg0 charm0.Charm, arg1 charm.CharmLocator, arg2 error) *MockApplicationServiceGetCharmByApplicationUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) Do(f func(context.Context, application.ID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
+func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Do(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationIDCall {
+func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) DoAndReturn(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -402,7 +402,7 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 }
 
 // IsControllerApplication mocks base method.
-func (m *MockApplicationService) IsControllerApplication(arg0 context.Context, arg1 application.ID) (bool, error) {
+func (m *MockApplicationService) IsControllerApplication(arg0 context.Context, arg1 application.UUID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsControllerApplication", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -429,13 +429,13 @@ func (c *MockApplicationServiceIsControllerApplicationCall) Return(arg0 bool, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceIsControllerApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
+func (c *MockApplicationServiceIsControllerApplicationCall) Do(f func(context.Context, application.UUID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
+func (c *MockApplicationServiceIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -734,7 +734,7 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 }
 
 // GetUnitAgentStatusesForApplication mocks base method.
-func (m *MockStatusService) GetUnitAgentStatusesForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]status.StatusInfo, error) {
+func (m *MockStatusService) GetUnitAgentStatusesForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]status.StatusInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitAgentStatusesForApplication", arg0, arg1)
 	ret0, _ := ret[0].(map[unit.Name]status.StatusInfo)
@@ -761,13 +761,13 @@ func (c *MockStatusServiceGetUnitAgentStatusesForApplicationCall) Return(arg0 ma
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStatusServiceGetUnitAgentStatusesForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.Name]status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusesForApplicationCall {
+func (c *MockStatusServiceGetUnitAgentStatusesForApplicationCall) Do(f func(context.Context, application.UUID) (map[unit.Name]status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatusServiceGetUnitAgentStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.Name]status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusesForApplicationCall {
+func (c *MockStatusServiceGetUnitAgentStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (map[unit.Name]status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -834,7 +834,7 @@ func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorde
 }
 
 // SetApplicationPassword mocks base method.
-func (m *MockAgentPasswordService) SetApplicationPassword(arg0 context.Context, arg1 application.ID, arg2 string) error {
+func (m *MockAgentPasswordService) SetApplicationPassword(arg0 context.Context, arg1 application.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationPassword", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -860,13 +860,13 @@ func (c *MockAgentPasswordServiceSetApplicationPasswordCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentPasswordServiceSetApplicationPasswordCall) Do(f func(context.Context, application.ID, string) error) *MockAgentPasswordServiceSetApplicationPasswordCall {
+func (c *MockAgentPasswordServiceSetApplicationPasswordCall) Do(f func(context.Context, application.UUID, string) error) *MockAgentPasswordServiceSetApplicationPasswordCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentPasswordServiceSetApplicationPasswordCall) DoAndReturn(f func(context.Context, application.ID, string) error) *MockAgentPasswordServiceSetApplicationPasswordCall {
+func (c *MockAgentPasswordServiceSetApplicationPasswordCall) DoAndReturn(f func(context.Context, application.UUID, string) error) *MockAgentPasswordServiceSetApplicationPasswordCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -895,7 +895,7 @@ func (m *MockStorageProvisioningService) EXPECT() *MockStorageProvisioningServic
 }
 
 // GetFilesystemTemplatesForApplication mocks base method.
-func (m *MockStorageProvisioningService) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.ID) ([]storageprovisioning.FilesystemTemplate, error) {
+func (m *MockStorageProvisioningService) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.UUID) ([]storageprovisioning.FilesystemTemplate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemTemplatesForApplication", arg0, arg1)
 	ret0, _ := ret[0].([]storageprovisioning.FilesystemTemplate)
@@ -922,19 +922,19 @@ func (c *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall {
+func (c *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall {
+func (c *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStorageProvisioningServiceGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetStorageResourceTagsForApplication mocks base method.
-func (m *MockStorageProvisioningService) GetStorageResourceTagsForApplication(arg0 context.Context, arg1 application.ID) (map[string]string, error) {
+func (m *MockStorageProvisioningService) GetStorageResourceTagsForApplication(arg0 context.Context, arg1 application.UUID) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageResourceTagsForApplication", arg0, arg1)
 	ret0, _ := ret[0].(map[string]string)
@@ -961,13 +961,13 @@ func (c *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall) Do(f func(context.Context, application.ID) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall {
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall) Do(f func(context.Context, application.UUID) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall {
+func (c *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]string, error)) *MockStorageProvisioningServiceGetStorageResourceTagsForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -24,7 +24,7 @@ type applicationWorker struct {
 	controllerUUID string
 	modelUUID      string
 	appName        string
-	appUUID        application.ID
+	appUUID        application.UUID
 
 	portService        PortService
 	applicationService ApplicationService
@@ -47,7 +47,7 @@ type applicationWorker struct {
 func newApplicationWorker(
 	controllerUUID string,
 	modelUUID string,
-	appUUID application.ID,
+	appUUID application.UUID,
 	portService PortService,
 	applicationSewrvice ApplicationService,
 	broker CAASBroker,

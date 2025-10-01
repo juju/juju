@@ -311,7 +311,7 @@ func (s *containerSuite) addCharm(c *tc.C, subordinate bool) corecharm.ID {
 
 // addApplication adds a new application to the database with the specified
 // charm UUID and application name. It returns the application UUID.
-func (s *containerSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.ID {
+func (s *containerSuite) addApplication(c *tc.C, charmUUID corecharm.ID, appName string) coreapplication.UUID {
 	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
@@ -323,7 +323,7 @@ VALUES (?, ?, ?, ?, ?)
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
 func (s *containerSuite) addUnit(
-	c *tc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID, nodeUUID string,
+	c *tc.C, unitName coreunit.Name, appUUID coreapplication.UUID, charmUUID corecharm.ID, nodeUUID string,
 ) coreunit.UUID {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 	s.query(c, `

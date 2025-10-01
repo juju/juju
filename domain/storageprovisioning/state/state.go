@@ -179,7 +179,7 @@ func (st *State) NamespaceForWatchMachineCloudInstance() string {
 // supplied uuid.
 func (st *State) GetStorageResourceTagInfoForApplication(
 	ctx context.Context,
-	appUUID application.ID,
+	appUUID application.UUID,
 	resourceTagModelConfigKey string,
 ) (storageprovisioning.ApplicationResourceTagInfo, error) {
 	db, err := st.DB(ctx)
@@ -431,7 +431,7 @@ WHERE  uuid = $entityUUID.uuid`, input)
 func (st *State) checkApplicationExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID application.ID,
+	appUUID application.UUID,
 ) (bool, error) {
 	input := entityUUID{UUID: appUUID.String()}
 

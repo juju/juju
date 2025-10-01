@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// GenApplicationUUID can be used in testing for generating a application id
+// GenApplicationUUID can be used in testing for generating a application UUID
 // that is checked for subsequent errors using the test suits go check instance.
 func GenSpaceUUID(c *tc.C) network.SpaceUUID {
 	uuid, err := network.NewSpaceUUID()

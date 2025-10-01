@@ -81,7 +81,7 @@ func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel.UUID
 
 // GetApplicationUUID returns the UUID of the application with the given name, returning an error satisfying
 // [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.ID, error) {
+func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.UUID, error) {
 	app := application{Name: appName}
 
 	selectApplicationUUIDStmt, err := st.Prepare(`
@@ -138,7 +138,7 @@ WHERE name=$unit.name`, u)
 }
 
 // CheckApplicationSecretLabelExists checks if a charm application secret with the given label already exists.
-func (st State) CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.ID, label string) (bool, error) {
+func (st State) CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.UUID, label string) (bool, error) {
 	if label == "" {
 		return false, nil
 	}
@@ -285,7 +285,7 @@ func (st State) CreateUserSecret(
 // It also returns an error satisfying [applicationerrors.ApplicationNotFound]
 // ifthe application does not exist.
 func (st State) CreateCharmApplicationSecret(
-	ctx domain.AtomicContext, version int, uri *coresecrets.URI, appUUID coreapplication.ID, secret domainsecret.UpsertSecretParams,
+	ctx domain.AtomicContext, version int, uri *coresecrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams,
 ) error {
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported

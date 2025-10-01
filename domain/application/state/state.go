@@ -1367,7 +1367,7 @@ WHERE name = $applicationDetails.name
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Alive)
 }
 
@@ -1376,7 +1376,7 @@ func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUU
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Dying)
 }
 
@@ -1386,21 +1386,21 @@ func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, app
 // Instead use one of:
 //   - checkApplicationAlive
 //   - checkApplicationNotDead
-func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, allowed domainlife.Life) error {
+func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID, allowed domainlife.Life) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
-	ident := applicationID{ID: appUUID}
+	ident := entityUUID{UUID: appUUID.String()}
 	query := `
 SELECT &life.*
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
-WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
+WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {
-		return errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+		return errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
 	}
 
 	var result life
@@ -1408,7 +1408,7 @@ WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
 	}
 
 	switch result.LifeID {

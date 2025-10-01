@@ -852,19 +852,19 @@ func (s *WorkerSuite) TestStoreNewResourceRevisions(c *tc.C) {
 	// This function is called but won't contribute to the revisions storage
 	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo-charm-id", nil, nil).AnyTimes()
 
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "bar").Return("bar-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "bar").Return("bar-id", nil)
 	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
-		ApplicationID: "foo-id",
-		CharmID:       "foo-charm-id",
-		Info:          latestCharmInfos[0].resources,
-		LastPolled:    s.now,
+		ApplicationUUID: "foo-id",
+		CharmID:         "foo-charm-id",
+		Info:            latestCharmInfos[0].resources,
+		LastPolled:      s.now,
 	}).Return(nil)
 	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
-		ApplicationID: "bar-id",
-		CharmID:       "foo-charm-id",
-		Info:          latestCharmInfos[1].resources,
-		LastPolled:    s.now,
+		ApplicationUUID: "bar-id",
+		CharmID:         "foo-charm-id",
+		Info:            latestCharmInfos[1].resources,
+		LastPolled:      s.now,
 	}).Return(nil)
 
 	w := s.newWorker(c)
@@ -906,14 +906,14 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc
 	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo-charm-id", nil,
 		nil).AnyTimes()
 
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "not-found").Return("",
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "not-found").Return("",
 		applicationerrors.ApplicationNotFound)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("foo-id", nil)
 	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
-		ApplicationID: "foo-id",
-		CharmID:       "foo-charm-id",
-		Info:          latestCharmInfos[1].resources,
-		LastPolled:    s.now,
+		ApplicationUUID: "foo-id",
+		CharmID:         "foo-charm-id",
+		Info:            latestCharmInfos[1].resources,
+		LastPolled:      s.now,
 	}).Return(nil)
 
 	w := s.newWorker(c)
@@ -927,7 +927,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *tc
 	// Assert: check everything ok through mocks, but also that a log as been
 	// generated for the unknown application.
 	c.Assert(err, tc.ErrorIsNil)
-	//c.Check(c.GetTestLog(), tc.Contains, `failed to get application ID for "not-found"`)
+	//c.Check(c.GetTestLog(), tc.Contains, `failed to get application UUID for "not-found"`)
 }
 
 func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C) {
@@ -949,7 +949,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *tc.C
 	// This function is called but won't contribute to the revisions storage
 	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo", nil, nil).AnyTimes()
 
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("",
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("",
 		expectedError)
 
 	w := s.newWorker(c)
@@ -983,7 +983,7 @@ func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources
 	// This function is called but won't contribute to the revisions storage
 	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo", nil, nil).AnyTimes()
 
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("foo-id", nil)
 	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), gomock.Any()).Return(expectedError)
 
 	w := s.newWorker(c)

@@ -31,7 +31,7 @@ type appWorkerSuite struct {
 	testing.BaseSuite
 
 	appName string
-	appUUID coreapplication.ID
+	appUUID coreapplication.UUID
 
 	portService        *mocks.MockPortService
 	applicationService *mocks.MockApplicationService

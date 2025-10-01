@@ -223,7 +223,7 @@ func (s *Service) removeApplications(
 ) {
 	for _, applicationUUID := range uuids {
 		if _, err := s.RemoveApplication(
-			ctx, application.ID(applicationUUID), destroyStorage, force, wait,
+			ctx, application.UUID(applicationUUID), destroyStorage, force, wait,
 		); errors.Is(err, applicationerrors.ApplicationNotFound) {
 			// There could be a chance that the application has already been
 			// removed by another process. We can safely ignore this error and

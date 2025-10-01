@@ -132,7 +132,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), appUUID,
 		gomock.Any()).Return(nil, nil)
@@ -192,7 +192,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
 
 	p := application.RegisterCAASUnitParams{
@@ -345,7 +345,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *tc.C) {
 	appID := applicationtesting.GenApplicationUUID(c)
 	unitNames := []coreunit.Name{"foo/666", "foo/667"}
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(unitNames, nil)
 
 	names, err := s.service.GetUnitNamesForApplication(c.Context(), appName)
@@ -356,7 +356,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *tc.C) {
 func (s *unitServiceSuite) TestGetUnitNamesForApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
 
 	_, err := s.service.GetUnitNamesForApplication(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -368,7 +368,7 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *tc.C) {
 	appName := "foo"
 	appID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
 	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
 
 	_, err := s.service.GetUnitNamesForApplication(c.Context(), appName)
@@ -794,7 +794,7 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c
 func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := coreapplication.ID("$")
+	appID := coreapplication.UUID("$")
 	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
 }

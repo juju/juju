@@ -50,9 +50,9 @@ const (
 	// not valid.
 	ApplicationNameNotValid = errors.ConstError("application name not valid")
 
-	// ApplicationIDNotValid describes an error when the application ID is
+	// ApplicationUUIDNotValid describes an error when the application UUID is
 	// not valid.
-	ApplicationIDNotValid = errors.ConstError("application ID not valid")
+	ApplicationUUIDNotValid = errors.ConstError("application UUID not valid")
 
 	// UnitNotFound describes an error that occurs when the unit being operated
 	// on does not exist.

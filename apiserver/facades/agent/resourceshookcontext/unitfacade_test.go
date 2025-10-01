@@ -46,7 +46,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), tag.Id()).Return("expected-application-id", nil)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), tag.Id()).Return("expected-application-id", nil)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -54,12 +54,12 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTag(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	appID, err := facade.getApplicationID(c.Context())
+	appID, err := facade.getApplicationUUID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
-		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
+	c.Check(appID, tc.Equals, coreapplication.UUID("expected-application-id"),
+		tc.Commentf("(Assert) application UUID doesn't match: %v", appID))
 }
 
 // TestNewUnitFacadeApplicationTagError verifies error handling during
@@ -69,7 +69,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	expectedError := errors.New("expected error")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("", expectedError)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("", expectedError)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -77,7 +77,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeApplicationTagError(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	_, err = facade.getApplicationID(c.Context())
+	_, err = facade.getApplicationUUID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -90,7 +90,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(),
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(),
 		coreunit.Name(tag.Id())).Return("expected-application-id", nil)
 
 	// Act
@@ -99,12 +99,12 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTag(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	appID, err := facade.getApplicationID(c.Context())
+	appID, err := facade.getApplicationUUID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
-	c.Check(appID, tc.Equals, coreapplication.ID("expected-application-id"),
-		tc.Commentf("(Assert) application ID doesn't match: %v", appID))
+	c.Check(appID, tc.Equals, coreapplication.UUID("expected-application-id"),
+		tc.Commentf("(Assert) application UUID doesn't match: %v", appID))
 }
 
 // TestNewUnitFacadeUnitTagError verifies error handling during UnitFacade
@@ -114,7 +114,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewUnitTag("a-application/0")
 	expectedError := errors.New("expected error")
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), gomock.Any()).Return("", expectedError)
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), gomock.Any()).Return("", expectedError)
 
 	// Act
 	facade, err := NewUnitFacade(tag,
@@ -122,7 +122,7 @@ func (s *unitFacadeSuite) TestNewUnitFacadeUnitTagError(c *tc.C) {
 		s.resourceService)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
 	c.Assert(facade, tc.NotNil, tc.Commentf("(Act) facade is nil"))
-	_, err = facade.getApplicationID(c.Context())
+	_, err = facade.getApplicationUUID(c.Context())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, expectedError, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -144,14 +144,14 @@ func (s *unitFacadeSuite) TestNewUnitUnexpectedTag(c *tc.C) {
 		tc.Commentf("(Assert) error doesn't match or no error: %v", err))
 }
 
-// TestGetResourceInfoGetApplicationIDError verifies the behavior of
-// GetResourceInfo when getApplicationID returns an error.
-func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *tc.C) {
+// TestGetResourceInfoGetApplicationUUIDError verifies the behavior of
+// GetResourceInfo when getApplicationUUID returns an error.
+func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationUUIDError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
 	facade := UnitFacade{
-		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "", expectedError },
+		getApplicationUUIDFromAPI: func(ctx context.Context) (coreapplication.UUID, error) { return "", expectedError },
 	}
 
 	// Act
@@ -163,25 +163,26 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationIDError(c *tc.C) {
 		result.Error))
 }
 
-// TestGetApplicationIDCache verifies that the application ID is correctly retrieved and cached to avoid redundant API calls.
-func (s *unitFacadeSuite) TestGetApplicationIDCache(c *tc.C) {
+// TestGetApplicationUUIDCache verifies that the application UUID is correctly
+// retrieved and cached to avoid redundant API calls.
+func (s *unitFacadeSuite) TestGetApplicationUUIDCache(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	facade := UnitFacade{
-		getApplicationIDFromAPI: func(ctx context.Context) (coreapplication.ID, error) { return "cached-id", nil },
+		getApplicationUUIDFromAPI: func(ctx context.Context) (coreapplication.UUID, error) { return "cached-id", nil },
 	}
 
 	// Act & Assert: first retrieval (non cached)
-	id, err := facade.getApplicationID(c.Context())
+	id, err := facade.getApplicationUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
-	c.Check(facade.applicationID, tc.Equals, coreapplication.ID("cached-id"),
-		tc.Commentf("(Assert)application ID should be cached: %v", id))
+	c.Check(id, tc.Equals, coreapplication.UUID("cached-id"), tc.Commentf("(Assert) unexpected application UUID: %v", id))
+	c.Check(facade.applicationID, tc.Equals, coreapplication.UUID("cached-id"),
+		tc.Commentf("(Assert)application UUID should be cached: %v", id))
 
 	// Act & Assert: first retrieval (cached)
-	id, err = facade.getApplicationID(c.Context())
+	id, err = facade.getApplicationUUID(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", err))
-	c.Check(id, tc.Equals, coreapplication.ID("cached-id"), tc.Commentf("(Assert) unexpected application ID: %v", id))
+	c.Check(id, tc.Equals, coreapplication.UUID("cached-id"), tc.Commentf("(Assert) unexpected application UUID: %v", id))
 
 }
 
@@ -212,8 +213,8 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("expected error")
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
-	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return(nil, expectedError)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
@@ -248,8 +249,8 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
-	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return([]coreresource.Resource{
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(gomock.Any(), gomock.Any()).Return([]coreresource.Resource{
 		minimalResourceInfo("fetched-resource-1"),
 		minimalResourceInfo("not-fetched-resource"),
 		minimalResourceInfo("fetched-resource-2"),

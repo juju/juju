@@ -41,7 +41,7 @@ func (*ApplicationSuite) TestIDValidate(c *tc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.uuid)
-		err := ID(test.uuid).Validate()
+		err := UUID(test.uuid).Validate()
 
 		if test.err == nil {
 			c.Check(err, tc.IsNil)

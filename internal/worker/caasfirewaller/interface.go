@@ -19,14 +19,14 @@ type PortService interface {
 	// WatchOpenedPortsForApplication returns a notify watcher for opened ports. This
 	// watcher emits events for changes to the opened ports table that are associated
 	// with the given application
-	WatchOpenedPortsForApplication(context.Context, application.ID) (watcher.NotifyWatcher, error)
+	WatchOpenedPortsForApplication(context.Context, application.UUID) (watcher.NotifyWatcher, error)
 
 	// GetApplicationOpenedPortsByEndpoint returns all the opened ports for the given
 	// application, across all units, grouped by endpoint.
 	//
 	// NOTE: The returned port ranges are atomised, meaning we guarantee that each
 	// port range is of unit length.
-	GetApplicationOpenedPortsByEndpoint(context.Context, application.ID) (network.GroupedPortRanges, error)
+	GetApplicationOpenedPortsByEndpoint(context.Context, application.UUID) (network.GroupedPortRanges, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -34,12 +34,12 @@ type ApplicationService interface {
 	// GetApplicationName returns the name of the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetApplicationName(context.Context, application.ID) (string, error)
+	GetApplicationName(context.Context, application.UUID) (string, error)
 
 	// GetApplicationLifelooks up the life of the specified application, returning
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.
-	GetApplicationLife(context.Context, application.ID) (life.Value, error)
+	GetApplicationLife(context.Context, application.UUID) (life.Value, error)
 
 	// IsApplicationExposed returns whether the provided application is exposed or not.
 	//
@@ -47,8 +47,8 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, name string) (bool, error)
 
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
+	// GetCharmByApplicationUUID returns the charm for the specified application
+	// UUID.
 	//
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned. If the charm for the
@@ -56,7 +56,7 @@ type ApplicationService interface {
 	// [applicationerrors.CharmNotFound is returned. If the application name is not
 	// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
 	// returned.
-	GetCharmByApplicationID(context.Context, application.ID) (internalcharm.Charm, charm.CharmLocator, error)
+	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, charm.CharmLocator, error)
 
 	// WatchApplicationExposed watches for changes to the specified application's
 	// exposed endpoints.

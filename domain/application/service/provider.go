@@ -108,7 +108,7 @@ func (s *ProviderService) CreateIAASApplication(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddIAASUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -155,7 +155,7 @@ func (s *ProviderService) CreateCAASApplication(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 	units ...AddUnitArg,
-) (coreapplication.ID, error) {
+) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -228,7 +228,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 }
 
 // SetApplicationConstraints sets the application constraints for the
-// specified application ID.
+// specified application UUID.
 // This method overwrites the full constraints on every call.
 // If invalid constraints are provided (e.g. invalid container type or
 // non-existing space), a [applicationerrors.InvalidApplicationConstraints]
@@ -236,13 +236,13 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *ProviderService) SetApplicationConstraints(
-	ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value,
+	ctx context.Context, appID coreapplication.UUID, cons coreconstraints.Value,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := appID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
+		return errors.Errorf("application UUID: %w", err)
 	}
 	if err := s.validateConstraints(ctx, cons); err != nil {
 		return err
@@ -268,7 +268,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, applicationerrors.ApplicationNameNotValid
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
@@ -339,7 +339,7 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, applicationerrors.ApplicationNameNotValid
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Errorf("getting application %q id: %w", appName, err)
 	}
@@ -428,7 +428,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -459,7 +459,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, params.ApplicationName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, params.ApplicationName)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -577,7 +577,7 @@ func (s *ProviderService) ResolveApplicationConstraints(
 // exists.
 func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	unitName coreunit.Name,
 	providerFilesystemInfo []caas.FilesystemInfo,
 ) (application.RegisterUnitStorageArg, error) {
@@ -953,7 +953,7 @@ func (s *ProviderService) precheckInstances(
 }
 
 func (s *ProviderService) makeApplicationConstraints(
-	ctx context.Context, appUUID coreapplication.ID,
+	ctx context.Context, appUUID coreapplication.UUID,
 ) (coreconstraints.Value, error) {
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {

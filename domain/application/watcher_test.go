@@ -110,7 +110,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 
 	// Ensure that we get the charm created event when an application is created.
 
-	var appID coreapplication.ID
+	var appID coreapplication.UUID
 	harness.AddTest(c, func(c *tc.C) {
 		appID = s.createIAASApplication(c, svc, "foo")
 		id, err = st.GetCharmIDByApplicationName(c.Context(), "foo")
@@ -506,7 +506,7 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 
 	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
-	var id0, id1 coreapplication.ID
+	var id0, id1 coreapplication.UUID
 	harness.AddTest(c, func(c *tc.C) {
 		id0 = s.createIAASApplication(c, svc, "foo")
 		id1 = s.createIAASApplication(c, svc, "bar")
@@ -552,7 +552,7 @@ WHERE uuid=?`, id0.String())
 	})
 
 	// Add another application with a pending charm.
-	var id2 coreapplication.ID
+	var id2 coreapplication.UUID
 	harness.AddTest(c, func(c *tc.C) {
 		id2 = s.createIAASApplication(c, svc, "baz")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1214,7 +1214,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
 	})
 
-	var subordinateAppID coreapplication.ID
+	var subordinateAppID coreapplication.UUID
 	harness.AddTest(c, func(c *tc.C) {
 		subordinateAppID = s.createIAASApplicationWithCharmAndStoragePath(c, svc, "bar", &stubCharm{subordinate: true}, "deadbeef")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1306,7 +1306,7 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	var appID coreapplication.ID
+	var appID coreapplication.UUID
 	harness.AddTest(c, func(c *tc.C) {
 		appID = s.createCAASApplication(c, svc, "foo")
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -1674,7 +1674,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {
+func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.WatchableDB, appUUID coreapplication.UUID) string {
 	var hash string
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `SELECT sha256 FROM application_config_hash WHERE application_uuid=?`, appUUID.String())
@@ -1741,11 +1741,11 @@ func (s *watcherSuite) createMachine(
 	return res1.MachineName
 }
 
-func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddIAASUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddIAASUnitArg) coreapplication.UUID {
 	return s.createIAASApplicationWithCharmAndStoragePath(c, svc, name, &stubCharm{}, "", units...)
 }
 
-func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddIAASUnitArg) coreapplication.ID {
+func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc *service.WatchableService, name string, ch internalcharm.Charm, storagePath string, units ...service.AddIAASUnitArg) coreapplication.UUID {
 	ctx := c.Context()
 	appID, err := svc.CreateIAASApplication(ctx, name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -1766,7 +1766,7 @@ func (s *watcherSuite) createIAASApplicationWithCharmAndStoragePath(c *tc.C, svc
 	return appID
 }
 
-func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *watcherSuite) createCAASApplication(c *tc.C, svc *service.WatchableService, name string, units ...service.AddUnitArg) coreapplication.UUID {
 	ctx := c.Context()
 	s.createSubnetForCAASModel(c)
 	appID, err := svc.CreateCAASApplication(ctx, name, &stubCharm{}, corecharm.Origin{

@@ -81,12 +81,12 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 // ApplicationService is the interface that the ApplicationCharmInfoAPI
 // requires to fetch charm information for an application.
 type ApplicationService interface {
-	// GetApplicationIDByName returns a application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-	// GetCharmByApplicationID returns the charm for the specified application
-	// ID.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, applicationcharm.CharmLocator, error)
+	// GetApplicationUUIDByName returns a application UUID by application name.
+	// It returns an error if the application can not be found by the name.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	// GetCharmByApplicationUUID returns the charm for the specified application
+	// UUID.
+	GetCharmByApplicationUUID(context.Context, coreapplication.UUID) (charm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // ApplicationCharmInfoAPI implements the ApplicationCharmInfo endpoint.
@@ -119,14 +119,14 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 	// Application name is used to fetch the charm information.
 	appName := appTag.Id()
 
-	appID, err := a.service.GetApplicationIDByName(ctx, appName)
+	appID, err := a.service.GetApplicationUUIDByName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.Charm{}, errors.NotFoundf("application %q", appName)
 	} else if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	ch, locator, err := a.service.GetCharmByApplicationID(ctx, appID)
+	ch, locator, err := a.service.GetCharmByApplicationUUID(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return params.Charm{}, errors.NotFoundf("application %q", appName)
 	} else if err != nil {

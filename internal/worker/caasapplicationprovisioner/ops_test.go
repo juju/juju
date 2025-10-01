@@ -823,7 +823,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 		},
 	}
 	ch := charm.NewCharmBase(chMeta, nil, nil, nil, nil)
-	applicationService.EXPECT().GetCharmByApplicationID(gomock.Any(), appId).Return(ch, applicationcharm.CharmLocator{}, nil)
+	applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appId).Return(ch, applicationcharm.CharmLocator{}, nil)
 
 	mysqlImageResource := coreresource.Opened{
 		ReadCloser: io.NopCloser(bytes.NewBufferString("registrypath: mysql/ubuntu:latest-22.04")),

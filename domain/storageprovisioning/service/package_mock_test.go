@@ -633,7 +633,7 @@ func (c *MockStateGetFilesystemParamsCall) DoAndReturn(f func(context.Context, s
 }
 
 // GetFilesystemTemplatesForApplication mocks base method.
-func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.ID) ([]storageprovisioning.FilesystemTemplate, error) {
+func (m *MockState) GetFilesystemTemplatesForApplication(arg0 context.Context, arg1 application.UUID) ([]storageprovisioning.FilesystemTemplate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemTemplatesForApplication", arg0, arg1)
 	ret0, _ := ret[0].([]storageprovisioning.FilesystemTemplate)
@@ -660,13 +660,13 @@ func (c *MockStateGetFilesystemTemplatesForApplicationCall) Return(arg0 []storag
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) Do(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
+func (c *MockStateGetFilesystemTemplatesForApplicationCall) DoAndReturn(f func(context.Context, application.UUID) ([]storageprovisioning.FilesystemTemplate, error)) *MockStateGetFilesystemTemplatesForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -945,7 +945,7 @@ func (c *MockStateGetStorageInstanceUUIDByIDCall) DoAndReturn(f func(context.Con
 }
 
 // GetStorageResourceTagInfoForApplication mocks base method.
-func (m *MockState) GetStorageResourceTagInfoForApplication(arg0 context.Context, arg1 application.ID, arg2 string) (storageprovisioning.ApplicationResourceTagInfo, error) {
+func (m *MockState) GetStorageResourceTagInfoForApplication(arg0 context.Context, arg1 application.UUID, arg2 string) (storageprovisioning.ApplicationResourceTagInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageResourceTagInfoForApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(storageprovisioning.ApplicationResourceTagInfo)
@@ -972,13 +972,13 @@ func (c *MockStateGetStorageResourceTagInfoForApplicationCall) Return(arg0 stora
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageResourceTagInfoForApplicationCall) Do(f func(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
+func (c *MockStateGetStorageResourceTagInfoForApplicationCall) Do(f func(context.Context, application.UUID, string) (storageprovisioning.ApplicationResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageResourceTagInfoForApplicationCall) DoAndReturn(f func(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
+func (c *MockStateGetStorageResourceTagInfoForApplicationCall) DoAndReturn(f func(context.Context, application.UUID, string) (storageprovisioning.ApplicationResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

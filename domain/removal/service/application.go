@@ -59,7 +59,7 @@ type ApplicationState interface {
 // The UUID for the scheduled removal job is returned.
 func (s *Service) RemoveApplication(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	destroyStorage bool,
 	force bool,
 	wait time.Duration,
@@ -132,7 +132,7 @@ func (s *Service) RemoveApplication(
 }
 
 func (s *Service) applicationScheduleRemoval(
-	ctx context.Context, appUUID coreapplication.ID, force bool, wait time.Duration,
+	ctx context.Context, appUUID coreapplication.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
 	if err != nil {

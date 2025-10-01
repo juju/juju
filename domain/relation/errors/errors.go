@@ -10,9 +10,9 @@ const (
 	// to relate two application
 	AmbiguousRelation = errors.ConstError("ambiguous relation")
 
-	// ApplicationIDNotValid describes an error when the application ID is
+	// ApplicationUUIDNotValid describes an error when the application UUID is
 	// not valid.
-	ApplicationIDNotValid = errors.ConstError("application ID not valid")
+	ApplicationUUIDNotValid = errors.ConstError("application UUID not valid")
 
 	// ApplicationNotAlive describes an error that occurs when a relation is
 	// added between two application where at least one is not alive

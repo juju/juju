@@ -68,24 +68,24 @@ func (st *State) ImportRelation(
 	return relUUID, errors.Capture(err)
 }
 
-// GetApplicationIDByName returns the application ID of the given application.
+// GetApplicationUUIDByName returns the application UUID of the given application.
 //
 // The following error types can be expected to be returned:
-//   - [applicationerrors.ApplicationNotFound] is returned if application ID
+//   - [applicationerrors.ApplicationNotFound] is returned if application UUID
 //     doesn't refer an existing application.
-func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error) {
+func (st *State) GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var id application.ID
+	var id application.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		app := applicationIDAndName{Name: appName}
+		app := applicationUUIDAndName{Name: appName}
 		queryApplicationStmt, err := st.Prepare(`
-SELECT uuid AS &applicationIDAndName.uuid
+SELECT uuid AS &applicationUUIDAndName.uuid
 FROM application
-WHERE name = $applicationIDAndName.name
+WHERE name = $applicationUUIDAndName.name
 `, app)
 		if err != nil {
 			return errors.Capture(err)
@@ -115,7 +115,7 @@ WHERE name = $applicationIDAndName.name
 func (st *State) SetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	applicationID application.ID,
+	applicationID application.UUID,
 	settings map[string]string,
 ) error {
 	db, err := st.DB(ctx)

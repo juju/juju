@@ -505,7 +505,7 @@ WHERE  charm_relation_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationStateSuite) assertDownloadProvenance(c *tc.C, appID coreapplication.ID, expectedProvenance charm.Provenance) {
+func (s *migrationStateSuite) assertDownloadProvenance(c *tc.C, appID coreapplication.UUID, expectedProvenance charm.Provenance) {
 	var obtainedProvenance string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
@@ -595,7 +595,7 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnitsSubordinate(c *tc.C) {
 	s.assertUnitPrincipal(c, unitUUIDs[0], sub)
 }
 
-func (s *unitStateSuite) assertInsertMigratingUnits(c *tc.C, appID coreapplication.ID) {
+func (s *unitStateSuite) assertInsertMigratingUnits(c *tc.C, appID coreapplication.UUID) {
 	var unitName string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitName)

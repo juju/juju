@@ -1069,13 +1069,13 @@ func (s *State) NamespaceForWatchCharm() string {
 	return "charm"
 }
 
-func (s *State) getCharmIDByApplicationID(ctx context.Context, tx *sqlair.TX, appID application.ID) (corecharm.ID, error) {
+func (s *State) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID application.UUID) (corecharm.ID, error) {
 	query := `
 SELECT charm_uuid AS &charmUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
-	ident := applicationID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	stmt, err := s.Prepare(query, charmUUID{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing query: %w", err)
@@ -1084,7 +1084,7 @@ WHERE uuid = $applicationID.uuid;
 	if err := tx.Query(ctx, stmt, ident).Get(&charmUUID); errors.Is(err, sqlair.ErrNoRows) {
 		return "", applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return "", errors.Errorf("getting charm ID by application ID: %w", err)
+		return "", errors.Errorf("getting charm ID by application UUID: %w", err)
 	}
 	return charmUUID.UUID, nil
 }

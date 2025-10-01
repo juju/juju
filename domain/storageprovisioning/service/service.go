@@ -75,7 +75,7 @@ type State interface {
 
 	// GetStorageResourceTagInfoForApplication returns information required to
 	// build resource tags for storage created for the given application.
-	GetStorageResourceTagInfoForApplication(context.Context, application.ID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
+	GetStorageResourceTagInfoForApplication(context.Context, application.UUID, string) (storageprovisioning.ApplicationResourceTagInfo, error)
 
 	// GetStorageAttachmentIDsForUnit returns the storage attachment IDs for the given unit UUID.
 	//
@@ -226,7 +226,7 @@ func (s *Service) WatchMachineCloudInstance(
 // the given application. These tags are used when creating a resource in an
 // environ.
 func (s *Service) GetStorageResourceTagsForApplication(
-	ctx context.Context, appUUID application.ID,
+	ctx context.Context, appUUID application.UUID,
 ) (map[string]string, error) {
 	if err := appUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)

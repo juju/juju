@@ -29,11 +29,11 @@ import (
 type UnitState interface {
 	// AddIAASUnits adds the specified units to the application, returning their
 	// names.
-	AddIAASUnits(context.Context, coreapplication.ID, ...application.AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error)
+	AddIAASUnits(context.Context, coreapplication.UUID, ...application.AddIAASUnitArg) ([]coreunit.Name, []coremachine.Name, error)
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names.
-	AddCAASUnits(context.Context, coreapplication.ID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
+	AddCAASUnits(context.Context, coreapplication.UUID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified
 	// IAAS application. This is only used when inserting units during model
@@ -41,7 +41,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	InsertMigratingIAASUnits(context.Context, coreapplication.ID, ...application.ImportUnitArg) error
+	InsertMigratingIAASUnits(context.Context, coreapplication.UUID, ...application.ImportUnitArg) error
 
 	// InsertMigratingCAASUnits inserts the fully formed units for the specified
 	// CAAS application. This is only used when inserting units during model
@@ -49,7 +49,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.ImportUnitArg) error
+	InsertMigratingCAASUnits(context.Context, coreapplication.UUID, ...application.ImportUnitArg) error
 
 	// RegisterCAASUnit registers the specified CAAS application unit. The
 	// following errors can be expected:
@@ -105,7 +105,7 @@ type UnitState interface {
 	// for the given application.
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
-	GetAllUnitLifeForApplication(context.Context, coreapplication.ID) (map[string]int, error)
+	GetAllUnitLifeForApplication(context.Context, coreapplication.UUID) (map[string]int, error)
 
 	// GetMachineUUIDAndNetNodeForName is responsible for identifying the uuid
 	// and net node for a machine by it's name.
@@ -126,7 +126,7 @@ type UnitState interface {
 	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
 	// SetUnitConstraints sets the unit constraints for the
-	// specified application ID.
+	// specified application UUID.
 	// This method overwrites the full constraints on every call.
 	// If invalid constraints are provided (e.g. invalid container type or
 	// non-existing space), a [applicationerrors.InvalidUnitConstraints]
@@ -158,7 +158,7 @@ type UnitState interface {
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationIsDead] if the application is dead
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetUnitNamesForApplication(context.Context, coreapplication.ID) ([]coreunit.Name, error)
+	GetUnitNamesForApplication(context.Context, coreapplication.UUID) ([]coreunit.Name, error)
 
 	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 	GetUnitNamesForNetNode(context.Context, string) ([]coreunit.Name, error)
@@ -197,7 +197,7 @@ type UnitState interface {
 	//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
-	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]string, error)
+	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -360,7 +360,7 @@ func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitSta
 // - [applicationerrors.UnitNotFound] when the principal unit does not exist.
 func (s *Service) AddIAASSubordinateUnit(
 	ctx context.Context,
-	subordinateAppID coreapplication.ID,
+	subordinateAppID coreapplication.UUID,
 	principalUnitName coreunit.Name,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -617,7 +617,7 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -718,7 +718,7 @@ func (s *Service) GetUnitSubordinates(ctx context.Context, unitName coreunit.Nam
 // for the given application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application does not exist
-func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corelife.Value, error) {
+func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreapplication.UUID) (map[coreunit.Name]corelife.Value, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -750,7 +750,7 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 //   - If the application UUID is not valid, [coreerrors.NotValid] is returned.
-func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appUUID coreapplication.ID) (map[coreunit.Name]string, error) {
+func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appUUID coreapplication.UUID) (map[coreunit.Name]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

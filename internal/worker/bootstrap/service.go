@@ -59,14 +59,14 @@ type ApplicationService interface {
 	CreateIAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
-	) (coreapplication.ID, error)
+	) (coreapplication.UUID, error)
 
 	// CreateCAASApplication creates a new application with the given name and
 	// charm.
 	CreateCAASApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
-	) (coreapplication.ID, error)
+	) (coreapplication.UUID, error)
 
 	// ResolveControllerCharmDownload resolves the controller charm download
 	// slot.

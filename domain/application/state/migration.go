@@ -101,19 +101,19 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 // application in the model.
 // If the application does not exist, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error) {
+func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.UUID) ([]application.ExportUnit, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var unit exportUnit
-	id := applicationID{
-		ID: appID,
+	id := entityUUID{
+		UUID: appID.String(),
 	}
 	query := `
 SELECT &exportUnit.* FROM v_unit_export
-WHERE application_uuid = $applicationID.uuid
+WHERE application_uuid = $entityUUID.uuid
 `
 	stmt, err := st.Prepare(query, unit, id)
 	if err != nil {
@@ -150,7 +150,7 @@ WHERE application_uuid = $applicationID.uuid
 // application already exists. If returns as error satisfying
 // [applicationerrors.CharmNotFound] if the charm for the application is
 // not found.
-func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.ID, error) {
+func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -296,7 +296,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
-		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+		if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: appUUID.String()}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
 		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID.String(), args.EndpointBindings); err != nil {
@@ -329,7 +329,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 
 // InsertIAASUnits imports the fully formed units for the specified IAAS
 // application. This is only used when importing units during model migration.
-func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.ImportUnitArg) error {
+func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -349,7 +349,7 @@ func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreappli
 
 // InsertCAASUnits imports the fully formed units for the specified CAAS
 // application. This is only used when importing units during model migration.
-func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.ImportUnitArg) error {
+func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -370,7 +370,7 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 func (st *State) importCAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args application.ImportUnitArg,
 ) error {
 	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)
@@ -390,7 +390,7 @@ func (st *State) importCAASUnit(
 		return errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}
@@ -439,7 +439,7 @@ func (st *State) importCAASUnit(
 func (st *State) importIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	args application.ImportUnitArg,
 ) error {
 	err := st.checkUnitExistsByName(ctx, tx, args.UnitName)
@@ -459,7 +459,7 @@ func (st *State) importIAASUnit(
 		return errors.Capture(err)
 	}
 
-	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}

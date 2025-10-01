@@ -72,10 +72,10 @@ type modelPasswordHash struct {
 }
 
 type applicationID struct {
-	ID application.ID `db:"uuid"`
+	ID application.UUID `db:"uuid"`
 }
 
 type applicationIDAndName struct {
-	ID   application.ID `db:"uuid"`
-	Name string         `db:"name"`
+	ID   application.UUID `db:"uuid"`
+	Name string           `db:"name"`
 }

@@ -158,7 +158,7 @@ type machineName struct {
 
 // applicationUUID represents an application's UUID.
 type applicationUUID struct {
-	UUID application.ID `db:"application_uuid"`
+	UUID application.UUID `db:"application_uuid"`
 }
 
 // unitName represents a unit's name.

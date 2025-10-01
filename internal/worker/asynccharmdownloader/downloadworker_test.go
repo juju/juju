@@ -267,7 +267,7 @@ func (s *workerSuite) TestWorkerCreatesAsyncWorkerWithDifferentAppID(c *tc.C) {
 
 	// Using the same App ID should not cause a new worker to be created.
 
-	var apps [3]application.ID
+	var apps [3]application.UUID
 	for i := range apps {
 		apps[i] = applicationtesting.GenApplicationUUID(c)
 	}
@@ -349,7 +349,7 @@ func (s *workerSuite) newConfig(c *tc.C) Config {
 		NewDownloader: func(charmhub.HTTPClient, logger.Logger) Downloader {
 			return s.downloader
 		},
-		NewAsyncDownloadWorker: func(appID application.ID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
+		NewAsyncDownloadWorker: func(appID application.UUID, applicationService ApplicationService, downloader Downloader, clock clock.Clock, logger logger.Logger) worker.Worker {
 			if s.newAsyncWorker == nil {
 				return workertest.NewErrorWorker(nil)
 			}

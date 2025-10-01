@@ -23,10 +23,10 @@ import (
 type Service interface {
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, application.ID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, application.UUID) (relation.RelationUnitChange, error)
 }
 
 // ReportableWorker is an interface that allows a worker to be reported
@@ -40,7 +40,7 @@ type ReportableWorker interface {
 // worker.
 type Config struct {
 	Service         Service
-	ApplicationUUID application.ID
+	ApplicationUUID application.UUID
 	RelationTag     names.RelationTag
 	Macaroon        *macaroon.Macaroon
 
@@ -81,7 +81,7 @@ type localWorker struct {
 
 	service Service
 
-	applicationUUID application.ID
+	applicationUUID application.UUID
 	relationTag     names.RelationTag
 	changes         chan<- relation.RelationUnitChange
 

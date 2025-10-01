@@ -3521,7 +3521,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.getCharmIDByApplicationID(c.Context(), tx, applicationtesting.GenApplicationUUID(c))
+		_, err := st.getCharmIDByApplicationUUID(c.Context(), tx, applicationtesting.GenApplicationUUID(c))
 		return err
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -3538,7 +3538,7 @@ func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *tc.C) {
 	var result corecharm.ID
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = st.getCharmIDByApplicationID(c.Context(), tx, uuid)
+		result, err = st.getCharmIDByApplicationUUID(c.Context(), tx, uuid)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

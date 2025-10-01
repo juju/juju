@@ -36,7 +36,7 @@ import (
 
 type OpenerSuite struct {
 	appName              string
-	appID                coreapplication.ID
+	appID                coreapplication.UUID
 	unitName             coreunit.Name
 	unitUUID             coreunit.UUID
 	resourceUUID         coreresource.UUID
@@ -264,8 +264,8 @@ func (s *OpenerSuite) expectServiceMethods(
 ) {
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
+			ApplicationUUID: s.appID,
+			Name:            "wal-e",
 		},
 	).Return(s.resourceUUID, nil).AnyTimes()
 	var retrievedBy string
@@ -350,8 +350,8 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 	}
 	s.resourceService.EXPECT().GetApplicationResourceID(
 		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: s.appID,
-			Name:          "wal-e",
+			ApplicationUUID: s.appID,
+			Name:            "wal-e",
 		},
 	).Return(s.resourceUUID, nil)
 	s.resourceService.EXPECT().OpenResource(
@@ -430,7 +430,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *tc.C) {
 
 func (s *OpenerSuite) expectNewUnitResourceOpener(c *tc.C) {
 	// Service calls in NewResourceOpenerForUnit.
-	s.applicationService.EXPECT().GetApplicationIDByUnitName(
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
 		gomock.Any(),
 		s.unitName,
 	).Return(s.appID, nil)

@@ -13,8 +13,8 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
-func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.ID, error) {
-	var uuid coreapplication.ID
+func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapplication.UUID, error) {
+	var uuid coreapplication.UUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		uuid, err = st.GetApplicationUUID(ctx, appName)
@@ -53,7 +53,7 @@ func checkUserSecretLabelExists(ctx context.Context, st *State, label string) (b
 	return exists, err
 }
 
-func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID coreapplication.ID, label string) (bool, error) {
+func checkApplicationSecretLabelExists(ctx context.Context, st *State, appUUID coreapplication.UUID, label string) (bool, error) {
 	var exists bool
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error

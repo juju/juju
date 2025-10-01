@@ -149,7 +149,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingSu
 	charmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID), charm.Relation{Name: "db",
 		Role:      charm.RoleProvider,
 		Interface: "mysql", Optional: false, Limit: 1, Scope: charm.ScopeGlobal})
-	s.addApplicationEndpoint(c, coreapplication.ID(appUUID), charmRelationUUID, fromSpaceUUID)
+	s.addApplicationEndpoint(c, coreapplication.UUID(appUUID), charmRelationUUID, fromSpaceUUID)
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	db, err := s.state.DB(c.Context())
@@ -279,7 +279,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesAppEndpointBindingFa
 	charmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID), charm.Relation{Name: "db",
 		Role:      charm.RoleProvider,
 		Interface: "mysql", Optional: false, Limit: 1, Scope: charm.ScopeGlobal})
-	s.addApplicationEndpoint(c, coreapplication.ID(appUUID), charmRelationUUID, fromSpaceUUID)
+	s.addApplicationEndpoint(c, coreapplication.UUID(appUUID), charmRelationUUID, fromSpaceUUID)
 	s.addUnit(c, appUUID, charmUUID, nodeUUID)
 	s.addMachine(c, "machine-1", nodeUUID)
 
@@ -392,7 +392,7 @@ func (s *spaceMachineSuite) TestValidateSubnetsLeavingSpacesMultipleFailure(c *t
 	charmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID), charm.Relation{Name: "db",
 		Role:      charm.RoleProvider,
 		Interface: "mysql", Optional: false, Limit: 1, Scope: charm.ScopeGlobal})
-	s.addApplicationEndpoint(c, coreapplication.ID(appUUID), charmRelationUUID, fromSpaceUUID3)
+	s.addApplicationEndpoint(c, coreapplication.UUID(appUUID), charmRelationUUID, fromSpaceUUID3)
 	s.addUnit(c, appUUID, charmUUID, nodeUUID3)
 	s.addMachine(c, "machine-3", nodeUUID3)
 

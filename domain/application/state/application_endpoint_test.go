@@ -32,7 +32,7 @@ import (
 type applicationEndpointStateSuite struct {
 	baseSuite
 
-	appID     coreapplication.ID
+	appID     coreapplication.UUID
 	charmUUID corecharm.ID
 
 	state *State

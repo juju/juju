@@ -446,7 +446,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	appUUIDs := []coreapplication.ID{
+	appUUIDs := []coreapplication.UUID{
 		coreapplicationtesting.GenApplicationUUID(c),
 		coreapplicationtesting.GenApplicationUUID(c),
 	}
@@ -495,9 +495,9 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.
 func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
-	appUUIDs := []coreapplication.ID{
+	appUUIDs := []coreapplication.UUID{
 		coreapplicationtesting.GenApplicationUUID(c),
-		coreapplication.ID("not-valid-uuid"),
+		coreapplication.UUID("not-valid-uuid"),
 		coreapplicationtesting.GenApplicationUUID(c),
 	}
 
@@ -505,7 +505,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C
 	_, err := s.service.GetRelationUnitChanges(c.Context(), nil, appUUIDs)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *tc.C) {
@@ -731,7 +731,7 @@ func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNo
 	_, err := s.service.GetRelationApplicationSettings(c.Context(), relationUUID, "bad-uuid")
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNotValid(c *tc.C) {
@@ -754,7 +754,7 @@ func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotVal
 	_, err := s.service.ApplicationRelationsInfo(c.Context(), "bad-uuid")
 
 	// Assert.
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *tc.C) {
@@ -783,7 +783,7 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationNotVali
 	_, err := s.service.GetGoalStateRelationDataForApplication(c.Context(), "bad-uuid")
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c *tc.C) {
@@ -1060,7 +1060,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	_, err := s.leadershipService.GetRelationApplicationSettingsWithLeader(c.Context(), unitName, relationUUID, "bad-uuid")
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationIDNotValid)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationUUIDNotValid)
 }
 
 func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithLeaderRelationUUIDNotValid(c *tc.C) {
