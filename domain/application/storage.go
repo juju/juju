@@ -138,20 +138,6 @@ type CreateUnitStorageArg struct {
 	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
-// DefaultStorageProvisioners defines the set of default storage provisioners
-// for each type of storage that can be provisioned in a model. If a storage
-// type has no default provisioner set then a default does not exist for the
-// model.
-type DefaultStorageProvisioners struct {
-	// BlockdevicePoolUUID describes the storage pool uuid that should be used
-	// when provisioning new block device storage in the model.
-	BlockdevicePoolUUID *domainstorage.StoragePoolUUID
-
-	// FilesystemPoolUUID describes the storage pool uuid that should be used
-	// when provisioning new filesystem storage in the model.
-	FilesystemPoolUUID *domainstorage.StoragePoolUUID
-}
-
 // RegisterUnitStorageArg represents the arguments required for registering a
 // unit's storage that has appeared in the model. This struct allows for
 // re-using previously created storage for the unit and also provisioning new

@@ -5,6 +5,20 @@ import (
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
 
+// DefaultStorageProvisioners defines the set of default storage provisioners
+// for each type of storage that can be provisioned in a model. If a storage
+// type has no default provisioner set then a default does not exist for the
+// model.
+type DefaultStorageProvisioners struct {
+	// BlockdevicePoolUUID describes the storage pool uuid that should be used
+	// when provisioning new block device storage in the model.
+	BlockdevicePoolUUID *domainstorage.StoragePoolUUID
+
+	// FilesystemPoolUUID describes the storage pool uuid that should be used
+	// when provisioning new filesystem storage in the model.
+	FilesystemPoolUUID *domainstorage.StoragePoolUUID
+}
+
 // StorageInstanceComposition describes the composition of a storage instance
 // with in the model. This information is required for attaching existing
 // storage in the model to a unit. To be able to properly generate attachments
