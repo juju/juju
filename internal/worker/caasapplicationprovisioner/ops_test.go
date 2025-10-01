@@ -960,7 +960,7 @@ func (s *OpsSuite) TestReconcileApplicationStorageError(c *gc.C) {
 	facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, errors.New("something went wrong"))
 
 	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
 
 func intPtr(i int) *int {
