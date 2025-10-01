@@ -1,0 +1,23 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-postgresql-sts
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["statefulsets"]
+  validations:
+    - expression: "object.metadata.name != 'postgresql-k8s'"
+      message: "Creation of StatefulSet named 'postgresql-k8s' is not allowed."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-postgresql-sts-binding
+spec:
+  policyName: deny-postgresql-sts
+  validationActions: [Deny]

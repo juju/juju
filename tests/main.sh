@@ -41,6 +41,7 @@ import_subdir_files includes
 # Please keep these in alphabetic order.
 TEST_NAMES="agents \
             appdata \
+            application_storage_k8s \
             authorized_keys \
             backup \
             bootstrap \
