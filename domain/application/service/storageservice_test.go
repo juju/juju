@@ -7,7 +7,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -144,9 +143,6 @@ func (s *storageServiceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageInstanceChecker := tc.NewMultiChecker()
-	expectedStorageInstanceChecker.AddExpr("_.UUID", tc.IsNonZeroUUID)
-	expectedStorageInstanceChecker.AddExpr("_.Filesystem.UUID", tc.IsNonZeroUUID)
 	expectedStorageInstances := []application.CreateUnitStorageInstanceArg{
 		{
 			CharmName: "big-beautiful-charm",
@@ -170,10 +166,6 @@ func (s *storageServiceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageAttachmentChecker := tc.NewMultiChecker()
-	expectedStorageAttachmentChecker.AddExpr("_.UUID", tc.IsNonZeroUUID)
-	expectedStorageAttachmentChecker.AddExpr("_.FilesystemAttachment.UUID", tc.IsNonZeroUUID)
-	expectedStorageAttachmentChecker.AddExpr("_.VolumeAttachment.UUID", tc.IsNonZeroUUID)
 	expectedStorageToAttach := []application.CreateUnitStorageAttachmentArg{
 		// Existing st1 storage
 		{
@@ -235,30 +227,7 @@ func (s *storageServiceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.StorageDirectives", tc.SameContents, tc.ExpectedValue)
-	mc.AddExpr(
-		"_.StorageInstances",
-		tc.UnorderedMatch[[]application.CreateUnitStorageInstanceArg](
-			expectedStorageInstanceChecker,
-		),
-		tc.ExpectedValue,
-	)
-	mc.AddExpr(
-		"_.StorageToAttach",
-		tc.UnorderedMatch[[]application.CreateUnitStorageAttachmentArg](
-			expectedStorageAttachmentChecker,
-		),
-		tc.ExpectedValue,
-	)
-	mc.AddExpr(
-		"_.StorageToOwn",
-		tc.SameContents,
-		tc.ExpectedValue,
-	)
-
-	spew.Dump(arg)
-	c.Check(arg, mc, application.CreateUnitStorageArg{
+	c.Check(arg, createUnitStorageArgChecker(), application.CreateUnitStorageArg{
 		StorageDirectives: expectStorageDirectives,
 		StorageInstances:  expectedStorageInstances,
 		StorageToAttach:   expectedStorageToAttach,
