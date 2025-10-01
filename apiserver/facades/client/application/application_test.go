@@ -1683,7 +1683,7 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sc := map[string]state.StorageConstraints{
+	sc := map[string]state.StorageDirectives{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
@@ -1709,7 +1709,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	// Creates a storage-block application with storage constraints.
 	ch1 := s.AddTestingCharm(c, "storage-block")
 	charmStore1 := "data"
-	sc1 := map[string]state.StorageConstraints{
+	sc1 := map[string]state.StorageDirectives{
 		charmStore1: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application1 := s.AddTestingApplicationWithStorage(c, "storage-block", ch1, sc1)
@@ -1719,7 +1719,7 @@ func (s *applicationSuite) TestGetMultipleApplicationStorageSuccess(c *gc.C) {
 	// Creates a cockroachdb application with storage constraints.
 	ch2 := s.AddTestingCharm(c, "cockroachdb")
 	charmStore2 := "database"
-	sc2 := map[string]state.StorageConstraints{
+	sc2 := map[string]state.StorageDirectives{
 		charmStore2: {Pool: "loop", Size: 4096, Count: 1},
 	}
 	application2 := s.AddTestingApplicationWithStorage(c, "cockroachdb", ch2, sc2)
@@ -1776,7 +1776,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sc := map[string]state.StorageConstraints{
+	sc := map[string]state.StorageDirectives{
 		charmStore: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sc)
@@ -1810,8 +1810,8 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				ApplicationTag:     application.Tag().String(),
-				StorageConstraints: newSC,
+				ApplicationTag:    application.Tag().String(),
+				StorageDirectives: newSC,
 			},
 		},
 	})
@@ -1836,7 +1836,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	// Creates a storage-block application with storage constraints.
 	ch1 := s.AddTestingCharm(c, "storage-block")
 	charmStore1 := "data"
-	sc1 := map[string]state.StorageConstraints{
+	sc1 := map[string]state.StorageDirectives{
 		charmStore1: {Pool: "loop", Size: 2048, Count: 1},
 	}
 	application1 := s.AddTestingApplicationWithStorage(c, "storage-block", ch1, sc1)
@@ -1846,7 +1846,7 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	// Creates a cockroachdb application with storage constraints.
 	ch2 := s.AddTestingCharm(c, "cockroachdb")
 	charmStore2 := "database"
-	sc2 := map[string]state.StorageConstraints{
+	sc2 := map[string]state.StorageDirectives{
 		charmStore2: {Pool: "loop", Size: 4096, Count: 1},
 	}
 	application2 := s.AddTestingApplicationWithStorage(c, "cockroachdb", ch2, sc2)
@@ -1902,12 +1902,12 @@ func (s *applicationSuite) TestUpdateMultipleApplicationStorageSuccess(c *gc.C) 
 	_, err = s.applicationAPI.UpdateApplicationStorage(params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				ApplicationTag:     application1.Tag().String(),
-				StorageConstraints: newSC1,
+				ApplicationTag:    application1.Tag().String(),
+				StorageDirectives: newSC1,
 			},
 			{
-				ApplicationTag:     application2.Tag().String(),
-				StorageConstraints: newSC2,
+				ApplicationTag:    application2.Tag().String(),
+				StorageDirectives: newSC2,
 			},
 		},
 	})
@@ -1945,8 +1945,8 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	charmStore := "data"
 
 	// Creates an application with storage constraints.
-	sc := state.StorageConstraints{Pool: "loop", Size: 2048, Count: 1}
-	sCons := map[string]state.StorageConstraints{
+	sc := state.StorageDirectives{Pool: "loop", Size: 2048, Count: 1}
+	sCons := map[string]state.StorageDirectives{
 		charmStore: sc,
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
@@ -1974,7 +1974,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				ApplicationTag: application.Tag().String(),
-				StorageConstraints: map[string]params.StorageConstraints{
+				StorageDirectives: map[string]params.StorageConstraints{
 					charmStore: {
 						Pool:  "loop",
 						Size:  &size,

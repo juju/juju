@@ -1160,11 +1160,11 @@ func (api *APIBase) applicationSetCharm(
 	if err := appConfig.Validate(); err != nil {
 		return errors.Annotate(err, "validating config settings")
 	}
-	var stateStorageConstraints map[string]state.StorageConstraints
+	var stateStorageConstraints map[string]state.StorageDirectives
 	if len(params.StorageConstraints) > 0 {
-		stateStorageConstraints = make(map[string]state.StorageConstraints)
+		stateStorageConstraints = make(map[string]state.StorageDirectives)
 		for name, cons := range params.StorageConstraints {
-			stateCons := state.StorageConstraints{Pool: cons.Pool}
+			stateCons := state.StorageDirectives{Pool: cons.Pool}
 			if cons.Size != nil {
 				stateCons.Size = *cons.Size
 			}
@@ -1192,7 +1192,7 @@ func (api *APIBase) applicationSetCharm(
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		PendingResourceIDs: params.ResourceIDs,
-		StorageConstraints: stateStorageConstraints,
+		StorageDirectives:  stateStorageConstraints,
 		EndpointBindings:   params.EndpointBindings,
 	}
 	if len(charmSettings) > 0 {
@@ -3132,13 +3132,13 @@ func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]p
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageConstraints, err := app.StorageConstraints()
+	storageDirectives, err := app.StorageDirectives()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	sc := make(map[string]params.StorageConstraints)
-	for key, cons := range storageConstraints {
+	for key, cons := range storageDirectives {
 		sc[key] = params.StorageConstraints{
 			Pool:  cons.Pool,
 			Size:  &cons.Size,
@@ -3180,21 +3180,21 @@ func (api *APIBase) updateOneApplicationStorage(storageUpdate params.Application
 		return errors.Trace(err)
 	}
 
-	sCons := make(map[string]state.StorageConstraints)
-	for storageName, con := range storageUpdate.StorageConstraints {
-		sc := state.StorageConstraints{
-			Pool: con.Pool,
+	sDirectives := make(map[string]state.StorageDirectives)
+	for storageName, directive := range storageUpdate.StorageDirectives {
+		sd := state.StorageDirectives{
+			Pool: directive.Pool,
 		}
-		if con.Size != nil {
-			sc.Size = *con.Size
+		if directive.Size != nil {
+			sd.Size = *directive.Size
 		}
-		if con.Count != nil {
-			sc.Count = *con.Count
+		if directive.Count != nil {
+			sd.Count = *directive.Count
 		}
-		sCons[storageName] = sc
+		sDirectives[storageName] = sd
 	}
 
-	return app.UpdateStorageConstraints(sCons)
+	return app.UpdateStorageDirectives(sDirectives)
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.

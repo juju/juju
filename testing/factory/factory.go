@@ -108,7 +108,7 @@ type ApplicationParams struct {
 	ApplicationConfigFields environschema.Fields
 	CharmConfig             map[string]interface{}
 	Devices                 map[string]state.DeviceConstraints
-	Storage                 map[string]state.StorageConstraints
+	Storage                 map[string]state.StorageDirectives
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
 	Password                string

@@ -162,10 +162,10 @@ func addUnits(
 	return units, nil
 }
 
-func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {
-	result := make(map[string]state.StorageConstraints)
+func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageDirectives {
+	result := make(map[string]state.StorageDirectives)
 	for name, cons := range cons {
-		result[name] = state.StorageConstraints{
+		result[name] = state.StorageDirectives{
 			Pool:  cons.Pool,
 			Size:  cons.Size,
 			Count: cons.Count,

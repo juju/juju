@@ -89,7 +89,7 @@ func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *gc.C) {
 
 func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	msg := "add test directive error"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
 		return nil, errors.New(msg)
 	}
@@ -118,7 +118,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 		UnitTag: s.unitTag.String(),
 	}
 	msg := "storage name missing error"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
 		if name == "" {
 			return nil, errors.New(msg)
@@ -143,7 +143,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 
 func (s *storageAddSuite) TestStorageAddUnitTags(c *gc.C) {
 	tags := []names.StorageTag{names.NewStorageTag("foo/0"), names.NewStorageTag("foo/1")}
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error) {
 		return tags, nil
 	}
 
@@ -162,7 +162,7 @@ func (s *storageAddSuite) TestStorageAddUnitTags(c *gc.C) {
 
 func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
 	msg := "sanity"
-	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+	s.storageAccessor.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error) {
 		s.stub.AddCall(addStorageForUnitCall)
 		return nil, errors.NotFoundf(msg)
 	}

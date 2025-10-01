@@ -2979,13 +2979,13 @@ func (u *Unit) ClearResolved() error {
 }
 
 // StorageConstraints returns the unit's storage constraints.
-func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
+func (u *Unit) StorageConstraints() (map[string]StorageDirectives, error) {
 	if u.doc.CharmURL == nil {
 		app, err := u.st.Application(u.doc.Application)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return app.StorageConstraints()
+		return app.StorageDirectives()
 	}
 	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)

@@ -481,7 +481,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	cfg := state.SetCharmConfig{
 		CharmOrigin: createStateCharmOriginFromURL(curl),
-		StorageConstraints: map[string]state.StorageConstraints{
+		StorageDirectives: map[string]state.StorageDirectives{
 			"a": {},
 			"b": {Pool: "radiant"},
 			"c": {Size: 123},

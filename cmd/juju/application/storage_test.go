@@ -50,7 +50,7 @@ func (s *StorageConfigSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockStorageConstraintsAPI{
 		getFunc: func(app string) (apiapplication.ApplicationStorageDirectives, error) {
 			return apiapplication.ApplicationStorageDirectives{
-				StorageConstraints: map[string]storage.Constraints{
+				StorageDirectives: map[string]storage.Constraints{
 					"data":    {Pool: "rootfs", Size: 10240, Count: 1}, // 10 GiB (MiB units)
 					"allecto": {Pool: "loop", Size: 20480, Count: 2},   // 20 GiB
 				},
@@ -185,7 +185,7 @@ func (s *StorageConfigSuite) TestSetConstraintsAllFields(c *gc.C) {
 	// Assert application tag.
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageConstraints["data"]
+	data := got.StorageDirectives["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.Equals, uint64(1))
 	c.Assert(data.Size, gc.Equals, uint64(102400))
@@ -205,7 +205,7 @@ func (s *StorageConfigSuite) TestSetConstraintsAllFieldsShuffledOrder(c *gc.C) {
 	// Assert application tag.
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageConstraints["data"]
+	data := got.StorageDirectives["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.Equals, uint64(1))
 	c.Assert(data.Size, gc.Equals, uint64(102400))
@@ -225,7 +225,7 @@ func (s *StorageConfigSuite) TestSetConstraintsOneField(c *gc.C) {
 
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageConstraints["data"]
+	data := got.StorageDirectives["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	// ParseConstraints defaults count to 1 if count is not provided.
 	c.Assert(data.Count, gc.Equals, uint64(1))
@@ -245,12 +245,12 @@ func (s *StorageConfigSuite) TestSetConstraintsMultipleStorageKeys(c *gc.C) {
 
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageConstraints["data"]
+	data := got.StorageDirectives["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.Equals, uint64(1))
 	c.Assert(data.Size, gc.Equals, uint64(102400))
 
-	allecto := got.StorageConstraints["allecto"]
+	allecto := got.StorageDirectives["allecto"]
 	c.Assert(allecto.Pool, gc.Equals, "loop")
 	c.Assert(allecto.Count, gc.Equals, uint64(2))
 	c.Assert(allecto.Size, gc.Equals, uint64(0))

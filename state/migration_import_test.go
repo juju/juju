@@ -2468,9 +2468,9 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 	app, err = newSt.Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := app.StorageConstraints()
+	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+	c.Check(cons, jc.DeepEquals, map[string]state.StorageDirectives{
 		"data":    {Pool: "modelscoped", Size: 0x400, Count: 1},
 		"allecto": {Pool: "loop", Size: 0x400},
 	})
@@ -2532,7 +2532,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = sb.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+	_, err = sb.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageDirectives{
 		Count: 3,
 		Size:  1234,
 		Pool:  "modelscoped",

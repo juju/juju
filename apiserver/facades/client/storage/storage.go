@@ -532,8 +532,8 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
-	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
-		s := state.StorageConstraints{Pool: p.Pool}
+	paramsToState := func(p params.StorageConstraints) state.StorageDirectives {
+		s := state.StorageDirectives{Pool: p.Pool}
 		if p.Size != nil {
 			s.Size = *p.Size
 		}

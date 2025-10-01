@@ -286,7 +286,7 @@ func (a *API) watchStorageConstraints(appName names.ApplicationTag) (params.Noti
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	w, err := app.WatchStorageConstraints()
+	w, err := app.WatchStorageDirectives()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -674,7 +674,7 @@ func (a *API) applicationFilesystemParams(
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 ) ([]params.KubernetesFilesystemParams, error) {
-	storageConstraints, err := app.StorageConstraints()
+	storageConstraints, err := app.StorageDirectives()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -724,7 +724,7 @@ func (a *API) applicationFilesystemParams(
 
 func filesystemParams(
 	app Application,
-	cons state.StorageConstraints,
+	cons state.StorageDirectives,
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,

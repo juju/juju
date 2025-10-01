@@ -312,7 +312,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 
 type mockUnit struct {
 	assignedMachine    string
-	storageConstraints map[string]state.StorageConstraints
+	storageConstraints map[string]state.StorageDirectives
 }
 
 func (u *mockUnit) ShouldBeAssigned() bool {
@@ -326,12 +326,12 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 	return u.assignedMachine, nil
 }
 
-func (u *mockUnit) StorageConstraints() (map[string]state.StorageConstraints, error) {
+func (u *mockUnit) StorageConstraints() (map[string]state.StorageDirectives, error) {
 	return u.storageConstraints, nil
 }
 
 type mockStorageState struct {
-	unitStorageConstraints map[string]state.StorageConstraints
+	unitStorageConstraints map[string]state.StorageDirectives
 	assignedMachine        string
 
 	uniter.Backend
@@ -348,7 +348,7 @@ type mockStorageState struct {
 	watchFilesystemAttachment     func(names.Tag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment         func(names.Tag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
-	addUnitStorageOperation       func(u names.UnitTag, name string, cons state.StorageConstraints) error
+	addUnitStorageOperation       func(u names.UnitTag, name string, cons state.StorageDirectives) error
 }
 
 func (m *mockStorageState) VolumeAccess() uniter.StorageVolumeInterface {
@@ -405,7 +405,7 @@ func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.Notify
 	return m.watchBlockDevices(mtag)
 }
 
-func (m *mockStorageState) AddStorageForUnitOperation(tag names.UnitTag, name string, cons state.StorageConstraints) (state.ModelOperation, error) {
+func (m *mockStorageState) AddStorageForUnitOperation(tag names.UnitTag, name string, cons state.StorageDirectives) (state.ModelOperation, error) {
 	return nil, m.addUnitStorageOperation(tag, name, cons)
 }
 

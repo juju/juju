@@ -107,7 +107,7 @@ type storageConfigCommand struct {
 	configBase config.ConfigCommandBase
 	out        cmd.Output
 
-	api             StorageConstraintsAPI
+	api             StorageDirectivesAPI
 	applicationName string
 }
 
@@ -160,7 +160,7 @@ func (c *storageConfigCommand) Init(args []string) error {
 
 // getAPI returns the API. This allows passing in a test configCommandAPI
 // implementation.
-func (c *storageConfigCommand) getAPI() (StorageConstraintsAPI, error) {
+func (c *storageConfigCommand) getAPI() (StorageDirectivesAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -203,15 +203,15 @@ func (c *storageConfigCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// StorageConstraintsAPI defines the API methods that the application storage command uses.
-type StorageConstraintsAPI interface {
+// StorageDirectivesAPI defines the API methods that the application storage command uses.
+type StorageDirectivesAPI interface {
 	Close() error
 	GetApplicationStorage(applicationName string) (application.ApplicationStorageDirectives, error)
 	UpdateApplicationStorage(applicationStorageUpdateParams application.ApplicationStorageUpdate) error
 }
 
 // setConfig sets the provided key/value pairs on the application.
-func (c *storageConfigCommand) setConfig(client StorageConstraintsAPI, attrs config.Attrs) error {
+func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
 	sc := make(map[string]storage.Constraints, len(attrs))
 	for k, v := range attrs {
 		// This should give us a string of the form "100G,rootfs,1"
@@ -224,8 +224,8 @@ func (c *storageConfigCommand) setConfig(client StorageConstraintsAPI, attrs con
 	}
 
 	updateParams := application.ApplicationStorageUpdate{
-		ApplicationTag:     names.NewApplicationTag(c.applicationName),
-		StorageConstraints: sc,
+		ApplicationTag:    names.NewApplicationTag(c.applicationName),
+		StorageDirectives: sc,
 	}
 
 	return client.UpdateApplicationStorage(updateParams)
@@ -270,7 +270,7 @@ func (c *storageConfigCommand) setFileConfig(client StorageDirectivesAPI, attrs 
 }
 
 // getConfig writes the value of a single application config key to the cmd.Context.
-func (c *storageConfigCommand) getConfig(client StorageConstraintsAPI, ctx *cmd.Context) error {
+func (c *storageConfigCommand) getConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
 	applicationStorageInfo, err := client.GetApplicationStorage(c.applicationName)
 	if err != nil {
 		return err
@@ -281,7 +281,7 @@ func (c *storageConfigCommand) getConfig(client StorageConstraintsAPI, ctx *cmd.
 	}
 
 	storeKey := c.configBase.KeysToGet[0]
-	storageConsForKey, ok := applicationStorageInfo.StorageConstraints[storeKey]
+	storageConsForKey, ok := applicationStorageInfo.StorageDirectives[storeKey]
 	if !ok {
 		return errors.NotFoundf("storage %q", storeKey)
 	}
@@ -295,13 +295,13 @@ func (c *storageConfigCommand) getConfig(client StorageConstraintsAPI, ctx *cmd.
 }
 
 // getAllConfig returns the entire configuration for the selected application.
-func (c *storageConfigCommand) getAllConfig(client StorageConstraintsAPI, ctx *cmd.Context) error {
+func (c *storageConfigCommand) getAllConfig(client StorageDirectivesAPI, ctx *cmd.Context) error {
 	applicationStorageInfo, err := client.GetApplicationStorage(c.applicationName)
 	if err != nil {
 		return err
 	}
 
-	return c.out.Write(ctx, applicationStorageInfo.StorageConstraints)
+	return c.out.Write(ctx, applicationStorageInfo.StorageDirectives)
 }
 
 // formatConfigTabular writes a tabular summary of config information.

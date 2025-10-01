@@ -1987,10 +1987,10 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
-// WatchStorageConstraints returns a watcher for observing changes to an
+// WatchStorageDirectives returns a watcher for observing changes to an
 // application's storage constraints.
-func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
-	current, err := a.StorageConstraints()
+func (a *Application) WatchStorageDirectives() (NotifyWatcher, error) {
+	current, err := a.StorageDirectives()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2016,7 +2016,7 @@ func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
 			return false
 		}
 
-		storageCons, err := a.StorageConstraints()
+		storageCons, err := a.StorageDirectives()
 		if err != nil {
 			return false
 		}

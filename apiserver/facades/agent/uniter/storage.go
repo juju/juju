@@ -351,7 +351,7 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 
 // addStorageToOneUnitOperation returns a ModelOperation for adding storage to
 // the specified unit.
-func (s *StorageAPI) addStorageToOneUnitOperation(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) (state.ModelOperation, error) {
+func (s *StorageAPI) addStorageToOneUnitOperation(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageDirectives) (state.ModelOperation, error) {
 	validCons, err := validConstraints(addParams, curCons)
 	if err != nil {
 		return nil, errors.Annotatef(err, "adding storage %v for %v", addParams.StorageName, addParams.UnitTag)
@@ -367,9 +367,9 @@ func (s *StorageAPI) addStorageToOneUnitOperation(unitTag names.UnitTag, addPara
 
 func validConstraints(
 	p params.StorageAddParams,
-	cons map[string]state.StorageConstraints,
-) (state.StorageConstraints, error) {
-	emptyCons := state.StorageConstraints{}
+	cons map[string]state.StorageDirectives,
+) (state.StorageDirectives, error) {
+	emptyCons := state.StorageDirectives{}
 
 	result, ok := cons[p.StorageName]
 	if !ok {
