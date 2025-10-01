@@ -131,7 +131,7 @@ func (s *configSuite) TestEncodeConfigValue(c *tc.C) {
 		},
 		{
 			name:  "int value",
-			value: 42,
+			value: int64(42),
 			vType: charm.OptionInt,
 			want:  "42",
 		},
@@ -163,7 +163,7 @@ func (s *configSuite) TestEncodeConfigValue(c *tc.C) {
 			name:      "wrong type for int",
 			value:     "notint",
 			vType:     charm.OptionInt,
-			wantError: "expected int value, got string",
+			wantError: "expected int64 value, got string",
 		},
 		{
 			name:      "wrong type for float",
@@ -186,13 +186,115 @@ func (s *configSuite) TestEncodeConfigValue(c *tc.C) {
 	}
 	for _, t := range tests {
 		c.Logf("Running test case %q", t.name)
-		got, err := EncodeApplicationConfigValue(t.value, t.vType)
+		got, err := encodeApplicationConfigValue(t.value, t.vType)
 		if t.wantError != "" {
 			c.Assert(err, tc.ErrorMatches, t.wantError)
 			c.Check(got, tc.Equals, "")
 		} else {
 			c.Assert(err, tc.ErrorIsNil)
 			c.Check(got, tc.Equals, t.want)
+		}
+	}
+}
+
+func (s *configSuite) TestEncodeApplicationConfig(c *tc.C) {
+	tests := []struct {
+		name        string
+		config      internalcharm.Config
+		charmConfig charm.Config
+		want        map[string]AddApplicationConfig
+		wantErr     string
+	}{
+		{
+			name:   "empty config returns nil",
+			config: internalcharm.Config{},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{},
+			},
+			want: nil,
+		},
+		{
+			name: "single string option",
+			config: internalcharm.Config{
+				"foo": "bar",
+			},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{
+					"foo": {Type: charm.OptionString},
+				},
+			},
+			want: map[string]AddApplicationConfig{
+				"foo": {Value: "bar", Type: charm.OptionString},
+			},
+		},
+		{
+			name: "multiple types",
+			config: internalcharm.Config{
+				"s": "baz",
+				"i": int64(42),
+				"f": 3.14,
+				"b": true,
+			},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{
+					"s": {Type: charm.OptionString},
+					"i": {Type: charm.OptionInt},
+					"f": {Type: charm.OptionFloat},
+					"b": {Type: charm.OptionBool},
+				},
+			},
+			want: map[string]AddApplicationConfig{
+				"s": {Value: "baz", Type: charm.OptionString},
+				"i": {Value: "42", Type: charm.OptionInt},
+				"f": {Value: "3.14", Type: charm.OptionFloat},
+				"b": {Value: "true", Type: charm.OptionBool},
+			},
+		},
+		{
+			name: "missing charm config option",
+			config: internalcharm.Config{
+				"missing": "value",
+			},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{},
+			},
+			wantErr: `missing charm config, expected "missing"`,
+		},
+		{
+			name: "type mismatch error",
+			config: internalcharm.Config{
+				"foo": 123,
+			},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{
+					"foo": {Type: charm.OptionString},
+				},
+			},
+			wantErr: `encoding config value for "foo": expected string value, got int`,
+		},
+		{
+			name: "unsupported option type error",
+			config: internalcharm.Config{
+				"bar": "baz",
+			},
+			charmConfig: charm.Config{
+				Options: map[string]charm.Option{
+					"bar": {Type: charm.OptionType("unknown")},
+				},
+			},
+			wantErr: `encoding config value for "bar": unsupported option type "unknown"`,
+		},
+	}
+
+	for _, tt := range tests {
+		c.Logf("Running test case %q", tt.name)
+		got, err := EncodeApplicationConfig(tt.config, tt.charmConfig)
+		if tt.wantErr != "" {
+			c.Assert(err, tc.ErrorMatches, tt.wantErr)
+			c.Check(got, tc.IsNil)
+		} else {
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(got, tc.DeepEquals, tt.want)
 		}
 	}
 }

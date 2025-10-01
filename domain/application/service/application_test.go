@@ -807,7 +807,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigNoConfig(c *tc.C) {
 	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return("", applicationcharm.Config{}, nil)
 	s.state.EXPECT().UpdateApplicationConfigAndSettings(
 		gomock.Any(), appUUID,
-		map[string]application.AddApplicationConfig{},
+		nil,
 		application.UpdateApplicationSettingsArg{},
 	).Return(nil)
 

@@ -1090,7 +1090,7 @@ func makeCreateApplicationArgs(
 		return application.BaseAddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
 	}
 
-	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	applicationConfig, err := application.EncodeApplicationConfig(args.ApplicationConfig, ch.Config)
 	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
 	}

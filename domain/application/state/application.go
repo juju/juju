@@ -3551,23 +3551,9 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 	}
 
 	filteredDecodedApplicationConfig := decodedCharmConfig.FilterApplicationConfig(decodedApplicationConfig)
-	filteredApplicationConfig := make(map[string]application.AddApplicationConfig, len(filteredDecodedApplicationConfig))
-	for k, v := range filteredDecodedApplicationConfig {
-		opt, ok := charmConfig.Options[k]
-		if !ok {
-			// This should never happen, as we've verified the config is valid.
-			// But if it does, then we should return an error.
-			return errors.Errorf("missing charm config, expected %q", k)
-		}
-		encodedV, err := application.EncodeApplicationConfigValue(v, opt.Type)
-		if err != nil {
-			return errors.Errorf("encoding application config value %s: %w", k, err)
-		}
-
-		filteredApplicationConfig[k] = application.AddApplicationConfig{
-			Type:  opt.Type,
-			Value: encodedV,
-		}
+	filteredApplicationConfig, err := application.EncodeApplicationConfig(filteredDecodedApplicationConfig, charmConfig)
+	if err != nil {
+		return errors.Errorf("encoding filtered application config: %w", err)
 	}
 
 	clearApplicationConfig, err := st.Prepare(`

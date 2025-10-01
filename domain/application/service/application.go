@@ -1672,25 +1672,9 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 		return errors.Capture(err)
 	}
 
-	// The encoded config is the application config, with the type of the
-	// option. Encoding the type ensures that if the type changes during an
-	// upgrade, we can prevent a runtime error during that phase.
-	encodedConfig := make(map[string]application.AddApplicationConfig, len(coercedConfig))
-	for k, v := range coercedConfig {
-		option, ok := cfg.Options[k]
-		if !ok {
-			// This should never happen, as we've verified the config is valid.
-			// But if it does, then we should return an error.
-			return errors.Errorf("missing charm config, expected %q", k)
-		}
-		encodedV, err := application.EncodeApplicationConfigValue(v, option.Type)
-		if err != nil {
-			return errors.Errorf("encoding config value for %q: %w", k, err)
-		}
-		encodedConfig[k] = application.AddApplicationConfig{
-			Value: encodedV,
-			Type:  option.Type,
-		}
+	encodedConfig, err := application.EncodeApplicationConfig(coercedConfig, cfg)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	return s.st.UpdateApplicationConfigAndSettings(ctx, appID, encodedConfig, application.UpdateApplicationSettingsArg{
@@ -1862,32 +1846,6 @@ func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
 		return nil, errors.Errorf("parsing trust setting: %w", err)
 	}
 	return &b, nil
-}
-
-func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config) (map[string]application.AddApplicationConfig, error) {
-	// If there is no config, then we can just return nil.
-	if len(cfg) == 0 {
-		return nil, nil
-	}
-
-	encodedConfig := make(map[string]application.AddApplicationConfig, len(cfg))
-	for k, v := range cfg {
-		option, ok := charmConfig.Options[k]
-		if !ok {
-			// This should never happen, as we've verified the config is valid.
-			// But if it does, then we should return an error.
-			return nil, errors.Errorf("missing charm config, expected %q", k)
-		}
-		encodedV, err := application.EncodeApplicationConfigValue(v, option.Type)
-		if err != nil {
-			return nil, errors.Errorf("encoding config value for %q: %w", k, err)
-		}
-		encodedConfig[k] = application.AddApplicationConfig{
-			Value: encodedV,
-			Type:  option.Type,
-		}
-	}
-	return encodedConfig, nil
 }
 
 func validateSecretConfig(chCfg internalcharm.ConfigSpec, cfg internalcharm.Config) error {
