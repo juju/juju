@@ -198,10 +198,13 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			return u.UUID
 		})
 		for _, u := range cascaded.UnitUUIDs {
-			_, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
+			uc, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
+			// We don't expect storage instances to advance because we pass
+			// destroyStorage as false, but we can have dying attachments.
+			cascaded.StorageAttachmentUUIDs = append(cascaded.StorageAttachmentUUIDs, uc.StorageAttachmentUUIDs...)
 		}
 
 		// TODO (manadart 2025-09-18): Kill machine-scoped storage instances
