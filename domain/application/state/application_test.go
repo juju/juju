@@ -1676,7 +1676,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestGetCharmByApplicationID(c *tc.C) {
+func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 
 	expectedMetadata := charm.Metadata{
 		Name:           "ubuntu",
@@ -2786,7 +2786,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
 }
 
-func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *tc.C) {
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUID(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	cid, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
@@ -2812,7 +2812,7 @@ func (s *applicationStateSuite) TestGetCharmConfigByApplicationID(c *tc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDSyntheticCMRApplication(c *tc.C) {
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUIDSyntheticCMRApplication(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	// Switch the source_id of a charm to a synthetic CMR charm.
@@ -2829,7 +2829,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestGetCharmConfigByApplicationIDApplicationNotFound(c *tc.C) {
+func (s *applicationStateSuite) TestGetCharmConfigByApplicationUUIDApplicationNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
 	_, _, err := s.state.GetCharmConfigByApplicationUUID(c.Context(), id)
@@ -2843,7 +2843,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.checkApplicationCharm(c.Context(), tx, applicationUUDID{ID: id}, charmID{UUID: cid})
+		return s.checkApplicationCharm(c.Context(), tx, entityUUID{UUID: id.String()}, charmID{UUID: cid})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -2852,7 +2852,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharmDifferentCharm(c *tc.C)
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.checkApplicationCharm(c.Context(), tx, applicationUUDID{ID: id}, charmID{UUID: "other"})
+		return s.checkApplicationCharm(c.Context(), tx, entityUUID{UUID: id.String()}, charmID{UUID: "other"})
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationHasDifferentCharm)
 }
@@ -4059,11 +4059,11 @@ ORDER BY r.relation_id
 	c.Check(peerRelations, tc.SameContents, expected)
 }
 
-func (s *applicationStateSuite) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationUUDID, charmID charmID) error {
+func (s *applicationStateSuite) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident entityUUID, charmID charmID) error {
 	query := `
 SELECT COUNT(*) AS &countResult.count
 FROM application
-WHERE uuid = $applicationID.uuid
+WHERE uuid = $entityUUID.uuid
 AND charm_uuid = $charmID.uuid;
 	`
 	stmt, err := sqlair.Prepare(query, countResult{}, ident, charmID)

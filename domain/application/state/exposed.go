@@ -26,11 +26,11 @@ func (st *State) IsApplicationExposed(ctx context.Context, appID coreapplication
 		return false, errors.Capture(err)
 	}
 
-	ident := applicationUUDID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	query := `
 SELECT COUNT(*) AS &countResult.count
 FROM v_application_exposed_endpoint
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 	`
 	stmt, err := st.Prepare(query, countResult{}, ident)
 	if err != nil {
@@ -61,7 +61,7 @@ func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationUUDID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	query := `
 SELECT 
     cr.name AS &endpointCIDRsSpaces.name,
@@ -70,7 +70,7 @@ SELECT
 FROM v_application_exposed_endpoint e
 LEFT JOIN application_endpoint ae ON e.application_endpoint_uuid = ae.uuid
 LEFT JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid
-WHERE e.application_uuid = $applicationID.uuid;
+WHERE e.application_uuid = $entityUUID.uuid;
 	`
 	stmt, err := st.Prepare(query, endpointCIDRsSpaces{}, ident)
 	if err != nil {
@@ -194,11 +194,11 @@ func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.
 }
 
 func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) error {
-	applicationID := applicationUUDID{ID: appID}
+	applicationID := entityUUID{UUID: appID.String()}
 
 	unsetExposedCIDRQuery := `
 DELETE FROM application_exposed_endpoint_cidr
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 	unsetExposedCIDRStmt, err := st.Prepare(unsetExposedCIDRQuery, applicationID)
 	if err != nil {
@@ -207,7 +207,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	unsetExposedSpaceQuery := `
 DELETE FROM application_exposed_endpoint_space
-WHERE application_uuid = $applicationID.uuid;
+WHERE application_uuid = $entityUUID.uuid;
 `
 	unsetExposedSpaceStmt, err := st.Prepare(unsetExposedSpaceQuery, applicationID)
 	if err != nil {
@@ -235,16 +235,16 @@ func (st *State) unsetExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID
 }
 
 func (st *State) unsetExposedEndpointCIDRs(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID, endpoint ...string) error {
-	applicationID := applicationUUDID{ID: appID}
+	applicationID := entityUUID{UUID: appID.String()}
 	endpointNames := endpointNames(endpoint)
 
 	unsetExposedCIDRQuery := `
 DELETE FROM application_exposed_endpoint_cidr
-WHERE application_uuid = $applicationID.uuid 
+WHERE application_uuid = $entityUUID.uuid 
 AND application_endpoint_uuid IN (
     SELECT uuid
     FROM v_application_endpoint_uuid
-    WHERE application_uuid = $applicationID.uuid
+    WHERE application_uuid = $entityUUID.uuid
     AND name IN ($endpointNames[:])
 );
 `
@@ -263,7 +263,7 @@ AND application_endpoint_uuid IN (
 	if set.NewStrings(endpoint...).Contains(network.WildcardEndpoint) {
 		unsetExposedCIDRWildcardQuery := `
 DELETE FROM application_exposed_endpoint_cidr
-WHERE application_uuid = $applicationID.uuid
+WHERE application_uuid = $entityUUID.uuid
 AND application_endpoint_uuid IS NULL;
 `
 		unsetExposedCIDRWildcardStmt, err = st.Prepare(unsetExposedCIDRWildcardQuery, applicationID)
@@ -279,16 +279,16 @@ AND application_endpoint_uuid IS NULL;
 }
 
 func (st *State) unsetExposedEndpointSpaces(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID, endpoint ...string) error {
-	applicationID := applicationUUDID{ID: appID}
+	applicationID := entityUUID{UUID: appID.String()}
 	endpointNames := endpointNames(endpoint)
 
 	unsetExposedSpaceQuery := `
 DELETE FROM application_exposed_endpoint_space
-WHERE application_uuid = $applicationID.uuid 
+WHERE application_uuid = $entityUUID.uuid 
 AND application_endpoint_uuid IN (
 	SELECT uuid
 	FROM v_application_endpoint_uuid
-	WHERE application_uuid = $applicationID.uuid
+	WHERE application_uuid = $entityUUID.uuid
 	AND name IN ($endpointNames[:])
 );
 `
@@ -307,7 +307,7 @@ AND application_endpoint_uuid IN (
 	if set.NewStrings(endpoint...).Contains(network.WildcardEndpoint) {
 		unsetExposedSpaceWildcardQuery := `
 DELETE FROM application_exposed_endpoint_space
-WHERE application_uuid = $applicationID.uuid
+WHERE application_uuid = $entityUUID.uuid
 AND application_endpoint_uuid IS NULL;
 `
 		unsetExposedSpaceWildcardStmt, err := st.Prepare(unsetExposedSpaceWildcardQuery, applicationID)
@@ -423,10 +423,10 @@ func (st *State) EndpointsExist(ctx context.Context, appID coreapplication.UUID,
 SELECT COUNT(*) AS &countResult.count
 FROM application_endpoint
 LEFT JOIN charm_relation ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-WHERE application_endpoint.application_uuid = $applicationID.uuid 
+WHERE application_endpoint.application_uuid = $entityUUID.uuid 
 AND charm_relation.name IN ($endpointNames[:]);
 	`
-	applicationID := applicationUUDID{ID: appID}
+	applicationID := entityUUID{UUID: appID.String()}
 	stmt, err := st.Prepare(query, countResult{}, applicationID, eps)
 	if err != nil {
 		return errors.Errorf("preparing endpoint exists query: %w", err)

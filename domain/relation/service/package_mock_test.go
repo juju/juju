@@ -87,7 +87,7 @@ func (c *MockStateAddRelationCall) DoAndReturn(f func(context.Context, relation0
 }
 
 // ApplicationExists mocks base method.
-func (m *MockState) ApplicationExists(arg0 context.Context, arg1 application.ID) error {
+func (m *MockState) ApplicationExists(arg0 context.Context, arg1 application.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationExists", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -113,13 +113,13 @@ func (c *MockStateApplicationExistsCall) Return(arg0 error) *MockStateApplicatio
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateApplicationExistsCall) Do(f func(context.Context, application.ID) error) *MockStateApplicationExistsCall {
+func (c *MockStateApplicationExistsCall) Do(f func(context.Context, application.UUID) error) *MockStateApplicationExistsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateApplicationExistsCall) DoAndReturn(f func(context.Context, application.ID) error) *MockStateApplicationExistsCall {
+func (c *MockStateApplicationExistsCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockStateApplicationExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

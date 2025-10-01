@@ -88,17 +88,17 @@ type RelationService interface {
 	// WatchApplicationLifeSuspendedStatus watches the changes to the
 	// life suspended status of the specified application and notifies
 	// the worker of any changes.
-	WatchApplicationLifeSuspendedStatus(context.Context, application.ID) (watcher.StringsWatcher, error)
+	WatchApplicationLifeSuspendedStatus(context.Context, application.UUID) (watcher.StringsWatcher, error)
 
 	// GetRelationDetails returns RelationDetails for the given relationID.
 	GetRelationDetails(context.Context, corerelation.UUID) (relation.RelationDetails, error)
 
 	// WatchRelationUnits returns a watcher for changes to the units
 	// in the given relation in the local model.
-	WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error)
+	WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error)
 
 	// GetRelationUnits returns the current state of the relation units.
-	GetRelationUnits(context.Context, application.ID) (relation.RelationUnitChange, error)
+	GetRelationUnits(context.Context, application.UUID) (relation.RelationUnitChange, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -114,7 +114,7 @@ type CrossModelRelationService interface {
 
 	// SetRemoteApplicationOffererStatus sets the status of the specified remote
 	// application in the local model.
-	SetRemoteApplicationOffererStatus(context.Context, application.ID, status.StatusInfo) error
+	SetRemoteApplicationOffererStatus(context.Context, application.UUID, status.StatusInfo) error
 
 	// ConsumeRemoteRelationChange applies a relation change event received
 	// from a remote model to the local model.
@@ -311,7 +311,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
 				OfferUUID:                    remoteApp.OfferUUID,
 				ApplicationName:              remoteApp.ApplicationName,
-				ApplicationUUID:              application.ID(remoteApp.ApplicationUUID),
+				ApplicationUUID:              application.UUID(remoteApp.ApplicationUUID),
 				LocalModelUUID:               w.config.ModelUUID,
 				RemoteModelUUID:              remoteApp.OffererModelUUID,
 				ConsumeVersion:               remoteApp.ConsumeVersion,

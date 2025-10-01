@@ -38,7 +38,7 @@ type RemoteApplicationConfig struct {
 
 	OfferUUID       string
 	ApplicationName string
-	ApplicationUUID application.ID
+	ApplicationUUID application.UUID
 	LocalModelUUID  model.UUID
 	RemoteModelUUID string
 	ConsumeVersion  int
@@ -117,7 +117,7 @@ type remoteApplicationWorker struct {
 	// remote application proxy.
 	offerUUID       string
 	applicationName string
-	applicationUUID application.ID
+	applicationUUID application.UUID
 	localModelUUID  model.UUID // uuid of the model hosting the local application
 	remoteModelUUID string     // uuid of the model hosting the remote offer
 	consumeVersion  int

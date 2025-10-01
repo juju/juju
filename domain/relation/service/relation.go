@@ -150,7 +150,7 @@ type State interface {
 	) error
 
 	// ApplicationExists checks if the given application exists.
-	ApplicationExists(ctx context.Context, applicationID application.ID) error
+	ApplicationExists(ctx context.Context, applicationID application.UUID) error
 }
 
 // LeadershipService provides the API for working with the statuses of
@@ -753,7 +753,7 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 }
 
 // GetRelationUnits returns the current state of the relation units.
-func (s *Service) GetRelationUnits(ctx context.Context, appID application.ID) (relation.RelationUnitChange, error) {
+func (s *Service) GetRelationUnits(ctx context.Context, appID application.UUID) (relation.RelationUnitChange, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

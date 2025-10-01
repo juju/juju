@@ -58,14 +58,14 @@ var JujuActions = []string{
 }
 
 // MaybeJujuApplicationObjectID returns the Juju Application Object ID
-// if the passed in application UUID is the Juju Enterprise App.
+// if the passed in application ID is the Juju Enterprise App.
 // This is only needed for very old credentials. At some point we
 // should be able to delete it.
 func MaybeJujuApplicationObjectID(appID string) (string, error) {
 	if appID == "60a04dc9-1857-425f-8076-5ba81ca53d66" {
 		return "8b744cea-179d-4a73-9dff-20d52126030a", nil
 	}
-	return "", errors.Errorf("unexpected application UUID %q", appID)
+	return "", errors.Errorf("unexpected application ID %q", appID)
 }
 
 // ServicePrincipalParams are used when creating Juju service principal.
@@ -278,7 +278,7 @@ func (c *ServicePrincipalCreator) ensureEnterpriseApplication(
 
 	appUUID, err := c.newUUID()
 	if err != nil {
-		return "", errors.Annotate(err, "generating application UUID")
+		return "", errors.Annotate(err, "generating application ID")
 	}
 
 	parts := strings.Split(roleDefinitionId, "/")
@@ -350,7 +350,7 @@ func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(
 }
 
 func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(ctx context.Context, client *msgraphsdkgo.GraphServiceClient, appId, label string) (models.ServicePrincipalable, error) {
-	// The service principal might already exist, so we need to query its application UUID.
+	// The service principal might already exist, so we need to query its application ID.
 	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(ctx, nil)
 	if err == nil {
 		return servicePrincipal, nil

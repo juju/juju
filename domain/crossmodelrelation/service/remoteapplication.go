@@ -155,7 +155,7 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
 // application in the local model.
-func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.ID, corestatus.StatusInfo) error {
+func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.UUID, corestatus.StatusInfo) error {
 	return nil
 }
 

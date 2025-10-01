@@ -662,7 +662,7 @@ func (c *MockCrossModelServiceGetRelationDetailsCall) DoAndReturn(f func(context
 }
 
 // GetRelationUnits mocks base method.
-func (m *MockCrossModelService) GetRelationUnits(arg0 context.Context, arg1 application.ID) (relation0.RelationUnitChange, error) {
+func (m *MockCrossModelService) GetRelationUnits(arg0 context.Context, arg1 application.UUID) (relation0.RelationUnitChange, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1)
 	ret0, _ := ret[0].(relation0.RelationUnitChange)
@@ -689,13 +689,13 @@ func (c *MockCrossModelServiceGetRelationUnitsCall) Return(arg0 relation0.Relati
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceGetRelationUnitsCall) Do(f func(context.Context, application.ID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
+func (c *MockCrossModelServiceGetRelationUnitsCall) Do(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.ID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
+func (c *MockCrossModelServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockCrossModelServiceGetRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -816,7 +816,7 @@ func (c *MockCrossModelServiceSaveMacaroonForRelationCall) DoAndReturn(f func(co
 }
 
 // SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.ID, arg2 status.StatusInfo) error {
+func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.UUID, arg2 status.StatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -842,19 +842,19 @@ func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.ID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.ID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchApplicationLifeSuspendedStatus mocks base method.
-func (m *MockCrossModelService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.ID) (watcher0.StringsWatcher, error) {
+func (m *MockCrossModelService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
 	ret0, _ := ret[0].(watcher0.StringsWatcher)
@@ -881,19 +881,19 @@ func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Return(ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
+func (c *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockCrossModelServiceWatchApplicationLifeSuspendedStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 application.ID) (watcher0.NotifyWatcher, error) {
+func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
 	ret0, _ := ret[0].(watcher0.NotifyWatcher)
@@ -920,13 +920,13 @@ func (c *MockCrossModelServiceWatchRelationUnitsCall) Return(arg0 watcher0.Notif
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceWatchRelationUnitsCall) Do(f func(context.Context, application.ID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
+func (c *MockCrossModelServiceWatchRelationUnitsCall) Do(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
+func (c *MockCrossModelServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1033,7 +1033,7 @@ func (c *MockRelationServiceGetRelationDetailsCall) DoAndReturn(f func(context.C
 }
 
 // GetRelationUnits mocks base method.
-func (m *MockRelationService) GetRelationUnits(arg0 context.Context, arg1 application.ID) (relation0.RelationUnitChange, error) {
+func (m *MockRelationService) GetRelationUnits(arg0 context.Context, arg1 application.UUID) (relation0.RelationUnitChange, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationUnits", arg0, arg1)
 	ret0, _ := ret[0].(relation0.RelationUnitChange)
@@ -1060,19 +1060,19 @@ func (c *MockRelationServiceGetRelationUnitsCall) Return(arg0 relation0.Relation
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationUnitsCall) Do(f func(context.Context, application.ID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
+func (c *MockRelationServiceGetRelationUnitsCall) Do(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.ID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
+func (c *MockRelationServiceGetRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (relation0.RelationUnitChange, error)) *MockRelationServiceGetRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchApplicationLifeSuspendedStatus mocks base method.
-func (m *MockRelationService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.ID) (watcher0.StringsWatcher, error) {
+func (m *MockRelationService) WatchApplicationLifeSuspendedStatus(arg0 context.Context, arg1 application.UUID) (watcher0.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationLifeSuspendedStatus", arg0, arg1)
 	ret0, _ := ret[0].(watcher0.StringsWatcher)
@@ -1099,19 +1099,19 @@ func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
+func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) Do(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
+func (c *MockRelationServiceWatchApplicationLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.StringsWatcher, error)) *MockRelationServiceWatchApplicationLifeSuspendedStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockRelationService) WatchRelationUnits(arg0 context.Context, arg1 application.ID) (watcher0.NotifyWatcher, error) {
+func (m *MockRelationService) WatchRelationUnits(arg0 context.Context, arg1 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
 	ret0, _ := ret[0].(watcher0.NotifyWatcher)
@@ -1138,13 +1138,13 @@ func (c *MockRelationServiceWatchRelationUnitsCall) Return(arg0 watcher0.NotifyW
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchRelationUnitsCall) Do(f func(context.Context, application.ID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
+func (c *MockRelationServiceWatchRelationUnitsCall) Do(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.ID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
+func (c *MockRelationServiceWatchRelationUnitsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher0.NotifyWatcher, error)) *MockRelationServiceWatchRelationUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1404,7 +1404,7 @@ func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f
 }
 
 // SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockCrossModelRelationService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.ID, arg2 status.StatusInfo) error {
+func (m *MockCrossModelRelationService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.UUID, arg2 status.StatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1430,13 +1430,13 @@ func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) Ret
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.ID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.ID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

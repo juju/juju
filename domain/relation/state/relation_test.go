@@ -810,7 +810,7 @@ func (s *relationSuite) TestGetRelationEndpointUUID(c *tc.C) {
 	// Act: get the relation endpoint UUID.
 	uuid, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
 		ApplicationUUID: s.fakeApplicationUUID1,
-		RelationUUID:  relationUUID,
+		RelationUUID:    relationUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
 
@@ -827,7 +827,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationNotFound(c *tc.C) {
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
 		ApplicationUUID: s.fakeApplicationUUID1,
-		RelationUUID:  "not-found-relation-uuid",
+		RelationUUID:    "not-found-relation-uuid",
 	})
 
 	// Assert: check that RelationNotFound is returned.
@@ -843,7 +843,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDApplicationNotFound(c *tc.C) 
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
 		ApplicationUUID: "not-found-application-uuid ",
-		RelationUUID:  "not-used-uuid",
+		RelationUUID:    "not-used-uuid",
 	})
 
 	// Assert: check that ApplicationNotFound is returned.
@@ -861,7 +861,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *t
 	// Act: get a relation.
 	_, err := s.state.GetRelationEndpointUUID(c.Context(), domainrelation.GetRelationEndpointUUIDArgs{
 		ApplicationUUID: s.fakeApplicationUUID1,
-		RelationUUID:  relationUUID,
+		RelationUUID:    relationUUID,
 	})
 
 	// Assert: check that ApplicationNotFound is returned.

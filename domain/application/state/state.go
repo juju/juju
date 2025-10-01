@@ -1391,16 +1391,16 @@ func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUI
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
-	ident := applicationUUDID{ID: appUUID}
+	ident := entityUUID{UUID: appUUID.String()}
 	query := `
 SELECT &life.*
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
-WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
+WHERE a.uuid = $entityUUID.uuid AND c.source_id < 2;
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {
-		return errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+		return errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
 	}
 
 	var result life
@@ -1408,7 +1408,7 @@ WHERE a.uuid = $applicationID.uuid AND c.source_id < 2;
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.ApplicationNotFound
 	} else if err != nil {
-		return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+		return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
 	}
 
 	switch result.LifeID {

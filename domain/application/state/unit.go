@@ -369,24 +369,24 @@ func (st *State) GetAllUnitLifeForApplication(ctx context.Context, appID coreapp
 		return nil, errors.Capture(err)
 	}
 
-	ident := applicationUUDID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	appExistsQuery := `
-SELECT &applicationID.*
+SELECT &entityUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
 	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
 	if err != nil {
-		return nil, errors.Errorf("preparing query for application %q: %w", ident.ID, err)
+		return nil, errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
 	}
 
 	lifeQuery := `
 SELECT (u.name, u.life_id) AS (&unitNameLife.*)
 FROM unit u
-WHERE u.application_uuid = $applicationID.uuid
+WHERE u.application_uuid = $entityUUID.uuid
 `
 
-	app := applicationUUDID{ID: appID}
+	app := entityUUID{UUID: appID.String()}
 	lifeStmt, err := st.Prepare(lifeQuery, app, unitNameLife{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -398,7 +398,7 @@ WHERE u.application_uuid = $applicationID.uuid
 		if errors.Is(err, sql.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return errors.Errorf("checking application %q exists: %w", ident.ID, err)
+			return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
 		}
 		err = tx.Query(ctx, lifeStmt, app).GetAll(&lifes)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1105,16 +1105,16 @@ func (st *State) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid
 	unitUUID := unitUUID{UnitUUID: uuid}
 
 	query, err := st.Prepare(`
-SELECT a.uuid AS &applicationID.uuid
+SELECT a.uuid AS &entityUUID.uuid
 FROM application AS a
 JOIN unit AS u ON u.application_uuid = a.uuid
 WHERE u.uuid = $unitUUID.uuid
-	`, applicationUUDID{}, unitUUID)
+	`, entityUUID{}, unitUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	var appID applicationUUDID
+	var appID entityUUID
 	err = tx.Query(ctx, query, unitUUID).Get(&appID)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return "", errors.Errorf("unit %q not found", uuid).Add(applicationerrors.UnitNotFound)
@@ -1122,7 +1122,7 @@ WHERE u.uuid = $unitUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return appID.ID.String(), nil
+	return appID.UUID, nil
 }
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
@@ -1896,8 +1896,8 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 		return nil, errors.Capture(err)
 	}
 
-	appUUID := applicationUUDID{ID: uuid}
-	query := ` SELECT &unitName.* FROM unit WHERE application_uuid = $applicationID.uuid`
+	appUUID := entityUUID{UUID: uuid.String()}
+	query := ` SELECT &unitName.* FROM unit WHERE application_uuid = $entityUUID.uuid`
 	stmt, err := st.Prepare(query, unitName{}, appUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2150,12 +2150,12 @@ func (st *State) GetAllUnitCloudContainerIDsForApplication(
 		return nil, errors.Capture(err)
 	}
 
-	input := applicationUUDID{ID: appUUID}
+	input := entityUUID{UUID: appUUID.String()}
 	query := `
 SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
 FROM unit u
 JOIN k8s_pod kp ON u.uuid = kp.unit_uuid
-WHERE u.application_uuid = $applicationID.uuid
+WHERE u.application_uuid = $entityUUID.uuid
 `
 	stmt, err := st.Prepare(query, unitNameCloudContainer{}, input)
 	if err != nil {

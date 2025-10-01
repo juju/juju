@@ -562,6 +562,6 @@ func (s *WatchableService) WatchRelatedUnits(
 
 // WatchRelationUnits returns a watcher for changes to the units
 // in the given relation in the local model.
-func (s *WatchableService) WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchRelationUnits(context.Context, application.UUID) (watcher.NotifyWatcher, error) {
 	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
 }

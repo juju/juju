@@ -1073,9 +1073,9 @@ func (s *State) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, 
 	query := `
 SELECT charm_uuid AS &charmUUID.*
 FROM application
-WHERE uuid = $applicationID.uuid;
+WHERE uuid = $entityUUID.uuid;
 `
-	ident := applicationUUDID{ID: appID}
+	ident := entityUUID{UUID: appID.String()}
 	stmt, err := s.Prepare(query, charmUUID{}, ident)
 	if err != nil {
 		return "", errors.Errorf("preparing query: %w", err)
