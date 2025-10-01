@@ -1557,7 +1557,7 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 	info, err := client.GetApplicationStorage("storage-block")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
+	c.Assert(info.StorageDirectives, gc.DeepEquals, map[string]storage.Constraints{
 		"storage-block": {
 			Pool:  "loop",
 			Size:  uint64(5),
@@ -1604,7 +1604,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageConstraints{
 				"storage-block": {
 					Pool:  "loop",
 					Size:  &sbSize,
@@ -1625,7 +1625,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
 				Size:  uint64(5),
@@ -1648,7 +1648,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
+			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageConstraints{
 				"storage-block": {
 					Pool:  "loop",
 					Size:  &sbSize,
@@ -1669,7 +1669,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
 				Size:  uint64(5),

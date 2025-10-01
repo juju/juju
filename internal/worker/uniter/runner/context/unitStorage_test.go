@@ -24,7 +24,7 @@ type unitStorageSuite struct {
 	HookContextSuite
 	expectedStorageNames         set.Strings
 	charmName                    string
-	initCons                     map[string]state.StorageConstraints
+	initCons                     map[string]state.StorageDirectives
 	ch                           *state.Charm
 	initialStorageInstancesCount int
 }
@@ -164,7 +164,7 @@ func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
 
 func (s *unitStorageSuite) createStorageBlockUnit(c *gc.C) {
 	s.charmName = "storage-block"
-	s.initCons = map[string]state.StorageConstraints{
+	s.initCons = map[string]state.StorageDirectives{
 		"data": makeStorageCons("block", 1024, 1),
 	}
 	s.createStorageEnabledUnit(c)
@@ -174,7 +174,7 @@ func (s *unitStorageSuite) createStorageBlockUnit(c *gc.C) {
 
 func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 	s.charmName = "storage-block2"
-	s.initCons = map[string]state.StorageConstraints{
+	s.initCons = map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("loop", 0, 3),
 	}
 	s.createStorageEnabledUnit(c)
@@ -210,8 +210,8 @@ func (s *unitStorageSuite) createHookSupport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
-	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
+func makeStorageCons(pool string, size, count uint64) state.StorageDirectives {
+	return state.StorageDirectives{Pool: pool, Size: size, Count: count}
 }
 
 func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {

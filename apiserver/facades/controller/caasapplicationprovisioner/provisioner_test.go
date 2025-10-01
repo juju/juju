@@ -768,7 +768,7 @@ func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *gc.C
 			},
 			url: "ch:gitlab",
 		},
-		storageConstraints: map[string]state.StorageConstraints{
+		storageDirectives: map[string]state.StorageDirectives{
 			"data": {
 				Pool:  "kubernetes",
 				Size:  1024,
@@ -814,7 +814,7 @@ func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c 
 		tag:                 names.NewApplicationTag("gitlab"),
 		life:                state.Alive,
 		charm:               &mockCharm{meta: &charm.Meta{}, url: "ch:gitlab"},
-		storageConstraints:  map[string]state.StorageConstraints{},
+		storageDirectives:   map[string]state.StorageDirectives{},
 		unitAttachmentInfos: []state.UnitAttachmentInfo{},
 	}
 

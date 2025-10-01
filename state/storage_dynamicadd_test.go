@@ -26,7 +26,7 @@ type storageAddSuite struct {
 var _ = gc.Suite(&storageAddSuite{})
 
 func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("persistent-block", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
@@ -115,7 +115,7 @@ func (s *storageAddSuite) TestAddStorageToUnitInheritPoolAndSize(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allVolumeParams := allMachineVolumeParams(c, s.storageBackend, s.machineTag)
@@ -261,7 +261,7 @@ func (s *storageAddSuite) TestAddStorageMinCount(c *gc.C) {
 
 func (s *storageAddSuite) TestAddStorageZeroCount(c *gc.C) {
 	unit := s.createAndAssignUnitWithSingleStorage(c)
-	_, err := s.storageBackend.AddStorageForUnit(unit, "allecto", state.StorageConstraints{Pool: "loop-pool", Size: 1024})
+	_, err := s.storageBackend.AddStorageForUnit(unit, "allecto", state.StorageDirectives{Pool: "loop-pool", Size: 1024})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "adding storage where instance count is 0 not valid")
 	s.assertStorageCount(c, 1)
 	s.assertVolumeCount(c, 1)
@@ -273,7 +273,7 @@ func (s *storageAddSuite) TestAddStorageTriggerDefaultPopulated(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
@@ -285,7 +285,7 @@ func (s *storageAddSuite) TestAddStorageDiffPool(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Pool: "loop-pool", Count: 1})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Pool: "loop-pool", Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
@@ -297,7 +297,7 @@ func (s *storageAddSuite) TestAddStorageDiffSize(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Size: 2048, Count: 1})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Size: 2048, Count: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageCount(c, s.originalStorageCount+1)
 	s.assertVolumeCount(c, s.originalVolumeCount+1)
@@ -309,7 +309,7 @@ func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi2up", state.StorageConstraints{Size: 2, Count: 1})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi2up", state.StorageDirectives{Size: 2, Count: 1})
 	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0 GB, 2.0 MB specified.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 	s.assertVolumeCount(c, s.originalVolumeCount)
@@ -321,7 +321,7 @@ func (s *storageAddSuite) TestAddStorageWrongName(c *gc.C) {
 	u := s.setupMultipleStoragesForAdd(c)
 	s.assignUnit(c, u)
 
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "furball", state.StorageConstraints{Size: 2})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "furball", state.StorageDirectives{Size: 2})
 	c.Assert(err, gc.ErrorMatches, `.*charm storage "furball" not found.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 	s.assertVolumeCount(c, s.originalVolumeCount)
@@ -333,7 +333,7 @@ func (s *storageAddSuite) TestAddStorageConcurrently(c *gc.C) {
 	s.assignUnit(c, u)
 
 	addStorage := func() {
-		_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: 1})
+		_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Count: 1})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
@@ -350,11 +350,11 @@ func (s *storageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 
 	count := 6
 	addStorage := func() {
-		_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+		_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Count: uint64(count)})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
-	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: uint64(count)})
+	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageDirectives{Count: uint64(count)})
 	c.Assert(err, gc.ErrorMatches,
 		`adding "multi1to10" storage to storage-block2/0: `+
 			`attaching 6 storage instances brings the total to 15, exceeding the maximum of 10`)

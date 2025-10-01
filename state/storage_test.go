@@ -101,7 +101,7 @@ func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *
 	return state.AddTestingApplicationForBase(c, s.st, s.base, name, ch)
 }
 
-func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageDirectives) *state.Application {
 	return state.AddTestingApplicationWithStorage(c, s.st, name, ch, storage)
 }
 
@@ -113,7 +113,7 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
-	testStorage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageDirectives{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, testStorage)
@@ -147,7 +147,7 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 		CountMin: 0,
 		CountMax: 2,
 	})
-	testStorage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageDirectives{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, charm.MustParseURL(ch.URL()).Name, ch, testStorage)
@@ -218,7 +218,7 @@ func (s *StorageStateSuiteBase) setupMixedScopeStorageApplication(
 		pool0 = pools[0]
 	case 0:
 	}
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons(pool0, 1024, 2),
 		"multi2up":   makeStorageCons(pool1, 2048, 2),
 	}
@@ -450,8 +450,8 @@ func assertMachineStorageRefs(c *gc.C, sb *state.StorageBackend, m names.Machine
 	c.Assert(have, jc.DeepEquals, expect)
 }
 
-func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
-	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
+func makeStorageCons(pool string, size, count uint64) state.StorageDirectives {
+	return state.StorageDirectives{Pool: pool, Size: size, Count: count}
 }
 
 type StorageStateSuite struct {
@@ -484,9 +484,9 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	constraints, err := storageBlock.StorageConstraints()
+	constraints, err := storageBlock.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageDirectives{
 		"data": {
 			Pool:  "loop",
 			Count: 1,
@@ -508,13 +508,13 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	constraints, err = storageFilesystem.StorageConstraints()
+	constraints, err = storageFilesystem.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	defaultStorage := "rootfs"
 	if s.series == "kubernetes" {
 		defaultStorage = "kubernetes"
 	}
-	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageDirectives{
 		"data": {
 			Pool:  defaultStorage,
 			Count: 1,
@@ -525,7 +525,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
-	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+	addApplication := func(storage map[string]state.StorageDirectives) (*state.Application, error) {
 		return s.st.AddApplication(state.AddApplicationArgs{
 			Name: "storage-block2", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -535,12 +535,12 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 			Storage: storage,
 		})
 	}
-	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
+	assertErr := func(storage map[string]state.StorageDirectives, expect string) {
 		_, err := addApplication(storage)
 		c.Assert(err, gc.ErrorMatches, expect)
 	}
 
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 1),
 	}
@@ -557,7 +557,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
+func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageDirectives) {
 	if pool != "" {
 		err := s.Model.UpdateModelConfig(map[string]interface{}{
 			"storage-default-block-source": pool,
@@ -574,17 +574,17 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 		Storage: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := app.StorageConstraints()
+	savedCons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expect)
 	// TODO(wallyworld) - test pool name stored in data model
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsNoConstraintsUsed(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("", 0, 0),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"data":    makeStorageCons("loop", 1024, 1),
 		"allecto": makeStorageCons("loop", 1024, 0),
 	}
@@ -592,10 +592,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsNoConstraintsUse
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsJustCount(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("", 0, 1),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"data":    makeStorageCons("loop-pool", 1024, 1),
 		"allecto": makeStorageCons("loop", 1024, 0),
 	}
@@ -603,10 +603,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsJustCount(c *gc.
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultPool(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("", 2048, 1),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"data":    makeStorageCons("loop-pool", 2048, 1),
 		"allecto": makeStorageCons("loop", 1024, 0),
 	}
@@ -614,10 +614,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultPool(c *g
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsNoUserDefaultPool(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("", 2048, 1),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"data":    makeStorageCons("loop", 2048, 1),
 		"allecto": makeStorageCons("loop", 1024, 0),
 	}
@@ -625,10 +625,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsNoUserDefaultPoo
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFallback(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("loop-pool", 0, 1),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"data":    makeStorageCons("loop-pool", 1024, 1),
 		"allecto": makeStorageCons("loop", 1024, 0),
 	}
@@ -636,10 +636,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFallb
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromCharm(c *gc.C) {
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("loop", 0, 3),
 	}
-	expectedCons := map[string]state.StorageConstraints{
+	expectedCons := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("loop", 1024, 3),
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
@@ -653,14 +653,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 		Storage: storageCons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := app.StorageConstraints()
+	savedCons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expectedCons)
 }
 
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+	addApplication := func(storage map[string]state.StorageDirectives) (*state.Application, error) {
 		return s.st.AddApplication(state.AddApplicationArgs{
 			Name: "storage-block", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -670,7 +670,7 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 			Storage: storage,
 		})
 	}
-	storageCons := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageDirectives{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
 	_, err := addApplication(storageCons)
@@ -690,7 +690,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	// Each unit added to the application will create storage instances
 	// to satisfy the application's storage constraints.
 	ch := s.AddTestingCharm(c, "storage-block2")
-	testStorage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
@@ -1082,7 +1082,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Charm: ch,
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			// The unit should have two storage instances
 			// in total. We're attaching one, so only one
 			// new instance should be created.
@@ -1151,7 +1151,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Charm: ch,
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			// The unit should have two storage instances
 			// in total. We're attaching one, so only one
 			// new instance should be created.
@@ -1317,7 +1317,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
-	testStorage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageDirectives{
 		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
@@ -1581,7 +1581,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 		NumUnits: 1,
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data": {Pool: "loop"},
 		},
 	}

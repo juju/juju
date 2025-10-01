@@ -1090,7 +1090,7 @@ func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*stat
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
-	storage := map[string]state.StorageConstraints{
+	storage := map[string]state.StorageDirectives{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)

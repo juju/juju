@@ -1179,7 +1179,7 @@ func (sb *storageBackend) filesystemParamsWithDefaults(params FilesystemParams) 
 		if err != nil {
 			return FilesystemParams{}, errors.Trace(err)
 		}
-		cons := StorageConstraints{
+		cons := StorageDirectives{
 			Pool:  params.Pool,
 			Size:  params.Size,
 			Count: 1,

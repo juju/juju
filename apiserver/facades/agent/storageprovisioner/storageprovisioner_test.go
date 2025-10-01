@@ -230,7 +230,7 @@ func (s *caasProvisionerSuite) setupFilesystems(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,
 		Name:  "mariadb",
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data":  {Count: 1, Size: 1024},
 			"cache": {Count: 2, Size: 1024},
 		},
@@ -548,7 +548,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "storage-block",
 		}),
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data": {
 				Count: 1,
 				Size:  1,
@@ -672,7 +672,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "storage-filesystem",
 		}),
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data": {
 				Count: 1,
 				Size:  1,
@@ -995,7 +995,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,
 		Name:  "mariadb",
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data": {Count: 1, Size: 1024},
 		},
 	})
@@ -1009,7 +1009,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,
 		Name:  "mysql",
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data": {Count: 1, Size: 1024},
 		},
 	})

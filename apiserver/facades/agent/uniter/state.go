@@ -22,7 +22,7 @@ type storageInterface interface {
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag, bool) error
 	DestroyUnitStorageAttachments(names.UnitTag) error
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
-	AddStorageForUnitOperation(names.UnitTag, string, state.StorageConstraints) (state.ModelOperation, error)
+	AddStorageForUnitOperation(names.UnitTag, string, state.StorageDirectives) (state.ModelOperation, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
@@ -85,7 +85,7 @@ type backend interface {
 type Unit interface {
 	AssignedMachineId() (string, error)
 	ShouldBeAssigned() bool
-	StorageConstraints() (map[string]state.StorageConstraints, error)
+	StorageConstraints() (map[string]state.StorageDirectives, error)
 }
 
 type stateShim struct {
@@ -113,7 +113,7 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 
 // unitStorageConstraints returns storage constraints for this unit,
 // or an error if the unit or its constraints cannot be obtained.
-func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.StorageConstraints, error) {
+func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.StorageDirectives, error) {
 	unit, err := backend.Unit(u.Id())
 	if err != nil {
 		return nil, errors.Trace(err)

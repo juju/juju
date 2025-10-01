@@ -467,7 +467,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 
 func filesystemParams(
 	app Application,
-	cons state.StorageConstraints,
+	cons state.StorageDirectives,
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,
@@ -503,7 +503,7 @@ func (f *Facade) applicationFilesystemParams(
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 ) ([]params.KubernetesFilesystemParams, error) {
-	storageConstraints, err := app.StorageConstraints()
+	storageDirectives, err := app.StorageDirectives()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -516,12 +516,12 @@ func (f *Facade) applicationFilesystemParams(
 	var allFilesystemParams []params.KubernetesFilesystemParams
 	// To always guarantee the same order, sort by names.
 	var sNames []string
-	for name := range storageConstraints {
+	for name := range storageDirectives {
 		sNames = append(sNames, name)
 	}
 	sort.Strings(sNames)
 	for _, name := range sNames {
-		cons := storageConstraints[name]
+		cons := storageDirectives[name]
 		fsParams, err := filesystemParams(
 			app, cons, name,
 			controllerConfig.ControllerUUID(),

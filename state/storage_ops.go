@@ -13,7 +13,7 @@ type addStorageForUnitOperation struct {
 	sb                 *storageBackend
 	u                  *Unit
 	storageName        string
-	storageConstraints StorageConstraints
+	storageConstraints StorageDirectives
 
 	// The list of storage tags after a the operation succeeds.
 	tags []names.StorageTag

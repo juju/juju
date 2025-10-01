@@ -1300,7 +1300,7 @@ func (a *Application) changeCharmOps(
 	ch *Charm,
 	updatedSettings charm.Settings,
 	forceUnits bool,
-	updatedStorageConstraints map[string]StorageConstraints,
+	updatedStorageConstraints map[string]StorageDirectives,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -1505,7 +1505,7 @@ func (a *Application) DeployedMachines() ([]*Machine, error) {
 func (a *Application) newCharmStorageOps(
 	ch *Charm,
 	units []*Unit,
-	updatedStorageConstraints map[string]StorageConstraints,
+	updatedStorageConstraints map[string]StorageDirectives,
 ) ([]txn.Op, []txn.Op, []txn.Op, error) {
 
 	fail := func(err error) ([]txn.Op, []txn.Op, []txn.Op, error) {
@@ -1535,7 +1535,7 @@ func (a *Application) newCharmStorageOps(
 	// constraints, remove any keys that are no longer referenced by the
 	// charm, and update the constraints that the user has specified.
 	var storageConstraintsOp txn.Op
-	oldStorageConstraints, err := a.StorageConstraints()
+	oldStorageConstraints, err := a.StorageDirectives()
 	if err != nil {
 		return fail(err)
 	}
@@ -1579,7 +1579,7 @@ func (a *Application) newCharmStorageOps(
 func (a *Application) upgradeStorageOps(
 	meta, oldMeta *charm.Meta,
 	units []*Unit,
-	allStorageCons map[string]StorageConstraints,
+	allStorageCons map[string]StorageDirectives,
 ) (_ []txn.Op, err error) {
 
 	sb, err := NewStorageBackend(a.st)
@@ -1660,13 +1660,13 @@ type SetCharmConfig struct {
 	// the upgrade.
 	PendingResourceIDs map[string]string
 
-	// StorageConstraints contains the storage constraints to add or update when
+	// StorageDirectives contains the storage constraints to add or update when
 	// upgrading the charm.
 	//
 	// Any existing storage instances for the named stores will be
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
-	StorageConstraints map[string]StorageConstraints
+	StorageDirectives map[string]StorageDirectives
 
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
@@ -1810,7 +1810,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.Charm,
 				updatedSettings,
 				cfg.ForceUnits,
-				cfg.StorageConstraints,
+				cfg.StorageDirectives,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2440,7 +2440,7 @@ func (a *Application) addUnitOps(
 			return "", nil, errors.NotSupportedf("non-empty machineID")
 		}
 	}
-	storageCons, err := a.StorageConstraints()
+	storageDirectives, err := a.StorageDirectives()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -2448,7 +2448,7 @@ func (a *Application) addUnitOps(
 		cons:               cons,
 		principalName:      principalName,
 		principalMachineID: args.machineID,
-		storageCons:        storageCons,
+		storageCons:        storageDirectives,
 		attachStorage:      args.AttachStorage,
 		providerId:         args.ProviderId,
 		address:            args.Address,
@@ -2471,7 +2471,7 @@ type applicationAddUnitOpsArgs struct {
 	principalMachineID string
 
 	cons          constraints.Value
-	storageCons   map[string]StorageConstraints
+	storageCons   map[string]StorageDirectives
 	attachStorage []names.StorageTag
 
 	// These optional attributes are relevant to CAAS models.
@@ -2630,7 +2630,7 @@ func (a *Application) addUnitStorageOps(
 
 	// Reduce the count of new storage created for each existing storage
 	// being attached.
-	var storageCons map[string]StorageConstraints
+	var storageCons map[string]StorageDirectives
 	for _, tag := range args.attachStorage {
 		storageName, err := names.StorageName(tag.Id())
 		if err != nil {
@@ -2641,7 +2641,7 @@ func (a *Application) addUnitStorageOps(
 				// We must not modify the contents of the original
 				// args.storageCons map, as it comes from the
 				// user. Make a copy and modify that.
-				storageCons = make(map[string]StorageConstraints)
+				storageCons = make(map[string]StorageDirectives)
 				for name, cons := range args.storageCons {
 					storageCons[name] = cons
 				}
@@ -3623,7 +3623,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 }
 
 // StorageConstraints returns the storage constraints for the application.
-func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
+func (a *Application) StorageDirectives() (map[string]StorageDirectives, error) {
 	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -3634,7 +3634,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 }
 
 // UpdateStorageConstraints updates the storage constraints for the application.
-func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
+func (a *Application) UpdateStorageDirectives(cons map[string]StorageDirectives) error {
 	if len(cons) == 0 {
 		return nil
 	}
@@ -3889,7 +3889,7 @@ type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
 	statusDoc         statusDoc
 	constraints       constraints.Value
-	storage           map[string]StorageConstraints
+	storage           map[string]StorageDirectives
 	devices           map[string]DeviceConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}

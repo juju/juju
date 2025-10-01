@@ -305,7 +305,7 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 	})
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageDirectives) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	series := curl.Series
 	if series == "kubernetes" {
@@ -341,7 +341,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 func AddTestingApplicationWithAttachStorage(
 	c *gc.C, st *State, name string, ch *Charm,
 	numUnits int,
-	storage map[string]StorageConstraints,
+	storage map[string]StorageDirectives,
 	attachStorage []names.StorageTag,
 ) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
@@ -378,7 +378,7 @@ type addTestingApplicationParams struct {
 	ch            *Charm
 	origin        *CharmOrigin
 	bindings      map[string]string
-	storage       map[string]StorageConstraints
+	storage       map[string]StorageDirectives
 	devices       map[string]DeviceConstraints
 	numUnits      int
 	attachStorage []names.StorageTag
@@ -1088,7 +1088,7 @@ func NewSLALevel(level string) (slaLevel, error) {
 	return newSLALevel(level)
 }
 
-func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
+func AppStorageConstraints(app *Application) (map[string]StorageDirectives, error) {
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
 

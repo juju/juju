@@ -1223,10 +1223,10 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 
 // ApplicationStorageDirectives contains the storage information for an application.
 type ApplicationStorageDirectives struct {
-	// StorageConstraints is a map of storage names to storage constraints to
+	// StorageDirectives is a map of storage names to storage directives to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints
+	StorageDirectives map[string]storage.Constraints
 }
 
 // GetApplicationStorage retrieves storage information for the specified applications.
@@ -1264,7 +1264,7 @@ func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResul
 	}
 
 	return ApplicationStorageDirectives{
-		StorageConstraints: sc,
+		StorageDirectives: sc,
 	}
 }
 
@@ -1272,16 +1272,16 @@ func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResul
 type ApplicationStorageUpdate struct {
 	ApplicationTag names.ApplicationTag
 
-	// StorageConstraints is a map of storage names to storage constraints to
+	// StorageDirectives is a map of storage names to storage directives to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints
+	StorageDirectives map[string]storage.Constraints
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
 func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationStorageUpdate) error {
 	sc := make(map[string]params.StorageConstraints)
-	for k, v := range applicationStorageUpdate.StorageConstraints {
+	for k, v := range applicationStorageUpdate.StorageDirectives {
 		sc[k] = params.StorageConstraints{
 			Pool:  v.Pool,
 			Size:  &v.Size,
@@ -1291,8 +1291,8 @@ func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationSt
 	in := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				ApplicationTag:     applicationStorageUpdate.ApplicationTag.String(),
-				StorageConstraints: sc,
+				ApplicationTag:    applicationStorageUpdate.ApplicationTag.String(),
+				StorageDirectives: sc,
 			},
 		},
 	}

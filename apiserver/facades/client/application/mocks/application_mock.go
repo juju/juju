@@ -1442,10 +1442,10 @@ func (mr *MockApplicationMockRecorder) SetScale(arg0, arg1, arg2 any) *gomock.Ca
 }
 
 // StorageConstraints mocks base method.
-func (m *MockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
+func (m *MockApplication) StorageConstraints() (map[string]state.StorageDirectives, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageConstraints")
-	ret0, _ := ret[0].(map[string]state.StorageConstraints)
+	ret0, _ := ret[0].(map[string]state.StorageDirectives)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1512,18 +1512,18 @@ func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCharmConfig", reflect.TypeOf((*MockApplication)(nil).UpdateCharmConfig), arg0, arg1)
 }
 
-// UpdateStorageConstraints mocks base method.
-func (m *MockApplication) UpdateStorageConstraints(arg0 map[string]state.StorageConstraints) error {
+// UpdateStorageDirectives mocks base method.
+func (m *MockApplication) UpdateStorageDirectives(arg0 map[string]state.StorageDirectives) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStorageConstraints", arg0)
+	ret := m.ctrl.Call(m, "UpdateStorageDirectives", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateStorageConstraints indicates an expected call of UpdateStorageConstraints.
-func (mr *MockApplicationMockRecorder) UpdateStorageConstraints(arg0 any) *gomock.Call {
+// UpdateStorageDirectives indicates an expected call of UpdateStorageDirectives.
+func (mr *MockApplicationMockRecorder) UpdateStorageDirectives(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStorageConstraints", reflect.TypeOf((*MockApplication)(nil).UpdateStorageConstraints), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStorageDirectives", reflect.TypeOf((*MockApplication)(nil).UpdateStorageDirectives), arg0)
 }
 
 // MockRemoteApplication is a mock of RemoteApplication interface.

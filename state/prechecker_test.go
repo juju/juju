@@ -178,7 +178,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		NumUnits: 1,
-		Storage: map[string]state.StorageConstraints{
+		Storage: map[string]state.StorageDirectives{
 			"data":    {Count: 1, Pool: "modelscoped"},
 			"allecto": {Count: 1, Pool: "modelscoped"},
 		},
