@@ -450,6 +450,7 @@ func (s *Service) GetRelationDetails(
 		ID:        relationDetails.ID,
 		Key:       key,
 		Endpoints: relationDetails.Endpoints,
+		Suspended: relationDetails.Suspended,
 	}, nil
 }
 

@@ -541,6 +541,7 @@ func (s *relationServiceSuite) TestGetRelationDetails(c *tc.C) {
 		UUID:      relationUUID,
 		ID:        7,
 		Endpoints: []relation.Endpoint{endpoint1},
+		Suspended: true,
 	}
 
 	s.state.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relationDetailsResult, nil)
@@ -551,6 +552,7 @@ func (s *relationServiceSuite) TestGetRelationDetails(c *tc.C) {
 		ID:        relationDetailsResult.ID,
 		Key:       corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1"),
 		Endpoints: relationDetailsResult.Endpoints,
+		Suspended: true,
 	}
 
 	// Act:

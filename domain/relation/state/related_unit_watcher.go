@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
@@ -217,7 +218,9 @@ ORDER BY u.uuid`
 		return nil
 	})
 
-	st.logger.Tracef(ctx, "units in relation: %#v", units)
+	if st.logger.IsLevelEnabled(logger.TRACE) {
+		st.logger.Tracef(ctx, "units in relation: %#v", units)
+	}
 
 	return units, errors.Capture(err)
 }

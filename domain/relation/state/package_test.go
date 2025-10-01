@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -268,6 +269,11 @@ WHERE value = ?
 	if s.relationCount < relationID {
 		s.relationCount = relationID + 1
 	}
+
+	// All relations should be created with a status. This is enshrined within
+	// the addRelation method.
+	s.setRelationStatus(c, relationUUID, corestatus.Joining, time.Now())
+
 	return relationUUID
 }
 
@@ -280,6 +286,16 @@ VALUES (?,0,?,?)
 `, relationUUID, s.relationCount, scopeID)
 	s.relationCount++
 	return relationUUID
+}
+
+// setRelationStatus inserts a relation status into the relation_status table.
+func (s *baseRelationSuite) setRelationStatus(c *tc.C, relationUUID corerelation.UUID, status corestatus.Status, since time.Time) {
+	encodedStatus := s.encodeStatusID(status)
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?,?,?)
+ON CONFLICT (relation_uuid) DO UPDATE SET relation_status_type_id = ?, updated_at = ?
+`, relationUUID, encodedStatus, since, encodedStatus, since)
 }
 
 // addRelationUnitSetting inserts a relation unit setting into the database
