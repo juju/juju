@@ -15,11 +15,14 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/relation"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,7 +31,7 @@ import (
 // on by the engine.
 type ReportableWorker interface {
 	worker.Worker
-	Report() map[string]any
+	worker.Reporter
 }
 
 // RemoteApplicationWorker is an interface that defines the methods that a
@@ -72,44 +75,30 @@ type RemoteModelRelationsClient interface {
 	WatchConsumedSecretsChanges(ctx context.Context, applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
 }
 
-// RemoteRelationsFacade exposes remote relation functionality to a worker.
-// This is the local model's view of the remote relations API.
-type RemoteRelationsFacade interface {
-	// ImportRemoteEntity adds an entity to the remote entities collection
-	// with the specified opaque token.
-	ImportRemoteEntity(ctx context.Context, entity names.Tag, token string) error
+// CrossModelService is an interface that groups together the local
+// relation service and the cross-model relation service.
+type CrossModelService interface {
+	RelationService
+	CrossModelRelationService
+}
 
-	// SaveMacaroon saves the macaroon for the entity.
-	SaveMacaroon(ctx context.Context, entity names.Tag, mac *macaroon.Macaroon) error
+// RelationService is an interface that defines the methods for
+// managing relations directly on the local model database.
+type RelationService interface {
+	// WatchApplicationLifeSuspendedStatus watches the changes to the
+	// life suspended status of the specified application and notifies
+	// the worker of any changes.
+	WatchApplicationLifeSuspendedStatus(context.Context, application.ID) (watcher.StringsWatcher, error)
 
-	// ExportEntities allocates unique, remote entity IDs for the
-	// given entities in the local model.
-	ExportEntities(context.Context, []names.Tag) ([]params.TokenResult, error)
+	// GetRelationDetails returns RelationDetails for the given relationID.
+	GetRelationDetails(context.Context, corerelation.UUID) (relation.RelationDetails, error)
 
-	// Relations returns information about the relations
-	// with the specified keys in the local model.
-	Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error)
+	// WatchRelationUnits returns a watcher for changes to the units
+	// in the given relation in the local model.
+	WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error)
 
-	// WatchLocalRelationChanges returns a watcher that notifies of changes to the
-	// local units in the relation with the given key.
-	WatchLocalRelationChanges(ctx context.Context, relationKey string) (apiwatcher.RemoteRelationWatcher, error)
-
-	// WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
-	// each specified application in the local model, and returns the watcher IDs
-	// and initial values, or an error if the application's relations could not be
-	// watched.
-	WatchRemoteApplicationRelations(ctx context.Context, application string) (watcher.StringsWatcher, error)
-
-	// ConsumeRemoteRelationChange consumes a change to settings originating
-	// from the remote/offering side of a relation.
-	ConsumeRemoteRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error
-
-	// SetRemoteApplicationStatus sets the status for the specified remote application.
-	SetRemoteApplicationStatus(ctx context.Context, applicationName string, status status.Status, message string) error
-
-	// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
-	// originating from the remote/offering model.
-	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
+	// GetRelationUnits returns the current state of the relation units.
+	GetRelationUnits(context.Context, application.ID) (relation.RelationUnitChange, error)
 }
 
 // CrossModelRelationService is an interface that defines the methods for
@@ -122,17 +111,45 @@ type CrossModelRelationService interface {
 	// GetRemoteApplicationOfferers returns the current state of all remote
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
+
+	// SetRemoteApplicationOffererStatus sets the status of the specified remote
+	// application in the local model.
+	SetRemoteApplicationOffererStatus(context.Context, application.ID, status.StatusInfo) error
+
+	// ConsumeRemoteRelationChange applies a relation change event received
+	// from a remote model to the local model.
+	ConsumeRemoteRelationChange(context.Context) error
+
+	// ConsumeRemoteSecretChanges applies secret changes received
+	// from a remote model to the local model.
+	ConsumeRemoteSecretChanges(context.Context) error
+
+	// ExportApplicationAndRelationToken exports the specified entities to the
+	// remote model.
+	ExportApplicationAndRelationToken(context.Context, names.Tag, names.Tag) (string, string, error)
+
+	// SaveMacaroonForRelation saves the given macaroon for the specified remote
+	// application.
+	SaveMacaroonForRelation(context.Context, names.Tag, *macaroon.Macaroon) error
+
+	// ImportRemoteApplicationToken imports a remote application token
+	// into the local model.
+	ImportRemoteApplicationToken(context.Context, names.Tag, string) error
 }
 
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID                  model.UUID
-	CrossModelRelationService  CrossModelRelationService
-	RelationsFacade            RemoteRelationsFacade
+	CrossModelService          CrossModelService
 	RemoteRelationClientGetter RemoteRelationClientGetter
 	NewRemoteApplicationWorker NewRemoteApplicationWorkerFunc
-	Clock                      clock.Clock
-	Logger                     logger.Logger
+
+	NewLocalUnitRelationsWorker  NewLocalUnitRelationsWorkerFunc
+	NewRemoteUnitRelationsWorker NewRemoteUnitRelationsWorkerFunc
+	NewRemoteRelationsWorker     NewRemoteRelationsWorkerFunc
+
+	Clock  clock.Clock
+	Logger logger.Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -140,14 +157,20 @@ func (config Config) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
 	}
-	if config.CrossModelRelationService == nil {
-		return errors.NotValidf("nil CrossModelRelationService")
-	}
-	if config.RelationsFacade == nil {
-		return errors.NotValidf("nil Facade")
+	if config.CrossModelService == nil {
+		return errors.NotValidf("nil CrossModelService")
 	}
 	if config.RemoteRelationClientGetter == nil {
 		return errors.NotValidf("nil RemoteRelationClientGetter")
+	}
+	if config.NewRemoteApplicationWorker == nil {
+		return errors.NotValidf("nil NewRemoteApplicationWorker")
+	}
+	if config.NewLocalUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewLocalUnitRelationsWorker")
+	}
+	if config.NewRemoteUnitRelationsWorker == nil {
+		return errors.NotValidf("nil NewRemoteUnitRelationsWorker")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -166,13 +189,13 @@ type Worker struct {
 
 	config Config
 
-	crossModelRelationService CrossModelRelationService
+	crossModelService CrossModelService
 
 	logger logger.Logger
 }
 
 // New returns a Worker backed by config, or an error.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(config Config) (ReportableWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,8 +220,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		runner: runner,
 		config: config,
 
-		crossModelRelationService: config.CrossModelRelationService,
-		logger:                    config.Logger,
+		crossModelService: config.CrossModelService,
+		logger:            config.Logger,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -225,12 +248,11 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	// Watch for new remote application offerers. This is the consuming side,
 	// so the consumer model has received an offer from another model.
-	watcher, err := w.crossModelRelationService.WatchRemoteApplicationOfferers(ctx)
+	watcher, err := w.crossModelService.WatchRemoteApplicationOfferers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -259,7 +281,7 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 
 	// Fetch the current state of each of the remote applications that have
 	// changed.
-	results, err := w.crossModelRelationService.GetRemoteApplicationOfferers(ctx)
+	results, err := w.crossModelService.GetRemoteApplicationOfferers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -287,16 +309,20 @@ func (w *Worker) handleApplicationChanges(ctx context.Context) error {
 		// Start the application worker to watch for things like new relations.
 		if err := w.runner.StartWorker(ctx, appUUID, func(ctx context.Context) (worker.Worker, error) {
 			return w.config.NewRemoteApplicationWorker(RemoteApplicationConfig{
-				OfferUUID:                  remoteApp.OfferUUID,
-				ApplicationName:            remoteApp.ApplicationName,
-				LocalModelUUID:             w.config.ModelUUID,
-				RemoteModelUUID:            remoteApp.OffererModelUUID,
-				ConsumeVersion:             remoteApp.ConsumeVersion,
-				Macaroon:                   remoteApp.Macaroon,
-				RemoteRelationsFacade:      w.config.RelationsFacade,
-				RemoteRelationClientGetter: w.config.RemoteRelationClientGetter,
-				Clock:                      w.config.Clock,
-				Logger:                     w.logger,
+				OfferUUID:                    remoteApp.OfferUUID,
+				ApplicationName:              remoteApp.ApplicationName,
+				ApplicationUUID:              application.ID(remoteApp.ApplicationUUID),
+				LocalModelUUID:               w.config.ModelUUID,
+				RemoteModelUUID:              remoteApp.OffererModelUUID,
+				ConsumeVersion:               remoteApp.ConsumeVersion,
+				Macaroon:                     remoteApp.Macaroon,
+				CrossModelService:            w.crossModelService,
+				RemoteRelationClientGetter:   w.config.RemoteRelationClientGetter,
+				NewLocalUnitRelationsWorker:  w.config.NewLocalUnitRelationsWorker,
+				NewRemoteUnitRelationsWorker: w.config.NewRemoteUnitRelationsWorker,
+				NewRemoteRelationsWorker:     w.config.NewRemoteRelationsWorker,
+				Clock:                        w.config.Clock,
+				Logger:                       w.logger,
 			})
 		}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotate(err, "error starting remote application worker")
@@ -344,8 +370,4 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 // Report provides information for the engine report.
 func (w *Worker) Report() map[string]interface{} {
 	return w.runner.Report()
-}
-
-func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

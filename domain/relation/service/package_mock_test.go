@@ -86,6 +86,44 @@ func (c *MockStateAddRelationCall) DoAndReturn(f func(context.Context, relation0
 	return c
 }
 
+// ApplicationExists mocks base method.
+func (m *MockState) ApplicationExists(arg0 context.Context, arg1 application.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationExists", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplicationExists indicates an expected call of ApplicationExists.
+func (mr *MockStateMockRecorder) ApplicationExists(arg0, arg1 any) *MockStateApplicationExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationExists", reflect.TypeOf((*MockState)(nil).ApplicationExists), arg0, arg1)
+	return &MockStateApplicationExistsCall{Call: call}
+}
+
+// MockStateApplicationExistsCall wrap *gomock.Call
+type MockStateApplicationExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateApplicationExistsCall) Return(arg0 error) *MockStateApplicationExistsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateApplicationExistsCall) Do(f func(context.Context, application.ID) error) *MockStateApplicationExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateApplicationExistsCall) DoAndReturn(f func(context.Context, application.ID) error) *MockStateApplicationExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ApplicationRelationsInfo mocks base method.
 func (m *MockState) ApplicationRelationsInfo(arg0 context.Context, arg1 application.ID) ([]relation0.EndpointRelationData, error) {
 	m.ctrl.T.Helper()

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -123,9 +124,10 @@ func NewWatchableService(
 	}
 }
 
-// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
-// the life or suspended status any relation the unit's application is part
-// of. If the unit is a subordinate, its principal application is watched.
+// WatchUnitApplicationLifeSuspendedStatus returns a watcher that notifies of
+// changes to the life or suspended status any relation the unit's application
+// is part of. If the unit is a subordinate, its principal application is
+// watched.
 func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -159,9 +161,10 @@ func (s *WatchableService) WatchUnitApplicationLifeSuspendedStatus(
 	)
 }
 
-// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of changes to
-// the life or suspended status any relation the unit's application is part
-// of. If the unit is a subordinate, its principal application is watched.
+// WatchApplicationLifeSuspendedStatus returns a watcher that notifies of
+// changes to the life or suspended status any relation the unit's application
+// is part of. If the unit is a subordinate, its principal application is
+// watched.
 func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	ctx context.Context,
 	applicationUUID application.ID,
@@ -172,6 +175,13 @@ func (s *WatchableService) WatchApplicationLifeSuspendedStatus(
 	if err := applicationUUID.Validate(); err != nil {
 		return nil, errors.Errorf(
 			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+
+	// Check if the application exists before starting the watcher.
+	// This prevents watching an application that has been removed or
+	// never existed.
+	if err := s.st.ApplicationExists(ctx, applicationUUID); err != nil {
+		return nil, errors.Errorf("checking application exists: %w", err)
 	}
 
 	w := newPrincipalLifeSuspendedStatusWatcher(s, applicationUUID)
@@ -512,8 +522,8 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 	return otherApp.ApplicationID == w.parentAppID || otherApp.Subordinate, nil
 }
 
-// WatchRelatedUnits returns a watcher that notifies of changes to counterpart units in
-// the relation.
+// WatchRelatedUnits returns a watcher that notifies of changes to counterpart
+// units in the relation.
 func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
 	unitUUID unit.UUID,
@@ -548,4 +558,10 @@ func (s *WatchableService) WatchRelatedUnits(
 		mapper,
 		filters[0], filters[1:]...,
 	)
+}
+
+// WatchRelationUnits returns a watcher for changes to the units
+// in the given relation in the local model.
+func (s *WatchableService) WatchRelationUnits(context.Context, application.ID) (watcher.NotifyWatcher, error) {
+	return nil, errors.Errorf("WatchRelationUnits").Add(coreerrors.NotImplemented)
 }

@@ -148,6 +148,9 @@ type State interface {
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
 	) error
+
+	// ApplicationExists checks if the given application exists.
+	ApplicationExists(ctx context.Context, applicationID application.ID) error
 }
 
 // LeadershipService provides the API for working with the statuses of
@@ -746,6 +749,14 @@ func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, u
 		return false, errors.Capture(err)
 	}
 	return true, nil
+}
+
+// GetRelationUnits returns the current state of the relation units.
+func (s *Service) GetRelationUnits(ctx context.Context, appID application.ID) (relation.RelationUnitChange, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return relation.RelationUnitChange{}, nil
 }
 
 func settingsMap(in map[string]interface{}) (map[string]string, error) {

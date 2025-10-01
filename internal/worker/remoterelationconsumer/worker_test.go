@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/model"
@@ -19,9 +20,13 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 )
 
 func TestWorkerSuite(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
 	tc.Run(t, &workerSuite{})
 }
 
@@ -35,7 +40,7 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
-	s.crossModelRelationService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
+	s.crossModelService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
@@ -60,7 +65,7 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -107,7 +112,7 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -165,7 +170,7 @@ func (s *workerSuite) TestRemoteApplicationsOfferChanged(c *tc.C) {
 
 	ch := make(chan struct{})
 
-	exp := s.crossModelRelationService.EXPECT()
+	exp := s.crossModelService.EXPECT()
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
@@ -242,8 +247,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 	w, err := NewWorker(Config{
 		ModelUUID:                  s.modelUUID,
-		CrossModelRelationService:  s.crossModelRelationService,
-		RelationsFacade:            s.remoteRelationsFacade,
+		CrossModelService:          s.crossModelService,
 		RemoteRelationClientGetter: s.remoteRelationClientGetter,
 		NewRemoteApplicationWorker: func(config RemoteApplicationConfig) (ReportableWorker, error) {
 			defer func() {
@@ -256,6 +260,15 @@ func (s *workerSuite) newWorker(c *tc.C, started chan<- string) *Worker {
 				consumeVersion:   config.ConsumeVersion,
 				applicationName:  config.ApplicationName,
 			}, nil
+		},
+		NewLocalUnitRelationsWorker: func(c localunitrelations.Config) (localunitrelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
+		},
+		NewRemoteUnitRelationsWorker: func(c remoteunitrelations.Config) (remoteunitrelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
+		},
+		NewRemoteRelationsWorker: func(c remoterelations.Config) (remoterelations.ReportableWorker, error) {
+			return newErrWorker(nil), nil
 		},
 		Clock:  clock.WallClock,
 		Logger: s.logger,

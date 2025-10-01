@@ -6,6 +6,10 @@ package service
 import (
 	"context"
 
+	"github.com/juju/names/v6"
+	"gopkg.in/macaroon.v2"
+
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/errors"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -147,6 +151,42 @@ func (s *Service) GetRemoteApplicationConsumers(ctx context.Context) ([]crossmod
 	defer span.End()
 
 	return nil, errors.NotImplemented
+}
+
+// SetRemoteApplicationOffererStatus sets the status of the specified remote
+// application in the local model.
+func (s *Service) SetRemoteApplicationOffererStatus(context.Context, coreapplication.ID, corestatus.StatusInfo) error {
+	return nil
+}
+
+// ConsumeRemoteRelationChange applies a relation change event received
+// from a remote model to the local model.
+func (s *Service) ConsumeRemoteRelationChange(context.Context) error {
+	return nil
+}
+
+// ConsumeRemoteSecretChanges applies secret changes received
+// from a remote model to the local model.
+func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
+	return nil
+}
+
+// ExportApplicationAndRelationToken exports the specified entities to the
+// remote model.
+func (s *Service) ExportApplicationAndRelationToken(context.Context, names.Tag, names.Tag) (string, string, error) {
+	return "", "", nil
+}
+
+// SaveMacaroonForRelation saves the given macaroon for the specified remote
+// application.
+func (s *Service) SaveMacaroonForRelation(context.Context, names.Tag, *macaroon.Macaroon) error {
+	return nil
+}
+
+// ImportRemoteApplicationToken imports a remote application token
+// into the local model.
+func (s *Service) ImportRemoteApplicationToken(context.Context, names.Tag, string) error {
+	return nil
 }
 
 func constructSyntheticCharm(applicationName string, endpoints []charm.Relation) (charm.Charm, error) {

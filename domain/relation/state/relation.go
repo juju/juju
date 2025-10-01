@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -264,7 +265,7 @@ func (st *State) ApplicationRelationsInfo(
 
 	var results []domainrelation.EndpointRelationData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		found, err := st.checkExistsByUUID(ctx, tx, "application", appID.String())
+		found, err := st.checkApplicationExists(ctx, tx, appID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !found {
@@ -673,7 +674,7 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 		err := tx.Query(ctx, stmt, dbArgs).Get(&relationEndpoint)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Check if it is a missing application.
-			appFound, err := st.checkExistsByUUID(ctx, tx, "application", args.ApplicationID.String())
+			appFound, err := st.checkApplicationExists(ctx, tx, args.ApplicationID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -2420,6 +2421,31 @@ func (st *State) GetPrincipalSubordinateApplicationIDs(
 	return principalAppID, subordinateAppID, errors.Capture(err)
 }
 
+// ApplicationExists returns nil if the application with the given ID exists,
+//
+// The following error types can be expected to be returned:
+//   - [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (st *State) ApplicationExists(ctx context.Context, id application.ID) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var exists bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		exists, err = st.checkApplicationExists(ctx, tx, id.String())
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return errors.Capture(err)
+	} else if !exists {
+		return applicationerrors.ApplicationNotFound
+	}
+
+	return nil
+}
+
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for a
 // relation's Life and Suspended status when the relation contains the provided
 // application and the initial namespace query.
@@ -2602,8 +2628,34 @@ func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 En
 		ep2.ApplicationName).Add(relationerrors.CompatibleEndpointsNotFound)
 }
 
-// checkExistsByUUID checks if a record with the specified UUID exists in the given
-// table using a transaction and context.
+// checkApplicationExists checks if the application with the specified UUID
+// exists in the given table using a transaction and context.
+func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, uuid string) (bool, error) {
+	type search struct {
+		UUID string `db:"uuid"`
+	}
+
+	searched := search{UUID: uuid}
+	checkStmt, err := st.Prepare(`
+SELECT &search.*
+FROM   application 
+WHERE  uuid = $search.uuid
+`, searched)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, searched).Get(&searched)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Errorf("getting application %q: %w", uuid, err)
+	}
+	return true, nil
+}
+
+// checkExistsByUUID checks if a record with the specified UUID exists in the
+// given table using a transaction and context.
 func (st *State) checkExistsByUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -2636,7 +2688,6 @@ WHERE  uuid = $search.uuid
 // checkEndpointCapacity validates whether adding a new relation to the given
 // endpoint exceeds its defined capacity limit.
 func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep Endpoint) error {
-
 	countStmt, err := st.Prepare(`
 SELECT count(*) AS &rows.count
 FROM   relation_endpoint
