@@ -3414,3 +3414,44 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C
 	wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 }
+
+func (s *SecretsSuite) TestDeleteRevisionsMultiple(c *gc.C) {
+	backendStore := state.NewSecretBackends(s.State)
+	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		ID:          "backend-id",
+		Name:        "foo",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	backendRefCount, err := s.State.ReadBackendRefCount("backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendRefCount, gc.Equals, 0)
+
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i := 0; i < 15; i++ {
+		_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": fmt.Sprintf("bar%d", i)},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	external, err := s.store.DeleteSecret(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(external, gc.HasLen, 0)
+
+	_, _, err = s.store.GetSecretValue(uri, 11)
+	c.Check(err, jc.ErrorIsNil)
+}
