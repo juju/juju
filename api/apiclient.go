@@ -1183,6 +1183,13 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 }
 
 func (s *state) Close() error {
+	// The bakery client for Macaroons uses a round-tripper, so it is not a
+	// connection in its own right, but we can get it to close any connections
+	// from completed requests that are still open.
+	// Note that this does nothing for connections in use, including those
+	// held open because someone failed to close a HTTP response body.
+	s.bakeryClient.Client.CloseIdleConnections()
+
 	err := s.client.Close()
 	select {
 	case <-s.closed:
