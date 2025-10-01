@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/juju/domain/application/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
@@ -27,6 +28,16 @@ type CreateUnitStorageFilesystemArg struct {
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem.
 	ProvisionScope domainstorageprov.ProvisionScope
+}
+
+type CreateUnitStorageFilesystemAttachmentArg struct {
+	FilesystemUUID domainstorageprov.FilesystemUUID
+
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	ProvisionScope domainstorageprov.ProvisionScope
+
+	UUID domainstorageprov.FilesystemAttachmentUUID
 }
 
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
@@ -79,15 +90,29 @@ type CreateUnitStorageVolumeArg struct {
 	ProvisionScope domainstorageprov.ProvisionScope
 }
 
-// CreateStorageAttachmentArg describes the arguments required for creating a
+type CreateUnitStorageVolumeAttachmentArg struct {
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	ProvisionScope domainstorageprov.ProvisionScope
+
+	VolumeUUID domainstorageprov.VolumeUUID
+
+	UUID domainstorageprov.VolumeAttachmentUUID
+}
+
+// CreateUnitStorageAttachmentArg describes the arguments required for creating a
 // storage attachment.
-type CreateStorageAttachmentArg struct {
+type CreateUnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorageprov.StorageAttachmentUUID
+
+	FilesystemAttachment *CreateUnitStorageFilesystemAttachmentArg
 
 	// StorageInstanceUUID is the unique identifier of the storage instance
 	// to attach to the unit.
 	StorageInstanceUUID domainstorage.StorageInstanceUUID
+
+	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage
@@ -106,7 +131,7 @@ type CreateUnitStorageArg struct {
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateStorageAttachmentArg
+	StorageToAttach []CreateUnitStorageAttachmentArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -136,8 +161,13 @@ type RegisterUnitStorageArg struct {
 
 	// FilesystemProviderIDs defines the provider id value to set for each
 	// filesystem. This allows associating new filesystem that are being created
-	// with a unit with the information we already have from the provider.
+	// with the providers identifier for this storage.
 	FilesystemProviderIDs map[domainstorageprov.FilesystemUUID]string
+
+	// VolumeProviderIDs defines the provider id value to set for each volume.
+	// This allows associating new volumes that are being created with the
+	// providers identifier for this storage.
+	VolumeProviderIDs map[domainstorageprov.VolumeUUID]string
 }
 
 // StorageDirective defines a storage directive that already exists for either
