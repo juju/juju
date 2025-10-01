@@ -212,7 +212,7 @@ type StorageDirectivesAPI interface {
 
 // setConfig sets the provided key/value pairs on the application.
 func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
-	sc := make(map[string]storage.Constraints, len(attrs))
+	sd := make(map[string]storage.Constraints, len(attrs))
 	for k, v := range attrs {
 		// This should give us a string of the form "100G,rootfs,1"
 		constraintsStr := fmt.Sprint(v)
@@ -220,12 +220,12 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 		if err != nil {
 			return errors.Annotatef(err, "parsing storage constraints for %q", k)
 		}
-		sc[k] = parsedCons
+		sd[k] = parsedCons
 	}
 
 	updateParams := application.ApplicationStorageUpdate{
 		ApplicationTag:    names.NewApplicationTag(c.applicationName),
-		StorageDirectives: sc,
+		StorageDirectives: sd,
 	}
 
 	return client.UpdateApplicationStorage(updateParams)
@@ -233,7 +233,7 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 
 // setFileConfig sets the provided key/value pairs on the application using values from a file.
 func (c *storageConfigCommand) setFileConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
-	sc := make(map[string]storage.Constraints, len(attrs))
+	sd := make(map[string]storage.Constraints, len(attrs))
 	for k, v := range attrs {
 		inner, ok := v.(config.Attrs)
 		if !ok {
@@ -258,12 +258,12 @@ func (c *storageConfigCommand) setFileConfig(client StorageDirectivesAPI, attrs 
 		if err != nil {
 			return errors.Annotatef(err, "parsing storage constraints for %q", k)
 		}
-		sc[k] = parsedCons
+		sd[k] = parsedCons
 	}
 
 	updateParams := application.ApplicationStorageUpdate{
 		ApplicationTag:    names.NewApplicationTag(c.applicationName),
-		StorageDirectives: sc,
+		StorageDirectives: sd,
 	}
 
 	return client.UpdateApplicationStorage(updateParams)

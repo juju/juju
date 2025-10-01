@@ -1249,7 +1249,7 @@ func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStora
 }
 
 func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResult) ApplicationStorageDirectives {
-	sc := make(map[string]storage.Constraints, len(param.StorageConstraints))
+	sd := make(map[string]storage.Constraints, len(param.StorageConstraints))
 	for k, v := range param.StorageConstraints {
 		con := storage.Constraints{
 			Pool: v.Pool,
@@ -1260,11 +1260,11 @@ func makeApplicationStorageDirectiveInfo(param params.ApplicationStorageGetResul
 		if v.Count != nil {
 			con.Count = *v.Count
 		}
-		sc[k] = con
+		sd[k] = con
 	}
 
 	return ApplicationStorageDirectives{
-		StorageDirectives: sc,
+		StorageDirectives: sd,
 	}
 }
 
@@ -1280,9 +1280,9 @@ type ApplicationStorageUpdate struct {
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
 func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationStorageUpdate) error {
-	sc := make(map[string]params.StorageConstraints)
+	sd := make(map[string]params.StorageConstraints)
 	for k, v := range applicationStorageUpdate.StorageDirectives {
-		sc[k] = params.StorageConstraints{
+		sd[k] = params.StorageConstraints{
 			Pool:  v.Pool,
 			Size:  &v.Size,
 			Count: &v.Count,
@@ -1292,7 +1292,7 @@ func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationSt
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
 				ApplicationTag:    applicationStorageUpdate.ApplicationTag.String(),
-				StorageDirectives: sc,
+				StorageDirectives: sd,
 			},
 		},
 	}

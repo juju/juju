@@ -17,6 +17,7 @@ test_storage() {
 	test_model_storage_block
 	test_model_storage_filesystem
 	test_persistent_storage
+	test_application_storage
 
 	destroy_controller "test-storage"
 }
