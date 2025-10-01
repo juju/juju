@@ -25,19 +25,18 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageProviderState,StoragePoolProvider,StorageState
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -mock_names=Provider=MockStorageProvider -destination internal_storage_mock_test.go github.com/juju/juju/internal/storage Provider,ProviderRegistry
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageService
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
 
 	state              *MockState
+	storageService     *MockStorageService
 	charm              *MockCharm
 	charmStore         *MockCharmStore
 	agentVersionGetter *MockAgentVersionGetter
 	provider           *MockProvider
 	caasProvider       *MockCAASProvider
-	storageValidator   *MockStoragePoolProvider
 	leadership         *MockEnsurer
 	validator          *MockValidator
 
@@ -99,8 +98,8 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
-	s.storageValidator = NewMockStoragePoolProvider(ctrl)
 	s.state = NewMockState(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
@@ -108,6 +107,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
+		s.storageService,
 		s.leadership,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
@@ -122,7 +122,6 @@ func (s *baseSuite) setupMocksWithProvider(
 			}
 			return s.caasProvider, nil
 		},
-		s.storageValidator,
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
@@ -131,12 +130,12 @@ func (s *baseSuite) setupMocksWithProvider(
 
 	c.Cleanup(func() {
 		s.state = nil
+		s.storageService = nil
 		s.charm = nil
 		s.charmStore = nil
 		s.agentVersionGetter = nil
 		s.provider = nil
 		s.caasProvider = nil
-		s.storageValidator = nil
 		s.leadership = nil
 		s.validator = nil
 	})
@@ -159,14 +158,15 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
 	s.validator = NewMockValidator(ctrl)
-	s.storageValidator = NewMockStoragePoolProvider(ctrl)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
+		s.storageService,
 		s.leadership,
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
@@ -175,7 +175,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		func(ctx context.Context) (CAASProvider, error) {
 			return s.caasProvider, nil
 		},
-		s.storageValidator,
 		s.charmStore,
 		fn(ctrl),
 		s.clock,
@@ -184,12 +183,12 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 
 	c.Cleanup(func() {
 		s.state = nil
+		s.storageService = nil
 		s.charm = nil
 		s.charmStore = nil
 		s.agentVersionGetter = nil
 		s.provider = nil
 		s.caasProvider = nil
-		s.storageValidator = nil
 		s.leadership = nil
 		s.validator = nil
 	})

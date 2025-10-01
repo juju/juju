@@ -250,7 +250,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 
 		// make unit storage args. IAAS units always have their storage
 		// attached to the machine's net node.
-		unitStorageArgs, err := s.storageService.makeUnitStorageArgs(
+		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
 			ctx,
 			machineNetNodeUUID,
 			storageDirectives,
@@ -304,7 +304,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 
 		// make unit storage args. CAAS units always have their storage
 		// attached to the unit's net node.
-		unitStorageArgs, err := s.storageService.makeUnitStorageArgs(
+		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
 			ctx,
 			netNodeUUID,
 			storageDirectives,

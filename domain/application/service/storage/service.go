@@ -165,14 +165,14 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.ApplicationNotFound]
 	// when the application no longer exists.
 	GetApplicationStorageDirectives(
-		context.Context, coreapplication.ID,
+		context.Context, coreapplication.UUID,
 	) ([]application.StorageDirective, error)
 
-	// GetDefaultStorageProvisioners returns the default storage provisioners
+	// GetModelStoragePools returns the default storage pools
 	// that have been set for the model.
-	GetDefaultStorageProvisioners(
-		ctx context.Context,
-	) (internal.DefaultStorageProvisioners, error)
+	GetModelStoragePools(
+		context.Context,
+	) (internal.ModelStoragePools, error)
 
 	// GetStorageInstancesForProviderIDs returns all of the storage instances
 	// found in the model using one of the provider ids supplied. The storage
@@ -495,7 +495,7 @@ func (s Service) getRegisterCAASUnitStorageInfo(
 // exists.
 func (s Service) GetRegisterCAASUnitStorageArg(
 	ctx context.Context,
-	appUUID coreapplication.ID,
+	appUUID coreapplication.UUID,
 	unitUUID coreunit.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,

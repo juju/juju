@@ -134,14 +134,10 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
-	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), appUUID,
-		gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).
-		Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).
-		Return(nil, nil)
-	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).
-		Return(nil, nil)
+	s.storageService.EXPECT().GetRegisterCAASUnitStorageArg(
+		gomock.Any(), appUUID, unitUUID, gomock.Any(), gomock.Any(),
+	).Return(application.RegisterUnitStorageArg{}, nil)
+
 	arg := application.RegisterCAASUnitArg{
 		UnitName:     "foo/666",
 		PasswordHash: "secret",

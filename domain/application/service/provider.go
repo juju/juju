@@ -27,6 +27,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -57,7 +58,7 @@ type CAASProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
-	storageService
+	storageService StorageService
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
@@ -68,11 +69,11 @@ type ProviderService struct {
 // NewProviderService returns a new Service for interacting with a models state.
 func NewProviderService(
 	st State,
+	storageSvc StorageService,
 	leaderEnsurer leadership.Ensurer,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
-	storagePoolProvider StoragePoolProvider,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -87,10 +88,7 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		storageService: storageService{
-			st:                  st,
-			storagePoolProvider: storagePoolProvider,
-		},
+		storageService:          storageSvc,
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
@@ -284,7 +282,7 @@ func (s *ProviderService) AddIAASUnits(
 		return nil, nil, errors.Errorf("getting application %q platform: %w", appName, err)
 	}
 
-	storageDirectives, err := s.st.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, nil, errors.Errorf(
 			"getting application %q storage directives: %w",
@@ -350,7 +348,7 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, errors.Errorf("making application %q constraints: %w", appName, err)
 	}
 
-	storageDirectives, err := s.st.GetApplicationStorageDirectives(ctx, appUUID)
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting application %q storage directives: %w",
@@ -549,7 +547,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	storageArg, err := s.getRegisterCAASUnitStorageArg(
+	storageArg, err := s.storageService.GetRegisterCAASUnitStorageArg(
 		ctx, appUUID, unitUUID, "", caasUnit.FilesystemInfo,
 	)
 	if err != nil {
@@ -632,7 +630,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	}
 	addIAASApplicationArgs.Constraints = constraints.DecodeConstraints(cons)
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(
+	storageDirectives := storage.MakeStorageDirectiveFromApplicationArg(
 		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
@@ -692,7 +690,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 	}
 	addCAASApplicationArg.Constraints = constraints.DecodeConstraints(cons)
 
-	storageDirectives := makeStorageDirectiveFromApplicationArg(
+	storageDirectives := storage.MakeStorageDirectiveFromApplicationArg(
 		charm.Meta().Name,
 		charm.Meta().Storage,
 		arg.StorageDirectives,
@@ -722,11 +720,10 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return errors.Errorf("invalid application args: %w", err)
 	}
 
-	err := validateApplicationStorageDirectiveParams(
+	err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx,
 		charm.Meta().Storage,
 		args.StorageDirectiveOverrides,
-		s.storageService.storagePoolProvider,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -761,7 +758,7 @@ func (s *ProviderService) makeApplicationArg(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (string, application.BaseAddApplicationArg, error) {
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.storageService, charm, origin, args)
 	if err != nil {
 		return "", application.BaseAddApplicationArg{}, errors.Errorf("creating application args: %w", err)
 	}
@@ -880,24 +877,22 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 
 func makeCreateApplicationArgs(
 	ctx context.Context,
-	storageSt StorageState,
+	storageSvc StorageService,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.BaseAddApplicationArg, error) {
-	modelStoragePools, err := storageSt.GetModelStoragePools(ctx)
-	if err != nil {
-		return application.BaseAddApplicationArg{}, errors.Errorf(
-			"getting default storage provisioners for model: %w", err,
-		)
-	}
-
 	charmMeta := charm.Meta()
-	storageDirectiveArgs := makeApplicationStorageDirectiveArgs(
+	storageDirectiveArgs, err := storageSvc.MakeApplicationStorageDirectiveArgs(
+		ctx,
 		args.StorageDirectiveOverrides,
 		charmMeta.Storage,
-		modelStoragePools,
 	)
+	if err != nil {
+		return application.BaseAddApplicationArg{}, errors.Errorf(
+			"making application storage directives: %w", err,
+		)
+	}
 
 	err = validateApplicationStorageDirectives(charmMeta.Storage, storageDirectiveArgs)
 	if err != nil {
