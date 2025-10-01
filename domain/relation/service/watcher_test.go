@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/relation/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -244,6 +245,15 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	}
 	c.Check(watcher.currentRelations, tc.DeepEquals, currentRelations)
 	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), tc.IsTrue)
+}
+
+func (s *watcherSuite) TestWatchApplicationLifeSuspendedStatusApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ApplicationExists(gomock.Any(), gomock.Any()).Return(applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.WatchApplicationLifeSuspendedStatus(c.Context(), applicationtesting.GenApplicationUUID(c))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
