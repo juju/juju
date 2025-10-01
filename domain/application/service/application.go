@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 
@@ -1502,7 +1501,7 @@ func (s *Service) GetApplicationConfigWithDefaults(ctx context.Context, appID co
 		return nil, errors.Capture(err)
 	}
 
-	appConfig, err := application.DecodeApplicationConfig(cfg)
+	appConfig, err := decodeApplicationConfig(cfg)
 	if err != nil {
 		return nil, errors.Errorf("decoding application config: %w", err)
 	}
@@ -1560,7 +1559,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 		return ApplicationConfig{}, errors.Capture(err)
 	}
 
-	applicationConfig, err := application.DecodeApplicationConfig(appConfig)
+	applicationConfig, err := decodeApplicationConfig(appConfig)
 	if err != nil {
 		return ApplicationConfig{}, errors.Errorf("decoding application config: %w", err)
 	}
@@ -1684,8 +1683,12 @@ func (s *Service) UpdateApplicationConfig(ctx context.Context, appID coreapplica
 			// But if it does, then we should return an error.
 			return errors.Errorf("missing charm config, expected %q", k)
 		}
+		encodedV, err := application.EncodeApplicationConfigValue(v, option.Type)
+		if err != nil {
+			return errors.Errorf("encoding config value for %q: %w", k, err)
+		}
 		encodedConfig[k] = application.AddApplicationConfig{
-			Value: fmt.Sprintf("%v", v),
+			Value: encodedV,
 			Type:  option.Type,
 		}
 	}
@@ -1875,9 +1878,12 @@ func encodeApplicationConfig(cfg internalcharm.Config, charmConfig charm.Config)
 			// But if it does, then we should return an error.
 			return nil, errors.Errorf("missing charm config, expected %q", k)
 		}
-
+		encodedV, err := application.EncodeApplicationConfigValue(v, option.Type)
+		if err != nil {
+			return nil, errors.Errorf("encoding config value for %q: %w", k, err)
+		}
 		encodedConfig[k] = application.AddApplicationConfig{
-			Value: fmt.Sprintf("%v", v),
+			Value: encodedV,
 			Type:  option.Type,
 		}
 	}
@@ -2027,4 +2033,54 @@ func decodeRisk(r deployment.ChannelRisk) (internalcharm.Risk, error) {
 	default:
 		return "", errors.Errorf("unsupported risk %q", r)
 	}
+}
+
+// decodeApplicationConfig decodes the application config from the domain
+// representation into the internal charm config representation.
+func decodeApplicationConfig(cfg map[string]application.ApplicationConfig) (internalcharm.Config, error) {
+	if len(cfg) == 0 {
+		return nil, nil
+	}
+
+	result := make(internalcharm.Config)
+	for k, v := range cfg {
+		if v.Value == nil {
+			result[k] = nil
+			continue
+		}
+		coercedV, err := coerceValue(v.Type, *v.Value)
+		if err != nil {
+			return nil, errors.Errorf("coerce config value for key %q: %w", k, err)
+		}
+		result[k] = coercedV
+	}
+	return result, nil
+}
+
+func coerceValue(t charm.OptionType, value string) (interface{}, error) {
+	switch t {
+	case charm.OptionString, charm.OptionSecret:
+		return value, nil
+	case charm.OptionInt:
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to int: %w", value, err)
+		}
+		return intValue, nil
+	case charm.OptionFloat:
+		floatValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to float: %w", value, err)
+		}
+		return floatValue, nil
+	case charm.OptionBool:
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("cannot convert string %q to bool: %w", value, err)
+		}
+		return boolValue, nil
+	default:
+		return nil, errors.Errorf("unknown config type %q", t)
+	}
+
 }

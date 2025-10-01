@@ -122,52 +122,34 @@ func encodeOptionType(t string) (charm.OptionType, error) {
 	}
 }
 
-// DecodeApplicationConfig decodes the application config from the domain
-// representation into the internal charm config representation.
-func DecodeApplicationConfig(cfg map[string]ApplicationConfig) (internalcharm.Config, error) {
-	if len(cfg) == 0 {
-		return nil, nil
-	}
-
-	result := make(internalcharm.Config)
-	for k, v := range cfg {
-		if v.Value == nil {
-			result[k] = nil
-			continue
-		}
-		coercedV, err := coerceValue(v.Type, *v.Value)
-		if err != nil {
-			return nil, errors.Errorf("coerce config value for key %q: %w", k, err)
-		}
-		result[k] = coercedV
-	}
-	return result, nil
-}
-
-func coerceValue(t charm.OptionType, value string) (interface{}, error) {
-	switch t {
+// EncodeApplicationConfigValue encodes an application config value to a string.
+func EncodeApplicationConfigValue(value any, vType charm.OptionType) (string, error) {
+	switch vType {
 	case charm.OptionString, charm.OptionSecret:
-		return value, nil
+		str, ok := value.(string)
+		if !ok {
+			return "", errors.Errorf("expected string value, got %T", value)
+		}
+		return str, nil
 	case charm.OptionInt:
-		intValue, err := strconv.Atoi(value)
-		if err != nil {
-			return nil, errors.Errorf("cannot convert string %q to int: %w", value, err)
+		i, ok := value.(int)
+		if !ok {
+			return "", errors.Errorf("expected int value, got %T", value)
 		}
-		return intValue, nil
+		return strconv.Itoa(i), nil
 	case charm.OptionFloat:
-		floatValue, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return nil, errors.Errorf("cannot convert string %q to float: %w", value, err)
+		f, ok := value.(float64)
+		if !ok {
+			return "", errors.Errorf("expected float64 value, got %T", value)
 		}
-		return floatValue, nil
+		return strconv.FormatFloat(f, 'f', -1, 64), nil
 	case charm.OptionBool:
-		boolValue, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, errors.Errorf("cannot convert string %q to bool: %w", value, err)
+		b, ok := value.(bool)
+		if !ok {
+			return "", errors.Errorf("expected bool value, got %T", value)
 		}
-		return boolValue, nil
+		return strconv.FormatBool(b), nil
 	default:
-		return nil, errors.Errorf("unknown config type %q", t)
+		return "", errors.Errorf("unsupported option type %q", vType)
 	}
-
 }

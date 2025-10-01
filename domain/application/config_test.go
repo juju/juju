@@ -109,158 +109,90 @@ func (s *configSuite) TestConvertConfig(c *tc.C) {
 	}
 }
 
-var appConfigTestCase = []struct {
-	name     string
-	input    map[string]ApplicationConfig
-	expected internalcharm.Config
-	errMatch string
-}{
-	{
-		name:     "empty config",
-		input:    map[string]ApplicationConfig{},
-		expected: internalcharm.Config{},
-	},
-	{
-		name: "string value",
-		input: map[string]ApplicationConfig{
-			"foo": {
-				Type:  charm.OptionString,
-				Value: ptr("bar"),
-			},
+func (s *configSuite) TestEncodeConfigValue(c *tc.C) {
+	tests := []struct {
+		name      string
+		value     any
+		vType     charm.OptionType
+		want      string
+		wantError string
+	}{
+		{
+			name:  "string value",
+			value: "foo",
+			vType: charm.OptionString,
+			want:  "foo",
 		},
-		expected: internalcharm.Config{
-			"foo": "bar",
+		{
+			name:  "secret value",
+			value: "bar",
+			vType: charm.OptionSecret,
+			want:  "bar",
 		},
-	},
-	{
-		name: "int value",
-		input: map[string]ApplicationConfig{
-			"num": {
-				Type:  charm.OptionInt,
-				Value: ptr("42"),
-			},
+		{
+			name:  "int value",
+			value: 42,
+			vType: charm.OptionInt,
+			want:  "42",
 		},
-		expected: internalcharm.Config{
-			"num": 42,
+		{
+			name:  "float value",
+			value: 3.14,
+			vType: charm.OptionFloat,
+			want:  "3.14",
 		},
-	},
-	{
-		name: "float value",
-		input: map[string]ApplicationConfig{
-			"flt": {
-				Type:  charm.OptionFloat,
-				Value: ptr("3.14"),
-			},
+		{
+			name:  "bool true value",
+			value: true,
+			vType: charm.OptionBool,
+			want:  "true",
 		},
-		expected: internalcharm.Config{
-			"flt": 3.14,
+		{
+			name:  "bool false value",
+			value: false,
+			vType: charm.OptionBool,
+			want:  "false",
 		},
-	},
-	{
-		name: "bool value true",
-		input: map[string]ApplicationConfig{
-			"flag": {
-				Type:  charm.OptionBool,
-				Value: ptr("true"),
-			},
+		{
+			name:      "wrong type for string",
+			value:     123,
+			vType:     charm.OptionString,
+			wantError: "expected string value, got int",
 		},
-		expected: internalcharm.Config{
-			"flag": true,
+		{
+			name:      "wrong type for int",
+			value:     "notint",
+			vType:     charm.OptionInt,
+			wantError: "expected int value, got string",
 		},
-	},
-	{
-		name: "bool value false",
-		input: map[string]ApplicationConfig{
-			"flag": {
-				Type:  charm.OptionBool,
-				Value: ptr("false"),
-			},
+		{
+			name:      "wrong type for float",
+			value:     "notfloat",
+			vType:     charm.OptionFloat,
+			wantError: "expected float64 value, got string",
 		},
-		expected: internalcharm.Config{
-			"flag": false,
+		{
+			name:      "wrong type for bool",
+			value:     "notbool",
+			vType:     charm.OptionBool,
+			wantError: "expected bool value, got string",
 		},
-	},
-	{
-		name: "secret value",
-		input: map[string]ApplicationConfig{
-			"secret": {
-				Type:  charm.OptionSecret,
-				Value: ptr("s3cr3t"),
-			},
+		{
+			name:      "unsupported option type",
+			value:     "foo",
+			vType:     charm.OptionType("unknown"),
+			wantError: `unsupported option type "unknown"`,
 		},
-		expected: internalcharm.Config{
-			"secret": "s3cr3t",
-		},
-	},
-	{
-		name: "nil value",
-		input: map[string]ApplicationConfig{
-			"nilkey": {
-				Type:  charm.OptionString,
-				Value: nil,
-			},
-		},
-		expected: internalcharm.Config{
-			"nilkey": nil,
-		},
-	},
-	{
-		name: "invalid int value",
-		input: map[string]ApplicationConfig{
-			"badint": {
-				Type:  charm.OptionInt,
-				Value: ptr("notanint"),
-			},
-		},
-		errMatch: ".*cannot convert string \"notanint\" to int.*",
-	},
-	{
-		name: "invalid float value",
-		input: map[string]ApplicationConfig{
-			"badfloat": {
-				Type:  charm.OptionFloat,
-				Value: ptr("notafloat"),
-			},
-		},
-		errMatch: ".*cannot convert string \"notafloat\" to float.*",
-	},
-	{
-		name: "invalid bool value",
-		input: map[string]ApplicationConfig{
-			"badbool": {
-				Type:  charm.OptionBool,
-				Value: ptr("notabool"),
-			},
-		},
-		errMatch: ".*cannot convert string \"notabool\" to bool.*",
-	},
-	{
-		name: "unknown type",
-		input: map[string]ApplicationConfig{
-			"unknown": {
-				Type:  charm.OptionType("unknown"),
-				Value: ptr("value"),
-			},
-		},
-		errMatch: ".*unknown config type \"unknown\".*",
-	},
-}
-
-func (s *configSuite) TestDecodeApplicationConfig(c *tc.C) {
-	for _, t := range appConfigTestCase {
+	}
+	for _, t := range tests {
 		c.Logf("Running test case %q", t.name)
-		result, err := DecodeApplicationConfig(t.input)
-		if t.errMatch != "" {
-			c.Assert(err, tc.ErrorMatches, t.errMatch)
-			c.Check(result, tc.IsNil)
+		got, err := EncodeApplicationConfigValue(t.value, t.vType)
+		if t.wantError != "" {
+			c.Assert(err, tc.ErrorMatches, t.wantError)
+			c.Check(got, tc.Equals, "")
 		} else {
 			c.Assert(err, tc.ErrorIsNil)
-			c.Check(result, tc.DeepEquals, t.expected)
+			c.Check(got, tc.Equals, t.want)
 		}
 	}
-}
-
-// ptr is a helper to get a pointer to a string literal.
-func ptr(s string) *string {
-	return &s
 }

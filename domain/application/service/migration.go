@@ -238,7 +238,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
-	appConfig, err := application.DecodeApplicationConfig(cfg)
+	appConfig, err := decodeApplicationConfig(cfg)
 	if err != nil {
 		return nil, application.ApplicationSettings{}, errors.Errorf("decoding application config: %w", err)
 	}
