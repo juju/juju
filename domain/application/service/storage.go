@@ -177,7 +177,8 @@ type StorageState interface {
 	) (internal.ModelStoragePools, error)
 
 	// GetStorageInstancesForProviderIDs returns all of the storage instances
-	// found in the model using one of the provider ids supplied. If no storage
+	// found in the model using one of the provider ids supplied. The storage
+	// instance must not also be owned by a unit already. If no storage
 	// instance is found associated with a provider id then it is simply
 	// ignored. If no storage instances exist matching the provider ids then an
 	// empty result is returned to the caller.
@@ -409,7 +410,71 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 	return provider, nil
 }
 
-// getRegisterCAASUnitStorageArgs is responsible for getting the storage
+// getRegisterCAASUnitStorage is reponsible for getting storage information for
+// a CAAS unit that is being registered into the model.
+//
+// The following errors may be expected:
+// - [applicationerrors.ApplicationNotFound] when the application no longer
+// exists.
+// - [applicationerrors.UnitNotFound] when the unit no longer exists. This error
+// will only trigger when the unit had existed but was removed before this
+// operation completed.
+func (s storageService) getRegisterCAASUnitStorageInfo(
+	ctx context.Context,
+	appUUID coreapplication.ID,
+	unitUUID coreunit.UUID,
+) ([]application.StorageDirective, []internal.StorageInstanceComposition, error) {
+	var (
+		// existingUnitStorage records any existing storage in the model that
+		// is owned by the unit
+		existingUnitStorage []internal.StorageInstanceComposition
+
+		// directivesToFollow is the set of storage directives that the unit is
+		// to use when provisioning new storage in the model.
+		directivesToFollow []application.StorageDirective
+	)
+
+	unitExists, err := s.st.CheckUnitExists(ctx, unitUUID)
+	if err != nil {
+		return nil, nil, errors.Errorf(
+			"checking if unit %q already exists in the model or is being created: %w",
+			unitUUID, err,
+		)
+	}
+
+	if unitExists {
+		var err error
+		existingUnitStorage, err = s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"getting unit %q owned storage instances: %w", unitUUID, err,
+			)
+		}
+
+		directivesToFollow, err = s.st.GetUnitStorageDirectives(ctx, unitUUID)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"getting unit %q storage directives: %w", unitUUID, err,
+			)
+		}
+	} else {
+		// If the unit does not exist, we will instead get and follow the
+		// storage directives of the application.
+		var err error
+		directivesToFollow, err = s.st.GetApplicationStorageDirectives(
+			ctx, appUUID,
+		)
+		if err != nil {
+			return nil, nil, errors.Errorf(
+				"getting application %q storage directives: %w", appUUID, err,
+			)
+		}
+	}
+
+	return directivesToFollow, existingUnitStorage, nil
+}
+
+// getRegisterCAASUnitStorageArg is responsible for getting the storage
 // arguments required to register a CAAS unit in the model. This func considers
 // pre existing storage already in the model for the unit and any new storage
 // that needs to be created.
@@ -423,30 +488,21 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s *ProviderService) getRegisterCAASUnitStorageArgs(
+func (s storageService) getRegisterCAASUnitStorageArg(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
 	unitUUID coreunit.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
 ) (application.RegisterUnitStorageArg, error) {
-	// We don't consider or look at volume information for the caas filesystem.
-	// Volume sequences have previously been used as a means of associating
-	// provider information to storage instances. It is impossible to keep these
-	// two sources in sync so instead we rely on the unique id from the
-	// provider.
-	//
-	// For CAAS this provider value lives in caas.FilesystemInfo.FilesystemId.
-	//
-	// Collect the set of provider ids and form a mapping from charm storage
-	// name.
+	// We don't consider the volume information in the caas filesystem info.
 	providerIDs := make([]string, 0, len(providerFilesystemInfo))
 	for _, fsInfo := range providerFilesystemInfo {
 		providerIDs = append(providerIDs, fsInfo.FilesystemId)
 	}
 
 	// We fetch all existing storage instances in the model that are using one
-	// of the provider ids.
+	// of the provider ids and not owned by a unit.
 	existingProviderStorage, err := s.st.GetStorageInstancesForProviderIDs(
 		ctx, providerIDs,
 	)
@@ -457,111 +513,57 @@ func (s *ProviderService) getRegisterCAASUnitStorageArgs(
 		)
 	}
 
-	var (
-		existingUnitStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID
-		directivesToFollow  []application.StorageDirective
-	)
-
-	if unitUUID != "" {
-		// If the unit exists, we will get the already established storage
-		// directives including and storage that the unit currently owns.
-		directivesToFollow, existingUnitStorage, err = s.getUnitStorageInfo(
-			ctx, unitUUID,
+	directivesToFollow, existingUnitOwnedStorage, err :=
+		s.getRegisterCAASUnitStorageInfo(
+			ctx, appUUID, unitUUID,
 		)
-		if err != nil {
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"getting existing unit %q storage information for registration: %w",
-				unitUUID, err,
-			)
-		}
-	} else {
-		// If the unit does not exist, we will instead get and follow the
-		// storage directives of the application.
-		directivesToFollow, err = s.st.GetApplicationStorageDirectives(
-			ctx, appUUID,
-		)
-		if err != nil {
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"getting application %q storage directives: %w", appUUID, err,
-			)
-		}
-		existingUnitStorage = map[domainstorage.Name][]domainstorage.StorageInstanceUUID{}
-	}
-
-	// We need to walk through all of the storage in the model that is using one
-	// of the provider ids and make it available under the units existing
-	// storage.
-	//
-	// It is possible for storage to exist in the model that is not currently
-	// owned by a unit. This happens in CAAS models where a unit going away does
-	// not remove provisioned storage.
-
-	for _, storageInstance := range existingProviderStorage {
-		storageName := storageInstance.StorageName
-
-		// If the provider storage instance already exists in the unit's
-		// identified storage then there is nothing more to do.
-		if slices.Contains(existingUnitStorage[storageName], storageInstance.UUID) {
-			continue
-		}
-
-		// Because the identified provider storage instance isn't current
-		// consider part of the unit's existing storage we need to manually
-		// include it so the association, ownership and attachments can be made.
-		existingUnitStorage[storageName] = append(
-			existingUnitStorage[storageName], storageInstance.UUID,
-		)
-	}
-
-	unitStorageArgs, err := makeUnitStorageArgs(
-		ctx,
-		attachmentNetNodeUUID,
-		s.storagePoolProvider,
-		directivesToFollow,
-		existingUnitStorage,
-	)
 	if err != nil {
 		return application.RegisterUnitStorageArg{}, errors.Capture(err)
 	}
 
-	// Now map all of the unassigned provider ids to the storage name that
-	// they can be assigned to.
-	unassignedNameMapping := map[domainstorage.Name][]string{}
+	unitStorageArgs, err := s.makeUnitStorageArgs(
+		ctx,
+		attachmentNetNodeUUID,
+		s.storagePoolProvider,
+		directivesToFollow,
+		append(existingUnitOwnedStorage, existingProviderStorage...),
+	)
+	if err != nil {
+		return application.RegisterUnitStorageArg{}, errors.Errorf(
+			"making register caas unit %q storage args: %w", unitUUID, err,
+		)
+	}
 
-	// filesystemProviderIDs is a mapping of new filesystem uuids that are to be
-	// created and the provider id for the filesystem.
-	filesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
-
-	// We need to walk through all of the new storage instances being created
-	// and assign a provider id to them.
-	for _, inst := range unitStorageArgs.StorageInstances {
-		// We can safely assume that all CAAS units create filesystems but we
-		// are not in charge of the business logic here. So instead let us just
-		// skip this instance if it does not have a non filesystem uuid.
-		if inst.Filesystem == nil {
+	// For the existing provider storage instances that are about to be attached
+	// make sure they are owned by the unit.
+	for _, storageInstance := range existingProviderStorage {
+		isBeingAttached := slices.ContainsFunc(
+			unitStorageArgs.StorageToAttach,
+			func(e application.CreateUnitStorageAttachmentArg) bool {
+				return e.StorageInstanceUUID == storageInstance.UUID
+			},
+		)
+		if !isBeingAttached {
 			continue
 		}
 
-		nameIDs := unassignedNameMapping[inst.Name]
-		if len(nameIDs) == 0 {
-			// This should never happen, but it does mean we have a disjoint
-			// situation between what the provider is creating and the
-			// information in the database.
-			return application.RegisterUnitStorageArg{}, errors.Errorf(
-				"no provider id exists to assign to unit %q new storage instance %q",
-				unitUUID, inst.Name,
-			)
-		}
-
-		// Pop the first unassigned provider id and give it to the new
-		// filesystem.
-		filesystemProviderIDs[inst.Filesystem.UUID] = nameIDs[0]
-		unassignedNameMapping[inst.Name] = nameIDs[1:]
+		unitStorageArgs.StorageToOwn = append(
+			unitStorageArgs.StorageToOwn,
+			storageInstance.UUID,
+		)
 	}
+
+	filesystemProviderIDs, volumeProviderIDs :=
+		makeCAASStorageInstanceProviderIDAssociations(
+			providerFilesystemInfo,
+			existingProviderStorage,
+			unitStorageArgs.StorageInstances,
+		)
 
 	return application.RegisterUnitStorageArg{
 		CreateUnitStorageArg:  unitStorageArgs,
 		FilesystemProviderIDs: filesystemProviderIDs,
+		VolumeProviderIDs:     volumeProviderIDs,
 	}, nil
 }
 
@@ -672,41 +674,6 @@ func (s *Service) DetachStorage(ctx context.Context, storageID corestorage.ID) e
 	return s.st.DetachStorage(ctx, storageUUID)
 }
 
-// getUnitStorageInfo retrieves the existing storage information for a unit.
-// This includes the storage directives set for the unit and also any storage
-// that is currently owned by the unit.
-//
-// The following errors can be expected:
-// - [applicationerrors.UnitNotFound] when the unit no longer exists.
-func (s *ProviderService) getUnitStorageInfo(
-	ctx context.Context,
-	unitUUID coreunit.UUID,
-) (
-	[]application.StorageDirective,
-	map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
-	error,
-) {
-	existingUnitStorage, err := s.st.GetUnitOwnedStorageInstances(
-		ctx, unitUUID,
-	)
-	if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting unit %q owned storage instances: %w",
-			unitUUID, err,
-		)
-	}
-
-	storageDirectives, err := s.st.GetUnitStorageDirectives(ctx, unitUUID)
-	if err != nil {
-		return nil, nil, errors.Errorf(
-			"getting unit %q storage directives: %w",
-			unitUUID, err,
-		)
-	}
-
-	return storageDirectives, existingUnitStorage, nil
-}
-
 // makeUnitStorageArgs creates the storage arguments required for a unit in
 // the model. This func looks at the set of directives for the unit and the
 // existing storage available. From this any new instances that need to be
@@ -728,7 +695,7 @@ func (s storageService) makeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,
-	existingStorage map[domainstorage.Name][]domainstorage.StorageInstanceUUID,
+	existingStorage []internal.StorageInstanceComposition,
 ) (application.CreateUnitStorageArg, error) {
 	rvalDirectives := make([]application.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []application.CreateUnitStorageInstanceArg{}
@@ -816,7 +783,12 @@ func (s storageService) makeUnitStorageArgs(
 			existingStorageInstances[toUse:]
 	}
 
-	return application.CreateUnitStorageArg{}, nil
+	return application.CreateUnitStorageArg{
+		StorageDirectives: rvalDirectives,
+		StorageInstances:  rvalInstances,
+		StorageToAttach:   rvalToAttach,
+		StorageToOwn:      rvalToOwn,
+	}, nil
 }
 
 // makeStorageAttachmentArgFromNewStorageInstance is responsible for taking the
