@@ -247,7 +247,10 @@ func (s *startSuite) TestAddExecOperationParametersStored(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	// Verify command and timeout parameters were stored.
-	var commandValue, timeoutValue string
+	var (
+		commandValue string
+		timeoutValue int64
+	)
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow("SELECT value FROM operation_parameter WHERE operation_uuid = ? AND key = 'command'",
 			operationUUID.String()).Scan(&commandValue)
@@ -258,8 +261,8 @@ func (s *startSuite) TestAddExecOperationParametersStored(c *tc.C) {
 			operationUUID.String()).Scan(&timeoutValue)
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(commandValue, tc.Equals, "echo hello world")
-	c.Check(timeoutValue, tc.Equals, "5m0s")
+	c.Check(commandValue, tc.Equals, `"echo hello world"`)
+	c.Check(timeoutValue, tc.Equals, 5*time.Minute.Nanoseconds())
 }
 
 func (s *startSuite) TestAddExecOperationOnAllMachines(c *tc.C) {
@@ -492,7 +495,7 @@ func (s *startSuite) TestAddActionOperationParametersStored(c *tc.C) {
 			operationUUID.String()).Scan(&param3Value)
 	})
 	c.Assert(err, tc.IsNil)
-	c.Check(param1Value, tc.Equals, "value1")
+	c.Check(param1Value, tc.Equals, `"value1"`)
 	c.Check(param2Value, tc.Equals, "42")
 	c.Check(param3Value, tc.Equals, "true")
 }

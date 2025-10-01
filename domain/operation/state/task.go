@@ -714,7 +714,7 @@ func encodeTask(task taskResult, parameters []taskParameter, logs []taskLogEntry
 	}
 
 	result.Parameters = transform.SliceToMap(parameters, func(p taskParameter) (string, any) {
-		return p.Key, p.Value
+		return p.Key, decodeParameterValue(p.Value)
 	})
 
 	result.Log = make([]operation.TaskLog, len(logs))

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -45,7 +44,7 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 
 			// Insert operation parameters
 			for key, value := range ops.Parameters {
-				err = st.insertOperationParameter(ctx, tx, ops.UUID, key, fmt.Sprintf("%v", value))
+				err = st.insertOperationParameter(ctx, tx, ops.UUID, key, value)
 				if err != nil {
 					return errors.Errorf("inserting parameter %q at operation %q: %w", key, ops.ID, err)
 				}

@@ -86,6 +86,54 @@ func (s *taskSuite) TestGetTaskWithParameters(c *tc.C) {
 	c.Check(task.Parameters["param2"], tc.Equals, "value2")
 }
 
+func (s *taskSuite) TestGetTaskWithTypedParameters(c *tc.C) {
+	// Arrange: create an operation and a task, add parameters that look like different types
+	taskID := "43"
+	operationUUID := s.addOperation(c)
+	s.addOperationTaskWithID(c, operationUUID, taskID, "running")
+	// Values that should be decoded to specific types by encodeTask
+	s.addOperationParameter(c, operationUUID, "int", "42")
+	s.addOperationParameter(c, operationUUID, "neg-int", "-7")
+	s.addOperationParameter(c, operationUUID, "float", "3.14")
+	s.addOperationParameter(c, operationUUID, "bool-true", "true")
+	s.addOperationParameter(c, operationUUID, "bool-false", "False")
+	// Values that should remain as strings
+	s.addOperationParameter(c, operationUUID, "str", "hello")
+	s.addOperationParameter(c, operationUUID, "quoted-num", `"42"`)
+
+	// Act
+	task, _, err := s.state.GetTask(c.Context(), taskID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// int64
+	vInt, ok := task.Parameters["int"].(int64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vInt, tc.Equals, int64(42))
+	vNegInt, ok := task.Parameters["neg-int"].(int64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vNegInt, tc.Equals, int64(-7))
+	// float64
+	vFloat, ok := task.Parameters["float"].(float64)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vFloat, tc.Equals, 3.14)
+	// bool
+	vTrue, ok := task.Parameters["bool-true"].(bool)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vTrue, tc.Equals, true)
+	vFalse, ok := task.Parameters["bool-false"].(bool)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vFalse, tc.Equals, false)
+	// string stays string
+	vStr, ok := task.Parameters["str"].(string)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vStr, tc.Equals, "hello")
+	vQte, ok := task.Parameters["quoted-num"].(string)
+	c.Assert(ok, tc.Equals, true)
+	c.Check(vQte, tc.Equals, "42")
+}
+
 func (s *taskSuite) TestGetTaskWithLogs(c *tc.C) {
 
 	taskID := "42"

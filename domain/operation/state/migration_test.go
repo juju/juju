@@ -162,7 +162,7 @@ FROM   operation_parameter
 WHERE  operation_uuid = ?`, opUUID)
 	c.Assert(paramRows, tc.HasLen, 1)
 	c.Check(paramRows[0]["key"], tc.Equals, "p1")
-	c.Check(paramRows[0]["value"], tc.Equals, "v1")
+	c.Check(paramRows[0]["value"], tc.Equals, `"v1"`)
 
 	// Verify operation action bound via application/charm
 	actionRows := s.queryRows(c, `
@@ -286,7 +286,7 @@ func (s *migrationSuite) TestImportOperationsWithSingleMachineTask(c *tc.C) {
 	paramRows := s.queryRows(c, `SELECT key, value FROM operation_parameter WHERE operation_uuid = ?`, opUUID)
 	c.Assert(paramRows, tc.HasLen, 1)
 	c.Check(paramRows[0]["key"], tc.Equals, "k")
-	c.Check(paramRows[0]["value"], tc.Equals, "v")
+	c.Check(paramRows[0]["value"], tc.Equals, `"v"`)
 }
 
 // TestImportOperationsWithMultipleMachineTasks tests the import of operations

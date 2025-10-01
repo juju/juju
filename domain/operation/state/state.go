@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -543,4 +545,32 @@ FROM   operation`, uuid{})
 	}
 
 	return transform.Slice(result, func(r uuid) string { return r.UUID }), nil
+}
+
+// encodeParameterValue encodes the input value to a string that can be stored
+// in the database.
+func encodeParameterValue(value any) string {
+	// quote strings to keep them as strings in the database and not try to
+	// decode them on fetch
+	if v, ok := value.(string); ok {
+		return fmt.Sprintf("%q", v)
+	}
+	return fmt.Sprintf("%v", value)
+}
+
+// decodeParameterValue decodes the input string stored in the DB
+// to its original type.
+func decodeParameterValue(storedStr string) any {
+	// Try to decode parameter values in its more precise type.
+	if value, err := strconv.ParseInt(storedStr, 10, 64); err == nil {
+		return value
+	}
+	if value, err := strconv.ParseFloat(storedStr, 64); err == nil {
+		return value
+	}
+	if value, err := strconv.ParseBool(storedStr); err == nil {
+		return value
+	}
+	// If the value is not a number, then it's a string.
+	return strings.Trim(storedStr, "\"")
 }

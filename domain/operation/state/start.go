@@ -149,7 +149,7 @@ func (st *State) AddActionOperation(ctx context.Context,
 
 		// Insert operation parameters.
 		for key, value := range args.Parameters {
-			err = st.insertOperationParameter(ctx, tx, operationUUID.String(), key, fmt.Sprintf("%v", value))
+			err = st.insertOperationParameter(ctx, tx, operationUUID.String(), key, value)
 			if err != nil {
 				return errors.Errorf("inserting parameter %q: %w", key, err)
 			}
@@ -240,7 +240,7 @@ func (st *State) addExecOperation(
 	}
 
 	// Exec operations have command and timeout parameters.
-	err = st.addExecParameters(ctx, tx, operationUUID, args.Command, args.Timeout.String())
+	err = st.addExecParameters(ctx, tx, operationUUID, args.Command, args.Timeout)
 	if err != nil {
 		return operation.RunResult{}, errors.Capture(err)
 	}
@@ -350,12 +350,13 @@ func (st *State) addExecOperation(
 
 // addExecParameters inserts the exec operation parameters, which must
 // contain the actual command and a timeout.
-func (st *State) addExecParameters(ctx context.Context, tx *sqlair.TX, operationUUID string, command string, timeout string) error {
+func (st *State) addExecParameters(ctx context.Context, tx *sqlair.TX, operationUUID string, command string,
+	timeout time.Duration) error {
 	err := st.insertOperationParameter(ctx, tx, operationUUID, "command", command)
 	if err != nil {
 		return errors.Errorf("inserting command parameter: %w", err)
 	}
-	err = st.insertOperationParameter(ctx, tx, operationUUID, "timeout", timeout)
+	err = st.insertOperationParameter(ctx, tx, operationUUID, "timeout", timeout.Nanoseconds())
 	if err != nil {
 		return errors.Errorf("inserting timeout parameter: %w", err)
 	}
@@ -375,11 +376,13 @@ VALUES ($insertOperation.*)
 	return errors.Capture(tx.Query(ctx, stmt, args).Run())
 }
 
-func (s *State) insertOperationParameter(ctx context.Context, tx *sqlair.TX, operationUUID, key, value string) error {
+func (s *State) insertOperationParameter(ctx context.Context, tx *sqlair.TX, operationUUID, key string,
+	value any) error {
+
 	param := taskParameter{
 		OperationUUID: operationUUID,
 		Key:           key,
-		Value:         value,
+		Value:         encodeParameterValue(value),
 	}
 
 	query := `
