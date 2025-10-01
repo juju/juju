@@ -262,7 +262,7 @@ parts:
       set -ex
 
       # TODO: use make plugin.
-      export GOTOOLCHAIN=go1.25.1
+      export GOTOOLCHAIN=go1.25.0+auto
       export CC=musl-gcc
       export PKG_CONFIG_PATH="${CRAFT_STAGE}/snap-linux-musl/lib/pkgconfig"
       export PACKAGES="libuv dqlite liblz4 sqlite3"
@@ -287,7 +287,7 @@ parts:
       set -ex
 
       # TODO: use make plugin.
-      export GOTOOLCHAIN=go1.25.1
+      export GOTOOLCHAIN=go1.25.0+auto
       export GOBIN="${CRAFT_PART_INSTALL}/bin"
       export CGO_ENABLED=0
       export GO_LDFLAGS='-s -w -extldflags "-static" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.Grade= -X github.com/juju/juju/version.build='
