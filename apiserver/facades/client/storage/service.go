@@ -15,12 +15,22 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+// BlockDeviceService defines apis on the block device service.
 type BlockDeviceService interface {
+	// GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
+	//
+	// The following errors may be returned:
+	// - [coreerrors.NotValid] when the machine uuid is not valid.
+	// - [machineerrors.MachineNotFound] when the machine is not found.
+	// - [machineerrors.MachineIsDead] when the machine is dead.
 	GetBlockDevicesForMachine(
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 
 	// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+	//
+	// The following errors may be returned:
+	// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
 	GetBlockDevices(
 		ctx context.Context, uuids ...domainblockdevice.BlockDeviceUUID,
 	) ([]domainblockdevice.BlockDeviceDetails, error)
@@ -97,5 +107,12 @@ type StorageService interface {
 
 // ApplicationService defines apis on the application service.
 type ApplicationService interface {
+	// GetUnitMachineName gets the name of the unit's machine.
+	//
+	// The following errors may be returned:
+	//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+	//     machine assigned.
+	//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+	//   - [applicationerrors.UnitIsDead] if the unit is dead.
 	GetUnitMachineName(ctx context.Context, unitName unit.Name) (machine.Name, error)
 }
