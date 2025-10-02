@@ -451,7 +451,6 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 	details relation.RelationDetails,
 ) error {
 	// Relation key is derived from the endpoint identifiers.
-	var identifiers []corerelation.EndpointIdentifier
 	var synthEndpoint relation.Endpoint
 	var otherEndpointName string
 	for _, e := range details.Endpoints {
@@ -460,8 +459,6 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 		} else {
 			otherEndpointName = e.Name
 		}
-
-		identifiers = append(identifiers, e.EndpointIdentifier())
 	}
 
 	// If the relation does not have an endpoint for either the local
@@ -470,27 +467,18 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 		return errors.NotValidf("relation %v does not have endpoints for local application %q and remote application", details.UUID, w.applicationName)
 	}
 
-	// Create the relation key from the endpoint identifiers, this will verify
-	// that the identifiers are of valid length and content.
-	key, err := corerelation.NewKey(identifiers)
-	if err != nil {
-		return errors.Errorf("generating relation key: %v", err)
-	}
-
 	// We have not seen the relation before, or the relation was suspended, make
 	// sure it is registered (ack'd) on the offering side.
-	applicationTag := names.NewApplicationTag(w.applicationName)
-	relationTag := names.NewRelationTag(key.String())
 	remoteRelation, err := w.registerRemoteRelation(
 		ctx,
-		applicationTag, relationTag, w.offerUUID, w.consumeVersion,
+		details.UUID, w.offerUUID, w.consumeVersion,
 		synthEndpoint, otherEndpointName,
 	)
 	if err != nil {
 		w.checkOfferPermissionDenied(ctx, err, "", "")
-		return errors.Annotatef(err, "registering application %v and relation %v", w.applicationName, relationTag.Id())
+		return errors.Annotatef(err, "registering application %q and relation %q", w.applicationName, details.UUID)
 	}
-	w.logger.Debugf(ctx, "remote relation registered for %q: %v", details.UUID, remoteRelation)
+	w.logger.Debugf(ctx, "consumer relation registered for %q: %v", details.UUID, remoteRelation)
 
 	_ = remoteRelation
 
@@ -499,24 +487,17 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 
 func (w *remoteApplicationWorker) registerRemoteRelation(
 	ctx context.Context,
-	applicationTag, relationTag names.Tag, offerUUID string, consumeVersion int,
+	relationUUID corerelation.UUID, offerUUID string, consumeVersion int,
 	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,
 ) (remoteRelationResult, error) {
-	w.logger.Debugf(ctx, "register remote relation %v to local application %v", relationTag.Id(), applicationTag.Id())
-
-	// Ensure the relation is exported first up.
-	localApplicationToken, localRelationToken, err := w.crossModelService.ExportApplicationAndRelationToken(ctx, applicationTag, relationTag)
-	if err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return remoteRelationResult{}, errors.Annotatef(err,
-			"exporting relation %v and application %v", relationTag, applicationTag)
-	}
+	w.logger.Debugf(ctx, "register consumer relation %q to synthetic offerer application %q", relationUUID, w.applicationName)
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken: localApplicationToken,
+		ApplicationToken: w.applicationUUID.String(),
 		SourceModelTag:   names.NewModelTag(w.localModelUUID.String()).String(),
-		RelationToken:    localRelationToken,
+		RelationToken:    relationUUID.String(),
 		OfferUUID:        offerUUID,
 		RemoteEndpoint: params.RemoteEndpoint{
 			Name:      applicationEndpointIdent.Name,
@@ -542,40 +523,37 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// a raw access.
 	remoteRelation := remoteRelations[0]
 	if err := remoteRelation.Error; err != nil {
-		return remoteRelationResult{}, errors.Annotatef(err, "registering relation %v", relationTag)
+		return remoteRelationResult{}, errors.Annotatef(err, "registering relation %q", relationUUID)
 	}
 
 	// Import the application UUID from the offering model.
 	registerResult := *remoteRelation.Result
-	offeringAppToken := registerResult.Token
+
+	// The register result token is always a UUID. This is the case for 3.x
+	// and onwards. This should ensure that we're backwards compatible with
+	// anything that the remote model is running.
+	//
+	// See: https://github.com/juju/juju/blob/43e381811d9e330ee2d095c1e0562300bd78b68a/state/remoteentities.go#L110-L115
+	offeringAppUUID, err := application.ParseID(registerResult.Token)
+	if err != nil {
+		return remoteRelationResult{}, errors.Annotatef(err, "parsing offering application token %q", registerResult.Token)
+	}
 
 	// We have a new macaroon attenuated to the relation.
 	// Save for the firewaller.
-	if err := w.crossModelService.SaveMacaroonForRelation(ctx, relationTag, registerResult.Macaroon); err != nil {
-		return remoteRelationResult{}, errors.Annotatef(err, "saving macaroon for %v", relationTag)
+	if err := w.crossModelService.SaveMacaroonForRelation(ctx, relationUUID, registerResult.Macaroon); err != nil {
+		return remoteRelationResult{}, errors.Annotatef(err, "saving macaroon for %q", relationUUID)
 	}
 
-	appTag := names.NewApplicationTag(w.applicationName)
-	w.logger.Debugf(ctx, "import remote application token %v for %v", offeringAppToken, w.applicationName)
-
-	err = w.crossModelService.ImportRemoteApplicationToken(ctx, appTag, offeringAppToken)
-	if err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return remoteRelationResult{}, errors.Annotatef(err,
-			"importing remote application %v to local model", w.applicationName)
-	}
 	return remoteRelationResult{
-		localApplicationToken: localApplicationToken,
-		offeringAppToken:      offeringAppToken,
-		localRelationToken:    localRelationToken,
-		macaroon:              registerResult.Macaroon,
+		offeringApplicationUUID: offeringAppUUID,
+		macaroon:                registerResult.Macaroon,
 	}, nil
 }
 
 type remoteRelationResult struct {
-	localApplicationToken string
-	offeringAppToken      string
-	localRelationToken    string
-	macaroon              *macaroon.Macaroon
+	offeringApplicationUUID application.UUID
+	macaroon                *macaroon.Macaroon
 }
 
 // isNotFound allows either type of not found error

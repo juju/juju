@@ -6,12 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
+	corerelation "github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -173,21 +173,9 @@ func (s *Service) ConsumeRemoteSecretChanges(context.Context) error {
 	return nil
 }
 
-// ExportApplicationAndRelationToken exports the specified entities to the
-// remote model.
-func (s *Service) ExportApplicationAndRelationToken(context.Context, names.Tag, names.Tag) (string, string, error) {
-	return "", "", nil
-}
-
 // SaveMacaroonForRelation saves the given macaroon for the specified remote
 // application.
-func (s *Service) SaveMacaroonForRelation(context.Context, names.Tag, *macaroon.Macaroon) error {
-	return nil
-}
-
-// ImportRemoteApplicationToken imports a remote application token
-// into the local model.
-func (s *Service) ImportRemoteApplicationToken(context.Context, names.Tag, string) error {
+func (s *Service) SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error {
 	return nil
 }
 

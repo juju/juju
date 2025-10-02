@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -121,17 +120,9 @@ type CrossModelRelationService interface {
 	// from a remote model to the local model.
 	ConsumeRemoteSecretChanges(context.Context) error
 
-	// ExportApplicationAndRelationToken exports the specified entities to the
-	// remote model.
-	ExportApplicationAndRelationToken(context.Context, names.Tag, names.Tag) (string, string, error)
-
 	// SaveMacaroonForRelation saves the given macaroon for the specified remote
 	// application.
-	SaveMacaroonForRelation(context.Context, names.Tag, *macaroon.Macaroon) error
-
-	// ImportRemoteApplicationToken imports a remote application token
-	// into the local model.
-	ImportRemoteApplicationToken(context.Context, names.Tag, string) error
+	SaveMacaroonForRelation(context.Context, corerelation.UUID, *macaroon.Macaroon) error
 }
 
 // StatusService is an interface that defines the methods for
