@@ -52,17 +52,6 @@ func (k *kubernetesClient) createDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSe
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) getDaemonSet(name string) (*apps.DaemonSet, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	out, err := k.client().AppsV1().DaemonSets(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("daemon set %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
 func (k *kubernetesClient) updateDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSet, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace

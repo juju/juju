@@ -3894,7 +3894,7 @@ func (s *applicationSuite) TestReconcileStorage(c *gc.C) {
 	s.applier.EXPECT().Apply(newStatefulset)
 	s.applier.EXPECT().Run(gomock.Any(), false).Return(nil)
 
-	err = app.ReconcileStorage(filesystems)
+	err = app.ReconcileStorage(filesystems, "appuuid")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3976,7 +3976,7 @@ func (s *applicationSuite) TestReconcileStorageNoChangeInFilesystem(c *gc.C) {
 		}, metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.ReconcileStorage(filesystems)
+	err = app.ReconcileStorage(filesystems, "appuuid")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

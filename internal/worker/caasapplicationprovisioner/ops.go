@@ -224,6 +224,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		// This is useful when a statefulset is deleted due to a storage update, and we want
 		// to retain the scale when reapplying the statefulset.
 		ProvisionedAppScale: provisionInfo.Scale,
+		StorageUniqueID:     provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -771,7 +772,7 @@ func reconcileApplicationStorage(appName string, app caas.Application, facade CA
 		return errors.Trace(err)
 	}
 
-	return app.ReconcileStorage(info.Filesystems)
+	return app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
 }
 
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
@@ -802,13 +803,13 @@ func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTar
 	logger.Infof("scaling application %q to desired scale %d", appName, scaleTarget)
 
 	// Get filesystem provisioning info.
-	info, err := facade.FilesystemProvisioningInfo(appName)
+	fileSystemInfo, err := facade.FilesystemProvisioningInfo(appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+	if err := app.EnsurePVCs(fileSystemInfo.Filesystems, fileSystemInfo.FilesystemUnitAttachments, fileSystemInfo.StorageUniqueID); err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)
