@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -284,20 +285,21 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
 		exists := true
-		ss, getErr := a.getStatefulSet()
+		_, getErr := a.getStatefulSet()
 		if errors.IsNotFound(getErr) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return ss, getErr
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+
 		var numPods *int32
-		if !exists {
+		// The statefulset for this application is deleted (due to a storage directive update)
+		// and the pods (orphaned) are running. We want to recreate the statefulset with the
+		// same number of replicas.
+		if !exists && config.ProvisionedAppScale > 0 {
+			numPods = pointer.Int32(int32(config.ProvisionedAppScale))
+			// Otherwise pick config.InitialScale.
+		} else if !exists {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 
@@ -307,7 +309,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Replicas: numPods,
@@ -328,7 +330,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
 
 		if err = configureStorage(
-			storageUniqueID,
+			config.StorageUniqueID,
 			func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
 				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
 					return nil, errors.Trace(err)
@@ -346,15 +348,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
-		d, getErr := a.getDeployment()
+		_, getErr := a.getDeployment()
 		if errors.IsNotFound(getErr) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
 		}
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return d, getErr
-		})
+
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -363,7 +363,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -373,7 +373,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: numPods,
@@ -393,14 +393,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		applier.Apply(deployment)
 	case caas.DeploymentDaemon:
-		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return a.getDaemonSet()
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 		ds := &appsv1.DaemonSet{
@@ -409,7 +403,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
@@ -880,16 +874,16 @@ func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 	return ss, nil
 }
 
-func (a *app) getDeployment() (*resources.Deployment, error) {
-	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
-	if err := ss.Get(context.Background()); err != nil {
+func (a *app) getStatefulSetWithOrphanDelete() (*resources.StatefulSetWithOrphanDelete, error) {
+	ss, err := a.getStatefulSet()
+	if err != nil {
 		return nil, err
 	}
-	return ss, nil
+	return resources.NewStatefulSetWithOrphanDelete(ss), nil
 }
 
-func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
-	ss := resources.NewDaemonSet(a.client.AppsV1().DaemonSets(a.namespace), a.namespace, a.name, nil)
+func (a *app) getDeployment() (*resources.Deployment, error) {
+	ss := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
 	if err := ss.Get(context.Background()); err != nil {
 		return nil, err
 	}
@@ -2114,22 +2108,6 @@ func (a *app) matchImagePullSecret(name string) bool {
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 
-type annotationGetter interface {
-	GetAnnotations() map[string]string
-}
-
-func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
-	if r, err := getMeta(); err == nil {
-		// TODO: remove this function with existing one once we consolidated the annotation keys.
-		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(a.labelVersion)]; len(uniqID) > 0 {
-			return uniqID, nil
-		}
-	} else if !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	return a.randomPrefix()
-}
-
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handleVolumeMountFunc func(string, corev1.VolumeMount) error
@@ -2378,4 +2356,142 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 		}
 		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
 	}
+}
+
+// ReconcileStorage deletes the existing statefulset with DeletePropagationOrphan policy.
+// It reconciles PVCs and reapplies a new statefulset.
+func (a *app) ReconcileStorage(filesystems []jujustorage.KubernetesFilesystemParams, storageUniqueID string) error {
+	logger.Debugf("reconciling app %q with filesystems %+v", a.name, filesystems)
+	sts, getErr := a.getStatefulSetWithOrphanDelete()
+	if getErr != nil {
+		return errors.Trace(getErr)
+	}
+
+	// The sts object fetched has unnecessary cruft generated by k8s that we don't need.
+	// We mirror app.Ensure() to build a clean StatefulSet object here and copy the relevant
+	// fields we need.
+	newSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        sts.Name,
+			Namespace:   sts.Namespace,
+			Labels:      sts.Labels,
+			Annotations: sts.Annotations,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: sts.Spec.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: sts.Spec.Selector.MatchLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      sts.Spec.Template.ObjectMeta.Labels,
+					Annotations: sts.Spec.Template.ObjectMeta.Annotations,
+				},
+				Spec: sts.Spec.Template.Spec,
+			},
+			PodManagementPolicy: sts.Spec.PodManagementPolicy,
+			ServiceName:         sts.Spec.ServiceName,
+		},
+	}
+	newStatefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, newSts)
+	pvcNames, err := a.pvcNames(storageUniqueID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+
+	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageClassMap := make(map[string]resources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
+	}
+
+	// Map filesystems to a pvc object so that we can add it to volumeClaimTemplate field in the sts.
+	for _, fs := range filesystems {
+		name := a.volumeName(fs.StorageName)
+		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = storage.PushUniqueVolumeClaimTemplate(&newStatefulset.Spec, *pvc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	currentClaims := sts.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
+	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
+	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
+		logger.Debugf("a reconcile for app %q is not needed because there is no change is storage. current claims: %+v, new claims: %+v", a.name, currentClaims, newClaims)
+		return nil
+	}
+
+	applier := a.newApplier()
+	// Orphan delete the sts here.
+	applier.Delete(sts)
+	// Reapply the new sts with the updated pvc.
+	applier.Apply(newStatefulset)
+	return applier.Run(context.Background(), false)
+}
+
+func (a *app) volumeClaimTemplateMatch(currentVolClaims []corev1.PersistentVolumeClaim, newVolClaims []corev1.PersistentVolumeClaim) bool {
+	if len(currentVolClaims) != len(newVolClaims) {
+		return false
+	}
+	slices.SortStableFunc(currentVolClaims, func(a, b corev1.PersistentVolumeClaim) int {
+		if a.Name < b.Name {
+			return -1
+		} else if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+
+	slices.SortStableFunc(newVolClaims, func(a, b corev1.PersistentVolumeClaim) int {
+		if a.Name < b.Name {
+			return -1
+		} else if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+
+	// Go through each claim and check for any changes.
+	for i := 0; i < len(currentVolClaims); i++ {
+		currentVolClaim := currentVolClaims[i]
+		newVolClaim := newVolClaims[i]
+		nameChange := currentVolClaim.Name != newVolClaim.Name
+		if nameChange {
+			return false
+		}
+
+		storageClassNameChange := (currentVolClaim.Spec.StorageClassName == nil) != (newVolClaim.Spec.StorageClassName == nil) ||
+			(currentVolClaim.Spec.StorageClassName != nil && newVolClaim.Spec.StorageClassName != nil &&
+				*currentVolClaim.Spec.StorageClassName != *newVolClaim.Spec.StorageClassName)
+		if storageClassNameChange {
+			return false
+		}
+
+		slices.Sort(currentVolClaim.Spec.AccessModes)
+		slices.Sort(newVolClaim.Spec.AccessModes)
+		accessModesChange := !slices.Equal(currentVolClaim.Spec.AccessModes, newVolClaim.Spec.AccessModes)
+		if accessModesChange {
+			return false
+		}
+
+		currentQuantity := currentVolClaim.Spec.Resources.Requests.Storage()
+		newQuantity := newVolClaim.Spec.Resources.Requests.Storage()
+		sizeChange := (currentQuantity == nil) != (newQuantity == nil) ||
+			(currentQuantity != nil && newQuantity != nil && !currentQuantity.Equal(*newQuantity))
+		if sizeChange {
+			return false
+		}
+	}
+
+	return true
 }

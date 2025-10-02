@@ -113,6 +113,20 @@ func (mr *MockApplicationOpsMockRecorder) EnsureTrust(arg0, arg1, arg2, arg3 any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureTrust", reflect.TypeOf((*MockApplicationOps)(nil).EnsureTrust), arg0, arg1, arg2, arg3)
 }
 
+// ReconcileApplicationStorage mocks base method.
+func (m *MockApplicationOps) ReconcileApplicationStorage(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReconcileApplicationStorage", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReconcileApplicationStorage indicates an expected call of ReconcileApplicationStorage.
+func (mr *MockApplicationOpsMockRecorder) ReconcileApplicationStorage(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileApplicationStorage", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileApplicationStorage), arg0, arg1, arg2, arg3)
+}
+
 // ReconcileDeadUnitScale mocks base method.
 func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 string, arg1 caas.Application, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()

@@ -187,16 +187,26 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q units changes", a.name)
 	}
 
+	var storageConstraintsWatcher watcher.NotifyWatcher
+	storageConstraintsWatcher, err = a.facade.WatchStorageConstraints(a.name)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q storage constraints watcher", a.name)
+	}
+	if err := a.catacomb.Add(storageConstraintsWatcher); err != nil {
+		return errors.Annotatef(err, "failed to watch for application %q storage constraints changes", a.name)
+	}
+
 	done := false
 
 	var (
-		initial             = true
-		scaleChan           <-chan time.Time
-		scaleTries          int
-		trustChan           <-chan time.Time
-		trustTries          int
-		reconcileDeadChan   <-chan time.Time
-		stateAppChangedChan <-chan time.Time
+		initial                = true
+		scaleChan              <-chan time.Time
+		scaleTries             int
+		trustChan              <-chan time.Time
+		trustTries             int
+		reconcileDeadChan      <-chan time.Time
+		stateAppChangedChan    <-chan time.Time
+		storageConstraintsChan <-chan time.Time
 	)
 	const (
 		maxRetries = 20
@@ -418,6 +428,30 @@ func (a *appWorker) loop() error {
 			lastReportedStatus, err = a.ops.UpdateState(a.name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
+			}
+		case _, ok := <-storageConstraintsWatcher.Changes():
+			if !ok {
+				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
+			}
+			if storageConstraintsChan == nil {
+				storageConstraintsChan = a.clock.After(0)
+			}
+			shouldRefresh = false
+		case <-storageConstraintsChan:
+			if a.statusOnly {
+				storageConstraintsChan = nil
+				break
+			}
+			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, a.logger)
+			if err != nil {
+				// The statefulset is yet to be created so we retry again.
+				if errors.Is(err, errors.NotFound) {
+					storageConstraintsChan = a.clock.After(retryDelay)
+				} else {
+					return errors.Trace(err)
+				}
+			} else {
+				storageConstraintsChan = nil
 			}
 		case <-a.clock.After(10 * time.Second):
 			// Force refresh of application status.

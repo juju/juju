@@ -58,6 +58,8 @@ type ApplicationOps interface {
 
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
+
+	ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
 }
 
 type applicationOps struct {
@@ -116,6 +118,10 @@ func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Applicatio
 func (applicationOps) EnsureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
+}
+
+func (applicationOps) ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	return reconcileApplicationStorage(appName, app, facade, logger)
 }
 
 type Tomb interface {
@@ -214,6 +220,11 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
 		InitialScale: 0,
+		// To indicate the scale number of an application while the statefulset is reapplied.
+		// This is useful when a statefulset is deleted due to a storage update, and we want
+		// to retain the scale when reapplying the statefulset.
+		ProvisionedAppScale: provisionInfo.Scale,
+		StorageUniqueID:     provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -752,6 +763,18 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	return nil
 }
 
+func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	logger.Debugf("reconciling application %q storage", appName)
+
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
+}
+
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
 	facade CAASProvisionerFacade, logger Logger) error {
 	logger.Tracef("updating application %q status to %q, %q, %v", appName, s, reason, data)
@@ -780,13 +803,13 @@ func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTar
 	logger.Infof("scaling application %q to desired scale %d", appName, scaleTarget)
 
 	// Get filesystem provisioning info.
-	info, err := facade.FilesystemProvisioningInfo(appName)
+	fileSystemInfo, err := facade.FilesystemProvisioningInfo(appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Ensure PVCs exist.
-	if err := app.EnsurePVCs(info.Filesystems, info.FilesystemUnitAttachments); err != nil {
+	if err := app.EnsurePVCs(fileSystemInfo.Filesystems, fileSystemInfo.FilesystemUnitAttachments, fileSystemInfo.StorageUniqueID); err != nil {
 		return err
 	}
 	return app.Scale(scaleTarget)

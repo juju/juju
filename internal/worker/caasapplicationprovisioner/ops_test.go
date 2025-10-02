@@ -530,8 +530,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
 		facade.EXPECT().Life("test/2").Return(life.Dead, nil),  // >= target and dead
 		facade.EXPECT().Life("test/3").Return(life.Dead, nil),  // >= target and dead
 		// All excess units (2,3) are dead - scaling should proceed
-		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{StorageUniqueID: "uniqueid"}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(nil),
 		app.EXPECT().Scale(2).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
 		facade.EXPECT().RemoveUnit("test/2").Return(nil),
@@ -690,6 +690,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
 			Size:        100,
 			Provider:    storage.ProviderType("kubernetes"),
 		}},
+		StorageUniqueID: "uniqueid",
 	}
 
 	gomock.InOrder(
@@ -698,7 +699,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
 		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
 		facade.EXPECT().Units("test").Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(nil),
 		app.EXPECT().Scale(2).Return(nil),
 		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{}).Return(nil),
 	)
@@ -730,6 +731,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
 			Size:        100,
 			Provider:    storage.ProviderType("kubernetes"),
 		}},
+		StorageUniqueID: "uniqueid",
 	}
 
 	gomock.InOrder(
@@ -738,7 +740,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
 		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
 		facade.EXPECT().Units("test").Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(errors.New("PVC creation failed")),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(errors.New("PVC creation failed")),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
@@ -854,10 +856,11 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
-		Devices:      []devices.KubernetesDeviceParams{},
-		Trust:        true,
-		InitialScale: 0,
-		CharmUser:    caas.RunAsDefault,
+		Devices:             []devices.KubernetesDeviceParams{},
+		Trust:               true,
+		InitialScale:        0,
+		CharmUser:           caas.RunAsDefault,
+		ProvisionedAppScale: 10,
 	}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
@@ -887,8 +890,8 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 0}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
-		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any()).Return(nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{StorageUniqueID: "uniqueid"}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
 		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: false, ScaleTarget: 0}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
@@ -925,6 +928,42 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 
 	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
+	provisioningInfo := api.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    storage.ProviderType("kubernetes"),
+		}},
+		StorageUniqueID: "uniqueid",
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
+	app.EXPECT().ReconcileStorage(provisioningInfo.Filesystems, provisioningInfo.StorageUniqueID).Return(nil)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileApplicationStorageError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, errors.New("something went wrong"))
+
+	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
 
 func intPtr(i int) *int {

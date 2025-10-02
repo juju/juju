@@ -90,6 +90,15 @@ active_condition() {
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
+error_condition() {
+	local name app_index
+
+	name=${1}
+	app_index=${2:-0}
+
+	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"error\") | keys[$app_index]"
+}
+
 # not_idle_list should be used where you expect an arbitrary list of applications whose agent-status are not in idle state,
 # ideally applications in a bundle, this helps the tests to avoid being overly specific to a given number of applications.
 # e.g. wait_for 0 "$(not_idle_list) | length" 1800

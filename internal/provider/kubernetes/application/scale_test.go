@@ -18,7 +18,7 @@ import (
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", true, func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
@@ -32,7 +32,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", true, func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
@@ -46,14 +46,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", true, func() {})
 
 	c.Assert(errors.IsNotValid(app.Scale(-1)), jc.IsTrue)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", true, func() {})
 
 	c.Assert(app.Scale(3), jc.ErrorIsNil)
 
@@ -68,7 +68,7 @@ func (s *applicationSuite) TestCurrentScale(c *gc.C) {
 
 func (s *applicationSuite) TestEnsurePVCs(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", true, func() {})
 
 	// Test EnsurePVCs with filesystem params and unit attachments
 	filesystems := []storage.KubernetesFilesystemParams{
@@ -89,7 +89,7 @@ func (s *applicationSuite) TestEnsurePVCs(c *gc.C) {
 		},
 	}
 
-	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments)
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqueid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify PVC was created
@@ -99,5 +99,5 @@ func (s *applicationSuite) TestEnsurePVCs(c *gc.C) {
 
 	pvc := pvcList.Items[0]
 	c.Assert(pvc.Spec.VolumeName, gc.Equals, "test-volume-id")
-	c.Assert(pvc.Name, gc.Matches, "gitlab-database-.*-gitlab-0")
+	c.Assert(pvc.Name, gc.Matches, "gitlab-database-uniqueid-gitlab-0")
 }

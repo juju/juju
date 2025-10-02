@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
 	"github.com/juju/juju/core/status"
@@ -27,6 +28,14 @@ type StatefulSet struct {
 	appsv1.StatefulSet
 }
 
+// StatefulSetWithOrphanDelete is a wrapper around [StatefulSet] that overrides
+// the [StatefulSet.Delete] method to use DeletePropagationOrphan.
+type StatefulSetWithOrphanDelete struct {
+	*StatefulSet
+	interval time.Duration
+	timeout  time.Duration
+}
+
 // NewStatefulSet creates a new statefulset resource.
 func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name string, in *appsv1.StatefulSet) *StatefulSet {
 	if in == nil {
@@ -35,6 +44,10 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	in.SetName(name)
 	in.SetNamespace(namespace)
 	return &StatefulSet{client, *in}
+}
+
+func NewStatefulSetWithOrphanDelete(ss *StatefulSet) *StatefulSetWithOrphanDelete {
+	return &StatefulSetWithOrphanDelete{StatefulSet: ss, interval: 1 * time.Second, timeout: 30 * time.Second}
 }
 
 // Clone returns a copy of the resource.
@@ -126,6 +139,27 @@ func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string
 		return "", status.Active, now, nil
 	}
 	return "", status.Waiting, now, nil
+}
+
+func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
+	err := s.client.Delete(ctx, s.Name, metav1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DeletePropagationOrphan(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return errors.NewNotFound(err, "k8s statefulset for deletion")
+	}
+	// K8s doesn't delete the sts immediately. Block until it's deleted.
+	err = wait.PollUntilContextTimeout(ctx, s.interval, s.timeout, true, func(ctx context.Context) (done bool, err error) {
+		logger.Debugf("waiting until sts %q is deleted", s.Name)
+		getErr := s.Get(ctx)
+		if errors.Is(getErr, errors.NotFound) {
+			return true, nil
+		} else if getErr != nil {
+			return false, getErr
+		}
+		return false, nil
+	})
+	return errors.Trace(err)
 }
 
 // ListStatefulSets returns a list of statefulsets.
