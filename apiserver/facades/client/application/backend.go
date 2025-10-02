@@ -119,8 +119,8 @@ type Application interface {
 	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
 	Relations() ([]Relation, error)
-	StorageDirectives() (map[string]state.StorageDirectives, error)
-	UpdateStorageDirectives(map[string]state.StorageDirectives) error
+	StorageDirectives() (map[string]state.StorageConstraints, error)
+	UpdateStorageDirectives(map[string]state.StorageConstraints) error
 }
 
 // Bindings defines a subset of the functionality provided by the

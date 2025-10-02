@@ -899,7 +899,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageDirectives) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)

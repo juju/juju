@@ -803,7 +803,7 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 				Name: "storage-block",
 				URL:  "ch:quantal/storage-block-1",
 			}),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
 		}),
@@ -927,7 +927,7 @@ func (s *ModelSuite) assertDestroyModelPersistentStorage(c *gc.C, force *bool) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
 		}),
@@ -957,7 +957,7 @@ func (s *ModelSuite) TestDestroyModelNonPersistentStorage(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "loop"},
 			},
 		}),
@@ -981,7 +981,7 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped"},
 			},
 		}),
@@ -1009,7 +1009,7 @@ func (s *ModelSuite) assertDestroyModelReleaseStorageUnreleasable(c *gc.C, force
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
-			Storage: map[string]state.StorageDirectives{
+			Storage: map[string]state.StorageConstraints{
 				"data": {Count: 1, Size: 1024, Pool: "modelscoped-unreleasable"},
 			},
 		}),

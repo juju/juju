@@ -1221,16 +1221,15 @@ func paramsFromDeployFromRepositoryArg(arg DeployFromRepositoryArg) params.Deplo
 	}
 }
 
-// ApplicationStorageDirectives contains the storage information for an application.
+// ApplicationStorageDirectives contains the storage directives for an application.
 type ApplicationStorageDirectives struct {
 	// StorageDirectives is a map of storage names to storage directives to
-	// update during the upgrade. This field is only understood by Application
-	// facade version 2 and greater.
+	// update. This field is only understood by Application facade version 22 and greater.
 	StorageDirectives map[string]storage.Constraints
 }
 
 // GetApplicationStorage retrieves storage information for the specified applications.
-func (c *Client) GetApplicationStorage(applicationName string) (ApplicationStorageDirectives, error) {
+func (c *Client) GetApplicationStorageDirectives(applicationName string) (ApplicationStorageDirectives, error) {
 	application := names.NewApplicationTag(applicationName)
 	in := params.Entities{Entities: []params.Entity{{Tag: application.String()}}}
 	var out params.ApplicationStorageGetResults
@@ -1273,13 +1272,12 @@ type ApplicationStorageUpdate struct {
 	ApplicationTag names.ApplicationTag
 
 	// StorageDirectives is a map of storage names to storage directives to
-	// update during the upgrade. This field is only understood by Application
-	// facade version 2 and greater.
+	// update. This field is only understood by Application facade version 22 and greater.
 	StorageDirectives map[string]storage.Constraints
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
-func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationStorageUpdate) error {
+func (c *Client) UpdateApplicationStorageDirectives(applicationStorageUpdate ApplicationStorageUpdate) error {
 	sd := make(map[string]params.StorageConstraints)
 	for k, v := range applicationStorageUpdate.StorageDirectives {
 		sd[k] = params.StorageConstraints{

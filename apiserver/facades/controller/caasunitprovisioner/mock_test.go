@@ -203,8 +203,8 @@ func (a *mockApplication) CharmModifiedVersion() int {
 	return 888
 }
 
-func (a *mockApplication) StorageDirectives() (map[string]state.StorageDirectives, error) {
-	return map[string]state.StorageDirectives{
+func (a *mockApplication) StorageDirectives() (map[string]state.StorageConstraints, error) {
+	return map[string]state.StorageConstraints{
 		"data": {
 			Size:  100,
 			Count: 1,

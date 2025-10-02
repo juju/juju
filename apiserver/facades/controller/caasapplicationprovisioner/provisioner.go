@@ -724,7 +724,7 @@ func (a *API) applicationFilesystemParams(
 
 func filesystemParams(
 	app Application,
-	cons state.StorageDirectives,
+	cons state.StorageConstraints,
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,

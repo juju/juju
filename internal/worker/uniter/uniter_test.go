@@ -1447,7 +1447,7 @@ storage:
 `[1:])
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	storageConstraints := map[string]state.StorageDirectives{
+	storageConstraints := map[string]state.StorageConstraints{
 		"wp-content": {Count: 1},
 	}
 	s.runUniterTests(c, []uniterTest{

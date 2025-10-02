@@ -58,7 +58,7 @@ type Application interface {
 	AllUnits() ([]Unit, error)
 	GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
-	StorageDirectives() (map[string]state.StorageDirectives, error)
+	StorageDirectives() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string
 	Constraints() (constraints.Value, error)

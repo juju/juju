@@ -1205,7 +1205,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{},
-		Storage:          map[string]state.StorageDirectives{},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
@@ -1330,7 +1330,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{"foo-resource": "3"},
-		Storage:          map[string]state.StorageDirectives{},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
 
@@ -1421,7 +1421,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 		NumUnits:         1,
 		Placement:        []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 		Resources:        map[string]string{"foo-resource": "3"},
-		Storage:          map[string]state.StorageDirectives{},
+		Storage:          map[string]state.StorageConstraints{},
 	}
 
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"})

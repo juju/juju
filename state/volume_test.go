@@ -84,7 +84,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 
 func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	testStorage := map[string]state.StorageDirectives{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -100,7 +100,7 @@ func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	testStorage := map[string]state.StorageDirectives{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -114,7 +114,7 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]state.StorageDirectives{
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
 			Pool:  "loop",
 			Size:  1024,
@@ -142,13 +142,13 @@ func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "storage-block")
-	testStorage := map[string]state.StorageDirectives{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, testStorage)
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]state.StorageDirectives{
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
 			Pool:  "default-block",
 			Size:  1024,

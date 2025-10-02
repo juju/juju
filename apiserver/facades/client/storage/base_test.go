@@ -287,7 +287,7 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			s.stub.AddCall(allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageDirectives) ([]names.StorageTag, error) {
+		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 			s.stub.AddCall(addStorageForUnitCall)
 			return nil, nil
 		},

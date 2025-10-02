@@ -40,7 +40,7 @@ func (s *FilesystemCAASModelSuite) SetUpTest(c *gc.C) {
 
 func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
 	_, err := s.st.AddApplication(state.AddApplicationArgs{
@@ -99,7 +99,7 @@ func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultBlock(c *gc.C)
 
 func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPool string, numUnits int) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
 
@@ -117,7 +117,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageDirectives()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]state.StorageDirectives{
+	expected := map[string]state.StorageConstraints{
 		"data": {
 			Pool:  expectedPool,
 			Size:  1024,
@@ -125,7 +125,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 		},
 	}
 	if s.series == "kubernetes" {
-		expected["cache"] = state.StorageDirectives{Count: 0, Size: 1024, Pool: expectedPool}
+		expected["cache"] = state.StorageConstraints{Count: 0, Size: 1024, Pool: expectedPool}
 	}
 	c.Assert(cons, jc.DeepEquals, expected)
 
@@ -275,7 +275,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	state.StorageAttachment,
 ) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
 	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
@@ -610,7 +610,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 
 func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
@@ -682,7 +682,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 
 func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
@@ -1420,7 +1420,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 		CountMax: countMax,
 		Location: location,
 	}, s.series)
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
@@ -1459,7 +1459,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storage := map[string]state.StorageDirectives{
+	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
