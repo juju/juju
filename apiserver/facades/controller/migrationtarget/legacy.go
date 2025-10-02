@@ -16,7 +16,7 @@ import (
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 // It adapts incoming model info which uses an owner name to use a model qualifier.
-func (api *APIV5) Prechecks(ctx context.Context, model params.MigrationModelInfoLegacy) error {
+func (api *APIV6) Prechecks(ctx context.Context, model params.MigrationModelInfoLegacy) error {
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Errorf("cannot parse model %q owner during prechecks: %w", model.UUID, err)

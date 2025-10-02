@@ -76,7 +76,7 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 		versions[name] = version
 	}
 
-	if c.BestFacadeVersion() < 6 {
+	if c.BestFacadeVersion() < 7 {
 		owner, err := params.ApproximateUserTagFromQualifier(model.Qualifier)
 		if err != nil {
 			return errors.Trace(err)
