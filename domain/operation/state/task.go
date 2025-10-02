@@ -242,7 +242,7 @@ func (st *State) FinishTask(ctx context.Context, task internal.CompletedTask) er
 			return errors.Capture(err)
 		}
 
-		if err := st.insertOperationTaskOutputIfAny(ctx, tx, task.TaskUUID, task.StoreUUID); err != nil {
+		if err := st.insertOperationTaskOutputIfAny(ctx, tx, task.TaskUUID, task.StorePath); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -299,16 +299,16 @@ WHERE task_uuid = $taskStatus.task_uuid
 func (st *State) insertOperationTaskOutputIfAny(
 	ctx context.Context,
 	tx *sqlair.TX,
-	taskUUID, storeUUID string,
+	taskUUID, storePath string,
 ) error {
 	// If the task failed, there may not be output saved.
-	if storeUUID == "" {
+	if storePath == "" {
 		return nil
 	}
 
 	store := outputStore{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 	}
 
 	stmt, err := st.Prepare(`
@@ -557,7 +557,7 @@ SELECT DISTINCT
     t.completed_at AS &taskResult.completed_at,
     sv.status AS &taskResult.status,
     ts.message AS &taskResult.message,
-    os.path AS &taskResult.path
+    oto.store_path AS &taskResult.path
 FROM operation_task t
 JOIN operation o ON t.operation_uuid = o.uuid
 LEFT JOIN operation_unit_task ut ON t.uuid = ut.task_uuid
@@ -568,7 +568,6 @@ JOIN operation_task_status ts ON t.uuid = ts.task_uuid
 JOIN operation_task_status_value sv ON ts.status_id = sv.id
 LEFT JOIN operation_action oa ON o.uuid = oa.operation_uuid
 LEFT JOIN operation_task_output oto ON t.uuid = oto.task_uuid
-LEFT JOIN v_object_store_metadata os ON oto.store_uuid = os.uuid
 `
 
 // getOperationTasks retrieves all tasks for the given operation UUIDs,

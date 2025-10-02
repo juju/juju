@@ -47,7 +47,7 @@ func (s *Service) FinishTask(ctx context.Context, result operation.CompletedTask
 		return errors.Capture(err)
 	}
 
-	storeUUID, removeResultsFromStore, err := s.storeTaskResults(ctx, taskUUID, result.Results)
+	storePath, removeResultsFromStore, err := s.storeTaskResults(ctx, taskUUID, result.Results)
 	if err != nil {
 		return errors.Errorf("putting task result %q in store: %w", result.TaskID, err)
 	}
@@ -60,13 +60,16 @@ func (s *Service) FinishTask(ctx context.Context, result operation.CompletedTask
 
 	err = s.st.FinishTask(ctx, internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 		Status:    result.Status,
 		Message:   result.Message,
 	})
 	return errors.Capture(err)
 }
 
+// storeTaskResults stores the results of a task in the object store. It returns
+// the path used to store the results and a function to remove the results from
+// the store.
 func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results map[string]interface{}) (string, func(), error) {
 	if len(results) == 0 {
 		return "", nil, nil
@@ -85,9 +88,9 @@ func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results
 
 	size := int64(len(object))
 	reader := strings.NewReader(string(object))
-	storeUUID, err := store.Put(
+	_, err = store.Put(
 		ctx,
-		taskUUID,
+		taskUUID, // used as the path in the object store
 		reader,
 		size,
 	)
@@ -102,7 +105,7 @@ func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results
 		}
 	}
 
-	return storeUUID.String(), removeResultsFromStore, nil
+	return taskUUID, removeResultsFromStore, nil
 }
 
 // GetReceiverFromTaskID returns a receiver string for the task identified.

@@ -95,10 +95,10 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 					}
 				}
 
-				err = st.insertOperationTaskOutputIfAny(ctx, tx, task.UUID, task.StoreUUID)
+				err = st.insertOperationTaskOutputIfAny(ctx, tx, task.UUID, task.StorePath)
 				if err != nil {
 					return errors.Errorf("inserting task %q output store %q at operation %q: %w",
-						task.ID, task.StoreUUID, ops.ID, err)
+						task.ID, task.StorePath, ops.ID, err)
 				}
 
 				err = st.insertOperationTaskStatus(ctx, tx, task.UUID, task.Status)

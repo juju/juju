@@ -29,7 +29,7 @@ func (t TaskLogMessage) TransformToCore() coreoperation.TaskLogMessage {
 // CompletedTask is the data required to finish a task.
 type CompletedTask struct {
 	TaskUUID  string
-	StoreUUID string
+	StorePath string
 	Status    string
 	Message   string
 }
@@ -78,7 +78,7 @@ type ImportTaskArg struct {
 	MachineName machine.Name
 
 	// Generated in service layer
-	StoreUUID string
+	StorePath string
 
 	// Future: optional UUID; empty -> generate.
 	UUID string

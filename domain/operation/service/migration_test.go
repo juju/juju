@@ -192,10 +192,10 @@ func (s *migrationSuite) TestImportOperationsStoresTaskResultsAndSetsStoreUUIDs(
 			c.Check(got[0].Tasks[0].UUID, tc.Equals, "t-uuid-1")
 			c.Check(got[0].Tasks[1].UUID, tc.Equals, "t-uuid-2")
 			c.Assert(got[0].Tasks[2].UUID == "", tc.IsFalse)
-			// StoreUUID should be set only for tasks with outputs.
-			c.Check(got[0].Tasks[0].StoreUUID, tc.Equals, "store-uuid-1")
-			c.Check(got[0].Tasks[1].StoreUUID, tc.Equals, "store-uuid-2")
-			c.Check(got[0].Tasks[2].StoreUUID, tc.Equals, "")
+			// StorePath is always the taskUUID, when results are stored, and empty otherwise.
+			c.Check(got[0].Tasks[0].StorePath, tc.Equals, "t-uuid-1")
+			c.Check(got[0].Tasks[1].StorePath, tc.Equals, "t-uuid-2")
+			c.Check(got[0].Tasks[2].StorePath, tc.Equals, "")
 			return nil
 		},
 	)

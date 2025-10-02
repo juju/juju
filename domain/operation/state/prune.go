@@ -246,32 +246,50 @@ func (st *State) computeObjectStoreSize(ctx context.Context, tx *sqlair.TX, size
 	type result struct {
 		Size int `db:"size"`
 	}
-	stmt, err := st.Prepare(`
+	// Size of the operation_task_output table.
+	stmtSizeOutputTable, err := st.Prepare(`
+SELECT COALESCE(SUM(
+    octet_length(oto.task_uuid) +
+    octet_length(oto.store_path) +
+    octet_length(osm.path) +
+    octet_length(osm.metadata_uuid)              
+),0) AS &result.size
+FROM operation_task_output as oto
+JOIN object_store_metadata_path AS osm ON oto.store_path = osm.path
+`, result{})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	var resOutputTable result
+	if err := tx.Query(ctx, stmtSizeOutputTable).Get(&resOutputTable); err != nil {
+		return 0, errors.Errorf("querying object store size for task content: %w", err)
+	}
+
+	// Get the size of the content related to tasks in the object store.
+	stmtObjectStore, err := st.Prepare(`
 WITH
 uuids AS (
-    SELECT store_uuid 
-    FROM operation_task_output
+    SELECT osmp.metadata_uuid
+    FROM object_store_metadata_path AS osmp
+    JOIN operation_task_output AS oto ON osmp.path = oto.store_path
 )
 SELECT COALESCE(SUM(
-    size +
+    osm.size +
     octet_length(osm.uuid) +
     octet_length(osm.sha_256) +
     octet_length(osm.sha_384) +
-    octet_length(osm.size) +
-    octet_length(osp.path) +
-    octet_length(osp.metadata_uuid)), 0) AS &result.size
-FROM   object_store_metadata AS osm
-LEFT JOIN   object_store_metadata_path AS osp ON osm.uuid = osp.metadata_uuid 
+    octet_length(osm.size)), 0) AS &result.size
+FROM   object_store_metadata AS osm 
 WHERE  uuid IN uuids`, result{})
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
-	var res result
-	if err := tx.Query(ctx, stmt).Get(&res); err != nil {
+	var resObjStore result
+	if err := tx.Query(ctx, stmtObjectStore).Get(&resObjStore); err != nil {
 		return 0, errors.Errorf("querying object store size for task content: %w", err)
 	}
 
-	return roundUp(res.Size, sizeFactor), nil
+	return roundUp(resObjStore.Size+resOutputTable.Size, sizeFactor), nil
 }
 
 // roundUp rounds up the size to the next multiple of sizeFactor.

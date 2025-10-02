@@ -6,8 +6,12 @@ package state
 import (
 	"context"
 	"database/sql"
+	"maps"
+	"slices"
 	"testing"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
 	corestatus "github.com/juju/juju/core/status"
@@ -371,12 +375,12 @@ func (s *taskSuite) TestFinishTaskNotOperation(c *tc.C) {
 	s.addOperationTaskStatus(c, taskUUID, corestatus.Running.String())
 
 	// Setup the object store data to save
-	storeUUID := s.addFakeMetadataStore(c, 4)
-	s.addMetadataStorePath(c, storeUUID, taskUUID)
+	storePath := "store/path"
+	s.linkMetadataStorePath(c, s.addFakeMetadataStore(c, 4), storePath)
 
 	arg := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}
@@ -424,12 +428,12 @@ func (s *taskSuite) TestFinishTaskAndOperation(c *tc.C) {
 	taskUUID := s.addOperationTaskWithID(c, operationUUID, taskID, corestatus.Running.String())
 
 	// Setup the object store data to save
-	storeUUID := s.addFakeMetadataStore(c, 4)
-	s.addMetadataStorePath(c, storeUUID, taskUUID)
+	storePath := "store/path"
+	s.linkMetadataStorePath(c, s.addFakeMetadataStore(c, 4), storePath)
 
 	arg := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID,
+		StorePath: storePath,
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}
@@ -471,6 +475,39 @@ WHERE  task_uuid = ?
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(obtainedTaskMsg, tc.Equals, taskMsg)
+}
+
+// TestGetOperationTasksWithSameStoreMetadata verifies that tasks are not
+// duplicated on fetch when they share the same store metadata.
+func (s *taskSuite) TestGetOperationTasksWithSameStoreMetadata(c *tc.C) {
+	// Arrange
+	operationUUID := s.addOperation(c)
+	taskID1 := "42"
+	taskID2 := "84"
+	taskUUID1 := s.addOperationTaskWithID(c, operationUUID, taskID1, corestatus.Completed.String())
+	taskUUID2 := s.addOperationTaskWithID(c, operationUUID, taskID2, corestatus.Completed.String())
+	storeUUID := s.addFakeMetadataStore(c, 4)
+	// the store metadata is shared by both tasks, as if they output the same datas
+	s.linkMetadataStorePath(c, storeUUID, taskUUID1)
+	s.linkMetadataStorePath(c, storeUUID, taskUUID2)
+	s.linkOperationTaskOutput(c, taskUUID1, taskUUID1)
+	s.linkOperationTaskOutput(c, taskUUID2, taskUUID2)
+
+	// Act
+	var tasks map[string][]taskResult
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		tasks, err = s.state.getOperationTasks(ctx, tx, []string{operationUUID})
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(slices.Collect(maps.Keys(tasks)), tc.SameContents, []string{operationUUID})
+	taskIDs := transform.Slice(tasks[operationUUID], func(f taskResult) string {
+		return f.TaskID
+	})
+	c.Check(taskIDs, tc.SameContents, []string{taskID1, taskID2})
+
 }
 
 func (s *taskSuite) checkTaskStatus(c *tc.C, taskUUID, status string) {

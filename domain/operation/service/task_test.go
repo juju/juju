@@ -13,7 +13,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation"
 	operationerrors "github.com/juju/juju/domain/operation/errors"
@@ -274,14 +273,13 @@ func (s *serviceSuite) TestFinishTask(c *tc.C) {
 	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
 
 	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
-	storeUUID := objectstoretesting.GenObjectStoreUUID(c)
 	inputJSON := `{"foo":"bar"}`
 	reader := strings.NewReader(inputJSON)
-	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return(storeUUID, nil)
+	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return("some-uuid", nil)
 
 	input := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID.String(),
+		StorePath: taskUUID, // store path is the same as task UUID
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}
@@ -456,14 +454,13 @@ func (s *serviceSuite) TestFinishTaskFailState(c *tc.C) {
 	s.state.EXPECT().GetTaskUUIDByID(gomock.Any(), taskID).Return(taskUUID, nil)
 
 	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil)
-	storeUUID := objectstoretesting.GenObjectStoreUUID(c)
 	inputJSON := `{"foo":"bar"}`
 	reader := strings.NewReader(inputJSON)
-	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return(storeUUID, nil)
+	s.mockObjectStore.EXPECT().Put(gomock.Any(), taskUUID, reader, int64(len(inputJSON))).Return("some-uuid", nil)
 
 	input := internal.CompletedTask{
 		TaskUUID:  taskUUID,
-		StoreUUID: storeUUID.String(),
+		StorePath: taskUUID, // store path is the same as task UUID
 		Status:    corestatus.Completed.String(),
 		Message:   "done",
 	}

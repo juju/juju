@@ -116,7 +116,7 @@ type taskUUIDTime struct {
 // operation_task_output table.
 type outputStore struct {
 	TaskUUID  string `db:"task_uuid"`
-	StoreUUID string `db:"store_uuid"`
+	StorePath string `db:"store_path"`
 }
 
 type insertOperation struct {

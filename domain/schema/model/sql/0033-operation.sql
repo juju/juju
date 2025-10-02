@@ -85,13 +85,13 @@ CREATE TABLE operation_machine_task (
 -- its output is stored.
 CREATE TABLE operation_task_output (
     task_uuid TEXT NOT NULL PRIMARY KEY,
-    store_uuid TEXT NOT NULL,
+    store_path TEXT NOT NULL,
     CONSTRAINT fk_task_uuid
     FOREIGN KEY (task_uuid)
     REFERENCES operation_task (uuid),
-    CONSTRAINT fk_store_uuid
-    FOREIGN KEY (store_uuid)
-    REFERENCES object_store_metadata (uuid)
+    CONSTRAINT fk_store_path
+    FOREIGN KEY (store_path)
+    REFERENCES object_store_metadata_path (path)
 );
 
 -- operation_task_status is the status of the task.

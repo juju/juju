@@ -240,8 +240,9 @@ JOIN unit ON unit.uuid = operation_unit_task.unit_uuid`)
 func (s *migrationSuite) TestImportOperationsWithSingleMachineTask(c *tc.C) {
 	// Arrange
 	machineName := "0/lxd/1"
+	storePath := "store-path"
 	machineUUID := s.addMachine(c, machineName)
-	storeUUID := s.addFakeMetadataStore(c, 123)
+	s.linkMetadataStorePath(c, s.addFakeMetadataStore(c, 123), storePath)
 
 	opUUID := internaluuid.MustNewUUID().String()
 	taskUUID := internaluuid.MustNewUUID().String()
@@ -259,7 +260,7 @@ func (s *migrationSuite) TestImportOperationsWithSingleMachineTask(c *tc.C) {
 					ID:          "t-m1",
 					UUID:        taskUUID,
 					Status:      corestatus.Completed,
-					StoreUUID:   storeUUID,
+					StorePath:   storePath,
 					MachineName: machine.Name(machineName),
 				},
 			},
@@ -278,9 +279,9 @@ func (s *migrationSuite) TestImportOperationsWithSingleMachineTask(c *tc.C) {
 	c.Check(linkRows[0]["machine_uuid"], tc.Equals, machineUUID)
 
 	// Verify output link created
-	outRows := s.queryRows(c, `SELECT store_uuid FROM operation_task_output WHERE task_uuid = ?`, taskUUID)
+	outRows := s.queryRows(c, `SELECT store_path FROM operation_task_output WHERE task_uuid = ?`, taskUUID)
 	c.Assert(outRows, tc.HasLen, 1)
-	c.Check(outRows[0]["store_uuid"], tc.Equals, storeUUID)
+	c.Check(outRows[0]["store_path"], tc.Equals, storePath)
 
 	// Verify parameters at operation level were stored
 	paramRows := s.queryRows(c, `SELECT key, value FROM operation_parameter WHERE operation_uuid = ?`, opUUID)
