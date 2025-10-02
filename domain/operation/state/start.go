@@ -183,34 +183,6 @@ func (st *State) AddActionOperation(ctx context.Context,
 	return result, nil
 }
 
-// // addMachineExecTargets inserts a list of machine tasks for the provided target
-// // and operation UUID.
-// func (st *State) addMachineExecTargets(
-// 	ctx context.Context,
-// 	tx *sqlair.TX,
-// 	operationUUID string,
-// 	machineTargets []machine.UUID,
-// ) []operation.MachineTaskResult {
-// 	for _, machineTask := range machineTargets {
-// 		// Create the task UUID.
-// 		taskUUID, err := internaluuid.NewUUID()
-// 		if err != nil {
-// 			taskResult := operation.MachineTaskResult{
-// 				ReceiverName: machineTask,
-// 				TaskInfo: operation.TaskInfo{
-// 					Error: errors.Errorf("generating task UUID: %w", err),
-// 				},
-// 			}
-// 			result.Machines = append(result.Machines, taskResult)
-// 			continue
-// 		}
-// 		taskResult := st.addMachineTask(ctx, tx, operationUUID, taskUUID.String(), machineTask)
-// 		taskResult.IsParallel = args.Parallel
-// 		taskResult.ExecutionGroup = &args.ExecutionGroup
-// 		result.Machines = append(result.Machines, taskResult)
-// 	}
-// }
-
 // addExecOperation creates the exec operation for the provided receivers.
 func (st *State) addExecOperation(
 	ctx context.Context,
