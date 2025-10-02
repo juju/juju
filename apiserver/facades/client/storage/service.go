@@ -20,8 +20,8 @@ type BlockDeviceService interface {
 		ctx context.Context, machineUUID machine.UUID,
 	) ([]blockdevice.BlockDevice, error)
 
-	// ListBlockDevices returns the BlockDevices for the specified UUIDs.
-	ListBlockDevices(
+	// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+	GetBlockDevices(
 		ctx context.Context, uuids ...domainblockdevice.BlockDeviceUUID,
 	) ([]domainblockdevice.BlockDeviceDetails, error)
 }
@@ -79,19 +79,19 @@ type StorageService interface {
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
 
-	// ListStorageInstances returns a list of storage instances in the model.
-	ListStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error)
+	// GetAllStorageInstances returns a list of storage instances in the model.
+	GetAllStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error)
 
-	// ListVolumeWithAttachments returns a map of volume storage IDs to their
+	// GetVolumeWithAttachments returns a map of volume storage IDs to their
 	// information including attachments.
-	ListVolumeWithAttachments(
-		ctx context.Context, storageInstanceIDs ...string,
+	GetVolumeWithAttachments(
+		ctx context.Context, uuids ...domainstorage.StorageInstanceUUID,
 	) (map[string]domainstorage.VolumeDetails, error)
 
-	// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+	// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
 	// information including attachments.
-	ListFilesystemWithAttachments(
-		ctx context.Context, storageInstanceIDs ...string,
+	GetFilesystemWithAttachments(
+		ctx context.Context, uuids ...domainstorage.StorageInstanceUUID,
 	) (map[string]domainstorage.FilesystemDetails, error)
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
@@ -16,6 +17,7 @@ import (
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -65,9 +67,12 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 	u0n := unit.Name("mysql/0")
 	m0 := machine.Name("0")
 	u1n := unit.Name("mysql/1")
-	s.storageService.EXPECT().ListStorageInstances(gomock.Any()).
+	sInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
+	sInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	s.storageService.EXPECT().GetAllStorageInstances(gomock.Any()).
 		Return([]domainstorage.StorageInstanceDetails{
 			{
+				UUID:       sInstanceUUID0,
 				ID:         "pgdata/0",
 				Owner:      &u0n,
 				Kind:       domainstorage.StorageKindBlock,
@@ -75,6 +80,7 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 				Persistent: true,
 			},
 			{
+				UUID:       sInstanceUUID1,
 				ID:         "data/1",
 				Owner:      &u1n,
 				Kind:       domainstorage.StorageKindFilesystem,
@@ -82,7 +88,7 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 				Persistent: false,
 			},
 		}, nil)
-	s.storageService.EXPECT().ListVolumeWithAttachments(gomock.Any(), "pgdata/0").
+	s.storageService.EXPECT().GetVolumeWithAttachments(gomock.Any(), sInstanceUUID0).
 		Return(map[string]domainstorage.VolumeDetails{
 			"pgdata/0": {
 				StorageID: "pgdata/0",
@@ -102,20 +108,22 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 				},
 			},
 		}, nil)
-	s.blockDeviceService.EXPECT().ListBlockDevices(
+	s.blockDeviceService.EXPECT().GetBlockDevices(
 		gomock.Any(),
 		domainblockdevice.BlockDeviceUUID("block-device-uuid-0"),
 	).
 		Return([]domainblockdevice.BlockDeviceDetails{
 			{
-				UUID:             "block-device-uuid-0",
-				HardwareID:       "hwid-0",
-				WWN:              "wwn",
-				BlockDeviceName:  "abc",
-				BlockDeviceLinks: []string{"xyz"},
+				UUID: "block-device-uuid-0",
+				BlockDevice: coreblockdevice.BlockDevice{
+					HardwareId:  "hwid-0",
+					WWN:         "wwn",
+					DeviceName:  "abc",
+					DeviceLinks: []string{"xyz"},
+				},
 			},
 		}, nil)
-	s.storageService.EXPECT().ListFilesystemWithAttachments(gomock.Any(), "data/1").
+	s.storageService.EXPECT().GetFilesystemWithAttachments(gomock.Any(), sInstanceUUID1).
 		Return(map[string]domainstorage.FilesystemDetails{
 			"data/1": {
 				StorageID: "data/1",

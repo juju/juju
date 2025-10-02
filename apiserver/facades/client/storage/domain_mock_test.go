@@ -122,6 +122,89 @@ func (c *MockStorageServiceDeleteStoragePoolCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetAllStorageInstances mocks base method.
+func (m *MockStorageService) GetAllStorageInstances(arg0 context.Context) ([]storage.StorageInstanceDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllStorageInstances", arg0)
+	ret0, _ := ret[0].([]storage.StorageInstanceDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllStorageInstances indicates an expected call of GetAllStorageInstances.
+func (mr *MockStorageServiceMockRecorder) GetAllStorageInstances(arg0 any) *MockStorageServiceGetAllStorageInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllStorageInstances", reflect.TypeOf((*MockStorageService)(nil).GetAllStorageInstances), arg0)
+	return &MockStorageServiceGetAllStorageInstancesCall{Call: call}
+}
+
+// MockStorageServiceGetAllStorageInstancesCall wrap *gomock.Call
+type MockStorageServiceGetAllStorageInstancesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetAllStorageInstancesCall) Return(arg0 []storage.StorageInstanceDetails, arg1 error) *MockStorageServiceGetAllStorageInstancesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetAllStorageInstancesCall) Do(f func(context.Context) ([]storage.StorageInstanceDetails, error)) *MockStorageServiceGetAllStorageInstancesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetAllStorageInstancesCall) DoAndReturn(f func(context.Context) ([]storage.StorageInstanceDetails, error)) *MockStorageServiceGetAllStorageInstancesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemWithAttachments mocks base method.
+func (m *MockStorageService) GetFilesystemWithAttachments(arg0 context.Context, arg1 ...storage.StorageInstanceUUID) (map[string]storage.FilesystemDetails, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetFilesystemWithAttachments", varargs...)
+	ret0, _ := ret[0].(map[string]storage.FilesystemDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemWithAttachments indicates an expected call of GetFilesystemWithAttachments.
+func (mr *MockStorageServiceMockRecorder) GetFilesystemWithAttachments(arg0 any, arg1 ...any) *MockStorageServiceGetFilesystemWithAttachmentsCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemWithAttachments", reflect.TypeOf((*MockStorageService)(nil).GetFilesystemWithAttachments), varargs...)
+	return &MockStorageServiceGetFilesystemWithAttachmentsCall{Call: call}
+}
+
+// MockStorageServiceGetFilesystemWithAttachmentsCall wrap *gomock.Call
+type MockStorageServiceGetFilesystemWithAttachmentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetFilesystemWithAttachmentsCall) Return(arg0 map[string]storage.FilesystemDetails, arg1 error) *MockStorageServiceGetFilesystemWithAttachmentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetFilesystemWithAttachmentsCall) Do(f func(context.Context, ...storage.StorageInstanceUUID) (map[string]storage.FilesystemDetails, error)) *MockStorageServiceGetFilesystemWithAttachmentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetFilesystemWithAttachmentsCall) DoAndReturn(f func(context.Context, ...storage.StorageInstanceUUID) (map[string]storage.FilesystemDetails, error)) *MockStorageServiceGetFilesystemWithAttachmentsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolByName mocks base method.
 func (m *MockStorageService) GetStoragePoolByName(arg0 context.Context, arg1 string) (storage.StoragePool, error) {
 	m.ctrl.T.Helper()
@@ -161,85 +244,46 @@ func (c *MockStorageServiceGetStoragePoolByNameCall) DoAndReturn(f func(context.
 	return c
 }
 
-// ListFilesystemWithAttachments mocks base method.
-func (m *MockStorageService) ListFilesystemWithAttachments(arg0 context.Context, arg1 ...string) (map[string]storage.FilesystemDetails, error) {
+// GetVolumeWithAttachments mocks base method.
+func (m *MockStorageService) GetVolumeWithAttachments(arg0 context.Context, arg1 ...storage.StorageInstanceUUID) (map[string]storage.VolumeDetails, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ListFilesystemWithAttachments", varargs...)
-	ret0, _ := ret[0].(map[string]storage.FilesystemDetails)
+	ret := m.ctrl.Call(m, "GetVolumeWithAttachments", varargs...)
+	ret0, _ := ret[0].(map[string]storage.VolumeDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListFilesystemWithAttachments indicates an expected call of ListFilesystemWithAttachments.
-func (mr *MockStorageServiceMockRecorder) ListFilesystemWithAttachments(arg0 any, arg1 ...any) *MockStorageServiceListFilesystemWithAttachmentsCall {
+// GetVolumeWithAttachments indicates an expected call of GetVolumeWithAttachments.
+func (mr *MockStorageServiceMockRecorder) GetVolumeWithAttachments(arg0 any, arg1 ...any) *MockStorageServiceGetVolumeWithAttachmentsCall {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilesystemWithAttachments", reflect.TypeOf((*MockStorageService)(nil).ListFilesystemWithAttachments), varargs...)
-	return &MockStorageServiceListFilesystemWithAttachmentsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeWithAttachments", reflect.TypeOf((*MockStorageService)(nil).GetVolumeWithAttachments), varargs...)
+	return &MockStorageServiceGetVolumeWithAttachmentsCall{Call: call}
 }
 
-// MockStorageServiceListFilesystemWithAttachmentsCall wrap *gomock.Call
-type MockStorageServiceListFilesystemWithAttachmentsCall struct {
+// MockStorageServiceGetVolumeWithAttachmentsCall wrap *gomock.Call
+type MockStorageServiceGetVolumeWithAttachmentsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceListFilesystemWithAttachmentsCall) Return(arg0 map[string]storage.FilesystemDetails, arg1 error) *MockStorageServiceListFilesystemWithAttachmentsCall {
+func (c *MockStorageServiceGetVolumeWithAttachmentsCall) Return(arg0 map[string]storage.VolumeDetails, arg1 error) *MockStorageServiceGetVolumeWithAttachmentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceListFilesystemWithAttachmentsCall) Do(f func(context.Context, ...string) (map[string]storage.FilesystemDetails, error)) *MockStorageServiceListFilesystemWithAttachmentsCall {
+func (c *MockStorageServiceGetVolumeWithAttachmentsCall) Do(f func(context.Context, ...storage.StorageInstanceUUID) (map[string]storage.VolumeDetails, error)) *MockStorageServiceGetVolumeWithAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceListFilesystemWithAttachmentsCall) DoAndReturn(f func(context.Context, ...string) (map[string]storage.FilesystemDetails, error)) *MockStorageServiceListFilesystemWithAttachmentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListStorageInstances mocks base method.
-func (m *MockStorageService) ListStorageInstances(arg0 context.Context) ([]storage.StorageInstanceDetails, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListStorageInstances", arg0)
-	ret0, _ := ret[0].([]storage.StorageInstanceDetails)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListStorageInstances indicates an expected call of ListStorageInstances.
-func (mr *MockStorageServiceMockRecorder) ListStorageInstances(arg0 any) *MockStorageServiceListStorageInstancesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStorageInstances", reflect.TypeOf((*MockStorageService)(nil).ListStorageInstances), arg0)
-	return &MockStorageServiceListStorageInstancesCall{Call: call}
-}
-
-// MockStorageServiceListStorageInstancesCall wrap *gomock.Call
-type MockStorageServiceListStorageInstancesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceListStorageInstancesCall) Return(arg0 []storage.StorageInstanceDetails, arg1 error) *MockStorageServiceListStorageInstancesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceListStorageInstancesCall) Do(f func(context.Context) ([]storage.StorageInstanceDetails, error)) *MockStorageServiceListStorageInstancesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceListStorageInstancesCall) DoAndReturn(f func(context.Context) ([]storage.StorageInstanceDetails, error)) *MockStorageServiceListStorageInstancesCall {
+func (c *MockStorageServiceGetVolumeWithAttachmentsCall) DoAndReturn(f func(context.Context, ...storage.StorageInstanceUUID) (map[string]storage.VolumeDetails, error)) *MockStorageServiceGetVolumeWithAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -400,50 +444,6 @@ func (c *MockStorageServiceListStoragePoolsByProvidersCall) DoAndReturn(f func(c
 	return c
 }
 
-// ListVolumeWithAttachments mocks base method.
-func (m *MockStorageService) ListVolumeWithAttachments(arg0 context.Context, arg1 ...string) (map[string]storage.VolumeDetails, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ListVolumeWithAttachments", varargs...)
-	ret0, _ := ret[0].(map[string]storage.VolumeDetails)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListVolumeWithAttachments indicates an expected call of ListVolumeWithAttachments.
-func (mr *MockStorageServiceMockRecorder) ListVolumeWithAttachments(arg0 any, arg1 ...any) *MockStorageServiceListVolumeWithAttachmentsCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVolumeWithAttachments", reflect.TypeOf((*MockStorageService)(nil).ListVolumeWithAttachments), varargs...)
-	return &MockStorageServiceListVolumeWithAttachmentsCall{Call: call}
-}
-
-// MockStorageServiceListVolumeWithAttachmentsCall wrap *gomock.Call
-type MockStorageServiceListVolumeWithAttachmentsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceListVolumeWithAttachmentsCall) Return(arg0 map[string]storage.VolumeDetails, arg1 error) *MockStorageServiceListVolumeWithAttachmentsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceListVolumeWithAttachmentsCall) Do(f func(context.Context, ...string) (map[string]storage.VolumeDetails, error)) *MockStorageServiceListVolumeWithAttachmentsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceListVolumeWithAttachmentsCall) DoAndReturn(f func(context.Context, ...string) (map[string]storage.VolumeDetails, error)) *MockStorageServiceListVolumeWithAttachmentsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ReplaceStoragePool mocks base method.
 func (m *MockStorageService) ReplaceStoragePool(arg0 context.Context, arg1 string, arg2 storage0.ProviderType, arg3 service.PoolAttrs) error {
 	m.ctrl.T.Helper()
@@ -567,6 +567,50 @@ func (m *MockBlockDeviceService) EXPECT() *MockBlockDeviceServiceMockRecorder {
 	return m.recorder
 }
 
+// GetBlockDevices mocks base method.
+func (m *MockBlockDeviceService) GetBlockDevices(arg0 context.Context, arg1 ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetBlockDevices", varargs...)
+	ret0, _ := ret[0].([]blockdevice0.BlockDeviceDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockDevices indicates an expected call of GetBlockDevices.
+func (mr *MockBlockDeviceServiceMockRecorder) GetBlockDevices(arg0 any, arg1 ...any) *MockBlockDeviceServiceGetBlockDevicesCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevices", reflect.TypeOf((*MockBlockDeviceService)(nil).GetBlockDevices), varargs...)
+	return &MockBlockDeviceServiceGetBlockDevicesCall{Call: call}
+}
+
+// MockBlockDeviceServiceGetBlockDevicesCall wrap *gomock.Call
+type MockBlockDeviceServiceGetBlockDevicesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBlockDeviceServiceGetBlockDevicesCall) Return(arg0 []blockdevice0.BlockDeviceDetails, arg1 error) *MockBlockDeviceServiceGetBlockDevicesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBlockDeviceServiceGetBlockDevicesCall) Do(f func(context.Context, ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error)) *MockBlockDeviceServiceGetBlockDevicesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBlockDeviceServiceGetBlockDevicesCall) DoAndReturn(f func(context.Context, ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error)) *MockBlockDeviceServiceGetBlockDevicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetBlockDevicesForMachine mocks base method.
 func (m *MockBlockDeviceService) GetBlockDevicesForMachine(arg0 context.Context, arg1 machine.UUID) ([]blockdevice.BlockDevice, error) {
 	m.ctrl.T.Helper()
@@ -602,50 +646,6 @@ func (c *MockBlockDeviceServiceGetBlockDevicesForMachineCall) Do(f func(context.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBlockDeviceServiceGetBlockDevicesForMachineCall) DoAndReturn(f func(context.Context, machine.UUID) ([]blockdevice.BlockDevice, error)) *MockBlockDeviceServiceGetBlockDevicesForMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ListBlockDevices mocks base method.
-func (m *MockBlockDeviceService) ListBlockDevices(arg0 context.Context, arg1 ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ListBlockDevices", varargs...)
-	ret0, _ := ret[0].([]blockdevice0.BlockDeviceDetails)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListBlockDevices indicates an expected call of ListBlockDevices.
-func (mr *MockBlockDeviceServiceMockRecorder) ListBlockDevices(arg0 any, arg1 ...any) *MockBlockDeviceServiceListBlockDevicesCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBlockDevices", reflect.TypeOf((*MockBlockDeviceService)(nil).ListBlockDevices), varargs...)
-	return &MockBlockDeviceServiceListBlockDevicesCall{Call: call}
-}
-
-// MockBlockDeviceServiceListBlockDevicesCall wrap *gomock.Call
-type MockBlockDeviceServiceListBlockDevicesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBlockDeviceServiceListBlockDevicesCall) Return(arg0 []blockdevice0.BlockDeviceDetails, arg1 error) *MockBlockDeviceServiceListBlockDevicesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBlockDeviceServiceListBlockDevicesCall) Do(f func(context.Context, ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error)) *MockBlockDeviceServiceListBlockDevicesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBlockDeviceServiceListBlockDevicesCall) DoAndReturn(f func(context.Context, ...blockdevice0.BlockDeviceUUID) ([]blockdevice0.BlockDeviceDetails, error)) *MockBlockDeviceServiceListBlockDevicesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

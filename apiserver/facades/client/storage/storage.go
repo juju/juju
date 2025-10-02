@@ -170,6 +170,186 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 	return params.StorageDetailsResults{Results: results}, nil
 }
 
+func (a *StorageAPI) getAllStorageDetails(ctx context.Context) ([]params.StorageDetails, error) {
+	sIs, err := a.storageService.GetAllStorageInstances(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		storageInstanceUUIDsForVol []domainstorage.StorageInstanceUUID
+		storageInstanceUUIDsForFS  []domainstorage.StorageInstanceUUID
+		result                     []params.StorageDetails
+	)
+	for _, si := range sIs {
+		if !names.IsValidStorage(si.ID) {
+			// This should never happen. But to avoid a panic, we
+			// return an error if we encounter an invalid storage ID.
+			return nil, errors.Errorf(
+				"invalid storage ID %q", si.ID,
+			).Add(coreerrors.NotValid)
+		}
+
+		sd := params.StorageDetails{
+			StorageTag: names.NewStorageTag(si.ID).String(),
+			Persistent: si.Persistent,
+		}
+		if si.Owner != nil {
+			if !names.IsValidUnit(si.Owner.String()) {
+				return nil, errors.Errorf(
+					"invalid unit %q for storage instance %q", si.Owner.String(), si.ID,
+				).Add(coreerrors.NotValid)
+			}
+			sd.OwnerTag = names.NewUnitTag(si.Owner.String()).String()
+		}
+
+		switch si.Kind {
+		case domainstorage.StorageKindBlock:
+			sd.Kind = params.StorageKindBlock
+			storageInstanceUUIDsForVol = append(storageInstanceUUIDsForVol, si.UUID)
+		case domainstorage.StorageKindFilesystem:
+			sd.Kind = params.StorageKindFilesystem
+			storageInstanceUUIDsForFS = append(storageInstanceUUIDsForFS, si.UUID)
+		default:
+			sd.Kind = params.StorageKindUnknown
+		}
+
+		sd.Life, err = si.Life.Value()
+		if err != nil {
+			return nil, errors.Errorf(
+				"invalid life %q for storage instance %q: %w", si.Life, si.ID, err,
+			)
+		}
+		result = append(result, sd)
+	}
+
+	// Fetch volume attachments.
+	volumes, err := a.storageService.GetVolumeWithAttachments(ctx, storageInstanceUUIDsForVol...)
+	if err != nil {
+		return nil, errors.Errorf("listing volume attachments: %w", err)
+	}
+	var blockDeviceUUIDs []domainblockdevice.BlockDeviceUUID
+	for _, vol := range volumes {
+		for _, att := range vol.Attachments {
+			if att.BlockDeviceUUID != "" {
+				blockDeviceUUIDs = append(blockDeviceUUIDs, domainblockdevice.BlockDeviceUUID(att.BlockDeviceUUID))
+			}
+		}
+	}
+	// Fetch block device details for volume attachments.
+	mBlockDevices := make(map[string]domainblockdevice.BlockDeviceDetails)
+	blockDevices, err := a.blockDeviceService.GetBlockDevices(ctx, blockDeviceUUIDs...)
+	if err != nil {
+		return nil, errors.Errorf("listing block devices: %w", err)
+	}
+	for _, bd := range blockDevices {
+		mBlockDevices[bd.UUID.String()] = bd
+	}
+
+	// Fetch filesystem attachments.
+	filesystems, err := a.storageService.GetFilesystemWithAttachments(ctx, storageInstanceUUIDsForFS...)
+	if err != nil {
+		return nil, errors.Errorf("listing filesystem attachments: %w", err)
+	}
+
+	// Update the result with attachment information.
+	for i, sd := range result {
+		storageTag, err := names.ParseStorageTag(sd.StorageTag)
+		if err != nil {
+			// This should never happen but just in case.
+			return nil, errors.Errorf(
+				"invalid storage tag %q: %w", sd.StorageTag, err,
+			)
+		}
+		storageID := storageTag.Id()
+
+		switch sd.Kind {
+		case params.StorageKindBlock:
+			vol, ok := volumes[storageID]
+			if !ok {
+				continue
+			}
+			sd.Status = params.EntityStatus{
+				Status: vol.Status.Status,
+				Info:   vol.Status.Message,
+				Data:   vol.Status.Data,
+				Since:  vol.Status.Since,
+			}
+			sd.Attachments = make(map[string]params.StorageAttachmentDetails, len(vol.Attachments))
+			for _, att := range vol.Attachments {
+				unitTag := names.NewUnitTag(att.Unit.String()).String()
+				attDetails := params.StorageAttachmentDetails{
+					StorageTag: sd.StorageTag,
+					UnitTag:    unitTag,
+				}
+				if att.Machine != nil {
+					attDetails.MachineTag = names.NewMachineTag(att.Machine.String()).String()
+				}
+				attDetails.Life, err = att.Life.Value()
+				if err != nil {
+					return nil, errors.Errorf(
+						"invalid life %q for volume attachment of storage instance %q for unit %q: %w",
+						att.Life, storageID, att.Unit, err,
+					)
+				}
+				if att.BlockDeviceUUID == "" {
+					continue
+				}
+				bd, ok := mBlockDevices[att.BlockDeviceUUID]
+				if !ok {
+					continue
+				}
+				attDetails.Location, err = coreblockdevice.BlockDevicePath(coreblockdevice.BlockDevice{
+					DeviceName:  bd.DeviceName,
+					WWN:         bd.WWN,
+					HardwareId:  bd.HardwareId,
+					DeviceLinks: bd.DeviceLinks,
+				})
+				if err != nil {
+					return nil, errors.Errorf(
+						"generating location for block device %q: %w", bd.UUID, err,
+					)
+				}
+				sd.Attachments[unitTag] = attDetails
+				result[i] = sd
+			}
+		case params.StorageKindFilesystem:
+			fs, ok := filesystems[storageID]
+			if !ok {
+				continue
+			}
+			sd.Status = params.EntityStatus{
+				Status: fs.Status.Status,
+				Info:   fs.Status.Message,
+				Data:   fs.Status.Data,
+				Since:  fs.Status.Since,
+			}
+			sd.Attachments = make(map[string]params.StorageAttachmentDetails, len(fs.Attachments))
+			for _, att := range fs.Attachments {
+				unitTag := names.NewUnitTag(att.Unit.String()).String()
+				attDetails := params.StorageAttachmentDetails{
+					StorageTag: sd.StorageTag,
+					UnitTag:    unitTag,
+					Location:   att.MountPoint,
+				}
+				if att.Machine != nil {
+					attDetails.MachineTag = names.NewMachineTag(att.Machine.String()).String()
+				}
+				attDetails.Life, err = att.Life.Value()
+				if err != nil {
+					return nil, errors.Errorf(
+						"invalid life %q for filesystem attachment of storage instance %q for unit %q: %w",
+						att.Life, storageID, att.Unit, err,
+					)
+				}
+				sd.Attachments[unitTag] = attDetails
+			}
+			result[i] = sd
+		}
+	}
+	return result, nil
+}
+
 // ListStorageDetails returns storage matching a filter.
 func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	if len(filters.Filters) != 1 {
@@ -179,183 +359,7 @@ func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.Stor
 		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
 	}
 	getOne := func(params.StorageFilter) ([]params.StorageDetails, error) {
-		sIs, err := a.storageService.ListStorageInstances(ctx)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
-		var (
-			storageIDsForVol []string
-			storageIDsForFS  []string
-			result           []params.StorageDetails
-		)
-		for _, si := range sIs {
-			if !names.IsValidStorage(si.ID) {
-				// This should never happen. But to avoid a panic, we
-				// return an error if we encounter an invalid storage ID.
-				return nil, errors.Errorf(
-					"invalid storage ID %q", si.ID,
-				).Add(coreerrors.NotValid)
-			}
-
-			sd := params.StorageDetails{
-				StorageTag: names.NewStorageTag(si.ID).String(),
-				Persistent: si.Persistent,
-			}
-			if si.Owner != nil {
-				if !names.IsValidUnit(si.Owner.String()) {
-					return nil, errors.Errorf(
-						"invalid unit %q for storage instance %q", si.Owner.String(), si.ID,
-					).Add(coreerrors.NotValid)
-				}
-				sd.OwnerTag = names.NewUnitTag(si.Owner.String()).String()
-			}
-
-			switch si.Kind {
-			case domainstorage.StorageKindBlock:
-				sd.Kind = params.StorageKindBlock
-				storageIDsForVol = append(storageIDsForVol, si.ID)
-			case domainstorage.StorageKindFilesystem:
-				sd.Kind = params.StorageKindFilesystem
-				storageIDsForFS = append(storageIDsForFS, si.ID)
-			default:
-				sd.Kind = params.StorageKindUnknown
-			}
-
-			sd.Life, err = si.Life.Value()
-			if err != nil {
-				return nil, errors.Errorf(
-					"invalid life %q for storage instance %q: %w", si.Life, si.ID, err,
-				)
-			}
-			result = append(result, sd)
-		}
-
-		// Fetch volume attachments.
-		volumes, err := a.storageService.ListVolumeWithAttachments(ctx, storageIDsForVol...)
-		if err != nil {
-			return nil, errors.Errorf("listing volume attachments: %w", err)
-		}
-		var blockDeviceUUIDs []domainblockdevice.BlockDeviceUUID
-		for _, vol := range volumes {
-			for _, att := range vol.Attachments {
-				if att.BlockDeviceUUID != "" {
-					blockDeviceUUIDs = append(blockDeviceUUIDs, domainblockdevice.BlockDeviceUUID(att.BlockDeviceUUID))
-				}
-			}
-		}
-		// Fetch block device details for volume attachments.
-		mBlockDevices := make(map[string]domainblockdevice.BlockDeviceDetails)
-		blockDevices, err := a.blockDeviceService.ListBlockDevices(ctx, blockDeviceUUIDs...)
-		if err != nil {
-			return nil, errors.Errorf("listing block devices: %w", err)
-		}
-		for _, bd := range blockDevices {
-			mBlockDevices[bd.UUID] = bd
-		}
-
-		// Fetch filesystem attachments.
-		filesystems, err := a.storageService.ListFilesystemWithAttachments(ctx, storageIDsForFS...)
-		if err != nil {
-			return nil, errors.Errorf("listing filesystem attachments: %w", err)
-		}
-
-		// Update the result with attachment information.
-		for i, sd := range result {
-			storageTag, err := names.ParseStorageTag(sd.StorageTag)
-			if err != nil {
-				// This should never happen but just in case.
-				return nil, errors.Errorf(
-					"invalid storage tag %q: %w", sd.StorageTag, err,
-				)
-			}
-			storageID := storageTag.Id()
-
-			switch sd.Kind {
-			case params.StorageKindBlock:
-				vol, ok := volumes[storageID]
-				if !ok {
-					continue
-				}
-				sd.Status = params.EntityStatus{
-					Status: vol.Status.Status,
-					Info:   vol.Status.Message,
-					Data:   vol.Status.Data,
-					Since:  vol.Status.Since,
-				}
-				sd.Attachments = make(map[string]params.StorageAttachmentDetails, len(vol.Attachments))
-				for _, att := range vol.Attachments {
-					unitTag := names.NewUnitTag(att.Unit.String()).String()
-					attDetails := params.StorageAttachmentDetails{
-						StorageTag: sd.StorageTag,
-						UnitTag:    unitTag,
-					}
-					if att.Machine != nil {
-						attDetails.MachineTag = names.NewMachineTag(att.Machine.String()).String()
-					}
-					attDetails.Life, err = att.Life.Value()
-					if err != nil {
-						return nil, errors.Errorf(
-							"invalid life %q for volume attachment of storage instance %q for unit %q: %w",
-							att.Life, storageID, att.Unit, err,
-						)
-					}
-					if att.BlockDeviceUUID == "" {
-						continue
-					}
-					bd, ok := mBlockDevices[att.BlockDeviceUUID]
-					if !ok {
-						continue
-					}
-					attDetails.Location, err = coreblockdevice.BlockDevicePath(coreblockdevice.BlockDevice{
-						DeviceName:  bd.BlockDeviceName,
-						WWN:         bd.WWN,
-						HardwareId:  bd.HardwareID,
-						DeviceLinks: bd.BlockDeviceLinks,
-					})
-					if err != nil {
-						return nil, errors.Errorf(
-							"generating location for block device %q: %w", bd.UUID, err,
-						)
-					}
-					sd.Attachments[unitTag] = attDetails
-					result[i] = sd
-				}
-			case params.StorageKindFilesystem:
-				fs, ok := filesystems[storageID]
-				if !ok {
-					continue
-				}
-				sd.Status = params.EntityStatus{
-					Status: fs.Status.Status,
-					Info:   fs.Status.Message,
-					Data:   fs.Status.Data,
-					Since:  fs.Status.Since,
-				}
-				sd.Attachments = make(map[string]params.StorageAttachmentDetails, len(fs.Attachments))
-				for _, att := range fs.Attachments {
-					unitTag := names.NewUnitTag(att.Unit.String()).String()
-					attDetails := params.StorageAttachmentDetails{
-						StorageTag: sd.StorageTag,
-						UnitTag:    unitTag,
-						Location:   att.MountPoint,
-					}
-					if att.Machine != nil {
-						attDetails.MachineTag = names.NewMachineTag(att.Machine.String()).String()
-					}
-					attDetails.Life, err = att.Life.Value()
-					if err != nil {
-						return nil, errors.Errorf(
-							"invalid life %q for filesystem attachment of storage instance %q for unit %q: %w",
-							att.Life, storageID, att.Unit, err,
-						)
-					}
-					sd.Attachments[unitTag] = attDetails
-				}
-				result[i] = sd
-			}
-		}
-		return result, nil
+		return a.getAllStorageDetails(ctx)
 	}
 	for i, filter := range filters.Filters {
 		storageDetails, err := getOne(filter)
