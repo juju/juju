@@ -216,6 +216,12 @@ The owner can choose at any time to publish a new **revision** of the secret, th
 
 However, a unit does not have to immediately update whenever a new revision becomes available. It can **peek** the secret's contents, which means to inspect the latest revision of the secret without updating to it, or choose to do nothing.
 
+```{important}
+
+When a unit gets a secret for the first time it will automatically be set to track the latest revision. A unit cannot choose to track an outdated revision, but it can in principle refuse to update to a newer one.
+
+```
+
 When a charm secret is added, the owner can configure it to have a **rotation** policy (hourly, daily, monthly, and so on). In that case, the owner will be periodically notified, by means of a `secret-rotate` event, that it is time to rotate the secret -- that is, create a new revision for it.
 
 Alternatively, a charm secret can be configured to have an **expiration** date, that is, a specific point in time at which the charm will be notified by Juju that it is time to retire the secret by means of a `secret-expired` event.
@@ -224,8 +230,9 @@ Juju maintains a list of which observers are tracking each revision of each secr
 
 ```{important}
 
-When a unit gets a secret for the first time it will automatically be set to track the latest revision. A unit cannot choose to track an outdated revision, but it can in principle refuse to update to a newer one.
+Charms that create secrets should _always_ handle the `secret-remove` event. That is because secret revisions, even if obsolete, remain until removed by the charm; if a charm does not remove them, they accumulate indefinitely.
 
 ```
+
 
 
