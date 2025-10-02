@@ -34,7 +34,10 @@ class ApitestUbuntuQaCharm(CharmBase):
         if current not in self._stored.things:
             logger.info("found a new thing: %r", current)
             self._stored.things.append(current)
-        self._check_foo_file_config()
+        updated = self._check_foo_file_config()
+        if updated:
+            return
+        
         status = self.model.config["status"]
         if status != self._stored.status:
             logger.info("found a new status: %r", status)
@@ -54,15 +57,15 @@ class ApitestUbuntuQaCharm(CharmBase):
         details = "it is now: {0}".format(date_time)
         self.unit.status = ActiveStatus(details)
 
-    def _check_foo_file_config(self):
+    def _check_foo_file_config(self) -> bool:
         if self.model.config["foo-file"] == False:
             self._stored.foo = ""
-            return
+            return False
         try:
            path = self.model.resources.fetch("foo-file")
         except ModelError as me:
             logger.debug("failed to fetch resource")
-            return
+            return False
         f = open(path, "r")
         line = f.readline()
         if not line:
@@ -70,11 +73,12 @@ class ApitestUbuntuQaCharm(CharmBase):
             return
         if line in self._stored.foo:
             logger.info("already printed first line")
-            return
+            return False
         self._stored.foo = line
         f.close()
         status = "resource line one: {}".format( line.strip())
         self.unit.status = ActiveStatus(status)
+        return True
 
 
 if __name__ == "__main__":
