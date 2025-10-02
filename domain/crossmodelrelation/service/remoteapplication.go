@@ -10,7 +10,9 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
+	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application"
@@ -85,17 +87,17 @@ func (s *Service) AddRemoteApplicationOfferer(ctx context.Context, applicationNa
 		return internalerrors.Errorf("marshalling macaroon: %w", err)
 	}
 
-	remoteApplicationUUID, err := uuid.NewUUID()
+	remoteApplicationUUID, err := coreremoteapplication.NewUUID()
 	if err != nil {
 		return internalerrors.Errorf("creating remote application uuid: %w", err)
 	}
 
-	applicationUUID, err := uuid.NewUUID()
+	applicationUUID, err := coreapplication.NewID()
 	if err != nil {
 		return internalerrors.Errorf("creating application uuid: %w", err)
 	}
 
-	charmUUID, err := uuid.NewUUID()
+	charmUUID, err := corecharm.NewID()
 	if err != nil {
 		return internalerrors.Errorf("creating charm uuid: %w", err)
 	}

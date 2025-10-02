@@ -816,17 +816,17 @@ func (c *MockCrossModelServiceSaveMacaroonForRelationCall) DoAndReturn(f func(co
 }
 
 // SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.UUID, arg2 status.StatusInfo) error {
+func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", ctx, appName, sts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockCrossModelServiceMockRecorder) SetRemoteApplicationOffererStatus(arg0, arg1, arg2 any) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+func (mr *MockCrossModelServiceMockRecorder) SetRemoteApplicationOffererStatus(ctx, appName, sts any) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockCrossModelService)(nil).SetRemoteApplicationOffererStatus), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockCrossModelService)(nil).SetRemoteApplicationOffererStatus), ctx, appName, sts)
 	return &MockCrossModelServiceSetRemoteApplicationOffererStatusCall{Call: call}
 }
 
@@ -842,13 +842,13 @@ func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, string, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+func (c *MockCrossModelServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, string, status.StatusInfo) error) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1403,44 +1403,6 @@ func (c *MockCrossModelRelationServiceSaveMacaroonForRelationCall) DoAndReturn(f
 	return c
 }
 
-// SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockCrossModelRelationService) SetRemoteApplicationOffererStatus(arg0 context.Context, arg1 application.UUID, arg2 status.StatusInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockCrossModelRelationServiceMockRecorder) SetRemoteApplicationOffererStatus(arg0, arg1, arg2 any) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockCrossModelRelationService)(nil).SetRemoteApplicationOffererStatus), arg0, arg1, arg2)
-	return &MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall{Call: call}
-}
-
-// MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall wrap *gomock.Call
-type MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) Return(arg0 error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, application.UUID, status.StatusInfo) error) *MockCrossModelRelationServiceSetRemoteApplicationOffererStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // WatchRemoteApplicationOfferers mocks base method.
 func (m *MockCrossModelRelationService) WatchRemoteApplicationOfferers(ctx context.Context) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1476,6 +1438,67 @@ func (c *MockCrossModelRelationServiceWatchRemoteApplicationOfferersCall) Do(f f
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceWatchRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelRelationServiceWatchRemoteApplicationOfferersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockStatusService is a mock of StatusService interface.
+type MockStatusService struct {
+	ctrl     *gomock.Controller
+	recorder *MockStatusServiceMockRecorder
+}
+
+// MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
+type MockStatusServiceMockRecorder struct {
+	mock *MockStatusService
+}
+
+// NewMockStatusService creates a new mock instance.
+func NewMockStatusService(ctrl *gomock.Controller) *MockStatusService {
+	mock := &MockStatusService{ctrl: ctrl}
+	mock.recorder = &MockStatusServiceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
+	return m.recorder
+}
+
+// SetRemoteApplicationOffererStatus mocks base method.
+func (m *MockStatusService) SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRemoteApplicationOffererStatus", ctx, appName, sts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
+func (mr *MockStatusServiceMockRecorder) SetRemoteApplicationOffererStatus(ctx, appName, sts any) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRemoteApplicationOffererStatus", reflect.TypeOf((*MockStatusService)(nil).SetRemoteApplicationOffererStatus), ctx, appName, sts)
+	return &MockStatusServiceSetRemoteApplicationOffererStatusCall{Call: call}
+}
+
+// MockStatusServiceSetRemoteApplicationOffererStatusCall wrap *gomock.Call
+type MockStatusServiceSetRemoteApplicationOffererStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceSetRemoteApplicationOffererStatusCall) Return(arg0 error) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceSetRemoteApplicationOffererStatusCall) Do(f func(context.Context, string, status.StatusInfo) error) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceSetRemoteApplicationOffererStatusCall) DoAndReturn(f func(context.Context, string, status.StatusInfo) error) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

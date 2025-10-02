@@ -6,6 +6,18 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// RemoteApplicationNotFound describes an error that occurs when the remote
+	// application being operated on does not exist.
+	RemoteApplicationNotFound = errors.ConstError("remote application not found")
+
+	// RemoteApplicationIsDead describes an error that occurs when the remote
+	// application being operated on is dead.
+	RemoteApplicationIsDead = errors.ConstError("remote application is dead")
+
+	// ApplicationNotRemote describes an error that occurs when the application
+	// being operated on is not a remote application.
+	ApplicationNotRemote = errors.ConstError("application not remote")
+
 	// MissingEndpoints describes an error that occurs when not all of the
 	// endpoints for the offer are found.
 	MissingEndpoints = errors.ConstError("missing endpoints")

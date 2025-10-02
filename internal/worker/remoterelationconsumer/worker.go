@@ -80,6 +80,7 @@ type RemoteModelRelationsClient interface {
 type CrossModelService interface {
 	RelationService
 	CrossModelRelationService
+	StatusService
 }
 
 // RelationService is an interface that defines the methods for
@@ -112,10 +113,6 @@ type CrossModelRelationService interface {
 	// application consumers in the local model.
 	GetRemoteApplicationOfferers(context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error)
 
-	// SetRemoteApplicationOffererStatus sets the status of the specified remote
-	// application in the local model.
-	SetRemoteApplicationOffererStatus(context.Context, application.UUID, status.StatusInfo) error
-
 	// ConsumeRemoteRelationChange applies a relation change event received
 	// from a remote model to the local model.
 	ConsumeRemoteRelationChange(context.Context) error
@@ -135,6 +132,14 @@ type CrossModelRelationService interface {
 	// ImportRemoteApplicationToken imports a remote application token
 	// into the local model.
 	ImportRemoteApplicationToken(context.Context, names.Tag, string) error
+}
+
+// StatusService is an interface that defines the methods for
+// managing status directly on the local model database.
+type StatusService interface {
+	// SetRemoteApplicationOffererStatus sets the status of the specified remote
+	// application in the local model.
+	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error
 }
 
 // Config defines the operation of a Worker.

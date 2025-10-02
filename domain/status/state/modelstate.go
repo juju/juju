@@ -24,6 +24,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -136,7 +137,7 @@ JOIN   relation r ON r.uuid = rs.relation_uuid
 
 // GetApplicationUUIDByName returns the application UUID for the named application.
 // If no application is found, an error satisfying
-// [statuserrors.ApplicationNotFound] is returned.
+// [applicationerrors.ApplicationNotFound] is returned.
 func (st *ModelState) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -195,7 +196,7 @@ WHERE u.name = $unitName.name;
 }
 
 // GetApplicationStatus looks up the status of the specified application,
-// returning an error satisfying [statuserrors.ApplicationNotFound] if the
+// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
 func (st *ModelState) GetApplicationStatus(ctx context.Context, appID coreapplication.UUID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB(ctx)
@@ -246,7 +247,7 @@ WHERE application_uuid = $applicationUUID.uuid;
 
 // SetApplicationStatus saves the given application status, overwriting any
 // current status data. If returns an error satisfying
-// [statuserrors.ApplicationNotFound] if the application doesn't exist.
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
 func (st *ModelState) SetApplicationStatus(
 	ctx context.Context,
 	applicationID coreapplication.UUID,
@@ -283,7 +284,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("%w: %q", statuserrors.ApplicationNotFound, applicationID)
+			return errors.Errorf("%w: %q", applicationerrors.ApplicationNotFound, applicationID)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -705,9 +706,9 @@ WHERE  unit_uuid = $unitUUID.uuid
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
 // of the specified application, returning:
-//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
+//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
 //     doesn't exist or;
-//   - error satisfying [statuserrors.ApplicationIsDead] if the application
+//   - error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 	ctx context.Context, appID coreapplication.UUID,
@@ -732,9 +733,9 @@ func (st *ModelState) GetUnitWorkloadStatusesForApplication(
 
 // GetUnitAgentStatusesForApplication returns the agent statuses for all units
 // of the specified application, returning:
-//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
+//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
 //     doesn't exist or;
-//   - error satisfying [statuserrors.ApplicationIsDead] if the application
+//   - error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetUnitAgentStatusesForApplication(
 	ctx context.Context, appID coreapplication.UUID,
@@ -759,9 +760,9 @@ func (st *ModelState) GetUnitAgentStatusesForApplication(
 
 // GetAllFullUnitStatusesForApplication returns the workload, agent and
 // container statuses for all units of the specified application, returning:
-//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
+//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
 //     doesn't exist or;
-//   - an error satisfying [statuserrors.ApplicationIsDead] if the application
+//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
 func (st *ModelState) GetAllFullUnitStatusesForApplication(
 	ctx context.Context, appID coreapplication.UUID,
@@ -1046,7 +1047,7 @@ WHERE unit_uuid = (
 // lookupApplication looks up the application by name and returns the
 // application.ID.
 // If no application is found, an error satisfying
-// [statuserrors.ApplicationNotFound] is returned.
+// [applicationerrors.ApplicationNotFound] is returned.
 func (st *ModelState) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.UUID, error) {
 	app := applicationUUIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
@@ -1059,7 +1060,7 @@ WHERE name = $applicationUUIDAndName.name
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%w: %s", statuserrors.ApplicationNotFound, name)
+		return "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
 	} else if err != nil {
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
@@ -1068,8 +1069,8 @@ WHERE name = $applicationUUIDAndName.name
 
 // checkApplicationNotDead checks if the application exists and is not dead. It's
 // possible to access alive and dying applications, but not dead ones.
-//   - If the application is dead, [statuserrors.ApplicationIsDead] is returned.
-//   - If the application is not found, [statuserrors.ApplicationNotFound]
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 func (st *ModelState) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, ident applicationUUID) error {
 	type life struct {
@@ -1089,14 +1090,14 @@ WHERE uuid = $applicationUUID.uuid;
 	var result life
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
-		return statuserrors.ApplicationNotFound
+		return applicationerrors.ApplicationNotFound
 	} else if err != nil {
 		return errors.Errorf("checking application %q exists: %w", ident.ID, err)
 	}
 
 	switch result.LifeID {
 	case domainlife.Dead:
-		return statuserrors.ApplicationIsDead
+		return applicationerrors.ApplicationIsDead
 	default:
 		return nil
 	}

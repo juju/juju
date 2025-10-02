@@ -392,23 +392,23 @@ WHERE offer_uuid = $uuid.uuid
 	return nil
 }
 
-func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {
-	if err := s.addCharmState(ctx, tx, uuid, ch); err != nil {
+func (st *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid string, ch charm.Charm) error {
+	if err := st.addCharmState(ctx, tx, uuid, ch); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.addCharmMetadata(ctx, tx, uuid, ch.Metadata); err != nil {
+	if err := st.addCharmMetadata(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := s.addCharmRelations(ctx, tx, uuid, ch.Metadata); err != nil {
+	if err := st.addCharmRelations(ctx, tx, uuid, ch.Metadata); err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
 }
 
-func (s *State) addCharmState(
+func (st *State) addCharmState(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid string,
@@ -426,7 +426,7 @@ func (s *State) addCharmState(
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
-	charmStmt, err := s.Prepare(charmQuery, chState)
+	charmStmt, err := st.Prepare(charmQuery, chState)
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
 	}
@@ -438,7 +438,7 @@ func (s *State) addCharmState(
 	return nil
 }
 
-func (s *State) addCharmMetadata(
+func (st *State) addCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid string,
@@ -450,7 +450,7 @@ func (s *State) addCharmMetadata(
 	}
 
 	query := `INSERT INTO charm_metadata (*) VALUES ($setCharmMetadata.*);`
-	stmt, err := s.Prepare(query, encodedMetadata)
+	stmt, err := st.Prepare(query, encodedMetadata)
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
 	}
@@ -462,7 +462,7 @@ func (s *State) addCharmMetadata(
 	return nil
 }
 
-func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, uuid string, metadata charm.Metadata) error {
+func (st *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, uuid string, metadata charm.Metadata) error {
 	encodedRelations, err := encodeRelations(uuid, metadata)
 	if err != nil {
 		return errors.Errorf("encoding charm relations: %w", err)
@@ -484,7 +484,7 @@ func (s *State) addCharmRelations(ctx context.Context, tx *sqlair.TX, uuid strin
 	}
 
 	query := `INSERT INTO charm_relation (*) VALUES ($setCharmRelation.*);`
-	stmt, err := s.Prepare(query, setCharmRelation{})
+	stmt, err := st.Prepare(query, setCharmRelation{})
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
 	}
