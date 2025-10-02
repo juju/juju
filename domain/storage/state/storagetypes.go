@@ -6,14 +6,10 @@ package state
 import (
 	"database/sql"
 	"time"
-
-	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/status"
 )
 
 type dbStorageInstanceDetails struct {
+	UUID          string         `db:"uuid"`
 	ID            string         `db:"storage_id"`
 	OwnerUnitName sql.NullString `db:"owner_unit_name"`
 	KindID        int            `db:"storage_kind_id"`
@@ -22,7 +18,8 @@ type dbStorageInstanceDetails struct {
 }
 
 type dbVolumeAttachmentDetails struct {
-	StorageID string `db:"storage_id"`
+	StorageInstanceUUID string `db:"uuid"`
+	StorageID           string `db:"storage_id"`
 
 	StatusID  int        `db:"status_id"`
 	Message   string     `db:"message"`
@@ -36,7 +33,8 @@ type dbVolumeAttachmentDetails struct {
 }
 
 type dbFilesystemAttachmentDetails struct {
-	StorageID string `db:"storage_id"`
+	StorageInstanceUUID string `db:"uuid"`
+	StorageID           string `db:"storage_id"`
 
 	StatusID  int        `db:"status_id"`
 	Message   string     `db:"message"`
@@ -47,37 +45,4 @@ type dbFilesystemAttachmentDetails struct {
 	MachineName sql.NullString `db:"machine_name"`
 
 	MountPoint string `db:"mount_point"`
-}
-
-// VolumeDetails describes information about a volume with its attachments.
-type VolumeDetails struct {
-	StorageID   string
-	Status      status.StatusInfo[status.StorageVolumeStatusType]
-	Attachments []VolumeAttachmentDetails
-}
-
-// FilesystemDetails describes information about a filesystem with its attachments.
-type FilesystemDetails struct {
-	StorageID   string
-	Status      status.StatusInfo[status.StorageFilesystemStatusType]
-	Attachments []FilesystemAttachmentDetails
-}
-
-// VolumeAttachmentDetails describes information about a volume attachment.
-type VolumeAttachmentDetails struct {
-	AttachmentDetails
-	BlockDeviceUUID string
-}
-
-// FilesystemAttachmentDetails describes information about a filesystem attachment.
-type FilesystemAttachmentDetails struct {
-	AttachmentDetails
-	MountPoint string
-}
-
-// AttachmentDetails describes information about a storage attachment.
-type AttachmentDetails struct {
-	Life    life.Life
-	Unit    unit.Name
-	Machine *machine.Name
 }

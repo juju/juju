@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storage/state"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,20 +25,20 @@ type StorageState interface {
 	ImportFilesystem(ctx context.Context, name corestorage.Name,
 		filesystem storage.FilesystemInfo) (corestorage.ID, error)
 
-	// ListStorageInstances returns a list of storage instances in the model.
-	ListStorageInstances(ctx context.Context) ([]storage.StorageInstanceDetails, error)
+	// GetAllStorageInstances returns a list of storage instances in the model.
+	GetAllStorageInstances(ctx context.Context) ([]internal.StorageInstanceDetails, error)
 
-	// ListVolumeWithAttachments returns a map of volume storage IDs to their
+	// GetVolumeWithAttachments returns a map of volume storage IDs to their
 	// information including attachments.
-	ListVolumeWithAttachments(
+	GetVolumeWithAttachments(
 		ctx context.Context, storageInstanceIDs ...string,
-	) (map[string]state.VolumeDetails, error)
+	) (map[string]internal.VolumeDetails, error)
 
-	// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+	// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
 	// information including attachments.
-	ListFilesystemWithAttachments(
+	GetFilesystemWithAttachments(
 		ctx context.Context, storageInstanceIDs ...string,
-	) (map[string]state.FilesystemDetails, error)
+	) (map[string]internal.FilesystemDetails, error)
 }
 
 // StorageService defines a service for storage related behaviour.
@@ -192,94 +192,46 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 // 	return filesystemInfo, nil
 // }
 
-// // ListStorageInstances returns a list of storage instances in the model.
-// func (s *StorageService) ListStorageInstances1(ctx context.Context) ([]storage.StorageInstanceInfo, error) {
-// 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-// 	defer span.End()
-
-// 	storageInstances, err := s.st.ListStorageInstances(ctx)
-// 	if err != nil {
-// 		return nil, errors.Errorf("listing storage instances: %w", err)
-// 	}
-
-// 	result := make([]storage.StorageInstanceInfo, len(storageInstances))
-// 	for i, si := range storageInstances {
-// 		result[i] = storage.StorageInstanceInfo{
-// 			ID:         si.ID,
-// 			Owner:      si.Owner,
-// 			Kind:       si.Kind,
-// 			Life:       si.Life,
-// 			Persistent: si.Persistent,
-// 		}
-// 		if si.VolumeInfo != nil {
-// 			result[i].Status, err = status.DecodeVolumeStatus(si.VolumeInfo.Status)
-// 			if err != nil {
-// 				return nil, errors.Capture(err)
-// 			}
-// 			for _, att := range si.VolumeInfo.Attachments {
-// 				attachment := storage.StorageAttachmentInfo{
-// 					Life:    att.Life,
-// 					Unit:    att.Unit,
-// 					Machine: att.Machine,
-// 				}
-// 				if att.BlockDeviceName == "" {
-// 					// We probably don't want to error here for the client. Just log it.
-// 					s.logger.Warningf(ctx,
-// 						"storage attachment for %q on %q has no associated block device yet",
-// 						si.ID, att.Unit,
-// 					)
-// 				}
-// 				var deviceLinks []string
-// 				if att.BlockDeviceLink != "" {
-// 					deviceLinks = append(deviceLinks, att.BlockDeviceLink)
-// 				}
-// 				attachment.Location, err = coreblockdevice.BlockDevicePath(
-// 					coreblockdevice.BlockDevice{
-// 						HardwareId:  att.HardwareID,
-// 						WWN:         att.WWN,
-// 						DeviceName:  att.BlockDeviceName,
-// 						DeviceLinks: deviceLinks,
-// 					},
-// 				)
-// 				result[i].Attachments = append(result[i].Attachments, attachment)
-// 			}
-// 		} else if si.FilesystemInfo != nil {
-// 			result[i].Status, err = status.DecodeFilesystemStatus(si.FilesystemInfo.Status)
-// 			if err != nil {
-// 				return nil, errors.Capture(err)
-// 			}
-// 			for _, att := range si.FilesystemInfo.Attachments {
-// 				attachment := storage.StorageAttachmentInfo{
-// 					Life:     att.Life,
-// 					Unit:     att.Unit,
-// 					Machine:  att.Machine,
-// 					Location: att.MountPoint,
-// 				}
-// 				result[i].Attachments = append(result[i].Attachments, attachment)
-// 			}
-// 		}
-
-// 	}
-// 	return result, nil
-// }
-
-// ListStorageInstances returns a list of storage instances in the model.
-func (s *StorageService) ListStorageInstances(ctx context.Context) ([]storage.StorageInstanceDetails, error) {
+// GetAllStorageInstances returns a list of storage instances in the model.
+func (s *StorageService) GetAllStorageInstances(ctx context.Context) ([]storage.StorageInstanceDetails, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.ListStorageInstances(ctx)
+	sInstances, err := s.st.GetAllStorageInstances(ctx)
+	if err != nil {
+		return nil, errors.Errorf("listing storage instances: %w", err)
+	}
+	result := make([]storage.StorageInstanceDetails, 0, len(sInstances))
+	for _, si := range sInstances {
+		result = append(result, storage.StorageInstanceDetails{
+			UUID:       storage.StorageInstanceUUID(si.UUID),
+			ID:         si.ID,
+			Owner:      si.Owner,
+			Kind:       si.Kind,
+			Life:       si.Life,
+			Persistent: si.Persistent,
+		})
+	}
+	return result, nil
 }
 
-// ListVolumeWithAttachments returns a map of volume storage IDs to their
+// GetVolumeWithAttachments returns a map of volume storage IDs to their
 // information including attachments.
-func (s *StorageService) ListVolumeWithAttachments(
-	ctx context.Context, storageInstanceIDs ...string,
+func (s *StorageService) GetVolumeWithAttachments(
+	ctx context.Context, uuids ...storage.StorageInstanceUUID,
 ) (map[string]storage.VolumeDetails, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	vols, err := s.st.ListVolumeWithAttachments(ctx, storageInstanceIDs...)
+	var siUUIDs []string
+	for _, uuid := range uuids {
+		if err := uuid.Validate(); err != nil {
+			return nil, errors.Errorf("invalid storage instance UUID %q: %w", uuid, err)
+		}
+		siUUIDs = append(siUUIDs, uuid.String())
+	}
+
+	vols, err := s.st.GetVolumeWithAttachments(ctx, siUUIDs...)
 	if err != nil {
 		return nil, errors.Errorf("listing volume attachments: %w", err)
 	}
@@ -309,15 +261,23 @@ func (s *StorageService) ListVolumeWithAttachments(
 	return result, nil
 }
 
-// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
 // information including attachments.
-func (s *StorageService) ListFilesystemWithAttachments(
-	ctx context.Context, storageInstanceIDs ...string,
+func (s *StorageService) GetFilesystemWithAttachments(
+	ctx context.Context, uuids ...storage.StorageInstanceUUID,
 ) (map[string]storage.FilesystemDetails, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	fss, err := s.st.ListFilesystemWithAttachments(ctx, storageInstanceIDs...)
+	var siUUIDs []string
+	for _, uuid := range uuids {
+		if err := uuid.Validate(); err != nil {
+			return nil, errors.Errorf("invalid storage instance UUID %q: %w", uuid, err)
+		}
+		siUUIDs = append(siUUIDs, uuid.String())
+	}
+
+	fss, err := s.st.GetFilesystemWithAttachments(ctx, siUUIDs...)
 	if err != nil {
 		return nil, errors.Errorf("listing filesystem attachments: %w", err)
 	}

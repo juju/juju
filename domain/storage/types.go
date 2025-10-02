@@ -98,6 +98,7 @@ type FilesystemInfo struct {
 
 // StorageInstanceDetails describes information about a storage instance.
 type StorageInstanceDetails struct {
+	UUID       StorageInstanceUUID
 	ID         string
 	Owner      *unit.Name
 	Kind       StorageKind

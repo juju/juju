@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
 	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
+	internal "github.com/juju/juju/domain/storage/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -24,15 +26,15 @@ func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 
-func (s *storageSuite) TestListStorageInstancesWithEmpty(c *tc.C) {
+func (s *storageSuite) TestGetAllStorageInstancesWithEmpty(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	result, err := st.ListStorageInstances(c.Context())
+	result, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIs, nil)
 	c.Assert(result, tc.HasLen, 0)
 }
 
-func (s *storageSuite) TestListStorageInstances(c *tc.C) {
+func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
@@ -42,54 +44,80 @@ func (s *storageSuite) TestListStorageInstances(c *tc.C) {
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Block storage instance with no attachments.
-	_, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	instanceUUID0, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 
 	// Filesystem storage instance with no attachments.
-	_, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	instanceUUID1, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 
 	// Block storage instance attached to a unit.
 	a2 := s.newApplication(c, "foo", ch0)
 	netNodeUUID2 := s.newNetNode(c)
 	u2, u2n := s.newUnitWithNetNode(c, a2, netNodeUUID2)
-	s2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
-	s.newStorageAttachment(c, s2, u2)
+	instanceUUID2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	s.newStorageAttachment(c, instanceUUID2, u2)
 	v2, _ := s.newVolume(c)
 	s.changeVolumeInfo(c, v2, "vol-123", 1234, "hwid", "wwn", true)
-	s.newStorageInstanceVolume(c, s2, v2)
+	s.newStorageInstanceVolume(c, instanceUUID2, v2)
 	s.newVolumeAttachment(c, v2, netNodeUUID2)
-	s.newStorageUnitOwner(c, s2, u2)
+	s.newStorageUnitOwner(c, instanceUUID2, u2)
 
 	// Filesystem storage instance attached to a unit.
 	a3 := s.newApplication(c, "bar", ch0)
 	netNodeUUID3 := s.newNetNode(c)
 	u3, u3n := s.newUnitWithNetNode(c, a3, netNodeUUID3)
-	s3, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
-	instanceID3 := s.getStorageID(c, s3)
-	s.newStorageAttachment(c, s3, u3)
-	s.newStorageUnitOwner(c, s3, u3)
+	instanceUUID3, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	instanceID3 := s.getStorageID(c, instanceUUID3)
+	s.newStorageAttachment(c, instanceUUID3, u3)
+	s.newStorageUnitOwner(c, instanceUUID3, u3)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	result, err := st.ListStorageInstances(c.Context())
+	result, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIs, nil)
-	c.Assert(result, tc.SameContents, []storage.StorageInstanceDetails{
-		{ID: instanceID0, Kind: storage.StorageKindBlock, Life: life.Alive, Persistent: false},
-		{ID: instanceID1, Kind: storage.StorageKindFilesystem, Life: life.Alive, Persistent: false},
-		{ID: instanceID2, Owner: &u2n, Kind: storage.StorageKindBlock, Life: life.Alive, Persistent: true},
-		{ID: instanceID3, Owner: &u3n, Kind: storage.StorageKindFilesystem, Life: life.Alive, Persistent: false},
+	c.Assert(result, tc.SameContents, []internal.StorageInstanceDetails{
+		{
+			UUID:       instanceUUID0.String(),
+			ID:         instanceID0,
+			Kind:       storage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: false,
+		},
+		{
+			UUID:       instanceUUID1.String(),
+			ID:         instanceID1,
+			Kind:       storage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+		},
+		{
+			UUID:       instanceUUID2.String(),
+			ID:         instanceID2,
+			Owner:      &u2n,
+			Kind:       storage.StorageKindBlock,
+			Life:       life.Alive,
+			Persistent: true,
+		},
+		{
+			UUID:       instanceUUID3.String(),
+			ID:         instanceID3,
+			Owner:      &u3n,
+			Kind:       storage.StorageKindFilesystem,
+			Life:       life.Alive,
+			Persistent: false,
+		},
 	})
 }
 
-func (s *storageSuite) TestListVolumeWithAttachmentsWithEmpty(c *tc.C) {
+func (s *storageSuite) TestGetVolumeWithAttachmentsWithEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// No storage instance IDs.
-	result, err := st.ListVolumeWithAttachments(c.Context())
+	result, err := st.GetVolumeWithAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]VolumeDetails{})
+	c.Assert(result, tc.DeepEquals, map[string]internal.VolumeDetails{})
 
 }
 
-func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
+func (s *storageSuite) TestGetVolumeWithAttachments(c *tc.C) {
 	statusstate := statusstate.NewModelState(
 		s.TxnRunnerFactory(),
 		clock.WallClock,
@@ -105,7 +133,6 @@ func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
 
 	// Filesystem storage instance with no attachments.
 	sFs, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
-	instanceIDWithFS := s.getStorageID(c, sFs)
 
 	// Volume attachment to a unit with no block device.
 	a0 := s.newApplication(c, "foo", ch0)
@@ -152,23 +179,23 @@ func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
 	s.changeVolumeAttachmentInfo(c, v2a, bd0, true)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	result, err := st.ListVolumeWithAttachments(c.Context(),
-		instanceID0,
-		instanceID1,
-		instanceIDWithFS, // filesystem is ignored.
-		instanceID2,
+	result, err := st.GetVolumeWithAttachments(c.Context(),
+		s0.String(),
+		s1.String(),
+		sFs.String(), // filesystem is ignored.
+		s2.String(),
 	)
 	c.Assert(err, tc.ErrorIs, nil)
-	c.Assert(result, tc.DeepEquals, map[string]VolumeDetails{
+	c.Assert(result, tc.DeepEquals, map[string]internal.VolumeDetails{
 		instanceID0: {
 			StorageID: instanceID0,
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status:  status.StorageVolumeStatusTypeAttaching,
 				Message: "attaching the volumez",
 			},
-			Attachments: []VolumeAttachmentDetails{
+			Attachments: []domainstorage.VolumeAttachmentDetails{
 				{
-					AttachmentDetails: AttachmentDetails{
+					AttachmentDetails: domainstorage.AttachmentDetails{
 						Life: life.Alive,
 						Unit: u0n,
 					},
@@ -180,9 +207,9 @@ func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status: status.StorageVolumeStatusTypePending,
 			},
-			Attachments: []VolumeAttachmentDetails{
+			Attachments: []domainstorage.VolumeAttachmentDetails{
 				{
-					AttachmentDetails: AttachmentDetails{
+					AttachmentDetails: domainstorage.AttachmentDetails{
 						Life:    life.Alive,
 						Unit:    u1n,
 						Machine: &m1n,
@@ -195,9 +222,9 @@ func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status: status.StorageVolumeStatusTypePending,
 			},
-			Attachments: []VolumeAttachmentDetails{
+			Attachments: []domainstorage.VolumeAttachmentDetails{
 				{
-					AttachmentDetails: AttachmentDetails{
+					AttachmentDetails: domainstorage.AttachmentDetails{
 						Life:    life.Alive,
 						Unit:    u2n,
 						Machine: &m2n,
@@ -209,16 +236,16 @@ func (s *storageSuite) TestListVolumeWithAttachments(c *tc.C) {
 	})
 }
 
-func (s *storageSuite) TestStorageListFilesystemAttachmentsWithEmpty(c *tc.C) {
+func (s *storageSuite) TestGetFilesystemWithAttachmentsWithEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// No storage instance IDs.
-	result, err := st.ListFilesystemWithAttachments(c.Context())
+	result, err := st.GetFilesystemWithAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]FilesystemDetails{})
+	c.Assert(result, tc.DeepEquals, map[string]internal.FilesystemDetails{})
 }
 
-func (s *storageSuite) TestStorageListFilesystemAttachments(c *tc.C) {
+func (s *storageSuite) TestGetFilesystemWithAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
@@ -228,7 +255,6 @@ func (s *storageSuite) TestStorageListFilesystemAttachments(c *tc.C) {
 
 	// Volume storage instance with no attachments.
 	sVol, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
-	instanceIDWithVol := s.getStorageID(c, sVol)
 
 	// Filesystem attachment to a unit.
 	a0 := s.newApplication(c, "foo", ch0)
@@ -256,21 +282,21 @@ func (s *storageSuite) TestStorageListFilesystemAttachments(c *tc.C) {
 	s.newStorageInstanceFilesystem(c, s1, fs1)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	result, err := st.ListFilesystemWithAttachments(c.Context(),
-		instanceID0,
-		instanceID1,
-		instanceIDWithVol, // volume is ignored.
+	result, err := st.GetFilesystemWithAttachments(c.Context(),
+		s0.String(),
+		s1.String(),
+		sVol.String(), // volume is ignored.
 	)
 	c.Assert(err, tc.ErrorIs, nil)
-	c.Assert(result, tc.DeepEquals, map[string]FilesystemDetails{
+	c.Assert(result, tc.DeepEquals, map[string]internal.FilesystemDetails{
 		instanceID0: {
 			StorageID: instanceID0,
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status: status.StorageFilesystemStatusTypePending,
 			},
-			Attachments: []FilesystemAttachmentDetails{
+			Attachments: []domainstorage.FilesystemAttachmentDetails{
 				{
-					AttachmentDetails: AttachmentDetails{
+					AttachmentDetails: domainstorage.AttachmentDetails{
 						Life: life.Alive,
 						Unit: u0n,
 					},
@@ -283,9 +309,9 @@ func (s *storageSuite) TestStorageListFilesystemAttachments(c *tc.C) {
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status: status.StorageFilesystemStatusTypeAttaching,
 			},
-			Attachments: []FilesystemAttachmentDetails{
+			Attachments: []domainstorage.FilesystemAttachmentDetails{
 				{
-					AttachmentDetails: AttachmentDetails{
+					AttachmentDetails: domainstorage.AttachmentDetails{
 						Life:    life.Alive,
 						Unit:    u1n,
 						Machine: &m1n,

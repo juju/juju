@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	internal "github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -28,15 +29,15 @@ func (st *State) ImportFilesystem(ctx context.Context, name storage.Name, filesy
 	return "", errors.New("not implemented")
 }
 
-// ListStorageInstances returns a list of storage instances in the model.
-func (st *State) ListStorageInstances(ctx context.Context) ([]domainstorage.StorageInstanceDetails, error) {
+// GetAllStorageInstances returns a list of storage instances in the model.
+func (st *State) GetAllStorageInstances(ctx context.Context) ([]internal.StorageInstanceDetails, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
-SELECT (si.storage_id, si.storage_kind_id, si.life_id, sv.persistent) AS (&dbStorageInstanceDetails.*),
+SELECT (si.uuid, si.storage_id, si.storage_kind_id, si.life_id, sv.persistent) AS (&dbStorageInstanceDetails.*),
        u.name AS &dbStorageInstanceDetails.owner_unit_name
 FROM   storage_instance si
 LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
@@ -59,9 +60,10 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid`, dbStorageInstanceDetails{})
 		return nil, errors.Errorf("listing storage instances: %w", err)
 	}
 
-	result := make([]domainstorage.StorageInstanceDetails, 0, len(dbInstances))
+	result := make([]internal.StorageInstanceDetails, 0, len(dbInstances))
 	for _, dbInstance := range dbInstances {
-		si := domainstorage.StorageInstanceDetails{
+		si := internal.StorageInstanceDetails{
+			UUID:       dbInstance.UUID,
 			ID:         dbInstance.ID,
 			Kind:       domainstorage.StorageKind(dbInstance.KindID),
 			Life:       life.Life(dbInstance.LifeID),
@@ -76,15 +78,15 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid`, dbStorageInstanceDetails{})
 	return result, nil
 }
 
-type storageIDs []string
+type storageInstanceUUIDs []string
 
-// ListVolumeWithAttachments returns a map of volume storage IDs to their
+// GetVolumeWithAttachments returns a map of volume storage IDs to their
 // information including attachments.
-func (st *State) ListVolumeWithAttachments(
+func (st *State) GetVolumeWithAttachments(
 	ctx context.Context,
-	storageInstanceIDs ...string,
-) (map[string]VolumeDetails, error) {
-	if len(storageInstanceIDs) == 0 {
+	instanceUUIDs ...string,
+) (map[string]internal.VolumeDetails, error) {
+	if len(instanceUUIDs) == 0 {
 		return nil, nil
 	}
 
@@ -106,14 +108,14 @@ LEFT JOIN       storage_instance si ON si.uuid=siv.storage_instance_uuid
 LEFT JOIN       storage_attachment sa ON sa.storage_instance_uuid=si.uuid
 LEFT JOIN       unit u ON u.uuid=sa.unit_uuid
 LEFT JOIN       machine m ON sva.net_node_uuid=m.net_node_uuid
-WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageIDs{})
+WHERE si.uuid IN ($storageInstanceUUIDs[:])`, dbVolumeAttachmentDetails{}, storageInstanceUUIDs{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var dbVolumeAttachmentData []dbVolumeAttachmentDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, storageIDs(storageInstanceIDs)).GetAll(&dbVolumeAttachmentData)
+		err = tx.Query(ctx, stmt, storageInstanceUUIDs(instanceUUIDs)).GetAll(&dbVolumeAttachmentData)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -123,7 +125,7 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageID
 		return nil, errors.Errorf("listing volume attachments: %w", err)
 	}
 
-	result := make(map[string]VolumeDetails)
+	result := make(map[string]internal.VolumeDetails)
 	for _, att := range dbVolumeAttachmentData {
 		info, ok := result[att.StorageID]
 		if !ok {
@@ -131,7 +133,7 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageID
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			info = VolumeDetails{
+			info = internal.VolumeDetails{
 				StorageID: att.StorageID,
 				Status: status.StatusInfo[status.StorageVolumeStatusType]{
 					Status:  statusValue,
@@ -140,8 +142,8 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageID
 				},
 			}
 		}
-		va := VolumeAttachmentDetails{
-			AttachmentDetails: AttachmentDetails{
+		va := domainstorage.VolumeAttachmentDetails{
+			AttachmentDetails: domainstorage.AttachmentDetails{
 				Life: life.Life(att.LifeID),
 			},
 			BlockDeviceUUID: att.BlockDeviceUUID,
@@ -163,13 +165,13 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbVolumeAttachmentDetails{}, storageID
 	return result, nil
 }
 
-// ListFilesystemWithAttachments returns a map of filesystem storage IDs to their
+// GetFilesystemWithAttachments returns a map of filesystem storage IDs to their
 // information including attachments.
-func (st *State) ListFilesystemWithAttachments(
+func (st *State) GetFilesystemWithAttachments(
 	ctx context.Context,
-	storageInstanceIDs ...string,
-) (map[string]FilesystemDetails, error) {
-	if len(storageInstanceIDs) == 0 {
+	instanceUUIDs ...string,
+) (map[string]internal.FilesystemDetails, error) {
+	if len(instanceUUIDs) == 0 {
 		return nil, nil
 	}
 
@@ -191,14 +193,14 @@ LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
 LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=si.uuid
 LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
-WHERE si.storage_id IN ($storageIDs[:])`, dbFilesystemAttachmentDetails{}, storageIDs{})
+WHERE si.uuid IN ($storageInstanceUUIDs[:])`, dbFilesystemAttachmentDetails{}, storageInstanceUUIDs{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var dbFilesystemAttachmentData []dbFilesystemAttachmentDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, storageIDs(storageInstanceIDs)).GetAll(&dbFilesystemAttachmentData)
+		err = tx.Query(ctx, stmt, storageInstanceUUIDs(instanceUUIDs)).GetAll(&dbFilesystemAttachmentData)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -208,7 +210,7 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbFilesystemAttachmentDetails{}, stora
 		return nil, errors.Errorf("listing filesystem attachments: %w", err)
 	}
 
-	result := make(map[string]FilesystemDetails)
+	result := make(map[string]internal.FilesystemDetails)
 	for _, att := range dbFilesystemAttachmentData {
 		info, ok := result[att.StorageID]
 		if !ok {
@@ -216,7 +218,7 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbFilesystemAttachmentDetails{}, stora
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
-			info = FilesystemDetails{
+			info = internal.FilesystemDetails{
 				StorageID: att.StorageID,
 				Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 					Status:  statusValue,
@@ -225,8 +227,8 @@ WHERE si.storage_id IN ($storageIDs[:])`, dbFilesystemAttachmentDetails{}, stora
 				},
 			}
 		}
-		fa := FilesystemAttachmentDetails{
-			AttachmentDetails: AttachmentDetails{
+		fa := domainstorage.FilesystemAttachmentDetails{
+			AttachmentDetails: domainstorage.AttachmentDetails{
 				Life: life.Life(att.LifeID),
 			},
 			MountPoint: att.MountPoint,
