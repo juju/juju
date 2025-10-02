@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internal "github.com/juju/juju/domain/storage/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -37,23 +36,23 @@ func (s *storageSuite) TestGetAllStorageInstancesWithEmpty(c *tc.C) {
 func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 
 	ch0 := s.newCharm(c)
-	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
-	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
+	s.newCharmStorage(c, ch0, "blk", domainstorage.StorageKindBlock)
+	s.newCharmStorage(c, ch0, "fs", domainstorage.StorageKindFilesystem)
 
 	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Block storage instance with no attachments.
-	instanceUUID0, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	instanceUUID0, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 
 	// Filesystem storage instance with no attachments.
-	instanceUUID1, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	instanceUUID1, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, domainstorage.StorageKindFilesystem)
 
 	// Block storage instance attached to a unit.
 	a2 := s.newApplication(c, "foo", ch0)
 	netNodeUUID2 := s.newNetNode(c)
 	u2, u2n := s.newUnitWithNetNode(c, a2, netNodeUUID2)
-	instanceUUID2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	instanceUUID2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 	s.newStorageAttachment(c, instanceUUID2, u2)
 	v2, _ := s.newVolume(c)
 	s.changeVolumeInfo(c, v2, "vol-123", 1234, "hwid", "wwn", true)
@@ -65,7 +64,7 @@ func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 	a3 := s.newApplication(c, "bar", ch0)
 	netNodeUUID3 := s.newNetNode(c)
 	u3, u3n := s.newUnitWithNetNode(c, a3, netNodeUUID3)
-	instanceUUID3, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	instanceUUID3, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, domainstorage.StorageKindFilesystem)
 	instanceID3 := s.getStorageID(c, instanceUUID3)
 	s.newStorageAttachment(c, instanceUUID3, u3)
 	s.newStorageUnitOwner(c, instanceUUID3, u3)
@@ -77,14 +76,14 @@ func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 		{
 			UUID:       instanceUUID0.String(),
 			ID:         instanceID0,
-			Kind:       storage.StorageKindBlock,
+			Kind:       domainstorage.StorageKindBlock,
 			Life:       life.Alive,
 			Persistent: false,
 		},
 		{
 			UUID:       instanceUUID1.String(),
 			ID:         instanceID1,
-			Kind:       storage.StorageKindFilesystem,
+			Kind:       domainstorage.StorageKindFilesystem,
 			Life:       life.Alive,
 			Persistent: false,
 		},
@@ -92,7 +91,7 @@ func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 			UUID:       instanceUUID2.String(),
 			ID:         instanceID2,
 			Owner:      &u2n,
-			Kind:       storage.StorageKindBlock,
+			Kind:       domainstorage.StorageKindBlock,
 			Life:       life.Alive,
 			Persistent: true,
 		},
@@ -100,7 +99,7 @@ func (s *storageSuite) TestGetAllStorageInstances(c *tc.C) {
 			UUID:       instanceUUID3.String(),
 			ID:         instanceID3,
 			Owner:      &u3n,
-			Kind:       storage.StorageKindFilesystem,
+			Kind:       domainstorage.StorageKindFilesystem,
 			Life:       life.Alive,
 			Persistent: false,
 		},
@@ -125,20 +124,20 @@ func (s *storageSuite) TestGetVolumeWithAttachments(c *tc.C) {
 	)
 
 	ch0 := s.newCharm(c)
-	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
-	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
+	s.newCharmStorage(c, ch0, "blk", domainstorage.StorageKindBlock)
+	s.newCharmStorage(c, ch0, "fs", domainstorage.StorageKindFilesystem)
 
 	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Filesystem storage instance with no attachments.
-	sFs, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	sFs, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, domainstorage.StorageKindFilesystem)
 
 	// Volume attachment to a unit with no block device.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	s0, instanceID0 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 	s.newStorageAttachment(c, s0, u0)
 	v0, _ := s.newVolume(c)
 	s.changeVolumeInfo(c, v0, "vol-123", 1234, "hwid", "wwn", true)
@@ -155,7 +154,7 @@ func (s *storageSuite) TestGetVolumeWithAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, instanceID1 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	s1, instanceID1 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 	s.newStorageAttachment(c, s1, u1)
 	v1, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s1, v1)
@@ -167,7 +166,7 @@ func (s *storageSuite) TestGetVolumeWithAttachments(c *tc.C) {
 	nn2 := s.newNetNode(c)
 	m2, m2n := s.newMachineWithNetNode(c, nn2)
 	u2, u2n := s.newUnitWithNetNode(c, a2, nn2)
-	s2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	s2, instanceID2 := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 	s.newStorageAttachment(c, s2, u2)
 	v2, _ := s.newVolume(c)
 	s.newStorageInstanceVolume(c, s2, v2)
@@ -247,20 +246,20 @@ func (s *storageSuite) TestGetFilesystemWithAttachmentsWithEmpty(c *tc.C) {
 
 func (s *storageSuite) TestGetFilesystemWithAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
-	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
-	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
+	s.newCharmStorage(c, ch0, "blk", domainstorage.StorageKindBlock)
+	s.newCharmStorage(c, ch0, "fs", domainstorage.StorageKindFilesystem)
 
 	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Volume storage instance with no attachments.
-	sVol, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	sVol, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, domainstorage.StorageKindBlock)
 
 	// Filesystem attachment to a unit.
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
-	s0, instanceID0 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	s0, instanceID0 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, domainstorage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s0, u0)
 	s.newStorageUnitOwner(c, s0, u0)
 	fs0, _ := s.newFilesystemWithStatus(c, status.StorageFilesystemStatusTypePending)
@@ -273,7 +272,7 @@ func (s *storageSuite) TestGetFilesystemWithAttachments(c *tc.C) {
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
 	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
-	s1, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	s1, instanceID1 := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, domainstorage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s1, u1)
 	s.newStorageUnitOwner(c, s1, u1)
 	fs1, _ := s.newFilesystemWithStatus(c, status.StorageFilesystemStatusTypeAttaching)

@@ -11,7 +11,6 @@ import (
 
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
@@ -92,7 +91,7 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 		Return(map[string]domainstorage.VolumeDetails{
 			"pgdata/0": {
 				StorageID: "pgdata/0",
-				Status: status.StatusInfo{
+				Status: corestatus.StatusInfo{
 					Status:  corestatus.Attaching,
 					Message: "attaching the volumez",
 				},
@@ -127,7 +126,7 @@ func (s *storageSuite) TestListStorageDetails(c *tc.C) {
 		Return(map[string]domainstorage.FilesystemDetails{
 			"data/1": {
 				StorageID: "data/1",
-				Status: status.StatusInfo{
+				Status: corestatus.StatusInfo{
 					Status:  corestatus.Attached,
 					Message: "all good",
 				},
