@@ -1,0 +1,41 @@
+name: Unit tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main, "[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: Unit (race) tests on ${{ matrix.host_arch }}
+    runs-on:
+      [self-hosted, linux, "${{ matrix.host_arch }}", aws, "${{ matrix.size }}"]
+    timeout-minutes: 120
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host_arch: x64
+            size: quad-xlarge
+          - host_arch: arm64
+            size: xxlarge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Run race tests
+        env:
+          TEST_TIMEOUT: "5400s"
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make race-test VERBOSE_CHECK=1 TEST_TIMEOUT="${TEST_TIMEOUT}"
