@@ -117,9 +117,9 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setRegisterCAASunitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{{
@@ -132,11 +132,11 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *tc.C) {
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
-	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
+		false, "", "", nil,
+	)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
-	s.storageService.EXPECT().GetRegisterCAASUnitStorageArg(
-		gomock.Any(), appUUID, unitUUID, gomock.Any(), gomock.Any(),
-	).Return(application.RegisterUnitStorageArg{}, nil)
 
 	arg := application.RegisterCAASUnitArg{
 		UnitName:     "foo/666",
@@ -181,6 +181,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnitMissingProviderID(c *tc.C) {
 func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
+	setRegisterCAASunitNoopStorageExpects(s.storageService)
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
@@ -188,7 +189,10 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
-	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
+	s.state.EXPECT().CheckCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
+		false, "", "", nil,
+	)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
 
 	p := application.RegisterCAASUnitParams{

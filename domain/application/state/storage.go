@@ -21,14 +21,12 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
-	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprov "github.com/juju/juju/domain/storage/provisioning"
-	"github.com/juju/juju/domain/storageprovisioning"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -193,7 +191,7 @@ FROM (
 	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
 	slices.Values(dbVals)(func(s storageInstanceComposition) bool {
 		v := internal.StorageInstanceComposition{
-			StorageName: s.StorageName,
+			StorageName: domainstorage.Name(s.StorageName),
 			UUID:        domainstorage.StorageInstanceUUID(s.UUID),
 		}
 
@@ -395,41 +393,19 @@ func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageToAttach []application.CreateStorageAttachmentArg,
+	storageToAttach []application.CreateUnitStorageAttachmentArg,
 ) error {
-	storageAttachmentArgs, err := makeInsertUnitStorageAttachmentArgs(
+	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
 	)
-	if err != nil {
-		return errors.Errorf(
-			"creating database input for makeing unit storage attachments: %w",
-			err,
-		)
-	}
-	storageInstanceUUIDs := make([]domainstorage.StorageInstanceUUID, 0, len(storageToAttach))
-	for _, sa := range storageToAttach {
-		storageInstanceUUIDs = append(storageInstanceUUIDs, sa.StorageInstanceUUID)
-	}
-	fsAttachmentArgs, err := st.makeInsertUnitFilesystemAttachmentArgs(
-		ctx, tx, netNodeUUID, storageInstanceUUIDs,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"create database input for making unit filesystem attachments: %w",
-			err,
-		)
-	}
 
-	volAttachmentArgs, err := st.makeInsertUnitVolumeAttachmentArgs(
-		ctx, tx, netNodeUUID, storageInstanceUUIDs,
+	fsAttachmentArgs := st.makeInsertUnitFilesystemAttachmentArgs(
+		storageToAttach,
 	)
-	if err != nil {
-		return errors.Errorf(
-			"create database input for making unit volume attachments: %w",
-			err,
-		)
-	}
+
+	volAttachmentArgs := st.makeInsertUnitVolumeAttachmentArgs(
+		storageToAttach,
+	)
 
 	insertStorageAttachmentStmt, err := st.Prepare(`
 INSERT INTO storage_attachment (*) VALUES ($insertStorageInstanceAttachment.*)
@@ -855,84 +831,27 @@ func (st *State) makeInsertUnitFilesystemArgs(
 }
 
 // makeInsertUnitFilesystemAttachmentArgs will make a slice of
-// [insertStorageFilesystemAttachment] values that will make a filesystem
-// attachment for every storage instance supplied that has a filesystem.
-//
-// The returned attachment values will be attached to the supplied net node.
+// [insertStorageFilesystemAttachment] for each filesystem attachment defined in
+// args.
 func (st *State) makeInsertUnitFilesystemAttachmentArgs(
-	ctx context.Context,
-	tx *sqlair.TX,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstances []domainstorage.StorageInstanceUUID,
-) ([]insertStorageFilesystemAttachment, error) {
-	storageInstancesInput := make(sqlair.S, 0, len(storageInstances))
-	for _, uuid := range storageInstances {
-		storageInstancesInput = append(storageInstancesInput, uuid.String())
-	}
-
-	filesystemUUIDStmt, err := st.Prepare(`
-SELECT &storageFilesystemUUIDRef.*
-FROM storage_instance_filesystem
-WHERE storage_instance_uuid IN ($S[:])
-`,
-		storageFilesystemUUIDRef{}, storageInstancesInput)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var dbVals []storageFilesystemUUIDRef
-	err = tx.Query(ctx, filesystemUUIDStmt, storageInstancesInput).GetAll(&dbVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	// TODO(storage): calculate filesystem attachment provision scope instead of
-	// querying the filesystems they correspond to.
-	fsUUIDs := make(sqlair.S, 0, len(dbVals))
-	for _, v := range dbVals {
-		fsUUIDs = append(fsUUIDs, v.UUID)
-	}
-	filesystemProvisionScopeStmt, err := st.Prepare(`
-SELECT &storageFilesystemProvisionScope.*
-FROM storage_filesystem
-WHERE uuid IN ($S[:])
-`,
-		storageFilesystemProvisionScope{}, fsUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var fsProvisionScopeVals []storageFilesystemProvisionScope
-	err = tx.Query(ctx, filesystemProvisionScopeStmt, fsUUIDs).GetAll(&fsProvisionScopeVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	provisionScopes := map[string]int{}
-	for _, v := range fsProvisionScopeVals {
-		provisionScopes[v.UUID] = v.ProvisionScopeID
-	}
-
-	rval := make([]insertStorageFilesystemAttachment, 0, len(dbVals))
-	for _, val := range dbVals {
-		uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new filesystem %q attachment uuid for net node uuid %q: %w",
-				val.UUID, netNodeUUID, err,
-			)
+	args []application.CreateUnitStorageAttachmentArg,
+) []insertStorageFilesystemAttachment {
+	rval := []insertStorageFilesystemAttachment{}
+	for _, arg := range args {
+		if arg.FilesystemAttachment == nil {
+			continue
 		}
 
 		rval = append(rval, insertStorageFilesystemAttachment{
 			LifeID:                int(life.Alive),
-			NetNodeUUID:           netNodeUUID.String(),
-			StorageFilesystemUUID: val.UUID,
-			UUID:                  uuid.String(),
-			ProvisionScopeID:      provisionScopes[val.UUID],
+			NetNodeUUID:           arg.FilesystemAttachment.NetNodeUUID.String(),
+			ProvisionScopeID:      int(arg.FilesystemAttachment.ProvisionScope),
+			StorageFilesystemUUID: arg.FilesystemAttachment.FilesystemUUID.String(),
+			UUID:                  arg.FilesystemAttachment.UUID.String(),
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // makeInsertUnitStorageInstanceArgs is responsible for making the insert args
@@ -978,8 +897,8 @@ func (st *State) makeInsertUnitStorageInstanceArgs(
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID coreunit.UUID,
-	storageToAttach []application.CreateStorageAttachmentArg,
-) ([]insertStorageInstanceAttachment, error) {
+	storageToAttach []application.CreateUnitStorageAttachmentArg,
+) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
 		rval = append(rval, insertStorageInstanceAttachment{
@@ -990,7 +909,7 @@ func makeInsertUnitStorageAttachmentArgs(
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // makeInsertUnitStorageOwnerArgs is responsible for making the set of
@@ -1085,84 +1004,27 @@ func (st *State) makeInsertUnitVolumeArgs(
 }
 
 // makeInsertUnitVolumeAttachmentArgs will make a slice of
-// [insertStorageVolumeAttachment] values that will make a volume
-// attachment for every storage instance supplied that has a volume.
-//
-// The returned attachment values will be attached to the supplied net node.
+// [insertStorageVolumeAttachment] values for each volume attachment argument
+// supplied.
 func (st *State) makeInsertUnitVolumeAttachmentArgs(
-	ctx context.Context,
-	tx *sqlair.TX,
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstances []domainstorage.StorageInstanceUUID,
-) ([]insertStorageVolumeAttachment, error) {
-	storageInstancesInput := make(sqlair.S, 0, len(storageInstances))
-	for _, uuid := range storageInstances {
-		storageInstancesInput = append(storageInstancesInput, uuid.String())
-	}
-
-	volumeUUIDStmt, err := st.Prepare(`
-SELECT &storageVolumeUUIDRef.*
-FROM storage_instance_volume
-WHERE storage_instance_uuid IN ($S[:])
-`,
-		storageVolumeUUIDRef{}, storageInstancesInput)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var dbVals []storageVolumeUUIDRef
-	err = tx.Query(ctx, volumeUUIDStmt, storageInstancesInput).GetAll(&dbVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	// TODO(storage): calculate volume attachment provision scope instead of
-	// querying the volume they correspond to.
-	volUUIDs := make(sqlair.S, 0, len(dbVals))
-	for _, v := range dbVals {
-		volUUIDs = append(volUUIDs, v.UUID)
-	}
-	volumeProvisionScopeStmt, err := st.Prepare(`
-SELECT &storageVolumeProvisionScope.*
-FROM storage_volume
-WHERE uuid IN ($S[:])
-`,
-		storageVolumeProvisionScope{}, volUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var volProvisionScopeVals []storageVolumeProvisionScope
-	err = tx.Query(ctx, volumeProvisionScopeStmt, volUUIDs).GetAll(&volProvisionScopeVals)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	provisionScopes := map[string]int{}
-	for _, v := range volProvisionScopeVals {
-		provisionScopes[v.UUID] = v.ProvisionScopeID
-	}
-
-	rval := make([]insertStorageVolumeAttachment, 0, len(dbVals))
-	for _, val := range dbVals {
-		uuid, err := storageprovisioning.NewVolumeAttachmentUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new volume %q attachment uuid for net node uuid %q: %w",
-				val.UUID, netNodeUUID, err,
-			)
+	args []application.CreateUnitStorageAttachmentArg,
+) []insertStorageVolumeAttachment {
+	rval := []insertStorageVolumeAttachment{}
+	for _, arg := range args {
+		if arg.VolumeAttachment == nil {
+			continue
 		}
 
 		rval = append(rval, insertStorageVolumeAttachment{
 			LifeID:            int(life.Alive),
-			NetNodeUUID:       netNodeUUID.String(),
-			StorageVolumeUUID: val.UUID,
-			UUID:              uuid.String(),
-			ProvisionScopeID:  provisionScopes[val.UUID],
+			NetNodeUUID:       arg.VolumeAttachment.NetNodeUUID.String(),
+			ProvisionScopeID:  int(arg.VolumeAttachment.ProvisionScope),
+			StorageVolumeUUID: arg.VolumeAttachment.VolumeUUID.String(),
+			UUID:              arg.VolumeAttachment.UUID.String(),
 		})
 	}
 
-	return rval, nil
+	return rval
 }
 
 // GetStorageUUIDByID returns the UUID for the specified storage, returning an error

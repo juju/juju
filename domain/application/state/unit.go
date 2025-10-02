@@ -1383,17 +1383,7 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Capture(err)
 	}
 
-	netNodeUUID, err := st.insertNetNode(ctx, tx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
-	if err != nil {
-		return "", errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
-	}
-
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
@@ -1425,7 +1415,6 @@ func (st *State) insertCAASUnitWithName(
 		ctx,
 		tx,
 		unitUUID,
-		domainnetwork.NetNodeUUID(netNodeUUID),
 		args.StorageToAttach,
 	)
 	if err != nil {
@@ -1500,11 +1489,6 @@ func (st *State) insertIAASUnit(
 		return "", "", nil, errors.Capture(err)
 	}
 
-	charmName, err := st.getCharmMetadataName(ctx, tx, charmUUID)
-	if err != nil {
-		return "", "", nil, errors.Errorf("getting charm name for charm %q: %w", charmUUID, err)
-	}
-
 	err = st.insertUnit(
 		ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 			CharmUUID:     charmUUID,
@@ -1537,7 +1521,6 @@ func (st *State) insertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		args.NetNodeUUID,
 		args.StorageToAttach,
 	)
 	if err != nil {
@@ -1603,6 +1586,15 @@ func (st *State) insertUnit(
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	err = st.ensureFutureUnitNetNode(ctx, tx, netNodeUUID)
+	if err != nil {
+		return errors.Errorf(
+			"ensuring that the net node %q exists for new unit %q: %w",
+			netNodeUUID, args.UnitName, err,
+		)
+	}
+
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
 		return errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
@@ -2672,6 +2664,31 @@ DO NOTHING
 		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
 			return errors.Errorf("updating cloud container ports for %q: %w", unitUUID, err)
 		}
+	}
+
+	return nil
+}
+
+// ensureFutureUnitNetNode exists to ensure that a netnode uuid that is about to
+// be used for a machine exists. We do this because the buisness logic around if
+// netnode uuid for a unit is shared or already exists is outside the scope of
+// state.
+func (st *State) ensureFutureUnitNetNode(
+	ctx context.Context, tx *sqlair.TX, uuid string,
+) error {
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+
+	ensureNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
+	ensureNodeStmt, err := st.Prepare(ensureNode, netNodeUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, ensureNodeStmt, netNodeUUID).Run()
+	if internaldatabase.IsErrConstraintPrimaryKey(err) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("ensuring net node %q for future unit: %w", uuid, err)
 	}
 
 	return nil

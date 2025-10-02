@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -385,24 +386,28 @@ func (st *State) importCAASUnit(
 		return errors.Capture(err)
 	}
 
-	netNodeUUID, err := st.insertNetNode(ctx, tx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
-		CharmUUID:      charmUUID,
-		UnitName:       args.UnitName,
-		CloudContainer: args.CloudContainer,
-		Password:       args.Password,
-		Constraints:    args.Constraints,
-		UnitStatusArg:  args.UnitStatusArg,
-	}); err != nil {
+	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+	if err != nil {
+		return errors.Errorf("generating new net node uuid for imported unit: %w", err)
+	}
+
+	err = st.insertUnit(
+		ctx, tx, appUUID, unitUUID, netNodeUUID.String(),
+		insertUnitArg{
+			CharmUUID:      charmUUID,
+			UnitName:       args.UnitName,
+			CloudContainer: args.CloudContainer,
+			Password:       args.Password,
+			Constraints:    args.Constraints,
+			UnitStatusArg:  args.UnitStatusArg,
+		},
+	)
+	if err != nil {
 		return errors.Errorf("importing unit for CAAS application %q: %w", appUUID, err)
 	}
 
