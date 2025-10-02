@@ -43,7 +43,6 @@ import (
 	service27 "github.com/juju/juju/domain/status/service"
 	service28 "github.com/juju/juju/domain/storage/service"
 	service29 "github.com/juju/juju/domain/storageprovisioning/service"
-	stub "github.com/juju/juju/domain/stub"
 	service30 "github.com/juju/juju/domain/unitstate/service"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -1321,44 +1320,6 @@ func (c *MockModelDomainServicesStorageProvisioningCall) Do(f func() *service29.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDomainServicesStorageProvisioningCall) DoAndReturn(f func() *service29.Service) *MockModelDomainServicesStorageProvisioningCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Stub mocks base method.
-func (m *MockModelDomainServices) Stub() *stub.StubService {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stub")
-	ret0, _ := ret[0].(*stub.StubService)
-	return ret0
-}
-
-// Stub indicates an expected call of Stub.
-func (mr *MockModelDomainServicesMockRecorder) Stub() *MockModelDomainServicesStubCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stub", reflect.TypeOf((*MockModelDomainServices)(nil).Stub))
-	return &MockModelDomainServicesStubCall{Call: call}
-}
-
-// MockModelDomainServicesStubCall wrap *gomock.Call
-type MockModelDomainServicesStubCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesStubCall) Return(arg0 *stub.StubService) *MockModelDomainServicesStubCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesStubCall) Do(f func() *stub.StubService) *MockModelDomainServicesStubCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesStubCall) DoAndReturn(f func() *stub.StubService) *MockModelDomainServicesStubCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -50,7 +50,6 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
-	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -174,14 +173,6 @@ type ModelDomainServices interface {
 	ModelProvider() *modelproviderservice.Service
 	// ChangeStream returns the model change stream.
 	ChangeStream() *changestreamservice.Service
-
-	// Stub returns the stub service. A special service that collects temporary
-	// methods required for wiring together domains which are not completely
-	// implemented or wired up.
-	//
-	// Deprecated: Stub service contains only temporary methods and should be removed
-	// as soon as possible.
-	Stub() *stubservice.StubService
 }
 
 // DomainServices provides access to the services required by the apiserver.
