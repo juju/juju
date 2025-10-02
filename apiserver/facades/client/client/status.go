@@ -610,11 +610,11 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 		statuses = make(map[corerelation.UUID]status.StatusInfo)
 	}
 	for _, detail := range details {
-		var eids []corerelation.EndpointIdentifier
+		var identifiers []corerelation.EndpointIdentifier
 		for _, ep := range detail.Endpoints {
-			eids = append(eids, ep.EndpointIdentifier())
+			identifiers = append(identifiers, ep.EndpointIdentifier())
 		}
-		key, err := corerelation.NewKey(eids)
+		key, err := corerelation.NewKey(identifiers)
 		if err != nil {
 			logger.Warningf(ctx, "failed to generate relation key for %q: %v", detail.UUID, err)
 			continue

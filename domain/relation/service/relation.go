@@ -435,11 +435,11 @@ func (s *Service) GetRelationDetails(
 		return relation.RelationDetails{}, errors.Capture(err)
 	}
 
-	var eids []corerelation.EndpointIdentifier
+	var identifiers []corerelation.EndpointIdentifier
 	for _, e := range relationDetails.Endpoints {
-		eids = append(eids, e.EndpointIdentifier())
+		identifiers = append(identifiers, e.EndpointIdentifier())
 	}
-	key, err := corerelation.NewKey(eids)
+	key, err := corerelation.NewKey(identifiers)
 	if err != nil {
 		return relation.RelationDetails{}, errors.Errorf("generating relation key: %w", err)
 	}
@@ -479,11 +479,11 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	var statuses []relation.RelationUnitStatus
 	for _, result := range results {
-		var eids []corerelation.EndpointIdentifier
+		var identifiers []corerelation.EndpointIdentifier
 		for _, e := range result.Endpoints {
-			eids = append(eids, e.EndpointIdentifier())
+			identifiers = append(identifiers, e.EndpointIdentifier())
 		}
-		key, err := corerelation.NewKey(eids)
+		key, err := corerelation.NewKey(identifiers)
 		if err != nil {
 			return nil, errors.Errorf("generating relation key: %w", err)
 		}

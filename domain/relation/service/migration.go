@@ -175,15 +175,15 @@ func (s *MigrationService) ExportRelations(ctx context.Context) ([]relation.Expo
 
 	// Generate the relation keys.
 	for i, r := range relations {
-		var eids []corerelation.EndpointIdentifier
+		var identifiers []corerelation.EndpointIdentifier
 		for _, ep := range r.Endpoints {
-			eids = append(eids, corerelation.EndpointIdentifier{
+			identifiers = append(identifiers, corerelation.EndpointIdentifier{
 				ApplicationName: ep.ApplicationName,
 				EndpointName:    ep.Name,
 				Role:            ep.Role,
 			})
 		}
-		relations[i].Key, err = corerelation.NewKey(eids)
+		relations[i].Key, err = corerelation.NewKey(identifiers)
 		if err != nil {
 			return nil, errors.Errorf("generating relation key: %w", err)
 		}
