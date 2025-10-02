@@ -3,11 +3,18 @@
 
 package blockdevice
 
-// BlockDeviceDetails describes information about a block device.
+import (
+	"github.com/juju/juju/core/blockdevice"
+)
+
+// BlockDeviceDetails describes information about a block device for the service layer to use.
 type BlockDeviceDetails struct {
-	UUID             string
-	HardwareID       string
-	WWN              string
-	BlockDeviceName  string
-	BlockDeviceLinks []string
+	UUID BlockDeviceUUID
+	blockdevice.BlockDevice
+}
+
+// BlockDeviceData describes information about a block device for the state layer to use.
+type BlockDeviceData struct {
+	UUID string
+	blockdevice.BlockDevice
 }

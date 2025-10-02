@@ -46,34 +46,74 @@ func (s *serviceSuite) service(c *tc.C) *WatchableService {
 	return NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 }
 
-func (s *serviceSuite) TestListBlockDevices(c *tc.C) {
+func (s *serviceSuite) TestGetBlockDevicesWithNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bdUUID1 := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	bdUUID2 := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
-	bdDetails := []blockdevice.BlockDeviceDetails{
-		{
-			UUID:             bdUUID1.String(),
-			BlockDeviceName:  "foo",
-			BlockDeviceLinks: []string{"a-link"},
-			HardwareID:       "hardware-id",
-			WWN:              "wwn",
-		},
-		{
-			UUID:            bdUUID2.String(),
-			BlockDeviceName: "bar",
-			HardwareID:      "hardware-id-2",
-			WWN:             "wwn-2",
-		},
-	}
-	s.state.EXPECT().ListBlockDevices(
-		gomock.Any(), bdUUID1.String(), bdUUID2.String()).Return(bdDetails, nil)
+	s.state.EXPECT().GetBlockDevices(
+		gomock.Any(), bdUUID1.String(), bdUUID2.String(),
+	).Return(nil, blockdeviceerrors.BlockDeviceNotFound)
 
-	result, err := s.service(c).ListBlockDevices(
-		c.Context(), bdUUID1, bdUUID2)
+	_, err := s.service(c).GetBlockDevices(c.Context(), bdUUID1, bdUUID2)
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
+
+}
+
+func (s *serviceSuite) TestGetBlockDevices(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	bdUUID1 := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	bdUUID2 := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	s.state.EXPECT().GetBlockDevices(
+		gomock.Any(), bdUUID1.String(), bdUUID2.String(),
+	).Return(
+		[]blockdevice.BlockDeviceData{
+			{
+				UUID: bdUUID1.String(),
+				BlockDevice: coreblockdevice.BlockDevice{
+					DeviceName:  "foo",
+					DeviceLinks: []string{"a-link"},
+					HardwareId:  "hardware-id",
+					WWN:         "wwn",
+				},
+			},
+			{
+				UUID: bdUUID2.String(),
+				BlockDevice: coreblockdevice.BlockDevice{
+					DeviceName:  "bar",
+					DeviceLinks: []string{"b-link"},
+					HardwareId:  "hardware-id-2",
+					WWN:         "wwn-2",
+				},
+			},
+		}, nil,
+	)
+
+	result, err := s.service(c).GetBlockDevices(c.Context(), bdUUID1, bdUUID2)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, bdDetails)
+	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDeviceDetails{
+		{
+			UUID: bdUUID1,
+			BlockDevice: coreblockdevice.BlockDevice{
+				DeviceName:  "foo",
+				DeviceLinks: []string{"a-link"},
+				HardwareId:  "hardware-id",
+				WWN:         "wwn",
+			},
+		},
+		{
+			UUID: bdUUID2,
+			BlockDevice: coreblockdevice.BlockDevice{
+				DeviceName:  "bar",
+				DeviceLinks: []string{"b-link"},
+				HardwareId:  "hardware-id-2",
+				WWN:         "wwn-2",
+			},
+		},
+	})
 }
 
 func (s *serviceSuite) TestGetBlockDevice(c *tc.C) {

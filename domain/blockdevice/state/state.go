@@ -36,8 +36,11 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 
 type blockDeviceUUIDs []string
 
-// ListBlockDevices returns the BlockDevices for the specified UUIDs.
-func (st *State) ListBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceDetails, error) {
+// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+//
+// The following errors may be returned:
+// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
+func (st *State) GetBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceData, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -86,14 +89,35 @@ WHERE  block_device_uuid IN ($blockDeviceUUIDs[:])`, input, deviceLink{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	m := make(map[string]blockdevice.BlockDeviceDetails)
+	m := make(map[string]blockdevice.BlockDeviceData)
 	for _, blockDevice := range blockDevices {
-		m[blockDevice.UUID] = blockdevice.BlockDeviceDetails{
-			UUID:            blockDevice.UUID,
-			HardwareID:      blockDevice.HardwareId,
-			WWN:             blockDevice.WWN,
-			BlockDeviceName: blockDevice.Name.V,
+		m[blockDevice.UUID] = blockdevice.BlockDeviceData{
+			UUID: blockDevice.UUID,
+			BlockDevice: coreblockdevice.BlockDevice{
+				DeviceName:      blockDevice.Name.V,
+				FilesystemLabel: blockDevice.FilesystemLabel,
+				FilesystemUUID:  blockDevice.HostFilesystemUUID,
+				HardwareId:      blockDevice.HardwareId,
+				WWN:             blockDevice.WWN,
+				BusAddress:      blockDevice.BusAddress,
+				SizeMiB:         blockDevice.SizeMiB,
+				FilesystemType:  blockDevice.FilesystemType,
+				InUse:           blockDevice.InUse,
+				MountPoint:      blockDevice.MountPoint,
+				SerialId:        blockDevice.SerialId,
+			},
 		}
+	}
+	var bdMissing []string
+	for _, uuid := range uuids {
+		if _, ok := m[uuid]; !ok {
+			bdMissing = append(bdMissing, uuid)
+		}
+	}
+	if len(bdMissing) > 0 {
+		return nil, errors.Errorf(
+			"block devices not found: %v", bdMissing,
+		).Add(blockdeviceerrors.BlockDeviceNotFound)
 	}
 	for _, dl := range devLinks {
 		r, ok := m[dl.BlockDeviceUUID]
@@ -101,10 +125,10 @@ WHERE  block_device_uuid IN ($blockDeviceUUIDs[:])`, input, deviceLink{})
 			// This shouldn't happen, but just in case.
 			continue
 		}
-		r.BlockDeviceLinks = append(r.BlockDeviceLinks, dl.Name)
+		r.DeviceLinks = append(r.DeviceLinks, dl.Name)
 		m[dl.BlockDeviceUUID] = r
 	}
-	var result []blockdevice.BlockDeviceDetails
+	var result []blockdevice.BlockDeviceData
 	for _, bd := range m {
 		result = append(result, bd)
 	}

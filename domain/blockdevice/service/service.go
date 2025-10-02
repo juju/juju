@@ -33,8 +33,11 @@ type State interface {
 		ctx context.Context, uuid blockdevice.BlockDeviceUUID,
 	) (coreblockdevice.BlockDevice, error)
 
-	// ListBlockDevices returns the BlockDevices for the specified UUIDs.
-	ListBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceDetails, error)
+	// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+	//
+	// The following errors may be returned:
+	// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
+	GetBlockDevices(ctx context.Context, uuids ...string) ([]blockdevice.BlockDeviceData, error)
 
 	// GetBlockDevicesForMachine returns the BlockDevices for the specified
 	// machine.
@@ -291,8 +294,11 @@ func (s *Service) GetBlockDevice(
 	return bd, nil
 }
 
-// ListBlockDevices returns the BlockDevices for the specified UUIDs.
-func (s *Service) ListBlockDevices(
+// GetBlockDevices returns the BlockDevices for the specified UUIDs.
+//
+// The following errors may be returned:
+// - [blockdeviceerrors.BlockDeviceNotFound] when one or more block devices are not found.
+func (s *Service) GetBlockDevices(
 	ctx context.Context,
 	bdUUIDs ...blockdevice.BlockDeviceUUID,
 ) ([]blockdevice.BlockDeviceDetails, error) {
@@ -304,11 +310,18 @@ func (s *Service) ListBlockDevices(
 		uuids[i] = u.String()
 	}
 
-	blockDevices, err := s.st.ListBlockDevices(ctx, uuids...)
+	blockDevices, err := s.st.GetBlockDevices(ctx, uuids...)
 	if err != nil {
 		return nil, errors.Errorf("listing block devices: %w", err)
 	}
-	return blockDevices, nil
+	result := make([]blockdevice.BlockDeviceDetails, len(blockDevices))
+	for i, bd := range blockDevices {
+		result[i] = blockdevice.BlockDeviceDetails{
+			UUID:        blockdevice.BlockDeviceUUID(bd.UUID),
+			BlockDevice: bd.BlockDevice,
+		}
+	}
+	return result, nil
 }
 
 // WatchableService defines a service for interacting with the underlying state

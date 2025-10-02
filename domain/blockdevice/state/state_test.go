@@ -82,7 +82,17 @@ VALUES (?, ?, ?)
 	}
 }
 
-func (s *stateSuite) TestListBlockDevices(c *tc.C) {
+func (s *stateSuite) TestGetBlockDevicesWithNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	blockDevice1UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	blockDevice2UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	_, err := st.GetBlockDevices(c.Context(), blockDevice1UUID.String(), blockDevice2UUID.String())
+	c.Assert(err, tc.ErrorIs, blockdeviceerrors.BlockDeviceNotFound)
+}
+
+func (s *stateSuite) TestGetBlockDevices(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	machine1UUID := s.createMachine(c, "666")
@@ -104,21 +114,25 @@ func (s *stateSuite) TestListBlockDevices(c *tc.C) {
 	blockDevice2UUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
-	result, err := st.ListBlockDevices(c.Context(), blockDevice1UUID.String(), blockDevice2UUID.String())
+	result, err := st.GetBlockDevices(c.Context(), blockDevice1UUID.String(), blockDevice2UUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, []blockdevice.BlockDeviceDetails{
+	c.Assert(result, tc.SameContents, []blockdevice.BlockDeviceData{
 		{
-			UUID:            blockDevice1UUID.String(),
-			HardwareID:      "hardware-666",
-			WWN:             "wwn-666",
-			BlockDeviceName: "name-666",
+			UUID: blockDevice1UUID.String(),
+			BlockDevice: coreblockdevice.BlockDevice{
+				HardwareId: "hardware-666",
+				WWN:        "wwn-666",
+				DeviceName: "name-666",
+			},
 		},
 		{
-			UUID:             blockDevice2UUID.String(),
-			HardwareID:       "hardware-667",
-			WWN:              "wwn-667",
-			BlockDeviceName:  "name-667",
-			BlockDeviceLinks: []string{"dev_link1", "dev_link2"},
+			UUID: blockDevice2UUID.String(),
+			BlockDevice: coreblockdevice.BlockDevice{
+				HardwareId:  "hardware-667",
+				WWN:         "wwn-667",
+				DeviceName:  "name-667",
+				DeviceLinks: []string{"dev_link1", "dev_link2"},
+			},
 		},
 	})
 }
