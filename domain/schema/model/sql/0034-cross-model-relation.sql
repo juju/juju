@@ -80,14 +80,16 @@ CREATE TABLE application_remote_consumer (
 );
 
 -- application_remote_relation represents a look up table to find the consumer
--- relation UUID for a given local relation.
+-- relation UUID for a given (syntethic) relation in the offerer model.
 CREATE TABLE application_remote_relation (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    -- relation_uuid is the local relation UUID.
-    relation_uuid TEXT NOT NULL,
+    -- relation_uuid is the relation UUID as created in the offerer model. This
+    -- is effectively a synthetic relation.
+    relation_uuid TEXT NOT NULL PRIMARY KEY,
     -- consumer_relation_uuid is the relation UUID in the consumer model.
     -- There is no FK constraint on it, because we don't have the relation
     -- locally in the model.
+    -- NOTE: In terms of the cross model relation API, this is the 
+    -- relation-token.
     consumer_relation_uuid TEXT NOT NULL,
     CONSTRAINT fk_relation_uuid
     FOREIGN KEY (relation_uuid)
@@ -99,10 +101,12 @@ CREATE TABLE offer_connection (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- offer_uuid is the offer that the remote application is using.
     offer_uuid TEXT NOT NULL,
-    -- remote_relation_uuid is the relation for which the offer connection
-    -- is made. It uses the relation, as we can identify both the
-    -- relation id and the relation key from it.
-    remote_relation_uuid TEXT NOT NULL,
+    -- application_remote_relation_uuid is the relation uuid in the offerer
+    -- model that is being used for this offer connection. It is effectively a
+    -- synthetic relation.
+    -- It is foreign keyed to application_remote_relation, which allows us to
+    -- find the relation uuid of the relation in the consumer model.
+    application_remote_relation_uuid TEXT NOT NULL, 
     -- username is the user in the consumer model that created the offer
     -- connection. This is not a user, but an offer user for which offers are
     -- granted permissions on.
@@ -112,5 +116,5 @@ CREATE TABLE offer_connection (
     REFERENCES offer (uuid),
     CONSTRAINT fk_remote_relation_uuid
     FOREIGN KEY (remote_relation_uuid)
-    REFERENCES relation (uuid)
+    REFERENCES application_remote_relation (relation_uuid)
 );
