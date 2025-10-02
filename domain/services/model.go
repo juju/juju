@@ -88,7 +88,6 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
-	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
@@ -579,21 +578,5 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 			s.clock,
 			s.logger.Child("changestream"),
 		),
-	)
-}
-
-// Stub returns the stub service. A special service which collects temporary
-// methods required to wire together domains which are not completely implemented
-// or wired up.
-//
-// *** ADD NEW METHODS ABOVE THIS, NOT BELOW.
-//
-// Deprecated: Stub service contains only temporary methods and should be removed
-// as soon as possible.
-func (s *ModelServices) Stub() *stubservice.StubService {
-	return stubservice.NewStubService(
-		s.modelUUID,
-		changestream.NewTxnRunnerFactory(s.controllerDB),
-		changestream.NewTxnRunnerFactory(s.modelDB),
 	)
 }
