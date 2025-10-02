@@ -2242,7 +2242,9 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	}
 
 	client := e.neutron()
-	ports, err := client.ListPortsV2()
+	filter := neutron.NewFilter()
+	filter.Set("device_id", string(id))
+	ports, err := client.ListPortsV2(filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2275,6 +2277,7 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	for _, change := range changes.SortedValues() {
 		// Delete a port. If we encounter an error add it to the list of errors
 		// and continue until we've exhausted all the ports to delete.
+		logger.Tracef("Deleting port %s", change)
 		if err := client.DeletePortV2(change); err != nil {
 			errs = append(errs, err)
 			continue
