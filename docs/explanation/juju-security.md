@@ -189,7 +189,7 @@ For machine controllers, Juju also provides tools to help with controller backup
 
 Owned by: Controller.
 
-Used by: Controller.
+Used by: Controller and models.
 
 Example threats:
 - {ref}`threats-availability`: An attacker could flood the API server with requests, overwhelming its capacity and rendering it unavailable to legitimate users. Or, improper resource management might lead to exhaustion of system resources (e.g., CPU, memory), causing the API server to crash or become unresponsive.
@@ -237,7 +237,7 @@ Overview: Juju stores all its state and operational data in a database powered b
 
 Owned by: Controller.
 
-Used by: Controller.
+Used by: Controller and models.
 
 Example threats:
 - {ref}`threats-availability`: An attacker could overwhelm the database with requests, rendering it unavailable to legitimate users and disrupting the operations of the Juju-managed environment.
@@ -393,7 +393,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If logs and monitoring data are transmitted from Juju agents or controllers to a logging and monitoring system without encryption or proper access controls, sensitive information such as usernames, IP addresses, API tokens, or configuration details could be exposed.
 - {ref}`threats-integrity`: If the data flow between Juju administrators and logging/monitoring systems is not protected with integrity checks (e.g., using cryptographic hashes or signatures), an attacker could manipulate the logs or monitoring data in transit.
 
-Controls: [TBA]
+Controls: Controller configuration keys: {ref}`controller-config-audit-log-capture-args`, {ref}`controller-config-audit-log-exclude-methods`, {ref}`controller-config-audit-log-max-backups`, {ref}`controller-config-audit-log-max-size`, {ref}`controller-config-auditing-enabled`, {ref}`controller-config-model-logfile-max-backups`, {ref}`controller-config-model-logfile-max-size`, {ref}`controller-config-model-logs-size`, etc.
 
 (data-flows-agent-controller)=
 ### Agent - Controller
@@ -430,7 +430,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If data sent from Juju agents (machine / container / unit) to charms is not encrypted or properly protected, sensitive information such as operational metrics, log data, or configuration states could be intercepted by an attacker. For example, if a unit agent sends unencrypted logs containing sensitive information like access credentials or internal configurations to a charm, an attacker monitoring the network could capture and misuse this data.
 - {ref}`threats-integrity`: If the communication from agents to charms lacks integrity checks (such as digital signatures or message digests), an attacker could intercept and modify the data in transit. For instance, an attacker could alter the operational metrics or status information being sent from a unit agent to a charm.
 
-Controls: [TBA]
+Controls: Controller configuration keys: {ref}`controller-config-agent-ratelimit-max`, {ref}`controller-config-agent-ratelimit-rate`.
 
 (data-flows-client-controller)=
 ### Client - Controller
@@ -705,7 +705,7 @@ Juju ensures applications can track separate items that they consider high value
 See more: {ref}`Secrets <secret>`
 ```
 
-(controls-time-limited-tokesn)=
+(controls-time-limited-tokens)=
 ### Time-limited tokens
 
 Macaroons are time-limited.
