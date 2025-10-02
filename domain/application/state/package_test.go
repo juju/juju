@@ -308,6 +308,94 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 	return appUUID, unitUUIDS
 }
 
+// createIAASApplicationWithReferenceName creates an IAAS application with the given
+// reference name. In this way two applications can be created with the same charm config.
+func (s *baseSuite) createIAASApplicationWithReferenceName(c *tc.C, name string, l life.Life, referenceName string, units ...application.AddIAASUnitArg) coreapplication.UUID {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+
+	ctx := c.Context()
+
+	appUUID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
+					ExtraBindings: map[string]charm.ExtraBinding{
+						"extra": {
+							Name: "extra",
+						},
+					},
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: referenceName,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Devices: map[string]devices.Constraints{
+				"dev0": {
+					Type:       devices.DeviceType("type0"),
+					Count:      42,
+					Attributes: map[string]string{"k0": "v0", "k1": "v1"},
+				},
+				"dev1": {
+					Type:       devices.DeviceType("type1"),
+					Count:      3,
+					Attributes: map[string]string{"k2": "v2"},
+				},
+				"dev2": {
+					Type:  devices.DeviceType("type2"),
+					Count: 1974,
+				},
+			},
+		},
+	}, units)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return appUUID
+}
+
 func (s *baseSuite) createIAASApplicationWithEndpointBindings(
 	c *tc.C,
 	name string,

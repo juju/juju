@@ -2369,6 +2369,41 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsWithMultipleApplications(c *tc.C) {
+	id1 := s.createIAASApplicationWithReferenceName(c, "foo", life.Alive, "charm1")
+
+	s.insertApplicationConfigWithDefault(c, id1, "key1", "value1", "defaultValue1", charm.OptionString)
+	s.insertApplicationConfigWithDefault(c, id1, "key2", "value2", "defaultValue2", charm.OptionString)
+
+	id2 := s.createIAASApplicationWithReferenceName(c, "bar", life.Alive, "charm1")
+
+	config, err := s.state.GetApplicationConfigWithDefaults(c.Context(), id1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
+		"key1": {
+			Type:  charm.OptionString,
+			Value: ptr("value1"),
+		},
+		"key2": {
+			Type:  charm.OptionString,
+			Value: ptr("value2"),
+		},
+	})
+
+	config, err = s.state.GetApplicationConfigWithDefaults(c.Context(), id2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
+		"key1": {
+			Type:  charm.OptionString,
+			Value: ptr("defaultValue1"),
+		},
+		"key2": {
+			Type:  charm.OptionString,
+			Value: ptr("defaultValue2"),
+		},
+	})
+}
+
 func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsNotFound(c *tc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
@@ -3980,16 +4015,7 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *tc.C, appID coreappli
 }
 
 func (s *applicationStateSuite) insertApplicationConfigWithDefault(c *tc.C, appID coreapplication.UUID, key, value, defaultValue string, optionType charm.OptionType) {
-	t, err := encodeConfigType(optionType)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)
-`, appID, key, value, t)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.insertApplicationConfig(c, appID, key, value, optionType)
 	s.insertCharmConfig(c, appID, key, defaultValue, optionType)
 }
 
@@ -4004,6 +4030,19 @@ SELECT charm_uuid, ?, ?, ?
 FROM application
 WHERE uuid = ?
 `, key, defaultValue, t, appID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) insertApplicationConfig(c *tc.C, appID coreapplication.UUID, key, value string, optionType charm.OptionType) {
+	t, err := encodeConfigType(optionType)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_config (application_uuid, key, value, type_id) VALUES (?, ?, ?, ?)
+`, appID, key, value, t)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
