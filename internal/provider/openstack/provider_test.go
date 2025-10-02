@@ -11,6 +11,7 @@ import (
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
+	"github.com/juju/juju/core/instance"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -487,7 +488,7 @@ func (s *localTests) TestSchema(c *gc.C) {
 	y := []byte(`
 auth-types: [userpass, access-key]
 endpoint: http://foo.com/openstack
-regions: 
+regions:
   one:
     endpoint: http://foo.com/bar
   two:
@@ -1188,4 +1189,61 @@ func envWithNetworking(net Networking, netCfg string) *Environ {
 		},
 		networking: net,
 	}
+}
+
+func (s *providerUnitTests) TestTerminateInstanceNetworkPorts(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelUUID := "test-model"
+	instanceID := instance.Id("test-instance-1")
+
+	testInterfaces := []nova.OSInterface{
+		{PortID: "server-1-port-1"},
+		{PortID: "server-1-port-2"},
+		{PortID: ""},
+	}
+
+	mockNeutron := NewMockNetworkingNeutron(ctrl)
+
+	// We need to ensure that the query uses the correct filter to only list ports on the test-instance-1.
+	filter := neutron.NewFilter()
+	filter.Set("device_id", "test-instance-1")
+	mockNeutron.EXPECT().ListPortsV2(filter).Return(
+		[]neutron.PortV2{
+			{
+				Id:   "server-1-port-1",
+				Name: fmt.Sprintf("juju-%s-server-1-port-1", modelUUID),
+			},
+			{
+				Id:   "server-1-port-2",
+				Name: "other-port-1",
+			},
+		}, nil)
+	mockNeutron.EXPECT().PortByIdV2("server-1-port-1").Return(neutron.PortV2{
+		Id:   "server-1-port-1",
+		Name: fmt.Sprintf("juju-%s-port-1", modelUUID),
+	}, nil)
+	mockNeutron.EXPECT().PortByIdV2("server-1-port-2").Return(neutron.PortV2{
+		Id:   "server-1-port-2",
+		Name: "other-port-1",
+	}, nil)
+	mockNeutron.EXPECT().DeletePortV2("server-1-port-1").Return(nil)
+
+	env := &Environ{
+		modelUUID:       modelUUID,
+		neutronUnlocked: mockNeutron,
+	}
+
+	s.PatchValue(&novaListOSInterfacesForTest, func(client *nova.Client, serverID string) ([]nova.OSInterface, error) {
+		c.Assert(serverID, gc.Equals, string(instanceID))
+		return testInterfaces, nil
+	})
+	err := env.terminateInstanceNetworkPorts(instanceID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type testNovaClient struct {
+	nova.Client
+	osInterfaces []nova.OSInterface
 }

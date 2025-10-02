@@ -154,6 +154,8 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+var novaListOSInterfacesForTest func(*nova.Client, string) ([]nova.OSInterface, error)
+
 const (
 	// provider version 1 introduces tags to security groups.
 	providerVersion1 = 1
@@ -2236,13 +2238,24 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 
 func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	novaClient := e.nova()
-	osInterfaces, err := novaClient.ListOSInterfaces(string(id))
+
+	var osInterfaces []nova.OSInterface
+	var err error
+
+	if novaListOSInterfacesForTest != nil {
+		osInterfaces, err = novaListOSInterfacesForTest(novaClient, string(id))
+	} else {
+		osInterfaces, err = novaClient.ListOSInterfaces(string(id))
+	}
+
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	client := e.neutron()
-	ports, err := client.ListPortsV2()
+	filter := neutron.NewFilter()
+	filter.Set("device_id", string(id))
+	ports, err := client.ListPortsV2(filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2275,6 +2288,7 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	for _, change := range changes.SortedValues() {
 		// Delete a port. If we encounter an error add it to the list of errors
 		// and continue until we've exhausted all the ports to delete.
+		logger.Tracef("Deleting port %s", change)
 		if err := client.DeletePortV2(change); err != nil {
 			errs = append(errs, err)
 			continue

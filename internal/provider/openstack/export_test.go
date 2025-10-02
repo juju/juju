@@ -176,3 +176,7 @@ func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
 }
+
+func SetNovaClient(env *Environ, client *nova.Client) {
+	env.novaUnlocked = client
+}
