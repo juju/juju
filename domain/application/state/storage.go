@@ -1206,10 +1206,10 @@ AND    cs.name = $unitCharmStorage.name
 // that have been set for the model.
 func (st *State) GetDefaultStorageProvisioners(
 	ctx context.Context,
-) (application.DefaultStorageProvisioners, error) {
+) (internal.DefaultStorageProvisioners, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.DefaultStorageProvisioners{}, errors.Capture(err)
 	}
 
 	storageModelConfigKeys := storageModelConfigKeys{
@@ -1240,7 +1240,7 @@ FROM pool_names pn
 LEFT JOIN storage_pool sp ON pn.name=sp.name
 `, storageModelConfigKeys, storageProvisioners{})
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.DefaultStorageProvisioners{}, errors.Capture(err)
 	}
 
 	var dbVals []storageProvisioners
@@ -1252,10 +1252,10 @@ LEFT JOIN storage_pool sp ON pn.name=sp.name
 		return nil
 	})
 	if err != nil {
-		return application.DefaultStorageProvisioners{}, errors.Capture(err)
+		return internal.DefaultStorageProvisioners{}, errors.Capture(err)
 	}
 
-	res := application.DefaultStorageProvisioners{}
+	res := internal.DefaultStorageProvisioners{}
 	for _, v := range dbVals {
 		if v.StoragePoolUUID == "" {
 			continue

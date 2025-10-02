@@ -236,13 +236,13 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 
 	res, err := st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{})
+	c.Assert(res, tc.DeepEquals, internal.DefaultStorageProvisioners{})
 
 	_, err = db.Exec("INSERT INTO model_config(key, value) VALUES (?, ?)", application.StorageDefaultBlockSourceKey, "test-pool")
 	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+	c.Assert(res, tc.DeepEquals, internal.DefaultStorageProvisioners{
 		BlockdevicePoolUUID: &poolUUID,
 	})
 
@@ -250,7 +250,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+	c.Assert(res, tc.DeepEquals, internal.DefaultStorageProvisioners{
 		BlockdevicePoolUUID: &poolUUID,
 		FilesystemPoolUUID:  &poolUUID,
 	})
@@ -259,7 +259,7 @@ func (s *storageSuite) TestGetDefaultStorageProvisioners(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	res, err = st.GetDefaultStorageProvisioners(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, application.DefaultStorageProvisioners{
+	c.Assert(res, tc.DeepEquals, internal.DefaultStorageProvisioners{
 		FilesystemPoolUUID: &poolUUID,
 	})
 }
