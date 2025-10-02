@@ -6,21 +6,21 @@ run_deploy_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	# revision 23 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 23 --channel 2.0/stable
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
+	# revision 29 is in channel 2.0/edge
+	juju deploy juju-qa-test --revision 29 --channel 2.0/edge
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 29)"
 
 	# check resource revision per channel specified.
-	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "1"')
+	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "3"')
 	check_contains "${got}" "true"
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	juju config juju-qa-test foo-file=true
-	wait_for "resource line one: testing one." "$(workload_status juju-qa-test 0).message"
+	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
 
 	# check resource revision again per channel specified.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "1"'
+	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "3"'
 
 	destroy_model "${model_name}"
 }
@@ -33,9 +33,9 @@ run_deploy_revision_resource() {
 
 	ensure "${model_name}" "${file}"
 
-	# revision 23 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 23 --channel 2.0/stable --resource foo-file=4
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
+	# revision 29 is in channel 2.0/edge
+	juju deploy juju-qa-test --revision 29 --channel 2.0/edge --resource foo-file=4
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 29)"
 
 	# check resource revision as specified in command.
 	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "4"')
