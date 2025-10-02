@@ -29,9 +29,7 @@ run_bootstrap_authorized_keys_loaded() {
 
 	(
 		export HOME="${SUB_TEST_DIR}"
-		# Always isolate JUJU_DATA to the subtest directory to avoid leaking/using
-		# any CI-provided or globally configured Juju client store.
-		export JUJU_DATA="${juju_home_dir}"
+		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
 
 		bootstrap_additional_args=(--config "'authorized-keys=$(cat ${extra_key_file_pub})'")
 		BOOTSTRAP_ADDITIONAL_ARGS="${bootstrap_additional_args[*]}" \
@@ -80,9 +78,7 @@ run_bootstrap_authorized_keys_default() {
 
 	(
 		export HOME="${SUB_TEST_DIR}"
-		# Always isolate JUJU_DATA to the subtest directory to avoid leaking/using
-		# any CI-provided or globally configured Juju client store.
-		export JUJU_DATA="${juju_home_dir}"
+		export JUJU_DATA="${JUJU_DATA:=$juju_home_dir}"
 
 		BOOTSTRAP_REUSE=false \
 			bootstrap "authorized-keys-default" "$log_file"
@@ -109,7 +105,13 @@ test_bootstrap_authorized_keys() {
 	(
 		set_verbosity
 
+		# The following tests bootstrap a new controller, make sure to switch back to the
+		# previous controller when we are done so that the test-runner can clean things up.
+		current_controller=$(juju controllers --format json | jq -r '."current-controller"')
+
 		run "run_bootstrap_authorized_keys_loaded"
 		run "run_bootstrap_authorized_keys_default"
+
+		juju switch "$current_controller"
 	)
 }
