@@ -6,7 +6,6 @@ package remoterelationconsumer
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
@@ -20,11 +19,13 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/internal/worker/remoterelationconsumer/localunitrelations"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoterelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/remoteunitrelations"
 	"github.com/juju/juju/rpc/params"
@@ -103,6 +104,7 @@ func (c RemoteApplicationConfig) Validate() error {
 // in the local model.
 type remoteApplicationWorker struct {
 	catacomb catacomb.Catacomb
+	runner   *worker.Runner
 
 	// crossModelService is the domain services used to interact with the local
 	// database for cross model relations.
@@ -112,7 +114,6 @@ type remoteApplicationWorker struct {
 	remoteModelClient          RemoteModelRelationsClient
 	remoteRelationClientGetter RemoteRelationClientGetter
 
-	mu sync.Mutex
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
 	offerUUID       string
@@ -122,15 +123,9 @@ type remoteApplicationWorker struct {
 	remoteModelUUID string     // uuid of the model hosting the remote offer
 	consumeVersion  int
 
-	secretChangesWatcher watcher.SecretsRevisionWatcher
-	secretChanges        watcher.SecretRevisionChannel
-
 	localRelationUnitChanges  chan relation.RelationUnitChange
 	remoteRelationUnitChanges chan remoteunitrelations.RelationUnitChange
 	remoteRelationChanges     chan remoterelations.RelationChange
-
-	// relations is stored here for the engine report.
-	relations map[string]*relationInfo
 
 	// offerMacaroon is used to confirm that permission has been granted to
 	// consume the remote application to which this worker pertains.
@@ -150,7 +145,21 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "remote-application",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: internalworker.ShouldRunnerRestart,
+		Clock:         config.Clock,
+		Logger:        internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &remoteApplicationWorker{
+		runner:            runner,
 		crossModelService: config.CrossModelService,
 
 		localRelationUnitChanges:  make(chan relation.RelationUnitChange),
@@ -178,6 +187,7 @@ func NewRemoteApplicationWorker(config RemoteApplicationConfig) (ReportableWorke
 		Name: "remote-application",
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{runner},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,34 +216,7 @@ func (w *remoteApplicationWorker) ConsumeVersion() int {
 // Report provides information for the engine report.
 func (w *remoteApplicationWorker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
-	w.mu.Lock()
-	defer w.mu.Unlock()
 
-	relationsInfo := make(map[string]interface{})
-	for rel, info := range w.relations {
-		report := map[string]interface{}{
-			"relation-id":       info.relationId,
-			"local-dead":        info.localDead,
-			"suspended":         info.suspended,
-			"application-token": info.localApplicationToken,
-			"relation-token":    info.localRelationToken,
-			"local-endpoint":    info.localEndpoint.Name,
-			"remote-endpoint":   info.remoteEndpointName,
-		}
-		if info.remoteRelationWorker != nil {
-			report["last-status-event"] = info.remoteRelationWorker.Report()
-		}
-		if info.localUnitWorker != nil {
-			report["last-local-change"] = info.localUnitWorker.Report()
-		}
-		if info.remoteUnitWorker != nil {
-			report["last-remote-change"] = info.remoteUnitWorker.Report()
-		}
-		relationsInfo[rel] = report
-	}
-	if len(relationsInfo) > 0 {
-		result["relations"] = relationsInfo
-	}
 	result["remote-model-uuid"] = w.remoteModelUUID
 	result["offer-uuid"] = w.offerUUID
 
@@ -266,15 +249,12 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerStatusChanges := offerStatusWatcher.Changes()
 
-	w.mu.Lock()
-	w.relations = make(map[string]*relationInfo)
-	w.mu.Unlock()
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case changes, ok := <-relationsWatcher.Changes():
 			if !ok {
 				select {
@@ -286,93 +266,58 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 			w.logger.Debugf(ctx, "relations changed: %v", changes)
 
-			// TODO (stickupkid): Pass the changes to the get relation details.
-			results, err := w.crossModelService.GetRelationDetails(ctx, "")
-			if err != nil {
-				return errors.Annotate(err, "querying relations")
-			}
-			_ = results
+			for _, change := range changes {
+				relationUUID := corerelation.UUID(change)
 
-			for _, result := range []params.RemoteRelationResult{} {
-				key := ""
-				if err := w.relationChanged(ctx, key, result); err != nil {
-					if isNotFound(err) {
-						// Relation has been deleted, so ensure relevant workers are stopped.
-						w.logger.Debugf(ctx, "relation %q changed but has been removed", key)
-						err2 := w.localRelationChanged(ctx, key, nil)
-						if err2 != nil {
-							return errors.Annotatef(err2, "cleaning up removed local relation %q", key)
-						}
-						continue
+				// If we get an invalid UUID, log the error and continue, there
+				// is nothing we can do about it, and we don't want the worker
+				// to keep bouncing.
+				if err := relationUUID.Validate(); err != nil {
+					w.logger.Errorf(ctx, "invalid relation UUID %q: %v", change, err)
+					continue
+				}
+
+				// Grab the relation details from the database, and handle the
+				// change appropriately.
+				details, err := w.crossModelService.GetRelationDetails(ctx, relationUUID)
+				if errors.Is(err, relationerrors.RelationNotFound) {
+					// Relation has been removed, ensure that we don't have
+					// any workers still running for it.
+					if err := w.handleRelationRemoved(ctx, relationUUID); err != nil {
+						// If we fail to remove the relation, we must kill the
+						// worker, as nothing will come around and try again.
+						// Thus, kill it and force the application worker to
+						// restart and start afresh.
+						return errors.Annotatef(err, "cleaning up removed relation %q", relationUUID)
 					}
-					return errors.Annotatef(err, "handling change for relation %q", key)
+				} else if err != nil {
+					return errors.Annotate(err, "querying relations")
+				}
+
+				// The relation changed, we need to process the changed details.
+				if err := w.handleRelationChange(ctx, details); err != nil {
+					return errors.Annotatef(err, "handling change for relation %q", relationUUID)
 				}
 			}
 
-		case change := <-w.localRelationUnitChanges:
-			w.logger.Debugf(ctx, "local relation units changed -> publishing: %v", change)
-			// TODO(babbageclunk): add macaroons to event here instead
-			// of in the relation units worker.
-			if err := w.remoteModelClient.PublishRelationChange(ctx, params.RemoteRelationChangeEvent{}); err != nil {
-				w.checkOfferPermissionDenied(ctx, err, change.ApplicationOrOfferToken, change.RelationToken)
-				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
-					w.logger.Debugf(ctx, "relation %v changed but remote side already removed", change.Tag.Id())
-					continue
+		case changes, ok := <-offerStatusWatcher.Changes():
+			if !ok {
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("offer status watcher closed unexpectedly")
 				}
-				return errors.Annotatef(err, "publishing relation change %#v to remote model %v", &change, w.remoteModelUUID)
 			}
 
-			if err := w.localRelationChanged(ctx, change.Tag.Id(), ptr(change.UnitCount)); err != nil {
-				return errors.Annotatef(err, "processing local relation change for %v", change.Tag.Id())
-			}
+			w.logger.Debugf(ctx, "offer status changed: %v", changes)
 
-		case change := <-w.remoteRelationUnitChanges:
-			w.logger.Debugf(ctx, "remote relation units changed -> consuming: %v", change)
-
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
-				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
-					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
-					continue
-				}
-				return errors.Annotatef(err, "consuming relation change %#v from remote model %v", &change, w.remoteModelUUID)
-			}
-
-		case change := <-w.remoteRelationChanges:
-			w.logger.Debugf(ctx, "remote relations changed -> consuming: %v", change)
-
-			if err := w.crossModelService.ConsumeRemoteRelationChange(ctx); err != nil {
-				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
-					w.logger.Debugf(ctx, "relation %v changed but local side already removed", change.Tag.Id())
-					continue
-				}
-				return errors.Annotatef(err, "consuming relation change %#v from remote model %v", &change, w.remoteModelUUID)
-			}
-
-		case changes := <-offerStatusChanges:
-			w.logger.Debugf(ctx, "offer status changed: %#v", changes)
 			for _, change := range changes {
 				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 				}
 
-				// If the offer is terminated the status watcher can be stopped immediately.
-				if change.Status.Status == status.Terminated {
-					if err := worker.Stop(offerStatusWatcher); err != nil {
-						w.logger.Warningf(ctx, "error stopping status watcher for saas application %s: %v", w.applicationName, err)
-					}
-					offerStatusChanges = nil
-					break
-				}
-			}
-
-		case changes := <-w.secretChanges:
-			err := w.crossModelService.ConsumeRemoteSecretChanges(ctx)
-			if err != nil {
-				if isNotFound(err) {
-					w.logger.Debugf(ctx, "secrets %v changed but local side already removed", changes)
-					continue
-				}
-				return errors.Annotatef(err, "consuming secrets change %#v from remote model %v", changes, w.remoteModelUUID)
+				// TODO (stickupkid): Handle terminated status.
 			}
 		}
 	}
@@ -403,11 +348,11 @@ func (w *remoteApplicationWorker) watchRemoteOfferStatus(ctx context.Context) (w
 		Macaroons:     macaroon.Slice{w.offerMacaroon},
 		BakeryVersion: bakery.LatestVersion,
 	})
-	if err != nil {
+	if isNotFound(err) {
 		w.checkOfferPermissionDenied(ctx, err, "", "")
-		if isNotFound(err) {
-			return nil, w.remoteOfferRemoved(ctx)
-		}
+		return nil, w.remoteOfferRemoved(ctx)
+	} else if err != nil {
+		w.checkOfferPermissionDenied(ctx, err, "", "")
 		return nil, errors.Annotate(err, "watching status for offer")
 	}
 
@@ -441,11 +386,10 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(ctx context.Context
 
 	w.logger.Debugf(ctx, "discharge required error: app token: %v rel token: %v", appToken, localRelationToken)
 
-	suspended := true
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           localRelationToken,
 		ApplicationOrOfferToken: appToken,
-		Suspended:               &suspended,
+		Suspended:               ptr(true),
 		SuspendedReason:         "offer permission revoked",
 	}
 	_ = event
@@ -470,325 +414,94 @@ func (w *remoteApplicationWorker) remoteOfferRemoved(ctx context.Context) error 
 	return nil
 }
 
-func (w *remoteApplicationWorker) processRelationDying(ctx context.Context, key string, r *relationInfo, forceCleanup bool) error {
-	w.logger.Debugf(ctx, "relation %v dying (%v)", key, forceCleanup)
-
-	change := params.RemoteRelationChangeEvent{
-		RelationToken:           r.localRelationToken,
-		Life:                    life.Dying,
-		ApplicationOrOfferToken: r.localApplicationToken,
-		Macaroons:               macaroon.Slice{r.macaroon},
-		BakeryVersion:           bakery.LatestVersion,
-	}
-	// forceCleanup will be true if the worker has restarted and because the relation had
-	// already been removed, we won't get any more unit departed events.
-	if forceCleanup {
-		change.ForceCleanup = &forceCleanup
-	}
-	if err := w.remoteModelClient.PublishRelationChange(ctx, change); err != nil {
-		w.checkOfferPermissionDenied(ctx, err, r.localApplicationToken, r.localRelationToken)
-		if isNotFound(err) {
-			w.logger.Debugf(ctx, "relation %v dying but remote side already removed", key)
-			return nil
-		}
-		return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
-	}
-
-	return nil
-}
-
-func (w *remoteApplicationWorker) processRelationSuspended(ctx context.Context, key string, relLife life.Value, relations map[string]*relationInfo) error {
-	w.logger.Debugf(ctx, "(%v) relation %v suspended", relLife, key)
-	relation, ok := relations[key]
-	if !ok {
-		return nil
-	}
-
-	// Only stop the watchers for relation unit changes if relation is alive,
-	// as we need to always deal with units leaving scope etc if the relation is dying.
-	if relLife != life.Alive {
-		return nil
-	}
-
-	if relation.localUnitWorker != nil {
-		if err := worker.Stop(relation.localUnitWorker); err != nil {
-			w.logger.Warningf(ctx, "stopping local relation unit worker for %v: %v", key, err)
-		}
-		relation.localUnitWorker = nil
-	}
-	if relation.remoteUnitWorker != nil {
-		if err := worker.Stop(relation.remoteUnitWorker); err != nil {
-			w.logger.Warningf(ctx, "stopping remote relation unit worker for %v: %v", key, err)
-		}
-		relation.remoteUnitWorker = nil
-	}
-	return nil
-}
-
-// processLocalRelationRemoved is called when a change event arrives from the remote model
-// but the relation in the local model has been removed.
-func (w *remoteApplicationWorker) processLocalRelationRemoved(ctx context.Context, key string, relations map[string]*relationInfo) error {
-	w.logger.Debugf(ctx, "local relation %v removed", key)
-	relation, ok := relations[key]
-	if !ok {
-		return nil
-	}
-
-	// Stop the worker which watches remote status/life.
-	if relation.remoteRelationWorker != nil {
-		if err := worker.Stop(relation.remoteRelationWorker); err != nil {
-			w.logger.Warningf(ctx, "stopping remote relations worker for %v: %v", key, err)
-		}
-		relation.remoteRelationWorker = nil
-		relations[key] = relation
-	}
-
-	w.logger.Debugf(ctx, "remote relation %v removed from local model", key)
-	return nil
-}
-
-// localRelationChanged processes changes to the relation
-// as recorded in the local model; the primary function
-// is to shut down workers when the relation is dead.
-func (w *remoteApplicationWorker) localRelationChanged(ctx context.Context, key string, unitCountPtr *int) error {
-	unitCountMsg := " (removed)"
-	if unitCountPtr != nil {
-		unitCountMsg = fmt.Sprintf(", still has %d unit(s) in scope", *unitCountPtr)
-	}
-	w.logger.Debugf(ctx, "local relation %v changed%s", key, unitCountMsg)
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	relation, ok := w.relations[key]
-	if !ok {
-		w.logger.Debugf(ctx, "local relation %v already gone", key)
-		return nil
-	}
-	w.logger.Debugf(ctx, "relation %v in mem unit count is %d", key, relation.localUnitCount)
-	if unitCountPtr != nil {
-		relation.localUnitCount = *unitCountPtr
-	}
-	if !relation.localDead {
-		w.logger.Debugf(ctx, "local relation %v not dead yet", key)
-		return nil
-	}
-	if relation.localUnitCount > 0 {
-		w.logger.Debugf(ctx, "relation dead but still has %d units in scope", relation.localUnitCount)
-		return nil
-	}
-	return w.terminateLocalRelation(ctx, key)
-}
-
-func (w *remoteApplicationWorker) terminateLocalRelation(ctx context.Context, key string) error {
-	relation, ok := w.relations[key]
-	if !ok {
-		return nil
-	}
-	delete(w.relations, key)
-	w.logger.Debugf(ctx, "local relation %v is terminated", key)
-
-	// For the unit watchers, check to see if these are nil before stopping.
-	// They will be nil if the relation was suspended and then we kill it for real.
-	if relation.localUnitWorker != nil {
-		if err := worker.Stop(relation.localUnitWorker); err != nil {
-			w.logger.Warningf(ctx, "stopping local relation unit worker for %v: %v", key, err)
-		}
-		relation.localUnitWorker = nil
-	}
-	if relation.remoteUnitWorker != nil {
-		if err := worker.Stop(relation.remoteUnitWorker); err != nil {
-			w.logger.Warningf(ctx, "stopping remote relation unit worker for %v: %v", key, err)
-		}
-		relation.remoteUnitWorker = nil
-	}
-
-	w.logger.Debugf(ctx, "local relation %v removed from local model", key)
+func (w *remoteApplicationWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID) error {
+	w.logger.Debugf(ctx, "relation %q removed", relationUUID)
 	return nil
 }
 
 // relationChanged processes changes to the relation as recorded in the
 // local model when a change event arrives from the remote model.
-func (w *remoteApplicationWorker) relationChanged(ctx context.Context, key string, localRelation params.RemoteRelationResult) (err error) {
-	w.logger.Debugf(ctx, "relation %q changed in local model: %#v", key, localRelation)
-	w.mu.Lock()
-	defer w.mu.Unlock()
+func (w *remoteApplicationWorker) handleRelationChange(ctx context.Context, details relation.RelationDetails) error {
+	w.logger.Debugf(ctx, "relation %q changed in local model: %v", details.UUID, details)
 
-	defer func() {
-		if err == nil || !isNotFound(err) {
-			return
-		}
-		if err2 := w.processLocalRelationRemoved(ctx, key, w.relations); err2 != nil {
-			err = errors.Annotate(err2, "processing local relation removed")
-		}
-		if r := w.relations[key]; r != nil {
-			r.localDead = true
-			w.relations[key] = r
-		}
-	}()
-	if localRelation.Error != nil {
-		return localRelation.Error
+	switch {
+	case details.Life != life.Alive:
+		// TODO (stickupkid): Handle the case where the relation is dying,
+		// but there are still units in scope. We need to ensure that we
+		// don't kill the relation until all units have departed.
+		w.logger.Debugf(ctx, "relation %v is not alive (%v)", details.UUID, details.Life)
+		return errors.NotImplementedf("handling non-alive relation changes")
+	case details.Suspended:
+		return w.handleRelationSuspended(ctx, details)
+	default:
+		return w.handleRelationConsumption(ctx, details)
 	}
-	localRelationInfo := localRelation.Result
-
-	// If we have previously started the watcher and the
-	// relation is now suspended, stop the watcher.
-	if r := w.relations[key]; r != nil {
-		wasSuspended := r.suspended
-		r.suspended = localRelationInfo.Suspended
-		w.relations[key] = r
-		if localRelationInfo.Suspended {
-			return w.processRelationSuspended(ctx, key, localRelationInfo.Life, w.relations)
-		}
-		if localRelationInfo.Life == life.Alive {
-			if r.localDead {
-				// A previous relation with the same name was removed but
-				// not cleaned up properly so do it now before starting up
-				// workers again.
-				w.logger.Debugf(ctx, "still have zombie local relation %v", key)
-				if err := w.terminateLocalRelation(ctx, key); err != nil {
-					return errors.Annotatef(err, "terminating zombie local relation %v", key)
-				}
-			} else if !wasSuspended {
-				// Nothing to do, we have previously started the watcher.
-				return nil
-			}
-		}
-	}
-
-	return w.processConsumingRelation(ctx, key, localRelationInfo)
 }
 
-// startUnitsWorkers starts 2 workers to watch for unit settings or departed changes;
-// one worker is for the local model, the other for the remote model.
-func (w *remoteApplicationWorker) startUnitsWorkers(
-	ctx context.Context,
-	relationTag names.RelationTag,
-	localRelationToken, remoteAppToken string,
-	applicationName string,
-	mac *macaroon.Macaroon,
-) (ReportableWorker, ReportableWorker, error) {
-	localUnitsWorker, err := w.newLocalUnitRelationsWorker(localunitrelations.Config{
-		Service:     w.crossModelService,
-		RelationTag: relationTag,
-		Macaroon:    mac,
-		Changes:     w.localRelationUnitChanges,
-		Clock:       w.clock,
-		Logger:      w.logger,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if err := w.catacomb.Add(localUnitsWorker); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	remoteUnitsWorker, err := w.newRemoteUnitRelationsWorker(remoteunitrelations.Config{
-		Client:         w.remoteModelClient,
-		RelationTag:    relationTag,
-		Macaroon:       mac,
-		RemoteAppToken: remoteAppToken,
-		Changes:        w.remoteRelationUnitChanges,
-		Clock:          w.clock,
-		Logger:         w.logger,
-	})
-	if err != nil {
-		w.checkOfferPermissionDenied(ctx, err, remoteAppToken, localRelationToken)
-		return nil, nil, errors.Trace(err)
-	}
-	if err := w.catacomb.Add(remoteUnitsWorker); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return localUnitsWorker, remoteUnitsWorker, nil
+func (w *remoteApplicationWorker) handleRelationSuspended(ctx context.Context, details relation.RelationDetails) error {
+	w.logger.Debugf(ctx, "(%v) relation %v suspended", details.Life, details.UUID)
+	return nil
 }
 
-// processConsumingRelation starts the sub-workers necessary to listen and publish
-// local unit settings changes, and watch and consume remote unit settings changes.
-// Ths will be called when a new relation is created or when a relation resumes
-// after being suspended.
-func (w *remoteApplicationWorker) processConsumingRelation(
+// handleRelationConsumption handles the case where a relation is alive and not
+// suspended, meaning that we should ensure that it is registered on the
+// offering side.
+func (w *remoteApplicationWorker) handleRelationConsumption(
 	ctx context.Context,
-	key string,
-	remoteRelation *params.RemoteRelation,
+	details relation.RelationDetails,
 ) error {
+	// Relation key is derived from the endpoint identifiers.
+	var identifiers []corerelation.EndpointIdentifier
+	var synthEndpoint relation.Endpoint
+	var otherEndpointName string
+	for _, e := range details.Endpoints {
+		if e.ApplicationName == w.applicationName {
+			synthEndpoint = e
+		} else {
+			otherEndpointName = e.Name
+		}
 
-	// We have not seen the relation before, make
-	// sure it is registered on the offering side.
-	// Or relation was suspended and is now resumed so re-register.
-	applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
-	relationTag := names.NewRelationTag(key)
-	localApplicationToken, remoteAppToken, localRelationToken, mac, err := w.registerRemoteRelation(
+		identifiers = append(identifiers, e.EndpointIdentifier())
+	}
+
+	// If we didn't find an endpoint for the non-synthetic application, then
+	// the only conclusion is that there is only one endpoint and we're in a
+	// peer relation with ourselves. If that's the case check that there is
+	// only one endpoint and use that.
+	//
+	// If there is more than one endpoint, then we have no way of knowing
+	// which one to use, so return an error.
+	if otherEndpointName == "" {
+		if num := len(details.Endpoints); num == 1 {
+			otherEndpointName = synthEndpoint.Name
+		} else {
+			return errors.Errorf("cannot find remote endpoint name for relation %q with endpoints %v", details.UUID, details.Endpoints)
+		}
+	}
+
+	// Create the relation key from the endpoint identifiers, this will verify
+	// that the identifiers are of valid length and content.
+	key, err := corerelation.NewKey(identifiers)
+	if err != nil {
+		return errors.Errorf("generating relation key: %v", err)
+	}
+
+	// We have not seen the relation before, or the relation was suspended, make
+	// sure it is registered (ack'd) on the offering side.
+	applicationTag := names.NewApplicationTag(w.applicationName)
+	relationTag := names.NewRelationTag(key.String())
+	remoteRelation, err := w.registerRemoteRelation(
 		ctx,
 		applicationTag, relationTag, w.offerUUID, w.consumeVersion,
-		remoteRelation.Endpoint, remoteRelation.RemoteEndpointName)
+		synthEndpoint, otherEndpointName,
+	)
 	if err != nil {
 		w.checkOfferPermissionDenied(ctx, err, "", "")
-		return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
+		return errors.Annotatef(err, "registering application %v and relation %v", w.applicationName, relationTag.Id())
 	}
-	w.logger.Debugf(ctx, "remote relation registered for %q: app token=%q, rel token=%q, remote app token=%q", key, localApplicationToken, localRelationToken, remoteAppToken)
+	w.logger.Debugf(ctx, "remote relation registered for %q: %v", details.UUID, remoteRelation)
 
-	// Have we seen the relation before.
-	r, relationKnown := w.relations[key]
-	if !relationKnown {
-		remoteRelationsWorker, err := w.newRemoteRelationsWorker(remoterelations.Config{
-			RelationTag:         relationTag,
-			ApplicationToken:    remoteAppToken,
-			LocalRelationToken:  localRelationToken,
-			RemoteRelationToken: remoteAppToken,
-			Changes:             w.remoteRelationChanges,
-			Clock:               w.clock,
-			Logger:              w.logger,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(remoteRelationsWorker); err != nil {
-			return errors.Trace(err)
-		}
-		r = &relationInfo{
-			relationId:            remoteRelation.Id,
-			suspended:             remoteRelation.Suspended,
-			localUnitCount:        remoteRelation.UnitCount,
-			remoteRelationWorker:  remoteRelationsWorker,
-			macaroon:              mac,
-			localEndpoint:         remoteRelation.Endpoint,
-			remoteEndpointName:    remoteRelation.RemoteEndpointName,
-			localApplicationToken: localApplicationToken,
-			localRelationToken:    localRelationToken,
-		}
-		w.relations[key] = r
-	}
-
-	if r.localUnitWorker == nil && !remoteRelation.Suspended {
-		// Also start the units watchers (local and remote).
-		localUnitsWorker, remoteUnitsWorker, err := w.startUnitsWorkers(
-			ctx,
-			relationTag, localRelationToken, remoteAppToken, remoteRelation.ApplicationName,
-			mac)
-		if err != nil {
-			return errors.Annotate(err, "starting relation units workers")
-		}
-		r.localUnitWorker = localUnitsWorker
-		r.remoteUnitWorker = remoteUnitsWorker
-	}
-
-	if w.secretChangesWatcher == nil {
-		w.secretChangesWatcher, err = w.remoteModelClient.WatchConsumedSecretsChanges(ctx, localApplicationToken, localRelationToken, w.offerMacaroon)
-		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotImplemented) {
-			w.checkOfferPermissionDenied(ctx, err, "", "")
-			return errors.Annotate(err, "watching consumed secret changes")
-		}
-		if err == nil {
-			if err := w.catacomb.Add(w.secretChangesWatcher); err != nil {
-				return errors.Trace(err)
-			}
-			w.secretChanges = w.secretChangesWatcher.Changes()
-		}
-	}
-
-	// If the relation is dying, stop the watcher.
-	if remoteRelation.Life != life.Alive {
-		return w.processRelationDying(ctx, key, r, !relationKnown)
-	}
+	_ = remoteRelation
 
 	return nil
 }
@@ -796,81 +509,81 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 func (w *remoteApplicationWorker) registerRemoteRelation(
 	ctx context.Context,
 	applicationTag, relationTag names.Tag, offerUUID string, consumeVersion int,
-	localEndpointInfo params.RemoteEndpoint, remoteEndpointName string,
-) (localApplicationToken, offeringAppToken, localRelationToken string, _ *macaroon.Macaroon, _ error) {
+	applicationEndpointIdent relation.Endpoint, remoteEndpointName string,
+) (remoteRelationResult, error) {
 	w.logger.Debugf(ctx, "register remote relation %v to local application %v", relationTag.Id(), applicationTag.Id())
-
-	fail := func(err error) (string, string, string, *macaroon.Macaroon, error) {
-		return "", "", "", nil, err
-	}
 
 	// Ensure the relation is exported first up.
 	localApplicationToken, localRelationToken, err := w.crossModelService.ExportApplicationAndRelationToken(ctx, applicationTag, relationTag)
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return fail(errors.Annotatef(err, "exporting relation %v and application %v", relationTag, applicationTag))
+		return remoteRelationResult{}, errors.Annotatef(err,
+			"exporting relation %v and application %v", relationTag, applicationTag)
 	}
 
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelationArg{
-		ApplicationToken:  localApplicationToken,
-		SourceModelTag:    names.NewModelTag(w.localModelUUID.String()).String(),
-		RelationToken:     localRelationToken,
-		OfferUUID:         offerUUID,
-		RemoteEndpoint:    localEndpointInfo,
+		ApplicationToken: localApplicationToken,
+		SourceModelTag:   names.NewModelTag(w.localModelUUID.String()).String(),
+		RelationToken:    localRelationToken,
+		OfferUUID:        offerUUID,
+		RemoteEndpoint: params.RemoteEndpoint{
+			Name:      applicationEndpointIdent.Name,
+			Role:      applicationEndpointIdent.Role,
+			Interface: applicationEndpointIdent.Interface,
+			Limit:     applicationEndpointIdent.Limit,
+		},
 		LocalEndpointName: remoteEndpointName,
 		ConsumeVersion:    consumeVersion,
+		Macaroons:         macaroon.Slice{w.offerMacaroon},
+		BakeryVersion:     bakery.LatestVersion,
 	}
-	if w.offerMacaroon != nil {
-		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
-		arg.BakeryVersion = bakery.LatestVersion
-	}
-	remoteRelation, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
+	remoteRelations, err := w.remoteModelClient.RegisterRemoteRelations(ctx, arg)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return remoteRelationResult{}, errors.Trace(err)
+	} else if len(remoteRelations) == 0 {
+		return remoteRelationResult{}, errors.New("no result from registering remote relation")
+	} else if len(remoteRelations) > 1 {
+		w.logger.Infof(ctx, "expected one result from registering remote relation, got %d", len(remoteRelations))
 	}
-	// remoteAppIds is a slice but there's only one item
-	// as we currently only register one remote application
-	if err := remoteRelation[0].Error; err != nil {
-		return fail(errors.Annotatef(err, "registering relation %v", relationTag))
+
+	// We've guarded against this from being out of bounds, so it's safe to do
+	// a raw access.
+	remoteRelation := remoteRelations[0]
+	if err := remoteRelation.Error; err != nil {
+		return remoteRelationResult{}, errors.Annotatef(err, "registering relation %v", relationTag)
 	}
+
 	// Import the application UUID from the offering model.
-	registerResult := *remoteRelation[0].Result
-	offeringAppToken = registerResult.Token
+	registerResult := *remoteRelation.Result
+	offeringAppToken := registerResult.Token
 
 	// We have a new macaroon attenuated to the relation.
 	// Save for the firewaller.
 	if err := w.crossModelService.SaveMacaroonForRelation(ctx, relationTag, registerResult.Macaroon); err != nil {
-		return fail(errors.Annotatef(
-			err, "saving macaroon for %v", relationTag))
+		return remoteRelationResult{}, errors.Annotatef(err, "saving macaroon for %v", relationTag)
 	}
 
 	appTag := names.NewApplicationTag(w.applicationName)
 	w.logger.Debugf(ctx, "import remote application token %v for %v", offeringAppToken, w.applicationName)
+
 	err = w.crossModelService.ImportRemoteApplicationToken(ctx, appTag, offeringAppToken)
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return fail(errors.Annotatef(
-			err, "importing remote application %v to local model", w.applicationName))
+		return remoteRelationResult{}, errors.Annotatef(err,
+			"importing remote application %v to local model", w.applicationName)
 	}
-	return localApplicationToken, offeringAppToken, localRelationToken, registerResult.Macaroon, nil
+	return remoteRelationResult{
+		localApplicationToken: localApplicationToken,
+		offeringAppToken:      offeringAppToken,
+		localRelationToken:    localRelationToken,
+		macaroon:              registerResult.Macaroon,
+	}, nil
 }
 
-// relationInfo holds attributes relevant to a particular relation between a
-// local app and a remote offer.
-type relationInfo struct {
-	relationId     int
-	localDead      bool
-	suspended      bool
-	localUnitCount int
-
-	localUnitWorker      ReportableWorker
-	remoteUnitWorker     ReportableWorker
-	remoteRelationWorker ReportableWorker
-
-	localApplicationToken string // token for app in local model
-	localRelationToken    string // token for relation in local model
-	localEndpoint         params.RemoteEndpoint
-	remoteEndpointName    string
+type remoteRelationResult struct {
+	localApplicationToken string
+	offeringAppToken      string
+	localRelationToken    string
 	macaroon              *macaroon.Macaroon
 }
 
