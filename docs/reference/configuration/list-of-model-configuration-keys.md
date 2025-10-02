@@ -152,7 +152,15 @@ List of domain addresses not to be proxied for APT (comma-separated).
 **Type:** string
 
 
-(model-config-automatically-retry-hooks)=
+(model-config-container-image-metadata-defaults-disabled)=
+## `container-image-metadata-defaults-disabled`
+
+`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
+
+**Type:** boolean
+
+**Default value:** false
+
 ## `automatically-retry-hooks`
 
 Determines whether the uniter should automatically retry failed hooks.
@@ -582,6 +590,15 @@ Whether default simplestreams sources are used for image metadata.
 
 **Type:** bool
 
+
+(model-config-image-metadata-defaults-disabled)=
+## `image-metadata-defaults-disabled`
+
+`image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata.
+
+**Type:** boolean
+
+**Default value:** false
 
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
