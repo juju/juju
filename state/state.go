@@ -4,7 +4,9 @@
 package state
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1266,6 +1268,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		placement         string
 		hasResources      bool
 		operatorStatusDoc *statusDoc
+		storageUniqueID   string
 	)
 	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
@@ -1287,6 +1290,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			Status:     status.Waiting,
 			StatusInfo: status.MessageWaitForContainer,
 			Updated:    nowNano,
+		}
+		if storageUniqueID, err = randomPrefix(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -1310,9 +1316,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		UnitCount:     args.NumUnits,
 
 		// CAAS
-		DesiredScale: scale,
-		Placement:    placement,
-		HasResources: hasResources,
+		DesiredScale:    scale,
+		Placement:       placement,
+		HasResources:    hasResources,
+		StorageUniqueID: storageUniqueID,
 	}
 
 	app := newApplication(st, appDoc)
@@ -2665,4 +2672,13 @@ func TagFromDocID(docID string) names.Tag {
 	default:
 		return nil
 	}
+}
+
+// randomPrefix returns a random string.
+func randomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }
