@@ -12,7 +12,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -60,27 +59,6 @@ WHERE name = $machineNameWithNetNode.name
 		return "", errors.Errorf("querying machine %q: %w", name, err)
 	}
 	return machine.NetNodeUUID, nil
-}
-
-func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, error) {
-	uuid, err := domainnetwork.NewNetNodeUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	netNodeUUID := netNodeUUID{NetNodeUUID: uuid.String()}
-
-	createNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
-	createNodeStmt, err := st.Prepare(createNode, netNodeUUID)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, createNodeStmt, netNodeUUID).Run(); err != nil {
-		return "", errors.Errorf("creating net node for machine: %w", err)
-	}
-
-	return netNodeUUID.NetNodeUUID, nil
 }
 
 // IsMachineController returns whether the machine is a controller machine.
