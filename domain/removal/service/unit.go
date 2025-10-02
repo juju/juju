@@ -188,7 +188,7 @@ func (s *Service) unitScheduleRemoval(
 		return "", errors.Errorf("unit: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for unit %q", jobUUID, unitUUID)
 	return jobUUID, nil
 }
 

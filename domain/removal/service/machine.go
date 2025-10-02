@@ -216,7 +216,7 @@ func (s *Service) machineScheduleRemoval(
 		return "", errors.Errorf("machine: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q", jobUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for machine %q", jobUUID, machineUUID)
 	return jobUUID, nil
 }
 
