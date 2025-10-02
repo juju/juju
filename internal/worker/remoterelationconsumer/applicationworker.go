@@ -464,19 +464,10 @@ func (w *remoteApplicationWorker) handleRelationConsumption(
 		identifiers = append(identifiers, e.EndpointIdentifier())
 	}
 
-	// If we didn't find an endpoint for the non-synthetic application, then
-	// the only conclusion is that there is only one endpoint and we're in a
-	// peer relation with ourselves. If that's the case check that there is
-	// only one endpoint and use that.
-	//
-	// If there is more than one endpoint, then we have no way of knowing
-	// which one to use, so return an error.
-	if otherEndpointName == "" {
-		if num := len(details.Endpoints); num == 1 {
-			otherEndpointName = synthEndpoint.Name
-		} else {
-			return errors.Errorf("cannot find remote endpoint name for relation %q with endpoints %v", details.UUID, details.Endpoints)
-		}
+	// If the relation does not have an endpoint for either the local
+	// application or the remote application, then we cannot proceed.
+	if otherEndpointName == "" || synthEndpoint.Name == "" {
+		return errors.NotValidf("relation %v does not have endpoints for local application %q and remote application", details.UUID, w.applicationName)
 	}
 
 	// Create the relation key from the endpoint identifiers, this will verify
