@@ -307,6 +307,9 @@ func (s *Service) GetBlockDevices(
 
 	uuids := make([]string, len(bdUUIDs))
 	for i, u := range bdUUIDs {
+		if err := u.Validate(); err != nil {
+			return nil, errors.Errorf("invalid block device UUID %q: %w", u, err)
+		}
 		uuids[i] = u.String()
 	}
 
