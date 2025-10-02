@@ -117,6 +117,7 @@ type applicationDoc struct {
 	DesiredScale      int                           `bson:"scale"`
 	PasswordHash      string                        `bson:"passwordhash"`
 	ProvisioningState *ApplicationProvisioningState `bson:"provisioning-state"`
+	StorageUniqueID   string                        `bson:"storage-unique-id"`
 
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
@@ -4278,4 +4279,8 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 		// docs are not ignored by the watcher.
 		revnoThreshold: -1,
 	})
+}
+
+func (a *Application) StorageUniqueID() string {
+	return a.doc.StorageUniqueID
 }
