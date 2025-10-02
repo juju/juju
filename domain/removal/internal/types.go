@@ -46,7 +46,7 @@ type CascadedMachineLives struct {
 
 	// StorageInstanceUUIDs contain machine-scoped storage instances that have
 	// had a life advancement along with the machine.
-	// Note that we do not invoke storage instance destructoion along with unit 
+	// Note that we do not invoke storage instance destruction along with unit 
 	// removals for a machine. These will be the machine's local storage
 	// instances.
 	StorageInstanceUUIDs []string

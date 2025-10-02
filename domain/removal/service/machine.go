@@ -10,11 +10,13 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -119,24 +121,24 @@ func (s *Service) RemoveMachine(
 		return machineJobUUID, nil
 	}
 
-	// Ensure that the machines has units and child machines, which are removed
-	// as well.
-	if len(cascaded.UnitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or dead,
-		// we need to schedule their removal as well.
-		s.logger.Infof(ctx, "machine has units %v, scheduling removal", cascaded.MachineUUIDs)
-
-		// TODO (manadart 2025-09-05): Review what we should do here.
-		// Don't destroy storage instances for the machine's units by default?
-		s.removeUnits(ctx, cascaded.UnitUUIDs, false, force, wait)
+	for _, u := range cascaded.UnitUUIDs {
+		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
-	if len(cascaded.MachineUUIDs) > 0 {
-		// If there are any child machines that transitioned from alive to dying
-		// or dead, we need to schedule their removal as well.
-		s.logger.Infof(ctx, "machine has child machines %v, scheduling removal", cascaded.MachineUUIDs)
+	for _, a := range cascaded.StorageAttachmentUUIDs {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+		); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
 
-		s.removeMachines(ctx, cascaded.MachineUUIDs, force, wait)
+	for _, m := range cascaded.MachineUUIDs {
+		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
+			return "", errors.Capture(err)
+		}
 	}
 
 	return machineJobUUID, nil
