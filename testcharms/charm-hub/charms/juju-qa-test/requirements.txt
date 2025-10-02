@@ -1,1 +1,2 @@
-ops
+ops==2.23.0 # pinned to avoid 3.0.0+ which requires Python 3.8+ and Ubuntu 20.04 is still on Python 3.8
+typing-extensions==4.13.2 # pinned to avoid 4.14.0+ which requires Python 3.8+ and Ubuntu 20.04 is still on Python 3.8
